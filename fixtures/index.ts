@@ -12,3 +12,4 @@ export type { Channel, IShipment } from "./shapes";
 export { Registry, CachedRegistry, gate, sweep } from "./shapes";
 export { widen, userName, narrowed } from "./precision";
 export { query, window as slice, limits } from "./conventions";
+export { Ledger, handle, summarise } from "./queries";

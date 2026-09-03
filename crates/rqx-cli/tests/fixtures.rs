@@ -63,6 +63,7 @@ fn every_rule_fires_on_its_fixture() {
         ("data-class", 1),
         ("data-clump", 1),
         ("deep-nesting", 2),
+        ("distant-declaration", 2),
         ("duplicate-code", 1),
         ("empty-catch", 1),
         ("feature-envy", 2),
@@ -81,6 +82,7 @@ fn every_rule_fires_on_its_fixture() {
         ("mixed-conventions", 1),
         ("mixed-language-file", 1),
         ("output-parameter", 1),
+        ("query-with-side-effect", 1),
         ("redundant-comment", 1),
         ("refused-bequest", 1),
         ("skipped-test", 1),
@@ -95,6 +97,7 @@ fn every_rule_fires_on_its_fixture() {
         ("unused-local", 2),
         ("unused-parameter", 11),
         ("unused-private-member", 2),
+        ("vague-function-name", 2),
     ];
 
     for (rule, count) in expected {

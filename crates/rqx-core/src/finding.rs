@@ -121,6 +121,9 @@ pub enum Evidence {
     ForeignLanguage { language: String },
     BoundaryArithmetic { subject: String, sites: u32 },
     MixedConventions { minority: String, count: u32 },
+    SideEffectingQuery { name: String },
+    VagueName { name: String },
+    DistantDeclaration { name: String, lines: u32 },
 }
 
 impl fmt::Display for Evidence {
@@ -277,6 +280,17 @@ impl fmt::Display for Evidence {
             Self::BoundaryArithmetic { subject, sites } => write!(
                 f,
                 "`{subject}` is adjusted by one in {sites} places, each of them a chance to be off by one."
+            ),
+            Self::SideEffectingQuery { name } => write!(
+                f,
+                "`{name}` reads as a question but writes to the object it was asked about."
+            ),
+            Self::VagueName { name } => {
+                write!(f, "`{name}` names the act of running, not what is done.")
+            }
+            Self::DistantDeclaration { name, lines } => write!(
+                f,
+                "`{name}` is declared {lines} lines above the line that first reads it."
             ),
             Self::MixedConventions { minority, count } => write!(
                 f,

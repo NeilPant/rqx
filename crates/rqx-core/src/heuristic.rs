@@ -124,7 +124,7 @@ heuristics! {
              RuleId::UnreachableCode,
          ]) },
     G10 { title: "Vertical Separation", chapter: General,
-          coverage: Coverage::Absent("a binding declared far above the line that first reads it") },
+          coverage: Coverage::Implemented(&[RuleId::DistantDeclaration]) },
     G11 { title: "Inconsistency", chapter: General,
           coverage: Coverage::Absent("one concept named three ways in the same file") },
     G12 { title: "Clutter", chapter: General,
@@ -144,7 +144,7 @@ heuristics! {
     G19 { title: "Use Explanatory Variables", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::ComplexCondition]) },
     G20 { title: "Function Names Should Say What They Do", chapter: General,
-          coverage: Coverage::Absent("a function called handle, process or manage") },
+          coverage: Coverage::Implemented(&[RuleId::VagueFunctionName]) },
     G21 { title: "Understand the Algorithm", chapter: General,
           coverage: Coverage::NotStatic("no metric knows whether the author understood it") },
     G22 { title: "Make Logical Dependencies Physical", chapter: General,
@@ -198,7 +198,7 @@ heuristics! {
     N6 { title: "Avoid Encodings", chapter: Names,
          coverage: Coverage::Implemented(&[RuleId::HungarianNotation]) },
     N7 { title: "Names Should Describe Side-Effects", chapter: Names,
-         coverage: Coverage::Absent("a get or is function that mutates what it was asked about") },
+         coverage: Coverage::Implemented(&[RuleId::QueryWithSideEffect]) },
 
     T1 { title: "Insufficient Tests", chapter: Tests,
          coverage: Coverage::Implemented(&[RuleId::AssertionlessTest, RuleId::FocusedTest]) },
@@ -284,6 +284,6 @@ mod tests {
     /// source Rqx already parses.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Heuristic::tally().absent, 9);
+        assert_eq!(Heuristic::tally().absent, 6);
     }
 }

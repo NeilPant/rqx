@@ -360,6 +360,33 @@ pub fn check_hygiene(
             "pick the convention the rest of the project uses and rename to match".to_owned(),
         );
     }
+    for spot in &hygiene.side_effecting_queries {
+        emit(
+            out,
+            RuleId::QueryWithSideEffect,
+            spot,
+            Evidence::SideEffectingQuery { name: spot.detail.clone() },
+            format!("split `{}` into the question and the change, or rename it for what it does", spot.detail),
+        );
+    }
+    for spot in &hygiene.vague_names {
+        emit(
+            out,
+            RuleId::VagueFunctionName,
+            spot,
+            Evidence::VagueName { name: spot.detail.clone() },
+            format!("rename `{}` after what it does to what", spot.detail),
+        );
+    }
+    for spot in &hygiene.distant_declarations {
+        emit(
+            out,
+            RuleId::DistantDeclaration,
+            spot,
+            Evidence::DistantDeclaration { name: spot.detail.clone(), lines: spot.count },
+            format!("move `{}` down to where it is first used", spot.detail),
+        );
+    }
     for spot in &hygiene.suppressions {
         emit(
             out,

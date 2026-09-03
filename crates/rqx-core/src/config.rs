@@ -75,6 +75,8 @@ pub struct Thresholds {
     /// A pause in a test longer than this is wall clock on every run.
     pub slow_test_ms: u32,
     pub boundary_repeats: u32,
+    /// Lines a reader must hold a binding in mind before its first use is too far.
+    pub declaration_distance_lines: u32,
 }
 
 /// Modules the project is entered through. Anything reachable from one is live by
@@ -107,6 +109,7 @@ impl Default for Thresholds {
             short_name_scope_lines: 25,
             slow_test_ms: 100,
             boundary_repeats: 3,
+            declaration_distance_lines: 20,
         }
     }
 }

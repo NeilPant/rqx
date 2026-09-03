@@ -50,6 +50,9 @@ pub struct Hygiene {
     pub mixed_languages: Vec<Spot>,
     pub boundary_arithmetic: Vec<Spot>,
     pub mixed_conventions: Vec<Spot>,
+    pub side_effecting_queries: Vec<Spot>,
+    pub vague_names: Vec<Spot>,
+    pub distant_declarations: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]
@@ -61,6 +64,7 @@ pub struct Limits {
     pub short_name_scope_lines: u32,
     pub slow_test_ms: u32,
     pub boundary_repeats: u32,
+    pub declaration_distance_lines: u32,
 }
 
 fn callee_name(expression: &Expression<'_>) -> Option<String> {
@@ -229,6 +233,23 @@ fn convention_of(name: &str) -> Option<&'static str> {
         .then_some("camelCase")
 }
 
+/// A name that promises an answer rather than a change. Asking a question should
+/// never alter what the next question returns.
+fn query_prefix(name: &str) -> bool {
+    ["get", "is", "has", "should", "can"].iter().any(|prefix| {
+        name.strip_prefix(prefix)
+            .is_some_and(|rest| rest.chars().next().is_some_and(char::is_uppercase))
+    })
+}
+
+/// Bare verbs that name the act of running rather than what is done. Anything with
+/// an object attached — `handleTimeout`, `processOrder` — says enough and is left be.
+fn vague_verb(name: &str) -> bool {
+    const VAGUE: [&str; 10] =
+        ["handle", "process", "manage", "doIt", "doWork", "doStuff", "perform", "operate", "stuff", "action"];
+    VAGUE.contains(&name)
+}
+
 fn suppression_directive(text: &str) -> Option<&'static str> {
     ["@ts-ignore", "@ts-nocheck", "@ts-expect-error", "eslint-disable", "biome-ignore"]
         .into_iter()
@@ -245,6 +266,10 @@ struct Walker<'a> {
     /// Furthest point each name is read at. Collected here rather than from the
     /// semantic node store, which is not populated for this build configuration.
     last_read: HashMap<String, u32>,
+    /// Nearest point each name is read at. The distance a reader carries a binding is
+    /// measured to its first use; the furthest read says how long it stays live, which
+    /// is a different question.
+    first_read: HashMap<String, u32>,
     marker: std::marker::PhantomData<&'a ()>,
 }
 
@@ -299,8 +324,72 @@ impl<'a> Walker<'a> {
     }
 }
 
+impl Walker<'_> {
+    /// A query that writes is only interesting when the write outlives the call, so
+    /// assignments to a local are not counted — `this.x` and captured names are.
+    fn body_mutates(body: &oxc::ast::ast::FunctionBody<'_>) -> bool {
+        use oxc::ast::ast::{AssignmentTarget, SimpleAssignmentTarget};
+
+        struct Hunt {
+            found: bool,
+        }
+        impl<'b> Visit<'b> for Hunt {
+            fn visit_assignment_expression(
+                &mut self,
+                assignment: &oxc::ast::ast::AssignmentExpression<'b>,
+            ) {
+                if matches!(
+                    &assignment.left,
+                    AssignmentTarget::StaticMemberExpression(_)
+                        | AssignmentTarget::ComputedMemberExpression(_)
+                ) {
+                    self.found = true;
+                }
+                walk::walk_assignment_expression(self, assignment);
+            }
+
+            fn visit_update_expression(&mut self, update: &oxc::ast::ast::UpdateExpression<'b>) {
+                if matches!(&update.argument, SimpleAssignmentTarget::StaticMemberExpression(_)) {
+                    self.found = true;
+                }
+                walk::walk_update_expression(self, update);
+            }
+        }
+        let mut hunt = Hunt { found: false };
+        hunt.visit_function_body(body);
+        hunt.found
+    }
+}
+
+impl Walker<'_> {
+    /// Shared by plain functions and by class methods, which arrive as an unnamed
+    /// function expression under a key and would otherwise be invisible to both rules.
+    fn name_the_body(&mut self, name: &str, span: Span, body: Option<&oxc::ast::ast::FunctionBody<'_>>) {
+        if vague_verb(name) {
+            self.out.vague_names.push(Spot { span, detail: name.to_owned(), count: 1 });
+        }
+        if query_prefix(name) && body.is_some_and(Self::body_mutates) {
+            self.out.side_effecting_queries.push(Spot {
+                span,
+                detail: name.to_owned(),
+                count: 1,
+            });
+        }
+    }
+}
+
 impl<'a> Visit<'a> for Walker<'a> {
+    fn visit_method_definition(&mut self, method: &oxc::ast::ast::MethodDefinition<'a>) {
+        if let Some(name) = method.key.static_name() {
+            self.name_the_body(&name, method.key.span(), method.value.body.as_deref());
+        }
+        walk::walk_method_definition(self, method);
+    }
+
     fn visit_function(&mut self, function: &Function<'a>, flags: oxc::syntax::scope::ScopeFlags) {
+        if let Some(id) = &function.id {
+            self.name_the_body(&id.name, id.span, function.body.as_deref());
+        }
         if function.body.is_some() {
             for (index, parameter) in function.params.items.iter().enumerate() {
                 if let BindingPattern::BindingIdentifier(binding) = &parameter.pattern
@@ -455,6 +544,10 @@ impl<'a> Visit<'a> for Walker<'a> {
     fn visit_identifier_reference(&mut self, identifier: &oxc::ast::ast::IdentifierReference<'a>) {
         let entry = self.last_read.entry(identifier.name.to_string()).or_default();
         *entry = (*entry).max(identifier.span.end);
+        self.first_read
+            .entry(identifier.name.to_string())
+            .and_modify(|start| *start = (*start).min(identifier.span.start))
+            .or_insert(identifier.span.start);
     }
 
     fn visit_template_literal(&mut self, literal: &oxc::ast::ast::TemplateLiteral<'a>) {
@@ -558,6 +651,7 @@ pub fn collect(
     let mut walker = Walker {
         limits,
         last_read: HashMap::new(),
+        first_read: HashMap::new(),
         out: Hygiene::default(),
         numbers: HashMap::new(),
         boundaries: HashMap::new(),
@@ -604,6 +698,9 @@ pub fn collect(
         }
     }
 
+    out.distant_declarations =
+        distant_declarations(semantic, source, &walker.first_read, limits.declaration_distance_lines);
+
     repeated.sort_by(|a, b| a.1[0].start.cmp(&b.1[0].start));
     for (raw, spans) in repeated {
         out.magic_numbers.push(Spot {
@@ -633,6 +730,40 @@ fn is_parameter(semantic: &Semantic<'_>, name: &str) -> bool {
 }
 
 /// A one-letter name is perfectly readable while its whole life fits on screen, and
+/// A binding declared far above the line that first reads it makes a reader hold it
+/// in mind across everything in between. Only block-scoped locals count: a module
+/// constant read at the bottom of the file is where it belongs.
+fn distant_declarations(
+    semantic: &Semantic<'_>,
+    source: &str,
+    first_read: &HashMap<String, u32>,
+    distance: u32,
+) -> Vec<Spot> {
+    let scoping = semantic.scoping();
+    let mut spots = Vec::new();
+    for symbol_id in scoping.symbol_ids() {
+        let name = scoping.symbol_name(symbol_id);
+        if name.starts_with('_') {
+            continue;
+        }
+        if !scoping.symbol_flags(symbol_id).contains(SymbolFlags::BlockScopedVariable) {
+            continue;
+        }
+        let declared = scoping.symbol_span(symbol_id);
+        let Some(first) = first_read.get(name).copied().filter(|start| *start > declared.end) else {
+            continue;
+        };
+        let lines = source
+            .get(declared.end as usize..first as usize)
+            .map_or(0, |text| text.lines().count() as u32);
+        if lines > distance {
+            spots.push(Spot { span: declared, detail: name.to_owned(), count: lines });
+        }
+    }
+    spots.sort_by_key(|spot| spot.span.start);
+    spots
+}
+
 /// stops being readable the moment it does not — so the scope's size decides this,
 /// not the name's length alone.
 fn short_names(

@@ -146,6 +146,7 @@ pub fn analyze(
                     short_name_scope_lines: thresholds.short_name_scope_lines,
                     slow_test_ms: thresholds.slow_test_ms,
                     boundary_repeats: thresholds.boundary_repeats,
+                    declaration_distance_lines: thresholds.declaration_distance_lines,
                 },
             ),
         )

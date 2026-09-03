@@ -440,6 +440,20 @@ catalogue! {
               worth less than the time it took to write",
     },
 
+    DistantDeclaration {
+        slug: "distant-declaration",
+        category: Dispensables,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G10],
+        metric: "lines between a local's declaration and the line that first reads it",
+        fixes: [ExtractVariable, InlineTemp],
+        confidence: Heuristic,
+        severity: Info,
+        why: "everything in between has to be read while still holding this name in \
+              mind, and the reader has no way to know it will matter",
+    },
+
     // ---- Couplers -------------------------------------------------------------
     CircularDependency {
         slug: "circular-dependency",
@@ -520,6 +534,33 @@ catalogue! {
         severity: Info,
         why: "it takes space and attention to say what the name has already said, and \
               it is one more thing to keep true when the name changes",
+    },
+
+    VagueFunctionName {
+        slug: "vague-function-name",
+        category: Naming,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G20],
+        metric: "a function named with a bare verb and no object",
+        fixes: [RenameMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the name has to be read past to learn anything, so every call site \
+              forces a trip to the definition",
+    },
+    QueryWithSideEffect {
+        slug: "query-with-side-effect",
+        category: Safety,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [N7],
+        metric: "a get, is, has, should or can function that assigns to a member",
+        fixes: [SeparateQueryFromModifier, RenameMethod],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "callers assume asking is free, so they ask twice, order the calls \
+              freely, and are surprised when that changes the answer",
     },
 
     // ---- Naming ---------------------------------------------------------------
