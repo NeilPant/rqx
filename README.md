@@ -6,11 +6,38 @@ Finds dead code, duplication and architectural drift in TypeScript — and tells
 One Rust binary. No Node, no npm, no runtime dependencies.
 
 ```
-rqx                        # animated interface, scan, then browse the findings
-rqx scan ./src             # report everything
-rqx check --base main      # review only what changed, fail CI on the gate
-rqx explain unused-export  # what a rule maps to and why it exists
+rqx                             # pick what to do, then browse the findings
+rqx scan ./src                  # report everything
+rqx scan --severity error       # only the findings that are never false
+rqx check --base main           # review only what changed, fail CI on the gate
+rqx explain unused-export       # what a rule maps to and why it exists
 ```
+
+## The report
+
+```
+ FAIL  src/orders/reconcile.ts  3 findings
+
+   ● cognitive-complexity  88:3  warning
+    88 │   private async reconcileBatch(batch: Batch): Promise<Result> {
+       │                 ^^^^^^^^^^^^^^
+     Cognitive complexity 25 (threshold 15), max nesting depth 6.
+     Why:  every nested decision point multiplies the paths a reader has to trace
+     Cost: changed 23 times in the last 90 days, 14 modules import it
+     Fix:  Decompose Conditional / Extract Method — lift the conditions into
+           named predicates, then extract the deepest block
+
+  Files     7 with findings · 35 clean · 42 scanned
+  Findings  3 errors · 31 warnings · 8 info
+  Rules     6 of 42 fired
+  Health    73/100
+  Duration  0.84s
+```
+
+Clean files are counted, not listed — `--show-passed` lists them. Narrow the view
+with `--severity`, `--rule`, `--category` and `--path`; none of them move the health
+score or the gate, because a CI result that depended on how it was printed would be
+worthless.
 
 ## What makes a finding
 
@@ -87,7 +114,7 @@ disabled   = ["magic-number"]                # or a single rule
 enabled    = ["naming"]                      # opt into an off-by-default family
 ```
 
-Seven rules ship off by default — the ones whose signal is real but noisy, or which
+Six rules ship off by default — the ones whose signal is real but noisy, or which
 encode a convention a given project may not share. They are listed with
 `(off by default)` in `rqx rules`.
 
@@ -109,14 +136,40 @@ import manufactures false "unused export" findings.
 (2ms for a file), hover for the full explanation, workspace health in the status
 bar.
 
-The interface has no animation and no mascot: it renders once per change and then
-blocks on input, so it costs nothing to leave open.
+The interface has no animation: it renders once per change and then blocks on
+input, so it costs nothing to leave open.
 
 ## CI
 
 `rqx check --base main` reviews the changed files plus everything that imports
-them, and exits non-zero when the gate fails. `--format sarif` uploads to GitHub
-code scanning; `action.yml` wires it up.
+them, and exits non-zero when the gate fails.
+
+| Exit code | Meaning |
+|---|---|
+| `0` | ran, gate satisfied |
+| `1` | ran, gate failed |
+| `2` | rqx could not run |
+
+One analysis pass feeds every consumer. `--reporter <name>` writes to stdout,
+`--reporter <name>=<path>` writes to a file, and both repeat:
+
+```sh
+rqx scan . \
+  --reporter terminal \
+  --reporter junit=rqx.xml \
+  --reporter sarif=rqx.sarif \
+  --fail-on error
+```
+
+`terminal`, `json`, `sarif`, `junit`, `gitlab`, `github` and `markdown` — between
+JUnit XML and GitLab Code Quality that covers GitHub, GitLab, Jenkins, CircleCI,
+Azure Pipelines, Bitbucket and Buildkite natively. Copy-paste snippets for each
+are in [docs/ci.md](docs/ci.md); `action.yml` wires up GitHub Actions in five
+lines.
+
+The gate lives in `rqx.toml` and every part of it can be overridden per run with
+`--fail-on`, `--allow-findings` and `--min-health`, so a strict gate on the
+default branch and a lenient one on feature branches do not need two config files.
 
 ```toml
 # rqx.toml
@@ -137,7 +190,7 @@ cargo test --workspace
 `./rqx` builds and then execs the binary rather than using `cargo run`, so cargo's
 progress output never lands in the middle of the interface, and paths still resolve
 against your own working directory. Build output goes to stderr, so
-`./rqx scan . --format json > out.json` stays valid JSON.
+`./rqx scan . --reporter json > out.json` stays valid JSON.
 
 To install it properly: `cargo install --path crates/rqx-cli`.
 

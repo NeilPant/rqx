@@ -29,7 +29,12 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Analyze this repository's fixtures
-        run: cargo run --release -- scan fixtures --format sarif --max-findings 0 > rqx.sarif
+        run: |
+          cargo run --release -- scan fixtures --max-findings 0 \
+            --reporter terminal --reporter github \
+            --reporter sarif=rqx.sarif \
+            --reporter markdown=rqx.md
+          cat rqx.md >> "$GITHUB_STEP_SUMMARY"
 
       - uses: github/codeql-action/upload-sarif@v3
         if: always()

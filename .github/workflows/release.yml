@@ -1,0 +1,72 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo build --release --locked --target ${{ matrix.target }} --bin rqx
+
+      # A prebuilt binary is the difference between a CI job that adds seconds and
+      # one that compiles a Rust workspace before it can lint a line of TypeScript.
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="rqx-${{ matrix.target }}"
+          mkdir "$name"
+          if [ -f "target/${{ matrix.target }}/release/rqx.exe" ]; then
+            cp "target/${{ matrix.target }}/release/rqx.exe" "$name/"
+          else
+            cp "target/${{ matrix.target }}/release/rqx" "$name/"
+          fi
+          cp README.md LICENSE "$name/" 2>/dev/null || cp README.md "$name/"
+          tar -czf "$name.tar.gz" "$name"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rqx-${{ matrix.target }}
+          path: rqx-${{ matrix.target }}.tar.gz
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: "*.tar.gz"
+          generate_release_notes: true

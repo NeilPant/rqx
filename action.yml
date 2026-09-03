@@ -3,7 +3,7 @@ description: "Find dead code, duplication and architectural drift in TypeScript,
 author: "Jad Alhamwi"
 branding:
   icon: search
-  color: orange
+  color: blue
 
 inputs:
   path:
@@ -16,6 +16,10 @@ inputs:
     default: ""
   config:
     description: "Path to rqx.toml."
+    required: false
+    default: ""
+  fail-on:
+    description: "Lowest severity that fails the job: error, warning, info or never. Empty uses rqx.toml."
     required: false
     default: ""
   sarif-file:
@@ -38,6 +42,12 @@ outputs:
 runs:
   using: composite
   steps:
+    - uses: dtolnay/rust-toolchain@stable
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ github.action_path }}
+
     - name: Install rqx
       shell: bash
       run: cargo install --locked --path "${{ github.action_path }}/crates/rqx-cli"
@@ -49,23 +59,33 @@ runs:
         RQX_PATH: ${{ inputs.path }}
         RQX_BASE: ${{ inputs.base }}
         RQX_CONFIG: ${{ inputs.config }}
+        RQX_FAIL_ON: ${{ inputs.fail-on }}
         RQX_SARIF: ${{ inputs.sarif-file }}
       run: |
         set -uo pipefail
-        args=()
-        [ -n "$RQX_CONFIG" ] && args+=(--config "$RQX_CONFIG")
+        summary="$(mktemp)"
 
-        # `check` needs the base branch present; a shallow clone has only one commit.
+        args=("$RQX_PATH")
+        [ -n "$RQX_CONFIG" ] && args+=(--config "$RQX_CONFIG")
+        [ -n "$RQX_FAIL_ON" ] && args+=(--fail-on "$RQX_FAIL_ON")
+
+        # One analysis, four renderings: the log, the inline annotations, the SARIF
+        # upload and the job summary. Running rqx twice to get two of them doubled
+        # the cost of the slowest step in the job.
+        args+=(--reporter terminal --reporter github)
+        args+=(--reporter "sarif=$RQX_SARIF" --reporter "markdown=$summary")
+
         if [ -n "$RQX_BASE" ]; then
+          # `check` needs the base branch present; a shallow clone has only one commit.
           git fetch --no-tags --depth=1 origin "$RQX_BASE" 2>/dev/null || true
-          rqx check "$RQX_PATH" --base "$RQX_BASE" --format sarif "${args[@]}" > "$RQX_SARIF"
-          status=$?
-          rqx check "$RQX_PATH" --base "$RQX_BASE" "${args[@]}" || true
+          rqx check "${args[@]}" --base "$RQX_BASE"
         else
-          rqx scan "$RQX_PATH" --format sarif --max-findings 0 "${args[@]}" > "$RQX_SARIF"
-          status=$?
-          rqx scan "$RQX_PATH" "${args[@]}" || true
+          rqx scan "${args[@]}"
         fi
+        status=$?
+
+        # Appended rather than written: other steps in the job own this file too.
+        [ -n "${GITHUB_STEP_SUMMARY:-}" ] && cat "$summary" >> "$GITHUB_STEP_SUMMARY"
 
         findings=$(grep -c '"ruleId"' "$RQX_SARIF" || echo 0)
         echo "findings=$findings" >> "$GITHUB_OUTPUT"
