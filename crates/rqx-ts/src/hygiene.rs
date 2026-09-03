@@ -53,6 +53,8 @@ pub struct Hygiene {
     pub side_effecting_queries: Vec<Spot>,
     pub vague_names: Vec<Spot>,
     pub distant_declarations: Vec<Spot>,
+    pub obscured_expressions: Vec<Spot>,
+    pub buried_configuration: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]
@@ -65,6 +67,8 @@ pub struct Limits {
     pub slow_test_ms: u32,
     pub boundary_repeats: u32,
     pub declaration_distance_lines: u32,
+    pub expression_operations: u32,
+    pub configuration_depth: u32,
 }
 
 fn callee_name(expression: &Expression<'_>) -> Option<String> {
@@ -250,6 +254,16 @@ fn vague_verb(name: &str) -> bool {
     VAGUE.contains(&name)
 }
 
+/// A value that configures where the program points or who it talks to. Restricted
+/// to what cannot be anything else: a URL or an absolute path with real segments.
+fn configuration_literal(text: &str) -> Option<&'static str> {
+    if text.starts_with("http://") || text.starts_with("https://") || text.contains("://") {
+        return Some("a URL");
+    }
+    (text.starts_with('/') && text.matches('/').count() >= 2 && !text.contains(' '))
+        .then_some("an absolute path")
+}
+
 fn suppression_directive(text: &str) -> Option<&'static str> {
     ["@ts-ignore", "@ts-nocheck", "@ts-expect-error", "eslint-disable", "biome-ignore"]
         .into_iter()
@@ -263,6 +277,7 @@ struct Walker<'a> {
     boundaries: HashMap<String, Vec<Span>>,
     conventions: Vec<(String, Span)>,
     test_depth: u32,
+    block_depth: u32,
     /// Furthest point each name is read at. Collected here rather than from the
     /// semantic node store, which is not populated for this build configuration.
     last_read: HashMap<String, u32>,
@@ -325,6 +340,39 @@ impl<'a> Walker<'a> {
 }
 
 impl Walker<'_> {
+    /// Counts the decisions packed into one expression. Nothing here is named, so
+    /// each one is a step the reader has to hold rather than read.
+    fn operations(expression: &Expression<'_>) -> u32 {
+        #[derive(Default)]
+        struct Count {
+            total: u32,
+        }
+        impl<'b> Visit<'b> for Count {
+            fn visit_binary_expression(&mut self, node: &oxc::ast::ast::BinaryExpression<'b>) {
+                self.total += 1;
+                walk::walk_binary_expression(self, node);
+            }
+            fn visit_logical_expression(&mut self, node: &oxc::ast::ast::LogicalExpression<'b>) {
+                self.total += 1;
+                walk::walk_logical_expression(self, node);
+            }
+            fn visit_conditional_expression(
+                &mut self,
+                node: &oxc::ast::ast::ConditionalExpression<'b>,
+            ) {
+                self.total += 1;
+                walk::walk_conditional_expression(self, node);
+            }
+            fn visit_call_expression(&mut self, node: &CallExpression<'b>) {
+                self.total += 1;
+                walk::walk_call_expression(self, node);
+            }
+        }
+        let mut count = Count::default();
+        count.visit_expression(expression);
+        count.total
+    }
+
     /// A query that writes is only interesting when the write outlives the call, so
     /// assignments to a local are not counted — `this.x` and captured names are.
     fn body_mutates(body: &oxc::ast::ast::FunctionBody<'_>) -> bool {
@@ -550,6 +598,38 @@ impl<'a> Visit<'a> for Walker<'a> {
             .or_insert(identifier.span.start);
     }
 
+    fn visit_block_statement(&mut self, block: &oxc::ast::ast::BlockStatement<'a>) {
+        self.block_depth += 1;
+        walk::walk_block_statement(self, block);
+        self.block_depth -= 1;
+    }
+
+    fn visit_string_literal(&mut self, literal: &oxc::ast::ast::StringLiteral<'a>) {
+        if self.block_depth >= self.limits.configuration_depth
+            && let Some(kind) = configuration_literal(&literal.value)
+        {
+            self.out.buried_configuration.push(Spot {
+                span: literal.span,
+                detail: kind.to_owned(),
+                count: self.block_depth,
+            });
+        }
+    }
+
+    fn visit_return_statement(&mut self, statement: &oxc::ast::ast::ReturnStatement<'a>) {
+        if let Some(argument) = &statement.argument {
+            let operations = Self::operations(argument);
+            if operations > self.limits.expression_operations {
+                self.out.obscured_expressions.push(Spot {
+                    span: statement.span,
+                    detail: String::new(),
+                    count: operations,
+                });
+            }
+        }
+        walk::walk_return_statement(self, statement);
+    }
+
     fn visit_template_literal(&mut self, literal: &oxc::ast::ast::TemplateLiteral<'a>) {
         let text: String = literal.quasis.iter().map(|quasi| quasi.value.raw.as_str()).collect();
         if let Some(language) = foreign_language(&text) {
@@ -657,6 +737,7 @@ pub fn collect(
         boundaries: HashMap::new(),
         conventions: Vec::new(),
         test_depth: 0,
+        block_depth: 0,
         marker: std::marker::PhantomData,
     };
     walker.visit_program(program);

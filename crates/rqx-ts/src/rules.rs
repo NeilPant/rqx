@@ -387,6 +387,27 @@ pub fn check_hygiene(
             format!("move `{}` down to where it is first used", spot.detail),
         );
     }
+    for spot in &hygiene.obscured_expressions {
+        emit(
+            out,
+            RuleId::ObscuredExpression,
+            spot,
+            Evidence::ObscuredExpression {
+                operations: spot.count,
+                limit: builder.config.thresholds.expression_operations,
+            },
+            "lift the steps into named locals, so the expression reads as its own summary".to_owned(),
+        );
+    }
+    for spot in &hygiene.buried_configuration {
+        emit(
+            out,
+            RuleId::BuriedConfiguration,
+            spot,
+            Evidence::BuriedConfiguration { kind: spot.detail.clone(), depth: spot.count },
+            "lift it to a named constant at the top of the module, or into config".to_owned(),
+        );
+    }
     for spot in &hygiene.suppressions {
         emit(
             out,

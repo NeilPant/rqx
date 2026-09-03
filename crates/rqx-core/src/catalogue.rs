@@ -454,6 +454,33 @@ catalogue! {
               mind, and the reader has no way to know it will matter",
     },
 
+    ObscuredExpression {
+        slug: "obscured-expression",
+        category: Bloaters,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G16],
+        metric: "operations packed into one returned expression beyond the limit",
+        fixes: [ExtractVariable, ExtractMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "nothing in the expression is named, so a reader has to re-derive every \
+              intermediate step the author already worked out",
+    },
+    BuriedConfiguration {
+        slug: "buried-configuration",
+        category: Dispensables,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G35],
+        metric: "a URL or absolute path written below the configured block depth",
+        fixes: [ReplaceMagicNumberWithConstant, ExtractVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "changing where the program points means finding this line first, and \
+              nothing about its position suggests it is a setting",
+    },
+
     // ---- Couplers -------------------------------------------------------------
     CircularDependency {
         slug: "circular-dependency",

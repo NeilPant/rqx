@@ -124,6 +124,8 @@ pub enum Evidence {
     SideEffectingQuery { name: String },
     VagueName { name: String },
     DistantDeclaration { name: String, lines: u32 },
+    ObscuredExpression { operations: u32, limit: u32 },
+    BuriedConfiguration { kind: String, depth: u32 },
 }
 
 impl fmt::Display for Evidence {
@@ -291,6 +293,14 @@ impl fmt::Display for Evidence {
             Self::DistantDeclaration { name, lines } => write!(
                 f,
                 "`{name}` is declared {lines} lines above the line that first reads it."
+            ),
+            Self::ObscuredExpression { operations, limit } => write!(
+                f,
+                "{operations} operations in one unnamed expression (limit {limit})."
+            ),
+            Self::BuriedConfiguration { kind, depth } => write!(
+                f,
+                "{kind} written {depth} blocks deep, where nothing configures it."
             ),
             Self::MixedConventions { minority, count } => write!(
                 f,

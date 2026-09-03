@@ -77,6 +77,10 @@ pub struct Thresholds {
     pub boundary_repeats: u32,
     /// Lines a reader must hold a binding in mind before its first use is too far.
     pub declaration_distance_lines: u32,
+    /// Operations packed into one unnamed expression before it stops being readable.
+    pub expression_operations: u32,
+    /// Block nesting at which a configuration literal counts as buried.
+    pub configuration_depth: u32,
 }
 
 /// Modules the project is entered through. Anything reachable from one is live by
@@ -110,6 +114,8 @@ impl Default for Thresholds {
             slow_test_ms: 100,
             boundary_repeats: 3,
             declaration_distance_lines: 20,
+            expression_operations: 6,
+            configuration_depth: 3,
         }
     }
 }

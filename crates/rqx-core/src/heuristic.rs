@@ -136,7 +136,7 @@ heuristics! {
     G15 { title: "Selector Arguments", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::FlagArgument]) },
     G16 { title: "Obscured Intent", chapter: General,
-          coverage: Coverage::Absent("one expression dense enough that nothing inside it is named") },
+          coverage: Coverage::Implemented(&[RuleId::ObscuredExpression]) },
     G17 { title: "Misplaced Responsibility", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::DataClass, RuleId::MiddleMan]) },
     G18 { title: "Inappropriate Static", chapter: General,
@@ -174,7 +174,7 @@ heuristics! {
     G34 { title: "Functions Should Descend Only One Level of Abstraction", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::CognitiveComplexity, RuleId::DeepNesting]) },
     G35 { title: "Keep Configurable Data at High Levels", chapter: General,
-          coverage: Coverage::Absent("a literal URL, path or timeout buried inside a nested block") },
+          coverage: Coverage::Implemented(&[RuleId::BuriedConfiguration]) },
     G36 { title: "Avoid Transitive Navigation", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::MessageChain]) },
 
@@ -284,6 +284,6 @@ mod tests {
     /// source Rqx already parses.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Heuristic::tally().absent, 6);
+        assert_eq!(Heuristic::tally().absent, 4);
     }
 }
