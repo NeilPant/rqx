@@ -32,6 +32,22 @@ pub fn commits_per_file(root: &Path, days: u32) -> HashMap<String, u32> {
 /// `git log` reports paths from the repository root while findings carry paths
 /// relative to the scan root, so one of the two has to be translated before they
 /// can be matched at all.
+/// The branch name, for the header. A detached head has none, and saying so is
+/// better than showing a hash nobody asked for.
+pub fn branch(root: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let name = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (!name.is_empty() && name != "HEAD").then_some(name)
+}
+
 pub fn repository_prefix(root: &Path) -> Option<String> {
     let output = Command::new("git")
         .arg("-C")

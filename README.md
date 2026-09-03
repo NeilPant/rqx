@@ -6,7 +6,7 @@ Finds dead code, duplication and architectural drift in TypeScript — and tells
 One Rust binary. No Node, no npm, no runtime dependencies.
 
 ```
-rqx                             # pick what to do, then browse the findings
+rqx                             # the interface: scan, then browse everything
 rqx scan ./src                  # report everything
 rqx scan --severity error       # only the findings that are never false
 rqx check --base main           # review only what changed, fail CI on the gate
@@ -142,8 +142,24 @@ import manufactures false "unused export" findings.
 (2ms for a file), hover for the full explanation, workspace health in the status
 bar.
 
-The interface has no animation: it renders once per change and then blocks on
-input, so it costs nothing to leave open.
+## The interface
+
+`rqx` with no arguments opens a full-screen interface. Every screen is reachable
+from the menu and every screen returns to it, so nothing is a dead end:
+
+| Tab | Shows |
+|---|---|
+| Overview | health, severity and grade distributions, what to open first |
+| Findings | every finding with the offending code marked, filter, group, severity floor |
+| Files | one row per file, worst grade first, with churn and blast radius |
+| Rules | the catalogue, searchable, with each rule's smell, metric, fix and why |
+| Coverage | every entry in both source catalogues and what Rqx does about it |
+| Config | the effective settings and where each one came from |
+
+`tab` cycles, `1`–`6` jump, `/` filters, `?` lists the keys of the screen you are
+on, `esc` steps back, `q` leaves. It animates only while something is moving — a
+still screen blocks on input and costs nothing to leave open. `--motion off` turns
+the movement off without losing anything the screen says.
 
 ## CI
 

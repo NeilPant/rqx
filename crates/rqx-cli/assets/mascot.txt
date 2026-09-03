@@ -1,9 +1,68 @@
-# rqx. One frame, no animation. A body, K eye.
-.AAAAA...
-AAAAAAA..
-AKAAAKAAA
-AKAAAKAAA
-AAAAAAAAA
-AAAAAAAA.
-.AA..AA..
-.AA..AA..
+# rqx. 11x10 pixels, six frames. A body, K shadow, S signal (the eyes and the
+# antenna tip, coloured at render time by whatever the scan found).
+#: idle
+.....S.....
+.....K.....
+..AAAAAAA..
+.AKKAAAKKA.
+.ASSAAASSA.
+.AAAAAAAAA.
+.AAKKKKKAA.
+..AAAAAAA..
+..AA...AA..
+..AA...AA..
+#: blink
+.....S.....
+.....K.....
+..AAAAAAA..
+.AAAAAAAAA.
+.AKKAAAKKA.
+.AAAAAAAAA.
+.AAKKKKKAA.
+..AAAAAAA..
+..AA...AA..
+..AA...AA..
+#: look-left
+.....S.....
+.....K.....
+..AAAAAAA..
+.AKKAAAKKA.
+.ASSAAASSA.
+.AAAAAAAAA.
+.AKKKKKAAA.
+..AAAAAAA..
+..AA...AA..
+..AA...AA..
+#: look-right
+.....S.....
+.....K.....
+..AAAAAAA..
+.AKKAAAKKA.
+.ASSAAASSA.
+.AAAAAAAAA.
+.AAAKKKKKA.
+..AAAAAAA..
+..AA...AA..
+..AA...AA..
+#: alert
+.....S.....
+.....K.....
+..AAAAAAA..
+.ASSAAASSA.
+.ASSAAASSA.
+.AAAAAAAAA.
+.AAKSSSKAA.
+..AAAAAAA..
+..AA...AA..
+..AA...AA..
+#: pleased
+.....S.....
+.....K.....
+..AAAAAAA..
+.AKSSASSKA.
+.AASSASSAA.
+.AAAAAAAAA.
+.AKAKKKAKA.
+..AAKKKAA..
+..AA...AA..
+..AA...AA..

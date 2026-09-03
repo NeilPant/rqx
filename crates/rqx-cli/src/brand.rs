@@ -13,12 +13,13 @@ pub enum Ink {
     Text,
     Muted,
     Ground,
+    Signal,
 }
 
 impl Ink {
     #[cfg(test)]
-    const ALL: [Self; 7] =
-        [Self::Accent, Self::Danger, Self::Warn, Self::Good, Self::Text, Self::Muted, Self::Ground];
+    const ALL: [Self; 8] =
+        [Self::Accent, Self::Danger, Self::Warn, Self::Good, Self::Text, Self::Muted, Self::Ground, Self::Signal];
 
     pub const fn from_sprite_char(character: char) -> Option<Self> {
         match character {
@@ -29,6 +30,9 @@ impl Ink {
             'T' => Some(Self::Text),
             'M' => Some(Self::Muted),
             'K' => Some(Self::Ground),
+            // Resolved at render time rather than fixed in the art, so the mascot's
+            // eyes can carry the health band without a frame per grade.
+            'S' => Some(Self::Signal),
             _ => None,
         }
     }
@@ -42,6 +46,7 @@ impl Ink {
             Self::Text => (0xD6, 0xDE, 0xE8),
             Self::Muted => (0x5A, 0x64, 0x72),
             Self::Ground => (0x14, 0x17, 0x1A),
+            Self::Signal => (0x8A, 0xD8, 0xFF),
         }
     }
 
@@ -54,6 +59,7 @@ impl Ink {
             Self::Text => 253,
             Self::Muted => 242,
             Self::Ground => 234,
+            Self::Signal => 153,
         }
     }
 
@@ -66,6 +72,7 @@ impl Ink {
             Self::Text => Color::White,
             Self::Muted => Color::DarkGray,
             Self::Ground => Color::Black,
+            Self::Signal => Color::Cyan,
         }
     }
 
@@ -78,6 +85,7 @@ impl Ink {
             Self::Text => anstyle::AnsiColor::White,
             Self::Muted => anstyle::AnsiColor::BrightBlack,
             Self::Ground => anstyle::AnsiColor::Black,
+            Self::Signal => anstyle::AnsiColor::Cyan,
         }
     }
 }
@@ -212,8 +220,6 @@ pub fn paint(style: anstyle::Style, text: impl std::fmt::Display) -> String {
     format!("{}{text}{}", style.render(), style.render_reset())
 }
 
-pub const TAGLINE: &str = "every finding, a reason";
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,6 +255,7 @@ mod tests {
             ('T', Ink::Text),
             ('M', Ink::Muted),
             ('K', Ink::Ground),
+            ('S', Ink::Signal),
         ] {
             assert_eq!(Ink::from_sprite_char(character), Some(ink));
         }

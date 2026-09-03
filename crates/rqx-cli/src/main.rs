@@ -37,6 +37,9 @@ struct Cli {
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
     #[arg(long, value_enum, default_value_t = Color::Auto, global = true)]
     color: Color,
+    /// Animation in the interactive interface
+    #[arg(long, value_enum, default_value_t = Motion::On, global = true)]
+    motion: Motion,
 }
 
 #[derive(Subcommand)]
@@ -236,6 +239,14 @@ impl From<FailOn> for GateSeverity {
     }
 }
 
+/// Motion carries progress and state changes; a terminal over a slow link, or a
+/// reader who does not want it, turns it off without losing anything the screen says.
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum)]
+enum Motion {
+    On,
+    Off,
+}
+
 #[derive(Copy, Clone, ValueEnum)]
 enum Color {
     Auto,
@@ -365,24 +376,34 @@ fn load_config(root: &Path, explicit: Option<&Path>) -> Result<RqxConfig> {
 /// Falls back to help rather than an error: the user asked for the interface and
 /// the reason they cannot have it is environmental, so the useful response is the
 /// thing the interface would have shown them anyway.
-fn decline_to_help(reason: &tui::Decline) -> Result<()> {
+fn decline_to_help(reason: &tui::Decline, root: &str, settings: &RqxConfig, source: Option<&str>) -> Result<()> {
     use clap::CommandFactory;
 
-    print!("{}", tui::static_header());
+    print!("{}", tui::static_header(root, settings, source));
     println!("  interactive interface unavailable: {reason}\n");
     Cli::command().print_help()?;
     println!();
     Ok(())
 }
 
-fn open_tui(path: &Path, config: Option<&Path>) -> Result<i32> {
+fn open_tui(path: &Path, config: Option<&Path>, motion: Motion) -> Result<i32> {
     if !path.exists() {
         bail!("`{}` does not exist", path.display());
     }
     let settings = load_config(path, config)?;
-    match tui::gate().and_then(|()| tui::launch(path, &settings)) {
-        Err(reason) => decline_to_help(&reason).map(|()| 0),
+    let source = config_source(path, config);
+    let root = path.display().to_string();
+    let options = tui::Launch {
+        path,
+        config: &settings,
+        config_file: source.clone(),
+        reduced_motion: matches!(motion, Motion::Off),
+    };
+    match tui::gate().and_then(|()| tui::launch(options)) {
+        Err(reason) => decline_to_help(&reason, &root, &settings, source.as_deref()).map(|()| 0),
         Ok(None) => Ok(0),
+        // A review renders through the ordinary reporter rather than a second copy of
+        // it inside the interface.
         Ok(Some(tui::Chosen::Review)) => {
             let review = check::review(path, &settings, "origin/HEAD")?;
             let verdict = check::judge(&review, &settings);
@@ -392,8 +413,16 @@ fn open_tui(path: &Path, config: Option<&Path>) -> Result<i32> {
             emit(&report, &[Sink { reporter: Reporter::Terminal, path: None }], &view, Palette::detect())?;
             Ok(i32::from(!verdict.passed()))
         }
-        Ok(Some(tui::Chosen::Rules)) => report::rules(None, Palette::detect()).map(|()| 0),
     }
+}
+
+/// The name of the file the settings came from, for the header and the config view.
+fn config_source(root: &Path, explicit: Option<&Path>) -> Option<String> {
+    let path = explicit.map_or_else(|| root.join(CONFIG_FILE_NAME), Path::to_path_buf);
+    if !path.exists() {
+        return None;
+    }
+    Some(path.file_name()?.to_string_lossy().into_owned())
 }
 
 fn main() {
@@ -417,9 +446,9 @@ fn run() -> Result<i32> {
 
     let Some(command) = cli.command else {
         return if cli.no_tui {
-            decline_to_help(&tui::Decline::NotATerminal).map(|()| 0)
+            decline_to_help(&tui::Decline::NotATerminal, ".", &RqxConfig::default(), None).map(|()| 0)
         } else {
-            open_tui(Path::new("."), None)
+            open_tui(Path::new("."), None, cli.motion)
         };
     };
 
@@ -481,7 +510,7 @@ fn run() -> Result<i32> {
             lsp::serve(&path, settings).map_err(|error| anyhow::anyhow!("{error}"))?;
             Ok(0)
         }
-        Command::Tui { path, config } => open_tui(&path, config.as_deref()),
+        Command::Tui { path, config } => open_tui(&path, config.as_deref(), cli.motion),
         Command::Rules { category, coverage } => {
             if coverage {
                 report::coverage(palette).map(|()| 0)

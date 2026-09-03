@@ -7,20 +7,56 @@ use crate::brand::{Ink, Palette};
 /// time: the art needs many passes to look right, and nobody iterates on a wordmark
 /// stored as a nested array of colour constants.
 pub struct Sprite {
-    rows: Vec<Vec<Option<Ink>>>,
+    frames: Vec<Frame>,
     width: usize,
+    height: usize,
+}
+
+struct Frame {
+    name: String,
+    rows: Vec<Vec<Option<Ink>>>,
 }
 
 impl Sprite {
+    /// `#: name` opens a frame; every other `#` line is a comment. Checked before the
+    /// comment filter, which is why a frame marker can look like one.
     pub fn parse(source: &str) -> Self {
-        let rows: Vec<Vec<Option<Ink>>> = source
-            .lines()
-            .map(str::trim_end)
-            .filter(|line| !line.is_empty() && !line.starts_with('#'))
-            .map(|line| line.chars().map(Ink::from_sprite_char).collect())
-            .collect();
-        let width = rows.iter().map(Vec::len).max().unwrap_or(0);
-        Self { rows, width }
+        let mut frames: Vec<Frame> = Vec::new();
+        for line in source.lines().map(str::trim_end) {
+            if let Some(name) = line.strip_prefix("#:") {
+                frames.push(Frame { name: name.trim().to_owned(), rows: Vec::new() });
+                continue;
+            }
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if frames.is_empty() {
+                frames.push(Frame { name: "idle".to_owned(), rows: Vec::new() });
+            }
+            let row = line.chars().map(Ink::from_sprite_char).collect();
+            frames.last_mut().expect("a frame is open").rows.push(row);
+        }
+        if frames.is_empty() {
+            frames.push(Frame { name: "idle".to_owned(), rows: Vec::new() });
+        }
+
+        // Held across every frame so a layout constraint never jitters mid-animation.
+        let width = frames
+            .iter()
+            .flat_map(|frame| frame.rows.iter().map(Vec::len))
+            .max()
+            .unwrap_or(0);
+        let height = frames.iter().map(|frame| frame.rows.len()).max().unwrap_or(0);
+        Self { frames, width, height }
+    }
+
+    pub fn frame(&self, name: &str) -> usize {
+        self.frames.iter().position(|frame| frame.name == name).unwrap_or(0)
+    }
+
+    #[cfg(test)]
+    pub fn frames(&self) -> usize {
+        self.frames.len()
     }
 
     pub const fn width(&self) -> u16 {
@@ -30,31 +66,52 @@ impl Sprite {
     /// Two pixels share one cell vertically, so an odd-height sprite still needs a
     /// whole row for its last line.
     pub fn cell_height(&self) -> u16 {
-        self.rows.len().div_ceil(2) as u16
+        self.height.div_ceil(2) as u16
     }
 
-    fn pixel(&self, x: usize, y: usize) -> Option<Ink> {
-        self.rows.get(y).and_then(|row| row.get(x).copied()).flatten()
+    fn pixel(&self, frame: usize, x: usize, y: usize) -> Option<Ink> {
+        self.frames
+            .get(frame)?
+            .rows
+            .get(y)
+            .and_then(|row| row.get(x).copied())
+            .flatten()
     }
 
     /// Renders with half-blocks so each cell carries two vertically stacked pixels
     /// with independent colours; braille would double the resolution again but is
     /// monochrome per cell, which coloured art cannot use.
-    pub fn render(&self, palette: Palette) -> Vec<Line<'static>> {
-        (0..self.rows.len())
+    /// `signal` replaces the `S` pixels, and `reveal` limits how many columns are
+    /// drawn so the mascot can wipe in a column at a time.
+    pub fn render_frame(
+        &self,
+        palette: Palette,
+        frame: usize,
+        signal: Ink,
+        reveal: usize,
+    ) -> Vec<Line<'static>> {
+        let frame = frame % self.frames.len().max(1);
+        (0..self.height)
             .step_by(2)
             .map(|y| {
                 let spans = (0..self.width)
-                    .map(|x| self.cell(x, y, palette))
+                    .map(|x| {
+                        if x < reveal {
+                            self.cell(frame, x, y, palette, signal)
+                        } else {
+                            Span::raw(" ")
+                        }
+                    })
                     .collect::<Vec<_>>();
                 Line::from(spans)
             })
             .collect()
     }
 
-    fn cell(&self, x: usize, y: usize, palette: Palette) -> Span<'static> {
-        let top = self.pixel(x, y);
-        let bottom = self.pixel(x, y + 1);
+    fn cell(&self, frame: usize, x: usize, y: usize, palette: Palette, signal: Ink) -> Span<'static> {
+        let resolve = |ink: Ink| if ink == Ink::Signal { signal } else { ink };
+        let top = self.pixel(frame, x, y).map(resolve);
+        let bottom = self.pixel(frame, x, y + 1).map(resolve);
 
         // Without colour, two stacked pixels of different inks are still two pixels:
         // splitting them into a half-block would erase the lower one from the shape.
@@ -106,7 +163,7 @@ mod tests {
     #[test]
     fn glyph_encodes_which_of_the_two_pixels_are_set() {
         let sprite = Sprite::parse("T.T.\n.TT.");
-        let rendered = plain(&sprite.render(Palette::with_depth(ColorDepth::Truecolor)));
+        let rendered = plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Truecolor), 0, Ink::Signal, usize::MAX));
         assert_eq!(rendered, "\u{2580}\u{2584}\u{2588} ");
     }
 
@@ -116,14 +173,14 @@ mod tests {
     #[test]
     fn no_pixel_is_lost_when_colour_is_unavailable() {
         let sprite = Sprite::parse("DW\nKT");
-        assert_eq!(plain(&sprite.render(Palette::with_depth(ColorDepth::Monochrome))), "\u{2588}\u{2588}");
-        assert_eq!(plain(&sprite.render(Palette::with_depth(ColorDepth::Truecolor))), "\u{2580}\u{2580}");
+        assert_eq!(plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Monochrome), 0, Ink::Signal, usize::MAX)), "\u{2588}\u{2588}");
+        assert_eq!(plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Truecolor), 0, Ink::Signal, usize::MAX)), "\u{2580}\u{2580}");
     }
 
     #[test]
     fn monochrome_still_distinguishes_the_four_pixel_states() {
         let sprite = Sprite::parse("T.T.\n.TT.");
-        let mono = plain(&sprite.render(Palette::with_depth(ColorDepth::Monochrome)));
+        let mono = plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Monochrome), 0, Ink::Signal, usize::MAX));
         assert_eq!(mono, "\u{2580}\u{2584}\u{2588} ");
     }
 
@@ -134,9 +191,42 @@ mod tests {
     }
 
     #[test]
+    fn a_frame_marker_opens_a_frame_and_a_plain_comment_does_not() {
+        let sprite = Sprite::parse("# note\n#: one\nTT\n#: two\nDD\n");
+        assert_eq!(sprite.frames(), 2);
+        assert_eq!(sprite.frame("two"), 1);
+        assert_eq!(sprite.frame("missing"), 0, "an unknown name falls back to the first frame");
+    }
+
+    /// Frames of different heights would move every widget below the mascot on the
+    /// frame it changed, so the layout is sized to the tallest and stays there.
+    #[test]
+    fn size_is_held_across_frames() {
+        let sprite = Sprite::parse("#: short\nTT\n#: tall\nTTTT\nTTTT\nTTTT\n");
+        assert_eq!(sprite.width(), 4);
+        assert_eq!(sprite.cell_height(), 2);
+    }
+
+    #[test]
+    fn the_signal_ink_is_chosen_at_render_time() {
+        let sprite = Sprite::parse("#: only\nSS\n");
+        let palette = Palette::with_depth(ColorDepth::Truecolor);
+        let danger = sprite.render_frame(palette, 0, Ink::Danger, 2);
+        let good = sprite.render_frame(palette, 0, Ink::Good, 2);
+        assert_ne!(danger[0].spans[0].style, good[0].spans[0].style);
+    }
+
+    #[test]
+    fn a_partial_reveal_draws_only_the_columns_asked_for() {
+        let sprite = Sprite::parse("#: only\nTTTT\n");
+        let rendered = plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Truecolor), 0, Ink::Signal, 2));
+        assert_eq!(rendered, "\u{2580}\u{2580}  ");
+    }
+
+    #[test]
     fn ragged_rows_do_not_panic_and_pad_transparent() {
         let sprite = Sprite::parse("TTTT\nT");
-        let rendered = plain(&sprite.render(Palette::with_depth(ColorDepth::Truecolor)));
+        let rendered = plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Truecolor), 0, Ink::Signal, usize::MAX));
         assert_eq!(rendered, "\u{2588}\u{2580}\u{2580}\u{2580}");
     }
 }
