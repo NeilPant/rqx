@@ -18,10 +18,13 @@ const fn level(severity: Severity) -> &'static str {
 
 /// SARIF regions are one-based in both axes, which already matches how findings
 /// carry their position, but columns are exclusive at the end.
-fn location(range: &SourceRange) -> Value {
+fn location(range: &SourceRange, prefix: &str) -> Value {
     json!({
         "physicalLocation": {
-            "artifactLocation": { "uri": range.file.as_ref(), "uriBaseId": "%SRCROOT%" },
+            "artifactLocation": {
+                "uri": format!("{prefix}{}", range.file),
+                "uriBaseId": "%SRCROOT%"
+            },
             "region": {
                 "startLine": range.line.max(1),
                 "startColumn": range.column.max(1),
@@ -56,7 +59,7 @@ fn rule_descriptor(rule: RuleId) -> Value {
     })
 }
 
-fn result(finding: &Finding) -> Value {
+fn result(finding: &Finding, prefix: &str) -> Value {
     let spec = finding.rule.spec();
     let mut value = json!({
         "ruleId": spec.slug,
@@ -64,7 +67,7 @@ fn result(finding: &Finding) -> Value {
         "message": {
             "text": format!("{} {} Fix: {}", finding.evidence, spec.why, finding.fix_hint)
         },
-        "locations": [location(&finding.location)],
+        "locations": [location(&finding.location, prefix)],
         "properties": {
             "confidence": match finding.confidence {
                 rqx_core::finding::Confidence::Verified => "verified",
@@ -75,12 +78,12 @@ fn result(finding: &Finding) -> Value {
     });
     if !finding.related.is_empty() {
         value["relatedLocations"] =
-            Value::Array(finding.related.iter().map(location).collect());
+            Value::Array(finding.related.iter().map(|range| location(range, prefix)).collect());
     }
     value
 }
 
-pub fn render(findings: &[&Finding]) -> Result<String> {
+fn document(findings: &[&Finding], prefix: &str) -> Result<String> {
     // Only rules that actually fired are described, so the report does not carry a
     // catalogue of rules the run had nothing to say about.
     let mut fired: Vec<RuleId> = findings.iter().map(|finding| finding.rule).collect();
@@ -97,10 +100,15 @@ pub fn render(findings: &[&Finding]) -> Result<String> {
                 "informationUri": "https://github.com/jadhamwi/rqx",
                 "rules": fired.iter().map(|rule| rule_descriptor(*rule)).collect::<Vec<_>>()
             }},
-            "results": findings.iter().map(|finding| result(finding)).collect::<Vec<_>>()
+            "results": findings.iter().map(|finding| result(finding, prefix)).collect::<Vec<_>>()
         }]
     });
     Ok(serde_json::to_string_pretty(&document)?)
+}
+
+pub fn render(report: &crate::report::Report<'_>, out: &mut dyn std::io::Write) -> Result<()> {
+    writeln!(out, "{}", document(&report.findings, &report.path_prefix())?)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -135,7 +143,7 @@ mod tests {
     fn produces_a_well_formed_sarif_run() {
         let items = [finding(RuleId::LongFunction, 12), finding(RuleId::DeepNesting, 30)];
         let refs: Vec<&Finding> = items.iter().collect();
-        let document: Value = serde_json::from_str(&render(&refs).unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
 
         assert_eq!(document["version"], "2.1.0");
         let run = &document["runs"][0];
@@ -150,7 +158,7 @@ mod tests {
     fn every_result_names_a_described_rule() {
         let items = [finding(RuleId::LongFunction, 1), finding(RuleId::LongFunction, 2)];
         let refs: Vec<&Finding> = items.iter().collect();
-        let document: Value = serde_json::from_str(&render(&refs).unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
         let run = &document["runs"][0];
 
         let described: Vec<&str> = run["tool"]["driver"]["rules"]
@@ -170,7 +178,7 @@ mod tests {
         let mut item = finding(RuleId::UnusedFile, 0);
         item.location.column = 0;
         let refs = vec![&item];
-        let document: Value = serde_json::from_str(&render(&refs).unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
         let region = &document["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"];
         assert_eq!(region["startLine"], 1);
         assert_eq!(region["startColumn"], 1);
@@ -178,7 +186,7 @@ mod tests {
 
     #[test]
     fn an_empty_scan_is_still_a_valid_report() {
-        let document: Value = serde_json::from_str(&render(&[]).unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&[], "").unwrap()).unwrap();
         assert_eq!(document["runs"][0]["results"].as_array().unwrap().len(), 0);
     }
 }

@@ -331,3 +331,117 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
 
     let _ = fs::remove_dir_all(&root);
 }
+
+fn run(args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(args)
+        .output()
+        .expect("failed to run rqx")
+}
+
+/// The three codes are the whole CI contract: a pipeline that cannot tell a failed
+/// gate from a crashed tool ends up ignoring both.
+#[test]
+fn the_exit_code_separates_a_failed_gate_from_a_broken_run() {
+    let dir = fixtures_dir();
+    assert_eq!(run(&["scan", &dir]).status.code(), Some(0), "a bare scan reports, it does not gate");
+    assert_eq!(run(&["scan", &dir, "--fail-on", "error"]).status.code(), Some(1));
+    assert_eq!(
+        run(&["scan", &dir, "--fail-on", "error", "--allow-findings", "999"]).status.code(),
+        Some(0)
+    );
+    assert_eq!(run(&["scan", "/rqx-no-such-path"]).status.code(), Some(2));
+}
+
+#[test]
+fn one_scan_writes_every_report_it_was_asked_for() {
+    let dir = std::env::temp_dir().join(format!("rqx-sinks-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let junit = dir.join("rqx.xml");
+    let sarif = dir.join("rqx.sarif");
+
+    let output = run(&[
+        "scan",
+        &fixtures_dir(),
+        "--reporter",
+        &format!("junit={}", junit.display()),
+        "--reporter",
+        &format!("sarif={}", sarif.display()),
+    ]);
+    assert!(output.status.success());
+
+    let junit = std::fs::read_to_string(&junit).unwrap();
+    let sarif = std::fs::read_to_string(&sarif).unwrap();
+    assert!(junit.starts_with("<?xml"), "{junit:.80}");
+    assert!(sarif.contains("\"$schema\""), "{sarif:.80}");
+    assert!(
+        !junit.contains('\u{1b}') && !sarif.contains('\u{1b}'),
+        "a file report must never carry escape sequences"
+    );
+    // The console report still reaches stdout, so nothing is silently swallowed.
+    assert!(String::from_utf8(output.stdout).unwrap().contains("Health"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_document_cannot_share_stdout_but_two_logs_can() {
+    let output = run(&["scan", &fixtures_dir(), "--reporter", "json", "--reporter", "sarif"]);
+    assert_eq!(output.status.code(), Some(2));
+    let error = String::from_utf8(output.stderr).unwrap();
+    assert!(error.contains("json") && error.contains("sarif"), "{error}");
+
+    let output = run(&["scan", &fixtures_dir(), "--reporter", "terminal", "--reporter", "github"]);
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("Health") && text.contains("::error file="), "{text:.400}");
+}
+
+/// A display filter that moved the score would make a CI result depend on how it
+/// was printed.
+#[test]
+fn a_display_filter_never_moves_the_health_score() {
+    let full = summary_field(&scan(&[]), "health_score");
+    for narrowing in [
+        ["--severity", "error"],
+        ["--category", "bloaters"],
+        ["--rule", "long-function"],
+    ] {
+        let narrowed = summary_field(&scan(&narrowing), "health_score");
+        assert_eq!(full, narrowed, "{narrowing:?} changed the score");
+    }
+}
+
+#[test]
+fn a_filter_narrows_the_findings_it_reports() {
+    let all = counts_by_rule(&scan(&[]));
+    let one = counts_by_rule(&scan(&["--rule", "long-function"]));
+    assert_eq!(one.keys().collect::<Vec<_>>(), vec!["long-function"]);
+    assert_eq!(one["long-function"], all["long-function"]);
+}
+
+#[test]
+fn an_unknown_rule_is_a_tool_error_that_names_the_known_ones() {
+    let output = run(&["scan", &fixtures_dir(), "--rule", "no-such-rule"]);
+    assert_eq!(output.status.code(), Some(2));
+    let error = String::from_utf8(output.stderr).unwrap();
+    assert!(error.contains("long-function"), "{error}");
+}
+
+/// Every machine report has to parse, and the paths in it have to resolve from the
+/// directory CI actually runs in rather than from the directory that was scanned.
+#[test]
+fn machine_reports_name_paths_from_the_working_directory() {
+    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
+    for (reporter, needle) in
+        [("github", "file=fixtures/"), ("gitlab", "\"path\": \"fixtures/"), ("sarif", "\"uri\": \"fixtures/")]
+    {
+        let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+            .current_dir(root)
+            .args(["scan", "fixtures", "--reporter", reporter])
+            .output()
+            .expect("failed to run rqx");
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(text.contains(needle), "{reporter} lost the scanned directory:\n{text:.400}");
+    }
+}

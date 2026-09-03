@@ -1,5 +1,5 @@
-pub mod brand;
 pub mod browser;
+pub mod menu;
 pub mod dashboard;
 pub mod sprite;
 
@@ -15,9 +15,10 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use ratatui::{DefaultTerminal, Frame, TerminalOptions, Viewport};
 use rqx_core::config::RqxConfig;
 
-use brand::{Palette, TAGLINE};
+use crate::brand::{Palette, TAGLINE};
 use browser::Browser;
 use dashboard::{Phase, View};
+use menu::{Choice, Menu};
 use sprite::Sprite;
 
 use crate::scan::{self, ScanOutcome, ScanProgress};
@@ -81,7 +82,7 @@ pub fn gate() -> Result<(), Decline> {
 /// identifies the tool, it just does not get a terminal to draw into.
 pub fn static_header() -> String {
     let sprite = Sprite::parse(MASCOT);
-    let rows = sprite.render(Palette::with_depth(brand::ColorDepth::Monochrome));
+    let rows = sprite.render(Palette::with_depth(crate::brand::ColorDepth::Monochrome));
     let beside = [
         format!("rqx {}", env!("CARGO_PKG_VERSION")),
         TAGLINE.to_owned(),
@@ -245,12 +246,51 @@ fn display_root(root: &Path) -> String {
 /// behaviour on some multiplexers and flaky links. A panic naming a file inside
 /// ratatui is not an answer for that, so setup failure declines like any other
 /// gate.
-pub fn launch(path: &Path, config: &RqxConfig) -> Result<(), Decline> {
+/// Only a scan stays inside the interface; the other choices are ordinary commands,
+/// and running them here would mean a second rendering of output that already has
+/// one.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Chosen {
+    Review,
+    Rules,
+}
+
+pub fn launch(path: &Path, config: &RqxConfig) -> Result<Option<Chosen>, Decline> {
     let rows = crossterm::terminal::size().map_err(|_| Decline::NotATerminal)?.1;
     let height = INLINE_HEIGHT.min(rows.saturating_sub(1));
     let mut terminal =
         ratatui::try_init_with_options(TerminalOptions { viewport: Viewport::Inline(height) })
             .map_err(|error| Decline::SetupFailed(error.to_string()))?;
+
+    let palette = Palette::detect();
+    let mascot = Sprite::parse(MASCOT);
+    let picked = run_menu(&mut terminal, palette, &mascot, &display_root(path));
+    let picked = match picked {
+        Ok(picked) => picked,
+        Err(error) => {
+            ratatui::restore();
+            return Err(Decline::SetupFailed(error.to_string()));
+        }
+    };
+    match picked {
+        Choice::Quit => {
+            let _ = terminal.clear();
+            ratatui::restore();
+            return Ok(None);
+        }
+        Choice::Review => {
+            let _ = terminal.clear();
+            ratatui::restore();
+            return Ok(Some(Chosen::Review));
+        }
+        Choice::Rules => {
+            let _ = terminal.clear();
+            ratatui::restore();
+            return Ok(Some(Chosen::Rules));
+        }
+        Choice::Scan => {}
+    }
+
     let session = run_inline(&mut terminal, path, config);
     ratatui::restore();
 
@@ -266,7 +306,29 @@ pub fn launch(path: &Path, config: &RqxConfig) -> Result<(), Decline> {
         ratatui::run(|terminal| run_browser(terminal, outcome, palette))
             .map_err(|error| Decline::SetupFailed(error.to_string()))?;
     }
-    Ok(())
+    Ok(None)
+}
+
+fn run_menu(
+    terminal: &mut DefaultTerminal,
+    palette: Palette,
+    mascot: &Sprite,
+    root: &str,
+) -> Result<Choice> {
+    let mut menu = Menu::default();
+    let mut needs_redraw = true;
+    while menu.chosen.is_none() {
+        if needs_redraw {
+            terminal.draw(|frame| menu.render(frame, palette, mascot, root))?;
+            needs_redraw = false;
+        }
+        match event::read()? {
+            Event::Key(key) if key.kind == KeyEventKind::Press => needs_redraw = menu.handle(key),
+            Event::Resize(..) => needs_redraw = true,
+            _ => {}
+        }
+    }
+    Ok(menu.chosen.unwrap_or(Choice::Quit))
 }
 
 fn run_browser(

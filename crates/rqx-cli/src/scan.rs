@@ -19,7 +19,7 @@ use rqx_core::impact::ImpactMap;
 use rqx_core::score::FindingCounts;
 use smallvec::SmallVec;
 
-const PROGRESS_INTERVAL: u32 = 500;
+const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_millis(80);
 
 /// The walk analyzes files far faster than one collector drains them, so an
 /// unbounded channel becomes the place a whole repo's findings pile up. Bounding
@@ -49,6 +49,9 @@ pub struct ScanProgress {
 }
 
 pub struct ScanOutcome {
+    /// Findings name files relative to what was scanned, so reading one back needs
+    /// the root they are relative to rather than whatever directory rqx was run in.
+    pub root: PathBuf,
     pub counts: FindingCounts,
     /// Every file the walk actually analyzed, so a diff can tell "changed" from
     /// "changed and relevant".
@@ -57,6 +60,9 @@ pub struct ScanOutcome {
     /// importer -> imported, as display paths, so a diff can find dependents.
     pub import_edges: std::collections::BTreeMap<String, Vec<String>>,
     pub findings: Vec<Finding>,
+    /// Findings per file before the display cap, so a file with nothing to report
+    /// can be told from one whose findings the cap dropped.
+    pub findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -113,6 +119,7 @@ struct Collector {
     counts: FindingCounts,
     retained: BinaryHeap<Reverse<Ranked>>,
     max_findings: usize,
+    findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     clone_groups: HashMap<u64, CloneGroup>,
     modules: Vec<rqx_ts::module_graph::ModuleEntry>,
     analyzed: std::collections::BTreeSet<String>,
@@ -125,6 +132,7 @@ struct Collector {
     skipped: Vec<(PathBuf, String)>,
     show_progress: bool,
     started: Instant,
+    painted: Instant,
 }
 
 impl Collector {
@@ -138,6 +146,7 @@ impl Collector {
             counts: FindingCounts::default(),
             retained: BinaryHeap::new(),
             max_findings,
+            findings_by_file: std::collections::BTreeMap::new(),
             clone_groups: HashMap::new(),
             modules: Vec::new(),
             analyzed: std::collections::BTreeSet::new(),
@@ -150,6 +159,7 @@ impl Collector {
             skipped: Vec::new(),
             show_progress,
             started: Instant::now(),
+            painted: Instant::now(),
         }
     }
 
@@ -161,6 +171,7 @@ impl Collector {
 
     fn accept(&mut self, finding: Finding) {
         self.counts.record(&finding);
+        *self.findings_by_file.entry(Arc::clone(&finding.location.file)).or_default() += 1;
         let candidate = Ranked(finding);
         if self.max_findings == 0 || self.retained.len() < self.max_findings {
             self.retained.push(Reverse(candidate));
@@ -190,23 +201,29 @@ impl Collector {
         insert_bounded(&mut group.sites, site.range);
     }
 
-    fn report_progress(&self) {
-        if !self.show_progress || !self.files_scanned.is_multiple_of(PROGRESS_INTERVAL) {
+    /// Paced by the clock rather than by file count: 500 files is 20ms on a tree of
+    /// small modules and several seconds on a tree of large ones, so a fixed count
+    /// either flickers or looks frozen.
+    fn report_progress(&mut self, file: &str) {
+        if !self.show_progress || self.painted.elapsed() < PROGRESS_INTERVAL {
             return;
         }
+        self.painted = Instant::now();
         let mut stderr = std::io::stderr();
         let _ = write!(
             stderr,
-            "\r  scanned {} files in {:.1}s",
+            "\r{:80}\r  RUNS  {}   {} files \u{b7} {} findings",
+            "",
+            elide(file, 44),
             self.files_scanned,
-            self.started.elapsed().as_secs_f32()
+            self.counts.total
         );
         let _ = stderr.flush();
     }
 
     fn clear_progress(&self) {
         if self.show_progress {
-            let _ = write!(std::io::stderr(), "\r{:60}\r", "");
+            let _ = write!(std::io::stderr(), "\r{:80}\r", "");
         }
     }
 
@@ -505,12 +522,14 @@ impl Collector {
         });
         self.skipped.sort();
         ScanOutcome {
+            root: root.to_path_buf(),
             omitted: self.counts.total.saturating_sub(retained),
             counts: self.counts,
             analyzed: self.analyzed,
             impact: self.impact,
             import_edges: self.import_edges,
             findings,
+            findings_by_file: self.findings_by_file,
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -565,6 +584,17 @@ fn source_range(path: &Path, root: &Path, span: oxc_span_alias::Span) -> Option<
 
 /// Paths are shown relative to what was scanned, not to the shell's working
 /// directory: `rqx scan ../other-repo` should still print short, clickable paths.
+/// Keeps the tail, which is the part that identifies the file; a progress line that
+/// wraps leaves its own remains on screen once the cursor returns.
+fn elide(path: &str, width: usize) -> String {
+    let count = path.chars().count();
+    if count <= width {
+        return path.to_owned();
+    }
+    let tail: String = path.chars().skip(count - width + 1).collect();
+    format!("\u{2026}{tail}")
+}
+
 fn relative_to(root: &Path, path: &Path) -> String {
     if let Ok(relative) = path.strip_prefix(root) {
         return relative.display().to_string();
@@ -603,14 +633,15 @@ fn collect(
                 for site in clones {
                     collector.record_clone(site);
                 }
-                collector.analyzed.insert(relative_to(root, &path));
+                let display = relative_to(root, &path);
+                collector.report_progress(&display);
+                collector.analyzed.insert(display);
                 if collector.track_modules {
                     collector.modules.push(rqx_ts::module_graph::ModuleEntry {
                         path: path.canonicalize().unwrap_or(path),
                         facts: module,
                     });
                 }
-                collector.report_progress();
                 if let Some(watcher) = watcher {
                     // A dropped update costs nothing: the reader only ever wants the
                     // latest count, so a full channel means it is already current.

@@ -72,23 +72,50 @@ impl Verdict {
 }
 
 pub fn judge(review: &Review, config: &RqxConfig) -> Verdict {
-    let gate = &config.gate;
-    let threshold = match gate.fail_on {
-        GateSeverity::Never => {
-            return Verdict { failures: Vec::new(), counted: 0 };
-        }
-        GateSeverity::Error => Severity::Error,
-        GateSeverity::Warning => Severity::Warning,
-        GateSeverity::Info => Severity::Info,
+    let Some(threshold) = threshold(config) else {
+        return Verdict { failures: Vec::new(), counted: 0 };
     };
-
     let counted =
         review.findings().filter(|finding| finding.severity >= threshold).count() as u32;
+    let health = review
+        .outcome
+        .counts
+        .weighted_health_score(review.outcome.code_lines, &review.outcome.impact);
+    verdict(counted, health, config)
+}
 
+/// A whole-project gate counts from `counts`, which is exact, rather than from the
+/// retained findings, which the display cap has already thinned.
+pub fn judge_scan(outcome: &ScanOutcome, config: &RqxConfig) -> Verdict {
+    let Some(threshold) = threshold(config) else {
+        return Verdict { failures: Vec::new(), counted: 0 };
+    };
+    let counted = outcome
+        .counts
+        .by_severity
+        .iter()
+        .filter(|(severity, _)| **severity >= threshold)
+        .map(|(_, count)| *count)
+        .sum();
+    let health = outcome.counts.weighted_health_score(outcome.code_lines, &outcome.impact);
+    verdict(counted, health, config)
+}
+
+const fn threshold(config: &RqxConfig) -> Option<Severity> {
+    match config.gate.fail_on {
+        GateSeverity::Never => None,
+        GateSeverity::Error => Some(Severity::Error),
+        GateSeverity::Warning => Some(Severity::Warning),
+        GateSeverity::Info => Some(Severity::Info),
+    }
+}
+
+fn verdict(counted: u32, health: u32, config: &RqxConfig) -> Verdict {
+    let gate = &config.gate;
     let mut failures = Vec::new();
     if counted > gate.max_findings {
         failures.push(format!(
-            "{counted} findings at or above `{}` in the reviewed files, limit is {}",
+            "{counted} findings at or above `{}`, limit is {}",
             match gate.fail_on {
                 GateSeverity::Error => "error",
                 GateSeverity::Warning => "warning",
@@ -99,17 +126,8 @@ pub fn judge(review: &Review, config: &RqxConfig) -> Verdict {
         ));
     }
 
-    if gate.min_health > 0 {
-        let score = review
-            .outcome
-            .counts
-            .weighted_health_score(review.outcome.code_lines, &review.outcome.impact);
-        if score < gate.min_health {
-            failures.push(format!(
-                "health score {score} is below the required {}",
-                gate.min_health
-            ));
-        }
+    if gate.min_health > 0 && health < gate.min_health {
+        failures.push(format!("health score {health} is below the required {}", gate.min_health));
     }
 
     Verdict { failures, counted }

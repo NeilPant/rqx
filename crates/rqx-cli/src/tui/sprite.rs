@@ -1,7 +1,7 @@
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 
-use super::brand::{Ink, Palette};
+use crate::brand::{Ink, Palette};
 
 /// Pixel art is authored as text, one character per pixel, and embedded at compile
 /// time: the art needs many passes to look right, and nobody iterates on a wordmark
@@ -86,7 +86,7 @@ impl Sprite {
 
 #[cfg(test)]
 mod tests {
-    use super::super::brand::ColorDepth;
+    use crate::brand::ColorDepth;
     use super::*;
 
     fn plain(lines: &[Line<'_>]) -> String {
@@ -115,7 +115,7 @@ mod tests {
     /// pixel, so monochrome must fall back to a full block.
     #[test]
     fn no_pixel_is_lost_when_colour_is_unavailable() {
-        let sprite = Sprite::parse("TA\nKB");
+        let sprite = Sprite::parse("DW\nKT");
         assert_eq!(plain(&sprite.render(Palette::with_depth(ColorDepth::Monochrome))), "\u{2588}\u{2588}");
         assert_eq!(plain(&sprite.render(Palette::with_depth(ColorDepth::Truecolor))), "\u{2580}\u{2580}");
     }

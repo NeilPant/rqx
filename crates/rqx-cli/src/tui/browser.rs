@@ -6,7 +6,8 @@ use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wra
 use rqx_core::finding::{Finding, Severity};
 use rqx_ts::LineIndex;
 
-use super::brand::{Ink, Palette};
+use crate::brand::{Ink, Palette};
+use crate::report::FindingFilter;
 use crate::scan::ScanOutcome;
 
 /// Findings are read against the file on disk, which is re-read rather than held
@@ -49,14 +50,9 @@ impl<'a> Browser<'a> {
     }
 
     fn reorder(&mut self) {
-        let needle = self.filter.to_lowercase();
+        let filter = FindingFilter::default().with_text(&self.filter);
         let mut order: Vec<usize> = (0..self.outcome.findings.len())
-            .filter(|index| {
-                let finding = &self.outcome.findings[*index];
-                needle.is_empty()
-                    || finding.rule.slug().contains(&needle)
-                    || finding.location.file.to_lowercase().contains(&needle)
-            })
+            .filter(|index| filter.matches(&self.outcome.findings[*index]))
             .collect();
         if self.group_by_file {
             order.sort_by(|a, b| {
@@ -176,19 +172,19 @@ impl<'a> Browser<'a> {
             Line::from(vec![
                 Span::styled(
                     format!("  {key:>12}  "),
-                    Style::new().fg(self.palette.color(Ink::Amber)),
+                    Style::new().fg(self.palette.color(Ink::Accent)),
                 ),
-                Span::styled(meaning, Style::new().fg(self.palette.color(Ink::Bone))),
+                Span::styled(meaning, Style::new().fg(self.palette.color(Ink::Text))),
             ])
         }));
         lines.push(Line::default());
-        lines.push(Line::styled("  any key to close", dim(self.palette)));
+        lines.push(Line::styled("  any key to close", self.palette.dim()));
 
         frame.render_widget(
             Paragraph::new(lines).block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .border_style(dim(self.palette))
+                    .border_style(self.palette.dim())
                     .title(" keys "),
             ),
             area,
@@ -199,22 +195,22 @@ impl<'a> Browser<'a> {
         let shown = self.order.len();
         let total = self.outcome.counts.total;
         let mut spans = vec![
-            Span::styled("  rqx  ", Style::new().fg(self.palette.color(Ink::Amber))),
+            Span::styled("  rqx  ", Style::new().fg(self.palette.color(Ink::Accent))),
             Span::styled(
                 format!("{shown} of {total} findings"),
-                Style::new().fg(self.palette.color(Ink::Bone)),
+                Style::new().fg(self.palette.color(Ink::Text)),
             ),
         ];
         if self.outcome.omitted > 0 {
             spans.push(Span::styled(
                 format!("  ({} not retained for display)", self.outcome.omitted),
-                dim(self.palette),
+                self.palette.dim(),
             ));
         }
         if !self.filter.is_empty() || self.editing_filter {
             spans.push(Span::styled(
                 format!("   /{}{}", self.filter, if self.editing_filter { "\u{2588}" } else { "" }),
-                Style::new().fg(self.palette.color(Ink::Amber)),
+                Style::new().fg(self.palette.color(Ink::Accent)),
             ));
         }
         Line::from(spans)
@@ -233,9 +229,9 @@ impl<'a> Browser<'a> {
                     ),
                     Span::styled(
                         format!("{:<24}", finding.rule.slug()),
-                        Style::new().fg(self.palette.color(Ink::Amber)),
+                        Style::new().fg(self.palette.color(Ink::Accent)),
                     ),
-                    Span::styled(finding.location.to_string(), dim(self.palette)),
+                    Span::styled(finding.location.to_string(), self.palette.dim()),
                 ]))
             })
             .collect();
@@ -244,11 +240,11 @@ impl<'a> Browser<'a> {
             .block(
                 Block::default()
                     .borders(Borders::TOP)
-                    .border_style(dim(self.palette)),
+                    .border_style(self.palette.dim()),
             )
             .highlight_style(
                 Style::new()
-                    .fg(self.palette.color(Ink::Bone))
+                    .fg(self.palette.color(Ink::Text))
                     .add_modifier(Modifier::BOLD | Modifier::REVERSED),
             );
         frame.render_stateful_widget(list, area, &mut self.state);
@@ -257,7 +253,7 @@ impl<'a> Browser<'a> {
     fn render_detail(&mut self, frame: &mut Frame<'_>, area: Rect) {
         let Some(finding) = self.selected() else {
             frame.render_widget(
-                Paragraph::new(Line::styled("no findings match", dim(self.palette))),
+                Paragraph::new(Line::styled("no findings match", self.palette.dim())),
                 area,
             );
             return;
@@ -268,28 +264,28 @@ impl<'a> Browser<'a> {
         lines.push(Line::default());
         lines.push(Line::styled(
             finding.evidence.to_string(),
-            Style::new().fg(self.palette.color(Ink::Bone)),
+            Style::new().fg(self.palette.color(Ink::Text)),
         ));
         lines.push(Line::from(vec![
-            Span::styled("Why  ", dim(self.palette)),
-            Span::styled(spec.why, Style::new().fg(self.palette.color(Ink::Bone))),
+            Span::styled("Why  ", self.palette.dim()),
+            Span::styled(spec.why, Style::new().fg(self.palette.color(Ink::Text))),
         ]));
         lines.push(Line::from(vec![
-            Span::styled("Fix  ", dim(self.palette)),
+            Span::styled("Fix  ", self.palette.dim()),
             Span::styled(
                 spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / "),
-                Style::new().fg(self.palette.color(Ink::Moss)),
+                Style::new().fg(self.palette.color(Ink::Good)),
             ),
-            Span::styled(format!("  \u{2014} {}", finding.fix_hint), dim(self.palette)),
+            Span::styled(format!("  \u{2014} {}", finding.fix_hint), self.palette.dim()),
         ]));
         for site in &finding.related {
-            lines.push(Line::styled(format!("also at {site}"), dim(self.palette)));
+            lines.push(Line::styled(format!("also at {site}"), self.palette.dim()));
         }
 
         frame.render_widget(
             Paragraph::new(lines)
                 .wrap(Wrap { trim: false })
-                .block(Block::default().borders(Borders::TOP).border_style(dim(self.palette))),
+                .block(Block::default().borders(Borders::TOP).border_style(self.palette.dim())),
             area,
         );
     }
@@ -297,9 +293,9 @@ impl<'a> Browser<'a> {
     fn excerpt(&mut self, finding: &Finding) -> Vec<Line<'static>> {
         let path = finding.location.file.as_ref();
         if self.cache.as_ref().is_none_or(|cache| cache.path != path) {
-            match std::fs::read_to_string(path) {
+            match std::fs::read_to_string(self.outcome.root.join(path)) {
                 Ok(text) => self.cache = Some(SourceCache { path: path.to_owned(), text }),
-                Err(_) => return vec![Line::styled("source unavailable", dim(self.palette))],
+                Err(_) => return vec![Line::styled("source unavailable", self.palette.dim())],
             }
         }
         let Some(cache) = &self.cache else {
@@ -311,9 +307,9 @@ impl<'a> Browser<'a> {
         (focus.saturating_sub(1).max(1)..=focus + 1)
             .map(|number| {
                 let text = index.line_text(number);
-                let ink = if number == focus { Ink::Bone } else { Ink::Sediment };
+                let ink = if number == focus { Ink::Text } else { Ink::Muted };
                 Line::from(vec![
-                    Span::styled(format!("{number:>6} "), dim(self.palette)),
+                    Span::styled(format!("{number:>6} "), self.palette.dim()),
                     Span::styled(
                         text.to_owned(),
                         Style::new().fg(self.palette.color(ink)),
@@ -331,7 +327,7 @@ impl<'a> Browser<'a> {
         } else {
             "\u{2191}\u{2193} move    tab group by file    / filter    ? keys    q quit"
         };
-        Line::styled(format!("  {keys}"), dim(self.palette))
+        Line::styled(format!("  {keys}"), self.palette.dim())
     }
 }
 
@@ -350,9 +346,9 @@ fn centred(area: Rect, width: u16, height: u16) -> Rect {
 
 const fn severity_ink(severity: Severity) -> Ink {
     match severity {
-        Severity::Error => Ink::Terracotta,
-        Severity::Warning => Ink::Amber,
-        Severity::Info => Ink::Sediment,
+        Severity::Error => Ink::Danger,
+        Severity::Warning => Ink::Warn,
+        Severity::Info => Ink::Muted,
     }
 }
 
@@ -364,10 +360,6 @@ const fn severity_mark(severity: Severity) -> &'static str {
     }
 }
 
-fn dim(palette: Palette) -> Style {
-    Style::new().fg(palette.color(Ink::Sediment))
-}
-
 #[cfg(test)]
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -376,7 +368,7 @@ mod tests {
     use rqx_core::score::FindingCounts;
     use std::sync::Arc;
 
-    use super::super::brand::ColorDepth;
+    use crate::brand::ColorDepth;
     use super::*;
 
     fn finding(rule: RuleId, file: &str, line: u32) -> Finding {
@@ -409,11 +401,13 @@ mod tests {
             counts.record(item);
         }
         ScanOutcome {
+            root: std::path::PathBuf::from("."),
             counts,
             analyzed: Default::default(),
             impact: rqx_core::impact::ImpactMap::default(),
             import_edges: Default::default(),
             findings,
+            findings_by_file: std::collections::BTreeMap::new(),
             omitted: 0,
             code_lines: 900,
             files_scanned: 2,

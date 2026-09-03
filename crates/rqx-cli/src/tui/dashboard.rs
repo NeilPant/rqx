@@ -4,7 +4,7 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
-use super::brand::{Ink, Palette, TAGLINE};
+use crate::brand::{Ink, Palette, TAGLINE, score_ink};
 use super::sprite::Sprite;
 use crate::scan::{ScanOutcome, ScanProgress};
 
@@ -29,7 +29,7 @@ pub fn render(frame: &mut Frame<'_>, view: &View<'_>) {
     ])
     .areas(frame.area());
 
-    render_head(frame, view, head);
+    render_head(frame, view.palette, view.mascot, view.root, head);
     render_body(frame, view, body);
     frame.render_widget(Paragraph::new(footer_line(view)), footer);
 }
@@ -37,25 +37,30 @@ pub fn render(frame: &mut Frame<'_>, view: &View<'_>) {
 /// The mascot is the only drawn art; the name is plain text, because a pixel-art
 /// wordmark has to be redrawn for every weight and size it is ever shown at, and a
 /// terminal already has a font.
-fn render_head(frame: &mut Frame<'_>, view: &View<'_>, area: Rect) {
+pub fn render_head(
+    frame: &mut Frame<'_>,
+    palette: Palette,
+    mascot: &Sprite,
+    root: &str,
+    area: Rect,
+) {
     let [art, text] =
-        Layout::horizontal([Constraint::Length(view.mascot.width() + 3), Constraint::Min(0)])
+        Layout::horizontal([Constraint::Length(mascot.width() + 3), Constraint::Min(0)])
             .areas(area);
 
-    frame.render_widget(Paragraph::new(view.mascot.render(view.palette)), art);
+    frame.render_widget(Paragraph::new(mascot.render(palette)), art);
 
-    let palette = view.palette;
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(vec![
                 Span::styled(
                     "rqx",
-                    Style::new().fg(palette.color(Ink::Bone)).add_modifier(Modifier::BOLD),
+                    Style::new().fg(palette.color(Ink::Text)).add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), dim(palette)),
+                Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), palette.dim()),
             ]),
-            Line::styled(TAGLINE, dim(palette)),
-            Line::styled(view.root.to_owned(), dim(palette)),
+            Line::styled(TAGLINE, palette.dim()),
+            Line::styled(root.to_owned(), palette.dim()),
         ]),
         text,
     );
@@ -71,23 +76,23 @@ fn stat_lines(view: &View<'_>) -> Vec<Line<'static>> {
         Phase::Scanning(progress) => vec![
             Line::styled(
                 format!("scanning {}", view.root),
-                Style::new().fg(palette.color(Ink::Bone)),
+                Style::new().fg(palette.color(Ink::Text)),
             ),
             Line::default(),
             Line::styled(
                 format!("{} files", thousands(progress.files_scanned)),
-                dim(palette),
+                palette.dim(),
             ),
             Line::styled(
                 format!("{} findings", thousands(progress.findings)),
-                dim(palette),
+                palette.dim(),
             ),
         ],
         Phase::Done(outcome) => {
             let score = outcome.counts.weighted_health_score(outcome.code_lines, &outcome.impact);
             let mut lines = vec![
                 Line::from(vec![
-                    Span::styled("Health  ", dim(palette)),
+                    Span::styled("Health  ", palette.dim()),
                     Span::styled(
                         format!("{score}/100"),
                         Style::new()
@@ -102,17 +107,17 @@ fn stat_lines(view: &View<'_>) -> Vec<Line<'static>> {
                         thousands(outcome.counts.total),
                         thousands(outcome.files_scanned)
                     ),
-                    Style::new().fg(palette.color(Ink::Bone)),
+                    Style::new().fg(palette.color(Ink::Text)),
                 ),
             ];
             lines.extend(outcome.counts.by_rule.iter().take(4).map(|(rule, count)| {
-                Line::styled(format!("{count:>5}  {}", rule.slug()), dim(palette))
+                Line::styled(format!("{count:>5}  {}", rule.slug()), palette.dim())
             }));
             lines
         }
         Phase::Failed(error) => vec![Line::styled(
             format!("scan failed: {error}"),
-            Style::new().fg(palette.color(Ink::Terracotta)),
+            Style::new().fg(palette.color(Ink::Danger)),
         )],
     }
 }
@@ -123,7 +128,7 @@ pub fn scrollback_summary(outcome: &ScanOutcome, palette: Palette, root: &str) -
     let score = outcome.counts.weighted_health_score(outcome.code_lines, &outcome.impact);
     vec![
         Line::from(vec![
-            Span::styled("  rqx  ", Style::new().fg(palette.color(Ink::Amber))),
+            Span::styled("  rqx  ", Style::new().fg(palette.color(Ink::Accent))),
             Span::styled(
                 format!("{score}/100"),
                 Style::new().fg(palette.color(score_ink(score))).add_modifier(Modifier::BOLD),
@@ -135,7 +140,7 @@ pub fn scrollback_summary(outcome: &ScanOutcome, palette: Palette, root: &str) -
                     thousands(outcome.files_scanned),
                     outcome.elapsed_ms
                 ),
-                dim(palette),
+                palette.dim(),
             ),
         ]),
         Line::default(),
@@ -148,19 +153,7 @@ fn footer_line(view: &View<'_>) -> Line<'static> {
         Phase::Done(outcome) if outcome.counts.total > 0 => "enter browse    r rescan    q quit",
         _ => "r rescan    q quit",
     };
-    Line::styled(keys, dim(view.palette))
-}
-
-const fn score_ink(score: u32) -> Ink {
-    match score {
-        80..=100 => Ink::Moss,
-        50..=79 => Ink::Amber,
-        _ => Ink::Terracotta,
-    }
-}
-
-fn dim(palette: Palette) -> Style {
-    Style::new().fg(palette.color(Ink::Sediment))
+    Line::styled(keys, view.palette.dim())
 }
 
 fn thousands(value: u32) -> String {
@@ -192,12 +185,12 @@ mod tests {
 
     #[test]
     fn score_colour_moves_with_the_score() {
-        assert_eq!(score_ink(100), Ink::Moss);
-        assert_eq!(score_ink(80), Ink::Moss);
-        assert_eq!(score_ink(79), Ink::Amber);
-        assert_eq!(score_ink(50), Ink::Amber);
-        assert_eq!(score_ink(49), Ink::Terracotta);
-        assert_eq!(score_ink(0), Ink::Terracotta);
+        assert_eq!(score_ink(100), Ink::Good);
+        assert_eq!(score_ink(80), Ink::Good);
+        assert_eq!(score_ink(79), Ink::Warn);
+        assert_eq!(score_ink(50), Ink::Warn);
+        assert_eq!(score_ink(49), Ink::Danger);
+        assert_eq!(score_ink(0), Ink::Danger);
     }
 }
 
@@ -210,7 +203,7 @@ mod snapshots {
     use rqx_core::score::FindingCounts;
     use std::sync::Arc;
 
-    use super::super::brand::ColorDepth;
+    use crate::brand::ColorDepth;
     use super::*;
 
     const MASCOT: &str = include_str!("../../assets/mascot.txt");
@@ -236,11 +229,13 @@ mod snapshots {
             });
         }
         ScanOutcome {
+            root: std::path::PathBuf::from("."),
             counts,
             analyzed: Default::default(),
             impact: rqx_core::impact::ImpactMap::default(),
             import_edges: Default::default(),
             findings: Vec::new(),
+            findings_by_file: std::collections::BTreeMap::new(),
             omitted: 0,
             code_lines: 12_000,
             files_scanned: 340,
