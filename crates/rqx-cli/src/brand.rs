@@ -46,7 +46,7 @@ impl Ink {
             Self::Text => (0xD6, 0xDE, 0xE8),
             Self::Muted => (0x5A, 0x64, 0x72),
             Self::Ground => (0x14, 0x17, 0x1A),
-            Self::Signal => (0x8A, 0xD8, 0xFF),
+            Self::Signal => (0xFF, 0xC2, 0x4A),
         }
     }
 
@@ -59,7 +59,7 @@ impl Ink {
             Self::Text => 253,
             Self::Muted => 242,
             Self::Ground => 234,
-            Self::Signal => 153,
+            Self::Signal => 215,
         }
     }
 
@@ -72,7 +72,7 @@ impl Ink {
             Self::Text => Color::White,
             Self::Muted => Color::DarkGray,
             Self::Ground => Color::Black,
-            Self::Signal => Color::Cyan,
+            Self::Signal => Color::Yellow,
         }
     }
 
@@ -85,7 +85,7 @@ impl Ink {
             Self::Text => anstyle::AnsiColor::White,
             Self::Muted => anstyle::AnsiColor::BrightBlack,
             Self::Ground => anstyle::AnsiColor::Black,
-            Self::Signal => anstyle::AnsiColor::Cyan,
+            Self::Signal => anstyle::AnsiColor::Yellow,
         }
     }
 }

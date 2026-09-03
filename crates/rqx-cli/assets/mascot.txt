@@ -1,87 +1,75 @@
 # rqx. An owl: a quiet, precise thing that spots small movement and turns its head
-# to follow it. 13x12 pixels, six frames.
+# to follow it. 11x10 pixels, six frames.
 #
-# A plumage, M folded wings, T eye discs, K beak, S the pupils — coloured at render
-# time by whatever the scan found, so the bird reports rather than decorates.
+# A plumage, S the eyes and beak, K a closed lid. The gold is replaced at render time
+# by what the scan found, so the bird reports rather than decorates.
 #
-# Two pixel rows share one terminal cell, so every eye and the beak are drawn two
-# rows tall: a feature spanning half a cell renders as a half block and reads as a
-# smudge rather than a shape.
+# Two pixel rows share one terminal cell, so the eyes and the beak are each drawn two
+# rows tall and cell-aligned; a feature spanning half a cell renders as a half block.
+# The lids are the deliberate exception, because a lid is a line.
 #: idle
-.AA.......AA.
-.AAA.....AAA.
-..AAAAAAAAA..
-.AAAAAAAAAAA.
-AATSTAAATSTAA
-AATSTAAATSTAA
-AAAAAAKAAAAAA
-.MAAAAKAAAAM.
-.MAAAAAAAAAM.
-..MAAAAAAAM..
-...AA...AA...
-..AAAA.AAAA..
+...AAAAA...
+.AAAAAAAAA.
+AASSAAASSAA
+AASSAAASSAA
+AAAAASAAAAA
+AAAAASAAAAA
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
+..AA...AA..
 #: blink
-.AA.......AA.
-.AAA.....AAA.
-..AAAAAAAAA..
-.AAAAAAAAAAA.
-AAAAAAAAAAAAA
-AAKKKAAAKKKAA
-AAAAAAKAAAAAA
-.MAAAAKAAAAM.
-.MAAAAAAAAAM.
-..MAAAAAAAM..
-...AA...AA...
-..AAAA.AAAA..
+...AAAAA...
+.AAAAAAAAA.
+AAAAAAAAAAA
+AAKKAAAKKAA
+AAAAASAAAAA
+AAAAASAAAAA
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
+..AA...AA..
 #: look-left
-.AA.......AA.
-.AAA.....AAA.
-..AAAAAAAAA..
-.AAAAAAAAAAA.
-AASTTAAASTTAA
-AASTTAAASTTAA
-AAAAAAKAAAAAA
-.MAAAAKAAAAM.
-.MAAAAAAAAAM.
-..MAAAAAAAM..
-...AA...AA...
-..AAAA.AAAA..
+...AAAAA...
+.AAAAAAAAA.
+ASSAAASSAAA
+ASSAAASSAAA
+AAAAASAAAAA
+AAAAASAAAAA
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
+..AA...AA..
 #: look-right
-.AA.......AA.
-.AAA.....AAA.
-..AAAAAAAAA..
-.AAAAAAAAAAA.
-AATTSAAATTSAA
-AATTSAAATTSAA
-AAAAAAKAAAAAA
-.MAAAAKAAAAM.
-.MAAAAAAAAAM.
-..MAAAAAAAM..
-...AA...AA...
-..AAAA.AAAA..
+...AAAAA...
+.AAAAAAAAA.
+AAASSAAASSA
+AAASSAAASSA
+AAAAASAAAAA
+AAAAASAAAAA
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
+..AA...AA..
 #: alert
-AAA.......AAA
-.AAA.....AAA.
-..AAAAAAAAA..
-.AAAAAAAAAAA.
-AASSSAAASSSAA
-AASSSAAASSSAA
-AAAAAAKAAAAAA
-.MAAAAKAAAAM.
-.MAAAAAAAAAM.
-..MAAAAAAAM..
-...AA...AA...
-..AAAA.AAAA..
+...AAAAA...
+.AAAAAAAAA.
+ASSSAAASSSA
+ASSSAAASSSA
+AAAAASAAAAA
+AAAAASAAAAA
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
+..AA...AA..
 #: pleased
-.AA.......AA.
-.AAA.....AAA.
-..AAAAAAAAA..
-.AAAAAAAAAAA.
-AAAAAAAAAAAAA
-AASSSAAASSSAA
-AAAAAKKKAAAAA
-.MAAAAKAAAAM.
-.MAAAAAAAAAM.
-..MAAAAAAAM..
-...AA...AA...
-..AAAA.AAAA..
+...AAAAA...
+.AAAAAAAAA.
+AAAAAAAAAAA
+AASSAAASSAA
+AAAAASAAAAA
+AAAAASAAAAA
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
+..AA...AA..

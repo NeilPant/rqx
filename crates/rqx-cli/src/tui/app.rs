@@ -93,18 +93,16 @@ impl Session {
             .map(|outcome| outcome.counts.weighted_health_score(outcome.code_lines, &outcome.impact))
     }
 
-    /// The mascot's eyes carry the verdict, so the art is never decoration: before a
-    /// scan it is its own colour, during one it pulses, afterwards it is the grade.
+    /// The mascot's eyes carry the verdict, so the art is never decoration. The range
+    /// runs gold to red rather than through green: an owl with green eyes reads as a
+    /// different animal, and the warm end of the scale is where real ones live.
     pub fn signal(&self) -> Ink {
-        if self.scanning {
-            return Ink::Accent;
-        }
         if self.failure.is_some() {
             return Ink::Danger;
         }
         match self.health() {
-            None => Ink::Signal,
-            Some(80..=100) => Ink::Good,
+            _ if self.scanning => Ink::Signal,
+            None | Some(80..=100) => Ink::Signal,
             Some(50..=79) => Ink::Warn,
             Some(_) => Ink::Danger,
         }
