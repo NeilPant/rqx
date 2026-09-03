@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
-use crate::rule::{Category, RuleId};
+use crate::rule::{Analysis, RuleId};
 
 pub const CONFIG_FILE_NAME: &str = "rqx.toml";
 
@@ -48,7 +48,7 @@ impl Default for Gate {
 /// Every threshold is the highest acceptable value: a finding fires strictly
 /// above it. Mixing `>` and `>=` across rules makes a configured number mean
 /// different things depending on which rule reads it.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash)]
 #[serde(default, deny_unknown_fields)]
 pub struct Thresholds {
     pub long_function_statements: u32,
@@ -109,7 +109,7 @@ impl Default for Thresholds {
 /// Rules and whole families can be switched on or off by name. A rule marked
 /// `off_by_default` in the catalogue stays off unless it is named in `enabled`,
 /// which keeps the noisy-but-real rules available without inflicting them.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Hash)]
 #[serde(default, deny_unknown_fields)]
 pub struct Rules {
     pub disabled: BTreeSet<String>,
@@ -134,12 +134,20 @@ impl Rules {
     }
 
     pub fn needs_semantics(&self) -> bool {
+        self.needs(Analysis::Semantics)
+    }
+
+    /// Resolving the import graph costs a walk of every module's specifiers, so it
+    /// runs only when a rule actually reads it.
+    pub fn needs_modules(&self) -> bool {
+        self.needs(Analysis::Modules)
+    }
+
+    fn needs(&self, level: Analysis) -> bool {
         RuleId::ALL
             .iter()
             .copied()
-            .filter(|rule| rule.spec().category == Category::Dispensables
-                || rule.spec().category == Category::Couplers
-                || rule.spec().category == Category::OoAbusers)
+            .filter(|rule| rule.spec().analysis >= level)
             .any(|rule| self.enabled(rule))
     }
 }

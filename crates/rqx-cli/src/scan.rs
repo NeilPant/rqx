@@ -394,9 +394,10 @@ impl Collector {
     /// two places, which is what Shotgun Surgery describes. It needs history, so it
     /// runs last and stays silent outside a repository.
     fn finish_cochange(&mut self, root: &Path, config: &RqxConfig) {
-        if !self.track_modules
-            || !(config.rules.enabled(RuleId::ShotgunSurgery)
-                || config.rules.enabled(RuleId::DivergentChange))
+        // Reads git history, not the import graph, so it must not ride on the gate
+        // that builds one — enabling only this rule used to leave it silent.
+        if !(config.rules.enabled(RuleId::ShotgunSurgery)
+            || config.rules.enabled(RuleId::DivergentChange))
         {
             return;
         }
@@ -619,7 +620,7 @@ fn collect(
     let mut collector = Collector::new(
         config.scan.max_findings,
         config.rules.enabled(RuleId::DuplicateCode),
-        config.rules.needs_semantics(),
+        config.rules.needs_modules(),
         progress,
     );
     for message in receiver {

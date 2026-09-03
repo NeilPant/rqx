@@ -32,26 +32,14 @@ pub struct Cache {
 }
 
 /// Everything that changes what analysing a file produces. A cache keyed on file
-/// content alone would serve stale findings the moment a threshold moved.
+/// content alone would serve stale findings the moment a threshold moved. Both
+/// structs are hashed whole rather than field by field, because the list that was
+/// written out by hand covered eight of the seventeen thresholds and nothing said so.
 fn analysis_version(config: &RqxConfig) -> u64 {
     let mut hasher = DefaultHasher::new();
     env!("CARGO_PKG_VERSION").hash(&mut hasher);
-    let thresholds = &config.thresholds;
-    for value in [
-        thresholds.long_function_statements,
-        thresholds.cognitive_complexity,
-        thresholds.nesting_depth,
-        thresholds.max_params,
-        thresholds.class_members,
-        thresholds.class_statements,
-        thresholds.clone_min_statements,
-        thresholds.clone_min_nodes,
-    ] {
-        value.hash(&mut hasher);
-    }
-    for rule in &config.rules.disabled {
-        rule.hash(&mut hasher);
-    }
+    config.thresholds.hash(&mut hasher);
+    config.rules.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -110,12 +98,38 @@ impl Cache {
 mod tests {
     use super::*;
 
+    /// This used to name `cognitive_complexity`, one of the eight thresholds the
+    /// hand-written hash covered, so it passed while the other nine went unhashed and
+    /// replayed findings computed under the old value.
     #[test]
-    fn a_threshold_change_invalidates_the_whole_cache() {
+    fn every_threshold_change_invalidates_the_whole_cache() {
+        let base = RqxConfig::default();
+        let baseline = analysis_version(&base);
+        let mutations: [fn(&mut rqx_core::config::Thresholds); 10] = [
+            |t| t.cognitive_complexity += 1,
+            |t| t.condition_operands += 1,
+            |t| t.feature_envy_ratio += 1,
+            |t| t.magic_number_repeats += 1,
+            |t| t.short_name_scope_lines += 1,
+            |t| t.data_clump_sites += 1,
+            |t| t.data_clump_size += 1,
+            |t| t.message_chain_depth += 1,
+            |t| t.commented_code_lines += 1,
+            |t| t.class_public_members += 1,
+        ];
+        for mutate in mutations {
+            let mut config = base.clone();
+            mutate(&mut config.thresholds);
+            assert_ne!(analysis_version(&config), baseline, "cached findings would be stale");
+        }
+    }
+
+    #[test]
+    fn enabling_a_rule_invalidates_the_cache() {
         let mut config = RqxConfig::default();
         let before = analysis_version(&config);
-        config.thresholds.cognitive_complexity += 1;
-        assert_ne!(before, analysis_version(&config), "cached findings would be stale");
+        config.rules.enabled.insert("meaningless-name".to_owned());
+        assert_ne!(before, analysis_version(&config));
     }
 
     #[test]

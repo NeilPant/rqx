@@ -7,6 +7,7 @@ catalogue! {
     LongFunction {
         slug: "long-function",
         category: Bloaters,
+        analysis: Syntax,
         guru: Some(Smell::LongMethod),
         clean_code: [G30],
         metric: "statement count in a function body",
@@ -19,6 +20,7 @@ catalogue! {
     CognitiveComplexity {
         slug: "cognitive-complexity",
         category: Bloaters,
+        analysis: Syntax,
         guru: Some(Smell::LongMethod),
         clean_code: [G34],
         metric: "SonarSource cognitive complexity",
@@ -31,6 +33,7 @@ catalogue! {
     DeepNesting {
         slug: "deep-nesting",
         category: Bloaters,
+        analysis: Syntax,
         guru: Some(Smell::LongMethod),
         clean_code: [G34],
         metric: "maximum block nesting depth",
@@ -43,6 +46,7 @@ catalogue! {
     LongParameterList {
         slug: "long-parameter-list",
         category: Bloaters,
+        analysis: Syntax,
         guru: Some(Smell::LongParameterList),
         clean_code: [F1],
         metric: "parameter count",
@@ -55,6 +59,7 @@ catalogue! {
     LargeClass {
         slug: "large-class",
         category: Bloaters,
+        analysis: Syntax,
         guru: Some(Smell::LargeClass),
         clean_code: [],
         metric: "member count and body statement count",
@@ -68,6 +73,7 @@ catalogue! {
     DataClump {
         slug: "data-clump",
         category: Bloaters,
+        analysis: Semantics,
         guru: Some(Smell::DataClumps),
         clean_code: [G22],
         metric: "the same group of three or more parameter names recurring across signatures",
@@ -80,6 +86,7 @@ catalogue! {
     PrimitiveObsession {
         slug: "primitive-obsession",
         category: Bloaters,
+        analysis: Semantics,
         guru: Some(Smell::PrimitiveObsession),
         clean_code: [G25],
         metric: "a type alias that is a union of three or more string literals",
@@ -95,6 +102,7 @@ catalogue! {
     TypeCodeSwitch {
         slug: "type-code-switch",
         category: OoAbusers,
+        analysis: Semantics,
         guru: Some(Smell::SwitchStatements),
         clean_code: [G23],
         metric: "switch or if/else chain branching on the same discriminant in more than one place",
@@ -111,6 +119,7 @@ catalogue! {
     TemporaryField {
         slug: "temporary-field",
         category: OoAbusers,
+        analysis: Semantics,
         guru: Some(Smell::TemporaryField),
         clean_code: [G8],
         metric: "instance field written and read by exactly one method, never in the constructor",
@@ -123,6 +132,7 @@ catalogue! {
     RefusedBequest {
         slug: "refused-bequest",
         category: OoAbusers,
+        analysis: Semantics,
         guru: Some(Smell::RefusedBequest),
         clean_code: [G7],
         metric: "override whose body only throws or is empty",
@@ -135,6 +145,7 @@ catalogue! {
     BaseDependsOnDerived {
         slug: "base-depends-on-derived",
         category: OoAbusers,
+        analysis: Semantics,
         guru: None,
         clean_code: [G7],
         metric: "base class referencing one of its own subclasses by name",
@@ -147,6 +158,7 @@ catalogue! {
     InappropriateStatic {
         slug: "inappropriate-static",
         category: OoAbusers,
+        analysis: Semantics,
         guru: None,
         clean_code: [G18],
         metric: "static method taking an instance of its own class as its first parameter",
@@ -161,6 +173,7 @@ catalogue! {
     ShotgunSurgery {
         slug: "shotgun-surgery",
         category: ChangePreventers,
+        analysis: Syntax,
         guru: Some(Smell::ShotgunSurgery),
         clean_code: [G22],
         metric: "files that git history shows almost always change together",
@@ -174,6 +187,7 @@ catalogue! {
     DivergentChange {
         slug: "divergent-change",
         category: ChangePreventers,
+        analysis: Syntax,
         guru: Some(Smell::DivergentChange),
         clean_code: [],
         metric: "a file with many commits and no single frequent co-change partner",
@@ -190,6 +204,7 @@ catalogue! {
     DuplicateCode {
         slug: "duplicate-code",
         category: Dispensables,
+        analysis: Syntax,
         guru: Some(Smell::DuplicateCode),
         clean_code: [G5],
         metric: "identical normalized-AST block hash across sites",
@@ -202,6 +217,7 @@ catalogue! {
     UnusedExport {
         slug: "unused-export",
         category: Dispensables,
+        analysis: Modules,
         guru: Some(Smell::DeadCode),
         clean_code: [F4],
         metric: "exported symbol with no importer in the resolved module graph",
@@ -214,6 +230,7 @@ catalogue! {
     UnusedFile {
         slug: "unused-file",
         category: Dispensables,
+        analysis: Modules,
         guru: Some(Smell::DeadCode),
         clean_code: [G9],
         metric: "module reachable from no entry point, with no importer",
@@ -226,6 +243,7 @@ catalogue! {
     UnusedParameter {
         slug: "unused-parameter",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::DeadCode),
         clean_code: [G9],
         metric: "declared parameter with no resolved reference in its own scope",
@@ -238,6 +256,7 @@ catalogue! {
     UnusedLocal {
         slug: "unused-local",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::DeadCode),
         clean_code: [G9],
         metric: "local binding with no resolved reference",
@@ -250,6 +269,7 @@ catalogue! {
     UnusedPrivateMember {
         slug: "unused-private-member",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::DeadCode),
         clean_code: [F4],
         metric: "private class member never referenced inside its own class",
@@ -262,6 +282,7 @@ catalogue! {
     UnreachableCode {
         slug: "unreachable-code",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::DeadCode),
         clean_code: [G9],
         metric: "statement following an unconditional return, throw, break or continue",
@@ -274,6 +295,7 @@ catalogue! {
     CommentedOutCode {
         slug: "commented-out-code",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::Comments),
         clean_code: [C5],
         metric: "consecutive comment lines that read as statements rather than prose",
@@ -286,6 +308,7 @@ catalogue! {
     LazyClass {
         slug: "lazy-class",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::LazyClass),
         clean_code: [G12],
         metric: "class with at most one member and no heritage",
@@ -298,6 +321,7 @@ catalogue! {
     DataClass {
         slug: "data-class",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::DataClass),
         clean_code: [G17],
         metric: "class whose members are all fields or trivial accessors",
@@ -310,6 +334,7 @@ catalogue! {
     SpeculativeGenerality {
         slug: "speculative-generality",
         category: Dispensables,
+        analysis: Modules,
         guru: Some(Smell::SpeculativeGenerality),
         clean_code: [G12],
         metric: "abstract class with no subclass anywhere in the project",
@@ -324,6 +349,7 @@ catalogue! {
     EmptyCatch {
         slug: "empty-catch",
         category: Dispensables,
+        analysis: Semantics,
         guru: None,
         clean_code: [G4],
         metric: "catch clause with an empty body",
@@ -336,6 +362,7 @@ catalogue! {
     MagicNumber {
         slug: "magic-number",
         category: Dispensables,
+        analysis: Semantics,
         guru: Some(Smell::PrimitiveObsession),
         clean_code: [G25],
         metric: "unnamed numeric literal outside a declaration, excluding conventional values",
@@ -350,6 +377,7 @@ catalogue! {
     CircularDependency {
         slug: "circular-dependency",
         category: Couplers,
+        analysis: Modules,
         guru: None,
         clean_code: [],
         metric: "strongly connected component of more than one module in the import graph",
@@ -363,6 +391,7 @@ catalogue! {
     MessageChain {
         slug: "message-chain",
         category: Couplers,
+        analysis: Semantics,
         guru: Some(Smell::MessageChains),
         clean_code: [G36],
         metric: "chained member access depth beyond the configured limit",
@@ -375,6 +404,7 @@ catalogue! {
     FeatureEnvy {
         slug: "feature-envy",
         category: Couplers,
+        analysis: Semantics,
         guru: Some(Smell::FeatureEnvy),
         clean_code: [G14],
         metric: "method touching another object's members more than its own",
@@ -387,6 +417,7 @@ catalogue! {
     MiddleMan {
         slug: "middle-man",
         category: Couplers,
+        analysis: Semantics,
         guru: Some(Smell::MiddleMan),
         clean_code: [G17],
         metric: "class where most methods do nothing but delegate",
@@ -401,6 +432,7 @@ catalogue! {
     MeaninglessName {
         slug: "meaningless-name",
         category: Naming,
+        analysis: Syntax,
         guru: None,
         clean_code: [N1, N4],
         metric: "identifier matched against a curated non-name set",
@@ -414,6 +446,7 @@ catalogue! {
     ShortNameWideScope {
         slug: "short-name-wide-scope",
         category: Naming,
+        analysis: Semantics,
         guru: None,
         clean_code: [N5],
         metric: "binding of one or two characters living across many lines",
@@ -427,6 +460,7 @@ catalogue! {
     HungarianNotation {
         slug: "hungarian-notation",
         category: Naming,
+        analysis: Semantics,
         guru: None,
         clean_code: [N6],
         metric: "identifier carrying a type prefix, or an interface named with a leading I",
@@ -442,6 +476,7 @@ catalogue! {
     SuppressedDiagnostic {
         slug: "suppressed-diagnostic",
         category: Safety,
+        analysis: Semantics,
         guru: None,
         clean_code: [G4],
         metric: "ts-ignore, ts-nocheck, eslint-disable, or a cast through any",
@@ -454,6 +489,7 @@ catalogue! {
     FlagArgument {
         slug: "flag-argument",
         category: Safety,
+        analysis: Semantics,
         guru: None,
         clean_code: [F3, G15],
         metric: "parameter declared with a boolean type",
@@ -466,6 +502,7 @@ catalogue! {
     OutputParameter {
         slug: "output-parameter",
         category: Safety,
+        analysis: Semantics,
         guru: None,
         clean_code: [F2],
         metric: "parameter reassigned or mutated inside the function body",
@@ -478,6 +515,7 @@ catalogue! {
     ComplexCondition {
         slug: "complex-condition",
         category: Safety,
+        analysis: Semantics,
         guru: None,
         clean_code: [G19, G28],
         metric: "boolean operands in a single condition beyond the configured limit",
@@ -490,6 +528,7 @@ catalogue! {
     NegativeConditional {
         slug: "negative-conditional",
         category: Safety,
+        analysis: Semantics,
         guru: None,
         clean_code: [G29],
         metric: "negated condition that has an else branch",
@@ -505,6 +544,7 @@ catalogue! {
     SkippedTest {
         slug: "skipped-test",
         category: Tests,
+        analysis: Semantics,
         guru: None,
         clean_code: [T4],
         metric: "test declared with skip, xit, xdescribe or todo",
@@ -517,6 +557,7 @@ catalogue! {
     FocusedTest {
         slug: "focused-test",
         category: Tests,
+        analysis: Semantics,
         guru: None,
         clean_code: [T1],
         metric: "test declared with only, fit or fdescribe",
@@ -529,6 +570,7 @@ catalogue! {
     AssertionlessTest {
         slug: "assertionless-test",
         category: Tests,
+        analysis: Semantics,
         guru: None,
         clean_code: [T1],
         metric: "test body containing no assertion call",

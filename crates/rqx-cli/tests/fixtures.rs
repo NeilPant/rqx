@@ -445,3 +445,27 @@ fn machine_reports_name_paths_from_the_working_directory() {
         assert!(text.contains(needle), "{reporter} lost the scanned directory:\n{text:.400}");
     }
 }
+
+/// The gate that decides how much of the engine runs used to test three categories,
+/// while the collectors behind it also supply every Safety, Tests and Naming rule.
+/// Turning those three families off silently stopped rules that had nothing to do
+/// with them.
+#[test]
+fn disabling_three_families_does_not_silence_the_others() {
+    let dir = std::env::temp_dir().join(format!("rqx-gate-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let config = dir.join("rqx.toml");
+    std::fs::write(&config, "[rules]\ndisabled = [\"dispensables\", \"couplers\", \"oo-abusers\"]\n")
+        .unwrap();
+
+    let report = scan(&["--config", config.to_str().unwrap()]);
+    let fired = counts_by_rule(&report);
+    for rule in ["focused-test", "skipped-test", "suppressed-diagnostic", "output-parameter"] {
+        assert!(fired.contains_key(rule), "{rule} went silent; fired: {fired:?}");
+    }
+    for rule in ["unused-local", "message-chain", "temporary-field"] {
+        assert!(!fired.contains_key(rule), "{rule} belongs to a disabled family");
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

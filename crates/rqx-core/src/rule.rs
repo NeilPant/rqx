@@ -72,6 +72,19 @@ impl Category {
     }
 }
 
+/// How much of the engine a rule needs before it can say anything. Ordered, because
+/// the module graph is built from the facts the semantic pass collects, so a rule
+/// that wants modules wants semantics too.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Analysis {
+    /// The AST alone.
+    Syntax,
+    /// oxc's symbol table, and the collectors built on it.
+    Semantics,
+    /// The resolved import graph across every file in the project.
+    Modules,
+}
+
 /// A rule that reaches output without every field of this struct is a rule whose
 /// findings cannot be traced to the catalogue they claim, which is the failure mode
 /// Rqx exists to avoid.
@@ -79,6 +92,10 @@ pub struct RuleSpec {
     pub id: RuleId,
     pub slug: &'static str,
     pub category: Category,
+    /// Declared per rule rather than guessed from its family. The gate used to test
+    /// three categories, while the collectors behind it also supply every Safety,
+    /// Tests and Naming rule — so disabling Dispensables silently stopped them.
+    pub analysis: Analysis,
     /// `None` where refactoring.guru genuinely has no matching smell. Stretching a
     /// category to fill the field would make the citation worthless.
     pub guru_smell: Option<Smell>,
@@ -106,6 +123,7 @@ macro_rules! catalogue {
         $variant:ident {
             slug: $slug:literal,
             category: $category:ident,
+            analysis: $analysis:ident,
             guru: $guru:expr,
             clean_code: [$($heuristic:ident),* $(,)?],
             metric: $metric:literal,
@@ -130,6 +148,7 @@ macro_rules! catalogue {
                         id: Self::$variant,
                         slug: $slug,
                         category: Category::$category,
+                        analysis: Analysis::$analysis,
                         guru_smell: $guru,
                         clean_code: &[$(Heuristic::$heuristic),*],
                         principle: catalogue!(@principle $($principle)?),
