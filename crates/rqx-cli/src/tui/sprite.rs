@@ -4,7 +4,7 @@ use ratatui::text::{Line, Span};
 use super::brand::{Ink, Palette};
 
 /// Pixel art is authored as text, one character per pixel, and embedded at compile
-/// time: the art needs many passes to look right, and nobody iterates on a mascot
+/// time: the art needs many passes to look right, and nobody iterates on a wordmark
 /// stored as a nested array of colour constants.
 pub struct Sprite {
     rows: Vec<Vec<Option<Ink>>>,
@@ -23,10 +23,6 @@ impl Sprite {
         Self { rows, width }
     }
 
-    pub const fn width(&self) -> u16 {
-        self.width as u16
-    }
-
     /// Two pixels share one cell vertically, so an odd-height sprite still needs a
     /// whole row for its last line.
     pub fn cell_height(&self) -> u16 {
@@ -39,7 +35,7 @@ impl Sprite {
 
     /// Renders with half-blocks so each cell carries two vertically stacked pixels
     /// with independent colours; braille would double the resolution again but is
-    /// monochrome per cell, which a coloured mascot cannot use.
+    /// monochrome per cell, which coloured art cannot use.
     pub fn render(&self, palette: Palette) -> Vec<Line<'static>> {
         (0..self.rows.len())
             .step_by(2)
@@ -100,7 +96,6 @@ mod tests {
     #[test]
     fn pairs_of_rows_collapse_into_one_cell_row() {
         let sprite = Sprite::parse("TT\nTT\nTT\n");
-        assert_eq!(sprite.width(), 2);
         assert_eq!(sprite.cell_height(), 2, "3 pixel rows need 2 cell rows");
     }
 
@@ -130,14 +125,13 @@ mod tests {
 
     #[test]
     fn comments_and_blank_lines_are_not_pixels() {
-        let sprite = Sprite::parse("# rex, frame 1\n\nTT\n\nTT\n");
+        let sprite = Sprite::parse("# a comment\n\nTT\n\nTT\n");
         assert_eq!(sprite.cell_height(), 1);
     }
 
     #[test]
     fn ragged_rows_do_not_panic_and_pad_transparent() {
         let sprite = Sprite::parse("TTTT\nT");
-        assert_eq!(sprite.width(), 4);
         let rendered = plain(&sprite.render(Palette::with_depth(ColorDepth::Truecolor)));
         assert_eq!(rendered, "\u{2588}\u{2580}\u{2580}\u{2580}");
     }

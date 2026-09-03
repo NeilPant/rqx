@@ -1,7 +1,6 @@
 pub mod brand;
 pub mod browser;
 pub mod dashboard;
-pub mod mascot;
 pub mod sprite;
 
 use std::fmt;
@@ -9,7 +8,7 @@ use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -19,7 +18,6 @@ use rqx_core::config::RqxConfig;
 use brand::{Palette, TAGLINE};
 use browser::Browser;
 use dashboard::{Phase, View};
-use mascot::{Mascot, Mood};
 use sprite::Sprite;
 
 use crate::scan::{self, ScanOutcome, ScanProgress};
@@ -28,7 +26,7 @@ const WORDMARK: &str = include_str!("../../assets/wordmark.txt");
 
 const MIN_WIDTH: u16 = 60;
 const MIN_HEIGHT: u16 = 20;
-const INLINE_HEIGHT: u16 = 16;
+const INLINE_HEIGHT: u16 = 12;
 
 /// Why the interface declined to start. Every variant is a condition under which
 /// taking over the terminal would corrupt output or hang a pipeline, so each one
@@ -95,18 +93,15 @@ pub fn static_header() -> String {
     out
 }
 
-const SLEEP_AFTER: Duration = Duration::from_secs(60);
 const PROGRESS_POLL: Duration = Duration::from_millis(80);
 
 struct App {
     palette: Palette,
     wordmark: Sprite,
-    rex: Mascot,
     phase: Phase,
     root: String,
     updates: Receiver<ScanProgress>,
     worker: Option<JoinHandle<anyhow::Result<ScanOutcome>>>,
-    last_input: Instant,
     intent: Option<Intent>,
     needs_redraw: bool,
     path: PathBuf,
@@ -125,17 +120,13 @@ impl App {
         let (path, settings) = (root.to_path_buf(), config.clone());
         let worker = thread::spawn(move || scan::scan_with_progress(&path, &settings, sender));
 
-        let mut rex = Mascot::new();
-        rex.set_mood(Mood::Walking);
         Self {
             palette: Palette::detect(),
             wordmark: Sprite::parse(WORDMARK),
-            rex,
             phase: Phase::Scanning(ScanProgress::default()),
             root: display_root(root),
             updates,
             worker: Some(worker),
-            last_input: Instant::now(),
             intent: None,
             needs_redraw: true,
             path: root.to_path_buf(),
@@ -151,7 +142,6 @@ impl App {
             scan::scan_with_progress(&path, &settings, sender)
         }));
         self.phase = Phase::Scanning(ScanProgress::default());
-        self.rex.set_mood(Mood::Walking);
     }
 
     fn browsable(&self) -> bool {
@@ -159,10 +149,6 @@ impl App {
     }
 
     fn handle(&mut self, key: KeyEvent) {
-        self.last_input = Instant::now();
-        if self.rex.mood() == Mood::Sleeping {
-            self.rex.set_mood(Mood::Idle);
-        }
         if is_quit(key, matches!(self.phase, Phase::Scanning(_))) {
             self.intent = Some(Intent::Quit);
         } else if key.code == KeyCode::Enter && self.browsable() {
@@ -173,10 +159,10 @@ impl App {
         self.needs_redraw = true;
     }
 
-    /// Drains progress, adopts the finished scan, and advances the mascot. Returns
-    /// whether anything visible changed, so the loop redraws only when it did.
+    /// Drains progress and adopts the finished scan. Returns whether anything visible
+    /// changed, so the loop redraws only when it did.
     fn tick(&mut self) -> bool {
-        let mut changed = self.rex.tick();
+        let mut changed = false;
 
         while let Ok(progress) = self.updates.try_recv() {
             self.phase = Phase::Scanning(progress);
@@ -187,46 +173,21 @@ impl App {
             && let Some(worker) = self.worker.take()
         {
             self.phase = match worker.join() {
-                Ok(Ok(outcome)) => {
-                    // One beat when the hunt ends: a chomp per finding would strobe
-                    // at twenty-six thousand files a second.
-                    let clean = outcome.counts.health_score(outcome.code_lines) >= 90;
-                    self.rex.set_mood(match (outcome.counts.total, clean) {
-                        (0, _) | (_, true) => Mood::Roaring,
-                        _ => Mood::Chomping,
-                    });
-                    Phase::Done(Box::new(outcome))
-                }
-                Ok(Err(error)) => {
-                    self.rex.set_mood(Mood::Idle);
-                    Phase::Failed(error.to_string())
-                }
-                Err(_) => {
-                    self.rex.set_mood(Mood::Idle);
-                    Phase::Failed("the scan thread panicked".to_owned())
-                }
+                Ok(Ok(outcome)) => Phase::Done(Box::new(outcome)),
+                Ok(Err(error)) => Phase::Failed(error.to_string()),
+                Err(_) => Phase::Failed("the scan thread panicked".to_owned()),
             };
-            changed = true;
-        }
-
-        if self.worker.is_none()
-            && self.rex.mood() == Mood::Idle
-            && self.last_input.elapsed() > SLEEP_AFTER
-        {
-            self.rex.set_mood(Mood::Sleeping);
             changed = true;
         }
 
         changed
     }
 
-    /// Once the scan is done the only thing on a clock is the mascot, so the loop
-    /// sleeps until its next frame — seconds, during a held blink — rather than
-    /// waking on a fixed tick to discover nothing changed. Input wakes `poll`
-    /// immediately either way.
-    fn poll_timeout(&self) -> Duration {
-        let next_frame = self.rex.time_to_next_frame();
-        if self.worker.is_some() { next_frame.min(PROGRESS_POLL) } else { next_frame }
+    /// With nothing animating, a finished scan has no clock at all: the loop blocks on
+    /// input instead of waking to discover nothing changed. Only a running scan needs
+    /// a tick, to move its counter.
+    fn poll_timeout(&self) -> Option<Duration> {
+        self.worker.is_some().then_some(PROGRESS_POLL)
     }
 
     fn render(&self, frame: &mut Frame<'_>) {
@@ -235,7 +196,6 @@ impl App {
             &View {
                 palette: self.palette,
                 wordmark: &self.wordmark,
-                rex: &self.rex,
                 phase: &self.phase,
                 root: &self.root,
             },
@@ -332,7 +292,11 @@ fn run_inline(terminal: &mut DefaultTerminal, path: &Path, config: &RqxConfig) -
             terminal.draw(|frame| app.render(frame))?;
             app.needs_redraw = false;
         }
-        if event::poll(app.poll_timeout())? {
+        let ready = match app.poll_timeout() {
+            Some(timeout) => event::poll(timeout)?,
+            None => true,
+        };
+        if ready {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => app.handle(key),
                 Event::Resize(..) => app.needs_redraw = true,

@@ -109,6 +109,9 @@ import manufactures false "unused export" findings.
 (2ms for a file), hover for the full explanation, workspace health in the status
 bar.
 
+The interface has no animation and no mascot: it renders once per change and then
+blocks on input, so it costs nothing to leave open.
+
 ## CI
 
 `rqx check --base main` reviews the changed files plus everything that imports

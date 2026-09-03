@@ -5,7 +5,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
 use super::brand::{Ink, Palette, TAGLINE};
-use super::mascot::Mascot;
 use super::sprite::Sprite;
 use crate::scan::{ScanOutcome, ScanProgress};
 
@@ -18,7 +17,6 @@ pub enum Phase {
 pub struct View<'a> {
     pub palette: Palette,
     pub wordmark: &'a Sprite,
-    pub rex: &'a Mascot,
     pub phase: &'a Phase,
     pub root: &'a str,
 }
@@ -53,11 +51,7 @@ fn render_head(frame: &mut Frame<'_>, view: &View<'_>, area: Rect) {
 }
 
 fn render_body(frame: &mut Frame<'_>, view: &View<'_>, area: Rect) {
-    let [rex, stats] =
-        Layout::horizontal([Constraint::Length(view.rex.width() + 2), Constraint::Min(0)])
-            .areas(area);
-    frame.render_widget(Paragraph::new(view.rex.sprite().render(view.palette)), rex);
-    frame.render_widget(Paragraph::new(stat_lines(view)), stats);
+    frame.render_widget(Paragraph::new(stat_lines(view)), area);
 }
 
 fn stat_lines(view: &View<'_>) -> Vec<Line<'static>> {
@@ -206,7 +200,6 @@ mod snapshots {
     use std::sync::Arc;
 
     use super::super::brand::ColorDepth;
-    use super::super::mascot::{Mascot, Mood};
     use super::*;
 
     const WORDMARK: &str = include_str!("../../assets/wordmark.txt");
@@ -245,10 +238,8 @@ mod snapshots {
         }
     }
 
-    fn draw(phase: Phase, mood: Mood, width: u16, height: u16) -> String {
+    fn draw(phase: Phase, width: u16, height: u16) -> String {
         let wordmark = Sprite::parse(WORDMARK);
-        let mut rex = Mascot::new();
-        rex.set_mood(mood);
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
         terminal
             .draw(|frame| {
@@ -257,7 +248,6 @@ mod snapshots {
                     &View {
                         palette: Palette::with_depth(ColorDepth::Monochrome),
                         wordmark: &wordmark,
-                        rex: &rex,
                         phase: &phase,
                         root: "src",
                     },
@@ -279,7 +269,7 @@ mod snapshots {
 
     #[test]
     fn a_finished_scan_shows_the_score_the_counts_and_the_browse_key() {
-        let rendered = draw(Phase::Done(Box::new(outcome(7))), Mood::Idle, 80, 16);
+        let rendered = draw(Phase::Done(Box::new(outcome(7))), 80, 16);
         assert!(rendered.contains("Health"), "{rendered}");
         assert!(rendered.contains("7 findings in 340 files"), "{rendered}");
         assert!(rendered.contains("long-function"), "{rendered}");
@@ -289,7 +279,7 @@ mod snapshots {
 
     #[test]
     fn a_clean_scan_does_not_offer_a_browser_with_nothing_in_it() {
-        let rendered = draw(Phase::Done(Box::new(outcome(0))), Mood::Idle, 80, 16);
+        let rendered = draw(Phase::Done(Box::new(outcome(0))), 80, 16);
         assert!(!rendered.contains("enter browse"), "{rendered}");
         assert!(rendered.contains("q quit"), "{rendered}");
     }
@@ -297,24 +287,24 @@ mod snapshots {
     #[test]
     fn a_running_scan_shows_live_counts_and_a_cancel_key() {
         let phase = Phase::Scanning(ScanProgress { files_scanned: 8412, findings: 331 });
-        let rendered = draw(phase, Mood::Walking, 80, 16);
+        let rendered = draw(phase, 80, 16);
         assert!(rendered.contains("8,412 files"), "{rendered}");
         assert!(rendered.contains("331 findings"), "{rendered}");
         assert!(rendered.contains("esc cancel"), "{rendered}");
     }
 
-    /// The mascot is the first thing clipped when the layout is wrong, and it fails
-    /// silently — the screen still renders, just without a dinosaur on it.
+    /// A layout mistake eats the wordmark silently: the screen still renders, just
+    /// without the thing that identifies it.
     #[test]
-    fn rex_is_drawn_and_not_clipped_away() {
-        let rendered = draw(Phase::Done(Box::new(outcome(7))), Mood::Idle, 80, 16);
+    fn the_wordmark_is_drawn_and_not_clipped_away() {
+        let rendered = draw(Phase::Done(Box::new(outcome(7))), 80, 16);
         let blocks = rendered.chars().filter(|c| "\u{2588}\u{2580}\u{2584}".contains(*c)).count();
-        assert!(blocks > 120, "expected a wordmark and a dinosaur, got {blocks} block glyphs");
+        assert!(blocks > 20, "expected the wordmark, got {blocks} block glyphs");
     }
 
     #[test]
     fn the_minimum_supported_terminal_still_renders_without_panicking() {
-        let rendered = draw(Phase::Done(Box::new(outcome(7))), Mood::Idle, 60, 20);
+        let rendered = draw(Phase::Done(Box::new(outcome(7))), 60, 20);
         assert!(rendered.contains("Health"), "{rendered}");
     }
 }
