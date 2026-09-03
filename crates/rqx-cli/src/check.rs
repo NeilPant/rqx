@@ -81,14 +81,19 @@ pub fn judge(review: &Review, config: &RqxConfig) -> Verdict {
         .outcome
         .counts
         .weighted_health_score(review.outcome.code_lines, &review.outcome.impact);
-    verdict(counted, health, config)
+    let mut judgement = verdict(counted, health, config);
+    judgement.failures.extend(grade_failures(&review.outcome, &review.reviewed, config));
+    judgement
 }
 
 /// A whole-project gate counts from `counts`, which is exact, rather than from the
 /// retained findings, which the display cap has already thinned.
 pub fn judge_scan(outcome: &ScanOutcome, config: &RqxConfig) -> Verdict {
     let Some(threshold) = threshold(config) else {
-        return Verdict { failures: Vec::new(), counted: 0 };
+        return Verdict {
+            failures: grade_failures(outcome, &outcome.analyzed, config),
+            counted: 0,
+        };
     };
     let counted = outcome
         .counts
@@ -98,7 +103,9 @@ pub fn judge_scan(outcome: &ScanOutcome, config: &RqxConfig) -> Verdict {
         .map(|(_, count)| *count)
         .sum();
     let health = outcome.counts.weighted_health_score(outcome.code_lines, &outcome.impact);
-    verdict(counted, health, config)
+    let mut judgement = verdict(counted, health, config);
+    judgement.failures.extend(grade_failures(outcome, &outcome.analyzed, config));
+    judgement
 }
 
 const fn threshold(config: &RqxConfig) -> Option<Severity> {
@@ -108,6 +115,45 @@ const fn threshold(config: &RqxConfig) -> Option<Severity> {
         GateSeverity::Warning => Some(Severity::Warning),
         GateSeverity::Info => Some(Severity::Info),
     }
+}
+
+/// A single file rotting on its own is invisible to a project-wide score, which is
+/// why the grade gate looks per file rather than at the average.
+fn grade_failures(
+    outcome: &ScanOutcome,
+    files: &BTreeSet<String>,
+    config: &RqxConfig,
+) -> Vec<String> {
+    let Some(floor) = config.gate.min_grade.floor() else {
+        return Vec::new();
+    };
+    let mut below: Vec<(&str, rqx_core::Cleanliness)> = files
+        .iter()
+        .filter_map(|file| {
+            let lines = outcome.lines_by_file.get(file.as_str()).copied().unwrap_or(0);
+            let findings = outcome.findings_by_file.get(file.as_str()).copied().unwrap_or(0);
+            let grade = rqx_core::Cleanliness::of(
+                outcome.counts.file_score(file, lines),
+                findings,
+            );
+            (grade < floor).then_some((file.as_str(), grade))
+        })
+        .collect();
+    below.sort_by(|left, right| left.1.cmp(&right.1).then(left.0.cmp(right.0)));
+
+    below
+        .first()
+        .map(|(file, grade)| {
+            let extra = below.len() - 1;
+            let tail = if extra > 0 { format!(" and {extra} more") } else { String::new() };
+            format!(
+                "`{file}` grades {} against a floor of {}{tail}",
+                grade.label(),
+                floor.label()
+            )
+        })
+        .into_iter()
+        .collect()
 }
 
 fn verdict(counted: u32, health: u32, config: &RqxConfig) -> Verdict {

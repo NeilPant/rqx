@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use serde::Deserialize;
 
 use crate::rule::{Analysis, RuleId};
+use crate::score::Cleanliness;
 
 pub const CONFIG_FILE_NAME: &str = "rqx.toml";
 
@@ -19,7 +20,7 @@ pub struct RqxConfig {
 
 /// What makes `rqx check` fail. Defaults are deliberately permissive: a gate that
 /// fails on day one gets disabled on day one, and a disabled gate checks nothing.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash)]
 #[serde(default, deny_unknown_fields)]
 pub struct Gate {
     /// Findings allowed in the reviewed set before the check fails.
@@ -28,9 +29,36 @@ pub struct Gate {
     pub fail_on: GateSeverity,
     /// Health score below which the check fails; 0 disables the score gate.
     pub min_health: u32,
+    /// Lowest grade any single file may carry. Catches a file rotting on its own,
+    /// which a project-wide score averages away.
+    pub min_grade: GateGrade,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GateGrade {
+    Pristine,
+    Clean,
+    Fair,
+    Poor,
+    Critical,
+    Never,
+}
+
+impl GateGrade {
+    pub const fn floor(self) -> Option<Cleanliness> {
+        match self {
+            Self::Never => None,
+            Self::Pristine => Some(Cleanliness::Pristine),
+            Self::Clean => Some(Cleanliness::Clean),
+            Self::Fair => Some(Cleanliness::Fair),
+            Self::Poor => Some(Cleanliness::Poor),
+            Self::Critical => Some(Cleanliness::Critical),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum GateSeverity {
     Error,
@@ -41,7 +69,12 @@ pub enum GateSeverity {
 
 impl Default for Gate {
     fn default() -> Self {
-        Self { max_findings: 0, fail_on: GateSeverity::Error, min_health: 0 }
+        Self {
+            max_findings: 0,
+            fail_on: GateSeverity::Error,
+            min_health: 0,
+            min_grade: GateGrade::Never,
+        }
     }
 }
 

@@ -63,6 +63,9 @@ pub struct ScanOutcome {
     /// Findings per file before the display cap, so a file with nothing to report
     /// can be told from one whose findings the cap dropped.
     pub findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    /// Code lines per file, so a file can be graded on its own density rather than
+    /// on the project's.
+    pub lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -120,6 +123,7 @@ struct Collector {
     retained: BinaryHeap<Reverse<Ranked>>,
     max_findings: usize,
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     clone_groups: HashMap<u64, CloneGroup>,
     modules: Vec<rqx_ts::module_graph::ModuleEntry>,
     analyzed: std::collections::BTreeSet<String>,
@@ -147,6 +151,7 @@ impl Collector {
             retained: BinaryHeap::new(),
             max_findings,
             findings_by_file: std::collections::BTreeMap::new(),
+            lines_by_file: std::collections::BTreeMap::new(),
             clone_groups: HashMap::new(),
             modules: Vec::new(),
             analyzed: std::collections::BTreeSet::new(),
@@ -550,6 +555,7 @@ impl Collector {
             import_edges: self.import_edges,
             findings,
             findings_by_file: self.findings_by_file,
+            lines_by_file: self.lines_by_file,
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -654,6 +660,7 @@ fn collect(
                     collector.record_clone(site);
                 }
                 let display = relative_to(root, &path);
+                collector.lines_by_file.insert(Arc::from(display.as_str()), code_lines);
                 collector.report_progress(&display);
                 collector.analyzed.insert(display);
                 if collector.track_modules {

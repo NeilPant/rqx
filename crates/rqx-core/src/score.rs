@@ -42,6 +42,16 @@ impl FindingCounts {
         }
     }
 
+    /// One file's own score, on the same curve as the project's. A second formula
+    /// would let a file grade well while dragging the total down.
+    pub fn file_score(&self, file: &str, lines: u32) -> u32 {
+        decay(self.weighted_by_file.get(file).copied().unwrap_or(0.0), u64::from(lines))
+    }
+
+    pub fn findings_in(&self, file: &str) -> bool {
+        self.weighted_by_file.contains_key(file)
+    }
+
     pub fn health_score(&self, loc: u64) -> u32 {
         self.weighted_health_score(loc, &ImpactMap::default())
     }
@@ -50,16 +60,61 @@ impl FindingCounts {
     /// actually cost: a smell in a hub everyone edits outweighs the same smell in a
     /// leaf nobody touches.
     pub fn weighted_health_score(&self, loc: u64, impact: &ImpactMap) -> u32 {
-        if loc == 0 {
-            return 100;
-        }
         let weighted: f64 = self
             .weighted_by_file
             .iter()
             .map(|(file, weight)| weight * impact.get(file).multiplier())
             .sum();
-        let density = weighted / ((loc as f64 + SMOOTHING_LINES) / 1000.0);
-        (100.0 * (-density / DECAY_DENSITY).exp()).round() as u32
+        decay(weighted, loc)
+    }
+}
+
+fn decay(weighted: f64, loc: u64) -> u32 {
+    if loc == 0 {
+        return 100;
+    }
+    let density = weighted / ((loc as f64 + SMOOTHING_LINES) / 1000.0);
+    (100.0 * (-density / DECAY_DENSITY).exp()).round() as u32
+}
+
+/// How clean one file is, as a word rather than a number. Sorting by this answers
+/// "what do I open first", which neither a per-finding severity nor a single
+/// project-wide score can.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Cleanliness {
+    Critical,
+    Poor,
+    Fair,
+    Clean,
+    /// Nothing to report at all, which is a different answer from "a couple of small
+    /// things" and worth keeping separate.
+    Pristine,
+}
+
+impl Cleanliness {
+    pub const ALL: [Self; 5] =
+        [Self::Critical, Self::Poor, Self::Fair, Self::Clean, Self::Pristine];
+
+    pub const fn of(score: u32, findings: u32) -> Self {
+        if findings == 0 {
+            return Self::Pristine;
+        }
+        match score {
+            90..=100 => Self::Clean,
+            70..=89 => Self::Fair,
+            50..=69 => Self::Poor,
+            _ => Self::Critical,
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Pristine => "pristine",
+            Self::Clean => "clean",
+            Self::Fair => "fair",
+            Self::Poor => "poor",
+            Self::Critical => "critical",
+        }
     }
 }
 

@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use rqx_core::config::{CONFIG_FILE_NAME, GateSeverity, RqxConfig};
+use rqx_core::config::{CONFIG_FILE_NAME, GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 use rqx_core::rule::RuleId;
 
@@ -13,6 +13,7 @@ mod cache;
 mod check;
 mod history;
 mod lsp;
+mod preview;
 mod report;
 mod scan;
 mod tui;
@@ -123,6 +124,9 @@ struct View {
     /// Print the summary without the findings
     #[arg(short, long)]
     quiet: bool,
+    /// Lines of code shown either side of a finding
+    #[arg(long, default_value_t = 2)]
+    context: u32,
     /// Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable
     #[arg(long = "reporter", value_name = "NAME[=PATH]")]
     reporters: Vec<Sink>,
@@ -144,11 +148,40 @@ struct Gate {
     /// Health score below which the run fails; 0 disables
     #[arg(long)]
     min_health: Option<u32>,
+    /// Lowest grade any single file may carry
+    #[arg(long, value_enum)]
+    min_grade: Option<MinGrade>,
+}
+
+#[derive(Copy, Clone, ValueEnum)]
+enum MinGrade {
+    Pristine,
+    Clean,
+    Fair,
+    Poor,
+    Critical,
+    Never,
+}
+
+impl From<MinGrade> for GateGrade {
+    fn from(value: MinGrade) -> Self {
+        match value {
+            MinGrade::Pristine => Self::Pristine,
+            MinGrade::Clean => Self::Clean,
+            MinGrade::Fair => Self::Fair,
+            MinGrade::Poor => Self::Poor,
+            MinGrade::Critical => Self::Critical,
+            MinGrade::Never => Self::Never,
+        }
+    }
 }
 
 impl Gate {
     fn is_set(&self) -> bool {
-        self.fail_on.is_some() || self.allow_findings.is_some() || self.min_health.is_some()
+        self.fail_on.is_some()
+            || self.allow_findings.is_some()
+            || self.min_health.is_some()
+            || self.min_grade.is_some()
     }
 
     fn apply(&self, config: &mut RqxConfig) {
@@ -160,6 +193,9 @@ impl Gate {
         }
         if let Some(health) = self.min_health {
             config.gate.min_health = health;
+        }
+        if let Some(grade) = self.min_grade {
+            config.gate.min_grade = grade.into();
         }
     }
 }
@@ -278,6 +314,7 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
             palette: Palette::with_depth(ColorDepth::Monochrome),
             show_passed: view.show_passed,
             quiet: view.quiet,
+            context: view.context,
         };
         match &sink.path {
             Some(path) => {
@@ -403,12 +440,17 @@ fn run() -> Result<i32> {
             let sinks = sinks(&view)?;
             let filter = filter_of(&view)?;
             let outcome = scan::scan(&path, &settings)?;
-            let report = Report::scan(&outcome, &filter);
-            emit(&report, &sinks, &view, palette)?;
 
-            // A bare `rqx scan` reports; it only gates when asked to, so adding the
-            // flag is the whole opt-in and no existing pipeline changes meaning.
-            Ok(if gate.is_set() && !check::judge_scan(&outcome, &settings).passed() { 1 } else { 0 })
+            // A bare `rqx scan` reports; it only gates when asked to, so adding a flag
+            // is the whole opt-in and no existing pipeline changes meaning.
+            let verdict = gate.is_set().then(|| check::judge_scan(&outcome, &settings));
+            let report = Report::scan(&outcome, &filter);
+            let report = match &verdict {
+                Some(verdict) => report.judged(verdict),
+                None => report,
+            };
+            emit(&report, &sinks, &view, palette)?;
+            Ok(i32::from(verdict.is_some_and(|verdict| !verdict.passed())))
         }
         Command::Explain { rule } => {
             let Some(rule) = RuleId::parse(&rule) else {

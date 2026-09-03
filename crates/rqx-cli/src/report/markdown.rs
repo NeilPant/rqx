@@ -41,6 +41,17 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         }
     }
 
+    let grades = report.grades();
+    if grades.values().any(|count| *count > 0) {
+        writeln!(out, "\n| Grade | Files |\n| --- | ---: |")?;
+        for grade in rqx_core::Cleanliness::ALL.iter().rev() {
+            let count = grades.get(grade).copied().unwrap_or(0);
+            if count > 0 {
+                writeln!(out, "| {} | {count} |", grade.label())?;
+            }
+        }
+    }
+
     if !report.findings.is_empty() {
         writeln!(out, "\n### Start with these\n")?;
         for finding in report.findings.iter().take(TOP_FINDINGS) {

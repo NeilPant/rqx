@@ -13,6 +13,7 @@ use std::io::Write;
 
 use anyhow::Result;
 use clap::ValueEnum;
+use rqx_core::Cleanliness;
 use rqx_core::finding::{Finding, Severity};
 
 use crate::check::{Review, Verdict};
@@ -97,6 +98,13 @@ impl<'a> Report<'a> {
         }
     }
 
+    /// A scan gates only when asked to, so the verdict is attached rather than built
+    /// in: without this the run exits non-zero having explained nothing.
+    pub fn judged(mut self, verdict: &'a Verdict) -> Self {
+        self.verdict = Some(verdict);
+        self
+    }
+
     pub fn review(review: &'a Review, verdict: &'a Verdict, filter: &FindingFilter) -> Self {
         Self {
             outcome: &review.outcome,
@@ -125,6 +133,45 @@ impl<'a> Report<'a> {
             text if text.is_empty() => String::new(),
             text => format!("{text}/"),
         }
+    }
+
+    /// One file's grade, on the project's own curve applied to that file's lines.
+    pub fn grade_of(&self, file: &str) -> Cleanliness {
+        let lines = self.outcome.lines_by_file.get(file).copied().unwrap_or(0);
+        let findings = self.outcome.findings_by_file.get(file).copied().unwrap_or(0);
+        Cleanliness::of(self.outcome.counts.file_score(file, lines), findings)
+    }
+
+    pub fn grades(&self) -> BTreeMap<Cleanliness, u32> {
+        let mut grades = BTreeMap::new();
+        for file in self.files {
+            *grades.entry(self.grade_of(file)).or_default() += 1;
+        }
+        grades
+    }
+
+    /// What to open first. The grade already carries how dense a file's problems are,
+    /// so blast radius only breaks ties — which is why a hot file with nothing wrong
+    /// stops being recommended.
+    pub fn priority(&self) -> Vec<(&'a str, Cleanliness)> {
+        let mut ranked: Vec<(&'a str, Cleanliness)> = self
+            .totals_by_file()
+            .into_keys()
+            .map(|file| (file, self.grade_of(file)))
+            .collect();
+        ranked.sort_by(|left, right| {
+            left.1
+                .cmp(&right.1)
+                .then_with(|| {
+                    self.outcome
+                        .impact
+                        .get(right.0)
+                        .multiplier()
+                        .total_cmp(&self.outcome.impact.get(left.0).multiplier())
+                })
+                .then_with(|| left.0.cmp(right.0))
+        });
+        ranked
     }
 
     pub fn health(&self) -> u32 {
@@ -210,6 +257,7 @@ pub mod tests {
             import_edges: BTreeMap::new(),
             findings: Vec::new(),
             findings_by_file: BTreeMap::new(),
+            lines_by_file: BTreeMap::new(),
             omitted: 0,
             code_lines: 10_000,
             files_scanned,

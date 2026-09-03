@@ -53,6 +53,10 @@ impl<'src> LineIndex<'src> {
         self.source[start..end].trim_end_matches(['\n', '\r'])
     }
 
+    pub fn line_count(&self) -> u32 {
+        self.starts.len() as u32
+    }
+
     pub fn code_lines(&self) -> u32 {
         self.source.lines().filter(|line| !line.trim().is_empty()).count() as u32
     }

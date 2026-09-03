@@ -483,3 +483,40 @@ fn disabling_three_families_does_not_silence_the_others() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A finding whose span is the whole file used to print no code at all, and a span
+/// crossing lines printed only its first.
+#[test]
+fn every_finding_shows_the_code_it_is_about() {
+    let whole_file = run(&["scan", &fixtures_dir(), "--rule", "unused-file"]);
+    let text = String::from_utf8(whole_file.stdout).unwrap();
+    assert!(text.contains("1 \u{2502}"), "a whole-file finding shows no code:\n{text}");
+
+    let spanning = run(&["scan", &fixtures_dir(), "--rule", "long-function", "--context", "0"]);
+    let text = String::from_utf8(spanning.stdout).unwrap();
+    assert!(text.contains("^^^"), "the offending columns are not marked:\n{text}");
+}
+
+/// A grade is per file, so one file rotting is visible where a project-wide average
+/// hides it, and the gate can fail on that alone.
+#[test]
+fn the_grade_ranks_files_and_can_gate_on_one_of_them() {
+    let report = run(&["scan", &fixtures_dir()]);
+    let text = String::from_utf8(report.stdout).unwrap();
+    assert!(text.contains("Grades"), "no grade distribution:\n{text}");
+    assert!(text.contains("critical"), "no file graded:\n{text}");
+    assert!(
+        !text.split("Start here").nth(1).unwrap_or_default().contains("clean.ts"),
+        "a file with no findings should not be recommended:\n{text}"
+    );
+
+    // With the severity gate off, the grade is the only thing that can fail the run.
+    let dir = fixtures_dir();
+    let graded = ["scan", &dir, "--fail-on", "never", "--min-grade", "poor"];
+    assert_eq!(run(&graded).status.code(), Some(1));
+    let ungraded = ["scan", &dir, "--fail-on", "never", "--min-grade", "never"];
+    assert_eq!(run(&ungraded).status.code(), Some(0));
+
+    let failure = String::from_utf8(run(&graded).stdout).unwrap();
+    assert!(failure.contains("against a floor of poor"), "{failure}");
+}

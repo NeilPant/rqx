@@ -236,6 +236,7 @@ mod snapshots {
             import_edges: Default::default(),
             findings: Vec::new(),
             findings_by_file: std::collections::BTreeMap::new(),
+            lines_by_file: std::collections::BTreeMap::new(),
             omitted: 0,
             code_lines: 12_000,
             files_scanned: 340,

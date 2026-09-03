@@ -13,7 +13,7 @@ pub use impact::{Impact, ImpactMap};
 pub use finding::{Confidence, Evidence, Finding, Severity, SourceRange};
 pub use rule::{RuleId, RuleSpec};
 pub use technique::{FixTechnique, Group, Origin};
-pub use score::FindingCounts;
+pub use score::{Cleanliness, FindingCounts};
 pub use coverage::{Coverage, Tally};
 pub use heuristic::{Chapter, Heuristic};
 pub use smell::Smell;

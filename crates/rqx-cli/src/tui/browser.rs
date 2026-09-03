@@ -408,6 +408,7 @@ mod tests {
             import_edges: Default::default(),
             findings,
             findings_by_file: std::collections::BTreeMap::new(),
+            lines_by_file: std::collections::BTreeMap::new(),
             omitted: 0,
             code_lines: 900,
             files_scanned: 2,

@@ -1,11 +1,13 @@
 use std::io::Write;
 
 use anyhow::Result;
+use rqx_core::Cleanliness;
 use rqx_core::finding::{Finding, Severity};
 use rqx_core::rule::RuleId;
 use rqx_ts::LineIndex;
 
 use crate::brand::{Ink, Palette, paint, score_ink};
+use crate::preview::{self, HEAD_LINES};
 use crate::report::{Report, plural};
 use crate::scan::ScanOutcome;
 
@@ -15,14 +17,14 @@ pub struct Layout {
     pub palette: Palette,
     pub show_passed: bool,
     pub quiet: bool,
+    /// Lines of unmarked code shown either side of the offence.
+    pub context: u32,
 }
 
 const LABEL_WIDTH: usize = 10;
 const MAX_RULE_ROWS: usize = 8;
 const MAX_SKIPPED_ROWS: usize = 10;
 const HOTSPOTS: usize = 3;
-/// Ranked before the in-scope filter, so a review still has hot files to choose from.
-const HOTSPOT_CANDIDATES: usize = 64;
 
 pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
     let shown = report.shown_by_file();
@@ -83,8 +85,7 @@ fn write_file(
     findings: &[&Finding],
     total: Option<u32>,
 ) -> Result<()> {
-    let worst = findings.iter().map(|finding| finding.severity).max().unwrap_or(Severity::Info);
-    let badge = if worst == Severity::Error { Ink::Danger } else { Ink::Warn };
+    let grade = report.grade_of(file);
     let total = total.unwrap_or(findings.len() as u32);
     let tally = if total as usize == findings.len() {
         plural(total, "finding", "findings")
@@ -94,10 +95,11 @@ fn write_file(
 
     writeln!(
         out,
-        "\n {}  {}  {}",
-        paint(layout.palette.badge(badge), " FAIL "),
+        "\n {}  {}  {} {}",
+        paint(layout.palette.badge(grade_ink(grade)), " FAIL "),
         format_args!("{prefix}{file}"),
-        paint(layout.palette.style(Ink::Muted), tally)
+        paint(layout.palette.style(grade_ink(grade)), grade.label()),
+        paint(layout.palette.style(Ink::Muted), format!("\u{b7} {tally}"))
     )?;
 
     if layout.quiet {
@@ -111,6 +113,15 @@ fn write_file(
         write_finding(out, layout, finding, index.as_ref(), cost.as_deref())?;
     }
     Ok(())
+}
+
+const fn grade_ink(grade: Cleanliness) -> Ink {
+    match grade {
+        Cleanliness::Pristine | Cleanliness::Clean => Ink::Good,
+        Cleanliness::Fair => Ink::Accent,
+        Cleanliness::Poor => Ink::Warn,
+        Cleanliness::Critical => Ink::Danger,
+    }
 }
 
 fn severity_ink(severity: Severity) -> Ink {
@@ -141,7 +152,7 @@ fn write_finding(
     )?;
 
     if let Some(index) = index {
-        write_excerpt(out, palette, finding, index)?;
+        write_excerpt(out, layout, finding, index)?;
     }
 
     let dim = palette.style(Ink::Muted);
@@ -170,36 +181,57 @@ fn write_finding(
 /// dropped instead of underlining the wrong code.
 fn write_excerpt(
     out: &mut dyn Write,
-    palette: Palette,
+    layout: &Layout,
     finding: &Finding,
     index: &LineIndex<'_>,
 ) -> Result<()> {
-    let line_number = finding.location.line;
-    let text = index.line_text(line_number);
-    let column = finding.location.column as usize;
-    if text.trim().is_empty() || column == 0 || column > text.chars().count() + 1 {
+    let Some(view) = preview::of(index, &finding.location, layout.context) else {
         return Ok(());
-    }
-
-    let (end_line, end_column) = index.locate(finding.location.end);
-    let width = if end_line == line_number {
-        (end_column.saturating_sub(finding.location.column) as usize).max(1)
-    } else {
-        text.chars().count() + 1 - column
     };
-
+    let palette = layout.palette;
     let dim = palette.style(Ink::Muted);
-    let gutter = format!("{line_number:>6}");
-    writeln!(out, "{} {} {}", paint(dim, gutter), paint(dim, "\u{2502}"), text.trim_end())?;
-    let leading = text.chars().take(column - 1).map(|c| if c == '\t' { '\t' } else { ' ' });
-    let caret: String = leading.chain(std::iter::repeat_n('^', width)).collect();
-    writeln!(
-        out,
-        "{:6} {} {}",
-        "",
-        paint(dim, "\u{2502}"),
-        paint(palette.style(Ink::Warn), caret)
-    )?;
+    let ink = severity_ink(finding.severity);
+    let mut elided = view.elided;
+
+    for (position, line) in view.lines.iter().enumerate() {
+        if elided > 0 && position == HEAD_LINES + usize::from(layout.context > 0) * layout.context as usize {
+            writeln!(
+                out,
+                "{:6} {} {}",
+                "",
+                paint(dim, "\u{22ee}"),
+                paint(dim, format!("{elided} more lines"))
+            )?;
+            elided = 0;
+        }
+        // Context is dimmed so the eye lands on the offending lines first; without it
+        // a five-line window reads as five equally important lines.
+        let body = match (&line.mark, line.role, palette.is_monochrome()) {
+            (Some(mark), _, false) => format!(
+                "{}{}{}",
+                &line.text[..mark.start],
+                paint(palette.mark(ink), &line.text[mark.clone()]),
+                &line.text[mark.end..]
+            ),
+            (_, preview::Role::Context, false) => paint(dim, &line.text),
+            _ => line.text.clone(),
+        };
+        writeln!(
+            out,
+            "{} {} {}",
+            paint(dim, format!("{:>6}", line.number)),
+            paint(dim, "\u{2502}"),
+            body
+        )?;
+
+        // Kept under the highlight rather than replaced by it: a terminal that drops
+        // background colour, or a run with `--color never`, still shows what is meant.
+        if let Some((lead, width)) = line.ruler() {
+            let caret: String =
+                " ".repeat(lead).chars().chain(std::iter::repeat_n('^', width)).collect();
+            writeln!(out, "{:6} {} {}", "", paint(dim, "\u{2502}"), paint(palette.style(ink), caret))?;
+        }
+    }
     Ok(())
 }
 
@@ -262,6 +294,22 @@ fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
             ink: None,
         },
         Row { label: "Findings", value: findings, ink: None },
+        Row {
+            label: "Grades",
+            value: {
+                let grades = report.grades();
+                Cleanliness::ALL
+                    .iter()
+                    .rev()
+                    .filter_map(|grade| {
+                        let count = grades.get(grade).copied().unwrap_or(0);
+                        (count > 0).then(|| format!("{count} {}", grade.label()))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" \u{b7} ")
+            },
+            ink: None,
+        },
         Row {
             label: "Rules",
             value: format!("{} of {} fired", report.totals.rules_fired, RuleId::ALL.len()),
@@ -334,23 +382,17 @@ fn write_hotspots(
     if report.totals.findings == 0 {
         return Ok(());
     }
-    let with_findings = report.totals_by_file();
-    let hotspots: Vec<_> = report
-        .outcome
-        .impact
-        .hotspots(HOTSPOT_CANDIDATES)
-        .into_iter()
-        .filter(|(file, _)| with_findings.contains_key(file))
-        .take(HOTSPOTS)
-        .collect();
-    if hotspots.is_empty() {
+    let ranked = report.priority();
+    if ranked.is_empty() {
         return Ok(());
     }
     writeln!(out, "\n  {}", paint(layout.palette.style(Ink::Text).bold(), "Start here"))?;
-    for (file, impact) in hotspots {
+    for (file, grade) in ranked.into_iter().take(HOTSPOTS) {
+        let impact = report.outcome.impact.get(file);
         writeln!(
             out,
-            "    {}  {}",
+            "    {:10} {}  {}",
+            paint(layout.palette.style(grade_ink(grade)), grade.label()),
             format_args!("{prefix}{file}"),
             paint(
                 layout.palette.style(Ink::Muted),
@@ -408,11 +450,22 @@ mod tests {
 
     use super::*;
 
+    /// Found by label rather than by position: the summary gains rows over time, and
+    /// an index makes every one of these tests fail for the wrong reason.
+    fn row(rows: &[Row], label: &str) -> String {
+        rows.iter()
+            .find(|row| row.label == label)
+            .unwrap_or_else(|| panic!("no {label} row"))
+            .value
+            .clone()
+    }
+
     fn layout() -> Layout {
         Layout {
             palette: Palette::with_depth(ColorDepth::Monochrome),
             show_passed: false,
             quiet: false,
+            context: 1,
         }
     }
 
@@ -421,8 +474,8 @@ mod tests {
         let outcome = outcome_with(&[("a.ts", Severity::Error), ("a.ts", Severity::Warning)], 4);
         let report = Report::scan(&outcome, &FindingFilter::default());
         let rows = summary_rows(&report, report.totals_by_file().len());
-        assert_eq!(rows[0].value, "1 with findings \u{b7} 3 clean \u{b7} 4 scanned");
-        assert_eq!(rows[1].value, "1 errors \u{b7} 1 warnings \u{b7} 0 info");
+        assert_eq!(row(&rows, "Files"), "1 with findings \u{b7} 3 clean \u{b7} 4 scanned");
+        assert_eq!(row(&rows, "Findings"), "1 errors \u{b7} 1 warnings \u{b7} 0 info");
     }
 
     #[test]
@@ -431,7 +484,8 @@ mod tests {
         let filter = FindingFilter::new(Some(Severity::Error), &[], &[], &[]).unwrap();
         let report = Report::scan(&outcome, &filter);
         let rows = summary_rows(&report, report.totals_by_file().len());
-        assert!(rows[1].value.ends_with("1 not shown"), "{}", rows[1].value);
+        let findings = row(&rows, "Findings");
+        assert!(findings.ends_with("1 not shown"), "{findings}");
     }
 
     #[test]
@@ -439,8 +493,9 @@ mod tests {
         let outcome = outcome_with(&[], 12);
         let report = Report::scan(&outcome, &FindingFilter::default());
         let rows = summary_rows(&report, 0);
-        assert_eq!(rows[0].value, "0 with findings \u{b7} 12 clean \u{b7} 12 scanned");
-        assert_eq!(rows[3].value, "100/100");
+        assert_eq!(row(&rows, "Files"), "0 with findings \u{b7} 12 clean \u{b7} 12 scanned");
+        assert_eq!(row(&rows, "Health"), "100/100");
+        assert_eq!(row(&rows, "Grades"), "12 pristine");
     }
 
     #[test]

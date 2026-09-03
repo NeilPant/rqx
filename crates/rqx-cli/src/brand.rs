@@ -182,6 +182,17 @@ impl Palette {
         }
     }
 
+    /// Marks a span inside a line of code. Reversed rather than tinted, because code
+    /// on screen usually already carries the terminal's own colours.
+    pub fn mark(self, ink: Ink) -> anstyle::Style {
+        match self.plain_color(ink) {
+            Some(color) => {
+                anstyle::Style::new().bg_color(Some(color)).fg_color(self.plain_color(Ink::Ground))
+            }
+            None => anstyle::Style::new().underline(),
+        }
+    }
+
     /// Reversed rather than coloured, so a status word keeps its weight at every
     /// depth — with no colour at all the word alone still has to carry the verdict.
     pub fn badge(self, ink: Ink) -> anstyle::Style {

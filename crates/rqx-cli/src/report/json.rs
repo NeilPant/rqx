@@ -28,6 +28,9 @@ struct JsonSummary<'a> {
     omitted: u32,
     counts: &'a rqx_core::score::FindingCounts,
     skipped: Vec<String>,
+    /// Grade per file in scope, so a consumer can gate on one file rotting rather
+    /// than on an average that hides it.
+    grades: std::collections::BTreeMap<String, &'static str>,
     /// Present only for `check`, so a scan's summary keeps the shape its consumers
     /// already parse.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,6 +77,11 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
             .skipped
             .iter()
             .map(|(path, reason)| format!("{}: {reason}", path.display()))
+            .collect(),
+        grades: report
+            .files
+            .iter()
+            .map(|file| (file.clone(), report.grade_of(file).label()))
             .collect(),
         review: report.base.zip(report.verdict).map(|(base, verdict)| JsonReview {
             base,
