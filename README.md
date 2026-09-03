@@ -125,6 +125,22 @@ fail_on = "warning"
 max_findings = 0
 ```
 
+## Working on it
+
+```
+./rqx scan ../some-project      # runs from the source tree, no install
+RQX_RELEASE=1 ./rqx scan .      # optimised, for timing runs
+cargo rqx rules                 # same thing through cargo
+cargo test --workspace
+```
+
+`./rqx` builds and then execs the binary rather than using `cargo run`, so cargo's
+progress output never lands in the middle of the interface, and paths still resolve
+against your own working directory. Build output goes to stderr, so
+`./rqx scan . --format json > out.json` stays valid JSON.
+
+To install it properly: `cargo install --path crates/rqx-cli`.
+
 ## Performance
 
 A 12k-file, 468k-line repository: **~700ms**, with memory a function of thread

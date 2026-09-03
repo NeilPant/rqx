@@ -22,7 +22,7 @@ use sprite::Sprite;
 
 use crate::scan::{self, ScanOutcome, ScanProgress};
 
-const WORDMARK: &str = include_str!("../../assets/wordmark.txt");
+const MASCOT: &str = include_str!("../../assets/mascot.txt");
 
 const MIN_WIDTH: u16 = 60;
 const MIN_HEIGHT: u16 = 20;
@@ -77,19 +77,30 @@ pub fn gate() -> Result<(), Decline> {
     Ok(())
 }
 
-/// The brand without a terminal to animate in: the same wordmark asset, rendered
-/// as plain glyphs, so the declined path still identifies the tool.
+/// The same header the interface draws, as plain glyphs: the declined path still
+/// identifies the tool, it just does not get a terminal to draw into.
 pub fn static_header() -> String {
-    let sprite = Sprite::parse(WORDMARK);
+    let sprite = Sprite::parse(MASCOT);
+    let rows = sprite.render(Palette::with_depth(brand::ColorDepth::Monochrome));
+    let beside = [
+        format!("rqx {}", env!("CARGO_PKG_VERSION")),
+        TAGLINE.to_owned(),
+        String::new(),
+        String::new(),
+    ];
+
     let mut out = String::from("\n");
-    for line in sprite.render(Palette::with_depth(brand::ColorDepth::Monochrome)) {
+    for (line, text) in rows.iter().zip(beside) {
         out.push_str("  ");
         for span in &line.spans {
             out.push_str(span.content.as_ref());
         }
+        if !text.is_empty() {
+            out.push_str("   ");
+            out.push_str(&text);
+        }
         out.push('\n');
     }
-    out.push_str(&format!("  {TAGLINE}\n"));
     out
 }
 
@@ -97,7 +108,7 @@ const PROGRESS_POLL: Duration = Duration::from_millis(80);
 
 struct App {
     palette: Palette,
-    wordmark: Sprite,
+    mascot: Sprite,
     phase: Phase,
     root: String,
     updates: Receiver<ScanProgress>,
@@ -122,7 +133,7 @@ impl App {
 
         Self {
             palette: Palette::detect(),
-            wordmark: Sprite::parse(WORDMARK),
+            mascot: Sprite::parse(MASCOT),
             phase: Phase::Scanning(ScanProgress::default()),
             root: display_root(root),
             updates,
@@ -195,7 +206,7 @@ impl App {
             frame,
             &View {
                 palette: self.palette,
-                wordmark: &self.wordmark,
+                mascot: &self.mascot,
                 phase: &self.phase,
                 root: &self.root,
             },

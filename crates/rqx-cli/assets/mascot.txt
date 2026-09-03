@@ -1,0 +1,9 @@
+# rqx. One frame, no animation. T body, K eye.
+.TTTTT...
+TTTTTTT..
+TKTTTKTTT
+TKTTTKTTT
+TTTTTTTTT
+TTTTTTTT.
+.TT..TT..
+.TT..TT..

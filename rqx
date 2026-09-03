@@ -1,0 +1,24 @@
+#!/bin/sh
+# Run rqx from the source tree without installing it.
+#
+#   ./rqx scan .                 from anywhere; paths resolve against your shell's cwd
+#   RQX_RELEASE=1 ./rqx scan .   optimised build, for timing runs
+#
+# Builds first and then execs the binary rather than using `cargo run`, because
+# cargo writes its own progress to the same terminal the interface draws on.
+set -e
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+if [ -n "${RQX_RELEASE:-}" ]; then
+    profile_flag="--release"
+    binary="$root/target/release/rqx"
+else
+    profile_flag=""
+    binary="$root/target/debug/rqx"
+fi
+
+# Build output goes to stderr so `./rqx scan . --format json > out.json` stays clean.
+cargo build --quiet $profile_flag --manifest-path "$root/Cargo.toml" --bin rqx 1>&2
+
+exec "$binary" "$@"

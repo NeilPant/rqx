@@ -16,14 +16,14 @@ pub enum Phase {
 
 pub struct View<'a> {
     pub palette: Palette,
-    pub wordmark: &'a Sprite,
+    pub mascot: &'a Sprite,
     pub phase: &'a Phase,
     pub root: &'a str,
 }
 
 pub fn render(frame: &mut Frame<'_>, view: &View<'_>) {
     let [head, body, footer] = Layout::vertical([
-        Constraint::Length(view.wordmark.cell_height() + 1),
+        Constraint::Length(view.mascot.cell_height() + 1),
         Constraint::Min(0),
         Constraint::Length(1),
     ])
@@ -34,19 +34,30 @@ pub fn render(frame: &mut Frame<'_>, view: &View<'_>) {
     frame.render_widget(Paragraph::new(footer_line(view)), footer);
 }
 
+/// The mascot is the only drawn art; the name is plain text, because a pixel-art
+/// wordmark has to be redrawn for every weight and size it is ever shown at, and a
+/// terminal already has a font.
 fn render_head(frame: &mut Frame<'_>, view: &View<'_>, area: Rect) {
-    let [logo, tagline] = Layout::vertical([
-        Constraint::Length(view.wordmark.cell_height()),
-        Constraint::Length(1),
-    ])
-    .areas(area);
-    frame.render_widget(Paragraph::new(view.wordmark.render(view.palette)), logo);
+    let [art, text] =
+        Layout::horizontal([Constraint::Length(view.mascot.width() + 3), Constraint::Min(0)])
+            .areas(area);
+
+    frame.render_widget(Paragraph::new(view.mascot.render(view.palette)), art);
+
+    let palette = view.palette;
     frame.render_widget(
-        Paragraph::new(Line::styled(
-            format!("{TAGLINE}   ·   {}", view.root),
-            dim(view.palette),
-        )),
-        tagline,
+        Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled(
+                    "rqx",
+                    Style::new().fg(palette.color(Ink::Bone)).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(format!(" v{}", env!("CARGO_PKG_VERSION")), dim(palette)),
+            ]),
+            Line::styled(TAGLINE, dim(palette)),
+            Line::styled(view.root.to_owned(), dim(palette)),
+        ]),
+        text,
     );
 }
 
@@ -202,7 +213,7 @@ mod snapshots {
     use super::super::brand::ColorDepth;
     use super::*;
 
-    const WORDMARK: &str = include_str!("../../assets/wordmark.txt");
+    const MASCOT: &str = include_str!("../../assets/mascot.txt");
 
     fn outcome(total: u32) -> ScanOutcome {
         let mut counts = FindingCounts::default();
@@ -239,7 +250,7 @@ mod snapshots {
     }
 
     fn draw(phase: Phase, width: u16, height: u16) -> String {
-        let wordmark = Sprite::parse(WORDMARK);
+        let mascot = Sprite::parse(MASCOT);
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
         terminal
             .draw(|frame| {
@@ -247,7 +258,7 @@ mod snapshots {
                     frame,
                     &View {
                         palette: Palette::with_depth(ColorDepth::Monochrome),
-                        wordmark: &wordmark,
+                        mascot: &mascot,
                         phase: &phase,
                         root: "src",
                     },
@@ -293,13 +304,22 @@ mod snapshots {
         assert!(rendered.contains("esc cancel"), "{rendered}");
     }
 
-    /// A layout mistake eats the wordmark silently: the screen still renders, just
+    /// A layout mistake eats the mascot silently: the screen still renders, just
     /// without the thing that identifies it.
     #[test]
-    fn the_wordmark_is_drawn_and_not_clipped_away() {
+    fn the_mascot_is_drawn_and_not_clipped_away() {
         let rendered = draw(Phase::Done(Box::new(outcome(7))), 80, 16);
         let blocks = rendered.chars().filter(|c| "\u{2588}\u{2580}\u{2584}".contains(*c)).count();
-        assert!(blocks > 20, "expected the wordmark, got {blocks} block glyphs");
+        assert!(blocks > 20, "expected the mascot, got {blocks} block glyphs");
+    }
+
+    /// The name is plain text now, so it has to appear as characters rather than as
+    /// block glyphs — a regression here would leave the header anonymous.
+    #[test]
+    fn the_name_and_version_render_as_text() {
+        let rendered = draw(Phase::Done(Box::new(outcome(7))), 80, 16);
+        assert!(rendered.contains("rqx v"), "{rendered}");
+        assert!(rendered.contains(env!("CARGO_PKG_VERSION")), "{rendered}");
     }
 
     #[test]
