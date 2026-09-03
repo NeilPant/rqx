@@ -84,6 +84,17 @@ pub struct ModuleFacts {
     /// file implements or extends. The graph pass subtracts one from the other.
     pub abstractions: Vec<ExportedSymbol>,
     pub implemented: Vec<String>,
+    /// Every `extends` in this file, paired. `implemented` flattens the same names
+    /// away, which answers "is anything a subclass" but never "a subclass of what".
+    pub heritage: Vec<Heritage>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Heritage {
+    pub child: String,
+    pub parent: String,
+    #[serde(with = "crate::span_io")]
+    pub span: Span,
 }
 
 struct Collector<'s> {
@@ -251,6 +262,13 @@ impl<'a> Visit<'a> for Collector<'_> {
             && let Some(name) = heritage.expression.get_identifier_reference()
         {
             self.facts.implemented.push(name.name.to_string());
+            if let Some(id) = &class.id {
+                self.facts.heritage.push(Heritage {
+                    child: id.name.to_string(),
+                    parent: name.name.to_string(),
+                    span: id.span,
+                });
+            }
         }
         
         let inherited = class.heritage.is_some() || !class.implements.is_empty();

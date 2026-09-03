@@ -42,6 +42,72 @@ pub struct GraphReport {
     pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     /// Interfaces and abstract classes nothing in the project implements.
     pub unimplemented: Vec<DeadExport>,
+    /// Two hierarchies whose subclasses are named for the same set of things.
+    pub parallel: Vec<Parallel>,
+}
+
+#[derive(Debug)]
+pub struct Parallel {
+    pub path: PathBuf,
+    pub parent: String,
+    pub twin: String,
+    pub shared: Vec<String>,
+    pub span: oxc::span::Span,
+}
+
+/// The leading word of a subclass name is what the subclass is *for*: `DogFeeder`
+/// and `DogFood` are both about dogs. Two hierarchies whose subclasses are named for
+/// the same set of things move together, which is what the smell is about.
+fn leading_word(name: &str) -> String {
+    let mut word = String::new();
+    for (index, character) in name.char_indices() {
+        if index > 0 && character.is_uppercase() {
+            break;
+        }
+        word.push(character);
+    }
+    word
+}
+
+/// Subclass leading-word to where that subclass is declared.
+type Branches<'a> = BTreeMap<String, (&'a PathBuf, oxc::span::Span)>;
+
+fn parallel_hierarchies(by_path: &BTreeMap<&PathBuf, &ModuleFacts>) -> Vec<Parallel> {
+    let mut children: BTreeMap<&str, Branches<'_>> = BTreeMap::new();
+    for (path, facts) in by_path {
+        for entry in &facts.heritage {
+            children
+                .entry(entry.parent.as_str())
+                .or_default()
+                .insert(leading_word(&entry.child), (*path, entry.span));
+        }
+    }
+
+    let mut found = Vec::new();
+    let hierarchies: Vec<(&&str, &Branches<'_>)> =
+        children.iter().filter(|(_, kids)| kids.len() >= 2).collect();
+    for (index, (parent, kids)) in hierarchies.iter().enumerate() {
+        for (twin, others) in &hierarchies[index + 1..] {
+            let shared: Vec<String> = kids
+                .keys()
+                .filter(|word| others.contains_key(*word))
+                .cloned()
+                .collect();
+            if shared.len() < 2 || shared.len() != kids.len() || shared.len() != others.len() {
+                continue;
+            }
+            let (path, span) = kids.values().next().expect("a hierarchy has children");
+            found.push(Parallel {
+                path: (*path).clone(),
+                parent: (**parent).to_owned(),
+                twin: (**twin).to_owned(),
+                shared,
+                span: *span,
+            });
+        }
+    }
+    found.sort_by(|a, b| a.path.cmp(&b.path).then(a.span.start.cmp(&b.span.start)));
+    found
 }
 
 fn build_resolver(root: &Path) -> Resolver {
@@ -359,6 +425,7 @@ pub fn analyze(modules: Vec<ModuleEntry>, root: &Path, configured: &[String]) ->
         }
     }
     report.unimplemented.sort_by(|a, b| a.path.cmp(&b.path).then(a.span.start.cmp(&b.span.start)));
+    report.parallel = parallel_hierarchies(&by_path);
 
     let nodes: Vec<PathBuf> = modules.into_iter().map(|module| module.path).collect();
     report.cycles = strongly_connected(&nodes, &edges.out)

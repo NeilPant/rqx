@@ -17,3 +17,5 @@ export { endpoint, score } from "./config";
 export { Connection, ReportFactory } from "./lifecycle";
 export { getAccount, fetchAccount, saveAccount } from "./vocabulary";
 export { Cart, Checkout, CsvWriter, JsonEmitter } from "./intimacy";
+export { Feeder, DogFeeder, CatFeeder } from "./hierarchy";
+export { Food, DogFood, CatFood } from "./hierarchy-food";

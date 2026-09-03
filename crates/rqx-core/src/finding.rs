@@ -131,6 +131,7 @@ pub enum Evidence {
     InconsistentVocabulary { pair: String, sites: u32 },
     IntimatePair { pair: String },
     AlternativeClasses { other: String, methods: u32 },
+    ParallelHierarchy { parent: String, twin: String, shared: String },
 }
 
 impl fmt::Display for Evidence {
@@ -324,6 +325,10 @@ impl fmt::Display for Evidence {
             Self::AlternativeClasses { other, methods } => write!(
                 f,
                 "Same shape as `{other}` across {methods} methods, with no method name in common."
+            ),
+            Self::ParallelHierarchy { parent, twin, shared } => write!(
+                f,
+                "Subclasses of `{parent}` and of `{twin}` are both named for {shared}."
             ),
             Self::MixedConventions { minority, count } => write!(
                 f,

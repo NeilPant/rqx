@@ -96,10 +96,7 @@ smells! {
     ParallelInheritanceHierarchies {
         name: "Parallel Inheritance Hierarchies",
         family: ChangePreventers,
-        coverage: Coverage::Absent(
-            "needs a cross-file parent-to-child map; the module graph carries only a \
-             flat list of inherited names with no pairing"
-        )
+        coverage: Coverage::Implemented(&[RuleId::ParallelInheritance])
     },
 
     Comments {
@@ -246,6 +243,6 @@ mod tests {
     /// it is a shortfall, not a limit.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Smell::tally().absent, 1);
+        assert_eq!(Smell::tally().absent, 0);
     }
 }

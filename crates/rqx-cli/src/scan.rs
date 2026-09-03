@@ -369,6 +369,25 @@ impl Collector {
                 related,
             ));
         }
+
+        for pair in report.parallel {
+            let Some(range) = source_range(&pair.path, root, pair.span) else { continue };
+            self.accept_if_enabled(config, build(
+                RuleId::ParallelInheritance,
+                range,
+                Evidence::ParallelHierarchy {
+                    parent: pair.parent.clone(),
+                    twin: pair.twin.clone(),
+                    shared: pair.shared.join(", "),
+                },
+                format!(
+                    "fold what varies into one hierarchy, so adding a case means one \
+                     subclass rather than one in `{}` and one in `{}`",
+                    pair.parent, pair.twin
+                ),
+                Vec::new(),
+            ));
+        }
     }
 
     /// Churn is read once for the whole repository after the walk, because a file

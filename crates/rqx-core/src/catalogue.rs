@@ -200,6 +200,21 @@ catalogue! {
         off_by_default: true,
     },
 
+    ParallelInheritance {
+        slug: "parallel-inheritance",
+        category: ChangePreventers,
+        analysis: Modules,
+        guru: Some(Smell::ParallelInheritanceHierarchies),
+        clean_code: [G22],
+        metric: "two class hierarchies whose subclasses are named for the same set of things",
+        fixes: [MoveMethod, MoveField, CollapseHierarchy],
+        confidence: Low,
+        severity: Info,
+        why: "every new case means a new subclass in both trees, and the day someone \
+              adds only one the two hierarchies quietly stop lining up",
+        off_by_default: true,
+    },
+
     // ---- Dispensables ---------------------------------------------------------
     DuplicateCode {
         slug: "duplicate-code",

@@ -77,7 +77,7 @@ asserts that every Clean Code citation names a real heuristic identifier, and
 another asserts that **every rule in the catalogue actually fires on a fixture** —
 a rule nothing can trigger is a documentation entry pretending to be a check.
 
-`rqx rules` prints all 42, grouped by refactoring.guru's five families plus three of
+`rqx rules` prints all 60, grouped by refactoring.guru's five families plus three of
 Clean Code's own. `rqx explain <rule>` prints one in full.
 
 | Family | Rules |
@@ -120,7 +120,7 @@ disabled   = ["magic-number"]                # or a single rule
 enabled    = ["naming"]                      # opt into an off-by-default family
 ```
 
-Six rules ship off by default — the ones whose signal is real but noisy, or which
+Ten rules ship off by default — the ones whose signal is real but noisy, or which
 encode a convention a given project may not share. They are listed with
 `(off by default)` in `rqx rules`.
 

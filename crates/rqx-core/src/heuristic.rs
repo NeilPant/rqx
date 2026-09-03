@@ -148,7 +148,11 @@ heuristics! {
     G21 { title: "Understand the Algorithm", chapter: General,
           coverage: Coverage::NotStatic("no metric knows whether the author understood it") },
     G22 { title: "Make Logical Dependencies Physical", chapter: General,
-          coverage: Coverage::Implemented(&[RuleId::DataClump, RuleId::ShotgunSurgery]) },
+          coverage: Coverage::Implemented(&[
+              RuleId::DataClump,
+              RuleId::ShotgunSurgery,
+              RuleId::ParallelInheritance,
+          ]) },
     G23 { title: "Prefer Polymorphism to If/Else or Switch/Case", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::TypeCodeSwitch]) },
     G24 { title: "Follow Standard Conventions", chapter: General,
