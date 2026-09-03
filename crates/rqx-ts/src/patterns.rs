@@ -41,6 +41,8 @@ pub struct Patterns {
     pub derived_references: Vec<Mention>,
     pub encoded_names: Vec<Mention>,
     pub type_codes: Vec<Mention>,
+    /// Pairs of classes in this file that each reach for the other by name.
+    pub intimate_pairs: Vec<Mention>,
 }
 
 pub struct PatternLimits {
@@ -278,6 +280,41 @@ pub fn collect(program: &oxc::ast::ast::Program<'_>, limits: &PatternLimits) -> 
                 .push(Mention { name: referenced.clone(), span: *span });
         }
     }
+
+    // Two classes that each name the other are coupled in both directions, which is
+    // the shape Inappropriate Intimacy describes: neither can be read, tested or
+    // moved without the other coming with it.
+    let mut reaches: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let mut first_site: BTreeMap<(&str, &str), Span> = BTreeMap::new();
+    for (owner, referenced, span) in &collector.references {
+        if owner == referenced {
+            continue;
+        }
+        reaches.entry(owner).or_default().insert(referenced);
+        first_site.entry((owner.as_str(), referenced.as_str())).or_insert(*span);
+    }
+    // A base and its own subclass naming each other is inheritance, not intimacy, and
+    // `base-depends-on-derived` already has an opinion about it.
+    let related = |left: &str, right: &str| {
+        collector.subclasses.get(left).is_some_and(|parent| parent == right)
+            || collector.subclasses.get(right).is_some_and(|parent| parent == left)
+    };
+    let mut pairs: BTreeSet<(&str, &str)> = BTreeSet::new();
+    for (owner, targets) in &reaches {
+        for target in targets {
+            if reaches.get(*target).is_some_and(|back| back.contains(owner))
+                && !related(owner, target)
+            {
+                pairs.insert(if owner < target { (owner, target) } else { (target, owner) });
+            }
+        }
+    }
+    for (left, right) in pairs {
+        if let Some(span) = first_site.get(&(left, right)).or_else(|| first_site.get(&(right, left))) {
+            out.intimate_pairs.push(Mention { name: format!("{left} and {right}"), span: *span });
+        }
+    }
+    out.intimate_pairs.sort_by_key(|item| item.span.start);
 
     out.clumps.sort_by_key(|clump| clump.span.start);
     out.discriminants.sort_by_key(|item| item.span.start);

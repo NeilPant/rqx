@@ -669,6 +669,44 @@ pub fn check_class_shape(
 
 }
 
+/// Compares classes against each other rather than against a threshold, so it takes
+/// the whole file's worth at once.
+pub fn check_class_pairs(
+    reports: &[crate::classes::ClassReport],
+    builder: &FindingBuilder<'_>,
+    out: &mut Vec<Finding>,
+) {
+    const MIN_METHODS: usize = 3;
+
+    for (index, left) in reports.iter().enumerate() {
+        if left.method_names.len() < MIN_METHODS {
+            continue;
+        }
+        for right in &reports[index + 1..] {
+            if left.arities != right.arities
+                || left.method_names.len() != right.method_names.len()
+                || left.method_names.iter().any(|name| right.method_names.contains(name))
+            {
+                continue;
+            }
+            builder.emit(
+                out,
+                RuleId::AlternativeClasses,
+                left.span,
+                Evidence::AlternativeClasses {
+                    other: right.name.clone(),
+                    methods: left.method_names.len() as u32,
+                },
+                format!(
+                    "give `{}` and `{}` one interface, or one superclass, so a caller \
+                     learns the job once",
+                    left.name, right.name
+                ),
+            );
+        }
+    }
+}
+
 pub fn check_patterns(
     patterns: &crate::patterns::Patterns,
     builder: &FindingBuilder<'_>,
@@ -701,6 +739,15 @@ pub fn check_patterns(
                  adding a case is one new class rather than {} edits",
                 discriminant.name, discriminant.sites
             ),
+        );
+    }
+    for pair in &patterns.intimate_pairs {
+        builder.emit(
+            out,
+            RuleId::InappropriateIntimacy,
+            pair.span,
+            Evidence::IntimatePair { pair: pair.name.clone() },
+            "move what they share into one of them, or behind an interface both use".to_owned(),
         );
     }
     for reference in &patterns.derived_references {

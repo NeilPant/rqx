@@ -16,3 +16,4 @@ export { Ledger, handle, summarise } from "./queries";
 export { endpoint, score } from "./config";
 export { Connection, ReportFactory } from "./lifecycle";
 export { getAccount, fetchAccount, saveAccount } from "./vocabulary";
+export { Cart, Checkout, CsvWriter, JsonEmitter } from "./intimacy";

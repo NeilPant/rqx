@@ -39,6 +39,10 @@ pub struct ClassReport {
     pub guarded_fields: Vec<Pair>,
     /// A name promising a pattern the members do not implement.
     pub misleading_name: Option<Named>,
+    /// Public method names, and their parameter counts sorted. Two classes with the
+    /// same shape and no name in common are two answers to one question.
+    pub method_names: Vec<String>,
+    pub arities: Vec<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -181,6 +185,8 @@ impl Collector {
             envious: Vec::new(),
             guarded_fields: Vec::new(),
             misleading_name: None,
+            method_names: Vec::new(),
+            arities: Vec::new(),
         };
 
         let mut private_members: HashMap<String, Span> = HashMap::new();
@@ -262,6 +268,7 @@ impl Collector {
                     }
                     if !is_constructor {
                         method_names.push(member.clone());
+                        report.arities.push(method.value.params.items.len() as u32);
                         for field in &reach.guards {
                             guard_users.entry(field.clone()).or_default().push(member.clone());
                         }
@@ -318,6 +325,9 @@ impl Collector {
         {
             report.misleading_name = Some(Named { name: name.clone(), span: report.span });
         }
+
+        report.arities.sort_unstable();
+        report.method_names = method_names.clone();
 
         for (field, guards) in guard_users {
             if guards.len() >= 2 && !constructor_writes.contains(&field) {

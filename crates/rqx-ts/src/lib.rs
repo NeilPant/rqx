@@ -184,6 +184,7 @@ pub fn analyze(
     for class in &classes {
         rules::check_class_shape(class, &builder, &mut findings);
     }
+    rules::check_class_pairs(&classes, &builder, &mut findings);
     rules::check_patterns(&patterns, &builder, &mut findings);
 
     let thresholds = &config.thresholds;

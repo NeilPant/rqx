@@ -129,6 +129,8 @@ pub enum Evidence {
     TemporalCoupling { field: String, methods: String },
     MisleadingName { name: String, promise: String },
     InconsistentVocabulary { pair: String, sites: u32 },
+    IntimatePair { pair: String },
+    AlternativeClasses { other: String, methods: u32 },
 }
 
 impl fmt::Display for Evidence {
@@ -315,6 +317,13 @@ impl fmt::Display for Evidence {
             Self::InconsistentVocabulary { pair, sites } => write!(
                 f,
                 "This file uses {pair} across {sites} names for one idea."
+            ),
+            Self::IntimatePair { pair } => {
+                write!(f, "{pair} each reach for the other by name.")
+            }
+            Self::AlternativeClasses { other, methods } => write!(
+                f,
+                "Same shape as `{other}` across {methods} methods, with no method name in common."
             ),
             Self::MixedConventions { minority, count } => write!(
                 f,

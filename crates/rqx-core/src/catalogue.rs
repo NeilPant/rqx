@@ -634,6 +634,34 @@ catalogue! {
         off_by_default: true,
     },
 
+    InappropriateIntimacy {
+        slug: "inappropriate-intimacy",
+        category: Couplers,
+        analysis: Semantics,
+        guru: Some(Smell::InappropriateIntimacy),
+        clean_code: [G13],
+        metric: "two classes in one file that each reference the other by name",
+        fixes: [MoveMethod, ExtractClass, HideDelegate],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "neither class can be read, tested or moved without the other coming \
+              with it, so the pair behaves as one class written in two places",
+    },
+    AlternativeClasses {
+        slug: "alternative-classes",
+        category: OoAbusers,
+        analysis: Semantics,
+        guru: Some(Smell::AlternativeClasses),
+        clean_code: [G5],
+        metric: "two classes with the same method count and arities and no shared name",
+        fixes: [RenameMethod, ExtractSuperclass, MoveMethod],
+        confidence: Low,
+        severity: Info,
+        why: "callers have to learn both interfaces to do one job, and a fix applied \
+              to one of them silently leaves the other wrong",
+        off_by_default: true,
+    },
+
     // ---- Naming ---------------------------------------------------------------
     MeaninglessName {
         slug: "meaningless-name",

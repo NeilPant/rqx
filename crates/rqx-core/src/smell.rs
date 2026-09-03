@@ -80,10 +80,7 @@ smells! {
     AlternativeClasses {
         name: "Alternative Classes with Different Interfaces",
         family: OoAbusers,
-        coverage: Coverage::Absent(
-            "two classes doing the same job under different signatures; the clone shape \
-             hash can compare their method bodies"
-        )
+        coverage: Coverage::Implemented(&[RuleId::AlternativeClasses])
     },
 
     DivergentChange {
@@ -155,10 +152,7 @@ smells! {
     InappropriateIntimacy {
         name: "Inappropriate Intimacy",
         family: Couplers,
-        coverage: Coverage::Absent(
-            "peer classes reaching into each other's members; the pattern collector \
-             already tags every reference with its enclosing class"
-        )
+        coverage: Coverage::Implemented(&[RuleId::InappropriateIntimacy])
     },
     MessageChains {
         name: "Message Chains",
@@ -252,6 +246,6 @@ mod tests {
     /// it is a shortfall, not a limit.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Smell::tally().absent, 3);
+        assert_eq!(Smell::tally().absent, 1);
     }
 }

@@ -71,6 +71,7 @@ fn every_rule_fires_on_its_fixture() {
         ("flag-argument", 5),
         ("focused-test", 1),
         ("imprecise-type", 3),
+        ("inappropriate-intimacy", 1),
         ("inappropriate-static", 1),
         ("journal-comment", 1),
         ("large-class", 1),
