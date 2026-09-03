@@ -126,11 +126,11 @@ heuristics! {
     G10 { title: "Vertical Separation", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::DistantDeclaration]) },
     G11 { title: "Inconsistency", chapter: General,
-          coverage: Coverage::Absent("one concept named three ways in the same file") },
+          coverage: Coverage::Implemented(&[RuleId::InconsistentVocabulary]) },
     G12 { title: "Clutter", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::LazyClass, RuleId::SpeculativeGenerality]) },
     G13 { title: "Artificial Coupling", chapter: General,
-          coverage: Coverage::Absent("a declaration whose own module has no use for it") },
+          coverage: Coverage::NotStatic("whether two things belong together is a judgement about the domain; references alone cannot tell a deliberate placement from an accidental one") },
     G14 { title: "Feature Envy", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::FeatureEnvy]) },
     G15 { title: "Selector Arguments", chapter: General,
@@ -284,6 +284,6 @@ mod tests {
     /// source Rqx already parses.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Heuristic::tally().absent, 2);
+        assert_eq!(Heuristic::tally().absent, 0);
     }
 }

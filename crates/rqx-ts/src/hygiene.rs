@@ -55,6 +55,7 @@ pub struct Hygiene {
     pub distant_declarations: Vec<Spot>,
     pub obscured_expressions: Vec<Spot>,
     pub buried_configuration: Vec<Spot>,
+    pub inconsistent_vocabulary: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]
@@ -264,6 +265,28 @@ fn configuration_literal(text: &str) -> Option<&'static str> {
         .then_some("an absolute path")
 }
 
+/// Verbs that mean the same thing to a reader. Splitting a name into one of these
+/// plus its object is how the same concept is found under two names.
+const SYNONYMS: [&[&str]; 5] = [
+    &["get", "fetch", "retrieve", "load", "read"],
+    &["set", "put", "save", "store", "write"],
+    &["remove", "delete", "destroy", "drop", "erase"],
+    &["make", "create", "build", "construct"],
+    &["find", "search", "lookup", "locate"],
+];
+
+fn verb_and_object(name: &str) -> Option<(&'static str, String)> {
+    SYNONYMS.iter().flat_map(|family| family.iter()).find_map(|verb| {
+        let rest = name.strip_prefix(*verb)?;
+        let head = rest.chars().next()?;
+        head.is_uppercase().then(|| (*verb, rest.to_ascii_lowercase()))
+    })
+}
+
+fn same_family(left: &str, right: &str) -> bool {
+    SYNONYMS.iter().any(|family| family.contains(&left) && family.contains(&right))
+}
+
 fn suppression_directive(text: &str) -> Option<&'static str> {
     ["@ts-ignore", "@ts-nocheck", "@ts-expect-error", "eslint-disable", "biome-ignore"]
         .into_iter()
@@ -276,6 +299,7 @@ struct Walker<'a> {
     numbers: HashMap<String, Vec<Span>>,
     boundaries: HashMap<String, Vec<Span>>,
     conventions: Vec<(String, Span)>,
+    verbs: Vec<(String, String, Span)>,
     test_depth: u32,
     block_depth: u32,
     /// Furthest point each name is read at. Collected here rather than from the
@@ -415,6 +439,9 @@ impl Walker<'_> {
     fn name_the_body(&mut self, name: &str, span: Span, body: Option<&oxc::ast::ast::FunctionBody<'_>>) {
         if vague_verb(name) {
             self.out.vague_names.push(Spot { span, detail: name.to_owned(), count: 1 });
+        }
+        if let Some((verb, object)) = verb_and_object(name) {
+            self.verbs.push((verb.to_owned(), object, span));
         }
         if query_prefix(name) && body.is_some_and(Self::body_mutates) {
             self.out.side_effecting_queries.push(Spot {
@@ -736,6 +763,7 @@ pub fn collect(
         numbers: HashMap::new(),
         boundaries: HashMap::new(),
         conventions: Vec::new(),
+        verbs: Vec::new(),
         test_depth: 0,
         block_depth: 0,
         marker: std::marker::PhantomData,
@@ -778,6 +806,29 @@ pub fn collect(
             });
         }
     }
+
+    // One finding per concept: the point is that a reader meets it twice, not that a
+    // particular name is wrong.
+    let mut by_object: HashMap<String, Vec<(String, Span)>> = HashMap::new();
+    for (verb, object, span) in walker.verbs {
+        by_object.entry(object).or_default().push((verb, span));
+    }
+    let mut vocabulary: Vec<Spot> = by_object
+        .into_iter()
+        .filter_map(|(object, uses)| {
+            let (first_verb, first_span) = uses.first()?.clone();
+            let clash = uses
+                .iter()
+                .find(|(verb, _)| *verb != first_verb && same_family(&first_verb, verb))?;
+            Some(Spot {
+                span: first_span,
+                detail: format!("{first_verb}/{} for {object}", clash.0),
+                count: uses.len() as u32,
+            })
+        })
+        .collect();
+    vocabulary.sort_by_key(|spot| spot.span.start);
+    out.inconsistent_vocabulary = vocabulary;
 
     out.distant_declarations =
         distant_declarations(semantic, source, &walker.first_read, limits.declaration_distance_lines);

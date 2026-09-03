@@ -128,6 +128,7 @@ pub enum Evidence {
     BuriedConfiguration { kind: String, depth: u32 },
     TemporalCoupling { field: String, methods: String },
     MisleadingName { name: String, promise: String },
+    InconsistentVocabulary { pair: String, sites: u32 },
 }
 
 impl fmt::Display for Evidence {
@@ -311,6 +312,10 @@ impl fmt::Display for Evidence {
             Self::MisleadingName { name, promise } => {
                 write!(f, "`{name}` is named for a {promise} but implements none of one.")
             }
+            Self::InconsistentVocabulary { pair, sites } => write!(
+                f,
+                "This file uses {pair} across {sites} names for one idea."
+            ),
             Self::MixedConventions { minority, count } => write!(
                 f,
                 "{} in this file use {minority} while the rest do not.",

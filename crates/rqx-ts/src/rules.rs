@@ -408,6 +408,15 @@ pub fn check_hygiene(
             "lift it to a named constant at the top of the module, or into config".to_owned(),
         );
     }
+    for spot in &hygiene.inconsistent_vocabulary {
+        emit(
+            out,
+            RuleId::InconsistentVocabulary,
+            spot,
+            Evidence::InconsistentVocabulary { pair: spot.detail.clone(), sites: spot.count },
+            "pick one verb for the idea and rename the rest to match".to_owned(),
+        );
+    }
     for spot in &hygiene.suppressions {
         emit(
             out,

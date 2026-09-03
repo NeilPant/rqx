@@ -619,6 +619,21 @@ catalogue! {
         off_by_default: true,
     },
 
+    InconsistentVocabulary {
+        slug: "inconsistent-vocabulary",
+        category: Naming,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G11],
+        metric: "two interchangeable verbs used for the same object in one file",
+        fixes: [RenameMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a reader who has met `fetchUser` cannot tell whether `getUser` is the \
+              same thing or a second one, so both have to be read before either is used",
+        off_by_default: true,
+    },
+
     // ---- Naming ---------------------------------------------------------------
     MeaninglessName {
         slug: "meaningless-name",
