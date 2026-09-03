@@ -72,6 +72,9 @@ pub struct Thresholds {
     pub data_clump_size: u32,
     pub data_clump_sites: u32,
     pub short_name_scope_lines: u32,
+    /// A pause in a test longer than this is wall clock on every run.
+    pub slow_test_ms: u32,
+    pub boundary_repeats: u32,
 }
 
 /// Modules the project is entered through. Anything reachable from one is live by
@@ -102,6 +105,8 @@ impl Default for Thresholds {
             data_clump_size: 3,
             data_clump_sites: 3,
             short_name_scope_lines: 25,
+            slow_test_ms: 100,
+            boundary_repeats: 3,
         }
     }
 }

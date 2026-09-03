@@ -117,6 +117,10 @@ pub enum Evidence {
     ImpreciseType { construct: String },
     JournalComment { marker: String },
     RedundantComment { subject: String },
+    SlowTest { call: String, pause: u32 },
+    ForeignLanguage { language: String },
+    BoundaryArithmetic { subject: String, sites: u32 },
+    MixedConventions { minority: String, count: u32 },
 }
 
 impl fmt::Display for Evidence {
@@ -264,6 +268,21 @@ impl fmt::Display for Evidence {
             Self::RedundantComment { subject } => {
                 write!(f, "This comment says no more than the name `{subject}` below it.")
             }
+            Self::SlowTest { call, pause } => {
+                write!(f, "`{call}` pauses this test for {pause}ms on every run.")
+            }
+            Self::ForeignLanguage { language } => {
+                write!(f, "A template literal in this file holds {language}.")
+            }
+            Self::BoundaryArithmetic { subject, sites } => write!(
+                f,
+                "`{subject}` is adjusted by one in {sites} places, each of them a chance to be off by one."
+            ),
+            Self::MixedConventions { minority, count } => write!(
+                f,
+                "{} in this file use {minority} while the rest do not.",
+                plural(*count, "name", "names")
+            ),
         }
     }
 }

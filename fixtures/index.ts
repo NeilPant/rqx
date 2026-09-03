@@ -11,3 +11,4 @@ export { Coordinate, Marker, Facade, Vehicle, Engine, Broken, Totals, routeOf, p
 export type { Channel, IShipment } from "./shapes";
 export { Registry, CachedRegistry, gate, sweep } from "./shapes";
 export { widen, userName, narrowed } from "./precision";
+export { query, window as slice, limits } from "./conventions";

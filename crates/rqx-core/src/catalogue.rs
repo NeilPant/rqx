@@ -387,6 +387,59 @@ catalogue! {
               rest of the file is written against quietly stops holding here",
     },
 
+    MixedLanguageFile {
+        slug: "mixed-language-file",
+        category: Dispensables,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G1],
+        metric: "SQL or HTML markup inside a template literal",
+        fixes: [ExtractClass, ExtractVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a second language in the file gets none of the tooling the first one \
+              has, so nothing checks it until it fails at run time",
+    },
+    BoundaryArithmetic {
+        slug: "boundary-arithmetic",
+        category: Safety,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G33],
+        metric: "the same subject adjusted by one at more sites than the threshold",
+        fixes: [ExtractVariable, ExtractMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "every place the boundary is recomputed is a place it can be recomputed \
+              wrongly, and off-by-one errors are found by readers rather than types",
+    },
+    MixedConventions {
+        slug: "mixed-conventions",
+        category: Naming,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G24],
+        metric: "camelCase and snake_case names declared in one file",
+        fixes: [RenameVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a reader who has to guess which convention a name follows cannot skim, \
+              and the mixture spreads every time somebody copies a neighbouring line",
+    },
+    SlowTest {
+        slug: "slow-test",
+        category: Tests,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [T9],
+        metric: "a sleep or timeout inside a test body above the configured pause",
+        fixes: [SubstituteAlgorithm],
+        confidence: Verified,
+        severity: Warning,
+        why: "a suite slow enough to skip stops being run, and a test nobody runs is \
+              worth less than the time it took to write",
+    },
+
     // ---- Couplers -------------------------------------------------------------
     CircularDependency {
         slug: "circular-dependency",

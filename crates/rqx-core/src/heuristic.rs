@@ -101,7 +101,7 @@ heuristics! {
          coverage: Coverage::Implemented(&[RuleId::UnusedExport, RuleId::UnusedPrivateMember]) },
 
     G1 { title: "Multiple Languages in One Source File", chapter: General,
-         coverage: Coverage::Absent("SQL, HTML or CSS embedded in a template literal") },
+         coverage: Coverage::Implemented(&[RuleId::MixedLanguageFile]) },
     G2 { title: "Obvious Behavior Is Unimplemented", chapter: General,
          coverage: Coverage::NotStatic("no metric knows what a reader expected to find") },
     G3 { title: "Incorrect Behavior at the Boundaries", chapter: General,
@@ -152,7 +152,7 @@ heuristics! {
     G23 { title: "Prefer Polymorphism to If/Else or Switch/Case", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::TypeCodeSwitch]) },
     G24 { title: "Follow Standard Conventions", chapter: General,
-          coverage: Coverage::Absent("camelCase and snake_case mixed inside one file") },
+          coverage: Coverage::Implemented(&[RuleId::MixedConventions]) },
     G25 { title: "Replace Magic Numbers with Named Constants", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::MagicNumber, RuleId::PrimitiveObsession]) },
     G26 { title: "Be Precise", chapter: General,
@@ -170,7 +170,7 @@ heuristics! {
     G32 { title: "Don't Be Arbitrary", chapter: General,
           coverage: Coverage::NotStatic("no metric separates a considered structure from an arbitrary one") },
     G33 { title: "Encapsulate Boundary Conditions", chapter: General,
-          coverage: Coverage::Absent("the same +1 or -1 repeated on one subject") },
+          coverage: Coverage::Implemented(&[RuleId::BoundaryArithmetic]) },
     G34 { title: "Functions Should Descend Only One Level of Abstraction", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::CognitiveComplexity, RuleId::DeepNesting]) },
     G35 { title: "Keep Configurable Data at High Levels", chapter: General,
@@ -217,7 +217,7 @@ heuristics! {
     T8 { title: "Test Coverage Patterns Can Be Revealing", chapter: Tests,
          coverage: Coverage::NotStatic("needs coverage data") },
     T9 { title: "Tests Should Be Fast", chapter: Tests,
-         coverage: Coverage::Absent("a sleep or a timeout inside a test body") },
+         coverage: Coverage::Implemented(&[RuleId::SlowTest]) },
 }
 
 impl Heuristic {
@@ -284,6 +284,6 @@ mod tests {
     /// source Rqx already parses.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Heuristic::tally().absent, 13);
+        assert_eq!(Heuristic::tally().absent, 9);
     }
 }

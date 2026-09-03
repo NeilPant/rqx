@@ -324,6 +324,42 @@ pub fn check_hygiene(
             format!("delete it, or say why `{}` exists rather than what it is", spot.detail),
         );
     }
+    for spot in &hygiene.slow_tests {
+        emit(
+            out,
+            RuleId::SlowTest,
+            spot,
+            Evidence::SlowTest { call: spot.detail.clone(), pause: spot.count },
+            "wait on the thing itself rather than on the clock, or fake the timer".to_owned(),
+        );
+    }
+    for spot in &hygiene.mixed_languages {
+        emit(
+            out,
+            RuleId::MixedLanguageFile,
+            spot,
+            Evidence::ForeignLanguage { language: spot.detail.clone() },
+            format!("move the {} into its own file, where its own tooling can read it", spot.detail),
+        );
+    }
+    for spot in &hygiene.boundary_arithmetic {
+        emit(
+            out,
+            RuleId::BoundaryArithmetic,
+            spot,
+            Evidence::BoundaryArithmetic { subject: spot.detail.clone(), sites: spot.count },
+            format!("name the boundary once, so `{}` is adjusted in one place", spot.detail),
+        );
+    }
+    for spot in &hygiene.mixed_conventions {
+        emit(
+            out,
+            RuleId::MixedConventions,
+            spot,
+            Evidence::MixedConventions { minority: spot.detail.clone(), count: spot.count },
+            "pick the convention the rest of the project uses and rename to match".to_owned(),
+        );
+    }
     for spot in &hygiene.suppressions {
         emit(
             out,

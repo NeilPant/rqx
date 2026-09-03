@@ -144,6 +144,8 @@ pub fn analyze(
                     commented_code_lines: thresholds.commented_code_lines,
                     magic_number_repeats: thresholds.magic_number_repeats,
                     short_name_scope_lines: thresholds.short_name_scope_lines,
+                    slow_test_ms: thresholds.slow_test_ms,
+                    boundary_repeats: thresholds.boundary_repeats,
                 },
             ),
         )

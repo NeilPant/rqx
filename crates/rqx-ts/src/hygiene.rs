@@ -46,6 +46,10 @@ pub struct Hygiene {
     pub imprecise_types: Vec<Spot>,
     pub journal_comments: Vec<Spot>,
     pub redundant_comments: Vec<Spot>,
+    pub slow_tests: Vec<Spot>,
+    pub mixed_languages: Vec<Spot>,
+    pub boundary_arithmetic: Vec<Spot>,
+    pub mixed_conventions: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]
@@ -55,6 +59,8 @@ pub struct Limits {
     pub commented_code_lines: u32,
     pub magic_number_repeats: u32,
     pub short_name_scope_lines: u32,
+    pub slow_test_ms: u32,
+    pub boundary_repeats: u32,
 }
 
 fn callee_name(expression: &Expression<'_>) -> Option<String> {
@@ -187,6 +193,42 @@ fn redundant_subject(text: &str, following: &str) -> Option<String> {
     prose.iter().all(|word| name.contains(word)).then(|| subject.to_owned())
 }
 
+/// A pause inside a test is wall-clock every developer pays on every run, and the
+/// thing being waited for is almost always something the test could observe directly.
+fn delay_call(name: &str) -> bool {
+    matches!(root_of(name), "sleep" | "delay" | "wait" | "setTimeout" | "setInterval")
+        || name.ends_with(".sleep")
+        || name.ends_with(".setTimeout")
+}
+
+/// Only the two languages a template literal can hold without ambiguity. Guessing at
+/// CSS from braces and colons would flag every object written across lines.
+fn foreign_language(text: &str) -> Option<&'static str> {
+    let upper = text.to_ascii_uppercase();
+    if ["SELECT ", "INSERT INTO", "UPDATE ", "DELETE FROM", "CREATE TABLE"]
+        .iter()
+        .any(|clause| upper.contains(clause))
+    {
+        return Some("SQL");
+    }
+    ["<div", "<span", "<table", "<html", "<section", "<button"]
+        .iter()
+        .any(|tag| text.contains(tag))
+        .then_some("HTML")
+}
+
+fn convention_of(name: &str) -> Option<&'static str> {
+    if name.chars().all(|c| !c.is_lowercase()) {
+        // SCREAMING_CASE is the one convention nobody mixes by accident.
+        return None;
+    }
+    if name.contains('_') && !name.starts_with('_') {
+        return Some("snake_case");
+    }
+    (name.chars().any(char::is_uppercase) && name.starts_with(char::is_lowercase))
+        .then_some("camelCase")
+}
+
 fn suppression_directive(text: &str) -> Option<&'static str> {
     ["@ts-ignore", "@ts-nocheck", "@ts-expect-error", "eslint-disable", "biome-ignore"]
         .into_iter()
@@ -197,6 +239,9 @@ struct Walker<'a> {
     limits: Limits,
     out: Hygiene,
     numbers: HashMap<String, Vec<Span>>,
+    boundaries: HashMap<String, Vec<Span>>,
+    conventions: Vec<(String, Span)>,
+    test_depth: u32,
     /// Furthest point each name is read at. Collected here rather than from the
     /// semantic node store, which is not populated for this build configuration.
     last_read: HashMap<String, u32>,
@@ -376,6 +421,22 @@ impl<'a> Visit<'a> for Walker<'a> {
             }
         }
 
+        if let Some(name) = callee_name(&call.callee)
+            && self.test_depth > 0
+            && delay_call(&name)
+            && let Some(pause) = call.arguments.iter().find_map(|argument| match argument {
+                Argument::NumericLiteral(literal) => Some(literal.value),
+                _ => None,
+            })
+            && pause >= f64::from(self.limits.slow_test_ms)
+        {
+            self.out.slow_tests.push(Spot {
+                span: call.span,
+                detail: name,
+                count: pause as u32,
+            });
+        }
+
         let depth = Self::chain_depth(&call.callee);
         if depth > self.limits.message_chain_depth {
             self.out.message_chains.push(Spot {
@@ -384,12 +445,46 @@ impl<'a> Visit<'a> for Walker<'a> {
                 count: depth,
             });
         }
+        let is_test = callee_name(&call.callee)
+            .is_some_and(|name| TEST_ROOTS.contains(&root_of(&name).trim_start_matches(['x', 'f'])));
+        self.test_depth += u32::from(is_test);
         walk::walk_call_expression(self, call);
+        self.test_depth -= u32::from(is_test);
     }
 
     fn visit_identifier_reference(&mut self, identifier: &oxc::ast::ast::IdentifierReference<'a>) {
         let entry = self.last_read.entry(identifier.name.to_string()).or_default();
         *entry = (*entry).max(identifier.span.end);
+    }
+
+    fn visit_template_literal(&mut self, literal: &oxc::ast::ast::TemplateLiteral<'a>) {
+        let text: String = literal.quasis.iter().map(|quasi| quasi.value.raw.as_str()).collect();
+        if let Some(language) = foreign_language(&text) {
+            self.out.mixed_languages.push(Spot {
+                span: literal.span,
+                detail: language.to_owned(),
+                count: 1,
+            });
+        }
+        walk::walk_template_literal(self, literal);
+    }
+
+    fn visit_binary_expression(&mut self, expression: &oxc::ast::ast::BinaryExpression<'a>) {
+        use oxc::ast::ast::BinaryOperator;
+        if matches!(expression.operator, BinaryOperator::Addition | BinaryOperator::Subtraction)
+            && let Expression::NumericLiteral(literal) = &expression.right
+            && (literal.value - 1.0).abs() < f64::EPSILON
+            && let Some(subject) = callee_name(&expression.left)
+        {
+            self.boundaries.entry(subject).or_default().push(expression.span);
+        }
+        walk::walk_binary_expression(self, expression);
+    }
+
+    fn visit_binding_identifier(&mut self, binding: &oxc::ast::ast::BindingIdentifier<'a>) {
+        if let Some(convention) = convention_of(&binding.name) {
+            self.conventions.push((convention.to_owned(), binding.span));
+        }
     }
 
     fn visit_ts_any_keyword(&mut self, keyword: &oxc::ast::ast::TSAnyKeyword) {
@@ -465,6 +560,9 @@ pub fn collect(
         last_read: HashMap::new(),
         out: Hygiene::default(),
         numbers: HashMap::new(),
+        boundaries: HashMap::new(),
+        conventions: Vec::new(),
+        test_depth: 0,
         marker: std::marker::PhantomData,
     };
     walker.visit_program(program);
@@ -478,6 +576,34 @@ pub fn collect(
         .into_iter()
         .filter(|(_, spans)| spans.len() as u32 >= limits.magic_number_repeats)
         .collect();
+    let mut boundaries: Vec<(String, Vec<Span>)> = walker
+        .boundaries
+        .into_iter()
+        .filter(|(_, spans)| spans.len() as u32 >= limits.boundary_repeats)
+        .collect();
+    boundaries.sort_by(|a, b| a.1[0].start.cmp(&b.1[0].start));
+    for (subject, spans) in boundaries {
+        out.boundary_arithmetic.push(Spot {
+            span: spans[0],
+            detail: subject,
+            count: spans.len() as u32,
+        });
+    }
+
+    // One finding per file, at the first name that broke the majority convention.
+    let camel = walker.conventions.iter().filter(|(style, _)| style == "camelCase").count();
+    let snake = walker.conventions.iter().filter(|(style, _)| style == "snake_case").count();
+    if camel > 0 && snake > 0 {
+        let minority = if camel < snake { "camelCase" } else { "snake_case" };
+        if let Some((_, span)) = walker.conventions.iter().find(|(style, _)| style == minority) {
+            out.mixed_conventions.push(Spot {
+                span: *span,
+                detail: minority.to_owned(),
+                count: camel.min(snake) as u32,
+            });
+        }
+    }
+
     repeated.sort_by(|a, b| a.1[0].start.cmp(&b.1[0].start));
     for (raw, spans) in repeated {
         out.magic_numbers.push(Spot {
