@@ -18,7 +18,7 @@ use rqx_core::finding::{Finding, Severity};
 use crate::check::{Review, Verdict};
 use crate::scan::ScanOutcome;
 
-pub use catalogue::{explain, rules};
+pub use catalogue::{coverage, explain, rules, techniques};
 pub use filter::FindingFilter;
 pub use terminal::Layout;
 

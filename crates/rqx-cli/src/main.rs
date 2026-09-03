@@ -64,7 +64,12 @@ enum Command {
     Rules {
         /// Show only one family
         category: Option<String>,
+        /// Print what Rqx does about every entry in both canonical catalogues
+        #[arg(long)]
+        coverage: bool,
     },
+    /// List every refactoring both catalogues name, and which rules prescribe it
+    Techniques,
     /// Analyze changed files against a base revision and fail if the gate is not met
     Check {
         #[arg(default_value = ".")]
@@ -435,6 +440,13 @@ fn run() -> Result<i32> {
             Ok(0)
         }
         Command::Tui { path, config } => open_tui(&path, config.as_deref()),
-        Command::Rules { category } => report::rules(category.as_deref(), palette).map(|()| 0),
+        Command::Rules { category, coverage } => {
+            if coverage {
+                report::coverage(palette).map(|()| 0)
+            } else {
+                report::rules(category.as_deref(), palette).map(|()| 0)
+            }
+        }
+        Command::Techniques => report::techniques(palette).map(|()| 0),
     }
 }

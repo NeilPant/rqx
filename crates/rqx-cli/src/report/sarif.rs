@@ -37,7 +37,7 @@ fn location(range: &SourceRange, prefix: &str) -> Value {
 fn rule_descriptor(rule: RuleId) -> Value {
     let spec = rule.spec();
     let mut tags = vec!["rqx".to_owned(), "maintainability".to_owned()];
-    if let Some(smell) = spec.guru_smell {
+    if let Some(smell) = spec.guru_smell.map(rqx_core::Smell::name) {
         tags.push(smell.to_owned());
     }
     json!({
@@ -50,7 +50,7 @@ fn rule_descriptor(rule: RuleId) -> Value {
                 "{}\n\nFix: {}\n\nClean Code: {}\nMetric: {}",
                 spec.why,
                 spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / "),
-                spec.clean_code,
+                spec.citation(),
                 spec.metric
             )
         },

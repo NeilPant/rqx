@@ -13,7 +13,8 @@ struct JsonFinding<'a> {
     why: &'static str,
     fixes: Vec<&'static str>,
     guru_smell: Option<&'static str>,
-    clean_code_smell: &'static str,
+    clean_code_smell: String,
+    clean_code_ids: Vec<&'static str>,
     metric: &'static str,
 }
 
@@ -49,8 +50,9 @@ pub fn finding_of(finding: &Finding) -> impl Serialize + '_ {
         finding,
         why: spec.why,
         fixes: spec.fixes.iter().map(|fix| fix.name()).collect(),
-        guru_smell: spec.guru_smell,
-        clean_code_smell: spec.clean_code,
+        guru_smell: spec.guru_smell.map(rqx_core::Smell::name),
+        clean_code_smell: spec.citation(),
+        clean_code_ids: spec.clean_code.iter().map(|entry| entry.id()).collect(),
         metric: spec.metric,
     }
 }

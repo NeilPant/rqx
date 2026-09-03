@@ -192,8 +192,8 @@ impl Server {
             spec.why,
             spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / "),
             finding.fix_hint,
-            spec.clean_code,
-            spec.guru_smell.unwrap_or("no catalog entry")
+            spec.citation(),
+            spec.guru_smell.map_or("no catalog entry", rqx_core::Smell::name)
         );
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent { kind: MarkupKind::Markdown, value }),

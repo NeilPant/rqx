@@ -3,6 +3,9 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::finding::{Confidence, Severity};
+use crate::heuristic::Heuristic;
+use crate::smell::Smell;
+use crate::technique::FixTechnique;
 
 /// The refactoring.guru grouping, kept as the top-level organisation because it is
 /// the one a reader can hold in their head: five families, not eighty-eight rules.
@@ -69,87 +72,6 @@ impl Category {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum FixTechnique {
-    ConsolidateConditional,
-    DecomposeConditional,
-    DeleteFile,
-    EncapsulateField,
-    ExtractClass,
-    ExtractInterface,
-    ExtractMethod,
-    ExtractSharedModule,
-    ExtractSubclass,
-    ExtractVariable,
-    HideDelegate,
-    InlineClass,
-    IntroduceParameterObject,
-    InvertDependency,
-    MoveMethod,
-    PreserveWholeObject,
-    PullUpMethod,
-    PushDownMethod,
-    RemoveAssignmentsToParameters,
-    RemoveDeadCode,
-    RemoveMiddleMan,
-    RemoveParameter,
-    RenameVariable,
-    ReplaceConditionalWithPolymorphism,
-    ReplaceMagicNumberWithConstant,
-    ReplaceNestedConditionalWithGuardClauses,
-    ReplaceParameterWithExplicitMethods,
-    ReplaceTypeCodeWithClass,
-    SeparateQueryFromModifier,
-    CollapseHierarchy,
-}
-
-impl FixTechnique {
-    /// Names are verbatim from refactoring.guru's catalogue so a finding can be
-    /// looked up there directly.
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::ConsolidateConditional => "Consolidate Conditional Expression",
-            Self::DecomposeConditional => "Decompose Conditional",
-            Self::DeleteFile => "Delete File",
-            Self::EncapsulateField => "Encapsulate Field",
-            Self::ExtractClass => "Extract Class",
-            Self::ExtractInterface => "Extract Interface",
-            Self::ExtractMethod => "Extract Method",
-            Self::ExtractSharedModule => "Extract Shared Module",
-            Self::ExtractSubclass => "Extract Subclass",
-            Self::ExtractVariable => "Extract Variable",
-            Self::HideDelegate => "Hide Delegate",
-            Self::InlineClass => "Inline Class",
-            Self::IntroduceParameterObject => "Introduce Parameter Object",
-            Self::InvertDependency => "Invert Dependency",
-            Self::MoveMethod => "Move Method",
-            Self::PreserveWholeObject => "Preserve Whole Object",
-            Self::PullUpMethod => "Pull Up Method",
-            Self::PushDownMethod => "Push Down Method",
-            Self::RemoveAssignmentsToParameters => "Remove Assignments to Parameters",
-            Self::RemoveDeadCode => "Remove Dead Code",
-            Self::RemoveMiddleMan => "Remove Middle Man",
-            Self::RemoveParameter => "Remove Parameter",
-            Self::RenameVariable => "Rename Variable",
-            Self::ReplaceConditionalWithPolymorphism => "Replace Conditional with Polymorphism",
-            Self::ReplaceMagicNumberWithConstant => "Replace Magic Number with Symbolic Constant",
-            Self::ReplaceNestedConditionalWithGuardClauses => {
-                "Replace Nested Conditional with Guard Clauses"
-            }
-            Self::ReplaceParameterWithExplicitMethods => "Replace Parameter with Explicit Methods",
-            Self::ReplaceTypeCodeWithClass => "Replace Type Code with Class",
-            Self::SeparateQueryFromModifier => "Separate Query from Modifier",
-            Self::CollapseHierarchy => "Collapse Hierarchy",
-        }
-    }
-}
-
-impl fmt::Display for FixTechnique {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
 /// A rule that reaches output without every field of this struct is a rule whose
 /// findings cannot be traced to the catalogue they claim, which is the failure mode
 /// Rqx exists to avoid.
@@ -159,8 +81,13 @@ pub struct RuleSpec {
     pub category: Category,
     /// `None` where refactoring.guru genuinely has no matching smell. Stretching a
     /// category to fill the field would make the citation worthless.
-    pub guru_smell: Option<&'static str>,
-    pub clean_code: &'static str,
+    pub guru_smell: Option<Smell>,
+    /// Typed rather than written out, so a citation cannot name a heuristic that does
+    /// not exist and cannot drift from the coverage table that counts it.
+    pub clean_code: &'static [Heuristic],
+    /// A principle from outside chapter 17's numbered list, for the two rules whose
+    /// justification is a chapter rather than a heuristic.
+    pub principle: Option<&'static str>,
     pub metric: &'static str,
     pub fixes: &'static [FixTechnique],
     pub confidence: Confidence,
@@ -180,11 +107,12 @@ macro_rules! catalogue {
             slug: $slug:literal,
             category: $category:ident,
             guru: $guru:expr,
-            clean_code: $clean:literal,
+            clean_code: [$($heuristic:ident),* $(,)?],
             metric: $metric:literal,
             fixes: [$($fix:ident),+ $(,)?],
             confidence: $confidence:ident,
             severity: $severity:ident,
+            $(principle: $principle:literal,)?
             why: $why:literal,
             $(off_by_default: $off:literal,)?
         }
@@ -203,7 +131,8 @@ macro_rules! catalogue {
                         slug: $slug,
                         category: Category::$category,
                         guru_smell: $guru,
-                        clean_code: $clean,
+                        clean_code: &[$(Heuristic::$heuristic),*],
+                        principle: catalogue!(@principle $($principle)?),
                         metric: $metric,
                         fixes: &[$(FixTechnique::$fix),+],
                         confidence: Confidence::$confidence,
@@ -217,9 +146,22 @@ macro_rules! catalogue {
     };
     (@off) => { false };
     (@off $value:literal) => { $value };
+    (@principle) => { None };
+    (@principle $value:literal) => { Some($value) };
 }
 
 include!("catalogue.rs");
+
+impl RuleSpec {
+    /// The citation as a reader expects to see it: the heuristics it names, then the
+    /// principle for the rules whose justification is a chapter rather than a number.
+    pub fn citation(&self) -> String {
+        let mut parts: Vec<String> =
+            self.clean_code.iter().map(ToString::to_string).collect();
+        parts.extend(self.principle.map(ToOwned::to_owned));
+        parts.join("; ")
+    }
+}
 
 impl RuleId {
     pub const fn slug(self) -> &'static str {
@@ -249,7 +191,10 @@ mod tests {
             let spec = rule.spec();
             assert_eq!(spec.id, rule, "spec for {rule} is wired to the wrong id");
             assert!(!spec.slug.is_empty());
-            assert!(!spec.clean_code.is_empty(), "{rule} cites no Clean Code heuristic");
+            assert!(
+                !spec.clean_code.is_empty() || spec.principle.is_some(),
+                "{rule} cites neither a heuristic nor a principle"
+            );
             assert!(!spec.metric.is_empty(), "{rule} names no computable metric");
             assert!(!spec.fixes.is_empty(), "{rule} suggests no fix technique");
             assert!(!spec.why.is_empty(), "{rule} explains nothing");
@@ -270,19 +215,32 @@ mod tests {
         }
     }
 
-    /// A citation is only worth anything if it points at a real entry, so every
-    /// Clean Code reference must carry an identifier from the book's own scheme.
+    /// The two directions have to agree. A rule citing a heuristic the coverage table
+    /// does not credit it for — or a table crediting a rule that cites something else —
+    /// is exactly the drift that let five rules pile onto `G12 Clutter`.
     #[test]
-    fn clean_code_citations_name_a_real_heuristic() {
-        for rule in RuleId::ALL.iter().copied() {
-            let citation = rule.spec().clean_code;
-            let has_identifier = citation.split_whitespace().next().is_some_and(|first| {
-                let mut chars = first.chars();
-                matches!(chars.next(), Some('C' | 'E' | 'F' | 'G' | 'N' | 'T'))
-                    && chars.next().is_some_and(|c| c.is_ascii_digit())
-            }) || citation.starts_with("Ch.")
-                || citation.starts_with("Acyclic");
-            assert!(has_identifier, "{rule} cites `{citation}`, which names no heuristic");
+    fn heuristic_coverage_matches_what_the_rules_cite() {
+        for entry in crate::heuristic::Heuristic::ALL.iter().copied() {
+            let claimed: BTreeSet<RuleId> = entry.coverage().rules().iter().copied().collect();
+            let citing: BTreeSet<RuleId> = RuleId::ALL
+                .iter()
+                .copied()
+                .filter(|rule| rule.spec().clean_code.contains(&entry))
+                .collect();
+            assert_eq!(claimed, citing, "{entry} is credited to {claimed:?} but cited by {citing:?}");
+        }
+    }
+
+    #[test]
+    fn smell_coverage_matches_what_the_rules_cite() {
+        for smell in crate::smell::Smell::ALL.iter().copied() {
+            let claimed: BTreeSet<RuleId> = smell.coverage().rules().iter().copied().collect();
+            let citing: BTreeSet<RuleId> = RuleId::ALL
+                .iter()
+                .copied()
+                .filter(|rule| rule.spec().guru_smell == Some(smell))
+                .collect();
+            assert_eq!(claimed, citing, "{smell} is credited to {claimed:?} but cited by {citing:?}");
         }
     }
 

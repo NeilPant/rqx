@@ -93,17 +93,23 @@ Clean Code's own. `rqx explain <rule>` prints one in full.
 
 ### What is deliberately absent
 
-Of the 88 entries across both catalogues, 42 are implemented. The rest fall into two
-groups, and neither is a backlog:
+Both catalogues are held as data, so the coverage is counted rather than claimed —
+`rqx rules --coverage` prints every one of refactoring.guru's 22 smells and Clean
+Code's 66 heuristics with what Rqx does about it, and the test suite fails if an
+entry has no answer. `rqx techniques` does the same for the 66 refactorings.
 
-**Needs a type checker** — Primitive Obsession beyond string-literal type codes,
-Refused Bequest for members a subclass silently ignores, dead branches after type
-narrowing. These wait for an opt-in `--type-aware` pass rather than being guessed at.
+An entry Rqx does not report says why:
 
-**Not statically decidable** — G21 "Understand the algorithm", C2 "Obsolete comment",
-C4 "Poorly written comment", G2 "Obvious behavior is unimplemented", T2 "Use a
-coverage tool", E1/E2 build and test process. A tool that claimed to check these
-would be inventing findings, which costs more trust than the missing rules do.
+**Not yet** — decidable from the source, no rule for it. This is the only group that
+is a backlog, and it is the only group whose size the suite pins to an exact number.
+
+**Not decidable** — G21 "Understand the algorithm", C2 "Obsolete comment", C4 "Poorly
+written comment", G2 "Obvious behavior is unimplemented", T2 "Use a coverage tool",
+E1/E2 build and test process. A tool that claimed to check these would be inventing
+findings, which costs more trust than the missing rules do.
+
+**Not applicable** — J1–J3 are Java-specific; TypeScript has no wildcard imports and
+no constants to inherit.
 
 ## Families can be switched on and off
 
