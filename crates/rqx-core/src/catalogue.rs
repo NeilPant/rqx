@@ -481,6 +481,20 @@ catalogue! {
               nothing about its position suggests it is a setting",
     },
 
+    TemporalCoupling {
+        slug: "temporal-coupling",
+        category: OoAbusers,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G31],
+        metric: "a field no constructor sets that two or more methods test before acting",
+        fixes: [IntroduceAssertion, ExtractClass],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the order the methods must be called in is real but unwritten, so the \
+              only way to learn it is to call them wrongly first",
+    },
+
     // ---- Couplers -------------------------------------------------------------
     CircularDependency {
         slug: "circular-dependency",
@@ -588,6 +602,21 @@ catalogue! {
         severity: Warning,
         why: "callers assume asking is free, so they ask twice, order the calls \
               freely, and are surprised when that changes the answer",
+    },
+
+    MisleadingPatternName {
+        slug: "misleading-pattern-name",
+        category: Naming,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [N3],
+        metric: "a class named Factory or Builder with no method that makes or builds",
+        fixes: [RenameMethod, ExtractClass],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a pattern name is a promise about the interface, and a reader who trusts \
+              it goes looking for members that are not there",
+        off_by_default: true,
     },
 
     // ---- Naming ---------------------------------------------------------------

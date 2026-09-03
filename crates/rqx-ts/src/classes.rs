@@ -35,6 +35,10 @@ pub struct ClassReport {
     pub static_on_own_type: Vec<Named>,
     /// Methods leaning on another object far more than on `this`.
     pub envious: Vec<Envy>,
+    /// Fields no constructor sets that several methods test before they act.
+    pub guarded_fields: Vec<Pair>,
+    /// A name promising a pattern the members do not implement.
+    pub misleading_name: Option<Named>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -104,9 +108,33 @@ struct Reach {
     own: u32,
     foreign: HashMap<String, u32>,
     reads: HashSet<String>,
+    /// Fields the body tests before deciding what to do, which is how a method says
+    /// it must not be called until something else has run.
+    guards: HashSet<String>,
+}
+
+/// `this.ready` and `!this.ready` both say the same thing: this method refuses to
+/// run until something else has happened.
+fn guarded_field(test: &Expression<'_>) -> Option<String> {
+    match test {
+        Expression::StaticMemberExpression(member)
+            if matches!(member.object, Expression::ThisExpression(_)) =>
+        {
+            Some(member.property.name.to_string())
+        }
+        Expression::UnaryExpression(unary) => guarded_field(&unary.argument),
+        _ => None,
+    }
 }
 
 impl<'a> Visit<'a> for Reach {
+    fn visit_if_statement(&mut self, statement: &oxc::ast::ast::IfStatement<'a>) {
+        if let Some(field) = guarded_field(&statement.test) {
+            self.guards.insert(field);
+        }
+        oxc::ast_visit::walk::walk_if_statement(self, statement);
+    }
+
     fn visit_static_member_expression(
         &mut self,
         member: &oxc::ast::ast::StaticMemberExpression<'a>,
@@ -151,12 +179,16 @@ impl Collector {
             derived_references: Vec::new(),
             static_on_own_type: Vec::new(),
             envious: Vec::new(),
+            guarded_fields: Vec::new(),
+            misleading_name: None,
         };
 
         let mut private_members: HashMap<String, Span> = HashMap::new();
         let mut read_anywhere: HashSet<String> = HashSet::new();
         let mut field_users: HashMap<String, Vec<String>> = HashMap::new();
         let mut constructor_writes: HashSet<String> = HashSet::new();
+        let mut guard_users: HashMap<String, Vec<String>> = HashMap::new();
+        let mut method_names: Vec<String> = Vec::new();
         let mut declared_fields: HashMap<String, Span> = HashMap::new();
 
         for element in &class.body.body {
@@ -228,6 +260,12 @@ impl Collector {
                     if let Some(body) = body {
                         reach.visit_function_body(body);
                     }
+                    if !is_constructor {
+                        method_names.push(member.clone());
+                        for field in &reach.guards {
+                            guard_users.entry(field.clone()).or_default().push(member.clone());
+                        }
+                    }
                     read_anywhere.extend(reach.reads.iter().cloned());
                     for field in &reach.reads {
                         field_users.entry(field.clone()).or_default().push(member.clone());
@@ -266,6 +304,32 @@ impl Collector {
                 report.dead_private.push(Named { name: member, span });
             }
         }
+        // A pattern name is a promise about the interface. Only two are unambiguous
+        // enough to check: a factory makes things, a builder builds one.
+        let promise = |suffix: &str, verbs: &[&str]| {
+            name.ends_with(suffix)
+                && name.len() > suffix.len()
+                && !method_names.iter().any(|method| {
+                    verbs.iter().any(|verb| method.to_ascii_lowercase().starts_with(verb))
+                })
+        };
+        if promise("Factory", &["create", "make", "build", "of", "from", "new"])
+            || promise("Builder", &["build", "with", "add", "set"])
+        {
+            report.misleading_name = Some(Named { name: name.clone(), span: report.span });
+        }
+
+        for (field, guards) in guard_users {
+            if guards.len() >= 2 && !constructor_writes.contains(&field) {
+                let span = declared_fields.get(&field).copied().unwrap_or(report.span);
+                report.guarded_fields.push(Pair {
+                    name: field,
+                    other: guards.join(", "),
+                    span,
+                });
+            }
+        }
+
         for (field, users) in field_users {
             // The field's own declaration, not the class's: a finding that names a
             // field should point at it, and sharing one span across several findings

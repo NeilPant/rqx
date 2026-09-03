@@ -166,7 +166,7 @@ heuristics! {
     G30 { title: "Functions Should Do One Thing", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::LongFunction]) },
     G31 { title: "Hidden Temporal Couplings", chapter: General,
-          coverage: Coverage::Absent("a field several methods guard against and no constructor sets") },
+          coverage: Coverage::Implemented(&[RuleId::TemporalCoupling]) },
     G32 { title: "Don't Be Arbitrary", chapter: General,
           coverage: Coverage::NotStatic("no metric separates a considered structure from an arbitrary one") },
     G33 { title: "Encapsulate Boundary Conditions", chapter: General,
@@ -190,7 +190,7 @@ heuristics! {
     N2 { title: "Choose Names at the Appropriate Level of Abstraction", chapter: Names,
          coverage: Coverage::NotStatic("which level a name belongs at is a design judgement") },
     N3 { title: "Use Standard Nomenclature Where Possible", chapter: Names,
-         coverage: Coverage::Absent("a name claiming a pattern the class does not implement") },
+         coverage: Coverage::Implemented(&[RuleId::MisleadingPatternName]) },
     N4 { title: "Unambiguous Names", chapter: Names,
          coverage: Coverage::Implemented(&[RuleId::MeaninglessName]) },
     N5 { title: "Use Long Names for Long Scopes", chapter: Names,
@@ -284,6 +284,6 @@ mod tests {
     /// source Rqx already parses.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Heuristic::tally().absent, 4);
+        assert_eq!(Heuristic::tally().absent, 2);
     }
 }

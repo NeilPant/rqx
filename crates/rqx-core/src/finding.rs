@@ -126,6 +126,8 @@ pub enum Evidence {
     DistantDeclaration { name: String, lines: u32 },
     ObscuredExpression { operations: u32, limit: u32 },
     BuriedConfiguration { kind: String, depth: u32 },
+    TemporalCoupling { field: String, methods: String },
+    MisleadingName { name: String, promise: String },
 }
 
 impl fmt::Display for Evidence {
@@ -302,6 +304,13 @@ impl fmt::Display for Evidence {
                 f,
                 "{kind} written {depth} blocks deep, where nothing configures it."
             ),
+            Self::TemporalCoupling { field, methods } => write!(
+                f,
+                "`{field}` is tested before acting by {methods}, and no constructor sets it."
+            ),
+            Self::MisleadingName { name, promise } => {
+                write!(f, "`{name}` is named for a {promise} but implements none of one.")
+            }
             Self::MixedConventions { minority, count } => write!(
                 f,
                 "{} in this file use {minority} while the rest do not.",

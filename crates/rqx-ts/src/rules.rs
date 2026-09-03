@@ -526,6 +526,37 @@ pub fn check_class_shape(
     let name = &report.name;
     let members = report.fields + report.methods;
 
+    for guarded in &report.guarded_fields {
+        builder.emit(
+            out,
+            RuleId::TemporalCoupling,
+            guarded.span,
+            Evidence::TemporalCoupling {
+                field: guarded.name.clone(),
+                methods: guarded.other.clone(),
+            },
+            format!(
+                "set `{}` in the constructor, or split the stages into objects that \
+                 cannot be used before they are ready",
+                guarded.name
+            ),
+        );
+    }
+
+    if let Some(misleading) = &report.misleading_name {
+        let promise = if misleading.name.ends_with("Builder") { "builder" } else { "factory" };
+        builder.emit(
+            out,
+            RuleId::MisleadingPatternName,
+            misleading.span,
+            Evidence::MisleadingName {
+                name: misleading.name.clone(),
+                promise: promise.to_owned(),
+            },
+            format!("rename `{}` after what it holds, or give it the members a {promise} has", misleading.name),
+        );
+    }
+
     for refused in &report.refused {
         builder.emit(
             out,
