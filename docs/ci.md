@@ -11,9 +11,23 @@ with a different `--reporter`.
 | `1` | ran, gate failed |
 | `2` | rqx could not run — bad path, bad config, unresolvable revision |
 
-`rqx scan` never fails on its own. It gates only when you pass `--fail-on`,
-`--allow-findings` or `--min-health`. `rqx check` always gates, using `[gate]`
-from `rqx.toml` unless a flag overrides it.
+`rqx scan` never fails on its own. It gates only when you pass one of the gate
+flags. `rqx check` always gates, using `[gate]` from `rqx.toml` unless a flag
+overrides it.
+
+| Flag | Fails when |
+|---|---|
+| `--fail-on <severity>` | any finding at or above that severity |
+| `--allow-findings <n>` | more than `n` of them |
+| `--min-health <n>` | the project score drops below `n` |
+| `--min-grade <grade>` | any single file grades below that floor |
+
+`--min-grade` is the one that catches a file rotting on its own: a project-wide
+score averages it away, and severity is per finding rather than per file. Grades
+run `pristine`, `clean`, `fair`, `poor`, `critical`, and `never` turns the gate off.
+
+Passing any gate flag opts a scan into gating, so the rest of `[gate]` applies too
+— `--min-grade poor` on a repo with `fail_on = "error"` gates on both.
 
 ## Reporters
 

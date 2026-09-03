@@ -34,6 +34,15 @@ rqx explain unused-export       # what a rule maps to and why it exists
   Duration  0.84s
 ```
 
+Every finding shows the code it is about: the whole span, context either side, and
+the offending columns marked in the severity's colour with a caret ruler underneath
+for terminals that drop backgrounds. `--context <n>` changes the window.
+
+Each file carries a grade — `pristine`, `clean`, `fair`, `poor`, `critical` — from
+the same curve as the health score applied to that file's own lines. It is what
+`Start here` ranks by, and `--min-grade` gates on it, which catches one file rotting
+where a project-wide average would not.
+
 Clean files are counted, not listed — `--show-passed` lists them. Narrow the view
 with `--severity`, `--rule`, `--category` and `--path`; none of them move the health
 score or the gate, because a CI result that depended on how it was printed would be
