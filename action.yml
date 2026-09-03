@@ -1,0 +1,81 @@
+name: "Rqx"
+description: "Find dead code, duplication and architectural drift in TypeScript, with a reason for every finding."
+author: "Jad Alhamwi"
+branding:
+  icon: search
+  color: orange
+
+inputs:
+  path:
+    description: "Directory to analyze."
+    required: false
+    default: "."
+  base:
+    description: "Revision to compare against. Set to an empty string to scan the whole project instead of a diff."
+    required: false
+    default: ""
+  config:
+    description: "Path to rqx.toml."
+    required: false
+    default: ""
+  sarif-file:
+    description: "Where to write the SARIF report."
+    required: false
+    default: "rqx.sarif"
+  upload-sarif:
+    description: "Upload the SARIF report to GitHub code scanning."
+    required: false
+    default: "true"
+
+outputs:
+  findings:
+    description: "Number of findings reported."
+    value: ${{ steps.rqx.outputs.findings }}
+  passed:
+    description: "Whether the gate passed."
+    value: ${{ steps.rqx.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install rqx
+      shell: bash
+      run: cargo install --locked --path "${{ github.action_path }}/crates/rqx-cli"
+
+    - name: Run rqx
+      id: rqx
+      shell: bash
+      env:
+        RQX_PATH: ${{ inputs.path }}
+        RQX_BASE: ${{ inputs.base }}
+        RQX_CONFIG: ${{ inputs.config }}
+        RQX_SARIF: ${{ inputs.sarif-file }}
+      run: |
+        set -uo pipefail
+        args=()
+        [ -n "$RQX_CONFIG" ] && args+=(--config "$RQX_CONFIG")
+
+        # `check` needs the base branch present; a shallow clone has only one commit.
+        if [ -n "$RQX_BASE" ]; then
+          git fetch --no-tags --depth=1 origin "$RQX_BASE" 2>/dev/null || true
+          rqx check "$RQX_PATH" --base "$RQX_BASE" --format sarif "${args[@]}" > "$RQX_SARIF"
+          status=$?
+          rqx check "$RQX_PATH" --base "$RQX_BASE" "${args[@]}" || true
+        else
+          rqx scan "$RQX_PATH" --format sarif --max-findings 0 "${args[@]}" > "$RQX_SARIF"
+          status=$?
+          rqx scan "$RQX_PATH" "${args[@]}" || true
+        fi
+
+        findings=$(grep -c '"ruleId"' "$RQX_SARIF" || echo 0)
+        echo "findings=$findings" >> "$GITHUB_OUTPUT"
+        echo "passed=$([ "$status" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        exit "$status"
+
+    # Runs even when the gate failed, so a failing PR still gets its annotations.
+    - name: Upload SARIF
+      if: ${{ always() && inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: rqx

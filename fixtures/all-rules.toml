@@ -1,0 +1,3 @@
+[rules]
+disabled = []
+enabled = ["meaningless-name","primitive-obsession","hungarian-notation","short-name-wide-scope","negative-conditional","divergent-change"]

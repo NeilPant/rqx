@@ -1,0 +1,17 @@
+[workspace]
+resolver = "3"
+members = ["crates/rqx-core", "crates/rqx-ts", "crates/rqx-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "MIT"
+
+[workspace.dependencies]
+rqx-core = { path = "crates/rqx-core" }
+rqx-ts = { path = "crates/rqx-ts" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

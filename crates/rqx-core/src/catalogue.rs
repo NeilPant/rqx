@@ -1,0 +1,534 @@
+// The rule catalogue. Every entry cites refactoring.guru's smell and Clean Code's
+// heuristic identifier, names the metric that decides it, and names the refactoring
+// that fixes it. `guru: None` means that catalogue genuinely has no matching entry.
+
+catalogue! {
+    // ---- Bloaters -------------------------------------------------------------
+    LongFunction {
+        slug: "long-function",
+        category: Bloaters,
+        guru: Some("Long Method"),
+        clean_code: "G30 Functions Should Do One Thing",
+        metric: "statement count in a function body",
+        fixes: [ExtractMethod],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "a body this long is doing several things, so a reader has to hold all of \
+              them at once to change any one of them",
+    },
+    CognitiveComplexity {
+        slug: "cognitive-complexity",
+        category: Bloaters,
+        guru: Some("Long Method"),
+        clean_code: "G34 Functions Should Descend Only One Level of Abstraction",
+        metric: "SonarSource cognitive complexity",
+        fixes: [DecomposeConditional, ExtractMethod],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every nested decision point multiplies the paths a reader has to trace, \
+              and untraced paths are where regressions survive review",
+    },
+    DeepNesting {
+        slug: "deep-nesting",
+        category: Bloaters,
+        guru: Some("Long Method"),
+        clean_code: "G34 Functions Should Descend Only One Level of Abstraction",
+        metric: "maximum block nesting depth",
+        fixes: [ReplaceNestedConditionalWithGuardClauses],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "at this depth the conditions that led here are off-screen, so the \
+              preconditions of the innermost code are invisible where it matters",
+    },
+    LongParameterList {
+        slug: "long-parameter-list",
+        category: Bloaters,
+        guru: Some("Long Parameter List"),
+        clean_code: "F1 Too Many Arguments",
+        metric: "parameter count",
+        fixes: [IntroduceParameterObject, PreserveWholeObject],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "callers have to remember an order this long, and same-typed neighbours \
+              make a silent transposition possible at every call site",
+    },
+    LargeClass {
+        slug: "large-class",
+        category: Bloaters,
+        guru: Some("Large Class"),
+        clean_code: "Ch.10 The Single Responsibility Principle",
+        metric: "member count and body statement count",
+        fixes: [ExtractClass, ExtractSubclass],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "a class this size has more than one reason to change, so unrelated work \
+              lands in the same file and the same merge conflicts",
+    },
+    DataClump {
+        slug: "data-clump",
+        category: Bloaters,
+        guru: Some("Data Clumps"),
+        clean_code: "G22 Make Logical Dependencies Physical",
+        metric: "the same group of three or more parameter names recurring across signatures",
+        fixes: [IntroduceParameterObject, ExtractClass],
+        confidence: Heuristic,
+        severity: Info,
+        why: "these values already travel together everywhere, so they are a concept \
+              the code has not named yet, and every new use has to rediscover it",
+    },
+    PrimitiveObsession {
+        slug: "primitive-obsession",
+        category: Bloaters,
+        guru: Some("Primitive Obsession"),
+        clean_code: "G25 Replace Magic Numbers with Named Constants",
+        metric: "a type alias that is a union of three or more string literals",
+        fixes: [ReplaceTypeCodeWithClass, IntroduceParameterObject],
+        confidence: Low,
+        severity: Info,
+        why: "a raw string or number carries no rules of its own, so every place that \
+              uses it re-implements the same validation, and one of them gets it wrong",
+        off_by_default: true,
+    },
+
+    // ---- Object-Orientation Abusers -------------------------------------------
+    TypeCodeSwitch {
+        slug: "type-code-switch",
+        category: OoAbusers,
+        guru: Some("Switch Statements"),
+        clean_code: "G23 Prefer Polymorphism to If/Else or Switch/Case",
+        metric: "switch or if/else chain branching on the same discriminant in more than one place",
+        fixes: [ReplaceConditionalWithPolymorphism, ReplaceTypeCodeWithClass],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the same set of cases is now spelled out in several places, so adding a \
+              case means finding all of them and the compiler will not remind you",
+    },
+    TemporaryField {
+        slug: "temporary-field",
+        category: OoAbusers,
+        guru: Some("Temporary Field"),
+        clean_code: "G8 Too Much Information",
+        metric: "instance field written and read by exactly one method, never in the constructor",
+        fixes: [ExtractClass, ExtractMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the field is empty for most of the object's life, so every other method \
+              has to know it must not look at it",
+    },
+    RefusedBequest {
+        slug: "refused-bequest",
+        category: OoAbusers,
+        guru: Some("Refused Bequest"),
+        clean_code: "G7 Base Classes Depending on Their Derivatives",
+        metric: "override whose body only throws or is empty",
+        fixes: [PushDownMethod, ExtractInterface, CollapseHierarchy],
+        confidence: Verified,
+        severity: Warning,
+        why: "the subclass is inheriting an interface it cannot honour, so a caller \
+              holding the base type has no safe way to know which methods actually work",
+    },
+    BaseDependsOnDerived {
+        slug: "base-depends-on-derived",
+        category: OoAbusers,
+        guru: Some("Inappropriate Intimacy"),
+        clean_code: "G7 Base Classes Depending on Their Derivatives",
+        metric: "base class referencing one of its own subclasses by name",
+        fixes: [InvertDependency, PushDownMethod],
+        confidence: Verified,
+        severity: Warning,
+        why: "the base cannot be deployed, tested or understood without its children, \
+              which is the entire benefit of having a base class given away",
+    },
+    InappropriateStatic {
+        slug: "inappropriate-static",
+        category: OoAbusers,
+        guru: Some("Alternative Classes with Different Interfaces"),
+        clean_code: "G18 Inappropriate Static",
+        metric: "static method taking an instance of its own class as its first parameter",
+        fixes: [MoveMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a static can never be overridden, so behaviour that clearly belongs to the \
+              instance is frozen for every subclass and every test that wants to fake it",
+    },
+
+    // ---- Change Preventers ----------------------------------------------------
+    ShotgunSurgery {
+        slug: "shotgun-surgery",
+        category: ChangePreventers,
+        guru: Some("Shotgun Surgery"),
+        clean_code: "G22 Make Logical Dependencies Physical",
+        metric: "files that git history shows almost always change together",
+        fixes: [ExtractClass, MoveMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "one decision is spread across files that must be edited in lockstep, and \
+              nothing in the code says so, so the day someone edits four of the five is \
+              the day it breaks",
+    },
+    DivergentChange {
+        slug: "divergent-change",
+        category: ChangePreventers,
+        guru: Some("Divergent Change"),
+        clean_code: "Ch.10 The Single Responsibility Principle",
+        metric: "a file with many commits and no single frequent co-change partner",
+        fixes: [ExtractClass],
+        confidence: Low,
+        severity: Info,
+        why: "this file is edited for many unrelated reasons, which is the observable \
+              signature of more than one responsibility living in it",
+        off_by_default: true,
+    },
+
+    // ---- Dispensables ---------------------------------------------------------
+    DuplicateCode {
+        slug: "duplicate-code",
+        category: Dispensables,
+        guru: Some("Duplicate Code"),
+        clean_code: "G5 Duplication",
+        metric: "identical normalized-AST block hash across sites",
+        fixes: [ExtractMethod, PullUpMethod],
+        confidence: Verified,
+        severity: Warning,
+        why: "a fix applied to one copy leaves the others wrong, and nothing in the code \
+              points from the copy you edited to the ones you did not",
+    },
+    UnusedExport {
+        slug: "unused-export",
+        category: Dispensables,
+        guru: Some("Dead Code"),
+        clean_code: "F4 Dead Function",
+        metric: "exported symbol with no importer in the resolved module graph",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "an export nobody imports still has to be read, typechecked and kept working \
+              during every refactor that touches it",
+    },
+    UnusedFile {
+        slug: "unused-file",
+        category: Dispensables,
+        guru: Some("Dead Code"),
+        clean_code: "G9 Dead Code",
+        metric: "module reachable from no entry point, with no importer",
+        fixes: [DeleteFile],
+        confidence: Verified,
+        severity: Warning,
+        why: "nothing in the build reaches this file, so every hour spent maintaining it \
+              buys nothing",
+    },
+    UnusedParameter {
+        slug: "unused-parameter",
+        category: Dispensables,
+        guru: Some("Dead Code"),
+        clean_code: "F4 Dead Function",
+        metric: "declared parameter with no resolved reference in its own scope",
+        fixes: [RemoveParameter],
+        confidence: Verified,
+        severity: Warning,
+        why: "every caller is passing a value that is read nowhere, so the argument list \
+              is teaching readers something untrue about the function",
+    },
+    UnusedLocal {
+        slug: "unused-local",
+        category: Dispensables,
+        guru: Some("Dead Code"),
+        clean_code: "G9 Dead Code",
+        metric: "local binding with no resolved reference",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "the value is computed and thrown away, which either wastes the work or \
+              hides the fact that somebody meant to use it",
+    },
+    UnusedPrivateMember {
+        slug: "unused-private-member",
+        category: Dispensables,
+        guru: Some("Dead Code"),
+        clean_code: "F4 Dead Function",
+        metric: "private class member never referenced inside its own class",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "a private member can only be used from inside its class, so one nothing in \
+              the class touches is unreachable by construction",
+    },
+    UnreachableCode {
+        slug: "unreachable-code",
+        category: Dispensables,
+        guru: Some("Dead Code"),
+        clean_code: "G9 Dead Code",
+        metric: "statement following an unconditional return, throw, break or continue",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Error,
+        why: "this code cannot run, so whatever it was meant to do is not happening and \
+              has not been happening",
+    },
+    CommentedOutCode {
+        slug: "commented-out-code",
+        category: Dispensables,
+        guru: Some("Comments"),
+        clean_code: "C5 Commented-Out Code",
+        metric: "consecutive comment lines that read as statements rather than prose",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "nobody dares delete it because nobody knows if it matters, so it sits there \
+              rotting while version control already remembers it perfectly",
+    },
+    LazyClass {
+        slug: "lazy-class",
+        category: Dispensables,
+        guru: Some("Lazy Class"),
+        clean_code: "G12 Clutter",
+        metric: "class with at most one member and no heritage",
+        fixes: [InlineClass],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the class costs a file, an import and a name, and does not yet do enough to \
+              earn any of them",
+    },
+    DataClass {
+        slug: "data-class",
+        category: Dispensables,
+        guru: Some("Data Class"),
+        clean_code: "G12 Clutter",
+        metric: "class whose members are all fields or trivial accessors",
+        fixes: [MoveMethod, EncapsulateField],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the behaviour that belongs with this data lives somewhere else, so the \
+              rules about the data are enforced everywhere except where the data is",
+    },
+    SpeculativeGenerality {
+        slug: "speculative-generality",
+        category: Dispensables,
+        guru: Some("Speculative Generality"),
+        clean_code: "G12 Clutter",
+        metric: "abstract class with no subclass anywhere in the project",
+        fixes: [CollapseHierarchy, InlineClass],
+        confidence: Verified,
+        severity: Info,
+        why: "it was built for a case that never arrived, and until it does it is only an \
+              extra indirection every reader has to step through. Interfaces are not \
+              reported: TypeScript's are structural, so nothing implementing one says \
+              nothing about whether it is speculative",
+    },
+    EmptyCatch {
+        slug: "empty-catch",
+        category: Dispensables,
+        guru: Some("Comments"),
+        clean_code: "G12 Clutter",
+        metric: "catch clause with an empty body",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Error,
+        why: "the failure is swallowed silently, so the first sign of it is wrong data \
+              somewhere far away with nothing in the logs to connect the two",
+    },
+    MagicNumber {
+        slug: "magic-number",
+        category: Dispensables,
+        guru: Some("Primitive Obsession"),
+        clean_code: "G25 Replace Magic Numbers with Named Constants",
+        metric: "unnamed numeric literal outside a declaration, excluding conventional values",
+        fixes: [ReplaceMagicNumberWithConstant, ExtractVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the number encodes a decision nobody wrote down, so the next reader cannot \
+              tell whether changing it is safe or what else shares it",
+    },
+
+    // ---- Couplers -------------------------------------------------------------
+    CircularDependency {
+        slug: "circular-dependency",
+        category: Couplers,
+        guru: None,
+        clean_code: "Acyclic Dependencies Principle (Martin); Ch.12 minimal coupling",
+        metric: "strongly connected component of more than one module in the import graph",
+        fixes: [ExtractSharedModule, InvertDependency],
+        confidence: Verified,
+        severity: Warning,
+        why: "no module in the cycle can be understood, tested or loaded on its own, and \
+              the initialisation order that makes it work today is accidental",
+    },
+    MessageChain {
+        slug: "message-chain",
+        category: Couplers,
+        guru: Some("Message Chains"),
+        clean_code: "G36 Avoid Transitive Navigation",
+        metric: "chained member access depth beyond the configured limit",
+        fixes: [HideDelegate, ExtractMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "this line depends on the shape of every object along the chain, so a change \
+              to any one of them breaks a caller that never mentioned it",
+    },
+    FeatureEnvy {
+        slug: "feature-envy",
+        category: Couplers,
+        guru: Some("Feature Envy"),
+        clean_code: "G14 Feature Envy",
+        metric: "method touching another object's members more than its own",
+        fixes: [MoveMethod, ExtractMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the method wants to live on the other class, and while it does not, both \
+              classes have to stay in step for it to keep working",
+    },
+    MiddleMan {
+        slug: "middle-man",
+        category: Couplers,
+        guru: Some("Middle Man"),
+        clean_code: "G12 Clutter",
+        metric: "class where most methods do nothing but delegate",
+        fixes: [RemoveMiddleMan, InlineClass],
+        confidence: Heuristic,
+        severity: Info,
+        why: "every call pays for a hop that adds nothing, and every new method on the \
+              delegate needs a twin here before anyone can reach it",
+    },
+
+    // ---- Naming ---------------------------------------------------------------
+    MeaninglessName {
+        slug: "meaningless-name",
+        category: Naming,
+        guru: None,
+        clean_code: "N1 Choose Descriptive Names; N4 Unambiguous Names",
+        metric: "identifier matched against a curated non-name set",
+        fixes: [RenameVariable],
+        confidence: Low,
+        severity: Info,
+        why: "a name that describes nothing forces every reader to re-derive the value's \
+              purpose from its uses",
+        off_by_default: true,
+    },
+    ShortNameWideScope {
+        slug: "short-name-wide-scope",
+        category: Naming,
+        guru: None,
+        clean_code: "N5 Use Long Names for Long Scopes",
+        metric: "binding of one or two characters living across many lines",
+        fixes: [RenameVariable],
+        confidence: Low,
+        severity: Info,
+        why: "a one-letter name is readable while its whole life fits on screen, and stops \
+              being readable the moment it does not",
+        off_by_default: true,
+    },
+    HungarianNotation {
+        slug: "hungarian-notation",
+        category: Naming,
+        guru: None,
+        clean_code: "N6 Avoid Encodings",
+        metric: "identifier carrying a type prefix, or an interface named with a leading I",
+        fixes: [RenameVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the type is already in the declaration and checked by the compiler, so the \
+              prefix is a second copy that nothing keeps honest",
+        off_by_default: true,
+    },
+
+    // ---- Safety ---------------------------------------------------------------
+    SuppressedDiagnostic {
+        slug: "suppressed-diagnostic",
+        category: Safety,
+        guru: None,
+        clean_code: "G4 Overridden Safeties",
+        metric: "ts-ignore, ts-nocheck, eslint-disable, or a cast through any",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "a check that would have caught the next mistake here has been turned off, \
+              and the comment turning it off outlives the reason for it",
+    },
+    FlagArgument {
+        slug: "flag-argument",
+        category: Safety,
+        guru: None,
+        clean_code: "F3 Flag Arguments; G15 Selector Arguments",
+        metric: "parameter declared with a boolean type",
+        fixes: [ReplaceParameterWithExplicitMethods],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the function does two things and the caller picks which, so `f(x, true)` \
+              tells a reader nothing about what will happen",
+    },
+    OutputParameter {
+        slug: "output-parameter",
+        category: Safety,
+        guru: None,
+        clean_code: "F2 Output Arguments",
+        metric: "parameter reassigned or mutated inside the function body",
+        fixes: [RemoveAssignmentsToParameters, SeparateQueryFromModifier],
+        confidence: Verified,
+        severity: Warning,
+        why: "the caller's value changes without the call site saying so, which is the \
+              hardest kind of change to find when it turns out to be wrong",
+    },
+    ComplexCondition {
+        slug: "complex-condition",
+        category: Safety,
+        guru: None,
+        clean_code: "G28 Encapsulate Conditionals",
+        metric: "boolean operands in a single condition beyond the configured limit",
+        fixes: [ConsolidateConditional, ExtractVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "nobody can hold this many clauses at once, so the reader takes the branch on \
+              trust and the bug in it survives every review",
+    },
+    NegativeConditional {
+        slug: "negative-conditional",
+        category: Safety,
+        guru: None,
+        clean_code: "G29 Avoid Negative Conditionals",
+        metric: "negated condition that has an else branch",
+        fixes: [DecomposeConditional],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the reader has to invert it mentally to follow the else, and inverting a \
+              compound condition by hand is where off-by-one logic errors come from",
+        off_by_default: true,
+    },
+
+    // ---- Tests ----------------------------------------------------------------
+    SkippedTest {
+        slug: "skipped-test",
+        category: Tests,
+        guru: None,
+        clean_code: "T4 An Ignored Test Is a Question about an Ambiguity",
+        metric: "test declared with skip, xit, xdescribe or todo",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "a skipped test is a question nobody answered; it reports green forever while \
+              the behaviour it named goes unchecked",
+    },
+    FocusedTest {
+        slug: "focused-test",
+        category: Tests,
+        guru: None,
+        clean_code: "T1 Insufficient Tests",
+        metric: "test declared with only, fit or fdescribe",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Error,
+        why: "this silently disables every other test in the file, so the suite goes green \
+              while almost nothing ran",
+    },
+    AssertionlessTest {
+        slug: "assertionless-test",
+        category: Tests,
+        guru: None,
+        clean_code: "T1 Insufficient Tests",
+        metric: "test body containing no assertion call",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "it passes as long as nothing throws, so it reports success for behaviour it \
+              never actually checked",
+    },
+}

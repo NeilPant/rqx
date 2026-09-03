@@ -1,0 +1,5 @@
+{
+  "name": "rqx-fixtures",
+  "private": true,
+  "main": "index.ts"
+}

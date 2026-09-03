@@ -1,0 +1,42 @@
+{
+  "name": "rqx",
+  "displayName": "Rqx",
+  "description": "Find dead code, duplication and architectural drift in TypeScript, with a reason for every finding.",
+  "version": "0.1.0",
+  "publisher": "jadhamwi",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Linters", "Programming Languages"],
+  "activationEvents": ["onLanguage:typescript", "onLanguage:typescriptreact"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "rqx.scanWorkspace", "title": "Rqx: Scan Workspace" },
+      { "command": "rqx.restart", "title": "Rqx: Restart Server" }
+    ],
+    "configuration": {
+      "title": "Rqx",
+      "properties": {
+        "rqx.path": {
+          "type": "string",
+          "default": "rqx",
+          "description": "Path to the rqx binary."
+        },
+        "rqx.scanOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan the whole workspace when the extension activates."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": { "vscode-languageclient": "^9.0.1" },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.0"
+  }
+}

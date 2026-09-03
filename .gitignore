@@ -1,0 +1,12 @@
+# Build output
+/target
+/editors/vscode/out
+**/node_modules
+
+# Rqx's own cache, written into whatever project it scans
+.rqx/
+
+# Reports
+*.sarif
+
+.DS_Store
