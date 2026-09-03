@@ -216,6 +216,52 @@ mod tests {
         assert_ne!(danger[0].spans[0].style, good[0].spans[0].style);
     }
 
+    /// The art is checked here rather than by eye, because a feature that drifts half
+    /// a cell out of alignment renders as a smudge and nothing else would catch it.
+    #[test]
+    fn the_mascot_has_two_eyes_that_take_the_signal_colour() {
+        let sprite = Sprite::parse(include_str!("../../assets/mascot.txt"));
+        let palette = Palette::with_depth(ColorDepth::Truecolor);
+        let rows = sprite.render_frame(palette, sprite.frame("idle"), Ink::Good, usize::MAX);
+
+        let eyes = rows
+            .iter()
+            .find(|row| {
+                row.spans.iter().filter(|span| span.style.fg == Some(palette.color(Ink::Good))).count() == 2
+            })
+            .expect("one row carries both pupils");
+
+        // A pupil filling a whole cell is a solid block; half a cell would be `\u{2580}`.
+        for column in [3, 9] {
+            assert_eq!(eyes.spans[column].content.as_ref(), "\u{2588}", "pupil {column} is not solid");
+            assert_eq!(eyes.spans[column].style.fg, Some(palette.color(Ink::Good)));
+        }
+        for column in [2, 4, 8, 10] {
+            assert_eq!(eyes.spans[column].style.fg, Some(palette.color(Ink::Text)), "eye white {column}");
+        }
+    }
+
+    #[test]
+    fn every_mascot_frame_is_the_same_size_and_keeps_its_beak() {
+        let sprite = Sprite::parse(include_str!("../../assets/mascot.txt"));
+        assert_eq!(sprite.frames(), 6);
+        assert_eq!(sprite.width(), 13);
+        assert_eq!(sprite.cell_height(), 6);
+
+        let palette = Palette::with_depth(ColorDepth::Truecolor);
+        for name in ["idle", "blink", "look-left", "look-right", "alert", "pleased"] {
+            let rows = sprite.render_frame(palette, sprite.frame(name), Ink::Signal, usize::MAX);
+            assert_eq!(rows.len(), 6, "{name} is a different height");
+            assert!(
+                rows.iter().any(|row| row
+                    .spans
+                    .iter()
+                    .any(|span| span.style.fg == Some(palette.color(Ink::Ground)))),
+                "{name} lost its beak"
+            );
+        }
+    }
+
     #[test]
     fn a_partial_reveal_draws_only_the_columns_asked_for() {
         let sprite = Sprite::parse("#: only\nTTTT\n");

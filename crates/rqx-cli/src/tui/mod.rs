@@ -101,6 +101,7 @@ pub fn static_header(root: &str, config: &RqxConfig, config_file: Option<&str>) 
         root.to_owned(),
         String::new(),
         String::new(),
+        String::new(),
     ];
 
     let mut out = String::from("\n");
