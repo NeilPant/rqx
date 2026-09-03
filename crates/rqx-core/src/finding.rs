@@ -114,6 +114,9 @@ pub enum Evidence {
     DerivedReference { name: String },
     StaticOnOwnType { name: String },
     CoChange { partner: String, together: u32, total: u32 },
+    ImpreciseType { construct: String },
+    JournalComment { marker: String },
+    RedundantComment { subject: String },
 }
 
 impl fmt::Display for Evidence {
@@ -252,6 +255,15 @@ impl fmt::Display for Evidence {
                 f,
                 "Changed with `{partner}` in {together} of its {total} commits."
             ),
+            Self::ImpreciseType { construct } => {
+                write!(f, "`{construct}` throws away what the type checker had already worked out.")
+            }
+            Self::JournalComment { marker } => {
+                write!(f, "This comment carries `{marker}`, which version control already records.")
+            }
+            Self::RedundantComment { subject } => {
+                write!(f, "This comment says no more than the name `{subject}` below it.")
+            }
         }
     }
 }

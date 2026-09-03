@@ -108,7 +108,11 @@ smells! {
     Comments {
         name: "Comments",
         family: Dispensables,
-        coverage: Coverage::Implemented(&[RuleId::CommentedOutCode])
+        coverage: Coverage::Implemented(&[
+            RuleId::CommentedOutCode,
+            RuleId::JournalComment,
+            RuleId::RedundantComment,
+        ])
     },
     DuplicateCode {
         name: "Duplicate Code",

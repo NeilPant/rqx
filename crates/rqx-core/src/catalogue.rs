@@ -373,6 +373,20 @@ catalogue! {
               tell whether changing it is safe or what else shares it",
     },
 
+    ImpreciseType {
+        slug: "imprecise-type",
+        category: Safety,
+        analysis: Semantics,
+        guru: None,
+        clean_code: [G26],
+        metric: "an `any` annotation, a non-null assertion, or a cast that is not `as const`",
+        fixes: [ReplaceDataValueWithObject, IntroduceAssertion],
+        confidence: Verified,
+        severity: Warning,
+        why: "each of these tells the checker to stop checking, so the guarantee the \
+              rest of the file is written against quietly stops holding here",
+    },
+
     // ---- Couplers -------------------------------------------------------------
     CircularDependency {
         slug: "circular-dependency",
@@ -426,6 +440,33 @@ catalogue! {
         severity: Info,
         why: "every call pays for a hop that adds nothing, and every new method on the \
               delegate needs a twin here before anyone can reach it",
+    },
+
+    JournalComment {
+        slug: "journal-comment",
+        category: Dispensables,
+        analysis: Semantics,
+        guru: Some(Smell::Comments),
+        clean_code: [C1],
+        metric: "a comment carrying an author, a date or a change log",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "version control already answers who and when, and unlike the comment it \
+              is not left behind by the next edit",
+    },
+    RedundantComment {
+        slug: "redundant-comment",
+        category: Dispensables,
+        analysis: Semantics,
+        guru: Some(Smell::Comments),
+        clean_code: [C3],
+        metric: "a comment whose every word already appears in the name below it",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it takes space and attention to say what the name has already said, and \
+              it is one more thing to keep true when the name changes",
     },
 
     // ---- Naming ---------------------------------------------------------------

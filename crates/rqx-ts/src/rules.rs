@@ -293,6 +293,37 @@ pub fn check_hygiene(
             "log it, rethrow it, or write the reason ignoring it is correct".to_owned(),
         );
     }
+    for spot in &hygiene.imprecise_types {
+        emit(
+            out,
+            RuleId::ImpreciseType,
+            spot,
+            Evidence::ImpreciseType { construct: spot.detail.clone() },
+            match spot.detail.as_str() {
+                "any" => "name the shape you actually accept, or `unknown` and narrow it".to_owned(),
+                "!" => "check for the absence and handle it, so the guarantee is real".to_owned(),
+                _ => "narrow the value with a check the checker can follow".to_owned(),
+            },
+        );
+    }
+    for spot in &hygiene.journal_comments {
+        emit(
+            out,
+            RuleId::JournalComment,
+            spot,
+            Evidence::JournalComment { marker: spot.detail.clone() },
+            "delete it; `git log` and `git blame` answer this and stay correct".to_owned(),
+        );
+    }
+    for spot in &hygiene.redundant_comments {
+        emit(
+            out,
+            RuleId::RedundantComment,
+            spot,
+            Evidence::RedundantComment { subject: spot.detail.clone() },
+            format!("delete it, or say why `{}` exists rather than what it is", spot.detail),
+        );
+    }
     for spot in &hygiene.suppressions {
         emit(
             out,

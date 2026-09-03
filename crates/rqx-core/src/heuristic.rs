@@ -76,11 +76,11 @@ macro_rules! heuristics {
 
 heuristics! {
     C1 { title: "Inappropriate Information", chapter: Comments,
-         coverage: Coverage::Absent("a comment carrying an author, a date or a ticket id") },
+         coverage: Coverage::Implemented(&[RuleId::JournalComment]) },
     C2 { title: "Obsolete Comment", chapter: Comments,
          coverage: Coverage::NotStatic("nothing decides whether a comment still matches the code beneath it") },
     C3 { title: "Redundant Comment", chapter: Comments,
-         coverage: Coverage::Absent("a comment whose words are all already in the declaration below it") },
+         coverage: Coverage::Implemented(&[RuleId::RedundantComment]) },
     C4 { title: "Poorly Written Comment", chapter: Comments,
          coverage: Coverage::NotStatic("prose quality is not a metric") },
     C5 { title: "Commented-Out Code", chapter: Comments,
@@ -156,7 +156,7 @@ heuristics! {
     G25 { title: "Replace Magic Numbers with Named Constants", chapter: General,
           coverage: Coverage::Implemented(&[RuleId::MagicNumber, RuleId::PrimitiveObsession]) },
     G26 { title: "Be Precise", chapter: General,
-          coverage: Coverage::Absent("any, a non-null assertion, or a cast that throws away what the checker knew") },
+          coverage: Coverage::Implemented(&[RuleId::ImpreciseType]) },
     G27 { title: "Structure over Convention", chapter: General,
           coverage: Coverage::NotStatic("whether a convention should have been a type is a design judgement") },
     G28 { title: "Encapsulate Conditionals", chapter: General,
@@ -284,6 +284,6 @@ mod tests {
     /// source Rqx already parses.
     #[test]
     fn the_decidable_shortfall_is_the_expected_size() {
-        assert_eq!(Heuristic::tally().absent, 16);
+        assert_eq!(Heuristic::tally().absent, 13);
     }
 }

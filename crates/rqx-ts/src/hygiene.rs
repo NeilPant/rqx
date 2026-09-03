@@ -43,6 +43,9 @@ pub struct Hygiene {
     pub focused_tests: Vec<Spot>,
     pub assertionless_tests: Vec<Spot>,
     pub short_names: Vec<Spot>,
+    pub imprecise_types: Vec<Spot>,
+    pub journal_comments: Vec<Spot>,
+    pub redundant_comments: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]
@@ -117,6 +120,71 @@ fn looks_like_code(text: &str) -> bool {
         })
         .count();
     coded > 0 && coded * 2 >= body.len()
+}
+
+/// Markers that record who wrote something and when. Version control answers both
+/// questions, and unlike the comment it is not left behind by the next edit.
+fn journal_marker(text: &str) -> Option<&'static str> {
+    ["@author", "@date", "@created", "@modified", "Created by", "Created on", "Last modified"]
+        .into_iter()
+        .find(|marker| text.contains(marker))
+}
+
+/// Splits an identifier the way a reader does, so `getUserName` and `get user name`
+/// compare equal.
+fn identifier_words(name: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    for character in name.chars() {
+        if character == '_' || character == '-' {
+            if !current.is_empty() {
+                words.push(std::mem::take(&mut current));
+            }
+        } else if character.is_uppercase() && !current.is_empty() {
+            words.push(std::mem::take(&mut current));
+            current.push(character.to_ascii_lowercase());
+        } else {
+            current.push(character.to_ascii_lowercase());
+        }
+    }
+    if !current.is_empty() {
+        words.push(current);
+    }
+    words.retain(|word| word.len() > 2);
+    words
+}
+
+/// A comment is redundant when every word in it is already in the name underneath.
+/// Requiring at least two words keeps `// x` and decorative dividers out of it.
+fn redundant_subject(text: &str, following: &str) -> Option<String> {
+    const FILLER: [&str; 12] =
+        ["the", "this", "that", "and", "for", "with", "from", "into", "returns", "return", "gets", "sets"];
+
+    let prose: Vec<String> = text
+        .trim_start_matches(['/', '*', ' '])
+        .trim_end_matches(['*', '/', ' '])
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| word.len() > 2)
+        .map(str::to_ascii_lowercase)
+        .filter(|word| !FILLER.contains(&word.as_str()))
+        .collect();
+    if prose.len() < 2 {
+        return None;
+    }
+
+    let subject = following
+        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+        .find(|token| {
+            token.len() > 2
+                && !["export", "const", "let", "var", "function", "class", "async", "public",
+                     "private", "readonly", "interface", "type", "return"]
+                    .contains(token)
+        })?;
+    let name = identifier_words(subject);
+    if name.is_empty() {
+        return None;
+    }
+    prose.iter().all(|word| name.contains(word)).then(|| subject.to_owned())
 }
 
 fn suppression_directive(text: &str) -> Option<&'static str> {
@@ -324,6 +392,45 @@ impl<'a> Visit<'a> for Walker<'a> {
         *entry = (*entry).max(identifier.span.end);
     }
 
+    fn visit_ts_any_keyword(&mut self, keyword: &oxc::ast::ast::TSAnyKeyword) {
+        self.out.imprecise_types.push(Spot {
+            span: keyword.span,
+            detail: "any".to_owned(),
+            count: 1,
+        });
+    }
+
+    fn visit_ts_non_null_expression(
+        &mut self,
+        expression: &oxc::ast::ast::TSNonNullExpression<'a>,
+    ) {
+        self.out.imprecise_types.push(Spot {
+            span: expression.span,
+            detail: "!".to_owned(),
+            count: 1,
+        });
+        oxc::ast_visit::walk::walk_ts_non_null_expression(self, expression);
+    }
+
+    /// `as const` narrows rather than widens, so it is the one assertion that tells
+    /// the checker more than it already knew.
+    fn visit_ts_as_expression(&mut self, expression: &oxc::ast::ast::TSAsExpression<'a>) {
+        let is_const = matches!(
+            &expression.type_annotation,
+            oxc::ast::ast::TSType::TSTypeReference(reference)
+                if reference.type_name.get_identifier_reference()
+                    .is_some_and(|name| name.name == "const")
+        );
+        if !is_const {
+            self.out.imprecise_types.push(Spot {
+                span: expression.span,
+                detail: "as".to_owned(),
+                count: 1,
+            });
+        }
+        oxc::ast_visit::walk::walk_ts_as_expression(self, expression);
+    }
+
     fn visit_numeric_literal(&mut self, literal: &NumericLiteral<'a>) {
         if !CONVENTIONAL.iter().any(|known| (known - literal.value).abs() < f64::EPSILON) {
             let raw = literal
@@ -467,6 +574,18 @@ fn scan_comments(semantic: &Semantic<'_>, source: &str, limits: Limits, out: &mu
                 detail: directive.to_owned(),
                 count: 1,
             });
+        } else if let Some(marker) = journal_marker(text) {
+            out.journal_comments.push(Spot {
+                span: comment.span,
+                detail: marker.to_owned(),
+                count: 1,
+            });
+        } else if let Some(subject) = source
+            .get(comment.attached_to as usize..)
+            .and_then(|rest| rest.lines().next())
+            .and_then(|line| redundant_subject(text, line))
+        {
+            out.redundant_comments.push(Spot { span: comment.span, detail: subject, count: 1 });
         } else if looks_like_code(text) {
             runs.push((comment.span, text.lines().count() as u32));
         }

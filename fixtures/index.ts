@@ -10,3 +10,4 @@ export { pricing, unreachable, suppressed, ship } from "./hygiene";
 export { Coordinate, Marker, Facade, Vehicle, Engine, Broken, Totals, routeOf, priceOf, notify, enqueue, record } from "./shapes";
 export type { Channel, IShipment } from "./shapes";
 export { Registry, CachedRegistry, gate, sweep } from "./shapes";
+export { widen, userName, narrowed } from "./precision";
