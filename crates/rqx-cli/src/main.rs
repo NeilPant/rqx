@@ -14,6 +14,7 @@ mod check;
 mod config;
 mod history;
 mod lsp;
+mod mcp;
 mod preview;
 mod progress;
 mod report;
@@ -149,6 +150,16 @@ enum Command {
     Config {
         #[arg(default_value = ".")]
         path: PathBuf,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Run as an MCP server, so an AI agent can ask what a project's problems are
+    Mcp {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Serve Streamable HTTP on this address instead of speaking over stdio
+        #[arg(long, value_name = "ADDR")]
+        http: Option<std::net::SocketAddr>,
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -695,6 +706,11 @@ fn run() -> Result<Exit> {
             let report = Report::review(&review, &verdict, &filter);
             emit(&report, &sinks, &view, palette)?;
             Ok(Exit::of(!verdict.passed()))
+        }
+        Command::Mcp { path, http, config } => {
+            let settings = config::resolve(&path, config.as_deref())?;
+            mcp::serve(&path, settings, http)?;
+            Ok(Exit::Clean)
         }
         Command::Lsp { path, config } => {
             let settings = config::resolve(&path, config.as_deref())?;
