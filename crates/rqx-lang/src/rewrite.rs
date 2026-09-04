@@ -215,17 +215,119 @@ impl<'src> Rewriter<'src> {
         let span = Span::new(finding.location.start, finding.location.end);
         self.anchored(span)?;
 
+        let node = self.anchored(span)?;
         match finding.rule {
+            // The span is already the extent to remove.
             RuleId::UnreachableCode
             | RuleId::JournalComment
             | RuleId::RedundantComment
-            | RuleId::CommentedOutCode => Some(Edit::deletion(
-                finding,
-                Identity::resolved(finding, self.source),
-                whole_lines(self.source, span),
-            )),
+            | RuleId::CommentedOutCode => {
+                Some(self.deletion(finding, whole_lines(self.source, span)))
+            }
+            RuleId::UnusedLocal => self.unused_local(finding, node),
+            RuleId::UnusedPrivateMember => self.unused_member(finding, node),
+            RuleId::FocusedTest => self.unfocus(finding, node),
             _ => None,
         }
+    }
+
+    fn deletion(&self, finding: &Finding, span: Span) -> Edit {
+        Edit::deletion(finding, Identity::resolved(finding, self.source), span)
+    }
+
+    fn replacement(&self, finding: &Finding, span: Span, text: &str) -> Edit {
+        Edit::new(
+            finding,
+            Identity::resolved(finding, self.source),
+            span,
+            text,
+        )
+    }
+
+    /// The finding points at the name; the edit has to remove what declares it. A
+    /// declaration whose value calls something is left alone — the binding is unused,
+    /// but the call may be why the line is there.
+    fn unused_local(&self, finding: &Finding, name: Node<'_>) -> Option<Edit> {
+        let declarator = climb(name, |node| {
+            self.profile.declarator_kinds.contains(&node.kind())
+                || self.profile.local_declaring_kinds.contains(&node.kind())
+        })?;
+        if self.has_effect(declarator, name) {
+            return None;
+        }
+
+        let statement = climb(declarator, |node| self.profile.is_statement(node))?;
+        let siblings = self.declarators_in(statement);
+        if siblings > 1 {
+            // Removing one of several takes its separator with it, or the list is
+            // left with a hole a parser will not accept.
+            let span = with_separator(self.source, span_of(declarator));
+            return Some(self.deletion(finding, span));
+        }
+        Some(self.deletion(finding, whole_lines(self.source, span_of(statement))))
+    }
+
+    /// A member whose finding names the whole declaration can go as it stands; the
+    /// variant reported on an assignment inside a constructor names a narrower span
+    /// that is a statement in someone else's body, so it is left to a person.
+    fn unused_member(&self, finding: &Finding, node: Node<'_>) -> Option<Edit> {
+        let kind = node.kind();
+        let declares = self.profile.field_kinds.contains(&kind)
+            || self.profile.function_kinds.contains(&kind)
+            || self.profile.decorated_kinds.contains(&kind);
+        declares.then(|| self.deletion(finding, whole_lines(self.source, span_of(node))))
+    }
+
+    /// `it.only(...)` becomes `it(...)`: the focus is the property, so removing it
+    /// leaves the call the author meant to write.
+    fn unfocus(&self, finding: &Finding, node: Node<'_>) -> Option<Edit> {
+        if self.profile.annotation_kinds.contains(&node.kind()) {
+            return Some(self.deletion(finding, whole_lines(self.source, span_of(node))));
+        }
+        let call = if self.profile.is_call(node) {
+            node
+        } else {
+            climb(node, |parent| self.profile.is_call(parent))?
+        };
+        let callee = call.child_by_field_name("function")?;
+        if !self.profile.is_member_access(callee) {
+            return None;
+        }
+        let object = callee.child_by_field_name("object")?;
+        Some(self.replacement(finding, span_of(callee), text_of(object, self.source)))
+    }
+
+    /// Whether removing this declaration would also remove work. The name being
+    /// declared is skipped, so `const handler = () => {}` does not read as a call.
+    fn has_effect(&self, declarator: Node<'_>, name: Node<'_>) -> bool {
+        let mut cursor = declarator.walk();
+        let mut stack: Vec<Node<'_>> = declarator.children(&mut cursor).collect();
+        while let Some(node) = stack.pop() {
+            if node.id() == name.id() {
+                continue;
+            }
+            if self.profile.is_call(node) || self.profile.is_function(node) {
+                return true;
+            }
+            let mut inner = node.walk();
+            stack.extend(node.children(&mut inner));
+        }
+        false
+    }
+
+    fn declarators_in(&self, statement: Node<'_>) -> usize {
+        let mut cursor = statement.walk();
+        let mut stack: Vec<Node<'_>> = statement.children(&mut cursor).collect();
+        let mut found = 0;
+        while let Some(node) = stack.pop() {
+            if self.profile.declarator_kinds.contains(&node.kind()) {
+                found += 1;
+                continue;
+            }
+            let mut inner = node.walk();
+            stack.extend(node.children(&mut inner));
+        }
+        found.max(1)
     }
 
     /// Every edit this file's findings ask for, with the conflicts already settled.
@@ -237,6 +339,49 @@ impl<'src> Rewriter<'src> {
                 .collect(),
         )
     }
+}
+
+/// The nearest ancestor the test accepts, starting with the node itself.
+fn climb<'tree>(from: Node<'tree>, accept: impl Fn(Node<'tree>) -> bool) -> Option<Node<'tree>> {
+    let mut node = from;
+    loop {
+        if accept(node) {
+            return Some(node);
+        }
+        node = node.parent()?;
+    }
+}
+
+fn span_of(node: Node<'_>) -> Span {
+    Span::new(node.start_byte() as u32, node.end_byte() as u32)
+}
+
+fn text_of<'src>(node: Node<'_>, source: &'src str) -> &'src str {
+    span_of(node).text(source)
+}
+
+/// Widens to the separator that joins this item to the next, so removing one item
+/// from a list does not leave the comma that introduced it.
+fn with_separator(source: &str, span: Span) -> Span {
+    let after = source[span.end as usize..]
+        .char_indices()
+        .find(|(_, character)| !character.is_whitespace());
+    if let Some((offset, ',')) = after {
+        let end = span.end as usize + offset + 1;
+        let trailing = source[end..]
+            .char_indices()
+            .find(|(_, character)| !character.is_whitespace() && *character != '\n')
+            .map_or(0, |(offset, _)| offset);
+        return Span::new(span.start, (end + trailing) as u32);
+    }
+    let before = source[..span.start as usize]
+        .char_indices()
+        .rev()
+        .find(|(_, character)| !character.is_whitespace());
+    if let Some((offset, ',')) = before {
+        return Span::new(offset as u32, span.end);
+    }
+    span
 }
 
 /// Which rules `edit` can answer, for callers that want to say so before parsing.
@@ -461,6 +606,49 @@ export const used = live;
             let again = verified(language, &once.source).expect("a fixed file verifies");
             assert_eq!(again.source, expected, "{language:?} did not converge");
         }
+    }
+
+    #[test]
+    fn an_unused_local_takes_its_declaration_with_it() {
+        for (language, source, expected) in [
+            (
+                Language::TypeScript,
+                "export function f(): number {\n  const spare = 2\n  return 1\n}\n",
+                "export function f(): number {\n  return 1\n}\n",
+            ),
+            (
+                Language::Python,
+                "def f():\n    spare = 2\n    return 1\n",
+                "def f():\n    return 1\n",
+            ),
+        ] {
+            assert_eq!(fixed(language, source), expected, "{language:?}");
+        }
+    }
+
+    #[test]
+    fn a_declaration_that_calls_something_is_left_alone() {
+        let source = "export function f(): number {\n  const spare = compute()\n  return 1\n}\n";
+        assert_eq!(fixed(Language::TypeScript, source), source);
+    }
+
+    #[test]
+    fn one_of_several_declarators_takes_its_comma() {
+        let source = "export function f(): number {\n  let kept = 1, spare = 2\n  return kept\n}\n";
+        assert_eq!(
+            fixed(Language::TypeScript, source),
+            "export function f(): number {\n  let kept = 1\n  return kept\n}\n"
+        );
+    }
+
+    #[test]
+    fn a_focused_test_loses_only_its_focus() {
+        let source =
+            "describe('s', () => {\n  it.only('works', () => {\n    expect(1).toBe(1)\n  })\n})\n";
+        assert_eq!(
+            fixed(Language::TypeScript, source),
+            "describe('s', () => {\n  it('works', () => {\n    expect(1).toBe(1)\n  })\n})\n"
+        );
     }
 
     #[test]

@@ -1,6 +1,7 @@
 mod catalogue;
 mod docs;
 mod filter;
+mod fixes;
 mod github;
 mod gitlab;
 mod json;
@@ -25,6 +26,7 @@ use crate::scan::ScanOutcome;
 
 pub use catalogue::{explain, rules, techniques};
 pub use docs::write as docs;
+pub use fixes::{json as fixes_json, render as fixes};
 pub use patterns::{
     coverage as pattern_coverage, explain as explain_pattern, json as advice_json, render as advice,
 };

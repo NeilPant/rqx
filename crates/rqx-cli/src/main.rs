@@ -12,6 +12,7 @@ mod brand;
 mod cache;
 mod check;
 mod config;
+mod fix;
 mod history;
 mod lsp;
 mod mcp;
@@ -79,6 +80,26 @@ enum Command {
         /// Display cap; 0 shows every finding. Never affects the health score.
         #[arg(long)]
         max_findings: Option<usize>,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Apply the fixes a finding decides on its own, proving each one before it is
+    /// written. Previews by default.
+    Fix {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Write the fixes. Without it nothing on disk changes.
+        #[arg(long, short)]
+        write: bool,
+        /// One fix can make the next one possible, so fixing repeats until a round
+        /// finds nothing.
+        #[arg(long, default_value_t = 3)]
+        max_rounds: u32,
+        /// Emit one JSON object per fixed file instead of the reader's preview
+        #[arg(long)]
+        json: bool,
         #[arg(long)]
         threads: Option<usize>,
         #[arg(long)]
@@ -625,6 +646,38 @@ fn run() -> Result<Exit> {
                 report::advice(&outcome, palette, &mut out)?;
             }
             Ok(Exit::of(verdict.is_some_and(|verdict| !verdict.passed())))
+        }
+        Command::Fix {
+            path,
+            write,
+            max_rounds,
+            json,
+            threads,
+            config,
+        } => {
+            if !path.exists() {
+                bail!(
+                    "`{}` does not exist. rqx fixes a directory or a single file; try `rqx fix .`",
+                    path.display()
+                );
+            }
+            let mut settings = config::resolve(&path, config.as_deref())?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            let outcome = fix::run(
+                &path,
+                &settings,
+                fix::Options {
+                    write,
+                    max_rounds: max_rounds.max(1),
+                },
+            )?;
+            let mut out = anstream::stdout().lock();
+            if json {
+                return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
+            }
+            report::fixes(&outcome, palette, &mut out).map(|()| Exit::Clean)
         }
         Command::Explain { name } => {
             if let Some(rule) = RuleId::parse(&name) {
