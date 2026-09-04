@@ -6,6 +6,30 @@
    primary, muted, border, ring, radius — so the components below read like any other
    app's, hand-written because the binary that serves them promises no build step. */
 
+@font-face {
+  font-family: "Plex Sans";
+  src: url("/vendor/plex-sans.woff2") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plex Mono";
+  src: url("/vendor/plex-mono.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plex Mono";
+  src: url("/vendor/plex-mono-semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
   min-width: 0;
@@ -20,12 +44,12 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Inter,
-    system-ui, sans-serif;
+  font-family: "Plex Sans", ui-sans-serif, -apple-system, "Segoe UI", system-ui,
+    sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "cv02", "cv03", "cv04";
+  text-rendering: optimizeLegibility;
 }
 
 .mono,
@@ -34,8 +58,7 @@ body {
 .num,
 .code,
 .kbd {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo,
-    monospace;
+  font-family: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-ligatures: none;
 }
 
@@ -600,7 +623,7 @@ input[type="range"] {
 }
 
 .tile-label {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
   color: var(--ink-ground);
   padding: 3px 5px;

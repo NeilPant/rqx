@@ -18,6 +18,24 @@ const STYLE: &str = include_str!("app/app.css");
 const SCRIPT: &str = include_str!("app/app.js");
 const PREACT: &str = include_str!("app/vendor/preact.js");
 
+/// The two families the stylesheet asks for. Shipped rather than linked for the same
+/// reason Preact is: a binary that promises no runtime dependencies cannot render
+/// correctly only on machines that happen to have the fonts installed.
+const FONTS: [(&str, &[u8]); 3] = [
+    (
+        "/vendor/plex-sans.woff2",
+        include_bytes!("app/vendor/plex-sans.woff2"),
+    ),
+    (
+        "/vendor/plex-mono.woff2",
+        include_bytes!("app/vendor/plex-mono.woff2"),
+    ),
+    (
+        "/vendor/plex-mono-semibold.woff2",
+        include_bytes!("app/vendor/plex-mono-semibold.woff2"),
+    ),
+];
+
 pub fn router(live: Arc<Live>) -> Router {
     let guard = {
         let live = Arc::clone(&live);
@@ -27,7 +45,7 @@ pub fn router(live: Arc<Live>) -> Router {
         })
     };
 
-    Router::new()
+    let router = Router::new()
         .route("/", get(page))
         .route(
             "/app.css",
@@ -56,9 +74,26 @@ pub fn router(live: Arc<Live>) -> Router {
         .route("/api/trend", get(trend))
         .route("/api/graph", get(graph))
         .route("/api/file", get(file))
-        .route("/events", get(events))
-        .layer(guard)
-        .with_state(live)
+        .route("/events", get(events));
+
+    let router = FONTS.iter().fold(router, |router, (path, body)| {
+        router.route(path, get(move || async move { font(body) }))
+    });
+
+    router.layer(guard).with_state(live)
+}
+
+/// A year, immutable: the file is embedded in the binary, so a new one only arrives
+/// with a new binary, and its path changes when it does.
+fn font(body: &'static [u8]) -> Response {
+    (
+        [
+            (header::CONTENT_TYPE, "font/woff2"),
+            (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+        ],
+        body,
+    )
+        .into_response()
 }
 
 /// The page is served with the process's nonce in it, so a write request can prove it
@@ -331,4 +366,44 @@ async fn admit(live: &Live, request: axum::extract::Request, next: middleware::N
     }
     let _ = live;
     next.run(request).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A face the stylesheet asks for and the router does not serve falls back to the
+    /// system stack silently, which is the drift a rename would cause.
+    #[test]
+    fn every_face_the_stylesheet_asks_for_is_served() {
+        let asked: Vec<&str> = STYLE
+            .split("url(\"")
+            .skip(1)
+            .filter_map(|rest| rest.split_once('"'))
+            .map(|(url, _)| url)
+            .collect();
+        assert!(!asked.is_empty(), "the stylesheet loads no font at all");
+        for url in &asked {
+            assert!(
+                FONTS.iter().any(|(path, _)| path == url),
+                "{url} is not a route"
+            );
+        }
+        for (path, body) in FONTS {
+            assert!(asked.contains(&path), "{path} is served and never used");
+            assert_eq!(&body[..4], b"wOF2", "{path} is not a woff2 file");
+        }
+    }
+
+    /// The page is embedded in the binary and paints before it can fetch anything, so
+    /// its weight is the binary's weight and a font is the easiest way to lose that.
+    #[test]
+    fn the_embedded_page_stays_small() {
+        let total = PAGE.len()
+            + STYLE.len()
+            + SCRIPT.len()
+            + PREACT.len()
+            + FONTS.iter().map(|(_, body)| body.len()).sum::<usize>();
+        assert!(total < 200 * 1024, "{total} bytes of embedded assets");
+    }
 }
