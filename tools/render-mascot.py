@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ART = ROOT / "crates/rqx-cli/assets/mascot.txt"
 BRAND = ROOT / "crates/rqx-cli/src/brand.rs"
 VSCODE = ROOT / "editors/vscode"
+ASSETS = ROOT / "assets"
 
 TRANSPARENT = (0, 0, 0, 0)
 
@@ -195,6 +196,14 @@ def main() -> None:
     icon = on_ground(scaled(idle, 128, pad=12), ground)
     icon.save(VSCODE / "icon.png")
     written.append(VSCODE / "icon.png")
+
+    # The README's owl and the marketplace's owl are the same render, so the front
+    # page cannot drift from the terminal art.
+    ASSETS.mkdir(exist_ok=True)
+    for size in (128, 256):
+        path = ASSETS / f"mascot-{size}.png"
+        scaled(idle, size).save(path)
+        written.append(path)
 
     media = VSCODE / "media"
     media.mkdir(exist_ok=True)

@@ -1,19 +1,86 @@
+<div align="center">
+
+<img src="assets/mascot-128.png" width="96" height="96" alt="" />
+
 # rqx
 
-Finds dead code, duplication and architectural drift in TypeScript, Python, Go, Java
-and C++ — and tells you *why* each finding matters and *what refactoring* fixes it.
+**Finds dead code, duplication and architectural drift in TypeScript, Python, Go, Java
+and C++ — says why each finding matters, names the refactoring that fixes it, applies
+the ones with a single right answer, and grades the diff afterwards.**
 
 One Rust binary. No Node, no npm, no runtime dependencies.
+
+[![CI](https://github.com/jadhamwi/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi/rqx/actions/workflows/rqx.yml)
+[![Release](https://img.shields.io/github/v/release/jadhamwi/rqx?color=0a84ff)](https://github.com/jadhamwi/rqx/releases)
+[![VS Code](https://img.shields.io/visual-studio-marketplace/v/jadhamwi.rqx?label=VS%20Code&color=0a84ff)](https://marketplace.visualstudio.com/items?itemName=jadhamwi.rqx)
+[![Open VSX](https://img.shields.io/open-vsx/v/jadhamwi/rqx?label=Open%20VSX&color=0a84ff)](https://open-vsx.org/extension/jadhamwi/rqx)
+[![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
+![No runtime dependencies](https://img.shields.io/badge/runtime%20deps-none-1f9e55)
+
+`static-analysis` · `code-quality` · `refactoring` · `dead-code` · `lsp` · `mcp` · `rust`
+
+</div>
+
+---
 
 ```
 rqx                             # the interface: scan, then browse everything
 rqx scan ./src                  # report everything
-rqx scan --severity error       # only the findings that are never false
+rqx fix --write                 # apply the fixes with one right answer, proven first
+rqx plan --budget 20            # rank the work, and say what the score will be after
+rqx verify --base main          # did the refactoring you named actually happen
+rqx serve --open                # a live dashboard, updated as you save
 rqx check --base main           # review only what changed, fail CI on the gate
-rqx patterns ./src              # which design patterns are used, broken, or would fit
-rqx explain unused-export       # what a rule maps to and why it exists
-rqx mcp                         # serve the analysis to an AI agent over MCP
+rqx mcp                         # serve the analysis to an agent over MCP
 ```
+
+## Install
+
+A release ships one tarball per target, with `SHA256SUMS` beside them:
+
+```bash
+# macOS (Apple silicon); swap the target for your platform
+VERSION=0.1.0 TARGET=aarch64-apple-darwin
+curl -fsSLO "https://github.com/jadhamwi/rqx/releases/download/v$VERSION/rqx-$VERSION-$TARGET.tar.gz"
+tar -xzf "rqx-$VERSION-$TARGET.tar.gz"
+install "rqx-$VERSION-$TARGET/rqx" /usr/local/bin/
+
+# or build it
+cargo install --git https://github.com/jadhamwi/rqx rqx
+```
+
+Targets: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`,
+`x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`.
+
+Editors: **VS Code** (also Cursor, Windsurf, VSCodium) and **Zed** ship extensions that
+fetch the matching binary themselves. Everything else speaks to `rqx lsp` — see
+[Editors](#editors).
+
+<details>
+<summary><b>Contents</b></summary>
+
+- [Install](#install)
+- [The report](#the-report)
+- [What makes a finding](#what-makes-a-finding)
+- [The catalogue](#the-catalogue)
+- [Design patterns](#design-patterns)
+- [Five languages, one rule set](#five-languages-one-rule-set)
+- [It applies the fixes that have one right answer](#it-applies-the-fixes-that-have-one-right-answer)
+- [Did the refactoring actually happen](#did-the-refactoring-actually-happen)
+- [Watch it while you work](#watch-it-while-you-work)
+- [Which five do I fix on Monday](#which-five-do-i-fix-on-monday)
+- [Levels](#levels)
+- [Configuration](#configuration)
+- [Families can be switched on and off](#families-can-be-switched-on-and-off)
+- [Confidence is never overstated](#confidence-is-never-overstated)
+- [Editors](#editors)
+- [Agents](#agents)
+- [The interface](#the-interface)
+- [CI](#ci)
+- [Working on it](#working-on-it)
+- [Performance](#performance)
+
+</details>
 
 ## The report
 
@@ -192,6 +259,47 @@ applicable rule must fire on that language's fixtures, and every exempted rule m
 stay silent on them — so a rule that quietly stops working in one language fails the
 build rather than going unnoticed.
 
+## It applies the fixes that have one right answer
+
+Most findings name a refactoring, and choosing its shape is the work. Some do not:
+nothing about deleting an unused local is a design decision, and rqx already located
+the exact bytes and proved nothing references them.
+
+```
+$ rqx fix ./src
+
+  FIX   orders/reconcile.ts  2 fixes
+
+   ● unreachable-code  52:5  deletion
+    52 │ -   return cached
+    53 │ -   log.debug('unreachable')
+     Why:  this code cannot run, so whatever it was meant to do is not happening
+
+  Files     3 to fix · 42 scanned
+  Fixes     11 ready · 2 withheld · 46 need a decision
+  Health    73 → 81  (+8)
+  Verified  every fix re-parsed and re-analysed clean
+
+  Nothing written.  rqx fix --write
+```
+
+**Nothing is written unverified.** Each file's edits are applied in memory, re-parsed
+for the error nodes tree-sitter invents when it recovers, and re-analysed: the targeted
+findings must be gone and nothing new may appear. A file that fails is named with the
+reason rather than passed over silently. Writes are atomic, and one fix making the next
+possible is why it repeats — deleting the branch that held a binding's only reference
+is what makes that binding unused.
+
+Seven rules qualify today. `[fix] disabled = ["commented-out-code"]` opts one out;
+`rqx explain <rule>` says whether a rule is fixable. The other fifty-three are
+`rqx fix --plan`, which emits them with the span, the source text, the metric, the
+reasoning and the named refactoring — the brief for a person or an agent, in the shape
+they can act on. `rqx check --base main --fix` does the same for a branch and judges
+the gate afterwards, so a branch whose only failures were mechanical passes.
+
+Your editor offers the same edits, verified the same way, tagged `source.fixAll` so
+they can run on save.
+
 ## Did the refactoring actually happen
 
 rqx names a refactoring for every finding. Nothing checked whether it was made —
@@ -332,9 +440,9 @@ whole schema, all 22 thresholds and the rules each one tunes.
 
 ```toml
 [rules]
-categories = ["dispensables", "couplers"]   # only these families
+categories = ["waste", "coupling"]           # only these families
 disabled   = ["magic-number"]                # or a single rule
-enabled    = ["naming"]                      # opt into an off-by-default family
+enabled    = ["short-name-wide-scope"]       # opt into an off-by-default rule
 ```
 
 Ten rules ship off by default — the ones whose signal is real but noisy, or which
