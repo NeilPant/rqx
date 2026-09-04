@@ -70,12 +70,9 @@ impl Evidence {
             | Self::VagueName { name }
             | Self::DistantDeclaration { name, .. }
             | Self::MisleadingName { name, .. } => Some(name),
-            Self::Unreachable { after } => Some(after),
             Self::MagicNumber { literal, .. } => Some(literal),
-            Self::Suppression { directive } | Self::TestDirective { directive } => Some(directive),
             Self::RepeatedGroup { names, .. } => Some(names),
             Self::CoChange { partner, .. } => Some(partner),
-            Self::JournalComment { marker } => Some(marker),
             Self::RedundantComment { subject } | Self::BoundaryArithmetic { subject, .. } => {
                 Some(subject)
             }
@@ -89,7 +86,13 @@ impl Evidence {
             Self::EmptyBody { construct } | Self::ImpreciseType { construct } => Some(construct),
             Self::ForeignLanguage { language } => Some(language),
             Self::BuriedConfiguration { kind, .. } => Some(kind),
-            Self::CognitiveComplexity { .. }
+            // A kind ("return", "TODO", "only") names a category of finding, not this
+            // one, so the span's own text is the more faithful subject.
+            Self::Unreachable { .. }
+            | Self::JournalComment { .. }
+            | Self::Suppression { .. }
+            | Self::TestDirective { .. }
+            | Self::CognitiveComplexity { .. }
             | Self::StatementCount { .. }
             | Self::NestingDepth { .. }
             | Self::ParameterCount { .. }

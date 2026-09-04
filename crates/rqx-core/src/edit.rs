@@ -1,4 +1,5 @@
 use crate::finding::{Confidence, Finding, Severity};
+use crate::identity::Identity;
 use crate::rule::RuleId;
 use crate::span::Span;
 
@@ -12,21 +13,29 @@ pub struct Edit {
     pub rule: RuleId,
     pub severity: Severity,
     pub confidence: Confidence,
+    /// The finding this edit answers, so a verifier can ask whether it is gone.
+    pub answers: Identity,
 }
 
 impl Edit {
-    pub fn new(finding: &Finding, span: Span, replacement: impl Into<String>) -> Self {
+    pub fn new(
+        finding: &Finding,
+        answers: Identity,
+        span: Span,
+        replacement: impl Into<String>,
+    ) -> Self {
         Self {
             span,
             replacement: replacement.into(),
             rule: finding.rule,
             severity: finding.severity,
             confidence: finding.confidence,
+            answers,
         }
     }
 
-    pub fn deletion(finding: &Finding, span: Span) -> Self {
-        Self::new(finding, span, String::new())
+    pub fn deletion(finding: &Finding, answers: Identity, span: Span) -> Self {
+        Self::new(finding, answers, span, String::new())
     }
 
     /// The finding's own ranking, carried because two edits are compared long after
@@ -133,6 +142,7 @@ mod tests {
     fn deletion(rule: RuleId, start: u32, end: u32) -> Edit {
         Edit::deletion(
             &finding(rule, Severity::Warning, Confidence::Verified),
+            Identity::of(rule, "a.ts", "x"),
             Span::new(start, end),
         )
     }
@@ -160,6 +170,7 @@ mod tests {
                 Severity::Warning,
                 Confidence::Verified,
             ),
+            Identity::of(RuleId::UnusedParameter, "a.ts", "b"),
             Span::new(5, 9),
             "everything",
         )];
@@ -175,6 +186,7 @@ mod tests {
                 Severity::Error,
                 Confidence::Verified,
             ),
+            Identity::of(RuleId::UnreachableCode, "a.ts", "x"),
             Span::new(4, 12),
         );
 
