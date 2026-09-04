@@ -13,6 +13,11 @@ pub const CONFIG_ENV: &str = "RQX_CONFIG";
 struct Scope {
     matcher: Override,
     config: RqxConfig,
+    /// The directory the globs were built against. An `Override` matches paths under
+    /// its own root only, so comparing two checkouts needs the globs rebuilt against
+    /// the other one rather than reused.
+    directory: PathBuf,
+    globs: Vec<String>,
 }
 
 /// Every layer of configuration that applies to one run, already merged, plus the
@@ -42,6 +47,8 @@ impl Clone for Resolved {
                 .map(|scope| Scope {
                     matcher: scope.matcher.clone(),
                     config: scope.config.clone(),
+                    directory: scope.directory.clone(),
+                    globs: scope.globs.clone(),
                 })
                 .collect(),
             modules: self.modules,
@@ -149,6 +156,45 @@ impl Resolved {
 
     pub const fn level(&self) -> Level {
         self.config.level
+    }
+
+    /// The same settings, with every path-scoped override rebuilt against another
+    /// checkout of the same project. Without this a comparison against a base
+    /// revision would judge the two sides by different rules: the globs would match
+    /// in the working tree and silently match nothing in the temporary one.
+    pub fn rebased(&self, from: &Path, to: &Path) -> Result<Self> {
+        let mut scopes = Vec::new();
+        for scope in &self.scopes {
+            let directory = match scope.directory.strip_prefix(from) {
+                Ok(rest) => to.join(rest),
+                Err(_) => scope.directory.clone(),
+            };
+            let mut builder = OverrideBuilder::new(&directory);
+            for glob in &scope.globs {
+                builder
+                    .add(glob)
+                    .with_context(|| format!("`{glob}` against {}", directory.display()))?;
+            }
+            scopes.push(Scope {
+                matcher: builder.build().with_context(|| {
+                    format!(
+                        "rebuilding the override globs against {}",
+                        directory.display()
+                    )
+                })?,
+                config: scope.config.clone(),
+                directory,
+                globs: scope.globs.clone(),
+            });
+        }
+        Ok(Self {
+            config: self.config.clone(),
+            sources: self.sources.clone(),
+            provenance: self.provenance.clone(),
+            written: self.written.clone(),
+            scopes,
+            modules: self.modules,
+        })
     }
 }
 
@@ -454,7 +500,12 @@ fn scope(path: &Path, entry: Value, base: &Value, level: Level) -> Result<Scope>
         .with_context(|| format!("reading an `[[override]]` in {}", path.display()))?;
     reject_unknown_names(&config, &format!("an `[[override]]` in {}", path.display()))?;
 
-    Ok(Scope { matcher, config })
+    Ok(Scope {
+        matcher,
+        config,
+        directory: directory.to_path_buf(),
+        globs,
+    })
 }
 
 /// A level's settings with the explicit ones on top. Written as a merge rather than

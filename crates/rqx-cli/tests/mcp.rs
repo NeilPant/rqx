@@ -175,7 +175,7 @@ fn the_handshake_advertises_every_tool_with_a_schema() {
         names,
         [
             "analyze", "check", "config", "explain", "findings", "patterns", "plan", "rules",
-            "scan"
+            "scan", "verify"
         ]
     );
 

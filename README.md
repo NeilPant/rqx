@@ -192,6 +192,38 @@ applicable rule must fire on that language's fixtures, and every exempted rule m
 stay silent on them — so a rule that quietly stops working in one language fails the
 build rather than going unnoticed.
 
+## Did the refactoring actually happen
+
+rqx names a refactoring for every finding. Nothing checked whether it was made —
+and now that agents write most refactors, that gap is where wrong diffs get merged.
+
+```
+$ rqx verify --base main
+
+   ● resolved     unreachable-code
+       subject   console.log('dead')
+       as        consistent with Remove Dead Code
+
+   ● relocated    cognitive-complexity
+       subject   reconcileBatch
+       where     now at orders/helpers.ts:41
+
+  Resolved    1
+  Relocated   1
+  Health      73 → 74  (whole project)
+
+  ✖ the diff moved problems rather than removing them
+```
+
+`relocated` is the one nobody else reports: a body moved into a new helper takes its
+complexity with it, and a tool that called that "resolved" would be endorsing the
+wrong diff. Findings are matched by what they are about — rule, file and subject —
+never by line, so moving code around does not read as fixing it.
+
+`--expect cognitive-complexity@orders/reconcile.ts` fails the run unless that
+particular finding was resolved. It is a `verify` MCP tool too, so an agent can
+propose, be graded, and try again.
+
 ## Watch it while you work
 
 ```
@@ -370,10 +402,11 @@ in a context window, and a tool that returned one would leave nothing to fix it 
 | `scan` · `findings` | The project's health, then its findings a page at a time |
 | `check` | The diff against a base revision, and whether the gate passes |
 | `plan` | The findings `rqx fix` will not touch, each with its source, metric and named refactoring |
+| `verify` | What a diff did to every finding: resolved, improved, relocated, introduced |
 | `analyze` | An unsaved buffer, without touching the disk |
 | `patterns` · `explain` · `rules` · `config` | The catalogues, and the settings in force |
 
-All nine are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
+All ten are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
 the brief and the agent does the writing. `--http` serves
 the same tools over Streamable HTTP for clients that cannot spawn a process, and refuses
 a public address without `RQX_MCP_TOKEN` rather than handing your source to the network.

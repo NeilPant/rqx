@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Everything the scan needs from git, read once. The per-file counts and the
@@ -112,6 +112,58 @@ pub fn repository_prefix(root: &Path) -> Option<String> {
         return None;
     }
     Some(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+/// A checkout of another revision, in a temporary directory, removed when it drops.
+/// Scanning it is how rqx sees what the project looked like before: reading each
+/// changed file's old text would answer the per-file rules and leave every cross-file
+/// one — the graph, the clones, the churn — with nothing to read.
+pub struct Worktree {
+    path: PathBuf,
+    root: PathBuf,
+}
+
+impl Worktree {
+    pub fn add(root: &Path, revision: &str) -> Result<Self, String> {
+        let path = std::env::temp_dir().join(format!(
+            "rqx-base-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |since| since.as_nanos())
+        ));
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["worktree", "add", "--detach", "--quiet"])
+            .arg(&path)
+            .arg(revision)
+            .output()
+            .map_err(|error| format!("git could not run: {error}"))?;
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr).trim().to_owned());
+        }
+        Ok(Self {
+            path,
+            root: root.to_path_buf(),
+        })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for Worktree {
+    fn drop(&mut self) {
+        let _ = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args(["worktree", "remove", "--force"])
+            .arg(&self.path)
+            .output();
+        let _ = std::fs::remove_dir_all(&self.path);
+    }
 }
 
 /// Files that differ from a base revision. Uses the merge base so a stale branch is

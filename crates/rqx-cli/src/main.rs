@@ -23,6 +23,7 @@ mod report;
 mod scan;
 mod serve;
 mod tui;
+mod verify;
 
 use brand::{ColorDepth, Palette};
 use report::{FindingFilter, Layout, Report, Reporter};
@@ -113,6 +114,27 @@ enum Command {
         /// With --plan, emit markdown a person can paste rather than a report to read
         #[arg(long)]
         markdown: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Compare the working tree against a base revision and say what happened to
+    /// each finding: resolved, improved, relocated, or introduced
+    Verify {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Revision to compare against
+        #[arg(long, default_value = "origin/HEAD")]
+        base: String,
+        /// Rules that must be resolved, as `rule` or `rule@file`. Repeatable.
+        #[arg(long)]
+        expect: Vec<String>,
+        /// Emit one JSON object per change instead of the reader's report
+        #[arg(long)]
+        json: bool,
         #[arg(long)]
         threads: Option<usize>,
         #[arg(long)]
@@ -798,6 +820,36 @@ fn run() -> Result<Exit> {
                 return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
             }
             report::fixes(&outcome, palette, "rqx fix --write", &mut out).map(|()| Exit::Clean)
+        }
+        Command::Verify {
+            path,
+            standard,
+            base,
+            expect,
+            json,
+            threads,
+            config,
+        } => {
+            if !path.exists() {
+                bail!(
+                    "`{}` does not exist. rqx verifies a directory; try `rqx verify .`",
+                    path.display()
+                );
+            }
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            settings.config.scan.max_findings = 0;
+            verify::ensure_repository(&path, &base)?;
+            let verified = verify::verify(&path, &settings, &base, &expect)?;
+            let mut out = anstream::stdout().lock();
+            if json {
+                report::verify_json(&verified, &mut out)?;
+            } else {
+                report::verify(&verified, palette, &mut out)?;
+            }
+            Ok(Exit::of(!verified.passed()))
         }
         Command::Serve {
             path,

@@ -57,6 +57,17 @@ pub struct Diff {
 }
 
 #[derive(Deserialize, JsonSchema, Default)]
+pub struct Graded {
+    /// Revision to compare against, e.g. `main` or `HEAD~1`.
+    pub base: String,
+    /// Directory to verify, relative to the server's root. Defaults to the root.
+    pub path: Option<String>,
+    /// Rules that must be resolved, as `rule` or `rule@file`.
+    #[serde(default)]
+    pub expect: Vec<String>,
+}
+
+#[derive(Deserialize, JsonSchema, Default)]
 pub struct Buffer {
     /// The source to analyse. Never written to disk.
     pub source: String,
@@ -327,6 +338,83 @@ impl Rqx {
             "omitted": reviewed.len().saturating_sub(MAX_PAGE),
         });
         Ok(answer(markdown(&report)?, structured))
+    }
+
+    #[tool(
+        name = "verify",
+        description = "Compare the working tree against a base revision and say what \
+                       happened to every finding: resolved, improved, unchanged, \
+                       relocated to another file, or introduced. Use it after \
+                       proposing a refactoring to check the named move actually \
+                       happened rather than the problem changing address. Reads a \
+                       temporary checkout of the base and removes it; the project is \
+                       never written to.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn verify(
+        &self,
+        Parameters(graded): Parameters<Graded>,
+    ) -> Result<CallToolResult, McpError> {
+        let root = within(&self.root, graded.path.as_deref()).map_err(refused)?;
+        let settings = std::sync::Arc::clone(&self.settings);
+        let base = graded.base.clone();
+        let expect = graded.expect.clone();
+        let verified = tokio::task::spawn_blocking(move || {
+            crate::verify::verify(&root, &settings, &base, &expect)
+        })
+        .await
+        .map_err(|error| McpError::internal_error(error.to_string(), None))?
+        .map_err(|error| refused(format!("{error:#}")))?;
+
+        let changed: Vec<&crate::verify::Change> = verified
+            .changes
+            .iter()
+            .filter(|change| change.outcome.slug() != "unchanged")
+            .collect();
+        let structured = json!({
+            "base": verified.base,
+            "passed": verified.passed(),
+            "health_before": verified.health_before,
+            "health_after": verified.health_after,
+            "unmet": verified.unmet,
+            "changes": changed
+                .iter()
+                .map(|change| json!({
+                    "outcome": change.outcome.slug(),
+                    "rule": change.rule.slug(),
+                    "subject": change.subject,
+                    "before": change.before.as_ref().map(ToString::to_string),
+                    "after": change.after.as_ref().map(ToString::to_string),
+                    "technique": change.technique.slug(),
+                }))
+                .collect::<Vec<_>>(),
+        });
+
+        let mut digest = format!(
+            "{} against {}: health {} \u{2192} {}\n",
+            if verified.passed() {
+                "the refactoring landed"
+            } else {
+                "the diff moved problems rather than removing them"
+            },
+            verified.base,
+            verified.health_before,
+            verified.health_after
+        );
+        for change in changed.iter().take(RANKED) {
+            let _ = writeln!(
+                digest,
+                "  {:11} {} \u{b7} {}",
+                change.outcome.slug(),
+                change.rule.slug(),
+                change.subject
+            );
+        }
+        Ok(answer(digest, structured))
     }
 
     #[tool(
