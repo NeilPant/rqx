@@ -192,6 +192,36 @@ applicable rule must fire on that language's fixtures, and every exempted rule m
 stay silent on them — so a rule that quietly stops working in one language fails the
 build rather than going unnoticed.
 
+## Which five do I fix on Monday
+
+A list of three hundred findings ranked by severity is what every tool prints, and it
+is why debt lists go unread. `rqx plan` ranks the work by what it buys against what it
+costs, and says what the score would be after each item:
+
+```
+$ rqx plan ./src --budget 12 --simulate
+
+  The plan  9 items in 12 points of effort
+
+    1. ● empty-catch  orders/reconcile.ts:17:5
+       Remove Dead Code · 1 point · health 76
+    2. ● cognitive-complexity  orders/reconcile.ts:88:3
+       Decompose Conditional / Extract Method · 2 points · health 81
+
+  Effort    12 points
+  Health    73 → 84  (+11)
+
+  Grades
+    critical  2 → 0
+        fair  9 → 4
+```
+
+Value is the weight the finding carries in the score, scaled by what the file costs to
+change — churn and how many modules import it. Effort comes from the refactoring the
+rule prescribes: deleting is one point, moving behaviour up or down a type tree is
+five. The selection is exact rather than greedy, because the cheapest two items are
+often worth more together than the dearest one.
+
 ## Levels
 
 How much a project asks of itself is one word:

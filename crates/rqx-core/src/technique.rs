@@ -46,6 +46,19 @@ impl Group {
         }
     }
 
+    /// Roughly what the move costs, for ranking work rather than pricing it. Deleting
+    /// is one edit; moving behaviour up or down a type tree touches every subclass.
+    /// Exhaustive so a new group has to state its cost rather than inherit one.
+    pub const fn effort(self) -> u8 {
+        match self {
+            Self::Removal => 1,
+            Self::Extraction | Self::Conditionals => 2,
+            Self::Data | Self::Signatures => 3,
+            Self::Placement => 4,
+            Self::Hierarchy => 5,
+        }
+    }
+
     pub fn techniques(self) -> impl Iterator<Item = FixTechnique> {
         FixTechnique::ALL
             .iter()
@@ -140,6 +153,23 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::*;
+
+    /// A rule prescribing several techniques is ranked by the cheapest route, so a
+    /// finding is never made to look dearer than its easiest honest answer.
+    #[test]
+    fn every_rule_has_an_effort_and_the_cheapest_route_decides_it() {
+        for rule in crate::rule::RuleId::ALL.iter().copied() {
+            let cheapest = rule
+                .spec()
+                .fixes
+                .iter()
+                .map(|fix| fix.group().effort())
+                .min();
+            assert!(cheapest.is_some(), "{rule} prescribes nothing");
+        }
+        assert_eq!(Group::Removal.effort(), 1);
+        assert!(Group::Hierarchy.effort() > Group::Extraction.effort());
+    }
 
     #[test]
     fn names_are_unique_and_present() {

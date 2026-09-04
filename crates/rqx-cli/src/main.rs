@@ -16,6 +16,7 @@ mod fix;
 mod history;
 mod lsp;
 mod mcp;
+mod plan;
 mod preview;
 mod progress;
 mod report;
@@ -111,6 +112,30 @@ enum Command {
         /// With --plan, emit markdown a person can paste rather than a report to read
         #[arg(long)]
         markdown: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Rank the work by what it buys against what it costs, and say what the health
+    /// score would be after it
+    Plan {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Effort points to spend. Without it the plan is the top items by value.
+        #[arg(long)]
+        budget: Option<u32>,
+        /// How many items to rank when no budget is given
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        /// Also print what the plan does to the grade of every file
+        #[arg(long)]
+        simulate: bool,
+        /// Emit one JSON object per item instead of the reader's plan
+        #[arg(long)]
+        json: bool,
         #[arg(long)]
         threads: Option<usize>,
         #[arg(long)]
@@ -754,6 +779,38 @@ fn run() -> Result<Exit> {
                 return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
             }
             report::fixes(&outcome, palette, "rqx fix --write", &mut out).map(|()| Exit::Clean)
+        }
+        Command::Plan {
+            path,
+            standard,
+            budget,
+            limit,
+            simulate,
+            json,
+            threads,
+            config,
+        } => {
+            if !path.exists() {
+                bail!(
+                    "`{}` does not exist. rqx plans a directory or a single file; try `rqx plan .`",
+                    path.display()
+                );
+            }
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            // The display cap keeps the highest-ranked findings, and the plan is a
+            // ranking of its own: capping first would hide the cheap work entirely.
+            settings.config.scan.max_findings = 0;
+            let outcome = scan::scan(&path, &settings)?;
+            let ranked = plan::rank(&outcome, budget, limit);
+            let mut out = anstream::stdout().lock();
+            if json {
+                return report::plan_json(&outcome, &ranked, &mut out).map(|()| Exit::Clean);
+            }
+            report::plan(&outcome, &ranked, budget, simulate, palette, &mut out)
+                .map(|()| Exit::Clean)
         }
         Command::Explain { name } => {
             if let Some(rule) = RuleId::parse(&name) {

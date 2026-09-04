@@ -55,6 +55,43 @@ impl FindingCounts {
         self.weighted_by_file.contains_key(file)
     }
 
+    /// What the health score is computed from, before the curve. Exposed so a plan
+    /// can subtract one finding's cost without rebuilding the counts.
+    pub fn weighted_total(&self, impact: &ImpactMap) -> f64 {
+        self.weighted_by_file
+            .iter()
+            .map(|(file, weight)| weight * impact.get(file).multiplier())
+            .sum()
+    }
+
+    /// These counts with some findings removed. The inverse of `record`, for asking
+    /// what a project would look like after the work rather than before it.
+    pub fn without<'a>(&self, gone: impl Iterator<Item = &'a Finding>) -> Self {
+        let mut counts = Self {
+            by_rule: self.by_rule.clone(),
+            by_severity: self.by_severity.clone(),
+            total: self.total,
+            weighted_by_file: self.weighted_by_file.clone(),
+        };
+        for finding in gone {
+            if let Some(count) = counts.by_rule.get_mut(&finding.rule) {
+                *count = count.saturating_sub(1);
+            }
+            if let Some(count) = counts.by_severity.get_mut(&finding.severity) {
+                *count = count.saturating_sub(1);
+            }
+            counts.total = counts.total.saturating_sub(1);
+            if finding.confidence != Confidence::Low
+                && let Some(weight) = counts.weighted_by_file.get_mut(&finding.location.file)
+            {
+                *weight = (*weight - finding.severity.weight()).max(0.0);
+            }
+        }
+        counts.by_rule.retain(|_, count| *count > 0);
+        counts.by_severity.retain(|_, count| *count > 0);
+        counts
+    }
+
     pub fn health_score(&self, loc: u64) -> u32 {
         self.weighted_health_score(loc, &ImpactMap::default())
     }
@@ -70,6 +107,12 @@ impl FindingCounts {
             .sum();
         decay(weighted, loc)
     }
+}
+
+/// The score for a weighted total that has not been accumulated from findings, so a
+/// caller can ask what the health would be if some of them were gone.
+pub fn health_of(weighted: f64, loc: u64) -> u32 {
+    decay(weighted, loc)
 }
 
 fn decay(weighted: f64, loc: u64) -> u32 {

@@ -10,6 +10,7 @@ mod junit;
 mod markdown;
 mod patterns;
 pub mod projection;
+mod ranked;
 mod sarif;
 mod settings;
 mod terminal;
@@ -32,6 +33,7 @@ pub use fixes::{json as fixes_json, render as fixes};
 pub use patterns::{
     coverage as pattern_coverage, explain as explain_pattern, json as advice_json, render as advice,
 };
+pub use ranked::{json as plan_json, render as plan};
 
 /// A misspelling is the common case, and a list of sixty slugs is not an answer to
 /// one. Shared so every "no such thing" error in the tool reads the same way.
@@ -310,6 +312,44 @@ pub mod tests {
 
     /// A scan outcome assembled by hand, so a reporter can be tested without a
     /// repository to scan.
+    /// The same, for callers that care which rule fired: ranking reads the technique
+    /// a rule prescribes, so every finding being one rule would make every item cost
+    /// the same.
+    pub fn outcome_of(findings: &[(RuleId, &str)]) -> ScanOutcome {
+        let mut outcome = outcome_with(&[], 0);
+        for (rule, file) in findings {
+            let spec = rule.spec();
+            let finding = Finding {
+                rule: *rule,
+                location: SourceRange {
+                    file: Arc::from(*file),
+                    start: 0,
+                    end: 1,
+                    line: 1,
+                    column: 1,
+                    end_line: 1,
+                },
+                severity: spec.severity,
+                confidence: spec.confidence,
+                evidence: Evidence::StatementCount {
+                    count: 99,
+                    threshold: 40,
+                },
+                fix_hint: "fix".to_owned(),
+                related: Vec::new(),
+            };
+            outcome.counts.record(&finding);
+            *outcome
+                .findings_by_file
+                .entry(Arc::clone(&finding.location.file))
+                .or_default() += 1;
+            outcome.analyzed.insert((*file).to_owned());
+            outcome.findings.push(finding);
+        }
+        outcome.files_scanned = outcome.analyzed.len() as u32;
+        outcome
+    }
+
     pub fn outcome_with(findings: &[(&str, Severity)], files_scanned: u32) -> ScanOutcome {
         let mut outcome = ScanOutcome {
             root: std::path::PathBuf::from("."),
