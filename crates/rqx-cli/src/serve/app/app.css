@@ -80,10 +80,12 @@ button {
 /* The plumage is a variable so the mascot carries the verdict, the way it does in
    the terminal: a failing repository is a red owl, not a brown one with a red mark.
    The default is on the root rather than on `.owl`, because a value set on the svg
-   itself would shadow the band its wrapper asked for. */
+   itself would shadow the band its wrapper asked for. The shade is the plumage at
+   three fifths, which is `darken` in `brand.rs` — the underside has to stay the
+   colour it is shading or the mascot grows a grey belly. */
 :root {
   --owl-plumage: var(--ink-accent);
-  --owl-shade: var(--ink-shade);
+  --owl-shade: color-mix(in srgb, var(--ink-accent) 60%, black);
 }
 
 .owl {
@@ -94,17 +96,17 @@ button {
 
 .owl-good {
   --owl-plumage: var(--ink-good);
-  --owl-shade: color-mix(in srgb, var(--ink-good) 62%, var(--ink-ground));
+  --owl-shade: color-mix(in srgb, var(--ink-good) 60%, black);
 }
 
 .owl-warn {
   --owl-plumage: var(--ink-warn);
-  --owl-shade: color-mix(in srgb, var(--ink-warn) 62%, var(--ink-ground));
+  --owl-shade: color-mix(in srgb, var(--ink-warn) 60%, black);
 }
 
 .owl-danger {
   --owl-plumage: var(--ink-danger);
-  --owl-shade: color-mix(in srgb, var(--ink-danger) 62%, var(--ink-ground));
+  --owl-shade: color-mix(in srgb, var(--ink-danger) 60%, black);
 }
 
 .mark {
@@ -632,7 +634,7 @@ input[type="range"] {
 .scrim {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--scrim);
   backdrop-filter: blur(2px);
   animation: fade 0.16s ease;
 }
@@ -723,7 +725,7 @@ input[type="range"] {
 .palette-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim);
   display: grid;
   place-items: start center;
   padding-top: 13vh;

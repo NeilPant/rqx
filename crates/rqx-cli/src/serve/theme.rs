@@ -4,77 +4,42 @@ use crate::brand::Ink;
 /// redrawn, so the owl on the page and the owl in `rqx` are one owl.
 const ART: &str = include_str!("../../assets/mascot.txt");
 
+/// Every component token resolves to one of the ten inks `brand.rs` declares, or to
+/// a blend of two of them. Nothing on the page is a colour the terminal cannot
+/// produce, which is why surfaces are tinted with `--ink-line` rather than lifted
+/// toward white: white is not in the palette, and a grey card under a warm palette
+/// is the drift that shows.
+const COMPONENTS: &str = "  --background: var(--ink-ground);
+  --foreground: var(--ink-text);
+  --card: color-mix(in srgb, var(--ink-line) 9%, var(--ink-ground));
+  --card-foreground: var(--ink-text);
+  --popover: color-mix(in srgb, var(--ink-line) 14%, var(--ink-ground));
+  --muted: color-mix(in srgb, var(--ink-line) 20%, var(--ink-ground));
+  --muted-foreground: var(--ink-muted);
+  --primary: var(--ink-accent);
+  --primary-foreground: var(--ink-ground);
+  --destructive: var(--ink-danger);
+  --success: var(--ink-good);
+  --warning: var(--ink-warn);
+  --border: var(--ink-line);
+  --border-soft: color-mix(in srgb, var(--ink-line) 45%, var(--ink-ground));
+  --input: var(--ink-line);
+  --ring: var(--ink-accent);
+  --scrim: color-mix(in srgb, var(--ink-ground) 76%, transparent);
+  --radius: 0.625rem;
+";
+
 /// The palette as CSS custom properties, taken from `brand.rs` rather than restated.
 /// A colour retuned for the terminal moves the page with it.
-///
-/// The names are the ones a component library uses — background, foreground, card,
-/// primary, muted, border, ring — so the stylesheet reads like any other app's, with
-/// rqx's own warm dark palette behind them instead of a default slate.
 pub fn variables() -> String {
-    let ink = |ink: Ink| ink.hex();
     let mut out = String::from(":root {\n");
-    for value in Ink::EVERY {
-        out.push_str(&format!("  --ink-{}: {};\n", value.slug(), ink(value)));
+    for ink in Ink::EVERY {
+        out.push_str(&format!("  --ink-{}: {};\n", ink.slug(), ink.hex()));
     }
-    out.push_str(&format!(
-        "\n  --background: {ground};\n\
-         \x20 --foreground: {text};\n\
-         \x20 --card: {card};\n\
-         \x20 --card-foreground: {text};\n\
-         \x20 --popover: {popover};\n\
-         \x20 --muted: {muted_surface};\n\
-         \x20 --muted-foreground: {muted};\n\
-         \x20 --primary: {accent};\n\
-         \x20 --primary-foreground: {ground};\n\
-         \x20 --destructive: {danger};\n\
-         \x20 --success: {good};\n\
-         \x20 --warning: {warn};\n\
-         \x20 --border: {border};\n\
-         \x20 --input: {border};\n\
-         \x20 --ring: {accent};\n\
-         \x20 --radius: 0.625rem;\n\
-         }}\n",
-        ground = ink(Ink::Ground),
-        text = ink(Ink::Text),
-        // Lifted off the ground by a few points rather than given a colour of its
-        // own: a card that is a different hue from the page reads as a dialog.
-        card = lift(Ink::Ground, 0.045),
-        popover = lift(Ink::Ground, 0.075),
-        muted_surface = lift(Ink::Ground, 0.09),
-        muted = ink(Ink::Muted),
-        accent = ink(Ink::Accent),
-        danger = ink(Ink::Danger),
-        good = ink(Ink::Good),
-        warn = ink(Ink::Warn),
-        border = mix(Ink::Line, Ink::Ground, 0.55),
-    ));
+    out.push('\n');
+    out.push_str(COMPONENTS);
+    out.push_str("}\n");
     out
-}
-
-/// One ink moved toward white, for the surfaces a flat palette has no colour for.
-fn lift(ink: Ink, amount: f32) -> String {
-    let (r, g, b) = rgb(ink);
-    let raise = |channel: u8| (f32::from(channel) + (255.0 - f32::from(channel)) * amount) as u8;
-    format!("#{:02x}{:02x}{:02x}", raise(r), raise(g), raise(b))
-}
-
-fn mix(ink: Ink, toward: Ink, amount: f32) -> String {
-    let (r, g, b) = rgb(ink);
-    let (tr, tg, tb) = rgb(toward);
-    let blend =
-        |from: u8, to: u8| (f32::from(from) + (f32::from(to) - f32::from(from)) * amount) as u8;
-    format!(
-        "#{:02x}{:02x}{:02x}",
-        blend(r, tr),
-        blend(g, tg),
-        blend(b, tb)
-    )
-}
-
-fn rgb(ink: Ink) -> (u8, u8, u8) {
-    let hex = ink.hex();
-    let byte = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).unwrap_or(0);
-    (byte(1), byte(3), byte(5))
 }
 
 /// The owl, as one `<svg>` of 12x12 rects. `S` is left to a CSS variable so the
@@ -145,5 +110,35 @@ mod tests {
         }
         assert!(css.contains("--background"), "no component tokens");
         assert!(css.contains("--primary"));
+    }
+
+    /// The page may only wear colours the terminal wears. A token given a literal of
+    /// its own is how the two palettes drift apart without anyone noticing.
+    #[test]
+    fn no_colour_on_the_page_is_invented() {
+        let brand: Vec<String> = Ink::EVERY.iter().map(|ink| ink.hex()).collect();
+        let css = variables();
+        let mut rest = css.as_str();
+        while let Some(at) = rest.find('#') {
+            let literal: String = rest[at..].chars().take(7).collect();
+            assert!(
+                brand.contains(&literal),
+                "{literal} is not one of the ten inks"
+            );
+            rest = &rest[at + 7..];
+        }
+
+        for stylesheet in [include_str!("app/app.css"), include_str!("app/index.html")] {
+            let strays: Vec<&str> = stylesheet
+                .split('#')
+                .skip(1)
+                .filter(|after| {
+                    after.len() >= 6 && after[..6].chars().all(|c| c.is_ascii_hexdigit())
+                })
+                .map(|after| &after[..6])
+                .filter(|hex| !brand.iter().any(|ink| ink[1..].eq_ignore_ascii_case(hex)))
+                .collect();
+            assert!(strays.is_empty(), "colours outside the palette: {strays:?}");
+        }
     }
 }
