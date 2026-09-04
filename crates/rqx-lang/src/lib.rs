@@ -34,6 +34,34 @@ use tree_sitter::Node;
 use crate::module_graph::Resolver;
 use crate::profile::LanguageProfile;
 
+/// What the analyser measured about one function, kept rather than discarded once
+/// the thresholds have been compared against it: the numbers a rule fires on above a
+/// limit are the same numbers a reader wants the distribution of.
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+pub struct FunctionShape {
+    pub name: Option<String>,
+    pub range: SourceRange,
+    pub parameters: u32,
+    pub statements: u32,
+    pub cognitive_complexity: u32,
+    pub max_nesting: u32,
+}
+
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+pub struct ClassShape {
+    pub name: Option<String>,
+    pub range: SourceRange,
+    pub fields: u32,
+    pub methods: u32,
+    pub statements: u32,
+}
+
+#[derive(Clone, Default, serde::Deserialize, serde::Serialize)]
+pub struct FileShape {
+    pub functions: Vec<FunctionShape>,
+    pub classes: Vec<ClassShape>,
+}
+
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct CloneSite {
     pub hash: u64,
@@ -54,6 +82,8 @@ pub struct FileAnalysis {
     pub clones: Vec<CloneSite>,
     pub module: ModuleFacts,
     pub code_lines: u32,
+    #[serde(default)]
+    pub shape: FileShape,
 }
 
 #[derive(Debug)]
@@ -324,6 +354,32 @@ pub fn analyze_as(
         })
         .collect();
 
+    let shape = FileShape {
+        functions: measured
+            .functions
+            .iter()
+            .map(|function| FunctionShape {
+                name: function.name.clone(),
+                range: builder.range(function.report),
+                parameters: function.parameters,
+                statements: function.statements,
+                cognitive_complexity: function.cognitive_complexity,
+                max_nesting: function.max_nesting,
+            })
+            .collect(),
+        classes: measured
+            .classes
+            .iter()
+            .map(|class| ClassShape {
+                name: class.name.clone(),
+                range: builder.range(class.report),
+                fields: class.fields,
+                methods: class.methods,
+                statements: class.statements,
+            })
+            .collect(),
+    };
+
     Ok(FileAnalysis {
         language,
         findings,
@@ -331,6 +387,7 @@ pub fn analyze_as(
         clones,
         module,
         code_lines: index.code_lines(),
+        shape,
     })
 }
 

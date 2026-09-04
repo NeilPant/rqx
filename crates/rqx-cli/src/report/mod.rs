@@ -365,6 +365,7 @@ pub mod tests {
             advice: Vec::new(),
             findings_by_file: BTreeMap::new(),
             lines_by_file: BTreeMap::new(),
+            shape_by_file: BTreeMap::new(),
             omitted: 0,
             code_lines: 10_000,
             files_scanned,

@@ -46,6 +46,7 @@ pub(crate) struct Analyzed {
     clones: Vec<rqx_lang::CloneSite>,
     module: rqx_core::facts::ModuleFacts,
     code_lines: u32,
+    shape: rqx_lang::FileShape,
 }
 
 #[derive(Clone)]
@@ -88,6 +89,10 @@ pub struct ScanOutcome {
     /// Code lines per file, so a file can be graded on its own density rather than
     /// on the project's.
     pub lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    /// What the analyser measured per function and per class, whether or not any
+    /// threshold was crossed — the distribution a reader wants is the same set of
+    /// numbers the rules only see the tail of.
+    pub shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -153,6 +158,7 @@ struct Collector {
     max_findings: usize,
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
     advice: Vec<rqx_core::Advice>,
     clone_groups: HashMap<u64, CloneGroup>,
     /// The same blocks keyed by a shape no grammar owns, so logic ported between two
@@ -191,6 +197,7 @@ impl Collector {
             max_findings,
             findings_by_file: std::collections::BTreeMap::new(),
             lines_by_file: std::collections::BTreeMap::new(),
+            shape_by_file: std::collections::BTreeMap::new(),
             advice: Vec::new(),
             clone_groups: HashMap::new(),
             ported: HashMap::new(),
@@ -991,6 +998,7 @@ impl Collector {
             advice: self.advice,
             findings_by_file: self.findings_by_file,
             lines_by_file: self.lines_by_file,
+            shape_by_file: self.shape_by_file,
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -1255,6 +1263,7 @@ pub(crate) fn collect(
                     clones,
                     module,
                     code_lines,
+                    shape,
                 } = *file;
                 collector.files_scanned += 1;
                 collector.code_lines += u64::from(code_lines);
@@ -1269,6 +1278,7 @@ pub(crate) fn collect(
                 collector
                     .lines_by_file
                     .insert(Arc::clone(&shared), code_lines);
+                collector.shape_by_file.insert(Arc::clone(&shared), shape);
                 collector.report_progress(&display);
                 if let Some(path) = canonical {
                     collector.modules.push(rqx_lang::module_graph::ModuleEntry {
@@ -1363,6 +1373,7 @@ pub(crate) fn analyze_file(
                     clones: analysis.clones,
                     module: analysis.module,
                     code_lines: analysis.code_lines,
+                    shape: analysis.shape,
                 })),
                 Err(error) => ScanMessage::Skipped {
                     path: path.to_owned(),

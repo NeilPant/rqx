@@ -326,6 +326,20 @@ fn shape_of(before: &ScanOutcome, after: &ScanOutcome) -> Shape {
             shape.classes_rose.insert(file.to_string());
         }
     }
+    // An extraction that stayed in the file it came from is the common case, and a
+    // file-level count is the only thing that can see it.
+    for (file, now) in &after.shape_by_file {
+        let was = before.shape_by_file.get(file);
+        let count = |shape: Option<&rqx_lang::FileShape>, of: fn(&rqx_lang::FileShape) -> usize| {
+            shape.map_or(0, of)
+        };
+        if now.functions.len() > count(was, |shape| shape.functions.len()) {
+            shape.functions_rose.insert(file.to_string());
+        }
+        if now.classes.len() > count(was, |shape| shape.classes.len()) {
+            shape.classes_rose.insert(file.to_string());
+        }
+    }
     shape
 }
 
