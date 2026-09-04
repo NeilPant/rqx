@@ -2,31 +2,84 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
-/// Churn comes from one `git log` rather than a git library: a single process gives
-/// every file's commit count in one pass, and a repository is the only place this
-/// data exists anyway. No repository simply means no churn signal.
-pub fn commits_per_file(root: &Path, days: u32) -> HashMap<String, u32> {
-    let mut counts = HashMap::new();
-    let Ok(output) = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["log", "--name-only", "--pretty=format:", "--no-merges"])
-        .arg(format!("--since={days} days ago"))
-        .output()
-    else {
-        return counts;
-    };
-    if !output.status.success() {
-        return counts;
-    }
-    for line in String::from_utf8_lossy(&output.stdout).lines() {
-        let path = line.trim();
-        if path.is_empty() {
-            continue;
+/// Everything the scan needs from git, read once. The per-file counts and the
+/// co-change sets came from two `git log` invocations differing only in their format
+/// string, and the repository prefix from two more — four processes for two answers,
+/// all of them on the critical path after the walk.
+///
+/// Nothing here depends on what the walk found, so it is read on its own thread while
+/// the files are being parsed and is almost always waiting by the time it is asked for.
+#[derive(Default)]
+pub struct History {
+    commits: Vec<Vec<String>>,
+    prefix: String,
+}
+
+impl History {
+    /// A repository is the only place this data exists, so no repository simply means
+    /// no churn signal rather than an error.
+    pub fn read(root: &Path, days: u32) -> Self {
+        let prefix = repository_prefix(root).unwrap_or_default();
+        if days == 0 {
+            return Self {
+                commits: Vec::new(),
+                prefix,
+            };
         }
-        *counts.entry(path.to_owned()).or_insert(0) += 1;
+        // `%x00` delimits commits, so one pass yields both the per-file totals and
+        // which files moved together.
+        let Ok(output) = Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["log", "--name-only", "--pretty=format:%x00", "--no-merges"])
+            .arg(format!("--since={days} days ago"))
+            .output()
+        else {
+            return Self {
+                commits: Vec::new(),
+                prefix,
+            };
+        };
+        if !output.status.success() {
+            return Self {
+                commits: Vec::new(),
+                prefix,
+            };
+        }
+        let commits = String::from_utf8_lossy(&output.stdout)
+            .split('\0')
+            .map(|commit| {
+                commit
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty())
+                    .map(str::to_owned)
+                    .collect::<Vec<String>>()
+            })
+            .filter(|files| !files.is_empty())
+            .collect();
+        Self { commits, prefix }
     }
-    counts
+
+    pub fn prefix(&self) -> &str {
+        &self.prefix
+    }
+
+    pub fn commits_per_file(&self) -> HashMap<&str, u32> {
+        let mut counts = HashMap::new();
+        for path in self.commits.iter().flatten() {
+            *counts.entry(path.as_str()).or_insert(0) += 1;
+        }
+        counts
+    }
+
+    /// A commit touching half the tree is a rename or a format run, and says nothing
+    /// about which files share a responsibility.
+    pub fn co_changes(&self) -> impl Iterator<Item = &Vec<String>> {
+        self.commits
+            .iter()
+            .filter(|files| (2..=20).contains(&files.len()))
+    }
 }
 
 /// `git log` reports paths from the repository root while findings carry paths
@@ -59,37 +112,6 @@ pub fn repository_prefix(root: &Path) -> Option<String> {
         return None;
     }
     Some(String::from_utf8_lossy(&output.stdout).trim().to_owned())
-}
-
-/// Files grouped by the commit that touched them. Shotgun Surgery is a claim about
-/// what changes *together*, which per-file counts cannot express.
-pub fn commits_by_file_set(root: &Path, days: u32) -> Vec<Vec<String>> {
-    let Ok(output) = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["log", "--name-only", "--pretty=format:%x00", "--no-merges"])
-        .arg(format!("--since={days} days ago"))
-        .output()
-    else {
-        return Vec::new();
-    };
-    if !output.status.success() {
-        return Vec::new();
-    }
-    String::from_utf8_lossy(&output.stdout)
-        .split('\0')
-        .map(|commit| {
-            commit
-                .lines()
-                .map(str::trim)
-                .filter(|line| !line.is_empty())
-                .map(str::to_owned)
-                .collect::<Vec<String>>()
-        })
-        // A commit touching half the tree is a rename or a format run, and says
-        // nothing about which files share a responsibility.
-        .filter(|files| (2..=20).contains(&files.len()))
-        .collect()
 }
 
 /// Files that differ from a base revision. Uses the merge base so a stale branch is
@@ -148,8 +170,34 @@ mod tests {
 
     #[test]
     fn a_directory_with_no_repository_yields_no_churn() {
-        let counts = commits_per_file(Path::new("/"), 90);
+        let history = History::read(Path::new("/"), 90);
+        let counts = history.commits_per_file();
         assert!(counts.is_empty());
+    }
+
+    /// One `git log` now answers both the per-file counts and the co-change sets, so
+    /// the two have to stay consistent with each other.
+    #[test]
+    fn one_read_answers_both_questions() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        if repository_prefix(root).is_none() {
+            return;
+        }
+        let history = History::read(root, 3650);
+        let counts = history.commits_per_file();
+        for files in history.co_changes() {
+            assert!(
+                (2..=20).contains(&files.len()),
+                "a co-change set escaped the size filter: {} files",
+                files.len()
+            );
+            for file in files {
+                assert!(
+                    counts.contains_key(file.as_str()),
+                    "`{file}` moved together with something but was never counted"
+                );
+            }
+        }
     }
 
     #[test]
@@ -158,7 +206,8 @@ mod tests {
         if repository_prefix(root).is_none() {
             return;
         }
-        let counts = commits_per_file(root, 3650);
+        let history = History::read(root, 3650);
+        let counts = history.commits_per_file();
         assert!(counts.values().all(|count| *count > 0));
     }
 }

@@ -415,6 +415,7 @@ impl Default for Ignore {
 #[serde(default, deny_unknown_fields)]
 pub struct Scan {
     pub threads: usize,
+    pub skip_generated: bool,
     pub max_filesize: u64,
     pub max_findings: usize,
     pub prune_dirs: Vec<String>,
@@ -432,6 +433,7 @@ impl Default for Scan {
     fn default() -> Self {
         Self {
             threads: 0,
+            skip_generated: true,
             max_filesize: 1 << 20,
             max_findings: 500,
             churn_days: 90,
@@ -577,6 +579,7 @@ mod tests {
                 gate_advice: config.gate.fail_on_incomplete,
                 scan: vec![
                     config.scan.threads.to_string(),
+                    config.scan.skip_generated.to_string(),
                     config.scan.max_filesize.to_string(),
                     config.scan.max_findings.to_string(),
                     config.scan.churn_days.to_string(),

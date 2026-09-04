@@ -15,6 +15,7 @@ mod config;
 mod history;
 mod lsp;
 mod preview;
+mod progress;
 mod report;
 mod scan;
 mod tui;
@@ -554,6 +555,7 @@ fn run() -> Result<Exit> {
     // Set before anything draws: `anstream::stdout()` and `Palette::detect()` both
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();
+    progress::set_animated(!matches!(cli.motion, Motion::Off));
     let palette = Palette::detect();
 
     let Some(command) = cli.command else {

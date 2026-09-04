@@ -1,6 +1,5 @@
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, SyncSender};
@@ -21,8 +20,6 @@ use rqx_core::span::Span;
 use smallvec::SmallVec;
 
 use crate::config::Resolved;
-
-const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_millis(80);
 
 /// The walk analyzes files far faster than one collector drains them, so an
 /// unbounded channel becomes the place a whole repo's findings pile up. Bounding
@@ -55,13 +52,16 @@ enum ScanMessage {
     Skipped { path: PathBuf, reason: String },
 }
 
-/// The scanned-file path is deliberately absent: at ~26,000 files per second a
-/// filename field is an unreadable blur, and carrying one would clone a `PathBuf`
-/// per file to render nothing a human can follow.
-#[derive(Copy, Clone, Debug, Default)]
+/// The file is carried as the `Arc<str>` the worker already built for it, so naming
+/// what is being scanned costs a refcount rather than a path clone per file. The
+/// display throttles to something readable; the counts do not.
+#[derive(Clone, Debug, Default)]
 pub struct ScanProgress {
     pub files_scanned: u32,
     pub findings: u32,
+    pub total: Option<u32>,
+    pub phase: crate::progress::Phase,
+    pub file: Option<std::sync::Arc<str>>,
 }
 
 pub struct ScanOutcome {
@@ -154,9 +154,9 @@ struct Collector {
     code_lines: u64,
     files_scanned: u32,
     skipped: Vec<(PathBuf, String)>,
-    show_progress: bool,
+    bar: crate::progress::Bar,
+    total: Option<u32>,
     started: Instant,
-    painted: Instant,
 }
 
 impl Collector {
@@ -164,7 +164,8 @@ impl Collector {
         max_findings: usize,
         track_clones: bool,
         track_modules: bool,
-        show_progress: bool,
+        bar: crate::progress::Bar,
+        total: Option<u32>,
     ) -> Self {
         Self {
             counts: FindingCounts::default(),
@@ -183,9 +184,9 @@ impl Collector {
             code_lines: 0,
             files_scanned: 0,
             skipped: Vec::new(),
-            show_progress,
+            bar,
+            total,
             started: Instant::now(),
-            painted: Instant::now(),
         }
     }
 
@@ -241,35 +242,23 @@ impl Collector {
         insert_bounded(&mut group.sites, site.range);
     }
 
-    /// Paced by the clock rather than by file count: 500 files is 20ms on a tree of
-    /// small modules and several seconds on a tree of large ones, so a fixed count
-    /// either flickers or looks frozen.
     fn report_progress(&mut self, file: &str) {
-        if !self.show_progress || self.painted.elapsed() < PROGRESS_INTERVAL {
-            return;
-        }
-        self.painted = Instant::now();
-        let mut stderr = std::io::stderr();
-        let _ = write!(
-            stderr,
-            "\r{:80}\r  RUNS  {}   {} files \u{b7} {} findings",
-            "",
-            elide(file, 44),
+        self.bar.update(
+            crate::progress::Phase::Scanning,
             self.files_scanned,
-            self.counts.total
+            self.total,
+            self.counts.total,
+            file,
         );
-        let _ = stderr.flush();
     }
 
-    fn clear_progress(&self) {
-        if self.show_progress {
-            let _ = write!(std::io::stderr(), "\r{:80}\r", "");
-        }
+    /// The phases after the walk used to run with the line already wiped, so a large
+    /// repository ended every scan with a silent pause that looked like a hang.
+    fn report_phase(&mut self, phase: crate::progress::Phase) {
+        self.bar
+            .update(phase, self.files_scanned, None, self.counts.total, "");
     }
 
-    /// Clone findings are built here rather than per file because a duplicate is
-    /// only a duplicate once a second site exists, which is knowable only after
-    /// the whole walk.
     fn finish_clones(&mut self, root: &Path, settings: &Resolved) {
         let mut groups: Vec<CloneGroup> = self
             .clone_groups
@@ -287,13 +276,17 @@ impl Collector {
                 .then(b.nodes.cmp(&a.nodes))
         });
 
-        let mut reported: Vec<SourceRange> = Vec::new();
+        // Sorted by (file, start, widest first), so anything containing a range comes
+        // before it and the last one reported is the only one that can still contain
+        // the next. Rescanning every range reported so far was quadratic on generated
+        // code, where near-identical blocks number in the thousands.
+        let mut outer: Option<SourceRange> = None;
         for group in groups {
             let anchor = group.sites[0].clone();
-            if reported.iter().any(|outer| outer.contains(&anchor)) {
+            if outer.as_ref().is_some_and(|outer| outer.contains(&anchor)) {
                 continue;
             }
-            reported.push(anchor.clone());
+            outer = Some(anchor.clone());
             let spec = RuleId::DuplicateCode.spec();
             let others: Vec<SourceRange> = group.sites.iter().skip(1).cloned().collect();
             let config = settings.for_file(&root.join(anchor.file.as_ref()));
@@ -330,7 +323,6 @@ impl Collector {
     fn advise_hierarchy(
         &mut self,
         modules: &[rqx_lang::module_graph::ModuleEntry],
-        root: &Path,
         config: &RqxConfig,
         at: &mut Positions,
     ) {
@@ -361,7 +353,7 @@ impl Collector {
             if !applies {
                 continue;
             }
-            let Some(range) = at.range(found.path, root, found.span) else {
+            let Some(range) = at.range(found.path, found.span) else {
                 continue;
             };
             let note = match found.kind {
@@ -395,11 +387,11 @@ impl Collector {
             return;
         }
         let modules = std::mem::take(&mut self.modules);
-        self.advise_hierarchy(&modules, root, config, at);
+        self.advise_hierarchy(&modules, config, at);
         let report = graph_report(modules, root, config);
 
         for dead in report.dead_exports {
-            let Some(range) = at.range(&dead.path, root, dead.span) else {
+            let Some(range) = at.range(&dead.path, dead.span) else {
                 continue;
             };
             self.accept_if_enabled(
@@ -422,7 +414,7 @@ impl Collector {
         }
 
         for dead in report.dead_files {
-            let Some(range) = at.range(&dead.path, root, WHOLE_FILE) else {
+            let Some(range) = at.range(&dead.path, WHOLE_FILE) else {
                 continue;
             };
             self.accept_if_enabled(
@@ -443,21 +435,21 @@ impl Collector {
 
         for (importer, targets) in &report.edges {
             self.import_edges.insert(
-                relative_to(root, importer),
+                at.relative(importer),
                 targets
                     .iter()
-                    .map(|target| relative_to(root, target))
+                    .map(|target| at.relative(target))
                     .collect(),
             );
         }
 
         for (path, importers) in &report.importers {
             self.impact
-                .set_importers(Arc::from(relative_to(root, path)), *importers);
+                .set_importers(Arc::from(at.relative(path)), *importers);
         }
 
         for dead in report.unimplemented {
-            let Some(range) = at.range(&dead.path, root, dead.span) else {
+            let Some(range) = at.range(&dead.path, dead.span) else {
                 continue;
             };
             self.accept_if_enabled(
@@ -482,14 +474,14 @@ impl Collector {
             let Some(anchor) = cycle.members.first() else {
                 continue;
             };
-            let Some(range) = at.range(anchor, root, WHOLE_FILE) else {
+            let Some(range) = at.range(anchor, WHOLE_FILE) else {
                 continue;
             };
             let related: Vec<SourceRange> = cycle
                 .members
                 .iter()
                 .skip(1)
-                .filter_map(|member| at.range(member, root, WHOLE_FILE))
+                .filter_map(|member| at.range(member, WHOLE_FILE))
                 .collect();
             // Two modules importing each other is a cycle, which the rule above
             // reports; three or more is a group no member can be read apart from,
@@ -498,7 +490,7 @@ impl Collector {
                 let names: Vec<String> = cycle
                     .members
                     .iter()
-                    .map(|member| relative_to(root, member))
+                    .map(|member| at.relative(member))
                     .collect();
                 self.advise_if_enabled(
                     config,
@@ -538,7 +530,7 @@ impl Collector {
             if external.importers.len() < FACADE_IMPORTERS {
                 continue;
             }
-            let Some(range) = at.range(&external.path, root, external.span) else {
+            let Some(range) = at.range(&external.path, external.span) else {
                 continue;
             };
             self.advise_if_enabled(
@@ -562,7 +554,7 @@ impl Collector {
         }
 
         for pair in report.parallel {
-            let Some(range) = at.range(&pair.path, root, pair.span) else {
+            let Some(range) = at.range(&pair.path, pair.span) else {
                 continue;
             };
             self.accept_if_enabled(
@@ -588,28 +580,29 @@ impl Collector {
 
     /// Churn is read once for the whole repository after the walk, because a file
     /// with no findings needs no history and most files have none.
-    fn finish_history(&mut self, root: &Path, config: &RqxConfig) {
+    fn finish_history(&mut self, config: &RqxConfig, history: &crate::history::History) {
         if config.scan.churn_days == 0 {
             return;
         }
-        let counts = crate::history::commits_per_file(root, config.scan.churn_days);
-        if counts.is_empty() {
-            return;
-        }
-        let prefix = crate::history::repository_prefix(root).unwrap_or_default();
-        for (repo_path, commits) in counts {
-            let Some(relative) = repo_path.strip_prefix(&prefix) else {
+        let prefix = history.prefix();
+        for (repo_path, commits) in history.commits_per_file() {
+            let Some(relative) = repo_path.strip_prefix(prefix) else {
                 continue;
             };
-            self.impact
-                .set_commits(Arc::from(relative.to_owned()), commits);
+            self.impact.set_commits(Arc::from(relative), commits);
         }
     }
 
     /// Two files that almost always change together are one decision split across
     /// two places, which is what Shotgun Surgery describes. It needs history, so it
     /// runs last and stays silent outside a repository.
-    fn finish_cochange(&mut self, root: &Path, config: &RqxConfig, at: &mut Positions) {
+    fn finish_cochange(
+        &mut self,
+        root: &Path,
+        config: &RqxConfig,
+        at: &mut Positions,
+        history: &crate::history::History,
+    ) {
         // Reads git history, not the import graph, so it must not ride on the gate
         // that builds one — enabling only this rule used to leave it silent.
         if !(config.rules.enabled(RuleId::ShotgunSurgery)
@@ -617,30 +610,31 @@ impl Collector {
         {
             return;
         }
-        let commits = crate::history::commits_by_file_set(root, config.scan.churn_days);
+        let commits: Vec<&Vec<String>> = history.co_changes().collect();
         if commits.len() < 5 {
             return;
         }
-        let prefix = crate::history::repository_prefix(root).unwrap_or_default();
+        let prefix = history.prefix();
 
-        let mut totals: HashMap<String, u32> = HashMap::new();
-        let mut pairs: HashMap<(String, String), u32> = HashMap::new();
+        // Keyed on slices of the history rather than on owned copies: a commit of
+        // twenty files is 190 pairs, and building each key by hand allocated two
+        // strings whether or not the entry already existed.
+        let mut totals: HashMap<&str, u32> = HashMap::new();
+        let mut pairs: HashMap<(&str, &str), u32> = HashMap::new();
         for files in &commits {
             let mut relative: Vec<&str> = files
                 .iter()
-                .filter_map(|file| file.strip_prefix(&prefix))
+                .filter_map(|file| file.strip_prefix(prefix))
                 .filter(|file| self.analyzed.contains(*file))
                 .collect();
             relative.sort_unstable();
             relative.dedup();
             for file in &relative {
-                *totals.entry((*file).to_owned()).or_default() += 1;
+                *totals.entry(file).or_default() += 1;
             }
             for (index, left) in relative.iter().enumerate() {
                 for right in &relative[index + 1..] {
-                    *pairs
-                        .entry(((*left).to_owned(), (*right).to_owned()))
-                        .or_default() += 1;
+                    *pairs.entry((left, right)).or_default() += 1;
                 }
             }
         }
@@ -649,22 +643,22 @@ impl Collector {
         // changes often but with a different partner every time is changing for many
         // unrelated reasons.
         if config.rules.enabled(RuleId::DivergentChange) {
-            let mut strongest: HashMap<&String, u32> = HashMap::new();
+            let mut strongest: HashMap<&str, u32> = HashMap::new();
             for ((left, right), count) in &pairs {
                 for file in [left, right] {
                     let entry = strongest.entry(file).or_default();
                     *entry = (*entry).max(*count);
                 }
             }
-            let mut diffuse: Vec<(&String, u32, u32)> = totals
+            let mut diffuse: Vec<(&str, u32, u32)> = totals
                 .iter()
                 .filter(|(_, total)| **total >= 10)
-                .map(|(file, total)| (file, *total, strongest.get(file).copied().unwrap_or(0)))
+                .map(|(file, total)| (*file, *total, strongest.get(file).copied().unwrap_or(0)))
                 .filter(|(_, total, peak)| peak * 10 < total * 3)
                 .collect();
             diffuse.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
             for (file, total, peak) in diffuse.into_iter().take(5) {
-                let Some(range) = at.range(&root.join(file), root, WHOLE_FILE) else {
+                let Some(range) = at.range(&root.join(file), WHOLE_FILE) else {
                     continue;
                 };
                 self.accept_if_enabled(
@@ -685,23 +679,23 @@ impl Collector {
             }
         }
 
-        let mut reported: HashSet<String> = HashSet::new();
-        let mut ranked: Vec<((String, String), u32)> = pairs.into_iter().collect();
+        let mut reported: HashSet<&str> = HashSet::new();
+        let mut ranked: Vec<((&str, &str), u32)> = pairs.into_iter().collect();
         ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         if !config.rules.enabled(RuleId::ShotgunSurgery) {
             return;
         }
         for ((left, right), together) in ranked {
-            let total = totals.get(&left).copied().unwrap_or(0);
+            let total = totals.get(left).copied().unwrap_or(0);
             // Both a floor and a ratio: three commits together is coincidence, and a
             // file that changes constantly co-occurs with everything.
-            if total < 5 || together * 4 < total * 3 || !reported.insert(left.clone()) {
+            if total < 5 || together * 4 < total * 3 || !reported.insert(left) {
                 continue;
             }
-            let Some(range) = at.range(&root.join(&left), root, WHOLE_FILE) else {
+            let Some(range) = at.range(&root.join(left), WHOLE_FILE) else {
                 continue;
             };
-            let Some(partner) = at.range(&root.join(&right), root, WHOLE_FILE) else {
+            let Some(partner) = at.range(&root.join(right), WHOLE_FILE) else {
                 continue;
             };
             self.accept_if_enabled(
@@ -710,7 +704,7 @@ impl Collector {
                     RuleId::ShotgunSurgery,
                     range,
                     Evidence::CoChange {
-                        partner: right.clone(),
+                        partner: right.to_owned(),
                         together,
                         total,
                     },
@@ -724,14 +718,24 @@ impl Collector {
         }
     }
 
-    fn into_outcome(mut self, root: &Path, settings: &Resolved) -> ScanOutcome {
+    fn into_outcome(
+        mut self,
+        root: &Path,
+        settings: &Resolved,
+        history: &crate::history::History,
+    ) -> ScanOutcome {
+        use crate::progress::Phase;
         let config = &settings.config;
-        self.clear_progress();
+        self.report_phase(Phase::Duplicates);
         self.finish_clones(root, settings);
-        let mut at = Positions::default();
+        let mut at = Positions::new(root);
+        self.report_phase(Phase::Imports);
         self.finish_modules(root, config, &mut at);
-        self.finish_history(root, config);
-        self.finish_cochange(root, config, &mut at);
+        self.report_phase(Phase::History);
+        self.finish_history(config, history);
+        self.report_phase(Phase::CoChange);
+        self.finish_cochange(root, config, &mut at, history);
+        self.bar.clear();
         let retained = self.retained.len() as u32;
         let mut findings: Vec<Finding> = self
             .retained
@@ -821,13 +825,46 @@ fn build(
 /// drops its finding rather than reporting a position that no longer exists.
 /// Reading is memoised because a module with twelve dead exports is one file, and
 /// the naive version read it twelve times.
-#[derive(Default)]
+/// Where a graph finding is, and what to call the file it is in. Both answers need the
+/// file the walker has already moved on from, so both are cached here.
 struct Positions {
     files: HashMap<PathBuf, Option<String>>,
+    root: PathBuf,
+    /// The walker yields paths as given while the module graph works in canonical ones,
+    /// so `strip_prefix` fails for every graph path and the fallback resolved *both*
+    /// sides again — two syscalls per import edge. Resolving the root once is the whole
+    /// difference.
+    canonical_root: Option<PathBuf>,
 }
 
 impl Positions {
-    fn range(&mut self, path: &Path, root: &Path, span: Span) -> Option<SourceRange> {
+    fn new(root: &Path) -> Self {
+        Self {
+            files: HashMap::new(),
+            root: root.to_path_buf(),
+            canonical_root: root.canonicalize().ok(),
+        }
+    }
+
+    fn relative(&self, path: &Path) -> String {
+        if let Ok(relative) = path.strip_prefix(&self.root) {
+            return relative.display().to_string();
+        }
+        if let Some(root) = &self.canonical_root
+            && let Ok(relative) = path.strip_prefix(root)
+        {
+            return relative.display().to_string();
+        }
+        if let (Some(root), Ok(canonical)) = (&self.canonical_root, path.canonicalize())
+            && let Ok(relative) = canonical.strip_prefix(root)
+        {
+            return relative.display().to_string();
+        }
+        path.display().to_string()
+    }
+
+    fn range(&mut self, path: &Path, span: Span) -> Option<SourceRange> {
+        let file: Arc<str> = Arc::from(self.relative(path));
         let text = self
             .files
             .entry(path.to_path_buf())
@@ -837,7 +874,7 @@ impl Positions {
         let (line, column) = index.locate(span.start);
         let (end_line, _) = index.locate(span.end);
         Some(SourceRange {
-            file: Arc::from(relative_to(root, path)),
+            file,
             start: span.start,
             end: span.end,
             line,
@@ -847,17 +884,29 @@ impl Positions {
     }
 }
 
-/// Paths are shown relative to what was scanned, not to the shell's working
-/// directory: `rqx scan ../other-repo` should still print short, clickable paths.
-/// Keeps the tail, which is the part that identifies the file; a progress line that
-/// wraps leaves its own remains on screen once the cursor returns.
-fn elide(path: &str, width: usize) -> String {
-    let count = path.chars().count();
-    if count <= width {
-        return path.to_owned();
+/// A file a generator owns is one nobody refactors: the next run overwrites whatever
+/// was changed, so every finding in it is noise. Only the conventional markers count —
+/// a path called `generated` may hold code somebody actually maintains.
+fn generated_by(source: &str) -> Option<&'static str> {
+    const HEAD: usize = 4096;
+    // A cap counted in bytes can land inside a multi-byte character, which panics the
+    // slice on any source file wide enough to have one.
+    let mut cut = source.len().min(HEAD);
+    while !source.is_char_boundary(cut) {
+        cut -= 1;
     }
-    let tail: String = path.chars().skip(count - width + 1).collect();
-    format!("\u{2026}{tail}")
+    let head = &source[..cut];
+    // `@generated` is the convention shared by Bazel, Buck, protoc and gofmt tooling;
+    // the other two are the exact headers of generators common enough to matter.
+    let markers: [(&str, &str); 3] = [
+        ("@generated", "generated code"),
+        ("Code generated by", "generated code"),
+        ("This is code generated by Prisma", "Prisma generated code"),
+    ];
+    markers
+        .iter()
+        .find(|(needle, _)| head.contains(needle))
+        .map(|(_, label)| *label)
 }
 
 fn relative_to(root: &Path, path: &Path) -> String {
@@ -878,14 +927,17 @@ fn collect(
     receiver: Receiver<ScanMessage>,
     root: &Path,
     settings: &Resolved,
-    progress: bool,
+    bar: crate::progress::Bar,
+    total: Option<u32>,
     watcher: Option<&SyncSender<ScanProgress>>,
+    history: &crate::history::History,
 ) -> ScanOutcome {
     let mut collector = Collector::new(
         settings.config.scan.max_findings,
         settings.enabled_anywhere(RuleId::DuplicateCode),
         settings.needs_modules(),
-        progress,
+        bar,
+        total,
     );
     for message in receiver {
         match message {
@@ -909,9 +961,10 @@ fn collect(
                 for site in clones {
                     collector.record_clone(site);
                 }
+                let shared: Arc<str> = Arc::from(display.as_str());
                 collector
                     .lines_by_file
-                    .insert(Arc::from(display.as_str()), code_lines);
+                    .insert(Arc::clone(&shared), code_lines);
                 collector.report_progress(&display);
                 if let Some(path) = canonical {
                     collector.modules.push(rqx_lang::module_graph::ModuleEntry {
@@ -927,13 +980,16 @@ fn collect(
                     let _ = watcher.try_send(ScanProgress {
                         files_scanned: collector.files_scanned,
                         findings: collector.counts.total,
+                        total: collector.total,
+                        phase: crate::progress::Phase::Scanning,
+                        file: Some(Arc::clone(&shared)),
                     });
                 }
             }
             ScanMessage::Skipped { path, reason } => collector.skipped.push((path, reason)),
         }
     }
-    collector.into_outcome(root, settings)
+    collector.into_outcome(root, settings, history)
 }
 
 /// Oversized files are rejected here rather than by the walker's own
@@ -961,6 +1017,15 @@ fn analyze_entry(
     }
     let message = match std::fs::read_to_string(path) {
         Ok(source) => {
+            if config.scan.skip_generated
+                && let Some(tool) = generated_by(&source)
+            {
+                let _ = sender.send(ScanMessage::Skipped {
+                    path: path.to_owned(),
+                    reason: format!("{tool} (set `scan.skip_generated = false` to include it)"),
+                });
+                return;
+            }
             let display = relative_to(root, path);
             let cached = cache.and_then(|cache| cache.get(&display, &source).cloned());
             let analysed = match cached {
@@ -1068,7 +1133,13 @@ fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel>
     builder
         .types(types.build().context("building the source file matcher")?)
         .overrides(overrides.build().context("building ignore overrides")?)
-        .threads(config.scan.threads)
+        // `ignore` reads 0 as "pick for me" and then caps its own choice at 12, so a
+        // machine with more cores than that leaves them idle with no way to ask.
+        .threads(if config.scan.threads == 0 {
+            std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
+        } else {
+            config.scan.threads
+        })
         .filter_entry(move |entry| {
             if entry.file_type().is_some_and(|kind| kind.is_dir()) {
                 let name = entry.file_name().to_string_lossy();
@@ -1091,28 +1162,74 @@ pub fn scan_with_progress(
     scan_watched(root, settings, Some(watcher))
 }
 
+/// The same walker the scan uses, so the total it reports cannot disagree with what is
+/// then scanned. Only directory entries are touched: nothing is opened or parsed.
+fn count_files(root: &Path, config: &rqx_core::config::RqxConfig) -> Result<Option<u32>> {
+    let counted = std::sync::atomic::AtomicU32::new(0);
+    build_walker(root, config)?.run(|| {
+        Box::new(|entry| {
+            if entry.is_ok_and(|entry| entry.file_type().is_some_and(|kind| kind.is_file())) {
+                counted.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+            ignore::WalkState::Continue
+        })
+    });
+    Ok(Some(counted.into_inner()).filter(|total| *total > 0))
+}
+
 fn scan_watched(
     root: &Path,
     settings: &Resolved,
     watcher: Option<SyncSender<ScanProgress>>,
 ) -> Result<ScanOutcome> {
     let config = &settings.config;
+    // A caller watching the channel is drawing its own progress on this terminal,
+    // and a second writer scribbling over it corrupts both.
+    let drawing = watcher.is_none();
+    // Git depends on nothing the walk produces, so it reads while the files are being
+    // parsed rather than after — four processes on the critical path became one, off it.
+    let history = {
+        let root = root.to_path_buf();
+        let days = config.scan.churn_days;
+        thread::spawn(move || crate::history::History::read(&root, days))
+    };
+    let mut bar = if drawing {
+        crate::progress::Bar::new(crate::brand::Palette::detect())
+    } else {
+        crate::progress::Bar::hidden()
+    };
+
+    // Counted before scanning so the bar can show a real proportion. This is directory
+    // traversal with no file opened and nothing parsed, against a scan measured in
+    // seconds — and a bar that claims a percentage it cannot know is worse than none.
+    bar.update(crate::progress::Phase::Counting, 0, None, 0, "");
+    let total = count_files(root, config)?;
+
     let walker = build_walker(root, config)?;
     let cache = config
         .scan
         .cache
         .then(|| crate::cache::Cache::open(root, settings));
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
-    // A caller watching the channel is drawing its own progress on this terminal,
-    // and a second writer scribbling over it corrupts both.
-    let progress = watcher.is_none() && std::io::stderr().is_terminal();
 
     let collector = thread::scope(|scope| {
         let settings_ref = &*settings;
         let watcher = watcher.as_ref();
         let root_ref = root;
-        let handle =
-            scope.spawn(move || collect(receiver, root_ref, settings_ref, progress, watcher));
+        let handle = scope.spawn(move || {
+            // Joined only once the walk has drained, which is the first moment its
+            // answer is needed and usually long after git finished.
+            let history = history.join().unwrap_or_default();
+            collect(
+                receiver,
+                root_ref,
+                settings_ref,
+                bar,
+                total,
+                watcher,
+                &history,
+            )
+        });
         let cached = cache.as_ref();
         walker.run(|| {
             let sender = sender.clone();
@@ -1143,4 +1260,21 @@ fn scan_watched(
     }
 
     collector.map_err(|_| anyhow::anyhow!("the collector thread panicked"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generated_by;
+
+    #[test]
+    fn a_marker_past_a_wide_character_is_still_found() {
+        let source = format!("{}\n// @generated\n", "\u{4e16}".repeat(2000));
+        assert_eq!(generated_by(&source), None);
+        assert_eq!(generated_by("// @generated\nfn main() {}"), Some("generated code"));
+    }
+
+    #[test]
+    fn a_handwritten_file_is_not_claimed() {
+        assert_eq!(generated_by("fn main() {}"), None);
+    }
 }

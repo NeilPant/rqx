@@ -6,6 +6,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Gauge, Paragraph, Sparkline};
 
 use crate::brand::Ink;
+use crate::progress::Phase;
 use crate::tui::app::{Nav, Screen, Session, global};
 use crate::tui::chrome::thousands;
 
@@ -66,19 +67,38 @@ impl Screen for Scanning {
                         palette.dim(),
                     ),
                 ]),
-                Line::default(),
+                Line::from(vec![
+                    Span::styled(
+                        format!("  {}  ", session.progress.phase.label()),
+                        palette.dim(),
+                    ),
+                    Span::styled(
+                        session.progress.file.as_deref().unwrap_or_default().to_owned(),
+                        palette.dim(),
+                    ),
+                ]),
             ]),
             status,
         );
 
-        // Nothing knows the total until the walk ends, so the bar sweeps rather than
-        // fills: a progress bar that claims a percentage it cannot know is a lie.
-        let phase = session.motion.phase(std::time::Duration::from_millis(1400));
-        let sweep = (phase * 2.0 - 1.0).abs();
+        // The files are counted before the walk starts, so the bar fills against a real
+        // total. It still sweeps for the phases after the walk, where there is no total
+        // to divide and a percentage would be a claim nobody can check.
+        let (ratio, label) = match session.progress.total {
+            Some(total) if total > 0 && session.progress.phase == Phase::Scanning => {
+                let done = f64::from(session.progress.files_scanned.min(total));
+                let ratio = done / f64::from(total);
+                (ratio, format!("{:.0}%", ratio * 100.0))
+            }
+            _ => {
+                let phase = session.motion.phase(std::time::Duration::from_millis(1400));
+                (f64::from((phase * 2.0 - 1.0).abs()), String::new())
+            }
+        };
         frame.render_widget(
             Gauge::default()
-                .ratio(f64::from(sweep))
-                .label(Span::styled("", palette.dim()))
+                .ratio(ratio.clamp(0.0, 1.0))
+                .label(Span::styled(label, palette.dim()))
                 .gauge_style(Style::new().fg(palette.color(Ink::Accent)))
                 .use_unicode(true),
             gauge,
