@@ -38,11 +38,14 @@ jobs:
 
       # A prebuilt binary is the difference between a CI job that adds seconds and
       # one that compiles a Rust workspace before it can lint a line of TypeScript.
+      # The version is in the asset name so a client can build the URL from a version
+      # it already knows, rather than querying the releases API to find out.
       - name: Package
         shell: bash
         run: |
           set -euo pipefail
-          name="rqx-${{ matrix.target }}"
+          version="${GITHUB_REF_NAME#v}"
+          name="rqx-${version}-${{ matrix.target }}"
           mkdir "$name"
           if [ -f "target/${{ matrix.target }}/release/rqx.exe" ]; then
             cp "target/${{ matrix.target }}/release/rqx.exe" "$name/"
@@ -51,11 +54,12 @@ jobs:
           fi
           cp README.md LICENSE "$name/" 2>/dev/null || cp README.md "$name/"
           tar -czf "$name.tar.gz" "$name"
+          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: rqx-${{ matrix.target }}
-          path: rqx-${{ matrix.target }}.tar.gz
+          name: ${{ env.ASSET }}
+          path: ${{ env.ASSET }}
 
   publish:
     needs: build
@@ -66,7 +70,34 @@ jobs:
         with:
           merge-multiple: true
 
+      # An extension that downloads a binary without checking it against a published
+      # sum is trusting whatever answered on that URL.
+      - name: Checksums
+        run: sha256sum *.tar.gz > SHA256SUMS
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: "*.tar.gz"
+          files: |
+            *.tar.gz
+            SHA256SUMS
           generate_release_notes: true
+
+  crates:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      # In dependency order, and waiting between each, because a crate cannot publish
+      # against a version of its dependency the registry has not finished indexing.
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          for package in rqx-core rqx-lang rqx; do
+            cargo publish --locked -p "$package"
+            sleep 30
+          done
