@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/rqx-core", "crates/rqx-lang", "crates/rqx-cli"]
+# The Zed extension is a wasm32 cdylib against a different toolchain target, so it is
+# built by Zed rather than by `cargo build --workspace`.
+exclude = ["editors/zed"]
 
 [workspace.package]
 version = "0.1.0"

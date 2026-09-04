@@ -13,3 +13,6 @@
 
 # Packaged extension
 *.vsix
+
+# The server binary the platform builds carry
+/editors/vscode/server

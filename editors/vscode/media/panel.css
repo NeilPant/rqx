@@ -1,0 +1,369 @@
+/* The palette is the editor's, not ours. A sidebar that brings its own colours is a
+   panel sitting *on* the window rather than part of it, and it breaks outright in light
+   and high-contrast themes. Everything else here — the type scale, the spacing rhythm,
+   the restraint — is ours. */
+:root {
+  --ink: var(--vscode-foreground);
+  --quiet: var(--vscode-descriptionForeground);
+  --ground: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  --raised: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  --hairline: var(--vscode-panel-border, var(--vscode-editorWidget-border));
+  --accent: var(--vscode-textLink-foreground);
+  --focus: var(--vscode-focusBorder);
+  --error: var(--vscode-editorError-foreground);
+  --warning: var(--vscode-editorWarning-foreground);
+  --info: var(--vscode-editorInfo-foreground);
+
+  --step: 4px;
+  --gutter: calc(var(--step) * 4);
+  --radius: 12px;
+  /* San Francisco where it exists. The hero numeral is the one place a display face
+     earns its keep; body text stays in the editor's own font so it matches every other
+     panel the user has open. */
+  --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --swift: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── The mark and the number ───────────────────────────────────────────────── */
+
+.hero {
+  padding: calc(var(--step) * 8) var(--gutter) calc(var(--step) * 5);
+  text-align: center;
+}
+
+.owl {
+  width: 44px;
+  height: 44px;
+  /* Pixel art resampled onto a fraction of a pixel is what makes it look smudged. */
+  image-rendering: pixelated;
+  opacity: 0.95;
+}
+
+.score {
+  display: block;
+  margin-top: calc(var(--step) * 3);
+  font-family: var(--display);
+  font-size: 68px;
+  font-weight: 700;
+  /* Tight tracking is what separates a set number from a typed one. */
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.score .of {
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--quiet);
+}
+
+.verdict {
+  display: block;
+  margin-top: calc(var(--step) * 2);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.facts {
+  display: block;
+  margin-top: var(--step);
+  color: var(--quiet);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Segmented control ─────────────────────────────────────────────────────── */
+
+.segments {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  margin: 0 var(--gutter) calc(var(--step) * 4);
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--raised);
+  border: 1px solid var(--hairline);
+  /* The list scrolls under this rather than past it. */
+  backdrop-filter: blur(20px) saturate(1.6);
+}
+
+.segments button {
+  flex: 1;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--quiet);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 220ms var(--swift), background 220ms var(--swift);
+}
+
+.segments button:hover { color: var(--ink); }
+
+.segments button[aria-selected="true"] {
+  background: var(--vscode-list-activeSelectionBackground, var(--ground));
+  color: var(--vscode-list-activeSelectionForeground, var(--ink));
+  font-weight: 600;
+}
+
+.segments button:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: -1px;
+}
+
+/* ── Panes ─────────────────────────────────────────────────────────────────── */
+
+main { padding: 0 var(--gutter) calc(var(--step) * 10); }
+
+.pane[hidden] { display: none; }
+
+.pane {
+  animation: rise 320ms var(--swift) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+h2 {
+  margin: calc(var(--step) * 6) 0 calc(var(--step) * 2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--quiet);
+}
+
+.pane > h2:first-child { margin-top: 0; }
+
+/* ── Distributions ─────────────────────────────────────────────────────────── */
+
+.bar {
+  display: flex;
+  height: 6px;
+  gap: 2px;
+  margin-bottom: calc(var(--step) * 2);
+}
+
+.bar span {
+  border-radius: 3px;
+  transition: flex-grow 700ms var(--swift);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px calc(var(--step) * 3);
+  color: var(--quiet);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend b { color: var(--ink); font-weight: 600; }
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+
+.error, .grade-critical { background: var(--error); }
+.warning, .grade-poor { background: var(--warning); }
+.info, .grade-fair { background: var(--info); }
+.grade-clean { background: var(--accent); }
+.grade-pristine { background: var(--quiet); }
+
+/* ── Rows ──────────────────────────────────────────────────────────────────── */
+
+ol { list-style: none; margin: 0; padding: 0; }
+
+.row {
+  display: block;
+  width: 100%;
+  padding: calc(var(--step) * 2) calc(var(--step) * 2.5);
+  margin-bottom: 2px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 180ms var(--swift), transform 180ms var(--swift);
+}
+
+.row:hover { background: var(--vscode-list-hoverBackground); }
+.row:active { transform: scale(0.985); }
+
+.row:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: -1px;
+}
+
+.path {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* The end of a path identifies it, so that is the end kept when it will not fit. */
+  direction: rtl;
+  text-align: left;
+  font-size: 13px;
+}
+
+.meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--quiet);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Search and catalogue ──────────────────────────────────────────────────── */
+
+.search {
+  position: relative;
+  margin-bottom: calc(var(--step) * 2);
+}
+
+input[type="search"] {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--vscode-input-border, var(--hairline));
+  border-radius: 9px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font: inherit;
+  transition: border-color 200ms var(--swift);
+}
+
+input[type="search"]::placeholder { color: var(--quiet); }
+
+input[type="search"]:focus {
+  outline: none;
+  border-color: var(--focus);
+}
+
+details.rule {
+  border-radius: 10px;
+  padding: calc(var(--step) * 1.5) calc(var(--step) * 2);
+  transition: background 180ms var(--swift);
+}
+
+details.rule:hover { background: var(--vscode-list-hoverBackground); }
+details.rule[open] { background: var(--vscode-list-hoverBackground); }
+
+details.rule summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--step);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+}
+
+details.rule summary::-webkit-details-marker { display: none; }
+
+details.rule summary .family {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--vscode-font-family);
+  font-size: 11px;
+  color: var(--quiet);
+}
+
+details.rule p {
+  margin: calc(var(--step) * 2) 0 0;
+  color: var(--quiet);
+  font-size: 12.5px;
+}
+
+details.rule dl {
+  margin: calc(var(--step) * 2) 0 var(--step);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px calc(var(--step) * 2.5);
+  font-size: 12px;
+}
+
+details.rule dt { color: var(--quiet); }
+details.rule dd { margin: 0; }
+
+/* ── Empty state ───────────────────────────────────────────────────────────── */
+
+.empty {
+  padding: calc(var(--step) * 12) var(--gutter);
+  text-align: center;
+}
+
+.empty .owl { opacity: 0.4; }
+
+.empty strong {
+  display: block;
+  margin: calc(var(--step) * 4) 0 var(--step);
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.empty p {
+  margin: 0 0 calc(var(--step) * 5);
+  color: var(--quiet);
+  font-size: 13px;
+}
+
+.action {
+  padding: 7px 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 180ms var(--swift), transform 180ms var(--swift);
+}
+
+.action:hover { background: var(--vscode-button-hoverBackground); }
+.action:active { transform: scale(0.97); }
+.action:focus-visible { outline: 1px solid var(--focus); outline-offset: 2px; }
+
+.none {
+  padding: calc(var(--step) * 6) 0;
+  text-align: center;
+  color: var(--quiet);
+  font-size: 12.5px;
+}
+
+/* Motion here is decoration; the panel says the same thing without it. */
+@media (prefers-reduced-motion: reduce) {
+  *, .pane { animation: none !important; transition: none !important; }
+}

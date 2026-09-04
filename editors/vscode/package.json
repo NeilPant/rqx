@@ -2,6 +2,11 @@
   "name": "rqx",
   "displayName": "Rqx",
   "description": "Find dead code, duplication and architectural drift in TypeScript, Python, Go, Java and C++, with a reason for every finding.",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#0F0C09",
+    "theme": "dark"
+  },
   "version": "0.1.0",
   "publisher": "jadhamwi",
   "engines": {
@@ -20,17 +25,145 @@
     "commands": [
       {
         "command": "rqx.scanWorkspace",
-        "title": "Rqx: Scan Workspace"
+        "title": "Scan Workspace",
+        "category": "Rqx",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "rqx.check",
+        "title": "Review the Diff",
+        "category": "Rqx",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "rqx.explain",
+        "title": "Explain the Rule at the Cursor",
+        "category": "Rqx",
+        "icon": "$(book)"
+      },
+      {
+        "command": "rqx.startHere",
+        "title": "Open What Matters First",
+        "category": "Rqx",
+        "icon": "$(target)"
+      },
+      {
+        "command": "rqx.disableRule",
+        "title": "Disable the Rule at the Cursor",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.togglePatterns",
+        "title": "Toggle Design Pattern Advice",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.toggleCodeLens",
+        "title": "Toggle Code Lens",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.openPanel",
+        "title": "Open the Panel",
+        "category": "Rqx",
+        "icon": "$(dashboard)"
       },
       {
         "command": "rqx.restart",
-        "title": "Rqx: Restart Server"
+        "title": "Restart Server",
+        "category": "Rqx"
       },
       {
         "command": "rqx.showOutput",
-        "title": "Rqx: Show Server Log"
+        "title": "Show Server Log",
+        "category": "Rqx"
       }
     ],
+    "keybindings": [
+      {
+        "command": "rqx.scanWorkspace",
+        "key": "ctrl+alt+r s",
+        "mac": "cmd+alt+r s"
+      },
+      {
+        "command": "rqx.check",
+        "key": "ctrl+alt+r c",
+        "mac": "cmd+alt+r c"
+      },
+      {
+        "command": "rqx.explain",
+        "key": "ctrl+alt+r e",
+        "mac": "cmd+alt+r e",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "rqx.startHere",
+        "key": "ctrl+alt+r h",
+        "mac": "cmd+alt+r h"
+      },
+      {
+        "command": "rqx.disableRule",
+        "key": "ctrl+alt+r d",
+        "mac": "cmd+alt+r d",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "rqx.togglePatterns",
+        "key": "ctrl+alt+r p",
+        "mac": "cmd+alt+r p"
+      },
+      {
+        "command": "rqx.toggleCodeLens",
+        "key": "ctrl+alt+r l",
+        "mac": "cmd+alt+r l"
+      },
+      {
+        "command": "rqx.openPanel",
+        "key": "ctrl+alt+r o",
+        "mac": "cmd+alt+r o"
+      }
+    ],
+    "icons": {
+      "rqx-owl": {
+        "description": "The rqx owl",
+        "default": {
+          "fontPath": "media/rqx-icons.woff",
+          "fontCharacter": "\\E900"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "rqx",
+          "title": "Rqx",
+          "icon": "media/rqx.svg"
+        }
+      ]
+    },
+    "views": {
+      "rqx": [
+        {
+          "id": "rqx.panel",
+          "name": "Health",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "rqx.scanWorkspace",
+          "when": "view == rqx.panel",
+          "group": "navigation@1"
+        },
+        {
+          "command": "rqx.check",
+          "when": "view == rqx.panel",
+          "group": "navigation@2"
+        }
+      ]
+    },
     "configuration": {
       "title": "Rqx",
       "properties": {
@@ -38,7 +171,8 @@
           "type": "string",
           "default": "rqx",
           "description": "Path to the rqx binary.",
-          "markdownDescription": "Path to the `rqx` binary. Leave as `rqx` to use the one on your `PATH`."
+          "markdownDescription": "Path to the `rqx` binary. Leave as `rqx` to prefer the one on your `PATH`, or empty it to use the build shipped inside this extension.",
+          "scope": "machine-overridable"
         },
         "rqx.scanOnStartup": {
           "type": "boolean",
@@ -50,6 +184,81 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Path to an `RQX.toml` to use instead of the one rqx would find on its own. Relative paths resolve against the workspace root."
+        },
+        "rqx.codeLens": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show each file's grade, blast radius and churn as a code lens above the first line."
+        },
+        "rqx.patterns": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Report half-applied design patterns as hints. They never move the health score."
+        },
+        "rqx.scanOnSave": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Rescan the workspace after each save. The cross-file rules \u2014 unused exports, unused files, import cycles \u2014 can only change when some *other* file does, so without this they go stale until the next manual scan. Turn it off on a very large repository."
+        },
+        "rqx.check.base": {
+          "type": "string",
+          "default": "origin/HEAD",
+          "markdownDescription": "Revision that **Rqx: Review the Diff** compares against."
+        },
+        "rqx.statusBar": {
+          "type": "string",
+          "enum": [
+            "health",
+            "compact",
+            "off"
+          ],
+          "enumDescriptions": [
+            "The score, the finding count and the trend since the last scan.",
+            "Just the score.",
+            "Nothing in the status bar."
+          ],
+          "default": "health",
+          "markdownDescription": "What the status bar shows while rqx is running."
+        },
+        "rqx.severity": {
+          "type": "string",
+          "enum": [
+            "asReported",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "enumDescriptions": [
+            "Use the severity each rule declares.",
+            "Show every finding as a warning.",
+            "Show every finding as information.",
+            "Show every finding as a hint \u2014 greyed out, and kept out of the Problems count."
+          ],
+          "default": "asReported",
+          "markdownDescription": "Cap how loudly findings are reported. rqx is a second opinion alongside your language server, and on an existing codebase its first run can be long; lowering this keeps the Problems panel usable while you work through it."
+        },
+        "rqx.notifyOnHealthDrop": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "markdownDescription": "Say something when a scan drops the health score by at least this much. `0` never notifies. Reported once per drop, not once per scan."
+        },
+        "rqx.startHereLimit": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50,
+          "markdownDescription": "How many files the panel's **Start here** list shows."
+        },
+        "rqx.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Log the traffic between VS Code and the rqx language server."
         }
       }
     }

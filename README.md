@@ -12,6 +12,7 @@ rqx scan --severity error       # only the findings that are never false
 rqx check --base main           # review only what changed, fail CI on the gate
 rqx patterns ./src              # which design patterns are used, broken, or would fit
 rqx explain unused-export       # what a rule maps to and why it exists
+rqx mcp                         # serve the analysis to an AI agent over MCP
 ```
 
 ## The report
@@ -251,11 +252,61 @@ Findings that cannot be verified are omitted rather than asserted. Ignored files
 are never parsed, which is why tests are *not* ignored by default: an invisible
 import manufactures false "unused export" findings.
 
-## Editor
+## Editors
 
-`rqx lsp` is a language server; `editors/vscode` is the client. Diagnostics on save
-(2ms for a file), hover for the full explanation, workspace health in the status
-bar.
+`rqx lsp` is a language server, and everything an editor shows comes through it — so a
+capability lands in every editor at once rather than once per client.
+
+It scans the whole project after startup and after each save, publishing diagnostics for
+files you never opened. That matters because eight of the sixty rules — unused exports,
+unused files, import cycles, duplication and the two co-change rules — cannot be answered
+from a single open file, and an editor that only saw the other 52 would be quietly wrong
+about dead code.
+
+Hover gives the full explanation. Quick fixes switch a rule or a family off in `RQX.toml`
+and never touch your source, because every fix rqx names is a refactoring rather than an
+edit it could apply for you. A code lens puts each file's grade, blast radius and churn
+above its first line.
+
+Nine commands are plain `workspace/executeCommand`, so any client can bind them —
+`rqx.scan`, `rqx.check`, `rqx.explain`, `rqx.startHere` and the rest — behind one leader
+chord with the same letters everywhere: `s` scan, `c` check, `e` explain, `h` start here.
+
+| | Client |
+|---|---|
+| VS Code, Cursor, Windsurf, VSCodium | [`editors/vscode`](editors/vscode/README.md) — panel, status bar, ships the server inside it |
+| Zed | [`editors/zed`](editors/zed/README.md) |
+| Neovim, Helix, Sublime, Emacs, Vim, Kate | configuration only — [docs/editor.md](docs/editor.md) |
+
+[`editors/README.md`](editors/README.md) has the full matrix of what each one gets.
+
+## Agents
+
+`rqx mcp` is an MCP server, so a coding agent can ask what a project's problems are
+instead of reading every file to guess. It answers with the same four things every
+finding carries — the measured fact, why it matters, what it costs and the named
+refactoring — which is exactly what an agent asked to "clean this up" otherwise invents.
+
+```sh
+claude mcp add rqx -- rqx mcp
+```
+
+Answers are summaries with drill-down, never dumps. `scan` returns health, the grade
+distribution and what to open first; the findings themselves are paged out of `findings`,
+narrowed by rule, severity or path. A full report of a 12,000-file repository does not fit
+in a context window, and a tool that returned one would leave nothing to fix it with.
+
+| Tool | Answers |
+|---|---|
+| `scan` · `findings` | The project's health, then its findings a page at a time |
+| `check` | The diff against a base revision, and whether the gate passes |
+| `analyze` | An unsaved buffer, without touching the disk |
+| `patterns` · `explain` · `rules` · `config` | The catalogues, and the settings in force |
+
+All eight are read-only: nothing rqx exposes to an agent writes a file. `--http` serves
+the same tools over Streamable HTTP for clients that cannot spawn a process, and refuses
+a public address without `RQX_MCP_TOKEN` rather than handing your source to the network.
+[docs/mcp.md](docs/mcp.md) has the payload shapes and a config snippet per client.
 
 ## The interface
 

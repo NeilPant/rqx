@@ -1,0 +1,128 @@
+name: editors
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # One VSIX per platform, each carrying the matching server binary. The extension then
+  # has a language server the moment it is installed — no PATH entry, no Rust toolchain
+  # and no download that a firewall or an offline machine can refuse.
+  vscode:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - vscode: darwin-arm64
+            rust: aarch64-apple-darwin
+            os: macos-latest
+          - vscode: darwin-x64
+            rust: x86_64-apple-darwin
+            os: macos-13
+          - vscode: linux-x64
+            rust: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - vscode: linux-arm64
+            rust: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          - vscode: win32-x64
+            rust: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - run: cargo build --release --locked --target ${{ matrix.rust }} --bin rqx
+
+      - name: Build
+        shell: bash
+        working-directory: editors/vscode
+        run: |
+          set -euo pipefail
+          mkdir -p server
+          if [ -f "../../target/${{ matrix.rust }}/release/rqx.exe" ]; then
+            cp "../../target/${{ matrix.rust }}/release/rqx.exe" server/
+          else
+            cp "../../target/${{ matrix.rust }}/release/rqx" server/rqx
+            chmod +x server/rqx
+          fi
+          npm ci
+          npm run compile
+          npx --yes @vscode/vsce package --target ${{ matrix.vscode }} --out rqx.vsix
+
+      - name: Publish to the Marketplace
+        working-directory: editors/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --yes @vscode/vsce publish --packagePath rqx.vsix
+
+      # Cursor, Windsurf and VSCodium all install from Open VSX rather than the
+      # Marketplace, so skipping this forfeits that whole audience for one step.
+      - name: Publish to Open VSX
+        working-directory: editors/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx --yes ovsx publish rqx.vsix
+
+  # What alpine, armhf and anything else unlisted install. It ships no binary and falls
+  # back to PATH or a managed download.
+  vscode-universal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Build
+        working-directory: editors/vscode
+        run: |
+          npm ci
+          npm run compile
+          npx --yes @vscode/vsce package --out rqx.vsix
+
+      - name: Publish to the Marketplace
+        working-directory: editors/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --yes @vscode/vsce publish --packagePath rqx.vsix
+
+      - name: Publish to Open VSX
+        working-directory: editors/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx --yes ovsx publish rqx.vsix
+
+  zed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+
+      # Zed builds the extension itself from the registry, so CI only has to prove the
+      # wasm target still compiles before a tag goes out.
+      - name: Build
+        working-directory: editors/zed
+        run: cargo build --release --target wasm32-wasip1

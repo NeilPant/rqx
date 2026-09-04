@@ -80,6 +80,16 @@ jobs:
           npm run compile
           npx --yes @vscode/vsce package --out rqx.vsix
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+
+      # The Zed extension is a wasm cdylib outside the workspace, so nothing else in
+      # CI would notice it stop compiling.
+      - name: Build the Zed extension
+        working-directory: editors/zed
+        run: cargo build --release --target wasm32-wasip1
+
       - uses: actions/upload-artifact@v4
         with:
           name: rqx-vsix
