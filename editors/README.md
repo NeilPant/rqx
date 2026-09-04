@@ -12,7 +12,7 @@ small enough to survive being unmaintained.
 | | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Panel |
 |---|---|---|---|---|---|---|---|
 | **VS Code** (+ Cursor, Windsurf, VSCodium) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **JetBrains** (via any LSP client plugin) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **JetBrains** (via LSP4IJ) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
 | **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |

@@ -22,6 +22,7 @@ mod progress;
 mod report;
 mod scan;
 mod serve;
+mod setup;
 mod tui;
 mod verify;
 
@@ -139,6 +140,14 @@ enum Command {
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
+    },
+    /// Print the configuration one editor needs to talk to rqx, or list them all
+    Setup {
+        /// Which editor. Omit to list every one rqx knows.
+        editor: Option<String>,
+        /// Append it to the editor's config, after showing what will be added
+        #[arg(long, short)]
+        write: bool,
     },
     /// Serve a live dashboard for this project in a browser
     Serve {
@@ -850,6 +859,26 @@ fn run() -> Result<Exit> {
                 report::verify(&verified, palette, &mut out)?;
             }
             Ok(Exit::of(!verified.passed()))
+        }
+        Command::Setup { editor, write } => {
+            let mut out = anstream::stdout().lock();
+            let Some(name) = editor else {
+                return report::editors(palette, &mut out).map(|()| Exit::Clean);
+            };
+            let Some(client) = setup::Client::parse(&name) else {
+                let names: Vec<&str> = setup::Client::ALL.iter().map(|c| c.slug).collect();
+                return Err(report::unknown(
+                    "editor",
+                    &name,
+                    &names,
+                    "Run `rqx setup` for the list. Anything speaking LSP can run `rqx lsp`.",
+                ));
+            };
+            report::editor(client, palette, &mut out)?;
+            if write {
+                report::write_editor(client, palette, &mut out)?;
+            }
+            Ok(Exit::Clean)
         }
         Command::Serve {
             path,

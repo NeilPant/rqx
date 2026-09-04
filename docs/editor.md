@@ -25,6 +25,7 @@ can bind it. Nothing here is a VS Code extension talking to itself.
 | `rqx.catalogue` | Every rule as data |
 | `rqx.disableRule` / `rqx.disableCategory` | A `WorkspaceEdit` that switches one off in `RQX.toml` |
 | `rqx.togglePatterns` | Half-applied design patterns on or off, as hints |
+| `rqx.dashboard` | Starts the live dashboard and answers with its URL |
 | `rqx.toggleCodeLens` | The per-file grade lens on or off |
 
 The same shortcuts are suggested everywhere: a leader chord, then `s` scan, `c` check,

@@ -25,6 +25,7 @@ pub const DISABLE_RULE: &str = "rqx.disableRule";
 pub const DISABLE_CATEGORY: &str = "rqx.disableCategory";
 pub const TOGGLE_PATTERNS: &str = "rqx.togglePatterns";
 pub const TOGGLE_CODE_LENS: &str = "rqx.toggleCodeLens";
+pub const DASHBOARD: &str = "rqx.dashboard";
 
 pub fn names() -> Vec<String> {
     [
@@ -37,6 +38,7 @@ pub fn names() -> Vec<String> {
         DISABLE_CATEGORY,
         TOGGLE_PATTERNS,
         TOGGLE_CODE_LENS,
+        DASHBOARD,
     ]
     .iter()
     .map(|name| (*name).to_owned())
@@ -94,8 +96,44 @@ pub fn execute(server: &mut Server, params: &ExecuteCommandParams, id: RequestId
             let on = server.toggle_code_lens();
             Outcome::Answered(json!({ "codeLens": on }))
         }
+        // The dashboard is one page, served by one process, so every editor shows the
+        // same thing rather than each carrying its own half of it.
+        DASHBOARD => match dashboard(server.root()) {
+            Ok(url) => Outcome::Answered(json!({ "url": url })),
+            Err(reason) => Outcome::Answered(json!({ "error": reason })),
+        },
         _ => Outcome::Unknown,
     }
+}
+
+/// Starts `rqx serve` and reads back the address it bound. A failure comes back in
+/// the answer rather than as a protocol error, because the client asked for a URL and
+/// "why there isn't one" is the useful reply. The child outlives this
+/// request on purpose: the page is the point, and a server that died with the command
+/// that asked for it would close the tab it just opened.
+fn dashboard(root: &std::path::Path) -> Result<String, String> {
+    use std::io::{BufRead, BufReader};
+    use std::process::{Command as Process, Stdio};
+
+    let binary = std::env::current_exe().map_err(|error| error.to_string())?;
+    let mut child = Process::new(binary)
+        .arg("serve")
+        .arg(root)
+        .args(["--addr", "127.0.0.1:0"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| format!("cannot start the dashboard: {error}"))?;
+
+    let stdout = child.stdout.take().ok_or("the dashboard said nothing")?;
+    let mut line = String::new();
+    BufReader::new(stdout)
+        .read_line(&mut line)
+        .map_err(|error| error.to_string())?;
+    line.split_whitespace()
+        .find(|word| word.starts_with("http://"))
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| format!("the dashboard did not name an address: {}", line.trim()))
 }
 
 fn as_str(value: Option<&Value>) -> Option<&str> {

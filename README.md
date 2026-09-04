@@ -491,31 +491,43 @@ import manufactures false "unused export" findings.
 
 ## Editors
 
-`rqx lsp` is a language server, and everything an editor shows comes through it — so a
-capability lands in every editor at once rather than once per client.
+```
+rqx setup            # every editor rqx knows
+rqx setup neovim     # the config it needs
+rqx setup neovim -w  # appended for you, after showing what will be added
+```
 
-It scans the whole project after startup and after each save, publishing diagnostics for
-files you never opened. That matters because ten of the sixty-nine rules — unused exports,
-unused files, import cycles, duplication and the two co-change rules — cannot be answered
-from a single open file, and an editor that only saw the other 52 would be quietly wrong
-about dead code.
+| | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Dashboard |
+|---|---|---|---|---|---|---|---|
+| **VS Code**, Cursor, Windsurf, VSCodium | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | panel |
+| **Zed** | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
+| **JetBrains** via LSP4IJ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
+| **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
+| **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
+| **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
+| **Emacs** eglot, lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
+| **Vim** coc.nvim, vim-lsp | ✓ | ✓ | ✓ | ✓ | — | coc only | browser |
+| **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | browser |
 
-Hover gives the full explanation. Quick fixes switch a rule or a family off in `RQX.toml`
-and never touch your source, because every fix rqx names is a refactoring rather than an
-edit it could apply for you. A code lens puts each file's grade, blast radius and churn
-above its first line.
+VS Code and Zed ship extensions that fetch the matching binary themselves. Everything
+else runs `rqx lsp`, so a capability added to the server appears in every editor in the
+same commit — which is why these clients stay small enough to survive being
+unmaintained.
 
-Nine commands are plain `workspace/executeCommand`, so any client can bind them —
-`rqx.scan`, `rqx.check`, `rqx.explain`, `rqx.startHere` and the rest — behind one leader
-chord with the same letters everywhere: `s` scan, `c` check, `e` explain, `h` start here.
+**Quick fixes are the real edits**, verified exactly as `rqx fix` verifies them, tagged
+`source.fixAll` so an editor can apply every one of them on save. The rules whose fix is
+a decision offer to explain themselves or turn the rule off instead.
 
-| | Client |
-|---|---|
-| VS Code, Cursor, Windsurf, VSCodium | [`editors/vscode`](editors/vscode/README.md) — panel, status bar, ships the server inside it |
-| Zed | [`editors/zed`](editors/zed/README.md) |
-| Neovim, Helix, Sublime, Emacs, Vim, Kate | configuration only — [docs/editor.md](docs/editor.md) |
+**The dashboard is one page.** `rqx.dashboard` starts `rqx serve` and answers with its
+URL, so VS Code shows it in a panel and every other editor opens it beside the window —
+the same page, not a second half-built one per client.
 
-[`editors/README.md`](editors/README.md) has the full matrix of what each one gets.
+Cross-file findings arrive without being asked for: the server scans the workspace on
+its own and republishes every file, so ten of the sixty-nine rules do not go silently
+missing in an editor that has one file open.
+
+[docs/editor.md](docs/editor.md) has the commands, the custom notifications and a
+paste-in block per editor.
 
 ## Agents
 
