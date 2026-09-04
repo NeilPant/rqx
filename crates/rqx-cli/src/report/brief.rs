@@ -11,6 +11,9 @@ use crate::config::Resolved;
 use crate::report::plural;
 use crate::scan::ScanOutcome;
 
+/// Enough of a file to say what it is, for a finding whose span is the file itself.
+const OPENING_LINES: usize = 12;
+
 /// A finding rqx will not touch, with everything needed to act on it without going
 /// back to the source: where it is, what the code says there, what decided it and
 /// what the refactoring is called.
@@ -38,9 +41,19 @@ fn collect<'a>(outcome: &'a ScanOutcome, settings: &Resolved) -> Vec<Item<'a>> {
         items.push(Item {
             finding,
             source: text.as_deref().map_or_else(String::new, |source| {
-                Span::new(finding.location.start, finding.location.end)
-                    .text(source)
-                    .to_owned()
+                let span = Span::new(finding.location.start, finding.location.end);
+                // A finding about the whole file has no span to quote, so the opening
+                // lines stand in: an agent asked to act on it needs to see what the
+                // file is before it can decide anything.
+                if span.is_empty() {
+                    source
+                        .lines()
+                        .take(OPENING_LINES)
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                } else {
+                    span.text(source).to_owned()
+                }
             }),
             commits: impact.commits,
             importers: impact.importers,

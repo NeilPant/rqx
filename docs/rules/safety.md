@@ -183,7 +183,6 @@ the reader has to invert it mentally to follow the else, and inverting a compoun
 | Measures | negated condition that has an else branch |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Auto-fixable | `rqx fix` (rewrite) |
 | Fix | Decompose Conditional |
 | Default | off; name it under `[rules] enabled` |
 

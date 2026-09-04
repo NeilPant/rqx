@@ -36,7 +36,6 @@ an export nobody imports still has to be read, typechecked and kept working duri
 | Measures | exported symbol with no importer in the resolved module graph |
 | Reported as | warning, verified |
 | Reads | the import graph across every file |
-| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/dead-export.ts`, line 7:
@@ -58,7 +57,6 @@ nothing in the build reaches this file, so every hour spent maintaining it buys 
 | Measures | module reachable from no entry point, with no importer |
 | Reported as | warning, verified |
 | Reads | the import graph across every file |
-| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Delete File |
 
 From `fixtures/typescript/orphan.ts`, line 1:

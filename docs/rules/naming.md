@@ -11,7 +11,6 @@ a reader who has to guess which convention a name follows cannot skim, and the m
 | Measures | camelCase and snake_case names declared in one file |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Auto-fixable | `rqx fix` (rewrite) |
 | Fix | Rename Variable |
 
 From `fixtures/typescript/conventions.ts`, line 1:

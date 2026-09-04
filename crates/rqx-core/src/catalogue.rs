@@ -221,7 +221,6 @@ catalogue! {
         severity: Warning,
         why: "an export nobody imports still has to be read, typechecked and kept working \
               during every refactor that touches it",
-        autofix: Deletion,
     },
     UnusedFile {
         slug: "unused-file",
@@ -233,7 +232,6 @@ catalogue! {
         severity: Warning,
         why: "nothing in the build reaches this file, so every hour spent maintaining it \
               buys nothing",
-        autofix: Deletion,
     },
     UnusedParameter {
         slug: "unused-parameter",
@@ -403,7 +401,6 @@ catalogue! {
         severity: Info,
         why: "a reader who has to guess which convention a name follows cannot skim, \
               and the mixture spreads every time somebody copies a neighbouring line",
-        autofix: Rewrite,
     },
     SlowTest {
         slug: "slow-test",
@@ -886,7 +883,6 @@ catalogue! {
         severity: Info,
         why: "the reader has to invert it mentally to follow the else, and inverting a \
               compound condition by hand is where off-by-one logic errors come from",
-        autofix: Rewrite,
         off_by_default: true,
     },
 

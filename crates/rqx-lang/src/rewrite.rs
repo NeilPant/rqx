@@ -234,9 +234,17 @@ impl<'src> Rewriter<'src> {
             | RuleId::CommentedOutCode => {
                 vec![self.deletion(finding, whole_lines(self.source, span))]
             }
+            // The comment form only: a suppression written as a cast changes what the
+            // checker sees, and deleting it would change the types rather than the
+            // silence.
+            RuleId::SuppressedDiagnostic if self.profile.is_comment(node) => {
+                vec![self.deletion(finding, whole_lines(self.source, span))]
+            }
+            RuleId::SkippedTest | RuleId::FocusedTest => {
+                self.unfocus(finding, node).into_iter().collect()
+            }
             RuleId::UnusedLocal => self.unused_local(finding, node).into_iter().collect(),
             RuleId::UnusedPrivateMember => self.unused_member(finding, node).into_iter().collect(),
-            RuleId::FocusedTest => self.unfocus(finding, node).into_iter().collect(),
             RuleId::UnusedParameter => self.unused_parameter(finding, node),
             _ => Vec::new(),
         }
@@ -771,6 +779,37 @@ function work(used: number, spare: number) {
 export const deferred = [work]
 ";
         assert_eq!(fixed(Language::TypeScript, source), source);
+    }
+
+    /// `autofix: Deletion` is a promise that rqx can make the edit. A rule declaring
+    /// one with no arm in `edit` reads as fixable everywhere it is shown — in the
+    /// editor's UNNECESSARY tag, in `rqx explain`, in the `[fix] apply` set — and then
+    /// silently produces nothing.
+    #[test]
+    fn every_rule_that_claims_a_mechanical_fix_has_one() {
+        let answered = [
+            RuleId::UnreachableCode,
+            RuleId::JournalComment,
+            RuleId::RedundantComment,
+            RuleId::CommentedOutCode,
+            RuleId::UnusedLocal,
+            RuleId::UnusedPrivateMember,
+            RuleId::FocusedTest,
+            RuleId::SkippedTest,
+            RuleId::SuppressedDiagnostic,
+            RuleId::UnusedParameter,
+        ];
+        let claimed: Vec<&str> = RuleId::ALL
+            .iter()
+            .copied()
+            .filter(|rule| rule.spec().autofix.is_automatic())
+            .filter(|rule| !answered.contains(rule))
+            .map(|rule| rule.slug())
+            .collect();
+        assert!(
+            claimed.is_empty(),
+            "these declare a mechanical fix and have no fixer: {claimed:?}"
+        );
     }
 
     #[test]

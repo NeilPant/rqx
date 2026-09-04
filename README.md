@@ -320,7 +320,7 @@ reason rather than passed over silently. Writes are atomic, and one fix making t
 possible is why it repeats — deleting the branch that held a binding's only reference
 is what makes that binding unused.
 
-Seven rules qualify today. `[fix] disabled = ["commented-out-code"]` opts one out;
+Ten rules qualify today. `[fix] disabled = ["commented-out-code"]` opts one out;
 `rqx explain <rule>` says whether a rule is fixable. The other fifty-three are
 `rqx fix --plan`, which emits them with the span, the source text, the metric, the
 reasoning and the named refactoring — the brief for a person or an agent, in the shape
