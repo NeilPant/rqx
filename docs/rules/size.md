@@ -35,15 +35,15 @@ every nested decision point multiplies the paths a reader has to trace, and untr
 | Fix | Decompose Conditional / Extract Method |
 | Tuned by | `thresholds.cognitive_complexity` |
 
-From `fixtures/typescript/reconcile.ts`, line 7:
+From `fixtures/typescript/flow.ts`, line 32:
 
 ```ts
 
-  async reconcileBatch(batch: Batch, tolerance: number, dryRun: boolean, retries: number, verbose: boolean) {
-    let settled = 0;
+export function buriedExits(a: number, b: number): number {
+  const scale = a * b;
 ```
 
-rqx says: lift the conditions in `reconcileBatch` into named predicates, then extract the deepest block into its own function
+rqx says: lift the conditions in `buriedExits` into named predicates, then extract the deepest block into its own function
 
 ## `deep-nesting`
 
@@ -177,4 +177,80 @@ export function score(a: number, b: number, c: number, d: number): number {
 ```
 
 rqx says: lift the steps into named locals, so the expression reads as its own summary
+
+## `many-exits`
+
+a reader has to find every way out before they can say what the function answers, and the ones written deep in the body are the easy ones to miss
+
+| | |
+|---|---|
+| Measures | count of returns, throws and raises in one body, past the guard clauses |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Decompose Conditional |
+| Tuned by | `thresholds.max_exits` |
+
+From `fixtures/typescript/flow.ts`, line 32:
+
+```ts
+
+export function buriedExits(a: number, b: number): number {
+  const scale = a * b;
+```
+
+rqx says: give the function one exit, or extract the branches that end early
+
+## `wide-switch`
+
+past a certain width the arms stop being a table a reader scans and become a list they have to search
+
+| | |
+|---|---|
+| Measures | count of arms in one switch or match |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Replace Conditional with Polymorphism / Extract Method |
+| Tuned by | `thresholds.max_cases` |
+
+From `fixtures/typescript/flow.ts`, line 65:
+
+```ts
+export function wideSwitch(kind: string): number {
+  switch (kind) {
+    case "a":
+      return 1;
+    case "b":
+      return 2;
+    case "c":
+    default:
+      return 0;
+  }
+}
+```
+
+rqx says: give the thing being switched on a type, and let it answer for itself
+
+## `callback-nesting`
+
+the order the steps run in is the opposite of the order they are written in, so following the sequence means reading inside out
+
+| | |
+|---|---|
+| Measures | depth of function literals declared inside other function literals |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method |
+| Tuned by | `thresholds.callback_depth` |
+
+From `fixtures/typescript/flow.ts`, line 101:
+
+```ts
+      setTimeout(() => {
+        setTimeout(() => {
+          globalThis.console.log("deep");
+        }, 1);
+      }, 1);
+```
+
+rqx says: name the inner steps and call them, so the order they run in is the order they read in
 

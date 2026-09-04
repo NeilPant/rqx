@@ -31,4 +31,44 @@ class Flow {
         if (count > 10) {
         }
     }
+
+    int wideSwitch(String kind) {
+        switch (kind) {
+            case "a": return 1;
+            case "b": return 2;
+            case "c": return 3;
+            case "d": return 4;
+            case "e": return 5;
+            case "f": return 6;
+            case "g": return 7;
+            case "h": return 8;
+            case "i": return 9;
+            case "j": return 10;
+            case "k": return 11;
+            case "l": return 12;
+            case "m": return 13;
+            default: return 0;
+        }
+    }
+
+    Runnable nestedCallbacks() {
+        return () -> {
+            Runnable a = () -> {
+                Runnable b = () -> {
+                    Runnable c = () -> System.out.println("deep");
+                    c.run();
+                };
+                b.run();
+            };
+            a.run();
+        };
+    }
+
+    int assigns(int a, int b) {
+        int found = 0;
+        if ((found = a + b) > 0) {
+            return found;
+        }
+        return 0;
+    }
 }

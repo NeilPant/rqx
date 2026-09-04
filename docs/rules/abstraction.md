@@ -160,3 +160,25 @@ export class CsvWriter {
 
 rqx says: give `CsvWriter` and `JsonEmitter` one interface, or one superclass, so a caller learns the job once
 
+## `wide-surface`
+
+every public member is a promise to keep working, so the surface is what the type costs to change rather than what it does
+
+| | |
+|---|---|
+| Measures | count of members a type exposes outside itself |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Extract Interface / Extract Class |
+| Tuned by | `thresholds.class_public_members` |
+
+From `fixtures/typescript/bloat.ts`, line 18:
+
+```ts
+
+export class Overgrown {
+  a1 = 1; a2 = 1; a3 = 1; a4 = 1; a5 = 1; a6 = 1; a7 = 1; a8 = 1; a9 = 1; a10 = 1;
+```
+
+rqx says: narrow what `Overgrown` promises: an interface for what callers use, and the rest kept inside
+

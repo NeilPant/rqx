@@ -94,10 +94,17 @@ pub struct Hygiene {
     pub self_comparisons: Vec<Spot>,
     pub identical_branches: Vec<Spot>,
     pub empty_blocks: Vec<Spot>,
+    pub many_exits: Vec<Spot>,
+    pub wide_switches: Vec<Spot>,
+    pub callback_nesting: Vec<Spot>,
+    pub assignments_in_conditions: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]
 pub struct Limits {
+    pub max_exits: u32,
+    pub max_cases: u32,
+    pub callback_depth: u32,
     pub condition_operands: u32,
     pub message_chain_depth: u32,
     pub commented_code_lines: u32,

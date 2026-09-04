@@ -110,6 +110,7 @@ impl Evidence {
             | Self::Delegation { .. }
             | Self::ConditionOperands { .. }
             | Self::NegatedCondition
+            | Self::Breadth { .. }
             | Self::ObscuredExpression { .. } => None,
         }
     }
@@ -139,6 +140,7 @@ impl Evidence {
             Self::MixedConventions { count, .. } => Some(*count),
             Self::DistantDeclaration { lines, .. } => Some(*lines),
             Self::ObscuredExpression { operations, .. } => Some(*operations),
+            Self::Breadth { found, .. } => Some(*found),
             Self::BuriedConfiguration { depth, .. } => Some(*depth),
             Self::AlternativeClasses { methods, .. } => Some(*methods),
             Self::Name { .. }

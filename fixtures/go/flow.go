@@ -30,3 +30,48 @@ func DecidedNothing(count int) {
 	if count > 10 {
 	}
 }
+
+func WideSwitch(kind string) int {
+	switch kind {
+	case "a":
+		return 1
+	case "b":
+		return 2
+	case "c":
+		return 3
+	case "d":
+		return 4
+	case "e":
+		return 5
+	case "f":
+		return 6
+	case "g":
+		return 7
+	case "h":
+		return 8
+	case "i":
+		return 9
+	case "j":
+		return 10
+	case "k":
+		return 11
+	case "l":
+		return 12
+	case "m":
+		return 13
+	default:
+		return 0
+	}
+}
+
+func NestedCallbacks() func() func() func() func() int {
+	return func() func() func() func() int {
+		return func() func() func() int {
+			return func() func() int {
+				return func() int {
+					return 1
+				}
+			}
+		}
+	}
+}

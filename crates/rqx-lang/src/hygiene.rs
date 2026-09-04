@@ -654,6 +654,127 @@ impl<'a> Walker<'a> {
         }
     }
 
+    /// Ways out of one body, past the guard clauses. A `return` in the first few
+    /// statements is a precondition a reader expects; the ones written deep in the
+    /// body are the ones they have to hunt for.
+    fn note_exits(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let guards = (0..body.named_child_count())
+            .filter_map(|index| body.named_child(index))
+            .take_while(|child| {
+                child.kind() == profile.if_kind
+                    || profile.exit_kinds.iter().any(|(k, _)| *k == child.kind())
+            })
+            .count();
+
+        let mut cursor = body.walk();
+        let mut stack: Vec<Node<'a>> = body.children(&mut cursor).collect();
+        let mut exits: u32 = 0;
+        while let Some(node) = stack.pop() {
+            // A nested function has its own ways out; counting them here would blame
+            // this body for a callback's shape.
+            if profile.is_function(node) {
+                continue;
+            }
+            if profile.exit_kinds.iter().any(|(k, _)| *k == node.kind()) {
+                exits += 1;
+            }
+            let mut inner = node.walk();
+            stack.extend(node.children(&mut inner));
+        }
+
+        let past_guards = exits.saturating_sub(guards as u32);
+        if past_guards > self.limits.max_exits {
+            self.out.many_exits.push(Spot {
+                span: self.name_span(function),
+                detail: past_guards.to_string(),
+                count: past_guards,
+            });
+        }
+    }
+
+    fn note_switch_width(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        // The arms sit inside the switch's body in most grammars and directly under
+        // the statement in the rest, so both are counted rather than one guessed at.
+        let mut cursor = node.walk();
+        let mut stack: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
+        let mut arms = 0_u32;
+        while let Some(current) = stack.pop() {
+            if profile.case_kinds.contains(&current.kind()) {
+                arms += 1;
+                continue;
+            }
+            if profile.switch_kinds.contains(&current.kind()) {
+                continue;
+            }
+            let mut inner = current.walk();
+            stack.extend(current.named_children(&mut inner));
+        }
+        if arms > self.limits.max_cases {
+            self.out.wide_switches.push(Spot {
+                span: span_of(node),
+                detail: arms.to_string(),
+                count: arms,
+            });
+        }
+    }
+
+    /// How deep a function literal sits inside other function literals. Reported on
+    /// the innermost one, which is where a reader ends up.
+    fn note_callback_depth(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let mut depth = 0;
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if profile.is_function(current) {
+                depth += 1;
+            }
+            parent = current.parent();
+        }
+        if depth > self.limits.callback_depth {
+            self.out.callback_nesting.push(Spot {
+                span: self.name_span(node),
+                detail: depth.to_string(),
+                count: depth,
+            });
+        }
+    }
+
+    /// An assignment where a condition belongs. It reads as a comparison and behaves
+    /// as a write, which is why it survives review.
+    fn note_assignment_in_condition(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(condition) = node.child_by_field_name("condition") else {
+            return;
+        };
+        let mut cursor = condition.walk();
+        let mut stack: Vec<Node<'a>> = condition.children(&mut cursor).collect();
+        stack.push(condition);
+        while let Some(current) = stack.pop() {
+            if profile.assignment_kinds.contains(&current.kind()) {
+                self.out.assignments_in_conditions.push(Spot {
+                    span: span_of(current),
+                    detail: self.text(current).trim().to_owned(),
+                    count: 1,
+                });
+                return;
+            }
+            let mut inner = current.walk();
+            stack.extend(current.children(&mut inner));
+        }
+    }
+
+    /// A function's name where it has one, so a finding lands on the identifier a
+    /// reader searches for rather than on the whole body.
+    fn name_span(&self, function: Node<'a>) -> Span {
+        self.function_name(function)
+            .map_or_else(|| span_of(function), span_of)
+    }
+
     /// Whether every path out of a block leaves the function or the loop, which is
     /// what makes a following `else` a level of indentation nobody needs.
     fn always_exits(&self, block: Node<'a>) -> bool {
@@ -786,6 +907,14 @@ impl<'a> Walker<'a> {
         }
         if kind == profile.if_kind {
             self.note_branch_shape(node);
+            self.note_assignment_in_condition(node);
+        }
+        if profile.switch_kinds.contains(&kind) {
+            self.note_switch_width(node);
+        }
+        if profile.is_function(node) {
+            self.note_exits(node);
+            self.note_callback_depth(node);
         }
         // The braces too, not only the statement list inside them: a grammar that
         // separates the two emits no list at all when the braces are empty.

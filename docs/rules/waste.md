@@ -281,15 +281,15 @@ the number encodes a decision nobody wrote down, so the next reader cannot tell 
 | Fix | Replace Magic Number with Constant / Extract Variable |
 | Tuned by | `thresholds.magic_number_repeats` |
 
-From `fixtures/typescript/hygiene.ts`, line 10:
+From `fixtures/typescript/flow.ts`, line 34:
 
 ```ts
-
-  if (!applyDiscount && total > 4999 && cart.length > 12 && orbit()) {
-    return total;
+  const scale = a * b;
+  for (const step of [1, 2, 3]) {
+    if (step > scale) {
 ```
 
-rqx says: name `4999` once and refer to the name at all 3 sites
+rqx says: name `3` once and refer to the name at all 3 sites
 
 ## `mixed-language-file`
 

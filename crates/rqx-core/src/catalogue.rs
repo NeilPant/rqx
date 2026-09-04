@@ -630,6 +630,73 @@ catalogue! {
         off_by_default: true,
     },
 
+    WideSurface {
+        slug: "wide-surface",
+        category: Abstraction,
+        analysis: Semantics,
+        metric: "count of members a type exposes outside itself",
+        fixes: [ExtractInterface, ExtractClass],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every public member is a promise to keep working, so the surface is what \
+              the type costs to change rather than what it does",
+    },
+    ManyExits {
+        slug: "many-exits",
+        category: Size,
+        analysis: Syntax,
+        metric: "count of returns, throws and raises in one body, past the guard clauses",
+        fixes: [ExtractMethod, DecomposeConditional],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "a reader has to find every way out before they can say what the function \
+              answers, and the ones written deep in the body are the easy ones to miss",
+    },
+    WideSwitch {
+        slug: "wide-switch",
+        category: Size,
+        analysis: Syntax,
+        metric: "count of arms in one switch or match",
+        fixes: [ReplaceConditionalWithPolymorphism, ExtractMethod],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "past a certain width the arms stop being a table a reader scans and \
+              become a list they have to search",
+    },
+    CallbackNesting {
+        slug: "callback-nesting",
+        category: Size,
+        analysis: Syntax,
+        metric: "depth of function literals declared inside other function literals",
+        fixes: [ExtractMethod],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the order the steps run in is the opposite of the order they are written \
+              in, so following the sequence means reading inside out",
+    },
+    AssignmentInCondition {
+        slug: "assignment-in-condition",
+        category: Safety,
+        analysis: Syntax,
+        metric: "an assignment written where a condition is expected",
+        fixes: [ExtractVariable],
+        confidence: Verified,
+        severity: Error,
+        why: "it reads as a comparison and behaves as a write, which is why it is the \
+              typo that survives review",
+        not_applicable: [
+            (
+                Python,
+                "the only assignment Python allows in a condition is `:=`, which exists \
+                 to be written there and is read as deliberate"
+            ),
+            (
+                Go,
+                "Go allows an initialiser before the condition rather than inside it, so \
+                 the two are never confused"
+            )
+        ],
+    },
     // ---- Flow -------------------------------------------------------------
     RedundantElse {
         slug: "redundant-else",

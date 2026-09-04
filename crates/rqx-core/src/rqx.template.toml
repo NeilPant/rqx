@@ -60,6 +60,12 @@ message_chain_depth = 3
 commented_code_lines = 2
 magic_number_repeats = 3
 class_public_members = 20
+# Ways out of one function body, past the guard clauses at the top.
+max_exits = 4
+# Arms in one switch before it stops being a table a reader scans.
+max_cases = 12
+# Function literals nested inside other function literals.
+callback_depth = 3
 feature_envy_ratio = 3
 data_clump_size = 3
 data_clump_sites = 3

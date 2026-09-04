@@ -262,6 +262,7 @@ pub fn check_hygiene(
 ) {
     use crate::facts::Spot;
 
+    let limits = &builder.config.thresholds;
     let emit = |out: &mut Vec<Finding>, rule: RuleId, spot: &Spot, evidence, hint: String| {
         builder.emit(out, rule, spot.span, evidence, hint);
     };
@@ -343,6 +344,54 @@ pub fn check_hygiene(
                 "!" => "check for the absence and handle it, so the guarantee is real".to_owned(),
                 _ => "narrow the value with a check the checker can follow".to_owned(),
             },
+        );
+    }
+    for (spots, rule, counted, limit, hint) in [
+        (
+            &hygiene.many_exits,
+            RuleId::ManyExits,
+            "ways out",
+            limits.max_exits,
+            "give the function one exit, or extract the branches that end early",
+        ),
+        (
+            &hygiene.wide_switches,
+            RuleId::WideSwitch,
+            "arms",
+            limits.max_cases,
+            "give the thing being switched on a type, and let it answer for itself",
+        ),
+        (
+            &hygiene.callback_nesting,
+            RuleId::CallbackNesting,
+            "levels deep",
+            limits.callback_depth,
+            "name the inner steps and call them, so the order they run in is the order they read in",
+        ),
+    ] {
+        for spot in spots {
+            emit(
+                out,
+                rule,
+                spot,
+                Evidence::Breadth {
+                    counted: counted.to_owned(),
+                    found: spot.count,
+                    limit,
+                },
+                hint.to_owned(),
+            );
+        }
+    }
+    for spot in &hygiene.assignments_in_conditions {
+        emit(
+            out,
+            RuleId::AssignmentInCondition,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` assigns where a condition is expected.", spot.detail),
+            },
+            "assign above the branch, or compare if that is what was meant".to_owned(),
         );
     }
     for (spots, rule, hint) in [
@@ -680,6 +729,23 @@ pub fn check_class_shape(
 ) {
     let name = &report.name;
     let members = report.fields + report.methods;
+
+    if report.public_members > builder.config.thresholds.class_public_members {
+        builder.emit(
+            out,
+            RuleId::WideSurface,
+            report.span,
+            Evidence::Breadth {
+                counted: "members exposed".to_owned(),
+                found: report.public_members,
+                limit: builder.config.thresholds.class_public_members,
+            },
+            format!(
+                "narrow what `{name}` promises: an interface for what callers use, and \
+                 the rest kept inside"
+            ),
+        );
+    }
 
     for guarded in &report.guarded_fields {
         builder.emit(

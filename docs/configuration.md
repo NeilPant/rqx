@@ -73,7 +73,10 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `message_chain_depth` | 3 | `message-chain` |
 | `commented_code_lines` | 2 | `commented-out-code` |
 | `magic_number_repeats` | 3 | `magic-number` |
-| `class_public_members` | 20 | nothing yet: the count it compares against is collected, but no rule reports on it. Kept so an existing `RQX.toml` still parses. |
+| `class_public_members` | 20 | `wide-surface` |
+| `max_exits` | 4 | `many-exits` |
+| `max_cases` | 12 | `wide-switch` |
+| `callback_depth` | 3 | `callback-nesting` |
 | `feature_envy_ratio` | 3 | `feature-envy` |
 | `data_clump_size` | 3 | `data-clump` |
 | `data_clump_sites` | 3 | `data-clump` |

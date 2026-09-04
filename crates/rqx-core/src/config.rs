@@ -431,6 +431,9 @@ pub struct Thresholds {
     pub commented_code_lines: u32,
     pub magic_number_repeats: u32,
     pub class_public_members: u32,
+    pub max_exits: u32,
+    pub max_cases: u32,
+    pub callback_depth: u32,
     pub feature_envy_ratio: u32,
     pub data_clump_size: u32,
     pub data_clump_sites: u32,
@@ -450,7 +453,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 22] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 25] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -465,7 +468,10 @@ impl Thresholds {
         ("magic_number_repeats", &[RuleId::MagicNumber]),
         // Nothing reads this one yet: the count it would compare against is collected
         // but no rule reports on it. Kept so an existing config still parses.
-        ("class_public_members", &[]),
+        ("class_public_members", &[RuleId::WideSurface]),
+        ("max_exits", &[RuleId::ManyExits]),
+        ("max_cases", &[RuleId::WideSwitch]),
+        ("callback_depth", &[RuleId::CallbackNesting]),
         ("feature_envy_ratio", &[RuleId::FeatureEnvy]),
         ("data_clump_size", &[RuleId::DataClump]),
         ("data_clump_sites", &[RuleId::DataClump]),
@@ -511,6 +517,9 @@ impl Default for Thresholds {
             commented_code_lines: 2,
             magic_number_repeats: 3,
             class_public_members: 20,
+            max_exits: 4,
+            max_cases: 12,
+            callback_depth: 3,
             feature_envy_ratio: 3,
             data_clump_size: 3,
             data_clump_sites: 3,
@@ -970,6 +979,9 @@ mod tests {
                     t.commented_code_lines,
                     t.magic_number_repeats,
                     t.class_public_members,
+                    t.max_exits,
+                    t.max_cases,
+                    t.callback_depth,
                     t.feature_envy_ratio,
                     t.data_clump_size,
                     t.data_clump_sites,

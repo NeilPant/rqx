@@ -144,7 +144,7 @@ does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Sixty-nine rules across nine families. Every rule names the metric that decides it and
+Seventy-four rules across nine families. Every rule names the metric that decides it and
 the refactoring that answers it, and neither is optional.
 
 That traceability is enforced by the compiler. The catalogue is one declarative
@@ -153,21 +153,21 @@ rule that omits its metric or its fix does not build. A second test asserts that
 **every rule in the catalogue actually fires on a fixture** — a rule nothing can
 trigger is a documentation entry pretending to be a check.
 
-`rqx rules` prints all 69 grouped by family, and `rqx explain <rule>` prints one in
+`rqx rules` prints all 74 grouped by family, and `rqx explain <rule>` prints one in
 full. [`docs/rules/`](docs/rules/README.md) is the same catalogue as a reference: what
 each rule measures, the threshold that tunes it, the languages it cannot apply to, and
 a worked example lifted from the fixture that fires it.
 
 | Family | Rules | What it measures |
 |---|---|---|
-| **Size** | 8 | units that outgrew what a reader can hold |
-| **Abstraction** | 7 | types that model the problem wrong |
+| **Size** | 11 | units that outgrew what a reader can hold |
+| **Abstraction** | 8 | types that model the problem wrong |
 | **Change** | 3 | shapes that make an edit expensive |
 | **Waste** | 18 | code and comments nothing reaches |
 | **Coupling** | 7 | modules that know too much about each other, and dependencies pointing the wrong way |
 | **Flow** | 7 | control flow that says less than it looks like |
 | **Naming** | 7 | names that mislead or say nothing |
-| **Safety** | 8 | silent failure and swallowed errors |
+| **Safety** | 9 | silent failure and swallowed errors |
 | **Tests** | 4 | suites that pass without checking |
 
 Those pages are generated from the catalogue by `rqx docs`, and a test fails if they
@@ -523,7 +523,7 @@ URL, so VS Code shows it in a panel and every other editor opens it beside the w
 the same page, not a second half-built one per client.
 
 Cross-file findings arrive without being asked for: the server scans the workspace on
-its own and republishes every file, so ten of the sixty-nine rules do not go silently
+its own and republishes every file, so ten of the seventy-four rules do not go silently
 missing in an editor that has one file open.
 
 [docs/editor.md](docs/editor.md) has the commands, the custom notifications and a

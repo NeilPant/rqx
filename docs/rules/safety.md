@@ -66,6 +66,29 @@ From `fixtures/typescript/queries.ts`, line 5:
 
 rqx says: split `getTotal` into the question and the change, or rename it for what it does
 
+## `assignment-in-condition`
+
+it reads as a comparison and behaves as a write, which is why it is the typo that survives review
+
+| | |
+|---|---|
+| Measures | an assignment written where a condition is expected |
+| Reported as | error, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Variable |
+| Not in Python | the only assignment Python allows in a condition is `:=`, which exists to be written there and is read as deliberate |
+| Not in Go | Go allows an initialiser before the condition rather than inside it, so the two are never confused |
+
+From `fixtures/typescript/flow.ts`, line 58:
+
+```ts
+  let found = 0;
+  if ((found = a + b)) {
+    return found;
+```
+
+rqx says: assign above the branch, or compare if that is what was meant
+
 ## `suppressed-diagnostic`
 
 a check that would have caught the next mistake here has been turned off, and the comment turning it off outlives the reason for it
