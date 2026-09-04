@@ -14,6 +14,7 @@ pub mod parameters;
 pub mod patterns;
 pub mod profile;
 pub mod python;
+pub mod rewrite;
 pub mod scope;
 pub mod tree;
 pub mod typescript;

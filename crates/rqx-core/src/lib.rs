@@ -1,6 +1,7 @@
 pub mod advice;
 pub mod config;
 pub mod coverage;
+pub mod edit;
 pub mod facts;
 pub mod finding;
 pub mod impact;
@@ -18,6 +19,7 @@ pub mod technique;
 pub use advice::{Advice, AdviceId, AdviceSpec, Signal, Stance};
 pub use config::RqxConfig;
 pub use coverage::{Coverage, Tally};
+pub use edit::{Edit, Resolution};
 pub use finding::{Confidence, Evidence, Finding, Severity, SourceRange};
 pub use impact::{Impact, ImpactMap};
 pub use language::Language;
