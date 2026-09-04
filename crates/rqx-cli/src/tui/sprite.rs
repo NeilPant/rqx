@@ -125,12 +125,16 @@ impl Sprite {
             return Span::styled(glyph, Style::new().fg(Color::Reset));
         }
 
+        // A solid cell is painted as a background rather than drawn as a full-block
+        // glyph. Terminals fill a cell's background across the whole line box, but a
+        // glyph only covers the height its font gives it — so with any line spacing a
+        // grid of `\u{2588}` shows a gap between every row, and the art looks striped.
         let (glyph, style) = match (top, bottom) {
             (None, None) => (" ", Style::new()),
             (Some(ink), None) => ("\u{2580}", Style::new().fg(palette.color(ink))),
             (None, Some(ink)) => ("\u{2584}", Style::new().fg(palette.color(ink))),
             (Some(upper), Some(lower)) if upper == lower => {
-                ("\u{2588}", Style::new().fg(palette.color(upper)))
+                (" ", Style::new().bg(palette.color(upper)))
             }
             (Some(upper), Some(lower)) => (
                 "\u{2580}",
@@ -145,6 +149,12 @@ impl Sprite {
 mod tests {
     use crate::brand::ColorDepth;
     use super::*;
+
+    /// What a cell actually shows: a solid cell is a painted background, everything
+    /// else is a glyph in a foreground colour.
+    fn shown(span: &Span<'_>) -> Option<ratatui::style::Color> {
+        if span.content.as_ref() == " " { span.style.bg } else { span.style.fg }
+    }
 
     fn plain(lines: &[Line<'_>]) -> String {
         lines
@@ -164,7 +174,7 @@ mod tests {
     fn glyph_encodes_which_of_the_two_pixels_are_set() {
         let sprite = Sprite::parse("T.T.\n.TT.");
         let rendered = plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Truecolor), 0, Ink::Signal, usize::MAX));
-        assert_eq!(rendered, "\u{2580}\u{2584}\u{2588} ");
+        assert_eq!(rendered, "\u{2580}\u{2584}  ", "a solid cell is a space with a background");
     }
 
     /// Two different inks stacked in one cell are drawn in colour as a half-block
@@ -213,12 +223,13 @@ mod tests {
         let palette = Palette::with_depth(ColorDepth::Truecolor);
         let danger = sprite.render_frame(palette, 0, Ink::Danger, 2);
         let good = sprite.render_frame(palette, 0, Ink::Good, 2);
-        assert_ne!(danger[0].spans[0].style, good[0].spans[0].style);
+        assert_ne!(shown(&danger[0].spans[0]), shown(&good[0].spans[0]));
     }
 
     /// The art is checked here rather than by eye: a feature that drifts half a cell
-    /// out of alignment renders as a half block and reads as a smudge, which is
-    /// invisible in a diff.
+    /// out of alignment renders as a half block and reads as a smudge, and a solid
+    /// cell that is drawn as a glyph rather than painted leaves a gap on any terminal
+    /// with line spacing. Neither is visible in a diff.
     #[test]
     fn the_mascot_has_two_eyes_and_a_beak_that_take_the_signal_colour() {
         let sprite = Sprite::parse(include_str!("../../assets/mascot.txt"));
@@ -227,17 +238,17 @@ mod tests {
         let rows = sprite.render_frame(palette, sprite.frame("idle"), Ink::Good, usize::MAX);
 
         let lit = |row: &ratatui::text::Line<'_>| {
-            row.spans.iter().filter(|span| span.style.fg == Some(signal)).count()
+            row.spans.iter().filter(|span| shown(span) == Some(signal)).count()
         };
         let eyes = rows.iter().find(|row| lit(row) == 4).expect("one row holds both eyes");
         for column in [2, 3, 7, 8] {
-            assert_eq!(eyes.spans[column].content.as_ref(), "\u{2588}", "eye {column} is not solid");
-            assert_eq!(eyes.spans[column].style.fg, Some(signal), "eye {column}");
+            assert_eq!(eyes.spans[column].content.as_ref(), " ", "eye {column} is not a solid cell");
+            assert_eq!(eyes.spans[column].style.bg, Some(signal), "eye {column}");
         }
 
         let beak = rows.iter().find(|row| lit(row) == 1).expect("one row holds the beak");
-        assert_eq!(beak.spans[5].content.as_ref(), "\u{2588}", "the beak is not solid");
-        assert_eq!(beak.spans[5].style.fg, Some(signal));
+        assert_eq!(beak.spans[5].content.as_ref(), " ", "the beak is not a solid cell");
+        assert_eq!(beak.spans[5].style.bg, Some(signal));
     }
 
     #[test]
@@ -252,8 +263,7 @@ mod tests {
         for name in ["idle", "blink", "look-left", "look-right", "alert", "pleased"] {
             let rows = sprite.render_frame(palette, sprite.frame(name), Ink::Danger, usize::MAX);
             assert_eq!(rows.len(), 5, "{name} is a different height");
-            let beak = &rows[2].spans[5];
-            assert_eq!(beak.style.fg, Some(signal), "{name} lost its beak");
+            assert_eq!(shown(&rows[2].spans[5]), Some(signal), "{name} lost its beak");
         }
     }
 
@@ -268,6 +278,6 @@ mod tests {
     fn ragged_rows_do_not_panic_and_pad_transparent() {
         let sprite = Sprite::parse("TTTT\nT");
         let rendered = plain(&sprite.render_frame(Palette::with_depth(ColorDepth::Truecolor), 0, Ink::Signal, usize::MAX));
-        assert_eq!(rendered, "\u{2588}\u{2580}\u{2580}\u{2580}");
+        assert_eq!(rendered, " \u{2580}\u{2580}\u{2580}");
     }
 }
