@@ -13,7 +13,7 @@ use rqx_core::rule::{Category, RuleId};
 use serde_json::{Value, json};
 
 use super::Server;
-use super::protocol::uri_of;
+use super::protocol::{range_at, uri_of};
 use crate::report::projection;
 
 pub const SCAN: &str = "rqx.scan";
@@ -245,15 +245,17 @@ fn at(line: u32, character: u32) -> Range {
     }
 }
 
-/// Every action edits configuration or opens a document. None of them rewrites source:
-/// a finding names a refactoring, and a tool that applied one would be guessing at the
-/// design decision the refactoring exists to make.
+/// Config actions for the rules whose fix is a decision, and the edit itself for the
+/// ones it is not. A source edit is offered only after the same verification `rqx fix`
+/// runs, so accepting one from an editor is no less proven than accepting one from the
+/// command line.
 pub fn actions_for(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrCommand> {
     let config = server.root().join(CONFIG_FILE_NAME);
+    let mut actions = source_fixes(server, params);
     // The client asks for actions on every cursor move, and the same rule usually
     // appears on several of the diagnostics in range.
     let mut seen = BTreeSet::new();
-    params
+    let configuration = params
         .context
         .diagnostics
         .iter()
@@ -280,13 +282,117 @@ pub fn actions_for(server: &Server, params: &CodeActionParams) -> Vec<CodeAction
             .into_iter()
             .flatten()
         })
-        .collect()
+        .collect::<Vec<_>>();
+    actions.extend(configuration);
+    actions
+}
+
+/// One parse and one verification of the open buffer, so an editor never offers an
+/// edit the command line would withhold.
+fn source_fixes(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrCommand> {
+    let Some(path) = super::protocol::path_from_uri(&params.text_document.uri) else {
+        return Vec::new();
+    };
+    let Some(language) = rqx_core::Language::of_path(&path) else {
+        return Vec::new();
+    };
+    let Some(source) = server.text_of(&path) else {
+        return Vec::new();
+    };
+    let settings = server.settings();
+    let fixable: Vec<_> = server
+        .findings_of(&path, &source)
+        .into_iter()
+        .filter(|finding| settings.for_file(&path).fix.allows(finding.rule))
+        .collect();
+    if fixable.is_empty() {
+        return Vec::new();
+    }
+    let Ok(rewriter) = rqx_lang::rewrite::Rewriter::new(language, &source) else {
+        return Vec::new();
+    };
+
+    let index = rqx_core::LineIndex::new(&source);
+    let requested = params.range;
+    let display = path
+        .strip_prefix(server.root())
+        .unwrap_or(&path)
+        .display()
+        .to_string();
+
+    let mut actions = Vec::new();
+    for finding in &fixable {
+        let range = range_at(&index, server.encoding(), &finding.location);
+        if range.end < requested.start || range.start > requested.end {
+            continue;
+        }
+        let plan = rewriter.plan(std::slice::from_ref(finding), &settings.for_file(&path).fix);
+        if plan.is_empty()
+            || rewriter
+                .verify(&display, settings.for_file(&path), &fixable, &plan)
+                .is_err()
+        {
+            continue;
+        }
+        let edits: Vec<TextEdit> = plan
+            .kept
+            .iter()
+            .map(|edit| TextEdit {
+                range: range_at(
+                    &index,
+                    server.encoding(),
+                    &span_range(&index, &finding.location.file, edit.span),
+                ),
+                new_text: edit.replacement.clone(),
+            })
+            .collect();
+        actions.push(source_action(
+            format!("rqx: fix `{}`", finding.rule.slug()),
+            WorkspaceEdit {
+                changes: Some(
+                    [(params.text_document.uri.clone(), edits)]
+                        .into_iter()
+                        .collect(),
+                ),
+                ..WorkspaceEdit::default()
+            },
+        ));
+    }
+    actions
+}
+
+fn span_range(
+    index: &rqx_core::LineIndex<'_>,
+    file: &std::sync::Arc<str>,
+    span: rqx_core::span::Span,
+) -> rqx_core::finding::SourceRange {
+    let (line, column) = index.locate(span.start);
+    let (end_line, _) = index.locate(span.end);
+    rqx_core::finding::SourceRange {
+        file: std::sync::Arc::clone(file),
+        start: span.start,
+        end: span.end,
+        line,
+        column,
+        end_line,
+    }
 }
 
 fn action(title: String, edit: WorkspaceEdit) -> CodeActionOrCommand {
     CodeActionOrCommand::CodeAction(CodeAction {
         title,
         kind: Some(CodeActionKind::QUICKFIX),
+        edit: Some(edit),
+        ..CodeAction::default()
+    })
+}
+
+/// Tagged `source.fixAll` as well as quick fix, so an editor can run every one of
+/// them on save without offering the config actions alongside.
+fn source_action(title: String, edit: WorkspaceEdit) -> CodeActionOrCommand {
+    CodeActionOrCommand::CodeAction(CodeAction {
+        title,
+        kind: Some(CodeActionKind::SOURCE_FIX_ALL),
         edit: Some(edit),
         ..CodeAction::default()
     })

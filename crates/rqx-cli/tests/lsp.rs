@@ -238,6 +238,63 @@ fn an_opened_file_under_a_path_with_a_space_gets_diagnostics() {
     session.shutdown();
 }
 
+/// A developer's first rqx quick fix used to be one that turned the rule off. The
+/// mechanical rules now offer the edit itself, verified before it is offered.
+#[test]
+fn a_mechanical_finding_offers_the_edit_and_not_only_a_way_to_silence_it() {
+    let root = workspace_with_a_space(
+        "a_mechanical_finding_offers_the_edit_and_not_only_a_way_to_silence_it",
+    );
+    let file = root.join("fixable.ts");
+    let text = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
+    std::fs::write(&file, text).expect("the fixture");
+
+    let mut session = Session::start(&root);
+    session.initialize(&root);
+    let uri = format!("file://{}", file.display().to_string().replace(' ', "%20"));
+    session.notify(
+        "textDocument/didOpen",
+        json!({
+            "textDocument": {
+                "uri": uri,
+                "languageId": "typescript",
+                "version": 1,
+                "text": text,
+            }
+        }),
+    );
+
+    let message = session.wait_for(|message| {
+        diagnostics_for(message, "fixable.ts").is_some_and(|found| !found.is_empty())
+    });
+    let diagnostics = diagnostics_for(&message, "fixable.ts").expect("diagnostics");
+
+    let id = session.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument": { "uri": uri },
+            "range": { "start": { "line": 2, "character": 2 }, "end": { "line": 2, "character": 2 } },
+            "context": { "diagnostics": diagnostics },
+        }),
+    );
+    let answer = session.wait_for(|message| message["id"] == json!(id));
+    let actions = answer["result"].as_array().expect("actions");
+
+    let fix = actions
+        .iter()
+        .find(|action| action["kind"] == "source.fixAll")
+        .unwrap_or_else(|| panic!("no source edit offered: {actions:#?}"));
+    assert!(
+        fix["title"].as_str().unwrap().contains("unreachable-code"),
+        "{fix}"
+    );
+    let edits = fix["edit"]["changes"][&uri].as_array().expect("edits");
+    assert_eq!(edits.len(), 1, "{fix}");
+    assert_eq!(edits[0]["newText"], "");
+
+    session.shutdown();
+}
+
 /// Eight of the sixty rules cannot be answered from one open file. Before the server
 /// scanned on its own, an editor that did not know rqx's custom request never saw them.
 #[test]

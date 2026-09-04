@@ -49,6 +49,7 @@ pub struct Server {
     /// file on disk, because an editor restoring unsaved work would otherwise be shown
     /// findings about text nobody can see.
     documents: HashMap<String, String>,
+    encoding: Encoding,
     patterns: bool,
     code_lens: bool,
     scan_on_startup: bool,
@@ -60,6 +61,29 @@ pub struct Server {
 impl Server {
     pub const fn root(&self) -> &PathBuf {
         &self.root
+    }
+
+    pub const fn settings(&self) -> &Resolved {
+        &self.config
+    }
+
+    pub const fn encoding(&self) -> Encoding {
+        self.encoding
+    }
+
+    /// The buffer if the editor is holding one, else the file. Analysis reads the
+    /// buffer, so an edit offered against the file would be an edit against text the
+    /// author cannot see.
+    pub fn text_of(&self, path: &Path) -> Option<String> {
+        let relative = self.relative(path);
+        self.documents
+            .get(&relative)
+            .cloned()
+            .or_else(|| std::fs::read_to_string(path).ok())
+    }
+
+    pub fn findings_of(&self, path: &Path, source: &str) -> Vec<Finding> {
+        self.analyze(path, source)
     }
 
     /// Ranked from the last scan's grades rather than by rescanning: the answer to
@@ -282,6 +306,7 @@ pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync +
         config,
         explicit_config: options.config_file,
         documents: HashMap::new(),
+        encoding,
         patterns: options.patterns.unwrap_or(false),
         code_lens: options.code_lens.unwrap_or(false),
         scan_on_startup: options.scan_on_startup.unwrap_or(true),

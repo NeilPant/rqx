@@ -282,6 +282,9 @@ working directory, or pass the root as a positional argument. A `--stdio` flag i
 accepted and ignored, because several clients pass it by convention.
 
 The server advertises `textDocumentSync` (open, change and save), `hoverProvider`,
-`codeActionProvider`, `codeLensProvider` and `executeCommandProvider`. The code actions
-only ever edit `RQX.toml` or open a document — none of them rewrites your source, because
-every fix rqx names is a refactoring rather than an edit it could apply for you.
+`codeActionProvider`, `codeLensProvider` and `executeCommandProvider`. A finding whose
+fix is a decision offers to disable the rule or explain it; a finding whose fix is
+decided by the finding alone offers the edit, tagged `source.fixAll` so an editor can
+apply every one of them on save. A source edit is only offered after the same
+verification `rqx fix` runs, so accepting one in an editor is no less proven than
+accepting one on the command line.
