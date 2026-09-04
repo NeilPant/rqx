@@ -49,7 +49,7 @@ pub struct Project {
     root: PathBuf,
     settings: Resolved,
     files: HashMap<PathBuf, Cached>,
-    history: History,
+    history: Arc<History>,
     read_history_at: Instant,
     outcome: Arc<ScanOutcome>,
     trend: VecDeque<Tick>,
@@ -62,7 +62,7 @@ const TREND_POINTS: usize = 500;
 
 impl Project {
     pub fn read(root: &Path, settings: Resolved) -> Result<Self> {
-        let history = History::read(root, settings.config.scan.churn_days);
+        let history = Arc::new(History::read(root, settings.config.scan.churn_days));
         let outcome = Arc::new(scan::scan(root, &settings)?);
         let mut project = Self {
             root: root.to_path_buf(),
@@ -145,7 +145,10 @@ impl Project {
         self.analyse(&subset);
 
         if self.read_history_at.elapsed() >= HISTORY_INTERVAL {
-            self.history = History::read(&self.root, self.settings.config.scan.churn_days);
+            self.history = Arc::new(History::read(
+                &self.root,
+                self.settings.config.scan.churn_days,
+            ));
             self.read_history_at = Instant::now();
         }
         self.rebuild();
@@ -219,7 +222,7 @@ impl Project {
             Bar::hidden(),
             None,
             None,
-            &self.history,
+            || Arc::clone(&self.history),
         );
         let health = crate::report::Report::everything(&outcome).health();
         let findings = outcome.counts.total;

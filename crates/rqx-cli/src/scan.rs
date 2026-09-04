@@ -933,7 +933,7 @@ impl Collector {
         mut self,
         root: &Path,
         settings: &Resolved,
-        history: &crate::history::History,
+        history: impl FnOnce() -> Arc<crate::history::History>,
     ) -> ScanOutcome {
         use crate::progress::Phase;
         let config = &settings.config;
@@ -944,9 +944,10 @@ impl Collector {
         self.report_phase(Phase::Imports);
         self.finish_modules(root, config, &mut at);
         self.report_phase(Phase::History);
-        self.finish_history(config, history);
+        let history = history();
+        self.finish_history(config, &history);
         self.report_phase(Phase::CoChange);
-        self.finish_cochange(root, config, &mut at, history);
+        self.finish_cochange(root, config, &mut at, &history);
         self.bar.clear();
         let retained = self.retained.len() as u32;
         let mut findings: Vec<Finding> = self
@@ -1228,7 +1229,10 @@ pub(crate) fn collect(
     bar: crate::progress::Bar,
     total: Option<u32>,
     watcher: Option<&SyncSender<ScanProgress>>,
-    history: &crate::history::History,
+    // A thunk rather than the history itself: reading git is the one part of a scan
+    // that does not depend on the walk, and waiting for it before draining the
+    // channel stalls every worker behind it once the buffer fills.
+    history: impl FnOnce() -> Arc<crate::history::History>,
 ) -> ScanOutcome {
     let mut collector = Collector::new(
         settings.config.scan.max_findings,
@@ -1530,9 +1534,6 @@ fn scan_watched(
         let watcher = watcher.as_ref();
         let root_ref = root;
         let handle = scope.spawn(move || {
-            // Joined only once the walk has drained, which is the first moment its
-            // answer is needed and usually long after git finished.
-            let history = history.join().unwrap_or_default();
             collect(
                 receiver,
                 root_ref,
@@ -1540,7 +1541,7 @@ fn scan_watched(
                 bar,
                 total,
                 watcher,
-                &history,
+                || Arc::new(history.join().unwrap_or_default()),
             )
         });
         let cached = cache.as_ref();
