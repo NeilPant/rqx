@@ -1,75 +1,75 @@
 # rqx. An owl: a quiet, precise thing that spots small movement and turns its head
-# to follow it. 11x10 pixels, six frames.
+# to follow it. 9x10 pixels, six frames.
 #
 # A plumage, S the eyes and beak, K a closed lid. The gold is replaced at render time
 # by what the scan found, so the bird reports rather than decorates.
 #
 # Two pixel rows share one terminal cell, so the eyes and the beak are each drawn two
-# rows tall and cell-aligned; a feature spanning half a cell renders as a half block.
-# The lids are the deliberate exception, because a lid is a line.
+# rows tall and cell-aligned; a feature spanning half a cell renders as a half block
+# and reads as a smudge. The lids are the deliberate exception, because a lid is a line.
 #: idle
-...AAAAA...
-.AAAAAAAAA.
-AASSAAASSAA
-AASSAAASSAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+..AAAAA..
+.AAAAAAA.
+ASSAAASSA
+ASSAAASSA
+AAAASAAAA
+.AAASAAA.
+..AAAAA..
+..AAAAA..
+..AAAAA..
+..AA.AA..
 #: blink
-...AAAAA...
-.AAAAAAAAA.
-AAAAAAAAAAA
-AAKKAAAKKAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+..AAAAA..
+.AAAAAAA.
+AAAAAAAAA
+AKKAAAKKA
+AAAASAAAA
+.AAASAAA.
+..AAAAA..
+..AAAAA..
+..AAAAA..
+..AA.AA..
 #: look-left
-...AAAAA...
-.AAAAAAAAA.
-ASSAAASSAAA
-ASSAAASSAAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+..AAAAA..
+.AAAAAAA.
+SSAAASSAA
+SSAAASSAA
+AAAASAAAA
+.AAASAAA.
+..AAAAA..
+..AAAAA..
+..AAAAA..
+..AA.AA..
 #: look-right
-...AAAAA...
-.AAAAAAAAA.
-AAASSAAASSA
-AAASSAAASSA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+..AAAAA..
+.AAAAAAA.
+AASSAAASS
+AASSAAASS
+AAAASAAAA
+.AAASAAA.
+..AAAAA..
+..AAAAA..
+..AAAAA..
+..AA.AA..
 #: alert
-...AAAAA...
-.AAAAAAAAA.
-ASSSAAASSSA
-ASSSAAASSSA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+..AAAAA..
+.AAAAAAA.
+SSSAAASSS
+SSSAAASSS
+AAAASAAAA
+.AAASAAA.
+..AAAAA..
+..AAAAA..
+..AAAAA..
+..AA.AA..
 #: pleased
-...AAAAA...
-.AAAAAAAAA.
-AAAAAAAAAAA
-AASSAAASSAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+..AAAAA..
+.AAAAAAA.
+AAAAAAAAA
+ASSAAASSA
+AAAASAAAA
+.AAASAAA.
+..AAAAA..
+..AAAAA..
+..AAAAA..
+..AA.AA..

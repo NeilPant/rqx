@@ -230,21 +230,21 @@ mod tests {
             row.spans.iter().filter(|span| span.style.fg == Some(signal)).count()
         };
         let eyes = rows.iter().find(|row| lit(row) == 4).expect("one row holds both eyes");
-        for column in [2, 3, 7, 8] {
+        for column in [1, 2, 6, 7] {
             assert_eq!(eyes.spans[column].content.as_ref(), "\u{2588}", "eye {column} is not solid");
             assert_eq!(eyes.spans[column].style.fg, Some(signal), "eye {column}");
         }
 
         let beak = rows.iter().find(|row| lit(row) == 1).expect("one row holds the beak");
-        assert_eq!(beak.spans[5].content.as_ref(), "\u{2588}", "the beak is not solid");
-        assert_eq!(beak.spans[5].style.fg, Some(signal));
+        assert_eq!(beak.spans[4].content.as_ref(), "\u{2588}", "the beak is not solid");
+        assert_eq!(beak.spans[4].style.fg, Some(signal));
     }
 
     #[test]
     fn every_mascot_frame_is_the_same_size_and_keeps_its_beak() {
         let sprite = Sprite::parse(include_str!("../../assets/mascot.txt"));
         assert_eq!(sprite.frames(), 6);
-        assert_eq!(sprite.width(), 11);
+        assert_eq!(sprite.width(), 9);
         assert_eq!(sprite.cell_height(), 5);
 
         let palette = Palette::with_depth(ColorDepth::Truecolor);
@@ -252,7 +252,7 @@ mod tests {
         for name in ["idle", "blink", "look-left", "look-right", "alert", "pleased"] {
             let rows = sprite.render_frame(palette, sprite.frame(name), Ink::Danger, usize::MAX);
             assert_eq!(rows.len(), 5, "{name} is a different height");
-            let beak = &rows[2].spans[5];
+            let beak = &rows[2].spans[4];
             assert_eq!(beak.style.fg, Some(signal), "{name} lost its beak");
         }
     }
