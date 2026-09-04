@@ -16,3 +16,4 @@
 
 # The server binary the platform builds carry
 /editors/vscode/server
+.playwright-mcp/

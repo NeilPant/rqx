@@ -21,6 +21,7 @@ mod preview;
 mod progress;
 mod report;
 mod scan;
+mod serve;
 mod tui;
 
 use brand::{ColorDepth, Palette};
@@ -114,6 +115,24 @@ enum Command {
         markdown: bool,
         #[arg(long)]
         threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Serve a live dashboard for this project in a browser
+    Serve {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Address to bind. Loopback only, and port 0 lets the OS pick one.
+        #[arg(long, default_value = "127.0.0.1:0")]
+        addr: std::net::SocketAddr,
+        /// Milliseconds between checks for a changed file
+        #[arg(long, default_value_t = 500)]
+        interval: u64,
+        /// Open the dashboard in your browser
+        #[arg(long)]
+        open: bool,
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -779,6 +798,26 @@ fn run() -> Result<Exit> {
                 return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
             }
             report::fixes(&outcome, palette, "rqx fix --write", &mut out).map(|()| Exit::Clean)
+        }
+        Command::Serve {
+            path,
+            standard,
+            addr,
+            interval,
+            open,
+            config,
+        } => {
+            if !path.exists() {
+                bail!(
+                    "`{}` does not exist. rqx serves a directory; try `rqx serve .`",
+                    path.display()
+                );
+            }
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            // The page filters in the browser, so a cap here would hide findings the
+            // reader is about to filter for.
+            settings.config.scan.max_findings = 0;
+            serve::serve(&path, settings, addr, interval, open).map(|()| Exit::Clean)
         }
         Command::Plan {
             path,

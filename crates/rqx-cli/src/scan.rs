@@ -31,7 +31,8 @@ const MAX_CLONE_SITES: usize = 8;
 /// Everything the collector needs about one file, and nothing it would have to work
 /// out for itself. Boxed because the channel holds `CHANNEL_DEPTH` of these and the
 /// alternative is a queue sized by the largest variant rather than by the common one.
-struct Analyzed {
+#[derive(Clone)]
+pub(crate) struct Analyzed {
     /// The path as the report will name it, resolved on the worker. The collector is
     /// the one thread the whole parallel walk funnels through, so work done here is
     /// work every other thread waits behind.
@@ -47,7 +48,8 @@ struct Analyzed {
     code_lines: u32,
 }
 
-enum ScanMessage {
+#[derive(Clone)]
+pub(crate) enum ScanMessage {
     File(Box<Analyzed>),
     Skipped { path: PathBuf, reason: String },
 }
@@ -906,7 +908,7 @@ fn generated_by(source: &str) -> Option<&'static str> {
         .map(|(_, label)| *label)
 }
 
-fn relative_to(root: &Path, path: &Path) -> String {
+pub(crate) fn relative_to(root: &Path, path: &Path) -> String {
     if let Ok(relative) = path.strip_prefix(root) {
         return relative.display().to_string();
     }
@@ -920,7 +922,11 @@ fn relative_to(root: &Path, path: &Path) -> String {
     path.display().to_string()
 }
 
-fn collect(
+/// The cross-file half: clones, the module graph and the churn rules, which no
+/// single file's analysis can reach. Takes a receiver rather than a slice so the
+/// parallel walk feeds it as it goes and a caller replaying a cached map can feed it
+/// all at once.
+pub(crate) fn collect(
     receiver: Receiver<ScanMessage>,
     root: &Path,
     settings: &Resolved,
@@ -1000,28 +1006,39 @@ fn analyze_entry(
     cache: Option<&crate::cache::Cache>,
     sender: &SyncSender<ScanMessage>,
 ) {
+    let _ = sender.send(analyze_file(path, root, size, settings, cache));
+}
+
+/// One file, analysed. Split from the send so a caller holding its own map of results
+/// — the server behind `rqx serve` — can re-analyse one file without a channel and a
+/// walk around it.
+pub(crate) fn analyze_file(
+    path: &Path,
+    root: &Path,
+    size: Option<u64>,
+    settings: &Resolved,
+    cache: Option<&crate::cache::Cache>,
+) -> ScanMessage {
     let config = settings.for_file(path);
     if size.is_some_and(|bytes| bytes > config.scan.max_filesize) {
-        let _ = sender.send(ScanMessage::Skipped {
+        return ScanMessage::Skipped {
             path: path.to_owned(),
             reason: format!(
                 "{} KB exceeds the {} KB limit (raise `scan.max_filesize`)",
                 size.unwrap_or_default() / 1024,
                 config.scan.max_filesize / 1024
             ),
-        });
-        return;
+        };
     }
-    let message = match std::fs::read_to_string(path) {
+    match std::fs::read_to_string(path) {
         Ok(source) => {
             if config.scan.skip_generated
                 && let Some(tool) = generated_by(&source)
             {
-                let _ = sender.send(ScanMessage::Skipped {
+                return ScanMessage::Skipped {
                     path: path.to_owned(),
                     reason: format!("{tool} (set `scan.skip_generated = false` to include it)"),
-                });
-                return;
+                };
             }
             let display = relative_to(root, path);
             let cached = cache.and_then(|cache| cache.get(&display, &source).cloned());
@@ -1056,8 +1073,7 @@ fn analyze_entry(
             path: path.to_owned(),
             reason: error.to_string(),
         },
-    };
-    let _ = sender.send(message);
+    }
 }
 
 /// One graph per language, merged. Import syntax means different things in different
@@ -1109,7 +1125,7 @@ fn graph_report(
     merged
 }
 
-fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel> {
+pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel> {
     let mut types = TypesBuilder::new();
     for language in config.languages.enabled() {
         for extension in language.extensions() {

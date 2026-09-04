@@ -1,4 +1,4 @@
-mod root;
+pub(crate) mod root;
 mod tools;
 
 use std::net::SocketAddr;

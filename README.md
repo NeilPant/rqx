@@ -192,6 +192,30 @@ applicable rule must fire on that language's fixtures, and every exempted rule m
 stay silent on them — so a rule that quietly stops working in one language fails the
 build rather than going unnoticed.
 
+## Watch it while you work
+
+```
+rqx serve --open
+```
+
+A dashboard on `127.0.0.1`, updated as you save. It re-analyses the file you touched
+and nothing else — a save costs about 6 ms on a small project, and the page shows the
+change within one poll interval.
+
+| Page | Shows |
+|---|---|
+| Overview | health, the trend for the session, the grade distribution, what to open first, and what the project would score under each level |
+| Map | every file as a tile, sized by lines and coloured by grade — the shape of the codebase in one screen |
+| Findings | every finding, filtered by severity, family, rule, path or whether `rqx fix` can answer it; click one for the code, the metric, the reason and the named refactoring |
+| Files | one row per file, worst grade first, with blast radius |
+| Plan | the ranked plan with a budget slider, re-ranked as you drag it |
+| Rules | the catalogue, with how often each rule fired here |
+| Activity | every save as it lands, with what it resolved and introduced |
+
+`⌘K` jumps to a page or a file. The page is served from the binary — no Node, no
+network, no build step — and binds loopback only, refusing any other address: it
+renders your source and has no way to authenticate a browser.
+
 ## Which five do I fix on Monday
 
 A list of three hundred findings ranked by severity is what every tool prints, and it
