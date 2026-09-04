@@ -171,6 +171,16 @@ pub const fn score_ink(score: u32) -> Ink {
     }
 }
 
+/// What the mascot wears. A clean project gets the brand colour rather than the green
+/// its score is printed in, because the owl is the only mark rqx has and a green one
+/// reads as a status light instead.
+pub const fn mascot_ink(health: Option<u32>) -> Ink {
+    match health {
+        None | Some(80..=100) => Ink::Accent,
+        Some(score) => score_ink(score),
+    }
+}
+
 pub const fn grade_ink(grade: Cleanliness) -> Ink {
     match grade {
         Cleanliness::Pristine | Cleanliness::Clean => Ink::Good,

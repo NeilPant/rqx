@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 
-use crate::brand::{Ink, Palette, score_ink};
+use crate::brand::{Ink, Palette};
 use crate::check::Verdict;
 use crate::config::Resolved;
 use crate::scan::{ScanOutcome, ScanProgress};
@@ -138,13 +138,10 @@ impl Session {
         if self.failure.is_some() {
             return Ink::Danger;
         }
-        match self.health() {
-            _ if self.scanning => Ink::Accent,
-            // A clean project wears the brand colour rather than the green its score is
-            // printed in, because the mascot is the only mark rqx has.
-            None | Some(80..=100) => Ink::Accent,
-            Some(score) => score_ink(score),
+        if self.scanning {
+            return Ink::Accent;
         }
+        crate::brand::mascot_ink(self.health())
     }
 
     /// A blink is the only thing that moves. The spinner and the sweeping gauge already

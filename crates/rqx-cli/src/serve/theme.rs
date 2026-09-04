@@ -38,7 +38,19 @@ pub fn variables() -> String {
     }
     out.push('\n');
     out.push_str(COMPONENTS);
-    out.push_str("}\n");
+    out.push_str("}\n\n");
+
+    // One class per ink, named by its slug, so the server can name the band and the
+    // page never has to know which score wears which colour.
+    for ink in Ink::EVERY {
+        out.push_str(&format!(
+            ".owl-{slug} {{\n\
+             \x20 --owl-plumage: var(--ink-{slug});\n\
+             \x20 --owl-shade: color-mix(in srgb, var(--ink-{slug}) 60%, black);\n\
+             }}\n",
+            slug = ink.slug()
+        ));
+    }
     out
 }
 
@@ -110,6 +122,29 @@ mod tests {
         }
         assert!(css.contains("--background"), "no component tokens");
         assert!(css.contains("--primary"));
+        for ink in Ink::EVERY {
+            assert!(css.contains(&format!(".owl-{}", ink.slug())), "{ink:?}");
+        }
+    }
+
+    /// The terminal decides what the owl wears; the page only renders the answer. A
+    /// band the server can name and the stylesheet has no class for is the drift.
+    #[test]
+    fn every_band_the_server_can_name_has_a_class() {
+        let css = variables();
+        for health in [
+            None,
+            Some(0),
+            Some(49),
+            Some(50),
+            Some(79),
+            Some(80),
+            Some(100),
+        ] {
+            let slug = crate::brand::mascot_ink(health).slug();
+            assert!(css.contains(&format!(".owl-{slug} ")), "health {health:?}");
+        }
+        assert_eq!(crate::brand::mascot_ink(Some(92)).slug(), "accent");
     }
 
     /// The page may only wear colours the terminal wears. A token given a literal of

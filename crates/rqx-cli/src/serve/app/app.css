@@ -77,12 +77,8 @@ button {
 
 /* ── the owl ───────────────────────────────────────────────────────────── */
 
-/* The plumage is a variable so the mascot carries the verdict, the way it does in
-   the terminal: a failing repository is a red owl, not a brown one with a red mark.
-   The default is on the root rather than on `.owl`, because a value set on the svg
-   itself would shadow the band its wrapper asked for. The shade is the plumage at
-   three fifths, which is `darken` in `brand.rs` — the underside has to stay the
-   colour it is shading or the mascot grows a grey belly. */
+/* The plumage and its shade are generated per ink in `theme.rs`; the default here is
+   the class the page falls back to before a report arrives. */
 :root {
   --owl-plumage: var(--ink-accent);
   --owl-shade: color-mix(in srgb, var(--ink-accent) 60%, black);
@@ -92,21 +88,6 @@ button {
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.owl-good {
-  --owl-plumage: var(--ink-good);
-  --owl-shade: color-mix(in srgb, var(--ink-good) 60%, black);
-}
-
-.owl-warn {
-  --owl-plumage: var(--ink-warn);
-  --owl-shade: color-mix(in srgb, var(--ink-warn) 60%, black);
-}
-
-.owl-danger {
-  --owl-plumage: var(--ink-danger);
-  --owl-shade: color-mix(in srgb, var(--ink-danger) 60%, black);
 }
 
 .mark {

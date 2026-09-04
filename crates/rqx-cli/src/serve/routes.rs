@@ -91,6 +91,7 @@ async fn report(State(live): State<Arc<Live>>) -> Response {
     let outcome = live.outcome();
     let report = Report::everything(&outcome);
     let mut body = projection::scan(&report, &outcome);
+    body["mascot"] = json!(crate::brand::mascot_ink(Some(report.health())).slug());
     body["findings"] = json!(
         outcome
             .findings

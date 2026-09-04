@@ -28,11 +28,9 @@ const SEVERITY_INK = {
    hand-drawn svg. */
 const OWL = document.getElementById("owl")?.innerHTML ?? "";
 
-function Owl({ score, className }) {
-  const band =
-    score === undefined ? "" : score >= 80 ? "owl-good" : score >= 50 ? "owl-warn" : "owl-danger";
+function Owl({ band, className }) {
   return h("span", {
-    class: `${className} ${band}`,
+    class: band ? `${className} owl-${band}` : className,
     dangerouslySetInnerHTML: { __html: OWL },
   });
 }
@@ -151,7 +149,7 @@ function Overview({ report, trend, levels, go }) {
     </div>
 
     <div class="hero">
-      <${Owl} score=${report.health || 0} className="hero-owl" />
+      <${Owl} band=${report.mascot} className="hero-owl" />
       <div>
         <div class="score">
           <div class="score-value" style="color:${scoreInk(report.health || 0)}">${health}</div>
@@ -823,7 +821,7 @@ function App() {
     <div class="shell">
       <nav class="rail">
         <div class="brand">
-          <${Owl} score=${report.health || 0} className="mark" />
+          <${Owl} band=${report.mascot} className="mark" />
           <div>
             <div class="brand-name">${report.project || "rqx"}</div>
             <div class="brand-sub">health ${report.health ?? "—"}/100</div>
