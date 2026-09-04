@@ -248,7 +248,9 @@ impl Server {
     }
 
     fn reload(&mut self) {
-        if let Ok(settings) = crate::config::resolve(&self.root, self.explicit_config.as_deref()) {
+        if let Ok(settings) =
+            crate::config::resolve(&self.root, self.explicit_config.as_deref(), None)
+        {
             self.config = settings;
         }
         self.scan(None);
@@ -294,7 +296,8 @@ pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync +
 
     // Re-resolved against the client's root rather than the directory rqx was launched
     // from, or a monorepo package's own RQX.toml would be read from the wrong place.
-    let config = crate::config::resolve(&root, options.config_file.as_deref()).unwrap_or(config);
+    let config =
+        crate::config::resolve(&root, options.config_file.as_deref(), None).unwrap_or(config);
 
     let publisher = Arc::new(Publisher::new(
         connection.sender.clone(),

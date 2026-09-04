@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::advice::{AdviceId, Stance};
 use crate::language::Language;
@@ -18,12 +18,69 @@ pub const CONFIG_FILE_NAME: &str = "RQX.toml";
 /// one present, so an existing checkout keeps working.
 pub const LEGACY_CONFIG_FILE_NAME: &str = "rqx.toml";
 
+/// How much a project asks of itself. A level is a layer of settings merged *under*
+/// everything written by hand, so naming one changes the defaults and never overrides
+/// a value the project stated.
+#[derive(Copy, Clone, Debug, Default, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Level {
+    Relaxed,
+    #[default]
+    Standard,
+    Strict,
+    Pristine,
+}
+
+impl Level {
+    pub const ALL: [Self; 4] = [Self::Relaxed, Self::Standard, Self::Strict, Self::Pristine];
+
+    pub const fn slug(self) -> &'static str {
+        match self {
+            Self::Relaxed => "relaxed",
+            Self::Standard => "standard",
+            Self::Strict => "strict",
+            Self::Pristine => "pristine",
+        }
+    }
+
+    pub const fn summary(self) -> &'static str {
+        match self {
+            Self::Relaxed => "legacy code that has to stay shippable while it is cleaned up",
+            Self::Standard => "the catalogue as it stands",
+            Self::Strict => "held to what a reader can follow without effort",
+            Self::Pristine => "every rule, including the ones that are off by default",
+        }
+    }
+
+    /// The whole of what a level changes, as the TOML it would take to write by hand.
+    /// Standard is empty because it is the catalogue's own defaults.
+    pub const fn layer(self) -> &'static str {
+        match self {
+            Self::Relaxed => include_str!("levels/relaxed.toml"),
+            Self::Standard => "",
+            Self::Strict => include_str!("levels/strict.toml"),
+            Self::Pristine => include_str!("levels/pristine.toml"),
+        }
+    }
+
+    pub fn parse(slug: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|level| level.slug() == slug)
+    }
+}
+
+impl fmt::Display for Level {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.slug())
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RqxConfig {
     /// Stops the search for further config files above this one, for a repository
     /// checked out inside another one.
     pub root: bool,
+    pub level: Level,
     pub languages: Languages,
     pub thresholds: Thresholds,
     pub rules: Rules,
@@ -264,6 +321,17 @@ pub enum GateSeverity {
     Warning,
     Info,
     Never,
+}
+
+impl GateSeverity {
+    pub const fn slug(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warning => "warning",
+            Self::Info => "info",
+            Self::Never => "never",
+        }
+    }
 }
 
 impl Default for Gate {
@@ -671,6 +739,72 @@ mod tests {
 
     /// The template is prose around a copy of the defaults, so the one thing that can
     /// go wrong is the copy drifting from what the code actually uses.
+    /// A typo in a preset is a setting that silently does nothing, which is the
+    /// failure the whole table exists to prevent elsewhere.
+    #[test]
+    fn every_level_parses_and_names_only_things_that_exist() {
+        for level in Level::ALL {
+            let parsed: RqxConfig =
+                toml::from_str(level.layer()).unwrap_or_else(|error| panic!("{level}: {error}"));
+            assert!(
+                parsed.unknown_names().is_empty(),
+                "{level}: {:?}",
+                parsed.unknown_names()
+            );
+        }
+    }
+
+    /// A level moves the defaults. Letting one set `[scan]` or `[ignore]` would let
+    /// it change what is read rather than how strictly it is judged.
+    #[test]
+    fn a_level_only_moves_thresholds_rules_patterns_and_the_gate() {
+        for level in Level::ALL {
+            let table: toml::Table = toml::from_str(level.layer()).expect("a level");
+            for key in table.keys() {
+                assert!(
+                    ["thresholds", "rules", "patterns", "gate"].contains(&key.as_str()),
+                    "{level} sets [{key}]"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn pristine_turns_on_exactly_the_rules_that_ship_off() {
+        let pristine: RqxConfig = toml::from_str(Level::Pristine.layer()).expect("pristine");
+        let off: BTreeSet<&str> = RuleId::ALL
+            .iter()
+            .filter(|rule| rule.spec().off_by_default)
+            .map(|rule| rule.spec().slug)
+            .collect();
+        let named: BTreeSet<&str> = pristine.rules.enabled.iter().map(String::as_str).collect();
+        assert_eq!(named, off);
+        for rule in RuleId::ALL.iter().copied() {
+            assert!(pristine.rules.enabled(rule), "{rule} is off under pristine");
+        }
+    }
+
+    #[test]
+    fn standard_is_the_catalogue_as_it_stands() {
+        assert!(Level::Standard.layer().is_empty());
+        assert_eq!(Level::default(), Level::Standard);
+    }
+
+    #[test]
+    fn a_stricter_level_never_raises_a_threshold() {
+        let of = |level: Level| -> Thresholds {
+            toml::from_str::<RqxConfig>(level.layer())
+                .expect("a level")
+                .thresholds
+        };
+        let (relaxed, strict, pristine) =
+            (of(Level::Relaxed), of(Level::Strict), of(Level::Pristine));
+        assert!(strict.cognitive_complexity < relaxed.cognitive_complexity);
+        assert!(pristine.cognitive_complexity <= strict.cognitive_complexity);
+        assert!(strict.max_params < relaxed.max_params);
+        assert!(pristine.long_function_statements <= strict.long_function_statements);
+    }
+
     #[test]
     fn a_renamed_family_says_its_new_name() {
         for (old, category) in RENAMED_FAMILIES {
@@ -722,6 +856,7 @@ mod tests {
     #[derive(serde::Serialize)]
     struct Comparable {
         root: bool,
+        level: String,
         languages: Vec<String>,
         disabled: Vec<String>,
         enabled: Vec<String>,
@@ -744,6 +879,7 @@ mod tests {
             let t = &config.thresholds;
             Self {
                 root: config.root,
+                level: config.level.slug().to_owned(),
                 languages: config
                     .languages
                     .enabled

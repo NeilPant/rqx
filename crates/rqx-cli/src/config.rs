@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use ignore::overrides::{Override, OverrideBuilder};
 use rqx_core::config::{
-    CONFIG_FILE_NAME, LEGACY_CONFIG_FILE_NAME, RqxConfig, SCOPED_TABLES, TABLES,
+    CONFIG_FILE_NAME, LEGACY_CONFIG_FILE_NAME, Level, RqxConfig, SCOPED_TABLES, TABLES,
 };
 use toml::Value;
 
@@ -22,6 +22,9 @@ pub struct Resolved {
     pub config: RqxConfig,
     pub sources: Vec<PathBuf>,
     pub provenance: BTreeMap<&'static str, PathBuf>,
+    /// What the project actually wrote, before the level's layer went under it, so
+    /// the `from` column can tell a value a file set from one a level moved.
+    written: Value,
     scopes: Vec<Scope>,
     modules: bool,
 }
@@ -32,6 +35,7 @@ impl Clone for Resolved {
             config: self.config.clone(),
             sources: self.sources.clone(),
             provenance: self.provenance.clone(),
+            written: self.written.clone(),
             scopes: self
                 .scopes
                 .iter()
@@ -60,6 +64,7 @@ impl Resolved {
             config,
             sources: Vec::new(),
             provenance: BTreeMap::new(),
+            written: Value::Table(toml::Table::new()),
             scopes: Vec::new(),
             modules,
         }
@@ -133,11 +138,23 @@ impl Resolved {
             .or_else(|| self.sources.last())
             .map(PathBuf::as_path)
     }
+
+    /// Whether a key was written down rather than moved by the level.
+    pub fn was_written(&self, table: &str, key: &str) -> bool {
+        self.written
+            .get(table)
+            .and_then(|table| table.get(key))
+            .is_some()
+    }
+
+    pub const fn level(&self) -> Level {
+        self.config.level
+    }
 }
 
 /// The files that make up a run, lowest precedence first. An explicit path is the
 /// user saying which file they mean, so it is the only one whose absence is an error.
-pub fn resolve(root: &Path, explicit: Option<&Path>) -> Result<Resolved> {
+pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Result<Resolved> {
     let anchor = anchor_of(root);
     let mut layers: Vec<PathBuf> = Vec::new();
     layers.extend(user_config());
@@ -184,15 +201,27 @@ pub fn resolve(root: &Path, explicit: Option<&Path>) -> Result<Resolved> {
         sources.push(path);
     }
 
-    let config: RqxConfig = merged
-        .clone()
-        .try_into()
-        .with_context(|| describe(&sources))?;
+    // The level's settings go under everything written by hand, so naming a level
+    // changes the defaults and never overrides a value the project stated.
+    let chosen = match level {
+        Some(level) => level,
+        None => merged
+            .get("level")
+            .and_then(Value::as_str)
+            .and_then(Level::parse)
+            .unwrap_or_default(),
+    };
+    let effective = under(chosen, &merged)?;
+
+    let config: RqxConfig = effective.try_into().with_context(|| describe(&sources))?;
     reject_unknown_names(&config, &describe(&sources))?;
+    if level.is_some() {
+        provenance.insert("level", PathBuf::from("--level"));
+    }
 
     let mut scopes = Vec::new();
     for (path, entry) in raw_overrides {
-        scopes.push(scope(&path, entry, &merged)?);
+        scopes.push(scope(&path, entry, &merged, chosen)?);
     }
 
     let modules = config.needs_modules() || scopes.iter().any(|scope| scope.config.needs_modules());
@@ -201,6 +230,7 @@ pub fn resolve(root: &Path, explicit: Option<&Path>) -> Result<Resolved> {
         config,
         sources,
         provenance,
+        written: merged,
         scopes,
         modules,
     })
@@ -333,20 +363,36 @@ fn take_overrides(value: &mut Value, path: &Path) -> Result<Vec<Value>> {
     Ok(entries)
 }
 
-fn scope(path: &Path, entry: Value, base: &Value) -> Result<Scope> {
+fn scope(path: &Path, entry: Value, base: &Value, level: Level) -> Result<Scope> {
     let Some(table) = entry.as_table() else {
         bail!("an `[[override]]` in {} is not a table", path.display());
     };
     for key in table.keys() {
-        if key != "paths" && !SCOPED_TABLES.contains(&key.as_str()) {
+        // `level` joins `paths` rather than the scoped tables: it names a set of
+        // defaults for this subtree, which is exactly what a subtree may narrow.
+        if key != "paths" && key != "level" && !SCOPED_TABLES.contains(&key.as_str()) {
             bail!(
                 "`[[override]]` in {} sets `{key}`, which applies to the whole run and \
                  cannot be scoped to a subtree. Move it to the top level; an override \
-                 may set {}.",
+                 may set `level`, {}.",
                 path.display(),
                 SCOPED_TABLES.join(" or ")
             );
         }
+    }
+    if let Some(name) = table.get("level").and_then(Value::as_str)
+        && Level::parse(name).is_none()
+    {
+        bail!(
+            "`[[override]]` in {} sets `level = \"{name}\"`, which is not a level. \
+             Levels are {}.",
+            path.display(),
+            Level::ALL
+                .iter()
+                .map(|level| level.slug())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     let globs: Vec<String> = table
@@ -377,7 +423,25 @@ fn scope(path: &Path, entry: Value, base: &Value) -> Result<Scope> {
         .build()
         .with_context(|| format!("building the override globs in {}", path.display()))?;
 
-    let mut merged = base.clone();
+    let merged = base.clone();
+    // A subtree can be held to a different level: strict in the domain, relaxed in
+    // the scripts. The gate is dropped from a scoped preset because a gate reaches
+    // one verdict for the whole run.
+    let scoped_level = table
+        .get("level")
+        .and_then(Value::as_str)
+        .and_then(Level::parse)
+        .unwrap_or(level);
+    let mut preset = document(scoped_level.layer())?;
+    if let Some(table) = preset.as_table_mut() {
+        table.remove("gate");
+    }
+    let mut merged = {
+        let mut base = preset;
+        merge(&mut base, merged);
+        base
+    };
+
     let mut scoped = toml::Table::new();
     for name in SCOPED_TABLES {
         if let Some(value) = table.get(name) {
@@ -391,6 +455,14 @@ fn scope(path: &Path, entry: Value, base: &Value) -> Result<Scope> {
     reject_unknown_names(&config, &format!("an `[[override]]` in {}", path.display()))?;
 
     Ok(Scope { matcher, config })
+}
+
+/// A level's settings with the explicit ones on top. Written as a merge rather than
+/// a set of defaults per field so a preset stays one readable TOML file.
+fn under(level: Level, explicit: &Value) -> Result<Value> {
+    let mut base = document(level.layer()).with_context(|| format!("the `{level}` level"))?;
+    merge(&mut base, explicit.clone());
+    Ok(base)
 }
 
 fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
@@ -463,7 +535,7 @@ mod tests {
     fn an_override_that_reaches_beyond_its_subtree_is_refused() {
         let base = Value::Table(toml::Table::new());
         let entry = document("paths = [\"src/**\"]\n[scan]\nthreads = 2\n").unwrap();
-        let error = failure(scope(Path::new("RQX.toml"), entry, &base));
+        let error = failure(scope(Path::new("RQX.toml"), entry, &base, Level::Standard));
         assert!(error.contains("cannot be scoped"), "{error}");
     }
 
@@ -471,8 +543,34 @@ mod tests {
     fn an_override_without_paths_is_refused() {
         let base = Value::Table(toml::Table::new());
         let entry = document("[thresholds]\nmax_params = 9\n").unwrap();
-        let error = failure(scope(Path::new("RQX.toml"), entry, &base));
+        let error = failure(scope(Path::new("RQX.toml"), entry, &base, Level::Standard));
         assert!(error.contains("names no `paths`"), "{error}");
+    }
+
+    /// Strict in the domain and relaxed in the scripts is the reason a level can be
+    /// scoped at all; the gate is not, because a run reaches one verdict.
+    #[test]
+    fn an_override_may_hold_its_subtree_to_a_different_level() {
+        let base = Value::Table(toml::Table::new());
+        let entry = document("paths = [\"src/domain/**\"]\nlevel = \"strict\"\n").unwrap();
+        let scoped = scope(Path::new("RQX.toml"), entry, &base, Level::Relaxed).unwrap();
+        assert_eq!(scoped.config.thresholds.cognitive_complexity, 10);
+        assert_eq!(
+            scoped.config.gate.fail_on.slug(),
+            "error",
+            "a scoped level must not move the gate"
+        );
+    }
+
+    #[test]
+    fn a_level_never_overrides_what_the_project_wrote() {
+        let base = Value::Table(toml::Table::new());
+        let entry =
+            document("paths = [\"src/**\"]\nlevel = \"strict\"\n[thresholds]\nmax_params = 9\n")
+                .unwrap();
+        let scoped = scope(Path::new("RQX.toml"), entry, &base, Level::Standard).unwrap();
+        assert_eq!(scoped.config.thresholds.max_params, 9);
+        assert_eq!(scoped.config.thresholds.nesting_depth, 2);
     }
 
     #[test]
@@ -480,7 +578,7 @@ mod tests {
         let base = Value::Table(toml::Table::new());
         let entry =
             document("paths = [\"src/**\"]\n[rules]\ncategories = [\"bloaters\"]\n").unwrap();
-        let error = failure(scope(Path::new("RQX.toml"), entry, &base));
+        let error = failure(scope(Path::new("RQX.toml"), entry, &base, Level::Standard));
         assert!(
             error.contains("`bloaters`") && error.contains("`size`"),
             "{error}"
@@ -491,7 +589,7 @@ mod tests {
     fn an_override_keeps_the_thresholds_it_does_not_mention() {
         let base = document("[thresholds]\nmax_params = 9\nnesting_depth = 7\n").unwrap();
         let entry = document("paths = [\"src/**\"]\n[thresholds]\nmax_params = 2\n").unwrap();
-        let scope = scope(Path::new("RQX.toml"), entry, &base).unwrap();
+        let scope = scope(Path::new("RQX.toml"), entry, &base, Level::Standard).unwrap();
         assert_eq!(scope.config.thresholds.max_params, 2);
         assert_eq!(scope.config.thresholds.nesting_depth, 7);
     }

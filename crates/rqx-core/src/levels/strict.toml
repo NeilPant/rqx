@@ -1,0 +1,28 @@
+# A codebase held to what a reader can follow without effort. Thresholds are close
+# to what a well-factored module already meets, four naming rules are on, and the
+# gate fails on a warning rather than only on an error.
+
+[thresholds]
+long_function_statements = 25
+cognitive_complexity = 10
+nesting_depth = 2
+max_params = 3
+class_members = 15
+class_statements = 150
+condition_operands = 2
+message_chain_depth = 2
+magic_number_repeats = 2
+expression_operations = 4
+declaration_distance_lines = 12
+
+[rules]
+enabled = [
+  "negative-conditional",
+  "short-name-wide-scope",
+  "hungarian-notation",
+  "inconsistent-vocabulary",
+]
+
+[gate]
+fail_on = "warning"
+min_grade = "fair"

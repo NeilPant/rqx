@@ -8,6 +8,11 @@
 # repository that lives inside another repository.
 root = false
 
+# How much this project asks of itself: relaxed, standard, strict or pristine. A
+# level is a layer of settings merged *under* everything below, so naming one moves
+# the defaults and never overrides a value written here. `rqx levels` prints them.
+level = "standard"
+
 [languages]
 # Empty means all of them. Naming one costs the others nothing either way: the
 # file walker never opens a path no enabled language claims.
@@ -141,8 +146,13 @@ disabled = []
 # nothing or this many rounds have run.
 max_rounds = 3
 
-# A subtree can relax or tighten thresholds and rules, and nothing else — the
-# walker is built once and the gate reaches one verdict.
+# A subtree can be held to a different level, or relax or tighten thresholds and
+# rules — and nothing else, because the walker is built once and the gate reaches one
+# verdict. A scoped level moves that subtree's defaults and leaves the gate alone.
+# [[override]]
+# paths = ["src/domain/**"]
+# level = "strict"
+#
 # [[override]]
 # paths = ["src/generated/**"]
 # [override.rules]

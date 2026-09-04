@@ -436,6 +436,14 @@ fn configuration_page() -> String {
          is an error, not a silent no-op, because a `categories` allowlist naming only \
          unknown families would otherwise turn every rule off. `rqx rules` lists every \
          name that is valid.\n\n\
+         ## Levels\n\n\
+         `level = \"strict\"` in `RQX.toml`, or `--level strict` on the command line, \
+         picks a named set of defaults. A level is merged *under* everything you wrote, \
+         so it moves the defaults and never overrides a value you stated; `rqx config` \
+         shows `level:strict` in the `from` column for a value the level moved. An \
+         `[[override]]` may name its own `level`, so a project can be strict in its \
+         domain and relaxed in its scripts. `rqx levels` prints each one as the \
+         settings it would take to write by hand.\n\n\
          ## The gate\n\n\
          `rqx check` always gates. **`rqx scan` gates only when you pass one of \
          `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade`**, so a `[gate]` \

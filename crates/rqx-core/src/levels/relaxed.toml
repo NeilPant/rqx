@@ -1,0 +1,29 @@
+# Legacy code, or a repository that has to stay shippable while it is cleaned up.
+# The thresholds sit where a large existing codebase can meet them, and the rules
+# that read as opinion rather than defect are off.
+
+[thresholds]
+long_function_statements = 60
+cognitive_complexity = 25
+nesting_depth = 4
+max_params = 6
+class_members = 30
+class_statements = 300
+condition_operands = 4
+message_chain_depth = 4
+magic_number_repeats = 5
+expression_operations = 8
+declaration_distance_lines = 40
+
+[rules]
+disabled = [
+  "magic-number",
+  "redundant-comment",
+  "distant-declaration",
+  "buried-configuration",
+  "obscured-expression",
+  "lazy-class",
+  "data-class",
+  "flag-argument",
+  "complex-condition",
+]

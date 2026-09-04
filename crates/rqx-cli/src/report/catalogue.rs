@@ -217,6 +217,62 @@ fn prescribed() -> BTreeSet<FixTechnique> {
         .collect()
 }
 
+/// Each level printed as the TOML it is, because a preset that changed twelve
+/// thresholds and nine rules invisibly would be the trap the config file avoids.
+pub fn levels(palette: Palette) -> Result<()> {
+    let mut out = anstream::stdout().lock();
+    let dim = palette.style(Ink::Muted);
+
+    for level in rqx_core::config::Level::ALL {
+        let config: rqx_core::RqxConfig = toml::from_str(level.layer()).unwrap_or_default();
+        let on = RuleId::ALL
+            .iter()
+            .copied()
+            .filter(|rule| config.rules.enabled(*rule))
+            .count();
+        writeln!(
+            out,
+            "\n  {}  {}",
+            paint(palette.style(Ink::Accent).bold(), level.slug()),
+            paint(dim, level.summary())
+        )?;
+        writeln!(
+            out,
+            "  {}",
+            paint(
+                dim,
+                format!(
+                    "{on} of {} rules \u{b7} gate fails on {}",
+                    RuleId::ALL.len(),
+                    config.gate.fail_on.slug()
+                )
+            )
+        )?;
+        if level.layer().is_empty() {
+            writeln!(out, "\n    {}", paint(dim, "the catalogue's own defaults"))?;
+            continue;
+        }
+        writeln!(out)?;
+        for line in level.layer().lines() {
+            let ink = if line.trim_start().starts_with('#') {
+                dim
+            } else {
+                palette.style(Ink::Text)
+            };
+            writeln!(out, "    {}", paint(ink, line))?;
+        }
+    }
+    writeln!(
+        out,
+        "\n  {}\n",
+        paint(
+            dim,
+            "A level is merged under your own settings, so anything you write wins."
+        )
+    )?;
+    Ok(())
+}
+
 pub fn techniques(palette: Palette) -> Result<()> {
     let mut out = anstream::stdout().lock();
     let prescribed = prescribed();

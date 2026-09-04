@@ -26,7 +26,7 @@ use crate::check::{Review, Verdict};
 use crate::scan::ScanOutcome;
 
 pub use brief::{json as brief_json, markdown as brief_markdown, render as brief};
-pub use catalogue::{explain, rules, techniques};
+pub use catalogue::{explain, levels, rules, techniques};
 pub use docs::write as docs;
 pub use fixes::{json as fixes_json, render as fixes};
 pub use patterns::{

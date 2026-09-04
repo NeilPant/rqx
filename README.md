@@ -192,6 +192,29 @@ applicable rule must fire on that language's fixtures, and every exempted rule m
 stay silent on them — so a rule that quietly stops working in one language fails the
 build rather than going unnoticed.
 
+## Levels
+
+How much a project asks of itself is one word:
+
+```toml
+level = "strict"
+```
+
+| Level | Rules | Gate | For |
+|---|---|---|---|
+| `relaxed` | 41 of 60 | error | legacy code that has to stay shippable while it is cleaned up |
+| `standard` | 50 of 60 | error | the catalogue as it stands |
+| `strict` | 54 of 60 | warning, min grade `fair` | held to what a reader can follow without effort |
+| `pristine` | 60 of 60 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
+
+A level is merged **under** everything you wrote, so it moves the defaults and never
+overrides a value you stated — `rqx config` says `level:strict` in the `from` column
+for a value the level moved, and names your file for one you set. `--level strict`
+overrides the file, because CI usually wants a stricter standard on the default branch
+than a working copy does, and an `[[override]]` may name its own level, so a project can
+be strict in its domain and relaxed in its scripts. `rqx levels` prints each one as the
+settings it would take to write by hand.
+
 ## Configuration
 
 `rqx init` writes an `RQX.toml` with every setting at its default and a line of prose

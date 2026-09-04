@@ -1,0 +1,35 @@
+# Every rule in the catalogue, including the ten that are off by default because
+# they are noisy or encode a convention not every project shares. For a new
+# codebase, or one where the standard is the point.
+
+[thresholds]
+long_function_statements = 20
+cognitive_complexity = 8
+nesting_depth = 2
+max_params = 3
+class_members = 12
+class_statements = 120
+condition_operands = 2
+message_chain_depth = 2
+magic_number_repeats = 2
+expression_operations = 4
+declaration_distance_lines = 10
+
+[rules]
+enabled = [
+  "primitive-obsession",
+  "divergent-change",
+  "parallel-inheritance",
+  "misleading-pattern-name",
+  "inconsistent-vocabulary",
+  "alternative-classes",
+  "meaningless-name",
+  "short-name-wide-scope",
+  "hungarian-notation",
+  "negative-conditional",
+]
+
+[gate]
+fail_on = "info"
+min_grade = "clean"
+min_health = 90

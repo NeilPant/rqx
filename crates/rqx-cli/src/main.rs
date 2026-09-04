@@ -71,6 +71,8 @@ enum Command {
         #[arg(default_value = ".")]
         path: PathBuf,
         #[command(flatten)]
+        standard: Standard,
+        #[command(flatten)]
         view: View,
         #[command(flatten)]
         gate: Gate,
@@ -90,6 +92,8 @@ enum Command {
     Fix {
         #[arg(default_value = ".")]
         path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
         /// Write the fixes. Without it nothing on disk changes.
         #[arg(long, short)]
         write: bool,
@@ -125,11 +129,16 @@ enum Command {
     },
     /// List every refactoring Rqx prescribes, and which rules ask for it
     Techniques,
+    /// Print what each cleanliness level changes, as the settings it would take to
+    /// write it by hand
+    Levels,
     /// Report which design patterns a project uses, which are half applied, and where
     /// one would fit
     Patterns {
         #[arg(default_value = ".")]
         path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
         /// Print what rqx does about every pattern in the book, without scanning
         #[arg(long)]
         coverage: bool,
@@ -145,6 +154,8 @@ enum Command {
     Check {
         #[arg(default_value = ".")]
         path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
         /// Revision to compare against
         #[arg(long, default_value = "origin/HEAD")]
         base: String,
@@ -182,6 +193,8 @@ enum Command {
     Config {
         #[arg(default_value = ".")]
         path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -214,6 +227,38 @@ enum Command {
 /// Every option here narrows the report and none of them touch the scan, the health
 /// score or the gate: a display flag that changed the verdict would make a CI result
 /// depend on how it was printed.
+/// A named set of defaults, merged under whatever the project wrote. Declared here
+/// rather than only in the config file because CI usually wants a stricter standard
+/// on the default branch than a working copy does.
+#[derive(Args, Default)]
+struct Standard {
+    /// relaxed, standard, strict or pristine
+    #[arg(long, value_name = "LEVEL")]
+    level: Option<String>,
+}
+
+impl Standard {
+    fn chosen(&self) -> Result<Option<rqx_core::config::Level>> {
+        let Some(name) = self.level.as_deref() else {
+            return Ok(None);
+        };
+        rqx_core::config::Level::parse(name)
+            .map(Some)
+            .ok_or_else(|| {
+                let names: Vec<&str> = rqx_core::config::Level::ALL
+                    .iter()
+                    .map(|level| level.slug())
+                    .collect();
+                report::unknown(
+                    "level",
+                    name,
+                    &names,
+                    "Levels set the defaults; anything you write wins over them.",
+                )
+            })
+    }
+}
+
 #[derive(Args, Default)]
 struct View {
     /// Show only findings at or above this severity
@@ -517,7 +562,7 @@ fn open_tui(path: &Path, config: Option<&Path>, motion: Motion) -> Result<Exit> 
             path.display()
         );
     }
-    let settings = config::resolve(path, config)?;
+    let settings = config::resolve(path, config, None)?;
     let source = settings.display_source();
     let root = path.display().to_string();
     let options = tui::Launch {
@@ -618,6 +663,7 @@ fn run() -> Result<Exit> {
     match command {
         Command::Scan {
             path,
+            standard,
             view,
             gate,
             advice,
@@ -631,7 +677,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref())?;
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
             if let Some(max) = max_findings {
                 settings.config.scan.max_findings = max;
             }
@@ -663,6 +709,7 @@ fn run() -> Result<Exit> {
         }
         Command::Fix {
             path,
+            standard,
             write,
             max_rounds,
             json,
@@ -677,7 +724,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref())?;
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
@@ -731,6 +778,7 @@ fn run() -> Result<Exit> {
         }
         Command::Patterns {
             path,
+            standard,
             coverage,
             json,
             threads,
@@ -745,7 +793,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref())?;
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
@@ -758,12 +806,17 @@ fn run() -> Result<Exit> {
         }
         Command::Docs { out, fixtures } => report::docs(&out, &fixtures).map(|()| Exit::Clean),
         Command::Init { path, force } => write_template(&path, force).map(|()| Exit::Clean),
-        Command::Config { path, config } => {
-            let settings = config::resolve(&path, config.as_deref())?;
+        Command::Config {
+            path,
+            standard,
+            config,
+        } => {
+            let settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
             report::config(&settings, palette).map(|()| Exit::Clean)
         }
         Command::Check {
             path,
+            standard,
             base,
             fix,
             write,
@@ -777,7 +830,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref())?;
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
             gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;
@@ -809,12 +862,12 @@ fn run() -> Result<Exit> {
             Ok(Exit::of(!verdict.passed()))
         }
         Command::Mcp { path, http, config } => {
-            let settings = config::resolve(&path, config.as_deref())?;
+            let settings = config::resolve(&path, config.as_deref(), None)?;
             mcp::serve(&path, settings, http)?;
             Ok(Exit::Clean)
         }
         Command::Lsp { path, config } => {
-            let settings = config::resolve(&path, config.as_deref())?;
+            let settings = config::resolve(&path, config.as_deref(), None)?;
             lsp::serve(&path, settings).map_err(|error| anyhow::anyhow!("{error}"))?;
             Ok(Exit::Clean)
         }
@@ -823,5 +876,6 @@ fn run() -> Result<Exit> {
             report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
         }
         Command::Techniques => report::techniques(palette).map(|()| Exit::Clean),
+        Command::Levels => report::levels(palette).map(|()| Exit::Clean),
     }
 }
