@@ -3,7 +3,11 @@ use std::env;
 use ratatui::style::Color;
 
 /// Every colour in Rqx is one of these. Screens name the role, never the hex, so
-/// the palette can be retuned or downgraded in one place.
+/// the palette can be retuned or downgraded in one place — the whole scheme moved
+/// to the owl's own colours by editing the three tables below.
+///
+/// Sixteen-colour terminals have no brown, so `Accent` falls back to the dark-yellow
+/// slot there and `Warn` moves up to bright yellow to stay apart from it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Ink {
     Accent,
@@ -39,53 +43,53 @@ impl Ink {
 
     const fn rgb(self) -> (u8, u8, u8) {
         match self {
-            Self::Accent => (0x4A, 0x9E, 0xFF),
-            Self::Danger => (0xE5, 0x48, 0x4D),
+            Self::Accent => (0xC9, 0x92, 0x63),
+            Self::Danger => (0xD9, 0x53, 0x3F),
             Self::Warn => (0xE8, 0xA3, 0x3D),
-            Self::Good => (0x3D, 0xD6, 0x8C),
-            Self::Text => (0xD6, 0xDE, 0xE8),
-            Self::Muted => (0x5A, 0x64, 0x72),
-            Self::Ground => (0x14, 0x17, 0x1A),
+            Self::Good => (0x8F, 0xBF, 0x5A),
+            Self::Text => (0xF0, 0xE6, 0xD8),
+            Self::Muted => (0x94, 0x81, 0x6F),
+            Self::Ground => (0x17, 0x12, 0x0E),
             Self::Signal => (0xFF, 0xC2, 0x4A),
         }
     }
 
     const fn ansi256(self) -> u8 {
         match self {
-            Self::Accent => 75,
+            Self::Accent => 180,
             Self::Danger => 167,
             Self::Warn => 179,
-            Self::Good => 78,
-            Self::Text => 253,
-            Self::Muted => 242,
-            Self::Ground => 234,
+            Self::Good => 107,
+            Self::Text => 230,
+            Self::Muted => 137,
+            Self::Ground => 233,
             Self::Signal => 215,
         }
     }
 
     const fn ansi16(self) -> Color {
         match self {
-            Self::Accent => Color::Blue,
+            Self::Accent => Color::Yellow,
             Self::Danger => Color::Red,
-            Self::Warn => Color::Yellow,
+            Self::Warn => Color::LightYellow,
             Self::Good => Color::Green,
             Self::Text => Color::White,
             Self::Muted => Color::DarkGray,
             Self::Ground => Color::Black,
-            Self::Signal => Color::Yellow,
+            Self::Signal => Color::LightYellow,
         }
     }
 
     const fn ansi16_plain(self) -> anstyle::AnsiColor {
         match self {
-            Self::Accent => anstyle::AnsiColor::Blue,
+            Self::Accent => anstyle::AnsiColor::Yellow,
             Self::Danger => anstyle::AnsiColor::Red,
-            Self::Warn => anstyle::AnsiColor::Yellow,
+            Self::Warn => anstyle::AnsiColor::BrightYellow,
             Self::Good => anstyle::AnsiColor::Green,
             Self::Text => anstyle::AnsiColor::White,
             Self::Muted => anstyle::AnsiColor::BrightBlack,
             Self::Ground => anstyle::AnsiColor::Black,
-            Self::Signal => anstyle::AnsiColor::Yellow,
+            Self::Signal => anstyle::AnsiColor::BrightYellow,
         }
     }
 }

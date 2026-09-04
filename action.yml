@@ -1,9 +1,9 @@
 name: "Rqx"
-description: "Find dead code, duplication and architectural drift in TypeScript, with a reason for every finding."
+description: "Find dead code, duplication and architectural drift in TypeScript, Python, Go, Java and C++, with a reason for every finding."
 author: "Jad Alhamwi"
 branding:
   icon: search
-  color: blue
+  color: orange
 
 inputs:
   path:

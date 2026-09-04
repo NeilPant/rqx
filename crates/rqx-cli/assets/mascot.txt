@@ -1,12 +1,13 @@
 # rqx. An owl: a quiet, precise thing that spots small movement and turns its head
 # to follow it. 11x10 pixels, six frames.
 #
-# A plumage, S the eyes and beak, K a closed lid. The gold is replaced at render time
-# by what the scan found, so the bird reports rather than decorates.
+# A plumage, T the pale chest, S the eyes and beak, K a closed lid. The gold is
+# replaced at render time by what the scan found, so the bird reports rather than
+# decorates.
 #
 # Two pixel rows share one terminal cell, so the eyes and the beak are each drawn two
-# rows tall and cell-aligned; a feature spanning half a cell renders as a half block.
-# The lids are the deliberate exception, because a lid is a line.
+# rows tall and cell-aligned; a feature spanning half a cell renders as a half block
+# and reads as a smudge. The lids are the deliberate exception: a lid is a line.
 #: idle
 ...AAAAA...
 .AAAAAAAAA.
@@ -14,9 +15,9 @@ AASSAAASSAA
 AASSAAASSAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
+.AATTTTTAA.
+.AATTTTTAA.
+..ATTTTTA..
 ..AA...AA..
 #: blink
 ...AAAAA...
@@ -25,9 +26,9 @@ AAAAAAAAAAA
 AAKKAAAKKAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
+.AATTTTTAA.
+.AATTTTTAA.
+..ATTTTTA..
 ..AA...AA..
 #: look-left
 ...AAAAA...
@@ -36,9 +37,9 @@ ASSAAASSAAA
 ASSAAASSAAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
+.AATTTTTAA.
+.AATTTTTAA.
+..ATTTTTA..
 ..AA...AA..
 #: look-right
 ...AAAAA...
@@ -47,9 +48,9 @@ AAASSAAASSA
 AAASSAAASSA
 AAAAASAAAAA
 AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
+.AATTTTTAA.
+.AATTTTTAA.
+..ATTTTTA..
 ..AA...AA..
 #: alert
 ...AAAAA...
@@ -58,9 +59,9 @@ ASSSAAASSSA
 ASSSAAASSSA
 AAAAASAAAAA
 AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
+.AATTTTTAA.
+.AATTTTTAA.
+..ATTTTTA..
 ..AA...AA..
 #: pleased
 ...AAAAA...
@@ -69,7 +70,7 @@ AAAAAAAAAAA
 AASSAAASSAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
+.AATTTTTAA.
+.AATTTTTAA.
+..ATTTTTA..
 ..AA...AA..
