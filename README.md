@@ -382,6 +382,11 @@ change within one poll interval.
 | Rules | the catalogue, with how often each rule fired here |
 | Activity | every save as it lands, with what it resolved and introduced |
 
+It is the terminal's own theme: the palette comes from `brand.rs` rather than being
+restated, so retuning a colour moves both, and the owl carries the verdict the way it
+does in `rqx` — a failing repository is a red owl, not a brown one with a red mark on
+it. Dark, warm and readable from a phone to a wide monitor.
+
 `⌘K` jumps to a page or a file. The page is served from the binary — no Node, no
 network, no build step — and binds loopback only, refusing any other address: it
 renders your source and has no way to authenticate a browser.

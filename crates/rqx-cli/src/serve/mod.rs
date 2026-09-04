@@ -1,5 +1,6 @@
 mod project;
 mod routes;
+mod theme;
 
 use std::net::SocketAddr;
 use std::path::Path;

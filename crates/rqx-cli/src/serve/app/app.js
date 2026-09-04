@@ -7,14 +7,35 @@ const { useState, useEffect, useMemo, useRef, useCallback } = preactHooks;
 const html = htm.bind(h);
 
 const GRADES = ["pristine", "clean", "fair", "poor", "critical"];
+
+/* The same bands the terminal paints: `grade_ink` and `severity_ink` in brand.rs.
+   A grade that was green in `rqx scan` and amber here would be two verdicts. */
 const GRADE_INK = {
-  pristine: "var(--accent)",
-  clean: "var(--good)",
-  fair: "var(--warn)",
-  poor: "#e07a2b",
-  critical: "var(--bad)",
+  pristine: "var(--ink-good)",
+  clean: "var(--ink-good)",
+  fair: "var(--ink-accent)",
+  poor: "var(--ink-warn)",
+  critical: "var(--ink-danger)",
 };
-const SEVERITY_INK = { error: "var(--bad)", warning: "var(--warn)", info: "var(--info)" };
+const SEVERITY_INK = {
+  error: "var(--ink-danger)",
+  warning: "var(--ink-warn)",
+  info: "var(--ink-muted)",
+};
+
+/* The owl is rendered by the server from the same pixel art the terminal reads, and
+   parked in a <template> so every copy on the page is one clone rather than one more
+   hand-drawn svg. */
+const OWL = document.getElementById("owl")?.innerHTML ?? "";
+
+function Owl({ score, className }) {
+  const band =
+    score === undefined ? "" : score >= 80 ? "owl-good" : score >= 50 ? "owl-warn" : "owl-danger";
+  return h("span", {
+    class: `${className} ${band}`,
+    dangerouslySetInnerHTML: { __html: OWL },
+  });
+}
 
 const PAGES = [
   ["overview", "Overview"],
@@ -55,10 +76,12 @@ function useCounted(target) {
   return shown;
 }
 
+/* `score_ink` in brand.rs: 80 and 50, not 90 and 70. The page used its own cutoffs
+   and disagreed with the terminal about whether the same number was healthy. */
 function scoreInk(score) {
-  if (score >= 90) return "var(--good)";
-  if (score >= 70) return "var(--warn)";
-  return "var(--bad)";
+  if (score >= 80) return "var(--ink-good)";
+  if (score >= 50) return "var(--ink-warn)";
+  return "var(--ink-danger)";
 }
 
 /* ── overview ─────────────────────────────────────────────────────────── */
@@ -128,6 +151,7 @@ function Overview({ report, trend, levels, go }) {
     </div>
 
     <div class="hero">
+      <${Owl} score=${report.health || 0} className="hero-owl" />
       <div>
         <div class="score">
           <div class="score-value" style="color:${scoreInk(report.health || 0)}">${health}</div>
@@ -143,16 +167,16 @@ function Overview({ report, trend, levels, go }) {
     <div class="cards">
       <div class="card">
         <div class="card-label">Errors</div>
-        <div class="card-value" style="color:var(--bad)">${severities.error || 0}</div>
+        <div class="card-value" style="color:var(--ink-danger)">${severities.error || 0}</div>
         <div class="card-note">never a false positive</div>
       </div>
       <div class="card">
         <div class="card-label">Warnings</div>
-        <div class="card-value" style="color:var(--warn)">${severities.warning || 0}</div>
+        <div class="card-value" style="color:var(--ink-warn)">${severities.warning || 0}</div>
       </div>
       <div class="card">
         <div class="card-label">Auto-fixable</div>
-        <div class="card-value" style="color:var(--good)">
+        <div class="card-value" style="color:var(--ink-good)">
           ${(report.findings || []).filter((finding) => finding.autofixable).length}
         </div>
         <div class="card-note">rqx fix --write</div>
@@ -174,7 +198,7 @@ function Overview({ report, trend, levels, go }) {
       <h2>What it would score at each level</h2>
       <div class="sub" style="margin:-6px 0 12px">
         Counted from the findings in hand: a level also moves thresholds, and a moved
-        threshold decides whether a finding exists at all, so run
+        threshold decides whether a finding exists at all — run${" "}
         <code>rqx scan --level strict</code> for the exact answer.
       </div>
       <div class="levels">
@@ -388,9 +412,11 @@ function Files({ report, openFile }) {
   for (const finding of report.findings || []) {
     counts[finding.file] = (counts[finding.file] || 0) + 1;
   }
-  const order = GRADES.slice().reverse();
+  // GRADES runs best to worst, so the worst-first order is its index ascending.
+  // Subtracting the other way round put pristine at the top of a list whose own
+  // header says "worst grade first".
   const files = Object.keys(grades).sort((left, right) => {
-    const rank = order.indexOf(grades[right]) - order.indexOf(grades[left]);
+    const rank = GRADES.indexOf(grades[right]) - GRADES.indexOf(grades[left]);
     return rank !== 0 ? rank : (counts[right] || 0) - (counts[left] || 0);
   });
 
@@ -505,7 +531,7 @@ function Rules({ report }) {
               .map(
                 (rule) => html`
                   <div class="row row-findings" key=${rule.slug}>
-                    <span class="pip" style="background:${fired[rule.slug] ? "var(--warn)" : "var(--line-strong)"}"></span>
+                    <span class="pip" style="background:${fired[rule.slug] ? "var(--ink-warn)" : "var(--border)"}"></span>
                     <span class="rule">${rule.slug}</span>
                     <span class="evidence">${rule.why}</span>
                     <span class="num">${fired[rule.slug] || 0}</span>
@@ -537,7 +563,7 @@ function Activity({ feed }) {
               ${entry.resolved > 0 &&
               html`<span class="tag fixable">−${entry.resolved}</span>`}
               ${entry.introduced > 0 &&
-              html`<span class="tag" style="color:var(--bad)"> +${entry.introduced}</span>`}
+              html`<span class="tag bad">+${entry.introduced}</span>`}
               ${entry.resolved === 0 && entry.introduced === 0 &&
               html`<span class="tag">no change</span>`}
             </span>
@@ -603,7 +629,7 @@ function Drawer({ target, onClose }) {
           ${target.technique && html`
             <div class="field">
               <div class="field-label">Refactoring</div>
-              <div style="color:var(--good)">${target.technique.join(" / ")}</div>
+              <div style="color:var(--ink-good)">${target.technique.join(" / ")}</div>
               ${target.hint && html`<div class="sub">${target.hint}</div>`}
             </div>`}
           ${target.autofixable && html`
@@ -757,7 +783,21 @@ function App() {
 
   const go = useCallback((id) => {
     setPage(id);
+    // A drawer left open over a page the reader has moved away from is a drawer they
+    // have to dismiss before they can see what they asked for.
+    setTarget(null);
     location.hash = id;
+  }, []);
+
+  // Without this the hash is written and never read again: back, forward and a
+  // pasted link all leave the page showing whatever was open when it loaded.
+  useEffect(() => {
+    const moved = () => {
+      setPage(location.hash.slice(1) || "overview");
+      setTarget(null);
+    };
+    addEventListener("hashchange", moved);
+    return () => removeEventListener("hashchange", moved);
   }, []);
 
   useEffect(() => {
@@ -783,8 +823,11 @@ function App() {
     <div class="shell">
       <nav class="rail">
         <div class="brand">
-          <div class="mark">r</div>
-          <div class="brand-name">${report.project || "rqx"}</div>
+          <${Owl} score=${report.health || 0} className="mark" />
+          <div>
+            <div class="brand-name">${report.project || "rqx"}</div>
+            <div class="brand-sub">health ${report.health ?? "—"}/100</div>
+          </div>
         </div>
         ${PAGES.map(
           ([id, label]) => html`

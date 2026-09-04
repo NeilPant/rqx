@@ -29,7 +29,18 @@ pub fn router(live: Arc<Live>) -> Router {
 
     Router::new()
         .route("/", get(page))
-        .route("/app.css", get(|| async { asset("text/css", STYLE) }))
+        .route(
+            "/app.css",
+            // The palette is prepended rather than written into the stylesheet, so
+            // the page cannot hold a colour the terminal has stopped using.
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/css")],
+                    format!("{}\n{STYLE}", super::theme::variables()),
+                )
+                    .into_response()
+            }),
+        )
         .route(
             "/app.js",
             get(|| async { asset("text/javascript", SCRIPT) }),
@@ -59,6 +70,7 @@ async fn page(State(live): State<Arc<Live>>) -> Response {
     );
     let body = PAGE
         .replace("{{nonce}}", &live.nonce)
+        .replace("{{owl}}", &super::theme::owl("idle"))
         .replace("{{project}}", &html_escape(&name));
     ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response()
 }
