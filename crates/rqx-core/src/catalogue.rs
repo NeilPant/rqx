@@ -258,6 +258,7 @@ catalogue! {
         severity: Warning,
         why: "an export nobody imports still has to be read, typechecked and kept working \
               during every refactor that touches it",
+        autofix: Deletion,
     },
     UnusedFile {
         slug: "unused-file",
@@ -271,6 +272,7 @@ catalogue! {
         severity: Warning,
         why: "nothing in the build reaches this file, so every hour spent maintaining it \
               buys nothing",
+        autofix: Deletion,
     },
     UnusedParameter {
         slug: "unused-parameter",
@@ -284,6 +286,7 @@ catalogue! {
         severity: Warning,
         why: "every caller is passing a value that is read nowhere, so the argument list \
               is teaching readers something untrue about the function",
+        autofix: Rewrite,
     },
     UnusedLocal {
         slug: "unused-local",
@@ -297,6 +300,7 @@ catalogue! {
         severity: Warning,
         why: "the value is computed and thrown away, which either wastes the work or \
               hides the fact that somebody meant to use it",
+        autofix: Deletion,
     },
     UnusedPrivateMember {
         slug: "unused-private-member",
@@ -310,6 +314,7 @@ catalogue! {
         severity: Warning,
         why: "a private member can only be used from inside its class, so one nothing in \
               the class touches is unreachable by construction",
+        autofix: Deletion,
         not_applicable: [
             (Go, "Go scopes visibility to the package, not the type, so a field unused in one file may be read by another beside it"),
         ],
@@ -326,6 +331,7 @@ catalogue! {
         severity: Error,
         why: "this code cannot run, so whatever it was meant to do is not happening and \
               has not been happening",
+        autofix: Deletion,
     },
     CommentedOutCode {
         slug: "commented-out-code",
@@ -339,6 +345,7 @@ catalogue! {
         severity: Warning,
         why: "nobody dares delete it because nobody knows if it matters, so it sits there \
               rotting while version control already remembers it perfectly",
+        autofix: Deletion,
     },
     LazyClass {
         slug: "lazy-class",
@@ -463,6 +470,7 @@ catalogue! {
         severity: Info,
         why: "a reader who has to guess which convention a name follows cannot skim, \
               and the mixture spreads every time somebody copies a neighbouring line",
+        autofix: Rewrite,
     },
     SlowTest {
         slug: "slow-test",
@@ -600,6 +608,7 @@ catalogue! {
         severity: Info,
         why: "version control already answers who and when, and unlike the comment it \
               is not left behind by the next edit",
+        autofix: Deletion,
     },
     RedundantComment {
         slug: "redundant-comment",
@@ -613,6 +622,7 @@ catalogue! {
         severity: Info,
         why: "it takes space and attention to say what the name has already said, and \
               it is one more thing to keep true when the name changes",
+        autofix: Deletion,
     },
 
     VagueFunctionName {
@@ -757,6 +767,7 @@ catalogue! {
         severity: Warning,
         why: "a check that would have caught the next mistake here has been turned off, \
               and the comment turning it off outlives the reason for it",
+        autofix: Deletion,
     },
     FlagArgument {
         slug: "flag-argument",
@@ -809,6 +820,7 @@ catalogue! {
         severity: Info,
         why: "the reader has to invert it mentally to follow the else, and inverting a \
               compound condition by hand is where off-by-one logic errors come from",
+        autofix: Rewrite,
         off_by_default: true,
     },
 
@@ -825,6 +837,7 @@ catalogue! {
         severity: Warning,
         why: "a skipped test is a question nobody answered; it reports green forever while \
               the behaviour it named goes unchecked",
+        autofix: Deletion,
     },
     FocusedTest {
         slug: "focused-test",
@@ -838,6 +851,7 @@ catalogue! {
         severity: Error,
         why: "this silently disables every other test in the file, so the suite goes green \
               while almost nothing ran",
+        autofix: Deletion,
         not_applicable: [
             (Python, "pytest and unittest focus a run with `-k` on the command line; \
                       there is nothing in the source to find"),

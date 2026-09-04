@@ -91,6 +91,41 @@ pub enum Analysis {
     Modules,
 }
 
+/// Whether a rule's fix is an edit rqx can make or a decision only a person can.
+/// Declared per rule rather than derived from `fixes`, because `RemoveDeadCode` is
+/// prescribed by seven rules and deleting an unused local is safe where deleting an
+/// empty catch changes which exceptions propagate.
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Autofix {
+    /// No edit is right without a design decision.
+    Refactoring,
+    /// Removes source nothing reaches.
+    Deletion,
+    /// Rewrites live source to a form that behaves identically.
+    Rewrite,
+}
+
+impl Autofix {
+    pub const fn slug(self) -> &'static str {
+        match self {
+            Self::Refactoring => "refactoring",
+            Self::Deletion => "deletion",
+            Self::Rewrite => "rewrite",
+        }
+    }
+
+    pub const fn is_automatic(self) -> bool {
+        !matches!(self, Self::Refactoring)
+    }
+
+    pub fn parse(slug: &str) -> Option<Self> {
+        [Self::Refactoring, Self::Deletion, Self::Rewrite]
+            .into_iter()
+            .find(|kind| kind.slug() == slug)
+    }
+}
+
 /// A rule that reaches output without every field of this struct is a rule whose
 /// findings cannot be traced to the catalogue they claim, which is the failure mode
 /// Rqx exists to avoid.
@@ -113,6 +148,9 @@ pub struct RuleSpec {
     pub principle: Option<&'static str>,
     pub metric: &'static str,
     pub fixes: &'static [FixTechnique],
+    /// What `rqx fix` may do about it. Defaults to `Refactoring`, so a new rule is
+    /// never fixable by accident.
+    pub autofix: Autofix,
     pub confidence: Confidence,
     pub severity: Severity,
     pub why: &'static str,
@@ -143,6 +181,7 @@ macro_rules! catalogue {
             severity: $severity:ident,
             $(principle: $principle:literal,)?
             why: $why:literal,
+            $(autofix: $autofix:ident,)?
             $(off_by_default: $off:literal,)?
             $(not_applicable: [$(($language:ident, $reason:literal)),+ $(,)?],)?
         }
@@ -169,6 +208,7 @@ macro_rules! catalogue {
                         confidence: Confidence::$confidence,
                         severity: Severity::$severity,
                         why: $why,
+                        autofix: catalogue!(@autofix $($autofix)?),
                         off_by_default: catalogue!(@off $($off)?),
                         not_applicable: &[$($((Language::$language, $reason)),+)?],
                     }),+
@@ -176,6 +216,8 @@ macro_rules! catalogue {
             }
         }
     };
+    (@autofix) => { Autofix::Refactoring };
+    (@autofix $variant:ident) => { Autofix::$variant };
     (@off) => { false };
     (@off $value:literal) => { $value };
     (@principle) => { None };
