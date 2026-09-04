@@ -10,3 +10,6 @@
 *.sarif
 
 .DS_Store
+
+# Packaged extension
+*.vsix
