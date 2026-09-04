@@ -12,7 +12,7 @@ small enough to survive being unmaintained.
 | | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Panel |
 |---|---|---|---|---|---|---|---|
 | **VS Code** (+ Cursor, Windsurf, VSCodium) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **JetBrains** (via LSP4IJ) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
+| **JetBrains** (IDEA, WebStorm, PyCharm, GoLand, CLion) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | tool window |
 | **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |

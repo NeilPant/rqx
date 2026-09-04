@@ -44,9 +44,10 @@ impl Client {
         Client {
             slug: "jetbrains",
             name: "IntelliJ, WebStorm, PyCharm, GoLand, CLion",
-            panel: false,
+            panel: true,
             home: Home::Extension(
-                "Install the LSP4IJ plugin, then add rqx as a language server running `rqx lsp`.",
+                "Settings, Plugins, search for `rqx`. It needs LSP4IJ, which the \
+                 Marketplace installs with it.",
             ),
             snippet: JETBRAINS,
         },
@@ -137,13 +138,17 @@ const ZED: &str = r#"// settings.json — the extension launches `rqx lsp` itsel
   }
 }"#;
 
-const JETBRAINS: &str = r#"# Settings → Languages & Frameworks → Language Servers → New
-#   Name:    rqx
-#   Command: rqx lsp
-#   Filename patterns: *.ts;*.tsx;*.py;*.go;*.java;*.cpp;*.hpp;*.cc;*.h
+const JETBRAINS: &str = r#"# The plugin needs no configuration. These are the switches, under
+# Settings → Tools → rqx:
 #
-# LSP4IJ works on the Community editions; the built-in LSP API is Ultimate only.
-# `rqx serve --open` gives you the dashboard in a browser beside the IDE."#;
+#   rqx.path            where the binary is, when it is not on PATH
+#   scanOnStartup       scan the workspace when the project opens
+#   scanOnSave          rescan on save
+#   codeLens / patterns off by default
+#
+# The dashboard is the rqx tool window on the right, which is `rqx serve` in the
+# IDE's embedded browser. LSP4IJ rather than the platform's own LSP API, because
+# that one is Ultimate only."#;
 
 const NEOVIM: &str = r#"-- rqx
 local configs = require("lspconfig.configs")

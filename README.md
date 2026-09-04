@@ -541,7 +541,7 @@ rqx setup neovim -w  # appended for you, after showing what will be added
 |---|---|---|---|---|---|---|---|
 | **VS Code**, Cursor, Windsurf, VSCodium | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | panel |
 | **Zed** | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
-| **JetBrains** via LSP4IJ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
+| **JetBrains** IDEA, WebStorm, PyCharm, GoLand, CLion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | tool window |
 | **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
 | **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
 | **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
@@ -549,7 +549,8 @@ rqx setup neovim -w  # appended for you, after showing what will be added
 | **Vim** coc.nvim, vim-lsp | ✓ | ✓ | ✓ | ✓ | — | coc only | browser |
 | **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | browser |
 
-VS Code and Zed ship extensions that fetch the matching binary themselves. Everything
+VS Code and Zed ship extensions that fetch the matching binary themselves; the
+JetBrains plugin runs on Community editions and shows the dashboard in a tool window. Everything
 else runs `rqx lsp`, so a capability added to the server appears in every editor in the
 same commit — which is why these clients stay small enough to survive being
 unmaintained.

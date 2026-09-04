@@ -1,0 +1,56 @@
+<idea-plugin>
+    <id>com.rqx.rqx</id>
+    <name>rqx</name>
+    <vendor url="https://github.com/jadhamwi/rqx">Jad Alhamwi</vendor>
+
+    <description><![CDATA[
+      Finds dead code, duplication and architectural drift in TypeScript, Python, Go,
+      Java and C++ — and says <em>why</em> each finding matters and <em>what
+      refactoring</em> fixes it.
+      <br/><br/>
+      rqx is a second opinion alongside each language's own server, not a replacement:
+      it reports nothing about types or syntax errors. It needs the <code>rqx</code>
+      binary on your PATH; the plugin ships none, because one zip carrying five
+      platforms would be fifty megabytes for the one you are on.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.redhat.devtools.lsp4ij</depends>
+
+    <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
+        <server id="rqx"
+                name="rqx"
+                factoryClass="com.rqx.RqxServerFactory">
+            <description><![CDATA[Finds dead code, duplication and architectural drift.]]></description>
+        </server>
+        <languageMapping language="TypeScript" serverId="rqx"/>
+        <languageMapping language="TypeScript JSX" serverId="rqx"/>
+        <languageMapping language="Python" serverId="rqx"/>
+        <languageMapping language="go" serverId="rqx"/>
+        <languageMapping language="JAVA" serverId="rqx"/>
+        <languageMapping language="ObjectiveC" serverId="rqx"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.rqx.RqxSettings"/>
+        <toolWindow id="rqx"
+                    anchor="right"
+                    factoryClass="com.rqx.RqxDashboard"
+                    icon="AllIcons.Actions.Preview"/>
+    </extensions>
+
+    <actions>
+        <group id="rqx.menu" text="rqx" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="rqx.scan" class="com.rqx.ScanWorkspace" text="Scan the Workspace"/>
+            <action id="rqx.check" class="com.rqx.CheckDiff" text="Review the Diff"/>
+            <action id="rqx.startHere" class="com.rqx.StartHere" text="Open What Matters First"/>
+            <action id="rqx.catalogue" class="com.rqx.ShowCatalogue" text="Show the Rule Catalogue"/>
+            <separator/>
+            <action id="rqx.togglePatterns" class="com.rqx.TogglePatterns" text="Toggle Pattern Advice"/>
+            <action id="rqx.toggleCodeLens" class="com.rqx.ToggleCodeLens" text="Toggle the Code Lens"/>
+            <separator/>
+            <action id="rqx.restart" class="com.rqx.RestartServer" text="Restart the Server"/>
+        </group>
+    </actions>
+</idea-plugin>
