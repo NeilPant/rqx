@@ -100,6 +100,13 @@ enum Command {
         /// Emit one JSON object per fixed file instead of the reader's preview
         #[arg(long)]
         json: bool,
+        /// Report the findings `fix` will not touch, with the span, the source, the
+        /// metric and the named refactoring, for a person or an agent to act on
+        #[arg(long)]
+        plan: bool,
+        /// With --plan, emit markdown a person can paste rather than a report to read
+        #[arg(long)]
+        markdown: bool,
         #[arg(long)]
         threads: Option<usize>,
         #[arg(long)]
@@ -652,6 +659,8 @@ fn run() -> Result<Exit> {
             write,
             max_rounds,
             json,
+            plan,
+            markdown,
             threads,
             config,
         } => {
@@ -665,6 +674,18 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
+            let mut out = anstream::stdout().lock();
+            if plan {
+                let scanned = scan::scan(&path, &settings)?;
+                return if json {
+                    report::brief_json(&scanned, &settings, &mut out)
+                } else if markdown {
+                    report::brief_markdown(&scanned, &settings, &mut out)
+                } else {
+                    report::brief(&scanned, &settings, palette, &mut out)
+                }
+                .map(|()| Exit::Clean);
+            }
             let rounds = max_rounds.unwrap_or(settings.config.fix.max_rounds).max(1);
             let outcome = fix::run(
                 &path,
@@ -674,7 +695,6 @@ fn run() -> Result<Exit> {
                     max_rounds: rounds,
                 },
             )?;
-            let mut out = anstream::stdout().lock();
             if json {
                 return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
             }

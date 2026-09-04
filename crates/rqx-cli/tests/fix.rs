@@ -202,6 +202,40 @@ fn a_file_with_nothing_mechanical_is_untouched() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// The brief exists so a finding reaches an agent without losing the span, the
+/// metric or the reasoning on the way.
+#[test]
+fn the_plan_carries_what_a_reader_needs_and_omits_what_fix_can_answer() {
+    let (_, name, source, _) = FIXABLE[0];
+    let tangled = "export function tangled(a: number, b: number, c: number, d: number, e: number) {\n  if (a) { if (b) { if (c) { if (d) { return e } } } }\n  return 0\n}\n";
+    let root = project("plan", &[(name, source), ("tangled.ts", tangled)]);
+    let report = fix(&root, &["--plan"]);
+
+    assert!(!report.contains("unreachable-code"), "{report}");
+    let mut seen = 0;
+    for line in report.lines() {
+        let item: serde_json::Value = serde_json::from_str(line).expect("a json object");
+        assert_eq!(item["kind"], "decision");
+        for field in [
+            "rule",
+            "file",
+            "source",
+            "metric",
+            "why",
+            "hint",
+            "technique",
+        ] {
+            assert!(
+                !item[field].is_null() && item[field] != "",
+                "{field} is missing from {item}"
+            );
+        }
+        seen += 1;
+    }
+    assert!(seen > 0, "the plan named nothing");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// A project that keeps its commented-out code as documentation says so once in
 /// `RQX.toml` rather than remembering a flag on every run.
 #[test]
