@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
+use rqx_core::config::Fix;
 use rqx_core::edit::{Edit, Resolution, apply, resolve};
 use rqx_core::finding::Finding;
 use rqx_core::rule::{Autofix, RuleId};
@@ -331,10 +332,13 @@ impl<'src> Rewriter<'src> {
     }
 
     /// Every edit this file's findings ask for, with the conflicts already settled.
-    pub fn plan(&self, findings: &[Finding]) -> Resolution {
+    /// `allowed` is the project's `[fix]` table: a rule it refuses is left to a
+    /// person even though the edit is decided.
+    pub fn plan(&self, findings: &[Finding], allowed: &Fix) -> Resolution {
         resolve(
             findings
                 .iter()
+                .filter(|finding| allowed.allows(finding.rule))
                 .filter_map(|finding| self.edit(finding))
                 .collect(),
         )
@@ -433,7 +437,7 @@ mod tests {
         let config = RqxConfig::default();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
         let rewriter = Rewriter::new(language, source).expect("parse");
-        let plan = rewriter.plan(&analysis.findings);
+        let plan = rewriter.plan(&analysis.findings, &config.fix);
         apply(source, &plan).expect("edits within the source")
     }
 
@@ -488,7 +492,7 @@ export const used = live;
         let config = RqxConfig::default();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
         let rewriter = Rewriter::new(language, source).expect("parse");
-        let plan = rewriter.plan(&analysis.findings);
+        let plan = rewriter.plan(&analysis.findings, &config.fix);
         rewriter.verify("fixture", &config, &analysis.findings, &plan)
     }
 

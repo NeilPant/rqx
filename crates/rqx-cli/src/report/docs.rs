@@ -352,6 +352,13 @@ fn family_page(family: Category, examples: &BTreeMap<RuleId, Example>) -> String
             spec.confidence.label()
         );
         let _ = writeln!(page, "| Reads | {} |", tier(spec.analysis));
+        if spec.autofix.is_automatic() {
+            let _ = writeln!(
+                page,
+                "| Auto-fixable | `rqx fix` ({}) |",
+                spec.autofix.slug()
+            );
+        }
         let _ = writeln!(
             page,
             "| Fix | {} |",

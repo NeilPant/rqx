@@ -46,6 +46,16 @@ pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
     )?;
     writeln!(
         out,
+        "  {} {}",
+        paint(dim, format!("{:18}", "Auto-fixable")),
+        if rule.spec().autofix.is_automatic() {
+            format!("yes \u{2014} {}", rule.spec().autofix.slug())
+        } else {
+            "no \u{2014} the fix is a decision".to_owned()
+        }
+    )?;
+    writeln!(
+        out,
         "  {} {} / {}",
         paint(dim, format!("{:18}", "Reported as")),
         severity.label(),

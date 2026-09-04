@@ -6,7 +6,7 @@ use serde::Deserialize;
 use crate::advice::{AdviceId, Stance};
 use crate::language::Language;
 use crate::pattern::{Pattern, PatternFamily};
-use crate::rule::{Analysis, Category, RuleId};
+use crate::rule::{Analysis, Autofix, Category, RuleId};
 use crate::score::Cleanliness;
 
 /// Uppercase and unmistakable, the way `README`, `LICENSE` and `Dockerfile` are: a
@@ -32,6 +32,7 @@ pub struct RqxConfig {
     pub scan: Scan,
     pub entrypoints: Entrypoints,
     pub gate: Gate,
+    pub fix: Fix,
 }
 
 impl RqxConfig {
@@ -51,7 +52,62 @@ impl RqxConfig {
     pub fn unknown_names(&self) -> Vec<UnknownName> {
         let mut unknown = self.rules.unknown_names();
         unknown.extend(self.patterns.unknown_names());
+        unknown.extend(self.fix.unknown_names());
         unknown
+    }
+}
+
+/// Which mechanical fixes `rqx fix` may apply. A project that keeps commented-out
+/// code as documentation should not have it deleted, and naming the rule here beats
+/// remembering a flag per run.
+#[derive(Clone, Debug, Deserialize, Hash)]
+#[serde(default, deny_unknown_fields)]
+pub struct Fix {
+    /// Autofix kinds, or individual rule slugs. Empty applies every kind.
+    pub apply: BTreeSet<String>,
+    pub disabled: BTreeSet<String>,
+    /// One fix can make the next possible, so fixing repeats. A cap rather than a
+    /// fixed point, because a rule pair that undid each other would never settle.
+    pub max_rounds: u32,
+}
+
+impl Default for Fix {
+    fn default() -> Self {
+        Self {
+            apply: BTreeSet::new(),
+            disabled: BTreeSet::new(),
+            max_rounds: 3,
+        }
+    }
+}
+
+impl Fix {
+    pub fn allows(&self, rule: RuleId) -> bool {
+        let spec = rule.spec();
+        if !spec.autofix.is_automatic() {
+            return false;
+        }
+        if self.disabled.contains(spec.slug)
+            || self.disabled.contains(spec.category.slug())
+            || self.disabled.contains(spec.autofix.slug())
+        {
+            return false;
+        }
+        self.apply.is_empty()
+            || self.apply.contains(spec.slug)
+            || self.apply.contains(spec.category.slug())
+            || self.apply.contains(spec.autofix.slug())
+    }
+
+    pub fn unknown_names(&self) -> Vec<UnknownName> {
+        let known = |name: &str| {
+            RuleId::parse(name).is_some()
+                || Category::parse(name).is_some()
+                || Autofix::parse(name).is_some()
+        };
+        unknown_in("fix", "apply", self.apply.iter(), known)
+            .chain(unknown_in("fix", "disabled", self.disabled.iter(), known))
+            .collect()
     }
 }
 
@@ -114,7 +170,7 @@ fn unknown_in<'a>(
 /// have to carry the prose anyway; the test below is what keeps it honest.
 pub const TEMPLATE: &str = include_str!("rqx.template.toml");
 
-pub const TABLES: [&str; 8] = [
+pub const TABLES: [&str; 9] = [
     "languages",
     "thresholds",
     "rules",
@@ -123,6 +179,7 @@ pub const TABLES: [&str; 8] = [
     "scan",
     "entrypoints",
     "gate",
+    "fix",
 ];
 
 /// Only these three, because every other table describes the run as a whole: the walker
@@ -679,6 +736,7 @@ mod tests {
         scan: Vec<String>,
         gate_advice: bool,
         gate: Vec<String>,
+        fix: Vec<String>,
     }
 
     impl Comparable {
@@ -740,6 +798,23 @@ mod tests {
                     config.gate.max_findings.to_string(),
                     config.gate.min_health.to_string(),
                     format!("{:?}", config.gate.min_grade),
+                ],
+                fix: vec![
+                    config
+                        .fix
+                        .apply
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(","),
+                    config
+                        .fix
+                        .disabled
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(","),
+                    config.fix.max_rounds.to_string(),
                 ],
             }
         }

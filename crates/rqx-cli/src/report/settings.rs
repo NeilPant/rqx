@@ -160,6 +160,44 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
             min_grade(config.gate.min_grade).to_owned(),
             matches!(config.gate.min_grade, GateGrade::Never),
         ),
+        row(
+            "fix: apply",
+            "fix",
+            if config.fix.apply.is_empty() {
+                "every kind".to_owned()
+            } else {
+                config
+                    .fix
+                    .apply
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            },
+            config.fix.apply.is_empty(),
+        ),
+        row(
+            "fix: disabled",
+            "fix",
+            if config.fix.disabled.is_empty() {
+                "none".to_owned()
+            } else {
+                config
+                    .fix
+                    .disabled
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            },
+            config.fix.disabled.is_empty(),
+        ),
+        row(
+            "fix: max rounds",
+            "fix",
+            config.fix.max_rounds.to_string(),
+            config.fix.max_rounds == 3,
+        ),
     ];
 
     for (name, value, fallback) in threshold_rows(thresholds, &defaults) {

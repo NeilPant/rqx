@@ -94,9 +94,9 @@ enum Command {
         #[arg(long, short)]
         write: bool,
         /// One fix can make the next one possible, so fixing repeats until a round
-        /// finds nothing.
-        #[arg(long, default_value_t = 3)]
-        max_rounds: u32,
+        /// finds nothing. Overrides `[fix] max_rounds`.
+        #[arg(long)]
+        max_rounds: Option<u32>,
         /// Emit one JSON object per fixed file instead of the reader's preview
         #[arg(long)]
         json: bool,
@@ -665,12 +665,13 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
+            let rounds = max_rounds.unwrap_or(settings.config.fix.max_rounds).max(1);
             let outcome = fix::run(
                 &path,
                 &settings,
                 fix::Options {
                     write,
-                    max_rounds: max_rounds.max(1),
+                    max_rounds: rounds,
                 },
             )?;
             let mut out = anstream::stdout().lock();

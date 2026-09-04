@@ -130,6 +130,17 @@ min_grade = "never"
 # an exit code; nothing else in [patterns] can.
 fail_on_incomplete = false
 
+[fix]
+# Which mechanical fixes `rqx fix` may apply: autofix kinds (deletion, rewrite) or
+# individual rule slugs. Empty applies every kind.
+apply = []
+# Fixes to leave alone even when their kind is applied. A project that keeps
+# commented-out code as documentation names it here.
+disabled = []
+# One fix can make the next one possible, so fixing repeats until a round finds
+# nothing or this many rounds have run.
+max_rounds = 3
+
 # A subtree can relax or tighten thresholds and rules, and nothing else — the
 # walker is built once and the gate reaches one verdict.
 # [[override]]

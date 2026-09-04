@@ -202,6 +202,30 @@ fn a_file_with_nothing_mechanical_is_untouched() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// A project that keeps its commented-out code as documentation says so once in
+/// `RQX.toml` rather than remembering a flag on every run.
+#[test]
+fn a_rule_the_config_disables_is_left_to_a_person() {
+    let (_, name, source, _) = FIXABLE[0];
+    let root = project(
+        "configured",
+        &[
+            (name, source),
+            ("RQX.toml", "[fix]\ndisabled = [\"commented-out-code\"]\n"),
+        ],
+    );
+    let report = fix(&root, &["--write"]);
+
+    assert!(!report.contains("commented-out-code"), "{report}");
+    assert!(report.contains("unreachable-code"), "{report}");
+    assert!(
+        std::fs::read_to_string(root.join(name))
+            .unwrap()
+            .contains("// const a = 1;")
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// One fix making the next possible is the whole reason rounds exist: deleting the
 /// dead branch that held the only reference to a local leaves the local unused.
 #[test]

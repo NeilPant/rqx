@@ -33,6 +33,7 @@ a skipped test is a question nobody answered; it reports green forever while the
 | Measures | test declared with skip, xit, xdescribe or todo |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/suite.test.ts`, line 3:
@@ -56,6 +57,7 @@ this silently disables every other test in the file, so the suite goes green whi
 | Measures | test declared with only, fit or fdescribe |
 | Reported as | error, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 | Not in Python | pytest and unittest focus a run with `-k` on the command line; there is nothing in the source to find |
 | Not in Go | `go test` focuses a run with `-run` on the command line; there is nothing in the source to find |

@@ -140,19 +140,19 @@ fn plan_round(root: &Path, settings: &Resolved, scanned: &ScanOutcome) -> Result
         undecided: scanned
             .findings
             .iter()
-            .filter(|finding| !finding.rule.spec().autofix.is_automatic())
+            .filter(|finding| !settings.config.fix.allows(finding.rule))
             .count() as u32,
         ..Round::default()
     };
 
     for (file, findings) in by_file {
+        let path = root.join(file);
         if !findings
             .iter()
-            .any(|finding| finding.rule.spec().autofix.is_automatic())
+            .any(|finding| settings.for_file(&path).fix.allows(finding.rule))
         {
             continue;
         }
-        let path = root.join(file);
         let Some(language) = Language::of_path(&path) else {
             continue;
         };
@@ -170,7 +170,7 @@ fn plan_round(root: &Path, settings: &Resolved, scanned: &ScanOutcome) -> Result
                 continue;
             }
         };
-        let plan = rewriter.plan(&owned);
+        let plan = rewriter.plan(&owned, &settings.for_file(&path).fix);
         if plan.is_empty() {
             continue;
         }

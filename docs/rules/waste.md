@@ -36,6 +36,7 @@ an export nobody imports still has to be read, typechecked and kept working duri
 | Measures | exported symbol with no importer in the resolved module graph |
 | Reported as | warning, verified |
 | Reads | the import graph across every file |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/dead-export.ts`, line 7:
@@ -57,6 +58,7 @@ nothing in the build reaches this file, so every hour spent maintaining it buys 
 | Measures | module reachable from no entry point, with no importer |
 | Reported as | warning, verified |
 | Reads | the import graph across every file |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Delete File |
 
 From `fixtures/typescript/orphan.ts`, line 1:
@@ -77,6 +79,7 @@ every caller is passing a value that is read nowhere, so the argument list is te
 | Measures | declared parameter with no resolved reference in its own scope |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (rewrite) |
 | Fix | Remove Parameter |
 
 From `fixtures/typescript/families.ts`, line 130:
@@ -98,6 +101,7 @@ the value is computed and thrown away, which either wastes the work or hides the
 | Measures | local binding with no resolved reference |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/hygiene.ts`, line 4:
@@ -119,6 +123,7 @@ a private member can only be used from inside its class, so one nothing in the c
 | Measures | private class member never referenced inside its own class |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 | Not in Go | Go scopes visibility to the package, not the type, so a field unused in one file may be read by another beside it |
 
@@ -141,6 +146,7 @@ this code cannot run, so whatever it was meant to do is not happening and has no
 | Measures | statement following an unconditional return, throw, break or continue |
 | Reported as | error, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/hygiene.ts`, line 24:
@@ -162,6 +168,7 @@ nobody dares delete it because nobody knows if it matters, so it sits there rott
 | Measures | consecutive comment lines that read as statements rather than prose |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 | Tuned by | `thresholds.commented_code_lines` |
 
@@ -358,6 +365,7 @@ version control already answers who and when, and unlike the comment it is not l
 | Measures | a comment carrying an author, a date or a change log |
 | Reported as | info, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/precision.ts`, line 1:
@@ -381,6 +389,7 @@ it takes space and attention to say what the name has already said, and it is on
 | Measures | a comment whose every word already appears in the name below it |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/precision.ts`, line 10:

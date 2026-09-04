@@ -75,6 +75,7 @@ a check that would have caught the next mistake here has been turned off, and th
 | Measures | ts-ignore, ts-nocheck, eslint-disable, or a cast through any |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/hygiene.ts`, line 27:
@@ -159,6 +160,7 @@ the reader has to invert it mentally to follow the else, and inverting a compoun
 | Measures | negated condition that has an else branch |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
+| Auto-fixable | `rqx fix` (rewrite) |
 | Fix | Decompose Conditional |
 | Default | off; name it under `[rules] enabled` |
 
