@@ -73,6 +73,7 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
 - [Levels](#levels)
 - [Configuration](#configuration)
 - [Families can be switched on and off](#families-can-be-switched-on-and-off)
+- [What the tests actually ran](#what-the-tests-actually-ran)
 - [Confidence is never overstated](#confidence-is-never-overstated)
 - [Editors](#editors)
 - [Agents](#agents)
@@ -476,6 +477,24 @@ enabled    = ["short-name-wide-scope"]       # opt into an off-by-default rule
 Ten rules ship off by default — the ones whose signal is real but noisy, or which
 encode a convention a given project may not share. They are listed with
 `(off by default)` in `rqx rules`.
+
+## What the tests actually ran
+
+Dead code is decided from the import graph, and a graph cannot see a dynamic import,
+a container wiring things up by name, or reflection. A coverage file settles it:
+
+```bash
+rqx scan . --coverage coverage/lcov.info
+```
+
+A file or export the graph called dead that a test run reached keeps its finding —
+the missing import may still be worth adding — but drops to `low` confidence, which
+means it is shown and stops counting against the health score. One nothing reached
+stays `verified`, and now says so with evidence rather than only from the graph.
+
+lcov, Go cover profiles and coverage.py JSON are recognised by content, several files
+merge, and a coverage file that cannot be read is skipped with a warning rather than
+failing the scan.
 
 ## Confidence is never overstated
 

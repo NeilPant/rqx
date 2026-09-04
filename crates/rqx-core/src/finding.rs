@@ -115,9 +115,15 @@ pub enum Evidence {
     UnusedExport {
         symbol: String,
         kind: String,
+        /// Lines of this export a test run executed, when a coverage file was read.
+        /// `Some(0)` corroborates the finding; anything higher contradicts it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ran: Option<u32>,
     },
     UnusedFile {
         exports: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ran: Option<u32>,
     },
     UnusedParameter {
         name: String,
@@ -349,13 +355,32 @@ impl fmt::Display for Evidence {
                 "{statements}-statement block ({nodes} AST nodes) repeated at {occurrences} sites."
             ),
             Self::Name { identifier, reason } => write!(f, "`{identifier}` {reason}."),
-            Self::UnusedExport { symbol, kind } => {
+            Self::UnusedExport {
+                symbol,
+                kind,
+                ran: Some(ran),
+            } if *ran > 0 => write!(
+                f,
+                "The {kind} `{symbol}` is exported and never imported, but a test run \
+                 reached it {ran} times \u{2014} something the import graph cannot see \
+                 uses it."
+            ),
+            Self::UnusedFile {
+                exports,
+                ran: Some(ran),
+            } if *ran > 0 => write!(
+                f,
+                "Nothing imports this file and all {exports} of its exports are unused, \
+                 but a test run reached it \u{2014} something the import graph cannot \
+                 see loads it."
+            ),
+            Self::UnusedExport { symbol, kind, .. } => {
                 write!(
                     f,
                     "Exported {kind} `{symbol}` is imported nowhere in the project."
                 )
             }
-            Self::UnusedFile { exports } => write!(
+            Self::UnusedFile { exports, .. } => write!(
                 f,
                 "No module imports this file, and none of its {exports} exports are used."
             ),

@@ -83,6 +83,10 @@ enum Command {
         /// Append what the design-pattern catalogue makes of the same files
         #[arg(long)]
         advice: bool,
+        /// A coverage file, so a test run can contradict a dead-code finding.
+        /// lcov, a Go cover profile and coverage.py JSON are read by content.
+        #[arg(long)]
+        coverage: Vec<PathBuf>,
         /// Display cap; 0 shows every finding. Never affects the health score.
         #[arg(long)]
         max_findings: Option<usize>,
@@ -742,6 +746,7 @@ fn run() -> Result<Exit> {
             view,
             gate,
             advice,
+            coverage,
             max_findings,
             threads,
             config,
@@ -755,6 +760,12 @@ fn run() -> Result<Exit> {
             let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
             if let Some(max) = max_findings {
                 settings.config.scan.max_findings = max;
+            }
+            if !coverage.is_empty() {
+                settings.config.scan.coverage = coverage
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect();
             }
             if let Some(count) = threads {
                 settings.config.scan.threads = count;

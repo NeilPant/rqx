@@ -123,6 +123,12 @@ prune_dirs = [
   "cmake-build-release", "third_party",
 ]
 
+# Coverage files to read. rqx decides dead code from the import graph, which cannot
+# see a dynamic import or a container wiring things by name — a test run that reached
+# the code says so, and the finding drops to a confidence that keeps it out of the
+# score. lcov, a Go cover profile and coverage.py JSON are all recognised by content.
+coverage = []
+
 [gate]
 # What makes a run fail. `rqx check` always gates. `rqx scan` gates only when you
 # pass one of --fail-on / --allow-findings / --min-health / --min-grade, so this

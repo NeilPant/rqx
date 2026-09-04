@@ -123,7 +123,7 @@ impl Evidence {
             Self::NestingDepth { depth, .. } | Self::MessageChain { depth, .. } => Some(*depth),
             Self::ClassSize { statements, .. } => Some(*statements),
             Self::ClonedBlock { occurrences, .. } => Some(*occurrences),
-            Self::UnusedFile { exports } => Some(*exports),
+            Self::UnusedFile { exports, .. } => Some(*exports),
             Self::ImportCycle { modules } => Some(*modules),
             Self::CommentedCode { lines } => Some(*lines),
             Self::MagicNumber { occurrences, .. } => Some(*occurrences),

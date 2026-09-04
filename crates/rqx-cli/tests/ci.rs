@@ -316,3 +316,71 @@ fn a_closed_pipe_is_not_a_failure() {
     assert!(status.success());
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// rqx decides dead code from the import graph, which cannot see a dynamic import or
+/// a container wiring things up by name. A test run that reached the code is evidence
+/// the graph is missing a reader, so the finding is kept and shown but stops counting
+/// against the score.
+#[test]
+fn a_test_run_contradicts_a_dead_code_finding_without_hiding_it() {
+    let root = project(
+        "coverage",
+        &[
+            (
+                "a.ts",
+                "export function reached(): number {\n  return 41\n}\n",
+            ),
+            ("b.ts", "export function never(): number {\n  return 0\n}\n"),
+            ("lcov.info", "SF:a.ts\nDA:1,3\nDA:2,3\nend_of_record\n"),
+        ],
+    );
+
+    let of = |args: &[&str]| -> Vec<(String, String)> {
+        let mut all = vec!["scan", "--format", "json", "--max-findings", "0"];
+        all.extend_from_slice(args);
+        let out = rqx(&root, &all);
+        String::from_utf8(out.stdout)
+            .expect("utf-8")
+            .lines()
+            .filter_map(|line| {
+                let value: serde_json::Value = serde_json::from_str(line).ok()?;
+                if value["kind"] == "summary" {
+                    return None;
+                }
+                Some((
+                    value["location"]["file"].as_str()?.to_owned(),
+                    value["confidence"].as_str()?.to_owned(),
+                ))
+            })
+            .collect()
+    };
+
+    let plain = of(&[]);
+    assert!(
+        plain.iter().all(|(_, confidence)| confidence == "verified"),
+        "{plain:?}"
+    );
+
+    let covered = of(&[
+        "--coverage",
+        root.join("lcov.info").to_str().expect("utf-8"),
+    ]);
+    let ran = covered
+        .iter()
+        .find(|(file, _)| file == "a.ts")
+        .expect("a.ts is still reported");
+    assert_eq!(
+        ran.1, "low",
+        "a file the tests ran still counts against the score"
+    );
+    assert_eq!(
+        covered
+            .iter()
+            .find(|(file, _)| file == "b.ts")
+            .expect("b.ts")
+            .1,
+        "verified",
+        "a file no test reached is still dead"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}

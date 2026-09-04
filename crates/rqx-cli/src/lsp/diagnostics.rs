@@ -455,6 +455,7 @@ mod tests {
             evidence: Evidence::UnusedExport {
                 symbol: "thing".to_owned(),
                 kind: "const".to_owned(),
+                ran: None,
             },
             fix_hint: "delete it".to_owned(),
             related: Vec::new(),

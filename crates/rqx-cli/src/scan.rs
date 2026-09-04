@@ -153,6 +153,8 @@ struct Collector {
     import_edges: std::collections::BTreeMap<String, Vec<String>>,
     track_clones: bool,
     track_modules: bool,
+    /// What a test run reached, when the project pointed at a coverage file.
+    coverage: Option<rqx_core::Hits>,
     code_lines: u64,
     files_scanned: u32,
     skipped: Vec<(PathBuf, String)>,
@@ -183,6 +185,7 @@ impl Collector {
             import_edges: std::collections::BTreeMap::new(),
             track_clones,
             track_modules,
+            coverage: None,
             code_lines: 0,
             files_scanned: 0,
             skipped: Vec::new(),
@@ -200,10 +203,19 @@ impl Collector {
         }
     }
 
-    fn accept_if_enabled(&mut self, config: &RqxConfig, finding: Finding) {
-        if config.rules.enabled(finding.rule) {
-            self.accept(finding);
+    fn accept_if_enabled(&mut self, config: &RqxConfig, mut finding: Finding) {
+        if !config.rules.enabled(finding.rule) {
+            return;
         }
+        // A run that reached the code contradicts the graph that called it dead. The
+        // finding is kept and shown — the graph may still be right about the import —
+        // but at a confidence that keeps it out of the health score.
+        if let Some(lowered) = rqx_core::runtime::contradicted(finding.rule)
+            && ran(&finding.evidence)
+        {
+            finding.confidence = finding.confidence.min(lowered);
+        }
+        self.accept(finding);
     }
 
     fn accept(&mut self, finding: Finding) {
@@ -483,20 +495,35 @@ impl Collector {
             let Some(range) = at.range(&dead.path, dead.span) else {
                 continue;
             };
+            // A run reaching code the graph called dead means a reader the graph
+            // cannot see — a dynamic import, a container wiring by name, reflection.
+            // The finding stays, at a confidence that keeps it out of the score.
+            let ran = self
+                .coverage
+                .as_ref()
+                .map(|hits| hits.covered(&range.file, range.line, range.end_line));
             self.accept_if_enabled(
                 config,
                 build(
                     RuleId::UnusedExport,
-                    range,
+                    range.clone(),
                     Evidence::UnusedExport {
                         symbol: dead.name.clone(),
                         kind: dead.kind.to_owned(),
+                        ran,
                     },
-                    format!(
-                        "delete `{}`, or add its module to `entrypoints` if something outside \
-                     the project imports it",
-                        dead.name
-                    ),
+                    match ran {
+                        Some(count) if count > 0 => format!(
+                            "find what reaches `{}` at runtime and import it, or add its \
+                             module to `entrypoints`",
+                            dead.name
+                        ),
+                        _ => format!(
+                            "delete `{}`, or add its module to `entrypoints` if something \
+                             outside the project imports it",
+                            dead.name
+                        ),
+                    },
                     Vec::new(),
                 ),
             );
@@ -506,6 +533,10 @@ impl Collector {
             let Some(range) = at.range(&dead.path, WHOLE_FILE) else {
                 continue;
             };
+            let ran = self
+                .coverage
+                .as_ref()
+                .map(|hits| u32::from(hits.ran(&range.file)));
             self.accept_if_enabled(
                 config,
                 build(
@@ -513,10 +544,16 @@ impl Collector {
                     range,
                     Evidence::UnusedFile {
                         exports: dead.exports,
+                        ran,
                     },
-                    "delete the file, or add it to `entrypoints` if it is reached from outside \
-                 the project"
-                        .to_owned(),
+                    match ran {
+                        Some(count) if count > 0 => "find what loads this file at runtime \
+                             and import it, or add it to `entrypoints`"
+                            .to_owned(),
+                        _ => "delete the file, or add it to `entrypoints` if it is reached \
+                             from outside the project"
+                            .to_owned(),
+                    },
                     Vec::new(),
                 ),
             );
@@ -936,6 +973,39 @@ impl<'plan> Assignments<'plan> {
     }
 }
 
+/// Every coverage file the project named, merged. A file that cannot be read is
+/// skipped rather than fatal: a scan that failed because yesterday's coverage was
+/// missing would be a scan nobody runs.
+fn read_coverage(root: &Path, paths: &[String]) -> Option<rqx_core::Hits> {
+    let mut merged: Option<rqx_core::Hits> = None;
+    for name in paths {
+        let path = root.join(name);
+        match rqx_core::Hits::read(&path) {
+            Ok(hits) => {
+                merged = Some(match merged {
+                    Some(existing) => existing.merged(hits),
+                    None => hits,
+                })
+            }
+            Err(reason) => eprintln!("rqx: skipping coverage — {reason}"),
+        }
+    }
+    merged.filter(|hits| !hits.is_empty())
+}
+
+/// Whether a coverage file said this finding's code was reached.
+const fn ran(evidence: &Evidence) -> bool {
+    match evidence {
+        Evidence::UnusedExport {
+            ran: Some(hits), ..
+        }
+        | Evidence::UnusedFile {
+            ran: Some(hits), ..
+        } => *hits > 0,
+        _ => false,
+    }
+}
+
 fn build(
     rule: RuleId,
     location: SourceRange,
@@ -1078,6 +1148,7 @@ pub(crate) fn collect(
         bar,
         total,
     );
+    collector.coverage = read_coverage(root, &settings.config.scan.coverage);
     for message in receiver {
         match message {
             ScanMessage::File(file) => {

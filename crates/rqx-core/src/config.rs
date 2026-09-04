@@ -729,6 +729,8 @@ pub struct Scan {
     pub max_filesize: u64,
     pub max_findings: usize,
     pub prune_dirs: Vec<String>,
+    /// Coverage files to read, so a test run can contradict a dead-code finding.
+    pub coverage: Vec<String>,
     /// Days of git history to read for churn; 0 turns the signal off.
     pub churn_days: u32,
     /// Reuse `.rqx/cache.json` for files whose contents have not changed. Off by
@@ -748,6 +750,7 @@ impl Default for Scan {
             max_findings: 500,
             churn_days: 90,
             cache: false,
+            coverage: Vec::new(),
             // A glob still has to descend into a directory to produce the paths it
             // then rejects, which on a populated `node_modules` or `.venv` is the
             // difference between skipping a directory and walking every file in it.
@@ -1003,6 +1006,7 @@ mod tests {
                     config.scan.churn_days.to_string(),
                     config.scan.cache.to_string(),
                     config.scan.prune_dirs.join(","),
+                    config.scan.coverage.join(","),
                 ],
                 gate: vec![
                     format!("{:?}", config.gate.fail_on),
