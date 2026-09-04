@@ -1,7 +1,7 @@
 # rqx. An owl: a quiet, precise thing that spots small movement and turns its head
 # to follow it. 11x10 pixels, six frames.
 #
-# A plumage, T the pale chest, S the eyes and beak, K a closed lid. The gold is
+# A plumage, S the eyes and beak, K a closed lid. The gold is
 # replaced at render time by what the scan found, so the bird reports rather than
 # decorates.
 #
@@ -15,9 +15,9 @@ AASSAAASSAA
 AASSAAASSAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AATTTTTAA.
-.AATTTTTAA.
-..ATTTTTA..
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
 ..AA...AA..
 #: blink
 ...AAAAA...
@@ -26,9 +26,9 @@ AAAAAAAAAAA
 AAKKAAAKKAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AATTTTTAA.
-.AATTTTTAA.
-..ATTTTTA..
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
 ..AA...AA..
 #: look-left
 ...AAAAA...
@@ -37,9 +37,9 @@ ASSAAASSAAA
 ASSAAASSAAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AATTTTTAA.
-.AATTTTTAA.
-..ATTTTTA..
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
 ..AA...AA..
 #: look-right
 ...AAAAA...
@@ -48,9 +48,9 @@ AAASSAAASSA
 AAASSAAASSA
 AAAAASAAAAA
 AAAAASAAAAA
-.AATTTTTAA.
-.AATTTTTAA.
-..ATTTTTA..
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
 ..AA...AA..
 #: alert
 ...AAAAA...
@@ -59,9 +59,9 @@ ASSSAAASSSA
 ASSSAAASSSA
 AAAAASAAAAA
 AAAAASAAAAA
-.AATTTTTAA.
-.AATTTTTAA.
-..ATTTTTA..
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
 ..AA...AA..
 #: pleased
 ...AAAAA...
@@ -70,7 +70,7 @@ AAAAAAAAAAA
 AASSAAASSAA
 AAAAASAAAAA
 AAAAASAAAAA
-.AATTTTTAA.
-.AATTTTTAA.
-..ATTTTTA..
+.AAAAAAAAA.
+.AAAAAAAAA.
+..AAAAAAA..
 ..AA...AA..
