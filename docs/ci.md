@@ -10,9 +10,13 @@ with a different `--reporter`.
 | `0` | ran, gate satisfied |
 | `1` | ran, gate failed |
 | `2` | rqx could not run — bad path, bad config, unresolvable revision |
+| `101` | rqx hit a bug; please report it |
+
+A closed pipe is not a failure. `rqx scan . | head` exits `0`: the scan did what it was
+asked, and the reader going away is the reader's decision, not a broken run.
 
 `rqx scan` never fails on its own. It gates only when you pass one of the gate
-flags. `rqx check` always gates, using `[gate]` from `rqx.toml` unless a flag
+flags. `rqx check` always gates, using `[gate]` from `RQX.toml` unless a flag
 overrides it.
 
 | Flag | Fails when |
@@ -158,7 +162,7 @@ A gate that fails on day one gets disabled on day one. Start where you already
 are and tighten from there:
 
 ```toml
-# rqx.toml
+# RQX.toml
 [gate]
 fail_on = "error"        # only the three rules that are never a false positive
 max_findings = 0
@@ -168,3 +172,11 @@ min_health = 0
 Then move to `rqx check --base main`, which reviews the changed files plus
 everything that imports them, so the gate applies to new work rather than to the
 history you inherited.
+
+## Failing on a half-applied pattern
+
+`[gate] fail_on_incomplete = true`, or `--fail-on-incomplete`, is the only way design
+pattern advice reaches an exit code. It sees the half-applied stance and nothing else:
+a decorator that cannot substitute for what it wraps, a subscribe with no unsubscribe.
+A pattern that is merely in use, or would merely fit, can never fail a run, and none
+of the advice moves the health score in any configuration.
