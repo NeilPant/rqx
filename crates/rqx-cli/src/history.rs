@@ -190,6 +190,38 @@ pub fn changed_since(root: &Path, base: &str) -> Option<Vec<String>> {
     )
 }
 
+/// Who wrote one line, and when. One `git blame` per line asked about rather than
+/// per file, because the only caller wants a handful of lines out of a repository
+/// and blaming a whole file to read one of them is the slower way round.
+pub fn blame_line(root: &Path, file: &str, line: u32) -> Option<(String, String)> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["blame", "--porcelain", "-L"])
+        .arg(format!("{line},{line}"))
+        .arg("--")
+        .arg(file)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let field = |name: &str| {
+        text.lines()
+            .find_map(|entry| entry.strip_prefix(name))
+            .map(|value| value.trim().to_owned())
+    };
+    let author = field("author ")?;
+    // Porcelain reports the time as a unix stamp; the date is the part a reader of
+    // a waiver list wants, and it is already how `until` is written.
+    let when = field("author-time ")
+        .and_then(|stamp| stamp.parse::<i64>().ok())
+        .map(|stamp| rqx_core::suppress::civil_date(stamp / 86_400))
+        .unwrap_or_default();
+    Some((author, when))
+}
+
 /// Uncommitted work counts as changed too, so `rqx check` is useful before a commit
 /// exists rather than only in CI.
 pub fn uncommitted(root: &Path) -> Vec<String> {

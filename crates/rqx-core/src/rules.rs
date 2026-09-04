@@ -595,6 +595,22 @@ pub fn check_hygiene(
             "pick one verb for the idea and rename the rest to match".to_owned(),
         );
     }
+    for waiver in &hygiene.waivers {
+        let Some(refusal) = waiver.refusal(&crate::suppress::today()) else {
+            continue;
+        };
+        emit(
+            out,
+            RuleId::UnjustifiedSuppression,
+            &Spot {
+                span: waiver.span,
+                detail: refusal.clone(),
+                count: 1,
+            },
+            Evidence::Suppression { directive: refusal },
+            "say why the finding is acceptable here, or fix it".to_owned(),
+        );
+    }
     for spot in &hygiene.suppressions {
         emit(
             out,

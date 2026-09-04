@@ -310,7 +310,7 @@ fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
         findings.push_str(&format!(" \u{b7} {hidden} not shown"));
     }
 
-    vec![
+    let mut rows = vec![
         Row {
             label: "Files",
             value: format!(
@@ -364,7 +364,24 @@ fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
             value: format!("{:.2}s", report.outcome.elapsed_ms as f64 / 1000.0),
             ink: None,
         },
-    ]
+    ];
+    // Only when there are any: a project that waives nothing should not have to read
+    // a row saying so.
+    let waived = report.outcome.suppressed.len();
+    if waived > 0 {
+        let at = rows.len() - 2;
+        rows.insert(
+            at,
+            Row {
+                label: "Waived",
+                value: format!(
+                    "{waived} suppressed by a comment \u{b7} rqx suppressions to read them"
+                ),
+                ink: Some(Ink::Muted),
+            },
+        );
+    }
+    rows
 }
 
 fn write_summary(

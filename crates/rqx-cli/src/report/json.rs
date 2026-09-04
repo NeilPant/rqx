@@ -25,6 +25,9 @@ struct JsonSummary<'a> {
     elapsed_ms: u128,
     omitted: u32,
     counts: &'a rqx_core::score::FindingCounts,
+    /// Findings a waiver in the source kept out of `counts`, so a consumer can tell
+    /// a clean file from a quiet one.
+    suppressed: usize,
     skipped: Vec<String>,
     /// Grade per file in scope, so a consumer can gate on one file rotting rather
     /// than on an average that hides it.
@@ -69,6 +72,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         elapsed_ms: outcome.elapsed_ms,
         omitted: outcome.omitted,
         counts: &outcome.counts,
+        suppressed: outcome.suppressed.len(),
         skipped: outcome
             .skipped
             .iter()

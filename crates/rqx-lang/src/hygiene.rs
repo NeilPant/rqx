@@ -1126,6 +1126,22 @@ fn squashed(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// The waivers alone, for a configuration that asks for no semantic analysis: a
+/// developer's `rqx-ignore` has to be honoured whichever rules are switched on.
+pub fn waivers(
+    profile: &'static LanguageProfile,
+    source: &str,
+    root: Node<'_>,
+) -> Vec<rqx_core::suppress::Suppression> {
+    descendants(root)
+        .into_iter()
+        .filter(|node| profile.is_comment(*node))
+        .filter_map(|comment| {
+            rqx_core::suppress::Suppression::parse(text_of(comment, source), span_of(comment))
+        })
+        .collect()
+}
+
 fn scan_comments(
     profile: &'static LanguageProfile,
     source: &str,
@@ -1140,7 +1156,11 @@ fn scan_comments(
     {
         let span = span_of(comment);
         let text = text_of(comment, source);
-        if let Some(directive) = profile
+        // Checked before the suppression-directive branch: rqx's own waiver is not
+        // one of the diagnostics `suppressed-diagnostic` is meant to report.
+        if let Some(waiver) = rqx_core::suppress::Suppression::parse(text, span) {
+            out.waivers.push(waiver);
+        } else if let Some(directive) = profile
             .suppression_directives
             .iter()
             .find(|marker| text.contains(*marker))

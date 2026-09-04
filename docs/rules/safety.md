@@ -89,6 +89,27 @@ From `fixtures/typescript/flow.ts`, line 58:
 
 rqx says: assign above the branch, or compare if that is what was meant
 
+## `unjustified-suppression`
+
+the waiver is refused and the finding still stands, because a waiver nobody has to justify is how a rule gets switched off one line at a time
+
+| | |
+|---|---|
+| Measures | an rqx-ignore comment with no reason, or one whose date has passed |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/hygiene.ts`, line 23:
+
+```ts
+export function unreachable(value: number) {
+  // rqx-ignore magic-number
+  const seed = 1;
+```
+
+rqx says: say why the finding is acceptable here, or fix it
+
 ## `suppressed-diagnostic`
 
 a check that would have caught the next mistake here has been turned off, and the comment turning it off outlives the reason for it
@@ -101,7 +122,7 @@ a check that would have caught the next mistake here has been turned off, and th
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 27:
+From `fixtures/typescript/hygiene.ts`, line 29:
 
 ```ts
 
@@ -142,10 +163,10 @@ the caller's value changes without the call site saying so, which is the hardest
 | Reads | resolved scopes and symbols |
 | Fix | Remove Assignments to Parameters / Separate Query from Modifier |
 
-From `fixtures/typescript/hygiene.ts`, line 24:
+From `fixtures/typescript/hygiene.ts`, line 26:
 
 ```ts
-  return value;
+  return value + seed;
   value = 1;
 }
 ```

@@ -26,7 +26,9 @@ public class Hygiene {
     }
 
     public int unreachable(int value) {
-        return value;
+        // rqx-ignore magic-number
+        int seed = 1;
+        return value + seed;
     }
 
     public int mutatesParameter(int value) {

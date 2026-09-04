@@ -20,7 +20,9 @@ def pricing(cart: list, apply_discount: bool) -> int:
 
 
 def unreachable(value: int) -> int:
-    return value
+    # rqx-ignore magic-number
+    seed = 1
+    return value + seed
     value = 1
 
 

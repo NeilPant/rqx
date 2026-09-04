@@ -828,6 +828,17 @@ catalogue! {
     },
 
     // ---- Safety ---------------------------------------------------------------
+    UnjustifiedSuppression {
+        slug: "unjustified-suppression",
+        category: Safety,
+        analysis: Syntax,
+        metric: "an rqx-ignore comment with no reason, or one whose date has passed",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "the waiver is refused and the finding still stands, because a waiver \
+              nobody has to justify is how a rule gets switched off one line at a time",
+    },
     SuppressedDiagnostic {
         slug: "suppressed-diagnostic",
         category: Safety,

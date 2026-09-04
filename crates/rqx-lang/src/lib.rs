@@ -84,6 +84,10 @@ pub struct FileAnalysis {
     pub code_lines: u32,
     #[serde(default)]
     pub shape: FileShape,
+    /// The waivers this file asks for. Applied by the collector rather than here,
+    /// because a waiver can name a rule only the whole project can decide.
+    #[serde(default)]
+    pub suppressions: Vec<rqx_core::suppress::Suppression>,
 }
 
 #[derive(Debug)]
@@ -272,7 +276,13 @@ pub fn analyze_as(
             );
             (module, hygiene)
         }
-        None => (ModuleFacts::default(), rqx_core::facts::Hygiene::default()),
+        None => (
+            ModuleFacts::default(),
+            rqx_core::facts::Hygiene {
+                waivers: hygiene::waivers(profile, source, root),
+                ..Default::default()
+            },
+        ),
     };
 
     // An exported binding has a reader this file cannot see, and whether that reader
@@ -286,6 +296,10 @@ pub fn analyze_as(
     hygiene
         .unused_locals
         .retain(|spot| !exported.contains(spot.detail.as_str()));
+    // A waiver reaches by line, and only the index knows which line a byte is on.
+    for waiver in &mut hygiene.waivers {
+        waiver.line = index.locate(waiver.span.start).0;
+    }
 
     let file: Arc<str> = Arc::from(display);
     let builder = rules::FindingBuilder {
@@ -388,6 +402,7 @@ pub fn analyze_as(
         module,
         code_lines: index.code_lines(),
         shape,
+        suppressions: hygiene.waivers,
     })
 }
 

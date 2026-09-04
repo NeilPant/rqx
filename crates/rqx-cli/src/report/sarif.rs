@@ -88,12 +88,36 @@ fn result(finding: &Finding, prefix: &str) -> Value {
     value
 }
 
-fn document(findings: &[&Finding], prefix: &str) -> Result<String> {
+fn document(
+    findings: &[&Finding],
+    waived: &[rqx_core::suppress::Suppressed],
+    prefix: &str,
+) -> Result<String> {
     // Only rules that actually fired are described, so the report does not carry a
     // catalogue of rules the run had nothing to say about.
-    let mut fired: Vec<RuleId> = findings.iter().map(|finding| finding.rule).collect();
+    let mut fired: Vec<RuleId> = findings
+        .iter()
+        .map(|finding| finding.rule)
+        .chain(waived.iter().map(|waived| waived.finding.rule))
+        .collect();
     fired.sort();
     fired.dedup();
+
+    // SARIF carries suppression as a property of the result rather than as an
+    // absence, so a waived finding is reported and marked rather than dropped —
+    // which is what lets a code-scanning UI show it as suppressed.
+    let results = findings
+        .iter()
+        .map(|finding| result(finding, prefix))
+        .chain(waived.iter().map(|waived| {
+            let mut entry = result(&waived.finding, prefix);
+            entry["suppressions"] = json!([{
+                "kind": "inSource",
+                "justification": waived.reason.clone().unwrap_or_default(),
+            }]);
+            entry
+        }))
+        .collect::<Vec<_>>();
 
     let document = json!({
         "$schema": SCHEMA,
@@ -105,7 +129,7 @@ fn document(findings: &[&Finding], prefix: &str) -> Result<String> {
                 "informationUri": "https://github.com/jadhamwi21/rqx",
                 "rules": fired.iter().map(|rule| rule_descriptor(*rule)).collect::<Vec<_>>()
             }},
-            "results": findings.iter().map(|finding| result(finding, prefix)).collect::<Vec<_>>()
+            "results": results
         }]
     });
     Ok(serde_json::to_string_pretty(&document)?)
@@ -115,7 +139,11 @@ pub fn render(report: &crate::report::Report<'_>, out: &mut dyn std::io::Write) 
     writeln!(
         out,
         "{}",
-        document(&report.findings, &report.path_prefix())?
+        document(
+            &report.findings,
+            &report.outcome.suppressed,
+            &report.path_prefix()
+        )?
     )?;
     Ok(())
 }
@@ -158,7 +186,7 @@ mod tests {
             finding(RuleId::DeepNesting, 30),
         ];
         let refs: Vec<&Finding> = items.iter().collect();
-        let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&refs, &[], "").unwrap()).unwrap();
 
         assert_eq!(document["version"], "2.1.0");
         let run = &document["runs"][0];
@@ -176,7 +204,7 @@ mod tests {
             finding(RuleId::LongFunction, 2),
         ];
         let refs: Vec<&Finding> = items.iter().collect();
-        let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&refs, &[], "").unwrap()).unwrap();
         let run = &document["runs"][0];
 
         let described: Vec<&str> = run["tool"]["driver"]["rules"]
@@ -196,7 +224,7 @@ mod tests {
         let mut item = finding(RuleId::UnusedFile, 0);
         item.location.column = 0;
         let refs = vec![&item];
-        let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&refs, &[], "").unwrap()).unwrap();
         let region =
             &document["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"];
         assert_eq!(region["startLine"], 1);
@@ -205,7 +233,7 @@ mod tests {
 
     #[test]
     fn an_empty_scan_is_still_a_valid_report() {
-        let document: Value = serde_json::from_str(&document(&[], "").unwrap()).unwrap();
+        let document: Value = serde_json::from_str(&document(&[], &[], "").unwrap()).unwrap();
         assert_eq!(document["runs"][0]["results"].as_array().unwrap().len(), 0);
     }
 }

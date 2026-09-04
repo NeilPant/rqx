@@ -56,7 +56,7 @@ this line depends on the shape of every object along the chain, so a change to a
 | Fix | Encapsulate Delegation / Extract Method |
 | Tuned by | `thresholds.message_chain_depth` |
 
-From `fixtures/typescript/hygiene.ts`, line 31:
+From `fixtures/typescript/hygiene.ts`, line 33:
 
 ```ts
 export function ship(order: { customer: { address: { city: string } } }) {

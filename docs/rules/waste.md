@@ -147,10 +147,10 @@ this code cannot run, so whatever it was meant to do is not happening and has no
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 24:
+From `fixtures/typescript/hygiene.ts`, line 26:
 
 ```ts
-  return value;
+  return value + seed;
   value = 1;
 }
 ```

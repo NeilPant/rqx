@@ -206,6 +206,23 @@ enum Command {
         #[arg(long)]
         language: Option<String>,
     },
+    /// List every finding a comment in the source waives, with the reason given
+    Suppressions {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Show only the waivers that carry an `until` date
+        #[arg(long)]
+        expiring: bool,
+        /// Emit one JSON object per waiver instead of the reader's report
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
     /// List every refactoring Rqx prescribes, and which rules ask for it
     Techniques,
     /// Print what each cleanliness level changes, as the settings it would take to
@@ -991,6 +1008,28 @@ fn run() -> Result<Exit> {
                 return report::advice_json(&outcome, &mut out).map(|()| Exit::Clean);
             }
             report::advice(&outcome, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Suppressions {
+            path,
+            standard,
+            expiring,
+            json,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            // A waiver is only visible when the finding it covers was found, and the
+            // display cap drops findings before anything can read them.
+            settings.config.scan.max_findings = 0;
+            let outcome = scan::scan(&path, &settings)?;
+            let mut out = anstream::stdout().lock();
+            if json {
+                return report::waivers_json(&path, &outcome, &mut out).map(|()| Exit::Clean);
+            }
+            report::waivers(&path, &outcome, expiring, palette, &mut out).map(|()| Exit::Clean)
         }
         Command::Docs { out, fixtures } => report::docs(&out, &fixtures).map(|()| Exit::Clean),
         Command::Init { path, force } => write_template(&path, force).map(|()| Exit::Clean),

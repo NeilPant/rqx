@@ -64,6 +64,9 @@ pub struct Spot {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Hygiene {
+    /// Waivers a developer wrote next to the code. Not a `Spot`: a waiver carries a
+    /// reason and a date, and nothing else here does.
+    pub waivers: Vec<crate::suppress::Suppression>,
     pub unused_locals: Vec<Spot>,
     pub unreachable: Vec<Spot>,
     pub commented_code: Vec<Spot>,

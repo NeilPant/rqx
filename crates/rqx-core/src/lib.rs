@@ -16,6 +16,7 @@ pub mod runtime;
 pub mod score;
 pub mod signature;
 pub mod span;
+pub mod suppress;
 pub mod technique;
 
 pub use advice::{Advice, AdviceId, AdviceSpec, Signal, Stance};

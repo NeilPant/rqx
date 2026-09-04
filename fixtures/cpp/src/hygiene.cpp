@@ -23,7 +23,9 @@ int pricing(const std::vector<int>& cart, bool apply_discount) {
 }
 
 int unreachable(int value) {
-    return value;
+    // rqx-ignore magic-number
+    int seed = 1;
+    return value + seed;
     value = 1;
 }
 

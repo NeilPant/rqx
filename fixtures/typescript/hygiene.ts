@@ -20,7 +20,9 @@ export function pricing(cart: number[], applyDiscount: boolean): number {
 }
 
 export function unreachable(value: number) {
-  return value;
+  // rqx-ignore magic-number
+  const seed = 1;
+  return value + seed;
   value = 1;
 }
 

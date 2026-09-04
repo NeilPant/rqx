@@ -47,6 +47,7 @@ pub(crate) struct Analyzed {
     module: rqx_core::facts::ModuleFacts,
     code_lines: u32,
     shape: rqx_lang::FileShape,
+    suppressions: Vec<rqx_core::suppress::Suppression>,
 }
 
 #[derive(Clone)]
@@ -93,6 +94,9 @@ pub struct ScanOutcome {
     /// threshold was crossed — the distribution a reader wants is the same set of
     /// numbers the rules only see the tail of.
     pub shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
+    /// Findings a waiver in the source asked rqx to leave out of the count. Kept so
+    /// every waiver can be audited in one place rather than only being obeyed.
+    pub suppressed: Vec<rqx_core::suppress::Suppressed>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -158,6 +162,9 @@ struct Collector {
     max_findings: usize,
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    suppressions: HashMap<Arc<str>, Vec<rqx_core::suppress::Suppression>>,
+    suppressed: Vec<rqx_core::suppress::Suppressed>,
+    today: String,
     shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
     advice: Vec<rqx_core::Advice>,
     clone_groups: HashMap<u64, CloneGroup>,
@@ -197,6 +204,9 @@ impl Collector {
             max_findings,
             findings_by_file: std::collections::BTreeMap::new(),
             lines_by_file: std::collections::BTreeMap::new(),
+            suppressions: HashMap::new(),
+            suppressed: Vec::new(),
+            today: rqx_core::suppress::today(),
             shape_by_file: std::collections::BTreeMap::new(),
             advice: Vec::new(),
             clone_groups: HashMap::new(),
@@ -241,7 +251,35 @@ impl Collector {
         self.accept(finding);
     }
 
+    /// The waiver that covers this finding, if its file wrote one. Cross-file
+    /// findings anchor at line 1, which only a whole-file waiver can reach.
+    fn waived(&self, finding: &Finding) -> Option<&rqx_core::suppress::Suppression> {
+        self.suppressions
+            .get(&finding.location.file)?
+            .iter()
+            .find(|waiver| waiver.covers(finding, &self.today))
+    }
+
     fn accept(&mut self, finding: Finding) {
+        // Every finding arrives here — the per-file ones off the channel and the
+        // graph, clone and history ones built after it drained — so this is the one
+        // place a waiver can reach all of them.
+        if let Some(waiver) = self.waived(&finding) {
+            self.suppressed.push(rqx_core::suppress::Suppressed {
+                at: SourceRange {
+                    file: Arc::clone(&finding.location.file),
+                    start: waiver.span.start,
+                    end: waiver.span.end,
+                    line: waiver.line,
+                    column: 1,
+                    end_line: waiver.line,
+                },
+                reason: waiver.reason.clone(),
+                until: waiver.until.clone(),
+                finding,
+            });
+            return;
+        }
         self.counts.record(&finding);
         *self
             .findings_by_file
@@ -986,6 +1024,17 @@ impl Collector {
                 .then(a.location.start.cmp(&b.location.start))
                 .then(a.advisory.cmp(&b.advisory))
         });
+        // Same reason the findings key is total: waivers are recorded as their files
+        // finish, and which file finishes first depends on the thread count.
+        self.suppressed.sort_by(|a, b| {
+            a.finding
+                .location
+                .file
+                .cmp(&b.finding.location.file)
+                .then(a.finding.location.start.cmp(&b.finding.location.start))
+                .then(a.finding.rule.slug().cmp(b.finding.rule.slug()))
+                .then(a.at.start.cmp(&b.at.start))
+        });
         self.skipped.sort();
         ScanOutcome {
             root: root.to_path_buf(),
@@ -999,6 +1048,7 @@ impl Collector {
             findings_by_file: self.findings_by_file,
             lines_by_file: self.lines_by_file,
             shape_by_file: self.shape_by_file,
+            suppressed: self.suppressed,
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -1264,9 +1314,18 @@ pub(crate) fn collect(
                     module,
                     code_lines,
                     shape,
+                    suppressions,
                 } = *file;
                 collector.files_scanned += 1;
                 collector.code_lines += u64::from(code_lines);
+                let shared: Arc<str> = Arc::from(display.as_str());
+                // Recorded before this file's findings are offered, because a waiver
+                // that arrives after the finding it covers waives nothing.
+                if !suppressions.is_empty() {
+                    collector
+                        .suppressions
+                        .insert(Arc::clone(&shared), suppressions);
+                }
                 for finding in findings {
                     collector.accept(finding);
                 }
@@ -1274,7 +1333,6 @@ pub(crate) fn collect(
                 for site in clones {
                     collector.record_clone(site, language);
                 }
-                let shared: Arc<str> = Arc::from(display.as_str());
                 collector
                     .lines_by_file
                     .insert(Arc::clone(&shared), code_lines);
@@ -1374,6 +1432,7 @@ pub(crate) fn analyze_file(
                     module: analysis.module,
                     code_lines: analysis.code_lines,
                     shape: analysis.shape,
+                    suppressions: analysis.suppressions,
                 })),
                 Err(error) => ScanMessage::Skipped {
                     path: path.to_owned(),

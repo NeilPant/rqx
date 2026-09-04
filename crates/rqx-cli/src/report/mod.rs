@@ -16,6 +16,7 @@ mod ranked;
 mod sarif;
 mod settings;
 mod terminal;
+mod waivers;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -38,6 +39,7 @@ pub use patterns::{
     coverage as pattern_coverage, explain as explain_pattern, json as advice_json, render as advice,
 };
 pub use ranked::{json as plan_json, render as plan};
+pub use waivers::{json as waivers_json, render as waivers};
 
 /// A misspelling is the common case, and a list of sixty slugs is not an answer to
 /// one. Shared so every "no such thing" error in the tool reads the same way.
@@ -366,6 +368,7 @@ pub mod tests {
             findings_by_file: BTreeMap::new(),
             lines_by_file: BTreeMap::new(),
             shape_by_file: BTreeMap::new(),
+            suppressed: Vec::new(),
             omitted: 0,
             code_lines: 10_000,
             files_scanned,
