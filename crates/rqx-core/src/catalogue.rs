@@ -630,6 +630,89 @@ catalogue! {
         off_by_default: true,
     },
 
+    // ---- Flow -------------------------------------------------------------
+    RedundantElse {
+        slug: "redundant-else",
+        category: Flow,
+        analysis: Syntax,
+        metric: "an `else` following a branch whose every path already exits",
+        fixes: [ReplaceNestedConditionalWithGuardClauses],
+        confidence: Verified,
+        severity: Warning,
+        why: "the branch already left, so everything after it is indented one level \
+              deeper than the logic actually is",
+    },
+    CollapsibleIf {
+        slug: "collapsible-if",
+        category: Flow,
+        analysis: Syntax,
+        metric: "an `if` that is the only statement inside another, neither with an else",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "it is one condition written as two, so a reader holds a branch that \
+              never branches",
+    },
+    BooleanFromBranch {
+        slug: "boolean-from-branch",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a branch whose arms return opposite boolean literals",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "the condition is already the answer, and branching on it to restate it \
+              is four lines saying what one says",
+    },
+    LiteralComparison {
+        slug: "literal-comparison",
+        category: Flow,
+        analysis: Syntax,
+        metric: "an equality comparison against a boolean literal",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Info,
+        why: "comparing a boolean to a boolean asks a question that was already \
+              answered, and reads as though the value might be something else",
+    },
+    SelfComparison {
+        slug: "self-comparison",
+        category: Flow,
+        analysis: Syntax,
+        metric: "an equality comparison whose operands are written identically",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Error,
+        why: "the answer is decided before it runs, so either the comparison does \
+              nothing or one side was meant to be something else",
+    },
+    IdenticalBranches {
+        slug: "identical-branches",
+        category: Flow,
+        analysis: Syntax,
+        metric: "two arms of a branch whose bodies are written identically",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Error,
+        why: "the decision changes nothing, so either it is not a decision or one arm \
+              was meant to differ and does not",
+    },
+    EmptyBlock {
+        slug: "empty-block",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a branch or loop body with no statements in it",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "a decision was written and then nothing was done about it, which reads \
+              as unfinished work or as a condition somebody inverted by accident",
+        not_applicable: [(
+            Python,
+            "Python has no empty block: a body needs `pass` or an ellipsis, which is a \
+             statement somebody wrote on purpose"
+        )],
+    },
     // ---- Naming ---------------------------------------------------------------
     MeaninglessName {
         slug: "meaningless-name",

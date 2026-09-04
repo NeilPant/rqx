@@ -78,6 +78,8 @@ pub static GO: LanguageProfile = LanguageProfile {
     logical_operators: &["&&", "||"],
     negation_operators: &["!"],
     equality_operators: &["==", "!="],
+    boolean_literals: &["true", "false"],
+    loop_kinds: &["for_statement"],
     call_kinds: &["call_expression"],
     callee_field: "function",
     qualified_name_kinds: &[],

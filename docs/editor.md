@@ -8,7 +8,7 @@ named refactoring that fixes it.
 It also scans the whole project on its own: once after the handshake, and again after
 every save. The eight cross-file rules — unused exports, unused files, import cycles,
 duplication, and the two co-change rules — cannot be answered from one open file, so
-without that a client would silently see 52 of the 62 rules. Diagnostics for files you
+without that a client would silently see 59 of the 69 rules. Diagnostics for files you
 never opened are published the same way as the ones for files you did.
 
 ## Commands

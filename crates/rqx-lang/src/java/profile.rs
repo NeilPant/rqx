@@ -101,6 +101,13 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     logical_operators: &["&&", "||"],
     negation_operators: &["!"],
     equality_operators: &["==", "!=", "equals"],
+    boolean_literals: &["true", "false"],
+    loop_kinds: &[
+        "for_statement",
+        "enhanced_for_statement",
+        "while_statement",
+        "do_statement",
+    ],
     call_kinds: &["method_invocation", "object_creation_expression"],
     callee_field: "name",
     qualified_name_kinds: &["scoped_identifier"],

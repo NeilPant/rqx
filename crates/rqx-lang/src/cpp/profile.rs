@@ -85,6 +85,13 @@ pub static CPP: LanguageProfile = LanguageProfile {
     logical_operators: &["&&", "||", "and", "or"],
     negation_operators: &["!", "not"],
     equality_operators: &["==", "!="],
+    boolean_literals: &["true", "false"],
+    loop_kinds: &[
+        "for_statement",
+        "range_based_for_statement",
+        "while_statement",
+        "do_statement",
+    ],
     call_kinds: &["call_expression"],
     callee_field: "function",
     qualified_name_kinds: &["qualified_identifier"],

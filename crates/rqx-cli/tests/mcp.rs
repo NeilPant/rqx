@@ -363,12 +363,17 @@ fn a_buffer_is_analysed_without_touching_the_disk() {
         .collect();
     assert!(rules.contains(&"long-parameter-list"), "{rules:?}");
     assert_eq!(analysis["scope"], json!("buffer"));
+    // Counted from the catalogue rather than written down, so adding a rule does not
+    // quietly turn this into an assertion about a number that used to be true.
+    let answered = rqx_core::RuleId::ALL.len() - rqx_core::RuleId::PROJECT_SCOPED.len();
+    let note = analysis["note"].as_str().expect("a note");
     assert!(
-        analysis["note"]
-            .as_str()
-            .expect("a note")
-            .contains("52 of the 62"),
-        "an agent reading silence as a clean bill of health is the failure this prevents"
+        note.contains(&format!(
+            "{answered} of the {}",
+            rqx_core::RuleId::ALL.len()
+        )),
+        "an agent reading silence as a clean bill of health is the failure this \
+         prevents, and the note says: {note}"
     );
     assert!(
         !root.join("nowhere").exists(),

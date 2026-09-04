@@ -87,6 +87,13 @@ pub struct Hygiene {
     pub obscured_expressions: Vec<Spot>,
     pub buried_configuration: Vec<Spot>,
     pub inconsistent_vocabulary: Vec<Spot>,
+    pub redundant_else: Vec<Spot>,
+    pub collapsible_ifs: Vec<Spot>,
+    pub boolean_from_branch: Vec<Spot>,
+    pub literal_comparisons: Vec<Spot>,
+    pub self_comparisons: Vec<Spot>,
+    pub identical_branches: Vec<Spot>,
+    pub empty_blocks: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]

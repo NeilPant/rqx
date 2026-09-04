@@ -80,6 +80,7 @@ from .shapes import (
     sweep,
 )
 from .vocabulary import fetch_order, getOrder, load_order, save_order
+from .flow import compared, decided_nothing, restated, same_either_way
 
 
 def main():

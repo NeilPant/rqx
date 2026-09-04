@@ -87,6 +87,13 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     logical_operators: &["&&", "||", "??"],
     negation_operators: &["!"],
     equality_operators: &["===", "==", "!==", "!="],
+    boolean_literals: &["true", "false"],
+    loop_kinds: &[
+        "for_statement",
+        "for_in_statement",
+        "while_statement",
+        "do_statement",
+    ],
     call_kinds: &["call_expression", "new_expression"],
     callee_field: "function",
     qualified_name_kinds: &[],

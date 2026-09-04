@@ -88,6 +88,7 @@ impl Evidence {
             Self::LayerViolation { target, .. } | Self::ForbiddenImport { target, .. } => {
                 Some(target)
             }
+            Self::BranchShape { shape } => Some(shape),
             Self::BuriedConfiguration { kind, .. } => Some(kind),
             // A kind ("return", "TODO", "only") names a category of finding, not this
             // one, so the span's own text is the more faithful subject.
@@ -167,6 +168,7 @@ impl Evidence {
             | Self::IntimatePair { .. }
             | Self::LayerViolation { .. }
             | Self::ForbiddenImport { .. }
+            | Self::BranchShape { .. }
             | Self::ParallelHierarchy { .. } => None,
         }
     }

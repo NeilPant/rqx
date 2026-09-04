@@ -65,6 +65,25 @@ impl FindingBuilder<'_> {
     }
 }
 
+/// The one sentence each flow rule says about what it found. Written here rather than
+/// in the collector so the facts stay a shape and the prose stays a report.
+fn describe(rule: RuleId, detail: &str) -> String {
+    match rule {
+        RuleId::RedundantElse => {
+            "The branch above always returns, so this `else` is not a decision.".to_owned()
+        }
+        RuleId::CollapsibleIf => "This `if` is the only statement inside another one.".to_owned(),
+        RuleId::BooleanFromBranch => {
+            "Both arms return a boolean literal, so the branch restates the condition.".to_owned()
+        }
+        RuleId::LiteralComparison => format!("Compared against the literal `{detail}`."),
+        RuleId::SelfComparison => format!("`{detail}` is compared against itself."),
+        RuleId::IdenticalBranches => "Both arms of this branch do the same thing.".to_owned(),
+        RuleId::EmptyBlock => format!("This {detail} has an empty body."),
+        _ => detail.to_owned(),
+    }
+}
+
 fn subject(name: Option<&String>) -> String {
     name.map_or_else(|| "this function".to_owned(), |name| format!("`{name}`"))
 }
@@ -325,6 +344,55 @@ pub fn check_hygiene(
                 _ => "narrow the value with a check the checker can follow".to_owned(),
             },
         );
+    }
+    for (spots, rule, hint) in [
+        (
+            &hygiene.redundant_else,
+            RuleId::RedundantElse,
+            "drop the `else` and outdent its body; the branch above already returned",
+        ),
+        (
+            &hygiene.collapsible_ifs,
+            RuleId::CollapsibleIf,
+            "join the two conditions with `&&` and keep one branch",
+        ),
+        (
+            &hygiene.boolean_from_branch,
+            RuleId::BooleanFromBranch,
+            "return the condition itself",
+        ),
+        (
+            &hygiene.literal_comparisons,
+            RuleId::LiteralComparison,
+            "use the value directly, or negate it",
+        ),
+        (
+            &hygiene.self_comparisons,
+            RuleId::SelfComparison,
+            "one side was meant to be something else; decide which",
+        ),
+        (
+            &hygiene.identical_branches,
+            RuleId::IdenticalBranches,
+            "keep one body and delete the branch, or make the arms differ",
+        ),
+        (
+            &hygiene.empty_blocks,
+            RuleId::EmptyBlock,
+            "write what should happen, or delete the branch",
+        ),
+    ] {
+        for spot in spots {
+            emit(
+                out,
+                rule,
+                spot,
+                Evidence::BranchShape {
+                    shape: describe(rule, &spot.detail),
+                },
+                hint.to_owned(),
+            );
+        }
     }
     for spot in &hygiene.journal_comments {
         emit(

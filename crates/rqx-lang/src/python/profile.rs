@@ -96,6 +96,8 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     logical_operators: &["and", "or"],
     negation_operators: &["not"],
     equality_operators: &["==", "!="],
+    boolean_literals: &["True", "False"],
+    loop_kinds: &["for_statement", "while_statement"],
     call_kinds: &["call"],
     callee_field: "function",
     qualified_name_kinds: &[],

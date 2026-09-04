@@ -507,6 +507,233 @@ impl<'a> Walker<'a> {
         }
     }
 
+    /// The shapes an `if` takes when it is saying less than it looks like: an `else`
+    /// after a branch that already left, an `if` that is the only thing inside
+    /// another, two arms that do the same thing, and a branch whose whole job is to
+    /// turn a condition into the boolean it already is.
+    fn note_branch_shape(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(consequence) = node
+            .child_by_field_name("consequence")
+            .map(|arm| self.body(arm))
+        else {
+            return;
+        };
+        let alternative = node.child_by_field_name(profile.else_field);
+
+        if let Some(alternative) = alternative {
+            if self.always_exits(consequence) {
+                self.out.redundant_else.push(Spot {
+                    span: span_of(alternative),
+                    detail: "else".to_owned(),
+                    count: 1,
+                });
+            }
+            // Some languages make the alternative the block itself and others wrap it
+            // in an `else` clause; only the wrapper is worth seeing through.
+            let other = self.body(alternative);
+            if other.kind() != profile.if_kind
+                && !self.text(consequence).trim().is_empty()
+                && squashed(self.text(consequence)) == squashed(self.text(other))
+            {
+                self.out.identical_branches.push(Spot {
+                    span: span_of(node),
+                    detail: "both arms".to_owned(),
+                    count: 1,
+                });
+            }
+            if let (Some(first), Some(second)) = (
+                self.returned_boolean(consequence),
+                self.returned_boolean(other),
+            ) && first != second
+            {
+                self.out.boolean_from_branch.push(Spot {
+                    span: span_of(node),
+                    detail: "the condition itself".to_owned(),
+                    count: 1,
+                });
+            }
+        } else if let Some(inner) = self.sole_statement(consequence)
+            && inner.kind() == profile.if_kind
+            && inner.child_by_field_name(profile.else_field).is_none()
+        {
+            self.out.collapsible_ifs.push(Spot {
+                span: span_of(inner),
+                detail: "one condition".to_owned(),
+                count: 1,
+            });
+        }
+    }
+
+    /// A block a reader was promised something in. The empty bodies a language needs
+    /// — `pass`, an abstract method — are declared per language and skipped, and a
+    /// catch is left to the rule that already reports it.
+    fn note_empty_block(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(parent) = node.parent() else {
+            return;
+        };
+        // A grammar that puts a statement list inside the braces makes the block's
+        // parent the braces rather than the branch, so the decision is one level up.
+        let governs = |candidate: Node<'a>| {
+            candidate.kind() == profile.if_kind
+                || profile.else_clause_kinds.contains(&candidate.kind())
+                || profile.loop_kinds.contains(&candidate.kind())
+        };
+        let decides = governs(parent)
+            || (profile.structural_block_parents.contains(&parent.kind())
+                && parent.parent().is_some_and(governs));
+        // Reported once: where both the braces and a list inside them are nodes, the
+        // list is the one that carries the statements.
+        if profile.structural_block_parents.contains(&node.kind())
+            && node
+                .named_children(&mut node.walk())
+                .any(|child| profile.is_block(child))
+        {
+            return;
+        }
+        // A comment is a named child in these grammars, so a block holding only an
+        // explanation is a decision somebody documented rather than an empty one.
+        if !decides || node.named_child_count() > 0 {
+            return;
+        }
+        self.out.empty_blocks.push(Spot {
+            span: span_of(node),
+            detail: parent.kind().replace('_', " "),
+            count: 1,
+        });
+    }
+
+    /// A comparison that has already decided: an operand against itself, or against
+    /// the literal it is being asked whether it equals.
+    fn note_comparison(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        // Python writes a comparison as a run of operands with the operators between
+        // them rather than as a left/right pair, so the fields are absent there and
+        // the operator has to be read positionally.
+        let operator = node.child_by_field_name("operator").map_or_else(
+            || {
+                (0..node.child_count())
+                    .filter_map(|index| node.child(index))
+                    .find(|child| !child.is_named())
+            },
+            Some,
+        );
+        let Some(operator) = operator else {
+            return;
+        };
+        if !profile.equality_operators.contains(&self.text(operator)) {
+            return;
+        }
+        let (Some(left), Some(right)) = (
+            node.child_by_field_name("left")
+                .or_else(|| node.named_child(0)),
+            node.child_by_field_name("right")
+                .or_else(|| node.named_child(1)),
+        ) else {
+            return;
+        };
+        let (left_text, right_text) = (self.text(left).trim(), self.text(right).trim());
+        if left_text == right_text && !left_text.is_empty() {
+            self.out.self_comparisons.push(Spot {
+                span: span_of(node),
+                detail: left_text.to_owned(),
+                count: 1,
+            });
+            return;
+        }
+        for side in [left_text, right_text] {
+            if profile.boolean_literals.contains(&side) {
+                self.out.literal_comparisons.push(Spot {
+                    span: span_of(node),
+                    detail: side.to_owned(),
+                    count: 1,
+                });
+                return;
+            }
+        }
+    }
+
+    /// Whether every path out of a block leaves the function or the loop, which is
+    /// what makes a following `else` a level of indentation nobody needs.
+    fn always_exits(&self, block: Node<'a>) -> bool {
+        let profile = self.profile;
+        let exits = |node: Node<'a>| {
+            profile
+                .exit_kinds
+                .iter()
+                .any(|(kind, _)| *kind == node.kind())
+        };
+        let last = (0..block.named_child_count())
+            .filter_map(|index| block.named_child(index))
+            .rfind(|child| !profile.is_comment(*child));
+        match last {
+            Some(node) if exits(node) => true,
+            Some(node) if node.kind() == profile.if_kind => {
+                let consequence = node.child_by_field_name("consequence");
+                let alternative = node.child_by_field_name(profile.else_field);
+                match (consequence, alternative) {
+                    (Some(one), Some(other)) => self.always_exits(one) && self.always_exits(other),
+                    _ => false,
+                }
+            }
+            Some(node) if profile.is_block(node) => self.always_exits(node),
+            _ => exits(block),
+        }
+    }
+
+    /// The node actually holding a body's statements. Some grammars make an arm the
+    /// block itself, some wrap it in an `else` clause, and Go puts a statement list
+    /// inside the braces — comparing two arms means comparing the same thing.
+    fn body(&self, node: Node<'a>) -> Node<'a> {
+        if self.profile.is_block(node) {
+            return node;
+        }
+        let mut cursor = node.walk();
+        let inner: Vec<Node<'a>> = node
+            .named_children(&mut cursor)
+            .filter(|child| self.profile.is_block(*child))
+            .collect();
+        match inner.as_slice() {
+            [only] => *only,
+            _ => node.named_child(0).map_or(node, |first| {
+                if self.profile.is_block(first) {
+                    first
+                } else {
+                    node
+                }
+            }),
+        }
+    }
+
+    fn sole_statement(&self, block: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let mut statements = (0..block.named_child_count())
+            .filter_map(|index| block.named_child(index))
+            .filter(|child| !profile.is_comment(*child));
+        let first = statements.next()?;
+        statements.next().is_none().then_some(first)
+    }
+
+    /// The boolean a block returns, when returning one is all it does.
+    fn returned_boolean(&self, block: Node<'a>) -> Option<bool> {
+        let profile = self.profile;
+        let statement = self.sole_statement(block).unwrap_or(block);
+        if !profile
+            .exit_kinds
+            .iter()
+            .any(|(kind, _)| *kind == statement.kind())
+        {
+            return None;
+        }
+        let value = statement.named_child(0)?;
+        let text = self.text(value).trim();
+        profile
+            .boolean_literals
+            .contains(&text)
+            .then_some(matches!(text, "true" | "True"))
+    }
+
     fn walk(&mut self, node: Node<'a>) {
         let kind = node.kind();
         let profile = self.profile;
@@ -556,6 +783,17 @@ impl<'a> Walker<'a> {
         }
         if kind == profile.if_kind || profile.else_clause_kinds.contains(&kind) {
             self.note_condition(node);
+        }
+        if kind == profile.if_kind {
+            self.note_branch_shape(node);
+        }
+        // The braces too, not only the statement list inside them: a grammar that
+        // separates the two emits no list at all when the braces are empty.
+        if profile.is_block(node) || profile.structural_block_parents.contains(&kind) {
+            self.note_empty_block(node);
+        }
+        if profile.binary_kinds.contains(&kind) {
+            self.note_comparison(node);
         }
         if profile.is_call(node) {
             self.note_call(node);
@@ -751,6 +989,12 @@ fn unused_locals(scopes: &Scopes) -> Vec<Spot> {
         .collect();
     spots.sort_by_key(|spot| spot.span.start);
     spots
+}
+
+/// Whitespace-insensitive text, so two branches written the same way compare equal
+/// however they are indented.
+fn squashed(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn scan_comments(

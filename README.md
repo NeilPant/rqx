@@ -144,7 +144,7 @@ does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Sixty-two rules across eight families. Every rule names the metric that decides it and
+Sixty-nine rules across nine families. Every rule names the metric that decides it and
 the refactoring that answers it, and neither is optional.
 
 That traceability is enforced by the compiler. The catalogue is one declarative
@@ -153,7 +153,7 @@ rule that omits its metric or its fix does not build. A second test asserts that
 **every rule in the catalogue actually fires on a fixture** — a rule nothing can
 trigger is a documentation entry pretending to be a check.
 
-`rqx rules` prints all 62 grouped by family, and `rqx explain <rule>` prints one in
+`rqx rules` prints all 69 grouped by family, and `rqx explain <rule>` prints one in
 full. [`docs/rules/`](docs/rules/README.md) is the same catalogue as a reference: what
 each rule measures, the threshold that tunes it, the languages it cannot apply to, and
 a worked example lifted from the fixture that fires it.
@@ -165,6 +165,7 @@ a worked example lifted from the fixture that fires it.
 | **Change** | 3 | shapes that make an edit expensive |
 | **Waste** | 18 | code and comments nothing reaches |
 | **Coupling** | 7 | modules that know too much about each other, and dependencies pointing the wrong way |
+| **Flow** | 7 | control flow that says less than it looks like |
 | **Naming** | 7 | names that mislead or say nothing |
 | **Safety** | 8 | silent failure and swallowed errors |
 | **Tests** | 4 | suites that pass without checking |
@@ -494,7 +495,7 @@ import manufactures false "unused export" findings.
 capability lands in every editor at once rather than once per client.
 
 It scans the whole project after startup and after each save, publishing diagnostics for
-files you never opened. That matters because ten of the sixty-two rules — unused exports,
+files you never opened. That matters because ten of the sixty-nine rules — unused exports,
 unused files, import cycles, duplication and the two co-change rules — cannot be answered
 from a single open file, and an editor that only saw the other 52 would be quietly wrong
 about dead code.

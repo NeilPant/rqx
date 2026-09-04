@@ -16,18 +16,20 @@ pub enum Category {
     Change,
     Waste,
     Coupling,
+    Flow,
     Naming,
     Safety,
     Tests,
 }
 
 impl Category {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Size,
         Self::Abstraction,
         Self::Change,
         Self::Waste,
         Self::Coupling,
+        Self::Flow,
         Self::Naming,
         Self::Safety,
         Self::Tests,
@@ -40,6 +42,7 @@ impl Category {
             Self::Change => "change",
             Self::Waste => "waste",
             Self::Coupling => "coupling",
+            Self::Flow => "flow",
             Self::Naming => "naming",
             Self::Safety => "safety",
             Self::Tests => "tests",
@@ -53,6 +56,7 @@ impl Category {
             Self::Change => "Change",
             Self::Waste => "Waste",
             Self::Coupling => "Coupling",
+            Self::Flow => "Flow",
             Self::Naming => "Naming",
             Self::Safety => "Safety",
             Self::Tests => "Tests",

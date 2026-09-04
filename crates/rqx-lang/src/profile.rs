@@ -77,6 +77,11 @@ pub struct LanguageProfile {
     pub logical_operators: &'static [&'static str],
     pub negation_operators: &'static [&'static str],
     pub equality_operators: &'static [&'static str],
+    /// What this language writes for true and false, so a comparison against one can
+    /// be told from a comparison against a value.
+    pub boolean_literals: &'static [&'static str],
+    /// Repetition, for the rules about a body that decides nothing.
+    pub loop_kinds: &'static [&'static str],
     pub call_kinds: &'static [&'static str],
     /// The field naming what a call calls. Some grammars hold the whole callee in one
     /// field; others put the receiver and the method name in separate ones, in which

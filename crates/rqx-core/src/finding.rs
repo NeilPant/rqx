@@ -273,6 +273,9 @@ pub enum Evidence {
         other: String,
         methods: u32,
     },
+    BranchShape {
+        shape: String,
+    },
     LayerViolation {
         from: String,
         to: String,
@@ -581,6 +584,7 @@ impl fmt::Display for Evidence {
                 f,
                 "Subclasses of `{parent}` and of `{twin}` are both named for {shared}."
             ),
+            Self::BranchShape { shape } => write!(f, "{shape}"),
             Self::LayerViolation { from, to, target } => write!(
                 f,
                 "The `{from}` layer imports `{target}`, which is in `{to}`."
