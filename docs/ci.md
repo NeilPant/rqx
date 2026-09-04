@@ -96,7 +96,27 @@ rqx:
 ```
 
 Fingerprints in the Code Quality report deliberately exclude the line number, so
-editing the top of a file does not re-report everything below it as new.
+editing the top of a file does not re-report everything below it as new. A file
+holding the same finding more than once disambiguates the repeats by ordinal rather
+than by position: GitLab shows one annotation per fingerprint, so without it the
+second and third empty catch in a file would never reach the merge request.
+
+## Running a job before you push
+
+`gitlab-runner exec` was removed in GitLab 16, and `run-single` polls a real instance
+for work, so neither runs a pipeline from a checkout. `tools/ci-local.sh` reads a
+job's `script:` out of `.gitlab-ci.yml` and runs it here:
+
+```bash
+tools/ci-local.sh                 # the jobs in the file
+tools/ci-local.sh lint            # run one
+tools/ci-local.sh rqx --in ../app # run it against another checkout
+```
+
+It is not a runner — no image, no cache, no artifacts, no `rules:` — so a job that
+passes locally can still fail in CI for a reason the container would have shown. What
+it does check is the part that usually breaks: the commands, their order, and the exit
+code.
 
 ## CircleCI
 

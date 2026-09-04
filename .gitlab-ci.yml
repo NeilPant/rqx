@@ -1,0 +1,80 @@
+# rqx's own pipeline, and the shape it recommends to a project using it.
+#
+# `gitlab-runner exec` was removed in 16.x, so `tools/ci-local.sh` runs a job's
+# script here rather than in a runner: the same commands, the same order, no GitLab
+# instance to register against.
+
+stages: [check, quality]
+
+default:
+  image: rust:1.90
+  interruptible: true
+
+variables:
+  CARGO_TERM_COLOR: always
+  # A pipeline that failed on a warning nobody introduced would be a pipeline people
+  # learn to ignore.
+  RQX_BASE: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+
+.rust:
+  before_script:
+    - rustup component add clippy rustfmt
+  cache:
+    key:
+      files: [Cargo.lock]
+    paths: [.cargo/, target/]
+
+build:
+  extends: .rust
+  stage: check
+  script:
+    - cargo build --workspace --locked
+    - cargo test --workspace --locked
+
+lint:
+  extends: .rust
+  stage: check
+  script:
+    - cargo fmt --all -- --check
+    - cargo clippy --workspace --all-targets -- -D warnings
+
+# rqx reading rqx. One invocation writes every report, because running it twice
+# doubles the slowest step in the job.
+rqx:
+  stage: quality
+  needs: [build]
+  extends: .rust
+  script:
+    - cargo build --release --locked --bin rqx
+    - |
+      ./target/release/rqx scan . \
+        --reporter terminal \
+        --reporter gitlab=gl-code-quality-report.json \
+        --reporter junit=rqx-junit.xml \
+        --reporter markdown=rqx-summary.md \
+        --fail-on error
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths: [rqx-summary.md]
+    reports:
+      codequality: gl-code-quality-report.json
+      junit: rqx-junit.xml
+
+# On a merge request, judge only what the branch touched.
+rqx:review:
+  stage: quality
+  needs: [build]
+  extends: .rust
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - cargo build --release --locked --bin rqx
+    - |
+      ./target/release/rqx check . --base "origin/$RQX_BASE" \
+        --reporter terminal \
+        --reporter gitlab=gl-code-quality-report.json
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json
