@@ -137,6 +137,14 @@ struct CloneGroup {
     sites: SmallVec<[SourceRange; 2]>,
 }
 
+struct PortedGroup {
+    statements: u32,
+    nodes: u32,
+    literals: u64,
+    languages: std::collections::BTreeSet<Language>,
+    sites: SmallVec<[SourceRange; 2]>,
+}
+
 /// Findings are capped for display while `counts` stays exact, because a health
 /// score that moved with the display cap would not mean anything.
 struct Collector {
@@ -147,11 +155,16 @@ struct Collector {
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     advice: Vec<rqx_core::Advice>,
     clone_groups: HashMap<u64, CloneGroup>,
+    /// The same blocks keyed by a shape no grammar owns, so logic ported between two
+    /// languages can be found. Kept apart from `clone_groups` because a group here is
+    /// only interesting when it spans languages.
+    ported: HashMap<u64, PortedGroup>,
     modules: Vec<rqx_lang::module_graph::ModuleEntry>,
     analyzed: std::collections::BTreeSet<String>,
     impact: ImpactMap,
     import_edges: std::collections::BTreeMap<String, Vec<String>>,
     track_clones: bool,
+    track_ported: bool,
     track_modules: bool,
     /// What a test run reached, when the project pointed at a coverage file.
     coverage: Option<rqx_core::Hits>,
@@ -167,6 +180,7 @@ impl Collector {
     fn new(
         max_findings: usize,
         track_clones: bool,
+        track_ported: bool,
         track_modules: bool,
         bar: crate::progress::Bar,
         total: Option<u32>,
@@ -179,11 +193,13 @@ impl Collector {
             lines_by_file: std::collections::BTreeMap::new(),
             advice: Vec::new(),
             clone_groups: HashMap::new(),
+            ported: HashMap::new(),
             modules: Vec::new(),
             analyzed: std::collections::BTreeSet::new(),
             impact: ImpactMap::default(),
             import_edges: std::collections::BTreeMap::new(),
             track_clones,
+            track_ported,
             track_modules,
             coverage: None,
             code_lines: 0,
@@ -239,7 +255,7 @@ impl Collector {
         }
     }
 
-    fn record_clone(&mut self, site: rqx_lang::CloneSite) {
+    fn record_clone(&mut self, site: rqx_lang::CloneSite, language: Language) {
         if !self.track_clones {
             return;
         }
@@ -253,7 +269,22 @@ impl Collector {
                 sites: SmallVec::new(),
             });
         group.occurrences += 1;
-        insert_bounded(&mut group.sites, site.range);
+        insert_bounded(&mut group.sites, site.range.clone());
+
+        if self.track_ported {
+            let ported = self
+                .ported
+                .entry(site.shape)
+                .or_insert_with(|| PortedGroup {
+                    statements: site.statements,
+                    nodes: site.nodes,
+                    literals: site.literals,
+                    languages: std::collections::BTreeSet::new(),
+                    sites: SmallVec::new(),
+                });
+            ported.languages.insert(language);
+            insert_bounded(&mut ported.sites, site.range);
+        }
     }
 
     fn report_progress(&mut self, file: &str) {
@@ -271,6 +302,63 @@ impl Collector {
     fn report_phase(&mut self, phase: crate::progress::Phase) {
         self.bar
             .update(phase, self.files_scanned, None, self.counts.total, "");
+    }
+
+    /// Blocks whose shape appears in more than one language. Same-language repeats
+    /// are `duplicate-code`'s job and are already reported with a fingerprint that
+    /// knows about identifiers; this only claims the narrower, louder thing.
+    fn finish_ported(&mut self, root: &Path, settings: &Resolved) {
+        // Ported code keeps its constants even when its syntax changes completely, so
+        // a shared literal is what separates the same rule written twice from two
+        // blocks that merely branch and return in the same order.
+        const MIN_STATEMENTS: u32 = 8;
+        const MIN_NODES: u32 = 40;
+
+        let mut groups: Vec<PortedGroup> = self
+            .ported
+            .drain()
+            .map(|(_, group)| group)
+            .filter(|group| {
+                group.languages.len() > 1
+                    && group.sites.len() > 1
+                    && group.statements >= MIN_STATEMENTS
+                    && group.nodes >= MIN_NODES
+                    && group.literals != 0
+            })
+            .collect();
+        groups.sort_by(|a, b| {
+            a.sites[0]
+                .file
+                .cmp(&b.sites[0].file)
+                .then(a.sites[0].start.cmp(&b.sites[0].start))
+        });
+
+        for group in groups {
+            let anchor = group.sites[0].clone();
+            let spec = RuleId::CrossLanguageDuplicate.spec();
+            let named: Vec<&str> = group.languages.iter().map(|l| l.title()).collect();
+            let config = settings.for_file(&root.join(anchor.file.as_ref()));
+            self.accept_if_enabled(
+                config,
+                Finding {
+                    rule: RuleId::CrossLanguageDuplicate,
+                    location: anchor,
+                    severity: spec.severity,
+                    confidence: spec.confidence,
+                    evidence: Evidence::ClonedBlock {
+                        statements: group.statements,
+                        nodes: group.nodes,
+                        occurrences: group.sites.len() as u32,
+                    },
+                    fix_hint: format!(
+                        "the same shape is in {}; give the rule one home and call it from \
+                         both, or write down why they are allowed to differ",
+                        named.join(" and ")
+                    ),
+                    related: group.sites.iter().skip(1).cloned().collect(),
+                },
+            );
+        }
     }
 
     fn finish_clones(&mut self, root: &Path, settings: &Resolved) {
@@ -851,6 +939,7 @@ impl Collector {
         let config = &settings.config;
         self.report_phase(Phase::Duplicates);
         self.finish_clones(root, settings);
+        self.finish_ported(root, settings);
         let mut at = Positions::new(root);
         self.report_phase(Phase::Imports);
         self.finish_modules(root, config, &mut at);
@@ -1144,6 +1233,7 @@ pub(crate) fn collect(
     let mut collector = Collector::new(
         settings.config.scan.max_findings,
         settings.enabled_anywhere(RuleId::DuplicateCode),
+        settings.enabled_anywhere(RuleId::CrossLanguageDuplicate),
         settings.needs_modules(),
         bar,
         total,
@@ -1169,7 +1259,7 @@ pub(crate) fn collect(
                 }
                 collector.advice.extend(advice);
                 for site in clones {
-                    collector.record_clone(site);
+                    collector.record_clone(site, language);
                 }
                 let shared: Arc<str> = Arc::from(display.as_str());
                 collector

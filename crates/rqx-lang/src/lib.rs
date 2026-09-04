@@ -37,6 +37,10 @@ use crate::profile::LanguageProfile;
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct CloneSite {
     pub hash: u64,
+    /// Unsalted, and in a vocabulary no grammar owns: two languages sharing one of
+    /// these are sharing the logic, not an accident of their syntax trees.
+    pub shape: u64,
+    pub literals: u64,
     pub range: SourceRange,
     pub statements: u32,
     pub nodes: u32,
@@ -312,6 +316,8 @@ pub fn analyze_as(
         })
         .map(|candidate| CloneSite {
             hash: candidate.hash.wrapping_mul(salt).rotate_left(salt as u32),
+            shape: candidate.shape,
+            literals: candidate.literals,
             range: builder.range(candidate.span),
             statements: candidate.statements,
             nodes: candidate.nodes,

@@ -697,6 +697,18 @@ catalogue! {
             )
         ],
     },
+    CrossLanguageDuplicate {
+        slug: "cross-language-duplicate",
+        category: Waste,
+        analysis: Syntax,
+        metric: "one block's control-flow shape and constants found in another language",
+        fixes: [ExtractSharedModule],
+        confidence: Low,
+        severity: Info,
+        why: "the same rule is written twice in two languages, so the day it changes it \
+              changes in one of them and the two quietly disagree",
+        off_by_default: true,
+    },
     // ---- Flow -------------------------------------------------------------
     RedundantElse {
         slug: "redundant-else",

@@ -402,3 +402,15 @@ export const userName = "ada";
 
 rqx says: delete it, or say why `userName` exists rather than what it is
 
+## `cross-language-duplicate`
+
+the same rule is written twice in two languages, so the day it changes it changes in one of them and the two quietly disagree
+
+| | |
+|---|---|
+| Measures | one block's control-flow shape and constants found in another language |
+| Reported as | info, low confidence |
+| Reads | the syntax tree alone |
+| Fix | Extract Shared Module |
+| Default | off; name it under `[rules] enabled` |
+

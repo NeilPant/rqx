@@ -27,6 +27,7 @@ enabled = [
   "short-name-wide-scope",
   "hungarian-notation",
   "negative-conditional",
+  "cross-language-duplicate",
 ]
 
 [gate]

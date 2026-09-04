@@ -28,6 +28,13 @@ struct ClassFrame {
 
 struct BlockFrame {
     hasher: DefaultHasher,
+    /// A second hash over a vocabulary every language shares, so the same logic
+    /// ported between two of them still matches. `hasher` cannot: it reads
+    /// `kind_id`, which is a number a grammar assigns and no two grammars agree on.
+    shape: DefaultHasher,
+    /// The literals the block holds, order-independent. Ported code keeps its
+    /// constants even when its syntax changes completely.
+    literals: u64,
     span: Span,
     content: Option<Span>,
     statements: u32,
@@ -193,6 +200,8 @@ impl<'a> MetricsWalker<'a> {
         self.blocks.push(BlockFrame {
             hasher: DefaultHasher::new(),
             span,
+            shape: DefaultHasher::new(),
+            literals: 0,
             content: None,
             statements: 0,
             field_assignments: 0,
@@ -207,6 +216,8 @@ impl<'a> MetricsWalker<'a> {
             }
             self.out.clones.push(CloneCandidate {
                 hash: frame.hasher.finish(),
+                shape: frame.shape.finish(),
+                literals: frame.literals,
                 span: frame.content.unwrap_or(frame.span),
                 statements: frame.statements,
                 nodes: frame.nodes,
@@ -219,10 +230,78 @@ impl<'a> MetricsWalker<'a> {
             return;
         }
         let token = self.shape_token(node, field);
+        let neutral = self.neutral_token(node);
+        // Combined by xor so the literal set does not depend on the order two
+        // languages happen to write the same constants in.
+        let literal = self.literal_token(node);
         for frame in &mut self.blocks {
             frame.hasher.write_u64(token);
+            if let Some(neutral) = neutral {
+                frame.shape.write_u64(neutral);
+            }
+            frame.literals ^= literal;
             frame.nodes += 1;
         }
+    }
+
+    /// One token from a vocabulary every language shares. A node that is not part of
+    /// the shape — punctuation, a wrapper only one grammar has — contributes nothing,
+    /// which is what lets two syntaxes for the same logic agree.
+    fn neutral_token(&self, node: Node<'a>) -> Option<u64> {
+        let profile = self.profile;
+        let kind = node.kind();
+        let shape: u64 = if kind == profile.if_kind || profile.branch_kinds.contains(&kind) {
+            1
+        } else if profile.loop_kinds.contains(&kind) {
+            2
+        } else if profile.catch_kinds.contains(&kind) {
+            3
+        } else if profile.is_call(node) {
+            4
+        } else if profile.exit_kinds.iter().any(|(name, _)| *name == kind) {
+            5
+        } else if profile.assignment_kinds.contains(&kind) {
+            6
+        } else if profile.is_block(node) {
+            7
+        } else if profile.number_kinds.contains(&kind) || profile.string_kinds.contains(&kind) {
+            8
+        } else if profile.binary_kinds.contains(&kind) {
+            // The operator itself, canonicalised: `&&` and `and` are one thing.
+            let operator = operator_of(node, self.source).unwrap_or_default();
+            return Some(match operator {
+                "&&" | "and" => 100,
+                "||" | "or" => 101,
+                "==" | "===" | "is" => 102,
+                "!=" | "!==" => 103,
+                "<" => 104,
+                ">" => 105,
+                "<=" => 106,
+                ">=" => 107,
+                "+" => 108,
+                "-" => 109,
+                "*" => 110,
+                "/" => 111,
+                _ => 112,
+            });
+        } else {
+            return None;
+        };
+        Some(shape)
+    }
+
+    fn literal_token(&self, node: Node<'a>) -> u64 {
+        let profile = self.profile;
+        if !profile.number_kinds.contains(&node.kind())
+            && !profile.string_kinds.contains(&node.kind())
+        {
+            return 0;
+        }
+        let mut hasher = DefaultHasher::new();
+        text_of(node, self.source)
+            .trim_matches(['"', '\'', '`'])
+            .hash(&mut hasher);
+        hasher.finish()
     }
 
     /// Identifiers that name a *value* are normalized away so that two blocks

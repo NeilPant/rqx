@@ -73,6 +73,7 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
 - [Levels](#levels)
 - [Configuration](#configuration)
 - [Families can be switched on and off](#families-can-be-switched-on-and-off)
+- [The same rule, written twice, in two languages](#the-same-rule-written-twice-in-two-languages)
 - [What the tests actually ran](#what-the-tests-actually-ran)
 - [Confidence is never overstated](#confidence-is-never-overstated)
 - [Editors](#editors)
@@ -145,7 +146,7 @@ does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Seventy-four rules across nine families. Every rule names the metric that decides it and
+Seventy-five rules across nine families. Every rule names the metric that decides it and
 the refactoring that answers it, and neither is optional.
 
 That traceability is enforced by the compiler. The catalogue is one declarative
@@ -154,7 +155,7 @@ rule that omits its metric or its fix does not build. A second test asserts that
 **every rule in the catalogue actually fires on a fixture** — a rule nothing can
 trigger is a documentation entry pretending to be a check.
 
-`rqx rules` prints all 74 grouped by family, and `rqx explain <rule>` prints one in
+`rqx rules` prints all 75 grouped by family, and `rqx explain <rule>` prints one in
 full. [`docs/rules/`](docs/rules/README.md) is the same catalogue as a reference: what
 each rule measures, the threshold that tunes it, the languages it cannot apply to, and
 a worked example lifted from the fixture that fires it.
@@ -164,7 +165,7 @@ a worked example lifted from the fixture that fires it.
 | **Size** | 11 | units that outgrew what a reader can hold |
 | **Abstraction** | 8 | types that model the problem wrong |
 | **Change** | 3 | shapes that make an edit expensive |
-| **Waste** | 18 | code and comments nothing reaches |
+| **Waste** | 19 | code and comments nothing reaches |
 | **Coupling** | 7 | modules that know too much about each other, and dependencies pointing the wrong way |
 | **Flow** | 7 | control flow that says less than it looks like |
 | **Naming** | 7 | names that mislead or say nothing |
@@ -478,6 +479,26 @@ Ten rules ship off by default — the ones whose signal is real but noisy, or wh
 encode a convention a given project may not share. They are listed with
 `(off by default)` in `rqx rules`.
 
+## The same rule, written twice, in two languages
+
+Clone detection is per-language everywhere, including here: the hash reads node ids a
+grammar assigns, and no two grammars agree on them. A second hash reads a vocabulary
+none of them owns — branch, loop, call, return, assign, and the canonical operator —
+so a validation rule ported from TypeScript to Python still matches.
+
+```
+● cross-language-duplicate  api/validate.py:4
+  9 statements, 51 nodes, 2 occurrences
+  the same shape is in TypeScript and Python; give the rule one home and call it
+  from both, or write down why they are allowed to differ
+```
+
+Off by default and reported at low confidence, which keeps it out of the health
+score. Two blocks that merely branch and return in the same order are not the same
+rule, so a group has to span languages, clear eight statements and forty nodes, and
+share a constant before it is reported — ported code keeps its constants even when
+its syntax changes completely.
+
 ## What the tests actually ran
 
 Dead code is decided from the import graph, and a graph cannot see a dynamic import,
@@ -542,7 +563,7 @@ URL, so VS Code shows it in a panel and every other editor opens it beside the w
 the same page, not a second half-built one per client.
 
 Cross-file findings arrive without being asked for: the server scans the workspace on
-its own and republishes every file, so ten of the seventy-four rules do not go silently
+its own and republishes every file, so ten of the seventy-five rules do not go silently
 missing in an editor that has one file open.
 
 [docs/editor.md](docs/editor.md) has the commands, the custom notifications and a

@@ -28,6 +28,11 @@ pub struct ClassMetrics {
 #[derive(Debug)]
 pub struct CloneCandidate {
     pub hash: u64,
+    /// The same block in a vocabulary no grammar owns, for finding logic ported
+    /// between two languages.
+    pub shape: u64,
+    /// The constants it holds, order-independent.
+    pub literals: u64,
     pub span: Span,
     pub statements: u32,
     pub nodes: u32,

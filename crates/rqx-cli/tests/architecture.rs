@@ -196,3 +196,80 @@ fn a_layer_that_was_never_declared_is_refused() {
     assert!(message.contains("adaptors"), "{message}");
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// Clone detection is per-language by design: the hash reads node ids a grammar
+/// assigns, and no two grammars agree on them. This is the second hash, over a
+/// vocabulary none of them owns.
+#[test]
+fn the_same_rule_written_in_two_languages_is_found() {
+    let root = std::env::temp_dir().join(format!("rqx-ported-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a directory");
+    std::fs::write(
+        root.join("RQX.toml"),
+        "[rules]\nenabled = [\"cross-language-duplicate\"]\n",
+    )
+    .expect("the config");
+    std::fs::write(
+        root.join("validate.ts"),
+        "export function validatePrice(amount: number, currency: string): string {\n\
+           if (amount < 0) {\n    return \"negative\";\n  }\n\
+           if (amount > 1000000) {\n    return \"too large\";\n  }\n\
+           if (currency !== \"USD\") {\n    return \"unsupported\";\n  }\n\
+           if (currency !== \"EUR\") {\n    return \"unsupported\";\n  }\n\
+           return \"ok\";\n}\n",
+    )
+    .expect("a file");
+    std::fs::write(
+        root.join("validate.py"),
+        "def validate_price(amount, currency):\n\
+         \x20   if amount < 0:\n        return \"negative\"\n\
+         \x20   if amount > 1000000:\n        return \"too large\"\n\
+         \x20   if currency != \"USD\":\n        return \"unsupported\"\n\
+         \x20   if currency != \"EUR\":\n        return \"unsupported\"\n\
+         \x20   return \"ok\"\n",
+    )
+    .expect("a file");
+
+    let fired = rules_fired(&root);
+    assert!(
+        fired
+            .iter()
+            .any(|(rule, _)| rule == "cross-language-duplicate"),
+        "the same validation in two languages went unreported: {fired:?}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Two blocks that merely branch and return in the same order are not the same rule.
+/// The shared constants are what separate a port from a coincidence.
+#[test]
+fn two_unrelated_blocks_that_merely_branch_alike_are_not_reported() {
+    let root = std::env::temp_dir().join(format!("rqx-unported-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a directory");
+    std::fs::write(
+        root.join("RQX.toml"),
+        "[rules]\nenabled = [\"cross-language-duplicate\"]\n",
+    )
+    .expect("the config");
+    std::fs::write(
+        root.join("a.ts"),
+        "export function widen(a: number): number {\n  if (a < 1) {\n    return 11;\n  }\n  return 22;\n}\n",
+    )
+    .expect("a file");
+    std::fs::write(
+        root.join("b.py"),
+        "def narrow(b):\n    if b < 2:\n        return 33\n    return 44\n",
+    )
+    .expect("a file");
+
+    let fired = rules_fired(&root);
+    assert!(
+        !fired
+            .iter()
+            .any(|(rule, _)| rule == "cross-language-duplicate"),
+        "two short unrelated bodies were called a port: {fired:?}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
