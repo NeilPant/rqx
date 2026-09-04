@@ -292,10 +292,12 @@ in a context window, and a tool that returned one would leave nothing to fix it 
 |---|---|
 | `scan` · `findings` | The project's health, then its findings a page at a time |
 | `check` | The diff against a base revision, and whether the gate passes |
+| `plan` | The findings `rqx fix` will not touch, each with its source, metric and named refactoring |
 | `analyze` | An unsaved buffer, without touching the disk |
 | `patterns` · `explain` · `rules` · `config` | The catalogues, and the settings in force |
 
-All eight are read-only: nothing rqx exposes to an agent writes a file. `--http` serves
+All nine are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
+the brief and the agent does the writing. `--http` serves
 the same tools over Streamable HTTP for clients that cannot spawn a process, and refuses
 a public address without `RQX_MCP_TOKEN` rather than handing your source to the network.
 [docs/mcp.md](docs/mcp.md) has the payload shapes and a config snippet per client.

@@ -174,7 +174,8 @@ fn the_handshake_advertises_every_tool_with_a_schema() {
     assert_eq!(
         names,
         [
-            "analyze", "check", "config", "explain", "findings", "patterns", "rules", "scan"
+            "analyze", "check", "config", "explain", "findings", "patterns", "plan", "rules",
+            "scan"
         ]
     );
 
@@ -372,6 +373,32 @@ fn a_buffer_is_analysed_without_touching_the_disk() {
     assert!(
         !root.join("nowhere").exists(),
         "the buffer reached the disk"
+    );
+    session.shutdown();
+}
+
+/// The brief has to carry what the finding does not: the code at the span, and the
+/// refactoring named rather than described.
+#[test]
+fn plan_returns_the_work_fix_will_not_do() {
+    let root = workspace("plan");
+    let mut session = Session::start(&root);
+    let answer = session.structured("plan", json!({ "limit": 5 }));
+    let items = answer["plan"].as_array().expect("a plan");
+
+    assert!(!items.is_empty(), "{answer}");
+    for item in items {
+        for field in ["rule", "file", "metric", "why", "hint"] {
+            assert!(item[field].is_string(), "{field} missing from {item}");
+        }
+        assert!(
+            item["technique"].as_array().is_some_and(|t| !t.is_empty()),
+            "{item}"
+        );
+    }
+    assert!(
+        items.iter().all(|item| item["rule"] != "unreachable-code"),
+        "a mechanical finding reached the plan: {answer}"
     );
     session.shutdown();
 }

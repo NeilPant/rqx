@@ -14,12 +14,17 @@ const LABEL_WIDTH: usize = 10;
 /// dead branch is still a reviewable fix; printing forty lines of it is not.
 const MAX_LINES: usize = 8;
 
-pub fn render(outcome: &Outcome, palette: Palette, out: &mut dyn Write) -> Result<()> {
+pub fn render(
+    outcome: &Outcome,
+    palette: Palette,
+    invocation: &str,
+    out: &mut dyn Write,
+) -> Result<()> {
     for fix in outcome.fixes() {
         write_file(out, palette, fix)?;
     }
     write_withheld(out, palette, outcome)?;
-    write_summary(out, palette, outcome)?;
+    write_summary(out, palette, invocation, outcome)?;
     Ok(())
 }
 
@@ -154,7 +159,12 @@ fn write_withheld(out: &mut dyn Write, palette: Palette, outcome: &Outcome) -> R
     Ok(())
 }
 
-fn write_summary(out: &mut dyn Write, palette: Palette, outcome: &Outcome) -> Result<()> {
+fn write_summary(
+    out: &mut dyn Write,
+    palette: Palette,
+    invocation: &str,
+    outcome: &Outcome,
+) -> Result<()> {
     let dim = palette.style(Ink::Muted);
     let files = outcome.fixes().count();
     let scanned = outcome
@@ -238,7 +248,7 @@ fn write_summary(out: &mut dyn Write, palette: Palette, outcome: &Outcome) -> Re
             out,
             "  {}  {}",
             paint(palette.style(Ink::Text), "Nothing written."),
-            paint(palette.style(Ink::Accent), "rqx fix --write")
+            paint(palette.style(Ink::Accent), invocation)
         )?;
     } else {
         writeln!(out, "  {}", paint(dim, "Nothing to fix mechanically."))?;

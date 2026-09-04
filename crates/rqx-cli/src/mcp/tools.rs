@@ -200,6 +200,92 @@ impl Rqx {
     }
 
     #[tool(
+        name = "plan",
+        description = "The findings `rqx fix` will not touch, each with the source text \
+                       of its span, what decided it and the named refactoring that \
+                       answers it. This is the brief for work a person or an agent has \
+                       to do; rqx never writes the file.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn plan(&self, Parameters(page): Parameters<Page>) -> Result<CallToolResult, McpError> {
+        let snapshot = self.snapshot(None).await?;
+        let filter = FindingFilter::new(
+            severity_of(page.severity.as_deref())?,
+            &page.rule,
+            &page.category,
+            &page.glob,
+        )
+        .map_err(|error| refused(format!("{error:#}")))?;
+        let report = Report::scan(&snapshot.outcome, &filter);
+
+        let undecided: Vec<&Finding> = report
+            .findings
+            .iter()
+            .copied()
+            .filter(|finding| {
+                !self
+                    .settings
+                    .for_file(&snapshot.outcome.root.join(&*finding.location.file))
+                    .fix
+                    .allows(finding.rule)
+            })
+            .collect();
+
+        let offset = match page.cursor.as_deref() {
+            Some(cursor) => Cursor::parse(cursor, snapshot.id).map_err(refused)?.offset,
+            None => 0,
+        };
+        let limit = page
+            .limit
+            .map_or(PAGE, |limit| (limit as usize).clamp(1, MAX_PAGE));
+        let matched = undecided.len();
+        let shown: Vec<&Finding> = undecided.into_iter().skip(offset).take(limit).collect();
+        let next = offset + shown.len();
+
+        let items: Vec<Value> = shown
+            .iter()
+            .map(|finding| {
+                let spec = finding.rule.spec();
+                let source =
+                    std::fs::read_to_string(snapshot.outcome.root.join(&*finding.location.file))
+                        .ok()
+                        .map(|text| {
+                            rqx_core::span::Span::new(finding.location.start, finding.location.end)
+                                .text(&text)
+                                .to_owned()
+                        });
+                let impact = snapshot.outcome.impact.get(&finding.location.file);
+                json!({
+                    "rule": spec.slug,
+                    "family": spec.category.slug(),
+                    "file": finding.location.file,
+                    "line": finding.location.line,
+                    "column": finding.location.column,
+                    "source": source,
+                    "metric": spec.metric,
+                    "why": spec.why,
+                    "technique": spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>(),
+                    "hint": finding.fix_hint,
+                    "impact": { "commits": impact.commits, "importers": impact.importers },
+                })
+            })
+            .collect();
+
+        let structured = json!({
+            "scan_id": snapshot.id,
+            "matched": matched,
+            "returned": shown.len(),
+            "next_cursor": (next < matched).then(|| Cursor::format(snapshot.id, next)),
+            "plan": items,
+        });
+        Ok(answer(listing(&shown, offset, matched), structured))
+    }
+
+    #[tool(
         name = "check",
         description = "Review only what changed against a base revision, plus everything \
                        that imports it, and say whether the configured gate passes.",

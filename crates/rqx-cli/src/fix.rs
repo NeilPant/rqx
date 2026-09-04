@@ -12,10 +12,14 @@ use crate::config::Resolved;
 use crate::report::Report;
 use crate::scan::{self, ScanOutcome};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Options {
     pub write: bool,
     pub max_rounds: u32,
+    /// Files the run may touch. Empty means every file the scan reached; `check --fix`
+    /// narrows it to the branch so a feature branch does not produce an unreviewable
+    /// diff of the whole repository.
+    pub only: BTreeSet<String>,
 }
 
 /// One file's proven edits, with the text before and after so a preview renders
@@ -96,7 +100,7 @@ pub fn run(root: &Path, settings: &Resolved, options: Options) -> Result<Outcome
     let mut projected;
 
     loop {
-        let mut round = plan_round(root, &settings, &scanned)?;
+        let mut round = plan_round(root, &settings, &scanned, &options.only)?;
         let produced = !round.fixes.is_empty();
 
         if !options.write {
@@ -126,9 +130,17 @@ pub fn run(root: &Path, settings: &Resolved, options: Options) -> Result<Outcome
     })
 }
 
-fn plan_round(root: &Path, settings: &Resolved, scanned: &ScanOutcome) -> Result<Round> {
+fn plan_round(
+    root: &Path,
+    settings: &Resolved,
+    scanned: &ScanOutcome,
+    only: &BTreeSet<String>,
+) -> Result<Round> {
     let mut by_file: BTreeMap<&str, Vec<&Finding>> = BTreeMap::new();
     for finding in &scanned.findings {
+        if !only.is_empty() && !only.contains(&*finding.location.file) {
+            continue;
+        }
         by_file
             .entry(&finding.location.file)
             .or_default()

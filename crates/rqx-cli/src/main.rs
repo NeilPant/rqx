@@ -148,6 +148,13 @@ enum Command {
         /// Revision to compare against
         #[arg(long, default_value = "origin/HEAD")]
         base: String,
+        /// Apply the mechanical fixes to what the branch touched before gating, so a
+        /// branch whose only failures were mechanical passes
+        #[arg(long)]
+        fix: bool,
+        /// With --fix, write the fixes. Without it nothing on disk changes.
+        #[arg(long, short)]
+        write: bool,
         #[command(flatten)]
         view: View,
         #[command(flatten)]
@@ -693,12 +700,13 @@ fn run() -> Result<Exit> {
                 fix::Options {
                     write,
                     max_rounds: rounds,
+                    ..fix::Options::default()
                 },
             )?;
             if json {
                 return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
             }
-            report::fixes(&outcome, palette, &mut out).map(|()| Exit::Clean)
+            report::fixes(&outcome, palette, "rqx fix --write", &mut out).map(|()| Exit::Clean)
         }
         Command::Explain { name } => {
             if let Some(rule) = RuleId::parse(&name) {
@@ -757,6 +765,8 @@ fn run() -> Result<Exit> {
         Command::Check {
             path,
             base,
+            fix,
+            write,
             view,
             gate,
             config,
@@ -772,7 +782,27 @@ fn run() -> Result<Exit> {
 
             let sinks = sinks(&view)?;
             let filter = filter_of(&view)?;
-            let review = check::review(&path, &settings, &base)?;
+            let mut review = check::review(&path, &settings, &base)?;
+
+            // The gate is judged after the fixes, so a branch whose only failures were
+            // mechanical passes rather than failing on work rqx could have done.
+            if fix {
+                let fixed = fix::run(
+                    &path,
+                    &settings,
+                    fix::Options {
+                        write,
+                        max_rounds: settings.config.fix.max_rounds.max(1),
+                        only: review.reviewed.clone(),
+                    },
+                )?;
+                let mut out = anstream::stdout().lock();
+                report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
+                drop(out);
+                if write && fixed.applied() > 0 {
+                    review = check::review(&path, &settings, &base)?;
+                }
+            }
             let verdict = check::judge(&review, &settings.config);
             let report = Report::review(&review, &verdict, &filter);
             emit(&report, &sinks, &view, palette)?;

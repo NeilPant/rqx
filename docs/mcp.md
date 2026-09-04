@@ -19,6 +19,7 @@ finding names is a refactoring for a person to make rather than an edit rqx coul
 |---|---|
 | `scan` | Analyse the project: health, counts by rule and severity, grade distribution, what to open first |
 | `findings` | The findings themselves, paged, narrowed by severity, rule, family or path glob |
+| `plan` | The findings `rqx fix` will not touch, each with the source at its span, the metric that decided it and the named refactoring. Paged like `findings`. |
 | `check` | Review the diff against a base revision and say whether the gate passes |
 | `analyze` | Analyse source held in memory — an unsaved buffer — without touching the disk |
 | `patterns` | Design patterns in use, half applied, or that would fit |
