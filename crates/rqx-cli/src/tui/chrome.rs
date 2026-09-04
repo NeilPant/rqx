@@ -16,19 +16,21 @@ fn strip(session: &Session) -> Vec<Line<'static>> {
     let mut lines = vec![Line::from(vec![
         Span::styled(
             "rqx",
-            Style::new().fg(palette.color(Ink::Text)).add_modifier(Modifier::BOLD),
+            Style::new()
+                .fg(palette.color(Ink::Text))
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(format!(" {}", env!("CARGO_PKG_VERSION")), dim),
     ])];
 
-    let threads = match session.config.scan.threads {
+    let threads = match session.config.config.scan.threads {
         0 => "auto".to_owned(),
         count => count.to_string(),
     };
     lines.push(Line::styled(
         format!(
             "{}/{} rules \u{b7} {} \u{b7} {threads} threads",
-            session.rules_enabled(),
+            session.config.rules_enabled(),
             rqx_core::rule::RuleId::ALL.len(),
             session.config_file.as_deref().unwrap_or("defaults"),
         ),
@@ -58,19 +60,22 @@ fn strip(session: &Session) -> Vec<Line<'static>> {
         ]),
         (Some(outcome), false) => {
             let score = session.health().unwrap_or(100);
+            // The score leads because this line is the first thing narrowed when the
+            // terminal is, and the score is the one fact in it worth keeping.
             Line::from(vec![
+                Span::styled("health ", dim),
+                Span::styled(
+                    format!("{score}/100"),
+                    Style::new().fg(palette.color(crate::brand::score_ink(score))),
+                ),
                 Span::styled(
                     format!(
-                        "{} files \u{b7} {} lines \u{b7} {:.2}s \u{b7} health ",
+                        " \u{b7} {} files \u{b7} {} lines \u{b7} {:.2}s",
                         thousands(outcome.files_scanned),
                         thousands(outcome.code_lines as u32),
                         outcome.elapsed_ms as f64 / 1000.0
                     ),
                     dim,
-                ),
-                Span::styled(
-                    format!("{score}/100"),
-                    Style::new().fg(palette.color(crate::brand::score_ink(score))),
                 ),
             ])
         }
@@ -106,24 +111,18 @@ impl Chrome<'_> {
 
     fn render_head(&self, frame: &mut Frame<'_>, area: Rect) {
         let session = self.session;
-        let [art, text] =
-            Layout::horizontal([Constraint::Length(session.mascot.width() + 3), Constraint::Min(0)])
-                .areas(area);
+        let [art, text] = Layout::horizontal([
+            Constraint::Length(session.mascot.width() + 3),
+            Constraint::Min(0),
+        ])
+        .areas(area);
 
-        // The art wipes in a column at a time on the first frames, so the interface
-        // arrives rather than appearing.
-        let reveal = if session.motion.reduced() {
-            usize::MAX
-        } else {
-            let progress = session.motion.elapsed().as_millis() as f32 / 250.0;
-            ((progress * f32::from(session.mascot.width())).ceil() as usize).max(1)
-        };
         frame.render_widget(
             Paragraph::new(session.mascot.render_frame(
                 session.palette,
                 session.mascot_frame(),
                 session.signal(),
-                reveal,
+                session.reveal(),
             )),
             art,
         );
@@ -136,8 +135,9 @@ impl Chrome<'_> {
             .iter()
             .enumerate()
             .map(|(index, tab)| {
-                let reachable = !tab.needs_outcome() || self.session.outcome.is_some();
-                let ink = if reachable { Ink::Text } else { Ink::Muted };
+                // Dim means "nothing scanned yet", not "cannot open": every tab opens.
+                let filled = !tab.needs_outcome() || self.session.outcome.is_some();
+                let ink = if filled { Ink::Text } else { Ink::Muted };
                 Line::from(vec![
                     Span::styled(format!("{} ", index + 1), palette.dim()),
                     Span::styled(tab.title(), Style::new().fg(palette.color(ink))),
@@ -148,7 +148,9 @@ impl Chrome<'_> {
             Tabs::new(titles)
                 .select(Tab::ALL.iter().position(|tab| *tab == active).unwrap_or(0))
                 .highlight_style(
-                    Style::new().fg(palette.color(Ink::Accent)).add_modifier(Modifier::BOLD),
+                    Style::new()
+                        .fg(palette.color(Ink::Accent))
+                        .add_modifier(Modifier::BOLD),
                 )
                 .divider(Span::styled("\u{2502}", palette.dim())),
             area,
@@ -185,7 +187,10 @@ pub fn help(frame: &mut Frame<'_>, palette: Palette, rows: &[(&'static str, &'st
     let mut lines = vec![Line::default()];
     lines.extend(rows.iter().map(|(key, meaning)| {
         Line::from(vec![
-            Span::styled(format!("  {key:<12}"), Style::new().fg(palette.color(Ink::Accent))),
+            Span::styled(
+                format!("  {key:<12}"),
+                Style::new().fg(palette.color(Ink::Accent)),
+            ),
             Span::styled(*meaning, Style::new().fg(palette.color(Ink::Text))),
         ])
     }));
@@ -195,8 +200,11 @@ pub fn help(frame: &mut Frame<'_>, palette: Palette, rows: &[(&'static str, &'st
         Paragraph::new(lines).block(
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(palette.dim())
-                .title(Span::styled(" keys ", Style::new().fg(palette.color(Ink::Accent)))),
+                .border_style(palette.rule())
+                .title(Span::styled(
+                    " keys ",
+                    Style::new().fg(palette.color(Ink::Accent)),
+                )),
         ),
         area,
     );
@@ -229,31 +237,13 @@ pub fn thousands(value: u32) -> String {
 mod tests {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-    use rqx_core::config::RqxConfig;
 
     use crate::brand::ColorDepth;
-    use crate::scan::ScanProgress;
-    use crate::tui::motion::Motion;
-    use crate::tui::sprite::Sprite;
 
     use super::*;
 
     fn session() -> Session {
-        Session {
-            palette: Palette::with_depth(ColorDepth::Monochrome),
-            mascot: Sprite::parse(include_str!("../../assets/mascot.txt")),
-            motion: Motion::new(true),
-            root: "src".to_owned(),
-            path: std::path::PathBuf::from("."),
-            config: RqxConfig::default(),
-            config_file: None,
-            branch: Some("main".to_owned()),
-            outcome: None,
-            progress: ScanProgress::default(),
-            scanning: false,
-            failure: None,
-            base: None,
-        }
+        Session::probe(Palette::with_depth(ColorDepth::Monochrome))
     }
 
     fn draw(session: &Session, active: Option<Tab>, width: u16, height: u16) -> String {
@@ -283,16 +273,28 @@ mod tests {
         assert!(screen.contains("rqx 0.1.0"), "{screen}");
         assert!(screen.contains("rules"), "no rule count:\n{screen}");
         assert!(screen.contains("defaults"), "no config source:\n{screen}");
-        assert!(screen.contains("src on main"), "no target or branch:\n{screen}");
-        assert!(screen.contains("not scanned yet"), "no scan state:\n{screen}");
-        assert!(!screen.contains("every finding"), "the tagline is still here:\n{screen}");
+        assert!(
+            screen.contains("src on main"),
+            "no target or branch:\n{screen}"
+        );
+        assert!(
+            screen.contains("not scanned yet"),
+            "no scan state:\n{screen}"
+        );
+        assert!(
+            !screen.contains("every finding"),
+            "the tagline is still here:\n{screen}"
+        );
     }
 
     #[test]
     fn the_tab_bar_appears_only_when_a_tab_is_open() {
         assert!(!draw(&session(), None, 100, 20).contains("Overview"));
         let tabbed = draw(&session(), Some(Tab::Rules), 100, 20);
-        assert!(tabbed.contains("Overview") && tabbed.contains("Coverage"), "{tabbed}");
+        assert!(
+            tabbed.contains("Overview") && tabbed.contains("Coverage"),
+            "{tabbed}"
+        );
     }
 
     #[test]

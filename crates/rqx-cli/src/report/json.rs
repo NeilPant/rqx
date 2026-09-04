@@ -83,14 +83,17 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
             .iter()
             .map(|file| (file.clone(), report.grade_of(file).label()))
             .collect(),
-        review: report.base.zip(report.verdict).map(|(base, verdict)| JsonReview {
-            base,
-            reviewed_files: report.files.len(),
-            reviewed_findings: report.findings.len(),
-            counted_against_gate: verdict.counted,
-            passed: verdict.passed(),
-            failures: &verdict.failures,
-        }),
+        review: report
+            .base
+            .zip(report.verdict)
+            .map(|(base, verdict)| JsonReview {
+                base,
+                reviewed_files: report.files.len(),
+                reviewed_findings: report.findings.len(),
+                counted_against_gate: verdict.counted,
+                passed: verdict.passed(),
+                failures: &verdict.failures,
+            }),
     };
     writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())

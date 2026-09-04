@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::finding::{Confidence, Severity};
 use crate::heuristic::Heuristic;
+use crate::language::Language;
 use crate::smell::Smell;
 use crate::technique::FixTechnique;
 
@@ -64,11 +65,16 @@ impl Category {
     }
 
     pub fn parse(slug: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|category| category.slug() == slug)
+        Self::ALL
+            .into_iter()
+            .find(|category| category.slug() == slug)
     }
 
     pub fn rules(self) -> impl Iterator<Item = RuleId> {
-        RuleId::ALL.iter().copied().filter(move |rule| rule.spec().category == self)
+        RuleId::ALL
+            .iter()
+            .copied()
+            .filter(move |rule| rule.spec().category == self)
     }
 }
 
@@ -79,7 +85,7 @@ impl Category {
 pub enum Analysis {
     /// The AST alone.
     Syntax,
-    /// oxc's symbol table, and the collectors built on it.
+    /// The scope resolver, and the collectors built on it.
     Semantics,
     /// The resolved import graph across every file in the project.
     Modules,
@@ -113,6 +119,11 @@ pub struct RuleSpec {
     /// Ships disabled: rules whose signal is real but noisy, or which encode a
     /// convention a given project may not share.
     pub off_by_default: bool,
+    /// Languages this rule cannot exist in, each with the reason. Go has no
+    /// inheritance, so Refused Bequest has nothing to measure there — and a rule that
+    /// silently never fires is indistinguishable from a broken one, which is what
+    /// declaring the exemption prevents.
+    pub not_applicable: &'static [(Language, &'static str)],
 }
 
 /// Declares the whole catalogue in one table. Every field is mandatory, so a rule
@@ -133,6 +144,7 @@ macro_rules! catalogue {
             $(principle: $principle:literal,)?
             why: $why:literal,
             $(off_by_default: $off:literal,)?
+            $(not_applicable: [$(($language:ident, $reason:literal)),+ $(,)?],)?
         }
     ),+ $(,)?) => {
         #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
@@ -158,6 +170,7 @@ macro_rules! catalogue {
                         severity: Severity::$severity,
                         why: $why,
                         off_by_default: catalogue!(@off $($off)?),
+                        not_applicable: &[$($((Language::$language, $reason)),+)?],
                     }),+
                 }
             }
@@ -169,14 +182,36 @@ macro_rules! catalogue {
     (@principle $value:literal) => { Some($value) };
 }
 
+impl RuleId {
+    /// Whether this rule has anything to measure in a language.
+    pub fn applies_to(self, language: Language) -> bool {
+        self.exemption(language).is_none()
+    }
+
+    /// Why it does not, when it does not.
+    pub fn exemption(self, language: Language) -> Option<&'static str> {
+        self.spec()
+            .not_applicable
+            .iter()
+            .find(|(candidate, _)| *candidate == language)
+            .map(|(_, reason)| *reason)
+    }
+
+    pub fn for_language(language: Language) -> impl Iterator<Item = RuleId> {
+        Self::ALL
+            .iter()
+            .copied()
+            .filter(move |rule| rule.applies_to(language))
+    }
+}
+
 include!("catalogue.rs");
 
 impl RuleSpec {
     /// The citation as a reader expects to see it: the heuristics it names, then the
     /// principle for the rules whose justification is a chapter rather than a number.
     pub fn citation(&self) -> String {
-        let mut parts: Vec<String> =
-            self.clean_code.iter().map(ToString::to_string).collect();
+        let mut parts: Vec<String> = self.clean_code.iter().map(ToString::to_string).collect();
         parts.extend(self.principle.map(ToOwned::to_owned));
         parts.join("; ")
     }
@@ -221,6 +256,22 @@ mod tests {
         }
     }
 
+    /// A run of spaces inside a sentence is what a badly wrapped string literal leaves
+    /// behind, and it reaches the reader verbatim in every reporter.
+    #[test]
+    fn no_rule_text_carries_the_marks_of_a_bad_line_wrap() {
+        for rule in RuleId::ALL.iter().copied() {
+            let spec = rule.spec();
+            for (field, text) in [("why", spec.why), ("metric", spec.metric)] {
+                assert!(
+                    !text.contains("  "),
+                    "{rule}'s {field} has a doubled space: {text}"
+                );
+                assert_eq!(text.trim(), text, "{rule}'s {field} is padded");
+            }
+        }
+    }
+
     #[test]
     fn slugs_are_unique_and_kebab_case() {
         let mut seen = BTreeSet::new();
@@ -246,7 +297,10 @@ mod tests {
                 .copied()
                 .filter(|rule| rule.spec().clean_code.contains(&entry))
                 .collect();
-            assert_eq!(claimed, citing, "{entry} is credited to {claimed:?} but cited by {citing:?}");
+            assert_eq!(
+                claimed, citing,
+                "{entry} is credited to {claimed:?} but cited by {citing:?}"
+            );
         }
     }
 
@@ -259,7 +313,10 @@ mod tests {
                 .copied()
                 .filter(|rule| rule.spec().guru_smell == Some(smell))
                 .collect();
-            assert_eq!(claimed, citing, "{smell} is credited to {claimed:?} but cited by {citing:?}");
+            assert_eq!(
+                claimed, citing,
+                "{smell} is credited to {claimed:?} but cited by {citing:?}"
+            );
         }
     }
 
@@ -272,5 +329,48 @@ mod tests {
                 category.title()
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod language_tests {
+    use super::*;
+
+    #[test]
+    fn every_exemption_gives_a_reason_and_names_a_language_once() {
+        for rule in RuleId::ALL {
+            let mut seen = Vec::new();
+            for (language, reason) in rule.spec().not_applicable {
+                assert!(
+                    !reason.trim().is_empty(),
+                    "{} exempts {language:?} with no reason",
+                    rule.slug()
+                );
+                assert!(
+                    !seen.contains(language),
+                    "{} names {language:?} twice",
+                    rule.slug()
+                );
+                seen.push(*language);
+            }
+            assert!(
+                seen.len() < Language::ALL.len(),
+                "{} applies to no language at all",
+                rule.slug()
+            );
+        }
+    }
+
+    #[test]
+    fn typescript_is_the_reference_and_exempts_nothing() {
+        let exempt: Vec<&str> = RuleId::ALL
+            .iter()
+            .filter(|rule| !rule.applies_to(Language::TypeScript))
+            .map(|rule| rule.slug())
+            .collect();
+        assert!(
+            exempt.is_empty(),
+            "TypeScript should run every rule: {exempt:?}"
+        );
     }
 }

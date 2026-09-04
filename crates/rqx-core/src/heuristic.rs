@@ -38,7 +38,10 @@ impl Chapter {
     }
 
     pub fn heuristics(self) -> impl Iterator<Item = Heuristic> {
-        Heuristic::ALL.iter().copied().filter(move |entry| entry.chapter() == self)
+        Heuristic::ALL
+            .iter()
+            .copied()
+            .filter(move |entry| entry.chapter() == self)
     }
 }
 
@@ -258,7 +261,12 @@ mod tests {
             (Chapter::Names, 7),
             (Chapter::Tests, 9),
         ] {
-            assert_eq!(chapter.heuristics().count(), expected, "{}", chapter.title());
+            assert_eq!(
+                chapter.heuristics().count(),
+                expected,
+                "{}",
+                chapter.title()
+            );
         }
     }
 
@@ -266,7 +274,11 @@ mod tests {
     fn identifiers_are_unique_and_parse_back() {
         let mut seen = BTreeSet::new();
         for entry in Heuristic::ALL.iter().copied() {
-            assert!(seen.insert(entry.id()), "duplicate identifier {}", entry.id());
+            assert!(
+                seen.insert(entry.id()),
+                "duplicate identifier {}",
+                entry.id()
+            );
             assert_eq!(Heuristic::parse(entry.id()), Some(entry));
             assert!(!entry.title().is_empty(), "{} has no title", entry.id());
         }

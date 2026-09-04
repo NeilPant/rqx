@@ -1,76 +1,51 @@
-# rqx. An owl: a quiet, precise thing that spots small movement and turns its head
-# to follow it. 11x10 pixels, six frames.
+# rqx. An owl, seen head on. 12x12 pixels, two frames.
 #
-# A plumage, S the eyes and beak, K a closed lid. The gold is
-# replaced at render time by what the scan found, so the bird reports rather than
-# decorates.
+# S the plumage, H its shade, T the iris, K the pupil.
 #
-# Two pixel rows share one terminal cell, so the eyes and the beak are each drawn two
-# rows tall and cell-aligned; a feature spanning half a cell renders as a half block
-# and reads as a smudge. The lids are the deliberate exception: a lid is a line.
+# S is resolved at render time from what the scan found, and H is that same colour
+# darkened, so a failing repository is a red owl rather than a brown one with a small red
+# detail somewhere on it. The eyes are the one part that never follows the verdict.
+#
+# The shade does the drawing: it is the facial disc around each eye, the ear tufts, the
+# beak and the chest. A single flat colour with features punched out of it read as a
+# potato with eyebrows.
+#
+# Head on rather than in profile. The last owl this project had was a profile with ear
+# tufts and it read as a cat; tufts are safe here because two four-pixel irises are not
+# something a cat has.
+#
+# Two pixel rows share one terminal cell, so the eyes are cell-aligned and four rows tall:
+# the pupil spans the boundary between cell rows 2 and 3, which draws it as one dark band
+# rather than as a half block adrift in a light one.
+#
+# The beak sits below the eye line rather than between the irises. Between them it shared
+# its rows with the lids, so a blink merged the two into one bar across the whole face.
+#
+# The lid is the deliberate exception to cell alignment: it is a line, and which half of
+# the cell it sits in is what separates a blink from a squint.
 #: idle
-...AAAAA...
-.AAAAAAAAA.
-AASSAAASSAA
-AASSAAASSAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+.HH......HH.
+.HHH....HHH.
+.HHSSSSSSHH.
+HSSSSSSSSSSH
+HTTTTSSTTTTH
+HTKKTSSTKKTH
+HTKKTHHTKKTH
+HTTTTHHTTTTH
+HSSSSHHSSSSH
+HSSSSSSSSSSH
+.HHHHHHHHHH.
+..HHHHHHHH..
 #: blink
-...AAAAA...
-.AAAAAAAAA.
-AAAAAAAAAAA
-AAKKAAAKKAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
-#: look-left
-...AAAAA...
-.AAAAAAAAA.
-ASSAAASSAAA
-ASSAAASSAAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
-#: look-right
-...AAAAA...
-.AAAAAAAAA.
-AAASSAAASSA
-AAASSAAASSA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
-#: alert
-...AAAAA...
-.AAAAAAAAA.
-ASSSAAASSSA
-ASSSAAASSSA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
-#: pleased
-...AAAAA...
-.AAAAAAAAA.
-AAAAAAAAAAA
-AASSAAASSAA
-AAAAASAAAAA
-AAAAASAAAAA
-.AAAAAAAAA.
-.AAAAAAAAA.
-..AAAAAAA..
-..AA...AA..
+.HH......HH.
+.HHH....HHH.
+.HHSSSSSSHH.
+HSSSSSSSSSSH
+HSSSSSSSSSSH
+HHHHHSSHHHHH
+HSSSSHHSSSSH
+HSSSSHHSSSSH
+HSSSSHHSSSSH
+HSSSSSSSSSSH
+.HHHHHHHHHH.
+..HHHHHHHH..

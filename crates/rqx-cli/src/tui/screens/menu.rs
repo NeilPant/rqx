@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -8,36 +8,63 @@ use ratatui::widgets::Paragraph;
 use crate::brand::Ink;
 use crate::tui::app::{Nav, Screen, Session, Tab, global};
 
-const CHOICES: [(&str, Nav); 6] = [
-    ("Scan this project", Nav::Scan),
-    ("Review changes against the base revision", Nav::Review),
-    ("Rule catalogue", Nav::To(Tab::Rules)),
-    ("Catalogue coverage", Nav::To(Tab::Coverage)),
-    ("Effective configuration", Nav::To(Tab::Config)),
-    ("Quit", Nav::Quit),
+const DEFAULT_BASE: &str = "origin/HEAD";
+
+/// Two words and a number each. The tab bar already reaches every view, so the menu
+/// only carries what starts something, and the digits match the way the tabs work.
+const CHOICES: [(&str, &str); 5] = [
+    ("Scan", "this project, every file"),
+    ("Review", "only what changed against a revision"),
+    ("Rules", "the catalogue and what each one measures"),
+    ("Config", "the settings this run will use"),
+    ("Quit", ""),
 ];
 
-/// Opens on the scan, so the command this replaced is still one keystroke away.
 #[derive(Default)]
 pub struct Menu {
     cursor: usize,
+    /// Non-empty while the base revision is being typed, which is the one menu entry
+    /// that needs an answer before it can run.
+    base: Option<String>,
+}
+
+impl Menu {
+    fn choose(&mut self) -> Nav {
+        match self.cursor {
+            0 => Nav::Scan,
+            1 => {
+                self.base = Some(DEFAULT_BASE.to_owned());
+                Nav::Redraw
+            }
+            2 => Nav::To(Tab::Rules),
+            3 => Nav::To(Tab::Config),
+            _ => Nav::Quit,
+        }
+    }
 }
 
 impl Screen for Menu {
     fn render(&mut self, frame: &mut Frame<'_>, area: Rect, session: &Session) {
         let palette = session.palette;
+        let [list, prompt] = Layout::vertical([
+            Constraint::Length(CHOICES.len() as u16 + 1),
+            Constraint::Min(0),
+        ])
+        .areas(area);
+
         let lines: Vec<Line<'static>> = CHOICES
             .iter()
             .enumerate()
-            .map(|(index, (label, _))| {
+            .map(|(index, (label, detail))| {
                 let selected = index == self.cursor;
+                let mark = if selected { "\u{25b8}" } else { " " };
                 Line::from(vec![
                     Span::styled(
-                        if selected { "  \u{25b8} " } else { "    " },
+                        format!("  {mark} {} ", index + 1),
                         Style::new().fg(palette.color(Ink::Accent)),
                     ),
                     Span::styled(
-                        *label,
+                        format!("{label:<8}"),
                         if selected {
                             Style::new()
                                 .fg(palette.color(Ink::Accent))
@@ -46,13 +73,55 @@ impl Screen for Menu {
                             Style::new().fg(palette.color(Ink::Text))
                         },
                     ),
+                    Span::styled(*detail, palette.dim()),
                 ])
             })
             .collect();
-        frame.render_widget(Paragraph::new(lines), area);
+        frame.render_widget(Paragraph::new(lines), list);
+
+        let mut trailer = Vec::new();
+        if let Some(base) = &self.base {
+            trailer.push(Line::from(vec![
+                Span::styled("  review against ", palette.dim()),
+                Span::styled(
+                    format!("{base}\u{2588}"),
+                    Style::new().fg(palette.color(Ink::Accent)),
+                ),
+            ]));
+            trailer.push(Line::styled("  enter to run, esc to cancel", palette.dim()));
+        } else if let Some(failure) = &session.failure {
+            trailer.push(Line::styled(
+                format!("  {failure}"),
+                Style::new().fg(palette.color(Ink::Danger)),
+            ));
+        }
+        frame.render_widget(Paragraph::new(trailer), prompt);
     }
 
     fn handle(&mut self, key: KeyEvent, _session: &Session) -> Nav {
+        if let Some(base) = &mut self.base {
+            return match key.code {
+                KeyCode::Char(letter) => {
+                    base.push(letter);
+                    Nav::Redraw
+                }
+                KeyCode::Backspace => {
+                    base.pop();
+                    Nav::Redraw
+                }
+                KeyCode::Enter if base.trim().is_empty() => Nav::Stay,
+                KeyCode::Enter => {
+                    let base = self.base.take().unwrap_or_default();
+                    Nav::Review(base.trim().to_owned())
+                }
+                KeyCode::Esc => {
+                    self.base = None;
+                    Nav::Redraw
+                }
+                _ => Nav::Stay,
+            };
+        }
+
         match key.code {
             KeyCode::Down | KeyCode::Char('j') => {
                 self.cursor = (self.cursor + 1).min(CHOICES.len() - 1);
@@ -62,19 +131,32 @@ impl Screen for Menu {
                 self.cursor = self.cursor.saturating_sub(1);
                 Nav::Redraw
             }
-            KeyCode::Enter => CHOICES[self.cursor].1.clone(),
+            KeyCode::Char(digit @ '1'..='5') => {
+                self.cursor = digit as usize - '1' as usize;
+                self.choose()
+            }
+            KeyCode::Enter => self.choose(),
             // `esc` at the root has nowhere to go back to, so it leaves.
-            _ => global(key).map_or(Nav::Stay, |nav| {
-                if nav == Nav::Back { Nav::Quit } else { nav }
-            }),
+            _ => global(key).map_or(
+                Nav::Stay,
+                |nav| {
+                    if nav == Nav::Back { Nav::Quit } else { nav }
+                },
+            ),
         }
     }
 
-    fn animating(&self, session: &Session) -> bool {
-        !session.motion.reduced()
+    fn capturing(&self) -> bool {
+        self.base.is_some()
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("↑↓", "move"), ("enter", "choose"), ("?", "keys"), ("q", "quit")]
+        &[
+            ("1-5", "choose"),
+            ("↑↓", "move"),
+            ("enter", "run"),
+            ("?", "keys"),
+            ("q", "quit"),
+        ]
     }
 }

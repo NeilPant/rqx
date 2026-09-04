@@ -1,11 +1,14 @@
 mod catalogue;
+mod docs;
 mod filter;
 mod github;
 mod gitlab;
 mod json;
 mod junit;
 mod markdown;
+mod patterns;
 mod sarif;
+mod settings;
 mod terminal;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,7 +23,22 @@ use crate::check::{Review, Verdict};
 use crate::scan::ScanOutcome;
 
 pub use catalogue::{coverage, explain, rules, techniques};
+pub use docs::write as docs;
+pub use patterns::{
+    coverage as pattern_coverage, explain as explain_pattern, json as advice_json,
+    render as advice,
+};
+
+/// A misspelling is the common case, and a list of sixty slugs is not an answer to
+/// one. Shared so every "no such thing" error in the tool reads the same way.
+pub fn unknown(kind: &str, named: &str, known: &[&str], hint: &str) -> anyhow::Error {
+    let near = rqx_core::naming::nearest(named, known)
+        .map(|near| format!(" Did you mean `{near}`?"))
+        .unwrap_or_default();
+    anyhow::anyhow!("there is no {kind} called `{named}`.{near} {hint}")
+}
 pub use filter::FindingFilter;
+pub use settings::{render as config, rows as setting_rows};
 pub use terminal::Layout;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -35,6 +53,16 @@ pub enum Reporter {
 }
 
 impl Reporter {
+    pub const ALL: [Self; 7] = [
+        Self::Terminal,
+        Self::Json,
+        Self::Sarif,
+        Self::Junit,
+        Self::Gitlab,
+        Self::Github,
+        Self::Markdown,
+    ];
+
     /// Only the console report is written for a person to read; anything else is a
     /// document a machine parses, and an escape sequence in it is corruption.
     pub const fn is_coloured(self) -> bool {
@@ -86,7 +114,11 @@ impl<'a> Report<'a> {
     pub fn scan(outcome: &'a ScanOutcome, filter: &FindingFilter) -> Self {
         Self {
             outcome,
-            findings: outcome.findings.iter().filter(|f| filter.matches(f)).collect(),
+            findings: outcome
+                .findings
+                .iter()
+                .filter(|f| filter.matches(f))
+                .collect(),
             files: &outcome.analyzed,
             base: None,
             verdict: None,
@@ -127,7 +159,12 @@ impl<'a> Report<'a> {
         let absolute = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         let shown = std::env::current_dir()
             .ok()
-            .and_then(|cwd| absolute.strip_prefix(&cwd).ok().map(std::path::Path::to_path_buf))
+            .and_then(|cwd| {
+                absolute
+                    .strip_prefix(&cwd)
+                    .ok()
+                    .map(std::path::Path::to_path_buf)
+            })
             .unwrap_or(absolute);
         match shown.to_string_lossy().replace('\\', "/") {
             text if text.is_empty() => String::new(),
@@ -138,7 +175,12 @@ impl<'a> Report<'a> {
     /// One file's grade, on the project's own curve applied to that file's lines.
     pub fn grade_of(&self, file: &str) -> Cleanliness {
         let lines = self.outcome.lines_by_file.get(file).copied().unwrap_or(0);
-        let findings = self.outcome.findings_by_file.get(file).copied().unwrap_or(0);
+        let findings = self
+            .outcome
+            .findings_by_file
+            .get(file)
+            .copied()
+            .unwrap_or(0);
         Cleanliness::of(self.outcome.counts.file_score(file, lines), findings)
     }
 
@@ -195,7 +237,10 @@ impl<'a> Report<'a> {
     pub fn shown_by_file(&self) -> BTreeMap<&'a str, Vec<&'a Finding>> {
         let mut by_file: BTreeMap<&'a str, Vec<&'a Finding>> = BTreeMap::new();
         for finding in &self.findings {
-            by_file.entry(&finding.location.file).or_default().push(finding);
+            by_file
+                .entry(&finding.location.file)
+                .or_default()
+                .push(finding);
         }
         by_file
     }
@@ -256,6 +301,7 @@ pub mod tests {
             impact: Default::default(),
             import_edges: BTreeMap::new(),
             findings: Vec::new(),
+            advice: Vec::new(),
             findings_by_file: BTreeMap::new(),
             lines_by_file: BTreeMap::new(),
             omitted: 0,
@@ -277,12 +323,18 @@ pub mod tests {
                 },
                 severity: *severity,
                 confidence: Confidence::Verified,
-                evidence: Evidence::StatementCount { count: 99, threshold: 40 },
+                evidence: Evidence::StatementCount {
+                    count: 99,
+                    threshold: 40,
+                },
                 fix_hint: "extract".to_owned(),
                 related: Vec::new(),
             };
             outcome.counts.record(&finding);
-            *outcome.findings_by_file.entry(Arc::clone(&finding.location.file)).or_default() += 1;
+            *outcome
+                .findings_by_file
+                .entry(Arc::clone(&finding.location.file))
+                .or_default() += 1;
             outcome.analyzed.insert((*file).to_owned());
             outcome.findings.push(finding);
         }

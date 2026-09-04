@@ -55,8 +55,11 @@ impl ImpactMap {
 
     /// The files carrying the most risk, for a summary that says where to start.
     pub fn hotspots(&self, limit: usize) -> Vec<(&str, Impact)> {
-        let mut ranked: Vec<(&str, Impact)> =
-            self.files.iter().map(|(file, impact)| (file.as_ref(), *impact)).collect();
+        let mut ranked: Vec<(&str, Impact)> = self
+            .files
+            .iter()
+            .map(|(file, impact)| (file.as_ref(), *impact))
+            .collect();
         ranked.sort_by(|a, b| {
             b.1.multiplier()
                 .partial_cmp(&a.1.multiplier())
@@ -80,10 +83,22 @@ mod tests {
 
     #[test]
     fn reach_and_churn_both_raise_the_multiplier() {
-        let quiet = Impact { commits: 0, importers: 0 };
-        let churned = Impact { commits: 40, importers: 0 };
-        let central = Impact { commits: 0, importers: 40 };
-        let both = Impact { commits: 40, importers: 40 };
+        let quiet = Impact {
+            commits: 0,
+            importers: 0,
+        };
+        let churned = Impact {
+            commits: 40,
+            importers: 0,
+        };
+        let central = Impact {
+            commits: 0,
+            importers: 40,
+        };
+        let both = Impact {
+            commits: 40,
+            importers: 40,
+        };
         assert!(churned.multiplier() > quiet.multiplier());
         assert!(central.multiplier() > quiet.multiplier());
         assert!(both.multiplier() > churned.multiplier());
@@ -93,9 +108,15 @@ mod tests {
     /// score, which is the failure mode that makes weighted scores useless.
     #[test]
     fn one_extreme_file_cannot_dominate_the_score() {
-        let huge = Impact { commits: 10_000, importers: 10_000 };
+        let huge = Impact {
+            commits: 10_000,
+            importers: 10_000,
+        };
         assert!(huge.multiplier() <= 4.0, "{}", huge.multiplier());
-        let modest = Impact { commits: 5, importers: 5 };
+        let modest = Impact {
+            commits: 5,
+            importers: 5,
+        };
         assert!(huge.multiplier() / modest.multiplier() < 3.0);
     }
 

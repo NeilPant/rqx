@@ -1,0 +1,6 @@
+[project]
+name = "rqx-fixtures"
+version = "0.0.0"
+
+[project.scripts]
+rqx-fixtures = "__main__:main"

@@ -10,7 +10,7 @@ use ratatui::widgets::{Bar, BarChart, BarGroup, LineGauge, Paragraph};
 use rqx_core::Cleanliness;
 use rqx_core::finding::Severity;
 
-use crate::brand::{Ink, Palette, score_ink};
+use crate::brand::{Ink, Palette, grade_ink, score_ink};
 use crate::report::plural;
 use crate::tui::app::{Nav, Screen, Session, global};
 
@@ -22,16 +22,9 @@ pub struct Overview {
 
 impl Default for Overview {
     fn default() -> Self {
-        Self { since: Instant::now() }
-    }
-}
-
-const fn grade_ink(grade: Cleanliness) -> Ink {
-    match grade {
-        Cleanliness::Pristine | Cleanliness::Clean => Ink::Good,
-        Cleanliness::Fair => Ink::Accent,
-        Cleanliness::Poor => Ink::Warn,
-        Cleanliness::Critical => Ink::Danger,
+        Self {
+            since: Instant::now(),
+        }
     }
 }
 
@@ -51,10 +44,7 @@ impl Screen for Overview {
     fn render(&mut self, frame: &mut Frame<'_>, area: Rect, session: &Session) {
         let palette = session.palette;
         let Some(outcome) = &session.outcome else {
-            frame.render_widget(
-                Paragraph::new(Line::styled("  nothing scanned yet", palette.dim())),
-                area,
-            );
+            super::nothing_yet(frame, area, session, crate::tui::app::Tab::Overview);
             return;
         };
 
@@ -90,7 +80,12 @@ impl Screen for Overview {
                 .filled_style(Style::new().fg(palette.color(score_ink(shown))))
                 .unfilled_style(palette.dim())
                 .label(""),
-            Rect { x: score.x + 2, y: score.y + 2, width: score.width.saturating_sub(4), height: 1 },
+            Rect {
+                x: score.x + 2,
+                y: score.y + 2,
+                width: score.width.saturating_sub(4),
+                height: 1,
+            },
         );
 
         let grown = f64::from(session.motion.eased(self.since, REVEAL));
@@ -122,11 +117,18 @@ impl Screen for Overview {
                     outcome
                         .analyzed
                         .iter()
+                        .filter(|file| session.in_scope(file))
                         .filter(|file| {
-                            let lines =
-                                outcome.lines_by_file.get(file.as_str()).copied().unwrap_or(0);
-                            let found =
-                                outcome.findings_by_file.get(file.as_str()).copied().unwrap_or(0);
+                            let lines = outcome
+                                .lines_by_file
+                                .get(file.as_str())
+                                .copied()
+                                .unwrap_or(0);
+                            let found = outcome
+                                .findings_by_file
+                                .get(file.as_str())
+                                .copied()
+                                .unwrap_or(0);
                             Cleanliness::of(outcome.counts.file_score(file, lines), found) == *grade
                         })
                         .count() as u64
@@ -146,15 +148,31 @@ impl Screen for Overview {
             );
         }
 
-        let mut lines = vec![Line::styled(
+        let mut lines = Vec::new();
+        if let Some(verdict) = &session.verdict {
+            let (text, ink) = if verdict.passed() {
+                ("  gate passed".to_owned(), Ink::Good)
+            } else {
+                (
+                    format!("  gate failed: {}", verdict.failures.join("; ")),
+                    Ink::Danger,
+                )
+            };
+            lines.push(Line::styled(text, Style::new().fg(palette.color(ink))));
+            lines.push(Line::default());
+        }
+        lines.push(Line::styled(
             "  Start here",
-            Style::new().fg(palette.color(Ink::Text)).add_modifier(Modifier::BOLD),
-        )];
+            Style::new()
+                .fg(palette.color(Ink::Text))
+                .add_modifier(Modifier::BOLD),
+        ));
         // Ordered by grade then blast radius, the same way the report ranks it, so the
         // two never disagree about what to open first.
         let mut ranked: Vec<(&str, Cleanliness)> = outcome
             .findings_by_file
             .keys()
+            .filter(|file| session.in_scope(file))
             .map(|file| {
                 let lines = outcome.lines_by_file.get(file).copied().unwrap_or(0);
                 let found = outcome.findings_by_file.get(file).copied().unwrap_or(0);
@@ -198,11 +216,17 @@ impl Screen for Overview {
         global(key).unwrap_or(Nav::Stay)
     }
 
-    fn animating(&self, session: &Session) -> bool {
-        !session.motion.finished(self.since, REVEAL)
+    fn animating(&self, session: &Session) -> Option<std::time::Duration> {
+        (!session.motion.finished(self.since, REVEAL)).then_some(crate::tui::motion::FRAME)
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("tab", "next view"), ("1-6", "jump"), ("?", "keys"), ("esc", "back"), ("q", "quit")]
+        &[
+            ("tab", "next view"),
+            ("1-6", "jump"),
+            ("?", "keys"),
+            ("esc", "back"),
+            ("q", "quit"),
+        ]
     }
 }

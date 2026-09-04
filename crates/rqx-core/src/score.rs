@@ -45,7 +45,10 @@ impl FindingCounts {
     /// One file's own score, on the same curve as the project's. A second formula
     /// would let a file grade well while dragging the total down.
     pub fn file_score(&self, file: &str, lines: u32) -> u32 {
-        decay(self.weighted_by_file.get(file).copied().unwrap_or(0.0), u64::from(lines))
+        decay(
+            self.weighted_by_file.get(file).copied().unwrap_or(0.0),
+            u64::from(lines),
+        )
     }
 
     pub fn findings_in(&self, file: &str) -> bool {
@@ -92,8 +95,13 @@ pub enum Cleanliness {
 }
 
 impl Cleanliness {
-    pub const ALL: [Self; 5] =
-        [Self::Critical, Self::Poor, Self::Fair, Self::Clean, Self::Pristine];
+    pub const ALL: [Self; 5] = [
+        Self::Critical,
+        Self::Poor,
+        Self::Fair,
+        Self::Clean,
+        Self::Pristine,
+    ];
 
     pub const fn of(score: u32, findings: u32) -> Self {
         if findings == 0 {
@@ -138,7 +146,10 @@ mod tests {
             },
             severity,
             confidence,
-            evidence: Evidence::StatementCount { count: 99, threshold: 40 },
+            evidence: Evidence::StatementCount {
+                count: 99,
+                threshold: 40,
+            },
             fix_hint: String::new(),
             related: Vec::new(),
         }
@@ -179,7 +190,10 @@ mod tests {
         impact.set_importers(Arc::from("a.ts"), 25);
         let weighted = counts.weighted_health_score(20_000, &impact);
 
-        assert!(weighted < plain, "a hot file should score worse: {weighted} vs {plain}");
+        assert!(
+            weighted < plain,
+            "a hot file should score worse: {weighted} vs {plain}"
+        );
         assert_eq!(
             counts.weighted_health_score(20_000, &ImpactMap::default()),
             plain,
@@ -194,7 +208,10 @@ mod tests {
             counts.record(&finding(Severity::Warning, Confidence::Heuristic));
         }
         let score = counts.health_score(45);
-        assert!((30..=70).contains(&score), "3 warnings in 45 lines scored {score}");
+        assert!(
+            (30..=70).contains(&score),
+            "3 warnings in 45 lines scored {score}"
+        );
     }
 
     #[test]
@@ -208,6 +225,9 @@ mod tests {
         };
         let (few, some, many) = (score_of(5), score_of(50), score_of(500));
         assert!(few > some && some > many, "{few} > {some} > {many}");
-        assert!(few > 90, "5 warnings in 10k LOC should stay high, got {few}");
+        assert!(
+            few > 90,
+            "5 warnings in 10k LOC should stay high, got {few}"
+        );
     }
 }

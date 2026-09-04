@@ -1,0 +1,64 @@
+package rqx;
+
+public class Main {
+    public static void main(String[] args) {
+        new Clean().add(1, 2);
+        new Bloat().deeplyNested(java.util.List.of());
+        new Overgrown().m1();
+        new Long().manySteps();
+        new Names().process(java.util.List.of());
+        new CycleA().orbit();
+        new DeadExport().reachable();
+        new Params().withDeadTail(1, "");
+        new Hygiene().pricing(java.util.List.of(), true);
+        new Reconcile().first(java.util.List.of());
+        new Shapes();
+        new Sweep().sweep(java.util.List.of());
+        new Lifecycle();
+        new Intimacy();
+        new Precision().widen("");
+        new Queries();
+        new Vocabulary().getAccount("");
+        new Conventions().query("");
+        new Config().endpoint("", true, 1);
+        new Hierarchy();
+        new HierarchyFood();
+        Door door = new Door();
+        door.open();
+        door.lock(1);
+        new Router().route("", "", "");
+        new GatewayA().collect(1);
+        new GatewayB().collect(1);
+        new GatewayC().collect(1);
+        new Dispatch().apply("", "");
+        new Dispatch().replay("", "");
+        new RoadLogistics().plan();
+        new RailLogistics().plan();
+        new DarkKit().button();
+        new LightKit().panel();
+        new RedCircle().draw();
+        new RedSquare().draw();
+        new BlueCircle().draw();
+        new BlueSquare().draw();
+        new Literal().eval();
+        new Sum().eval();
+        new Product().eval();
+        new Printer().visitSum(new Sum());
+        new LoggingNotifier(null).history();
+        new GuardedNotifier(null).close();
+        new SmsNotifier(null).close();
+        new RetryingGateway(null).disconnect();
+        new Menu().size();
+        new ReportBuilder().build();
+        new QueryBuilder().where("");
+        new Palette().clone();
+        Settings.shared();
+        Clock.now();
+        Glyph.of(0);
+        new Pages().next();
+        new Feed().publish(1);
+        new Ticker().fire();
+        new Editor().save();
+        new SmsGateway().disconnect();
+    }
+}

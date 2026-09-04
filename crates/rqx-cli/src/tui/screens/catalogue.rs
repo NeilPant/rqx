@@ -11,7 +11,7 @@ use ratatui::widgets::{
 use rqx_core::rule::{Category, RuleId};
 use rqx_core::{Chapter, Coverage, Heuristic, Smell};
 
-use crate::brand::Ink;
+use crate::brand::{Ink, coverage_ink};
 use crate::tui::app::{Nav, Screen, Session, global};
 
 /// The rule catalogue, browsable rather than printed. Nothing is written to stdout
@@ -40,8 +40,13 @@ impl Rules {
                     || spec.why.to_lowercase().contains(&needle)
             })
             .collect();
-        let selected = self.state.selected().unwrap_or(0).min(self.order.len().saturating_sub(1));
-        self.state.select((!self.order.is_empty()).then_some(selected));
+        let selected = self
+            .state
+            .selected()
+            .unwrap_or(0)
+            .min(self.order.len().saturating_sub(1));
+        self.state
+            .select((!self.order.is_empty()).then_some(selected));
         self.ready = true;
     }
 
@@ -50,7 +55,9 @@ impl Rules {
             return;
         }
         let current = self.state.selected().unwrap_or(0) as isize;
-        self.state.select(Some((current + delta).clamp(0, self.order.len() as isize - 1) as usize));
+        self.state.select(Some(
+            (current + delta).clamp(0, self.order.len() as isize - 1) as usize,
+        ));
     }
 }
 
@@ -60,8 +67,7 @@ impl Screen for Rules {
         if !self.ready {
             self.reorder();
         }
-        let [bar, body] =
-            Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
+        let [bar, body] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
         let [list, detail] =
             Layout::horizontal([Constraint::Percentage(42), Constraint::Min(20)]).areas(body);
 
@@ -71,7 +77,11 @@ impl Screen for Rules {
         )];
         if self.typing || !self.filter.is_empty() {
             header.push(Span::styled(
-                format!("  /{}{}", self.filter, if self.typing { "\u{2588}" } else { "" }),
+                format!(
+                    "  /{}{}",
+                    self.filter,
+                    if self.typing { "\u{2588}" } else { "" }
+                ),
                 Style::new().fg(palette.color(Ink::Accent)),
             ));
         }
@@ -82,12 +92,15 @@ impl Screen for Rules {
             .iter()
             .map(|rule| {
                 let spec = rule.spec();
-                let enabled = session.config.rules.enabled(*rule);
+                let enabled = session.config.enabled_anywhere(*rule);
                 ListItem::new(Line::from(vec![
                     Span::styled(
                         format!(" {} ", if enabled { "\u{25cf}" } else { "\u{25cb}" }),
-                        Style::new()
-                            .fg(palette.color(if enabled { Ink::Good } else { Ink::Muted })),
+                        Style::new().fg(palette.color(if enabled {
+                            Ink::Good
+                        } else {
+                            Ink::Muted
+                        })),
                     ),
                     Span::styled(
                         format!("{:26}", spec.slug),
@@ -105,7 +118,11 @@ impl Screen for Rules {
                         .fg(palette.color(Ink::Text))
                         .add_modifier(Modifier::BOLD | Modifier::REVERSED),
                 )
-                .block(Block::default().borders(Borders::TOP).border_style(palette.dim())),
+                .block(
+                    Block::default()
+                        .borders(Borders::TOP)
+                        .border_style(palette.rule()),
+                ),
             list,
             &mut self.state,
         );
@@ -117,7 +134,11 @@ impl Screen for Rules {
             &mut scrollbar,
         );
 
-        let Some(rule) = self.state.selected().and_then(|index| self.order.get(index)) else {
+        let Some(rule) = self
+            .state
+            .selected()
+            .and_then(|index| self.order.get(index))
+        else {
             frame.render_widget(
                 Paragraph::new(Line::styled("  no rule matches", palette.dim())),
                 detail,
@@ -135,23 +156,46 @@ impl Screen for Rules {
             Line::default(),
             Line::from(vec![Span::styled(
                 format!("  {}", spec.slug),
-                Style::new().fg(palette.color(Ink::Accent)).add_modifier(Modifier::BOLD),
+                Style::new()
+                    .fg(palette.color(Ink::Accent))
+                    .add_modifier(Modifier::BOLD),
             )]),
             Line::default(),
-            field("Smell", spec.guru_smell.map_or("no catalogue entry".to_owned(), |smell| smell.name().to_owned())),
+            field(
+                "Smell",
+                spec.guru_smell
+                    .map_or("no catalogue entry".to_owned(), |smell| {
+                        smell.name().to_owned()
+                    }),
+            ),
             field("Family", spec.category.title().to_owned()),
             field("Clean Code", spec.citation()),
             field("Metric", spec.metric.to_owned()),
-            field("Fix", spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / ")),
-            field("Reported", format!("{} / {}", spec.severity.label(), spec.confidence.label())),
+            field(
+                "Fix",
+                spec.fixes
+                    .iter()
+                    .map(|fix| fix.name())
+                    .collect::<Vec<_>>()
+                    .join(" / "),
+            ),
+            field(
+                "Reported",
+                format!("{} / {}", spec.severity.label(), spec.confidence.label()),
+            ),
             field("Needs", format!("{:?}", spec.analysis).to_lowercase()),
             Line::default(),
-            Line::styled(format!("  {}", spec.why), Style::new().fg(palette.color(Ink::Text))),
+            Line::styled(
+                format!("  {}", spec.why),
+                Style::new().fg(palette.color(Ink::Text)),
+            ),
         ];
         frame.render_widget(
-            Paragraph::new(lines)
-                .wrap(Wrap { trim: false })
-                .block(Block::default().borders(Borders::TOP).border_style(palette.dim())),
+            Paragraph::new(lines).wrap(Wrap { trim: false }).block(
+                Block::default()
+                    .borders(Borders::TOP)
+                    .border_style(palette.rule()),
+            ),
             detail,
         );
     }
@@ -185,7 +229,12 @@ impl Screen for Rules {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("↑↓", "move"), ("/", "search"), ("tab", "next view"), ("esc", "back")]
+        &[
+            ("↑↓", "move"),
+            ("/", "search"),
+            ("tab", "next view"),
+            ("esc", "back"),
+        ]
     }
 }
 
@@ -211,14 +260,22 @@ impl CoverageView {
             if smells.is_empty() {
                 continue;
             }
-            self.rows.push(Row::Heading(format!("refactoring.guru \u{2014} {}", family.title())));
+            self.rows.push(Row::Heading(format!(
+                "refactoring.guru \u{2014} {}",
+                family.title()
+            )));
             for smell in smells {
-                self.rows
-                    .push(Row::Entry { name: smell.name().to_owned(), coverage: smell.coverage() });
+                self.rows.push(Row::Entry {
+                    name: smell.name().to_owned(),
+                    coverage: smell.coverage(),
+                });
             }
         }
         for chapter in Chapter::ALL {
-            self.rows.push(Row::Heading(format!("Clean Code \u{2014} {}", chapter.title())));
+            self.rows.push(Row::Heading(format!(
+                "Clean Code \u{2014} {}",
+                chapter.title()
+            )));
             for entry in chapter.heuristics() {
                 self.rows.push(Row::Entry {
                     name: format!("{} {}", entry.id(), entry.title()),
@@ -237,8 +294,7 @@ impl Screen for CoverageView {
         if !self.ready {
             self.build();
         }
-        let [bar, body] =
-            Layout::vertical([Constraint::Length(2), Constraint::Min(0)]).areas(area);
+        let [bar, body] = Layout::vertical([Constraint::Length(2), Constraint::Min(0)]).areas(area);
 
         let smells = Smell::tally();
         let heuristics = Heuristic::tally();
@@ -275,14 +331,17 @@ impl Screen for CoverageView {
             .map(|row| match row {
                 Row::Heading(title) => ListItem::new(Line::styled(
                     format!("  {title}"),
-                    Style::new().fg(palette.color(Ink::Text)).add_modifier(Modifier::BOLD),
+                    Style::new()
+                        .fg(palette.color(Ink::Text))
+                        .add_modifier(Modifier::BOLD),
                 )),
                 Row::Entry { name, coverage } => {
-                    let (mark, ink) = match coverage {
-                        Coverage::Implemented(_) => ("\u{2713}", Ink::Good),
-                        Coverage::Absent(_) => ("\u{25cb}", Ink::Warn),
-                        _ => ("\u{2013}", Ink::Muted),
+                    let mark = match coverage {
+                        Coverage::Implemented(_) => "\u{2713}",
+                        Coverage::Absent(_) => "\u{25cb}",
+                        _ => "\u{2013}",
                     };
+                    let ink = coverage_ink(*coverage);
                     let detail = coverage.reason().map_or_else(
                         || {
                             coverage
@@ -309,7 +368,11 @@ impl Screen for CoverageView {
         frame.render_stateful_widget(
             List::new(items)
                 .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
-                .block(Block::default().borders(Borders::TOP).border_style(palette.dim())),
+                .block(
+                    Block::default()
+                        .borders(Borders::TOP)
+                        .border_style(palette.rule()),
+                ),
             body,
             &mut self.state,
         );
@@ -329,7 +392,8 @@ impl Screen for CoverageView {
                 return;
             }
             let current = self.state.selected().unwrap_or(0) as isize;
-            self.state.select(Some((current + delta).clamp(0, len as isize - 1) as usize));
+            self.state
+                .select(Some((current + delta).clamp(0, len as isize - 1) as usize));
         };
         match key.code {
             KeyCode::Down | KeyCode::Char('j') => step(1),
@@ -342,6 +406,11 @@ impl Screen for CoverageView {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("↑↓", "move"), ("tab", "next view"), ("esc", "back"), ("q", "quit")]
+        &[
+            ("↑↓", "move"),
+            ("tab", "next view"),
+            ("esc", "back"),
+            ("q", "quit"),
+        ]
     }
 }

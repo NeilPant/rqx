@@ -1,17 +1,35 @@
 {
   "name": "rqx",
   "displayName": "Rqx",
-  "description": "Find dead code, duplication and architectural drift in TypeScript, with a reason for every finding.",
+  "description": "Find dead code, duplication and architectural drift in TypeScript, Python, Go, Java and C++, with a reason for every finding.",
   "version": "0.1.0",
   "publisher": "jadhamwi",
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Linters", "Programming Languages"],
-  "activationEvents": ["onLanguage:typescript", "onLanguage:typescriptreact"],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:RQX.toml"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      { "command": "rqx.scanWorkspace", "title": "Rqx: Scan Workspace" },
-      { "command": "rqx.restart", "title": "Rqx: Restart Server" }
+      {
+        "command": "rqx.scanWorkspace",
+        "title": "Rqx: Scan Workspace"
+      },
+      {
+        "command": "rqx.restart",
+        "title": "Rqx: Restart Server"
+      },
+      {
+        "command": "rqx.showOutput",
+        "title": "Rqx: Show Server Log"
+      }
     ],
     "configuration": {
       "title": "Rqx",
@@ -19,24 +37,55 @@
         "rqx.path": {
           "type": "string",
           "default": "rqx",
-          "description": "Path to the rqx binary."
+          "description": "Path to the rqx binary.",
+          "markdownDescription": "Path to the `rqx` binary. Leave as `rqx` to use the one on your `PATH`."
         },
         "rqx.scanOnStartup": {
           "type": "boolean",
           "default": true,
-          "description": "Scan the whole workspace when the extension activates."
+          "description": "Scan the whole workspace when the extension activates.",
+          "markdownDescription": "Scan the whole workspace when the extension activates. Turn this off on a very large repository and use **Rqx: Scan Workspace** by hand."
+        },
+        "rqx.configFile": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to an `RQX.toml` to use instead of the one rqx would find on its own. Relative paths resolve against the workspace root."
         }
       }
     }
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "package": "npx --yes @vscode/vsce package"
   },
-  "dependencies": { "vscode-languageclient": "^9.0.1" },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.90.0",
     "typescript": "^5.6.0"
-  }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jadhamwi/rqx.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jadhamwi/rqx/issues"
+  },
+  "homepage": "https://github.com/jadhamwi/rqx/blob/main/editors/vscode/README.md",
+  "keywords": [
+    "linter",
+    "dead code",
+    "refactoring",
+    "code smells",
+    "typescript",
+    "python",
+    "go",
+    "java",
+    "cpp"
+  ]
 }

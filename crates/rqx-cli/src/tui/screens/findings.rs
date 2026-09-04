@@ -8,10 +8,10 @@ use ratatui::widgets::{
     TableState, Wrap,
 };
 
+use rqx_core::LineIndex;
 use rqx_core::finding::{Finding, Severity};
-use rqx_ts::LineIndex;
 
-use crate::brand::Ink;
+use crate::brand::{Ink, severity_ink};
 use crate::preview::{self, Role};
 use crate::report::FindingFilter;
 use crate::tui::app::{Nav, Screen, Session, global};
@@ -55,12 +55,15 @@ pub struct Findings {
 
 impl Findings {
     fn reorder(&mut self, session: &Session) {
-        let Some(outcome) = &session.outcome else { return };
+        let Some(outcome) = &session.outcome else {
+            return;
+        };
         let filter = FindingFilter::default().with_text(&self.filter);
         let mut order: Vec<usize> = (0..outcome.findings.len())
             .filter(|index| {
                 let finding = &outcome.findings[*index];
-                filter.matches(finding)
+                session.in_scope(&finding.location.file)
+                    && filter.matches(finding)
                     && self.floor.is_none_or(|floor| finding.severity >= floor)
             })
             .collect();
@@ -75,19 +78,29 @@ impl Findings {
             }),
             Group::Rule => order.sort_by(|a, b| {
                 let (left, right) = (&outcome.findings[*a], &outcome.findings[*b]);
-                left.rule.slug().cmp(right.rule.slug()).then(left.location.line.cmp(&right.location.line))
+                left.rule
+                    .slug()
+                    .cmp(right.rule.slug())
+                    .then(left.location.line.cmp(&right.location.line))
             }),
         }
         self.order = order;
-        let selected = self.state.selected().unwrap_or(0).min(self.order.len().saturating_sub(1));
-        self.state.select((!self.order.is_empty()).then_some(selected));
+        let selected = self
+            .state
+            .selected()
+            .unwrap_or(0)
+            .min(self.order.len().saturating_sub(1));
+        self.state
+            .select((!self.order.is_empty()).then_some(selected));
         self.source = None;
         self.ready = true;
     }
 
     fn selected<'a>(&self, session: &'a Session) -> Option<&'a Finding> {
         let outcome = session.outcome.as_ref()?;
-        outcome.findings.get(*self.order.get(self.state.selected()?)?)
+        outcome
+            .findings
+            .get(*self.order.get(self.state.selected()?)?)
     }
 
     fn step(&mut self, delta: isize) {
@@ -101,14 +114,6 @@ impl Findings {
     }
 }
 
-const fn severity_ink(severity: Severity) -> Ink {
-    match severity {
-        Severity::Error => Ink::Danger,
-        Severity::Warning => Ink::Warn,
-        Severity::Info => Ink::Accent,
-    }
-}
-
 impl Screen for Findings {
     fn render(&mut self, frame: &mut Frame<'_>, area: Rect, session: &Session) {
         let palette = session.palette;
@@ -116,10 +121,7 @@ impl Screen for Findings {
             self.reorder(session);
         }
         let Some(outcome) = &session.outcome else {
-            frame.render_widget(
-                Paragraph::new(Line::styled("  nothing scanned yet", palette.dim())),
-                area,
-            );
+            super::nothing_yet(frame, area, session, crate::tui::app::Tab::Findings);
             return;
         };
 
@@ -130,19 +132,34 @@ impl Screen for Findings {
         ])
         .areas(area);
 
+        let total = outcome
+            .findings
+            .iter()
+            .filter(|finding| session.in_scope(&finding.location.file))
+            .count();
         let mut header = vec![Span::styled(
-            format!("  {} of {} findings", self.order.len(), outcome.findings.len()),
+            format!("  {} of {total} findings", self.order.len()),
             Style::new().fg(palette.color(Ink::Text)),
         )];
         if let Some(floor) = self.floor {
-            header.push(Span::styled(format!("  \u{2265} {}", floor.label()), palette.dim()));
+            header.push(Span::styled(
+                format!("  \u{2265} {}", floor.label()),
+                palette.dim(),
+            ));
         }
         if let Some(group) = self.group {
-            header.push(Span::styled(format!("  by {}", group.label()), palette.dim()));
+            header.push(Span::styled(
+                format!("  by {}", group.label()),
+                palette.dim(),
+            ));
         }
         if self.typing || !self.filter.is_empty() {
             header.push(Span::styled(
-                format!("  /{}{}", self.filter, if self.typing { "\u{2588}" } else { "" }),
+                format!(
+                    "  /{}{}",
+                    self.filter,
+                    if self.typing { "\u{2588}" } else { "" }
+                ),
                 Style::new().fg(palette.color(Ink::Accent)),
             ));
         }
@@ -170,20 +187,28 @@ impl Screen for Findings {
         frame.render_stateful_widget(
             Table::new(
                 rows,
-                [Constraint::Length(3), Constraint::Length(26), Constraint::Min(10)],
+                [
+                    Constraint::Length(3),
+                    Constraint::Length(26),
+                    Constraint::Min(10),
+                ],
             )
             .row_highlight_style(
                 Style::new()
                     .fg(palette.color(Ink::Text))
                     .add_modifier(Modifier::BOLD | Modifier::REVERSED),
             )
-            .block(Block::default().borders(Borders::TOP).border_style(palette.dim())),
+            .block(
+                Block::default()
+                    .borders(Borders::TOP)
+                    .border_style(palette.rule()),
+            ),
             list,
             &mut self.state,
         );
 
-        let mut scrollbar = ScrollbarState::new(self.order.len())
-            .position(self.state.selected().unwrap_or(0));
+        let mut scrollbar =
+            ScrollbarState::new(self.order.len()).position(self.state.selected().unwrap_or(0));
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight).style(palette.dim()),
             list,
@@ -236,6 +261,10 @@ impl Screen for Findings {
         Nav::Redraw
     }
 
+    fn capturing(&self) -> bool {
+        self.typing
+    }
+
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("↑↓", "move"),
@@ -261,8 +290,11 @@ impl Findings {
         let palette = session.palette;
         let Some(finding) = self.selected(session) else {
             frame.render_widget(
-                Paragraph::new(Line::styled("  no findings match", palette.dim()))
-                    .block(Block::default().borders(Borders::TOP).border_style(palette.dim())),
+                Paragraph::new(Line::styled("  no findings match", palette.dim())).block(
+                    Block::default()
+                        .borders(Borders::TOP)
+                        .border_style(palette.rule()),
+                ),
                 area,
             );
             return;
@@ -302,8 +334,10 @@ impl Findings {
                             vec![Span::styled(line.text.clone(), palette.dim())]
                         }
                     };
-                    let mut spans =
-                        vec![Span::styled(format!("{:>6} \u{2502} ", line.number), palette.dim())];
+                    let mut spans = vec![Span::styled(
+                        format!("{:>6} \u{2502} ", line.number),
+                        palette.dim(),
+                    )];
                     spans.extend(body);
                     lines.push(Line::from(spans));
                 }
@@ -323,16 +357,22 @@ impl Findings {
         lines.push(Line::from(vec![
             Span::styled("Fix  ", palette.dim()),
             Span::styled(
-                spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / "),
+                spec.fixes
+                    .iter()
+                    .map(|fix| fix.name())
+                    .collect::<Vec<_>>()
+                    .join(" / "),
                 Style::new().fg(palette.color(Ink::Good)),
             ),
             Span::styled(format!("  \u{2014} {}", finding.fix_hint), palette.dim()),
         ]));
 
         frame.render_widget(
-            Paragraph::new(lines)
-                .wrap(Wrap { trim: false })
-                .block(Block::default().borders(Borders::TOP).border_style(palette.dim())),
+            Paragraph::new(lines).wrap(Wrap { trim: false }).block(
+                Block::default()
+                    .borders(Borders::TOP)
+                    .border_style(palette.rule()),
+            ),
             area,
         );
     }

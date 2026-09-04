@@ -28,16 +28,59 @@ jobs:
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Analyze this repository's fixtures
+      # The rule reference is generated from the catalogue. A rule added without
+      # regenerating it leaves the docs describing a tool that no longer exists.
+      - name: Documentation is current
+        run: |
+          cargo run --release -- docs
+          git diff --exit-code docs/
+
+      # One pass per language, so a regression names the language it broke rather
+      # than moving a total nobody can read.
+      - name: Analyze each language's fixtures
+        run: |
+          for language in typescript python go java cpp; do
+            echo "## $language" >> "$GITHUB_STEP_SUMMARY"
+            cargo run --release -- scan "fixtures/$language" --max-findings 0 \
+              --reporter terminal --reporter github \
+              --reporter "markdown=rqx-$language.md"
+            cat "rqx-$language.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Analyze every language at once
         run: |
           cargo run --release -- scan fixtures --max-findings 0 \
-            --reporter terminal --reporter github \
-            --reporter sarif=rqx.sarif \
-            --reporter markdown=rqx.md
-          cat rqx.md >> "$GITHUB_STEP_SUMMARY"
+            --reporter terminal \
+            --reporter sarif=rqx.sarif
 
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: rqx.sarif
           category: rqx
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      # Packaging is what catches a manifest that parses but cannot ship: a missing
+      # activation event, a script that does not exist, an ignored file that was
+      # needed at runtime.
+      - name: Build the VS Code extension
+        working-directory: editors/vscode
+        run: |
+          npm ci
+          npm run compile
+          npx --yes @vscode/vsce package --out rqx.vsix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rqx-vsix
+          path: editors/vscode/rqx.vsix

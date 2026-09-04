@@ -1,13 +1,16 @@
 use std::env;
 
 use ratatui::style::Color;
+use rqx_core::finding::Severity;
+use rqx_core::{Cleanliness, Coverage};
 
 /// Every colour in Rqx is one of these. Screens name the role, never the hex, so
-/// the palette can be retuned or downgraded in one place — the whole scheme moved
-/// to the owl's own colours by editing the three tables below.
+/// the palette can be retuned or downgraded in one place.
 ///
-/// Sixteen-colour terminals have no brown, so `Accent` falls back to the dark-yellow
-/// slot there and `Warn` moves up to bright yellow to stay apart from it.
+/// The accent is the owl's own brown, which puts it inside the warm severity band rather
+/// than beside it: tan and amber are separated by saturation and not by hue. Sixteen
+/// colours have no brown, so `Accent` takes the yellow slot and `Warn` moves up to bright
+/// yellow to stay distinguishable from it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Ink {
     Accent,
@@ -16,14 +19,26 @@ pub enum Ink {
     Good,
     Text,
     Muted,
+    Line,
     Ground,
     Signal,
+    Shade,
 }
 
 impl Ink {
     #[cfg(test)]
-    const ALL: [Self; 8] =
-        [Self::Accent, Self::Danger, Self::Warn, Self::Good, Self::Text, Self::Muted, Self::Ground, Self::Signal];
+    const ALL: [Self; 10] = [
+        Self::Accent,
+        Self::Danger,
+        Self::Warn,
+        Self::Good,
+        Self::Text,
+        Self::Muted,
+        Self::Line,
+        Self::Ground,
+        Self::Signal,
+        Self::Shade,
+    ];
 
     pub const fn from_sprite_char(character: char) -> Option<Self> {
         match character {
@@ -34,62 +49,78 @@ impl Ink {
             'T' => Some(Self::Text),
             'M' => Some(Self::Muted),
             'K' => Some(Self::Ground),
-            // Resolved at render time rather than fixed in the art, so the mascot's
-            // eyes can carry the health band without a frame per grade.
+            // Both resolved at render time rather than fixed in the art, so the mascot's
+            // whole body can carry the health band without a frame per grade.
             'S' => Some(Self::Signal),
+            'H' => Some(Self::Shade),
             _ => None,
         }
     }
 
     const fn rgb(self) -> (u8, u8, u8) {
         match self {
-            Self::Accent => (0xC9, 0x92, 0x63),
-            Self::Danger => (0xD9, 0x53, 0x3F),
-            Self::Warn => (0xE8, 0xA3, 0x3D),
-            Self::Good => (0x8F, 0xBF, 0x5A),
-            Self::Text => (0xF0, 0xE6, 0xD8),
-            Self::Muted => (0x94, 0x81, 0x6F),
-            Self::Ground => (0x17, 0x12, 0x0E),
-            Self::Signal => (0xFF, 0xC2, 0x4A),
+            Self::Accent => (0xC8, 0x9B, 0x6A),
+            Self::Danger => (0xE4, 0x57, 0x4A),
+            Self::Warn => (0xE8, 0xA8, 0x3A),
+            Self::Good => (0x8F, 0xB5, 0x5C),
+            Self::Text => (0xF0, 0xE8, 0xDC),
+            Self::Muted => (0x9E, 0x8F, 0x7C),
+            Self::Line => (0x6E, 0x61, 0x50),
+            Self::Ground => (0x0F, 0x0C, 0x09),
+            Self::Signal => (0xC8, 0x9B, 0x6A),
+            Self::Shade => (0x78, 0x5D, 0x3F),
         }
     }
 
     const fn ansi256(self) -> u8 {
         match self {
-            Self::Accent => 180,
+            Self::Accent | Self::Signal => 179,
             Self::Danger => 167,
-            Self::Warn => 179,
+            Self::Warn => 214,
             Self::Good => 107,
             Self::Text => 230,
-            Self::Muted => 137,
+            Self::Muted => 247,
+            Self::Line => 242,
             Self::Ground => 233,
-            Self::Signal => 215,
+            Self::Shade => 137,
+        }
+    }
+
+    /// One step down the 6x6x6 cube from the ink itself, so a shaded body stays the
+    /// colour it is shading rather than turning grey.
+    const fn shade_ansi256(self) -> u8 {
+        match self {
+            Self::Accent | Self::Signal | Self::Shade => 137,
+            Self::Danger => 131,
+            Self::Warn => 172,
+            Self::Good => 65,
+            Self::Text => 250,
+            Self::Muted => 242,
+            Self::Line | Self::Ground => 233,
         }
     }
 
     const fn ansi16(self) -> Color {
         match self {
-            Self::Accent => Color::Yellow,
+            Self::Accent | Self::Signal | Self::Shade => Color::Yellow,
             Self::Danger => Color::Red,
             Self::Warn => Color::LightYellow,
             Self::Good => Color::Green,
             Self::Text => Color::White,
-            Self::Muted => Color::DarkGray,
+            Self::Muted | Self::Line => Color::DarkGray,
             Self::Ground => Color::Black,
-            Self::Signal => Color::LightYellow,
         }
     }
 
     const fn ansi16_plain(self) -> anstyle::AnsiColor {
         match self {
-            Self::Accent => anstyle::AnsiColor::Yellow,
+            Self::Accent | Self::Signal | Self::Shade => anstyle::AnsiColor::Yellow,
             Self::Danger => anstyle::AnsiColor::Red,
             Self::Warn => anstyle::AnsiColor::BrightYellow,
             Self::Good => anstyle::AnsiColor::Green,
             Self::Text => anstyle::AnsiColor::White,
-            Self::Muted => anstyle::AnsiColor::BrightBlack,
+            Self::Muted | Self::Line => anstyle::AnsiColor::BrightBlack,
             Self::Ground => anstyle::AnsiColor::Black,
-            Self::Signal => anstyle::AnsiColor::BrightYellow,
         }
     }
 }
@@ -101,6 +132,33 @@ pub const fn score_ink(score: u32) -> Ink {
         80..=100 => Ink::Good,
         50..=79 => Ink::Warn,
         _ => Ink::Danger,
+    }
+}
+
+pub const fn grade_ink(grade: Cleanliness) -> Ink {
+    match grade {
+        Cleanliness::Pristine | Cleanliness::Clean => Ink::Good,
+        Cleanliness::Fair => Ink::Accent,
+        Cleanliness::Poor => Ink::Warn,
+        Cleanliness::Critical => Ink::Danger,
+    }
+}
+
+/// Info is dim rather than accented: it is the severity a reader is meant to skim
+/// past, and the interface used to paint it in the brand colour instead.
+pub const fn severity_ink(severity: Severity) -> Ink {
+    match severity {
+        Severity::Error => Ink::Danger,
+        Severity::Warning => Ink::Warn,
+        Severity::Info => Ink::Muted,
+    }
+}
+
+pub const fn coverage_ink<Answer: Copy>(coverage: Coverage<Answer>) -> Ink {
+    match coverage {
+        Coverage::Implemented(_) => Ink::Good,
+        Coverage::Absent(_) => Ink::Warn,
+        Coverage::NeedsTypes(_) | Coverage::NotStatic(_) | Coverage::NotApplicable(_) => Ink::Muted,
     }
 }
 
@@ -146,7 +204,9 @@ pub struct Palette {
 
 impl Palette {
     pub fn detect() -> Self {
-        Self { depth: ColorDepth::detect() }
+        Self {
+            depth: ColorDepth::detect(),
+        }
     }
 
     pub const fn with_depth(depth: ColorDepth) -> Self {
@@ -169,8 +229,39 @@ impl Palette {
         }
     }
 
+    /// The mascot's two art inks, which both depend on what the scan found: `Signal` is
+    /// the verdict colour and `Shade` is that same colour darkened, so the body keeps
+    /// its form across a band running mint to coral.
+    pub fn art_color(self, ink: Ink, signal: Ink) -> Color {
+        match ink {
+            Ink::Signal => self.color(signal),
+            Ink::Shade => self.shade(signal),
+            other => self.color(other),
+        }
+    }
+
+    fn shade(self, ink: Ink) -> Color {
+        match self.depth {
+            ColorDepth::Truecolor => {
+                let (r, g, b) = ink.rgb();
+                Color::Rgb(darken(r), darken(g), darken(b))
+            }
+            ColorDepth::Ansi256 => Color::Indexed(ink.shade_ansi256()),
+            // Sixteen colours hold nothing darker than a colour except black, and a black
+            // underside punches a hole through the silhouette rather than shading it.
+            ColorDepth::Ansi16 => ink.ansi16(),
+            ColorDepth::Monochrome => Color::Reset,
+        }
+    }
+
     pub fn dim(self) -> ratatui::style::Style {
         ratatui::style::Style::new().fg(self.color(Ink::Muted))
+    }
+
+    /// Borders are their own ink rather than `Muted`, so a frame around a list does not
+    /// carry the same weight as the dim text inside it.
+    pub fn rule(self) -> ratatui::style::Style {
+        ratatui::style::Style::new().fg(self.color(Ink::Line))
     }
 
     fn plain_color(self, ink: Ink) -> Option<anstyle::Color> {
@@ -198,9 +289,9 @@ impl Palette {
     /// on screen usually already carries the terminal's own colours.
     pub fn mark(self, ink: Ink) -> anstyle::Style {
         match self.plain_color(ink) {
-            Some(color) => {
-                anstyle::Style::new().bg_color(Some(color)).fg_color(self.plain_color(Ink::Ground))
-            }
+            Some(color) => anstyle::Style::new()
+                .bg_color(Some(color))
+                .fg_color(self.plain_color(Ink::Ground)),
             None => anstyle::Style::new().underline(),
         }
     }
@@ -216,6 +307,10 @@ impl Palette {
             None => anstyle::Style::new().bold(),
         }
     }
+}
+
+const fn darken(channel: u8) -> u8 {
+    (channel as u16 * 3 / 5) as u8
 }
 
 /// An empty style renders to nothing, so a monochrome palette costs no escape
@@ -243,7 +338,11 @@ mod tests {
                     assert_eq!(color, Color::Reset, "{ink:?} must not carry colour");
                     assert_eq!(palette.style(ink), anstyle::Style::new());
                 } else {
-                    assert_ne!(palette.style(ink), anstyle::Style::new(), "{ink:?} lost its style");
+                    assert_ne!(
+                        palette.style(ink),
+                        anstyle::Style::new(),
+                        "{ink:?} lost its style"
+                    );
                 }
             }
         }
@@ -260,10 +359,64 @@ mod tests {
             ('M', Ink::Muted),
             ('K', Ink::Ground),
             ('S', Ink::Signal),
+            ('H', Ink::Shade),
         ] {
             assert_eq!(Ink::from_sprite_char(character), Some(ink));
         }
         assert_eq!(Ink::from_sprite_char('.'), None, "`.` is transparent");
+    }
+
+    /// A shaded body has to stay the colour it is shading, or the mascot grows a grey
+    /// belly on three of the four verdicts.
+    #[test]
+    fn the_shade_darkens_the_signal_without_leaving_its_hue() {
+        let palette = Palette::with_depth(ColorDepth::Truecolor);
+        for signal in [Ink::Accent, Ink::Good, Ink::Warn, Ink::Danger] {
+            let body = palette.art_color(Ink::Signal, signal);
+            let shade = palette.art_color(Ink::Shade, signal);
+            assert_ne!(body, shade, "{signal:?} shades to itself");
+            let (Color::Rgb(br, bg, bb), Color::Rgb(sr, sg, sb)) = (body, shade) else {
+                panic!("truecolor must resolve to rgb");
+            };
+            assert!(sr < br || br == 0, "{signal:?} red did not darken");
+            assert!(sg < bg || bg == 0, "{signal:?} green did not darken");
+            assert!(sb < bb || bb == 0, "{signal:?} blue did not darken");
+        }
+    }
+
+    #[test]
+    fn every_ink_that_carries_text_clears_the_contrast_floor() {
+        for ink in [
+            Ink::Text,
+            Ink::Muted,
+            Ink::Accent,
+            Ink::Good,
+            Ink::Warn,
+            Ink::Danger,
+        ] {
+            let ratio = contrast(ink.rgb(), Ink::Ground.rgb());
+            assert!(ratio >= 4.5, "{ink:?} is {ratio:.2}:1 on the ground");
+        }
+        let border = contrast(Ink::Line.rgb(), Ink::Ground.rgb());
+        assert!(border >= 3.0, "a border at {border:.2}:1 is invisible");
+    }
+
+    fn contrast(one: (u8, u8, u8), other: (u8, u8, u8)) -> f64 {
+        let lighter = luminance(one).max(luminance(other));
+        let darker = luminance(one).min(luminance(other));
+        (lighter + 0.05) / (darker + 0.05)
+    }
+
+    fn luminance((r, g, b): (u8, u8, u8)) -> f64 {
+        let channel = |value: u8| {
+            let value = f64::from(value) / 255.0;
+            if value <= 0.03928 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
     }
 
     #[test]

@@ -2,11 +2,11 @@ use std::io::Write;
 
 use anyhow::Result;
 use rqx_core::Cleanliness;
+use rqx_core::LineIndex;
 use rqx_core::finding::{Finding, Severity};
 use rqx_core::rule::RuleId;
-use rqx_ts::LineIndex;
 
-use crate::brand::{Ink, Palette, paint, score_ink};
+use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
 use crate::preview::{self, HEAD_LINES};
 use crate::report::{Report, plural};
 use crate::scan::ScanOutcome;
@@ -41,11 +41,23 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
     }
 
     for (file, findings) in &shown {
-        write_file(out, layout, report, &prefix, file, findings, totals.get(file).copied())?;
+        write_file(
+            out,
+            layout,
+            report,
+            &prefix,
+            file,
+            findings,
+            totals.get(file).copied(),
+        )?;
     }
 
     if layout.show_passed {
-        for file in report.files.iter().filter(|file| !totals.contains_key(file.as_str())) {
+        for file in report
+            .files
+            .iter()
+            .filter(|file| !totals.contains_key(file.as_str()))
+        {
             writeln!(
                 out,
                 "\n {}  {}",
@@ -115,23 +127,6 @@ fn write_file(
     Ok(())
 }
 
-const fn grade_ink(grade: Cleanliness) -> Ink {
-    match grade {
-        Cleanliness::Pristine | Cleanliness::Clean => Ink::Good,
-        Cleanliness::Fair => Ink::Accent,
-        Cleanliness::Poor => Ink::Warn,
-        Cleanliness::Critical => Ink::Danger,
-    }
-}
-
-fn severity_ink(severity: Severity) -> Ink {
-    match severity {
-        Severity::Error => Ink::Danger,
-        Severity::Warning => Ink::Warn,
-        Severity::Info => Ink::Muted,
-    }
-}
-
 fn write_finding(
     out: &mut dyn Write,
     layout: &Layout,
@@ -147,7 +142,10 @@ fn write_finding(
         "\n   {} {}  {}  {}",
         paint(palette.style(ink), "\u{25cf}"),
         paint(palette.style(Ink::Accent), spec.slug),
-        paint(palette.style(Ink::Muted), format!("{}:{}", finding.location.line, finding.location.column)),
+        paint(
+            palette.style(Ink::Muted),
+            format!("{}:{}", finding.location.line, finding.location.column)
+        ),
         paint(palette.style(ink), finding.severity.label())
     )?;
 
@@ -159,9 +157,19 @@ fn write_finding(
     writeln!(out, "     {}", finding.evidence)?;
     writeln!(out, "     {} {}", paint(dim, "Why: "), spec.why)?;
     if let Some(cost) = cost {
-        writeln!(out, "     {} {}", paint(dim, "Cost:"), paint(palette.style(Ink::Warn), cost))?;
+        writeln!(
+            out,
+            "     {} {}",
+            paint(dim, "Cost:"),
+            paint(palette.style(Ink::Warn), cost)
+        )?;
     }
-    let techniques = spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / ");
+    let techniques = spec
+        .fixes
+        .iter()
+        .map(|fix| fix.name())
+        .collect::<Vec<_>>()
+        .join(" / ");
     writeln!(
         out,
         "     {} {} \u{2014} {}",
@@ -194,7 +202,9 @@ fn write_excerpt(
     let mut elided = view.elided;
 
     for (position, line) in view.lines.iter().enumerate() {
-        if elided > 0 && position == HEAD_LINES + usize::from(layout.context > 0) * layout.context as usize {
+        if elided > 0
+            && position == HEAD_LINES + usize::from(layout.context > 0) * layout.context as usize
+        {
             writeln!(
                 out,
                 "{:6} {} {}",
@@ -227,9 +237,18 @@ fn write_excerpt(
         // Kept under the highlight rather than replaced by it: a terminal that drops
         // background colour, or a run with `--color never`, still shows what is meant.
         if let Some((lead, width)) = line.ruler() {
-            let caret: String =
-                " ".repeat(lead).chars().chain(std::iter::repeat_n('^', width)).collect();
-            writeln!(out, "{:6} {} {}", "", paint(dim, "\u{2502}"), paint(palette.style(ink), caret))?;
+            let caret: String = " "
+                .repeat(lead)
+                .chars()
+                .chain(std::iter::repeat_n('^', width))
+                .collect();
+            writeln!(
+                out,
+                "{:6} {} {}",
+                "",
+                paint(dim, "\u{2502}"),
+                paint(palette.style(ink), caret)
+            )?;
         }
     }
     Ok(())
@@ -254,7 +273,11 @@ fn impact_line(outcome: &ScanOutcome, file: &str) -> Option<String> {
         parts.push(format!(
             "{} {} it",
             plural(impact.importers, "module", "modules"),
-            if impact.importers == 1 { "imports" } else { "import" }
+            if impact.importers == 1 {
+                "imports"
+            } else {
+                "import"
+            }
         ));
     }
     Some(parts.join(", "))
@@ -272,7 +295,10 @@ fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
     let scanned = report.files.len();
     let severity = |level: Severity| report.totals.by_severity.get(&level).copied().unwrap_or(0);
     let health = report.health();
-    let hidden = report.totals.findings.saturating_sub(report.findings.len() as u32);
+    let hidden = report
+        .totals
+        .findings
+        .saturating_sub(report.findings.len() as u32);
 
     let mut findings = format!(
         "{} errors \u{b7} {} warnings \u{b7} {} info",
@@ -293,7 +319,11 @@ fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
             ),
             ink: None,
         },
-        Row { label: "Findings", value: findings, ink: None },
+        Row {
+            label: "Findings",
+            value: findings,
+            ink: None,
+        },
         Row {
             label: "Grades",
             value: {
@@ -312,7 +342,11 @@ fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
         },
         Row {
             label: "Rules",
-            value: format!("{} of {} fired", report.totals.rules_fired, RuleId::ALL.len()),
+            value: format!(
+                "{} of {} fired",
+                report.totals.rules_fired,
+                RuleId::ALL.len()
+            ),
             ink: None,
         },
         Row {
@@ -348,7 +382,10 @@ fn write_summary(
         writeln!(
             out,
             "  {}{value}",
-            paint(layout.palette.style(Ink::Muted), format!("{:LABEL_WIDTH$}", row.label))
+            paint(
+                layout.palette.style(Ink::Muted),
+                format!("{:LABEL_WIDTH$}", row.label)
+            )
         )?;
     }
 
@@ -361,12 +398,20 @@ fn write_summary(
                 paint(layout.palette.style(Ink::Muted), rule.slug())
             )?;
         }
-        let extra = report.outcome.counts.by_rule.len().saturating_sub(MAX_RULE_ROWS);
+        let extra = report
+            .outcome
+            .counts
+            .by_rule
+            .len()
+            .saturating_sub(MAX_RULE_ROWS);
         if extra > 0 {
             writeln!(
                 out,
                 "  {}",
-                paint(layout.palette.style(Ink::Muted), format!("\u{2026} and {extra} more rules"))
+                paint(
+                    layout.palette.style(Ink::Muted),
+                    format!("\u{2026} and {extra} more rules")
+                )
             )?;
         }
     }
@@ -386,7 +431,11 @@ fn write_hotspots(
     if ranked.is_empty() {
         return Ok(());
     }
-    writeln!(out, "\n  {}", paint(layout.palette.style(Ink::Text).bold(), "Start here"))?;
+    writeln!(
+        out,
+        "\n  {}",
+        paint(layout.palette.style(Ink::Text).bold(), "Start here")
+    )?;
     for (file, grade) in ranked.into_iter().take(HOTSPOTS) {
         let impact = report.outcome.impact.get(file);
         writeln!(
@@ -422,7 +471,11 @@ fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) ->
     }
     if outcome.skipped.len() > MAX_SKIPPED_ROWS {
         let extra = outcome.skipped.len() - MAX_SKIPPED_ROWS;
-        writeln!(out, "    {}", paint(dim, format!("\u{2026} and {extra} more")))?;
+        writeln!(
+            out,
+            "    {}",
+            paint(dim, format!("\u{2026} and {extra} more"))
+        )?;
     }
     Ok(())
 }
@@ -432,9 +485,17 @@ fn write_gate(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Resu
         return Ok(());
     };
     if verdict.passed() {
-        writeln!(out, "\n  {} gate passed", paint(layout.palette.style(Ink::Good), "\u{2713}"))?;
+        writeln!(
+            out,
+            "\n  {} gate passed",
+            paint(layout.palette.style(Ink::Good), "\u{2713}")
+        )?;
     } else {
-        writeln!(out, "\n  {} gate failed", paint(layout.palette.style(Ink::Danger), "\u{2716}"))?;
+        writeln!(
+            out,
+            "\n  {} gate failed",
+            paint(layout.palette.style(Ink::Danger), "\u{2716}")
+        )?;
         for failure in &verdict.failures {
             writeln!(out, "    {failure}")?;
         }
@@ -474,8 +535,14 @@ mod tests {
         let outcome = outcome_with(&[("a.ts", Severity::Error), ("a.ts", Severity::Warning)], 4);
         let report = Report::scan(&outcome, &FindingFilter::default());
         let rows = summary_rows(&report, report.totals_by_file().len());
-        assert_eq!(row(&rows, "Files"), "1 with findings \u{b7} 3 clean \u{b7} 4 scanned");
-        assert_eq!(row(&rows, "Findings"), "1 errors \u{b7} 1 warnings \u{b7} 0 info");
+        assert_eq!(
+            row(&rows, "Files"),
+            "1 with findings \u{b7} 3 clean \u{b7} 4 scanned"
+        );
+        assert_eq!(
+            row(&rows, "Findings"),
+            "1 errors \u{b7} 1 warnings \u{b7} 0 info"
+        );
     }
 
     #[test]
@@ -493,7 +560,10 @@ mod tests {
         let outcome = outcome_with(&[], 12);
         let report = Report::scan(&outcome, &FindingFilter::default());
         let rows = summary_rows(&report, 0);
-        assert_eq!(row(&rows, "Files"), "0 with findings \u{b7} 12 clean \u{b7} 12 scanned");
+        assert_eq!(
+            row(&rows, "Files"),
+            "0 with findings \u{b7} 12 clean \u{b7} 12 scanned"
+        );
         assert_eq!(row(&rows, "Health"), "100/100");
         assert_eq!(row(&rows, "Grades"), "12 pristine");
     }
@@ -510,7 +580,15 @@ mod tests {
         assert!(!quiet.contains("PASS"), "{quiet}");
 
         let mut loud = Vec::new();
-        render(&report, &Layout { show_passed: true, ..layout() }, &mut loud).unwrap();
+        render(
+            &report,
+            &Layout {
+                show_passed: true,
+                ..layout()
+            },
+            &mut loud,
+        )
+        .unwrap();
         assert!(String::from_utf8(loud).unwrap().contains("PASS"));
     }
 }

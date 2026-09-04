@@ -1,0 +1,505 @@
+use std::collections::BTreeMap;
+use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use rqx_core::config::Thresholds;
+use rqx_core::finding::Finding;
+use rqx_core::advice::{Advice, AdviceId};
+use rqx_core::pattern::{Pattern, PatternFamily};
+use rqx_core::rule::{Analysis, Category, RuleId};
+
+use crate::config::Resolved;
+use crate::preview;
+
+/// A worked example nobody has to keep up to date. The fixtures already contain code
+/// that fires every rule an exact number of times, and a test fails the moment that
+/// stops being true, so an excerpt lifted from them cannot describe behaviour the
+/// tool no longer has.
+struct Example {
+    file: String,
+    line: u32,
+    code: String,
+    fix: String,
+}
+
+/// Every generated page and its content, so the caller can write them or compare
+/// them against what is checked in. The test that keeps `docs/` fresh needs the
+/// second, and a generator that only wrote to disk could not offer it.
+pub fn pages(fixtures: &Path) -> Vec<(PathBuf, String)> {
+    let examples = examples(fixtures);
+    let mut pages = vec![
+        (PathBuf::from("configuration.md"), configuration_page()),
+        (PathBuf::from("rules/README.md"), index()),
+    ];
+    for family in Category::ALL {
+        pages.push((
+            PathBuf::from(format!("rules/{}.md", family.slug())),
+            family_page(family, &examples),
+        ));
+    }
+    let advice = advice_examples(fixtures);
+    pages.push((PathBuf::from("patterns/README.md"), pattern_index()));
+    for family in PatternFamily::ALL {
+        pages.push((
+            PathBuf::from(format!("patterns/{}.md", family.slug())),
+            pattern_page(family, &advice),
+        ));
+    }
+    pages
+}
+
+pub fn write(out: &Path, fixtures: &Path) -> Result<()> {
+    let pages = pages(fixtures);
+    for (relative, body) in &pages {
+        let path = out.join(relative);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("creating {}", parent.display()))?;
+        }
+        std::fs::write(&path, body).with_context(|| format!("writing {}", path.display()))?;
+    }
+    println!("\n  wrote {} pages under {}\n", pages.len(), out.display());
+    Ok(())
+}
+
+/// One scan of the fixture tree, with the off-by-default rules turned on so their
+/// pages get an example too.
+fn examples(fixtures: &Path) -> BTreeMap<RuleId, Example> {
+    let mut found: BTreeMap<RuleId, Example> = BTreeMap::new();
+    if !fixtures.exists() {
+        return found;
+    }
+    let config = fixtures.join("all-rules.toml");
+    for language in ["typescript", "python", "go", "java", "cpp"] {
+        let root = fixtures.join(language);
+        if !root.exists() {
+            continue;
+        }
+        // Read straight from the fixture config rather than through discovery: a
+        // personal `~/.config/rqx/RQX.toml` must not change the checked-in pages.
+        let Ok(settings) = std::fs::read_to_string(&config)
+            .map_err(anyhow::Error::from)
+            .and_then(|text| Ok(Resolved::of(toml::from_str(&text)?)))
+        else {
+            continue;
+        };
+        let Ok(outcome) = crate::scan::scan(&root, &settings) else {
+            continue;
+        };
+        for finding in &outcome.findings {
+            if found.contains_key(&finding.rule) {
+                continue;
+            }
+            if let Some(example) = excerpt(&root, language, finding) {
+                found.insert(finding.rule, example);
+            }
+        }
+    }
+    found
+}
+
+fn advice_examples(fixtures: &Path) -> BTreeMap<AdviceId, Example> {
+    let mut found: BTreeMap<AdviceId, Example> = BTreeMap::new();
+    if !fixtures.exists() {
+        return found;
+    }
+    let config = fixtures.join("all-rules.toml");
+    for language in ["typescript", "python", "go", "java", "cpp"] {
+        let root = fixtures.join(language);
+        if !root.exists() {
+            continue;
+        }
+        let Ok(settings) = std::fs::read_to_string(&config)
+            .map_err(anyhow::Error::from)
+            .and_then(|text| Ok(Resolved::of(toml::from_str(&text)?)))
+        else {
+            continue;
+        };
+        let Ok(outcome) = crate::scan::scan(&root, &settings) else {
+            continue;
+        };
+        for advice in &outcome.advice {
+            if found.contains_key(&advice.advisory) {
+                continue;
+            }
+            if let Some(example) = advice_excerpt(&root, language, advice) {
+                found.insert(advice.advisory, example);
+            }
+        }
+    }
+    found
+}
+
+fn advice_excerpt(root: &Path, language: &str, advice: &Advice) -> Option<Example> {
+    let path = root.join(advice.location.file.as_ref());
+    let text = std::fs::read_to_string(&path).ok()?;
+    let index = rqx_core::LineIndex::new(&text);
+    let preview = preview::of(&index, &advice.location, 1)?;
+    let code = preview
+        .lines
+        .iter()
+        .map(|line| line.text.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
+    Some(Example {
+        file: format!("fixtures/{language}/{}", advice.location.file),
+        line: advice.location.line,
+        code,
+        fix: advice.note.clone(),
+    })
+}
+
+fn pattern_index() -> String {
+    let mut page = String::from(
+        "# Design patterns\n\n\
+         What Rqx makes of the twenty-three patterns in *Design Patterns*. Three things \
+         are being said, and they are not degrees of one another: a pattern **in use** \
+         is inventory, one **half applied** is a defect, and one that **would fit** is a \
+         suggestion about a shape that is already there.\n\n\
+         **None of it moves the health score.** A pattern that would fit is not a \
+         finding, and a score that fell because code declined to use Strategy would \
+         stop meaning anything. The one route to an exit code is `[gate] \
+         fail_on_incomplete`, which sees only the half-applied half.\n\n\
+         Run `rqx patterns` for a project, `rqx patterns --coverage` for this table, and \
+         `rqx explain <pattern>` for any one of them.\n\n",
+    );
+    let tally = Pattern::tally();
+    let _ = writeln!(
+        page,
+        "| Family | Patterns | Advisories |\n|---|---|---|"
+    );
+    for family in PatternFamily::ALL {
+        let count = family.patterns().count();
+        let advisories: usize = family
+            .patterns()
+            .map(|pattern| pattern.advisories().count())
+            .sum();
+        let _ = writeln!(
+            page,
+            "| [{}]({}.md) | {count} | {advisories} |",
+            family.title(),
+            family.slug()
+        );
+    }
+    let _ = writeln!(
+        page,
+        "\n{} patterns, {} implemented, {} advisories.\n",
+        tally.total(),
+        tally.implemented,
+        AdviceId::ALL.len()
+    );
+    page
+}
+
+fn pattern_page(family: PatternFamily, examples: &BTreeMap<AdviceId, Example>) -> String {
+    let mut page = format!(
+        "# {}\n\n[Back to the patterns](README.md)\n\n",
+        family.title()
+    );
+    for pattern in family.patterns() {
+        let _ = writeln!(page, "## {}\n", pattern.name());
+        let _ = writeln!(page, "{}\n", pattern.intent());
+        let _ = writeln!(page, "| | |\n|---|---|");
+        let _ = writeln!(page, "| Cited as | Design Patterns \u{a7}{} |", pattern.section());
+        let _ = writeln!(page, "| Coverage | {} |", pattern.coverage().detail());
+        let _ = writeln!(page);
+        for advisory in pattern.advisories() {
+            let spec = advisory.spec();
+            let _ = writeln!(page, "### `{}`\n", spec.slug);
+            let _ = writeln!(page, "{}\n", spec.why);
+            let _ = writeln!(page, "| | |\n|---|---|");
+            let _ = writeln!(page, "| Says | the pattern is {} |", spec.stance.label());
+            let _ = writeln!(page, "| Decided by | {} |", spec.signature);
+            let _ = writeln!(page, "| Confidence | {} |", spec.confidence.label());
+            let _ = writeln!(page, "| Reads | {} |", tier(spec.analysis));
+            if !spec.techniques.is_empty() {
+                let _ = writeln!(
+                    page,
+                    "| Fix | {} |",
+                    spec.techniques
+                        .iter()
+                        .map(|fix| fix.name())
+                        .collect::<Vec<_>>()
+                        .join(" / ")
+                );
+            }
+            if spec.off_by_default {
+                let _ = writeln!(
+                    page,
+                    "| Default | off; name it under `[patterns] enabled` |"
+                );
+            }
+            for (language, reason) in spec.not_applicable {
+                let _ = writeln!(page, "| Not in {} | {reason} |", language.title());
+            }
+            let _ = writeln!(page);
+            if let Some(example) = examples.get(&advisory) {
+                let _ = writeln!(
+                    page,
+                    "From `{}`, line {}:\n\n```{}\n{}\n```\n",
+                    example.file,
+                    example.line,
+                    fence(&example.file),
+                    example.code
+                );
+                let _ = writeln!(page, "rqx says: {}\n", example.fix);
+            }
+        }
+    }
+    page
+}
+
+fn excerpt(root: &Path, language: &str, finding: &Finding) -> Option<Example> {
+    let path = root.join(finding.location.file.as_ref());
+    let text = std::fs::read_to_string(&path).ok()?;
+    let index = rqx_core::LineIndex::new(&text);
+    let preview = preview::of(&index, &finding.location, 1)?;
+    let code = preview
+        .lines
+        .iter()
+        .map(|line| line.text.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
+    Some(Example {
+        file: format!("fixtures/{language}/{}", finding.location.file),
+        line: finding.location.line,
+        code,
+        fix: finding.fix_hint.clone(),
+    })
+}
+
+fn fence(file: &str) -> &'static str {
+    match file.rsplit('.').next() {
+        Some("ts" | "tsx") => "ts",
+        Some("py") => "python",
+        Some("go") => "go",
+        Some("java") => "java",
+        Some("cc" | "cpp" | "h" | "hpp") => "cpp",
+        _ => "",
+    }
+}
+
+fn index() -> String {
+    let mut page = String::from(
+        "# The rule catalogue\n\n\
+         Every rule rqx can report, what it measures, and the named refactoring that \
+         answers it. Each one cites [refactoring.guru](https://refactoring.guru/refactoring/smells) \
+         or a numbered heuristic from *Clean Code* chapter 17, because a finding that \
+         cannot say where it comes from is an opinion.\n\n\
+         `rqx explain <rule>` prints any of these at the terminal. \
+         [Configuration](../configuration.md) covers the file that turns them on and off.\n\n",
+    );
+    let _ = writeln!(page, "| Family | Rules | |");
+    let _ = writeln!(page, "|---|---|---|");
+    for family in Category::ALL {
+        let rules: Vec<RuleId> = family.rules().collect();
+        let _ = writeln!(
+            page,
+            "| [{}]({}.md) | {} | {} |",
+            family.title(),
+            family.slug(),
+            rules.len(),
+            rules
+                .iter()
+                .map(|rule| format!("`{}`", rule.slug()))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+    }
+    let off: Vec<&str> = RuleId::ALL
+        .iter()
+        .filter(|rule| rule.spec().off_by_default)
+        .map(|rule| rule.slug())
+        .collect();
+    let _ = write!(
+        page,
+        "\n{} rules in total. {} ship **off by default** because their signal is real \
+         but noisy; name one under `[rules] enabled` to turn it on:\n\n{}\n",
+        RuleId::ALL.len(),
+        off.len(),
+        off.iter()
+            .map(|slug| format!("- `{slug}`"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    page
+}
+
+const fn tier(analysis: Analysis) -> &'static str {
+    match analysis {
+        Analysis::Syntax => "the syntax tree alone",
+        Analysis::Semantics => "resolved scopes and symbols",
+        Analysis::Modules => "the import graph across every file",
+    }
+}
+
+fn family_page(family: Category, examples: &BTreeMap<RuleId, Example>) -> String {
+    let mut page = format!("# {}\n\n", family.title());
+    let _ = writeln!(page, "[Back to the catalogue](README.md)\n");
+    for rule in family.rules() {
+        let spec = rule.spec();
+        let _ = writeln!(page, "## `{}`\n", spec.slug);
+        let _ = writeln!(page, "{}\n", spec.why);
+
+        let _ = writeln!(page, "| | |");
+        let _ = writeln!(page, "|---|---|");
+        let _ = writeln!(page, "| Measures | {} |", spec.metric);
+        let _ = writeln!(
+            page,
+            "| Reported as | {}, {} |",
+            spec.severity.label(),
+            spec.confidence.label()
+        );
+        let _ = writeln!(page, "| Reads | {} |", tier(spec.analysis));
+        let _ = writeln!(
+            page,
+            "| Smell | {} |",
+            spec.guru_smell
+                .map_or("no direct catalogue entry", rqx_core::Smell::name)
+        );
+        let _ = writeln!(page, "| Clean Code | {} |", spec.citation());
+        let _ = writeln!(
+            page,
+            "| Fix | {} |",
+            spec.fixes
+                .iter()
+                .map(|fix| fix.name())
+                .collect::<Vec<_>>()
+                .join(" / ")
+        );
+        let tuned = Thresholds::tuned_by(rule);
+        if !tuned.is_empty() {
+            let _ = writeln!(
+                page,
+                "| Tuned by | {} |",
+                tuned
+                    .iter()
+                    .map(|key| format!("`thresholds.{key}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        if spec.off_by_default {
+            let _ = writeln!(page, "| Default | off; name it under `[rules] enabled` |");
+        }
+        for (language, reason) in spec.not_applicable {
+            let _ = writeln!(page, "| Not in {} | {reason} |", language.title());
+        }
+        page.push('\n');
+
+        if let Some(example) = examples.get(&rule) {
+            let _ = writeln!(page, "From `{}`, line {}:\n", example.file, example.line);
+            let _ = writeln!(page, "```{}\n{}\n```\n", fence(&example.file), example.code);
+            let _ = writeln!(page, "rqx says: {}\n", example.fix);
+        }
+    }
+    page
+}
+
+fn configuration_page() -> String {
+    let mut page = String::from(
+        "# Configuring rqx\n\n\
+         Everything lives in `RQX.toml`. `rqx init` writes one with every setting at \
+         its default and a line of prose per table; `rqx config` prints what a run will \
+         actually use and which file each value came from.\n\n\
+         ## Where rqx looks\n\n\
+         Layers are merged in this order, each one overriding the one above it. A table \
+         merges key by key, so a file can set one threshold without restating the other \
+         twenty-one; a list replaces rather than appends, so a narrower layer can shorten \
+         one.\n\n\
+         | | Source |\n\
+         |---|---|\n\
+         | 1 | the built-in defaults |\n\
+         | 2 | `$XDG_CONFIG_HOME/rqx/RQX.toml`, else `~/.config/rqx/RQX.toml` (`%APPDATA%\\\\rqx\\\\RQX.toml` on Windows) |\n\
+         | 3 | every `RQX.toml` from the scanned directory upward, outermost first |\n\
+         | 4 | `RQX_CONFIG`, if it is set |\n\
+         | 5 | `--config <path>` |\n\
+         | 6 | the command's own flags |\n\n\
+         The upward search stops at a directory holding `.git`, or at a file that sets \
+         `root = true` — a config above a checkout describes a different project, and \
+         reading it would make a scan depend on where the repository happens to sit.\n\n\
+         ## A subtree with different standards\n\n\
+         ```toml\n\
+         [[override]]\n\
+         paths = [\"src/generated/**\", \"vendor/**\"]\n\n\
+         [override.thresholds]\n\
+         long_function_statements = 200\n\n\
+         [override.rules]\n\
+         disabled = [\"dispensables\"]\n\
+         ```\n\n\
+         An override may set `thresholds` and `rules` and nothing else. Every other \
+         table describes the run as a whole — the file walker is built once and the gate \
+         reaches one verdict — so naming one in an override is an error rather than a \
+         setting that quietly does nothing.\n\n\
+         ## The gate\n\n\
+         `rqx check` always gates. **`rqx scan` gates only when you pass one of \
+         `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade`**, so a `[gate]` \
+         table in `RQX.toml` does nothing for a bare scan. That is deliberate: a scan that \
+         started failing because a config file appeared above it would change the exit code \
+         of pipelines that never asked for a gate.\n\n\
+         ## Design pattern advice\n\n\
+         `[patterns]` decides which of the twenty-three Gang of Four patterns rqx reports \
+         on. It is addressable four ways, because the useful question differs: by advisory \
+         when one claim is wrong for this project, by pattern when the whole pattern is, by \
+         family (`creational`, `structural`, `behavioural`), and by stance.\n\n\
+         ```toml\n\
+         [patterns]\n\
+         # only report patterns that are here and broken, not ones that would fit\n\
+         stances = [\"incomplete\"]\n\
+         disabled = [\"strategy-fits\"]\n\
+         ```\n\n\
+         **None of it moves the health score and none of it decides the gate.** A pattern \
+         that would fit is not a defect, and a score that fell because code declined to use \
+         Strategy would stop meaning anything. `rqx patterns --coverage` lists every \
+         pattern, what decides it, and the reason where rqx declines to guess.\n\n\
+         ## Thresholds\n\n\
+         Every threshold is the highest acceptable value: a finding fires strictly above \
+         it. Raising one makes its rules quieter, and this is which rules.\n\n",
+    );
+    let _ = writeln!(page, "| Key | Default | Tunes |");
+    let _ = writeln!(page, "|---|---|---|");
+    let defaults = Defaults::read();
+    let values = defaults;
+    for (key, rules) in Thresholds::TUNES {
+        let tunes = if rules.is_empty() {
+            "nothing yet: the count it compares against is collected, but no rule reports \
+             on it. Kept so an existing `RQX.toml` still parses."
+                .to_owned()
+        } else {
+            rules
+                .iter()
+                .map(|rule| format!("`{}`", rule.slug()))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let _ = writeln!(
+            page,
+            "| `{key}` | {} | {tunes} |",
+            values.get(key).unwrap_or_default()
+        );
+    }
+    page
+}
+
+/// Read out of the template rather than written by hand, so the table cannot claim a
+/// default the code does not use. The template is pinned to `Thresholds::default()`
+/// by its own test.
+struct Defaults(toml::Table);
+
+impl Defaults {
+    fn read() -> Self {
+        let table: toml::Table =
+            toml::from_str(rqx_core::config::TEMPLATE).expect("the template parses");
+        Self(
+            table["thresholds"]
+                .as_table()
+                .cloned()
+                .expect("[thresholds] is a table"),
+        )
+    }
+
+    fn get(&self, key: &str) -> Option<String> {
+        self.0.get(key).map(ToString::to_string)
+    }
+}

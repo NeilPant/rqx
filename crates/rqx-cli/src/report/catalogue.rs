@@ -5,7 +5,7 @@ use anyhow::Result;
 use rqx_core::rule::{Category, RuleId, RuleSpec};
 use rqx_core::{Chapter, Coverage, FixTechnique, Group, Heuristic, Origin, Smell, Tally};
 
-use crate::brand::{Ink, Palette, paint};
+use crate::brand::{Ink, Palette, coverage_ink, paint};
 
 /// The rule catalogue prints itself the same way whether or not anything was
 /// scanned, so it takes a palette rather than a report.
@@ -23,21 +23,39 @@ pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
         ..
     } = rule.spec();
     let dim = palette.style(Ink::Muted);
-    writeln!(out, "\n  {}\n", paint(palette.style(Ink::Accent).bold(), slug))?;
+    writeln!(
+        out,
+        "\n  {}\n",
+        paint(palette.style(Ink::Accent).bold(), slug)
+    )?;
     writeln!(
         out,
         "  {} {}",
         paint(dim, format!("{:18}", "Smell")),
         guru_smell.map_or("no direct catalog entry", rqx_core::Smell::name)
     )?;
-    writeln!(out, "  {} {}", paint(dim, format!("{:18}", "Family")), category.title())?;
-    writeln!(out, "  {} {}", paint(dim, format!("{:18}", "Clean Code")), rule.spec().citation())?;
+    writeln!(
+        out,
+        "  {} {}",
+        paint(dim, format!("{:18}", "Family")),
+        category.title()
+    )?;
+    writeln!(
+        out,
+        "  {} {}",
+        paint(dim, format!("{:18}", "Clean Code")),
+        rule.spec().citation()
+    )?;
     writeln!(out, "  {} {metric}", paint(dim, format!("{:18}", "Metric")))?;
     writeln!(
         out,
         "  {} {}",
         paint(dim, format!("{:18}", "Fix")),
-        fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / ")
+        fixes
+            .iter()
+            .map(|fix| fix.name())
+            .collect::<Vec<_>>()
+            .join(" / ")
     )?;
     writeln!(
         out,
@@ -46,20 +64,54 @@ pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
         severity.label(),
         confidence.label()
     )?;
+    let exempt: Vec<String> = rqx_core::Language::ALL
+        .into_iter()
+        .filter_map(|language| {
+            rule.exemption(language)
+                .map(|reason| format!("{}: {reason}", language.title()))
+        })
+        .collect();
+    if !exempt.is_empty() {
+        writeln!(out, "\n  {}", paint(dim, "Not applicable to"))?;
+        for line in exempt {
+            writeln!(out, "    {}", paint(dim, line))?;
+        }
+    }
     writeln!(out, "\n  {why}\n")?;
     Ok(())
 }
 
-pub fn rules(only: Option<&str>, palette: Palette) -> Result<()> {
+pub fn rules(only: Option<&str>, language: Option<&str>, palette: Palette) -> Result<()> {
     let mut out = anstream::stdout().lock();
     if let Some(name) = only
         && Category::parse(name).is_none()
     {
-        anyhow::bail!(
-            "unknown family `{name}`. Known families: {}",
-            Category::ALL.map(Category::slug).join(", ")
-        );
+        return Err(super::unknown(
+            "family",
+            name,
+            &Category::ALL.map(Category::slug),
+            &format!(
+                "The families are: {}.",
+                Category::ALL.map(Category::slug).join(", ")
+            ),
+        ));
     }
+    let chosen = match language {
+        Some(name) => Some(rqx_core::Language::parse(name).ok_or_else(|| {
+            super::unknown(
+                "language",
+                name,
+                &rqx_core::Language::ALL.map(rqx_core::Language::slug),
+                &format!(
+                    "rqx reads: {}.",
+                    rqx_core::Language::ALL
+                        .map(rqx_core::Language::slug)
+                        .join(", ")
+                ),
+            )
+        })?),
+        None => None,
+    };
 
     let dim = palette.style(Ink::Muted);
     for category in Category::ALL {
@@ -73,8 +125,15 @@ pub fn rules(only: Option<&str>, palette: Palette) -> Result<()> {
             paint(dim, category.slug())
         )?;
         for rule in category.rules() {
+            if chosen.is_some_and(|language| !rule.applies_to(language)) {
+                continue;
+            }
             let spec = rule.spec();
-            let state = if spec.off_by_default { "  (off by default)" } else { "" };
+            let state = if spec.off_by_default {
+                "  (off by default)"
+            } else {
+                ""
+            };
             writeln!(
                 out,
                 "    {} {}{}",
@@ -84,44 +143,45 @@ pub fn rules(only: Option<&str>, palette: Palette) -> Result<()> {
             )?;
         }
     }
-    writeln!(out, "\n  {} rules. `rqx explain <rule>` for any of them.\n", RuleId::ALL.len())?;
+    let total = match chosen {
+        Some(language) => RuleId::for_language(language).count(),
+        None => RuleId::ALL.len(),
+    };
+    let scope = chosen.map_or(String::new(), |language| {
+        format!(" for {}", language.title())
+    });
+    writeln!(
+        out,
+        "\n  {total} rules{scope}. `rqx explain <rule>` for any of them.\n"
+    )?;
     Ok(())
 }
 
-const fn coverage_ink(coverage: Coverage) -> Ink {
-    match coverage {
-        Coverage::Implemented(_) => Ink::Good,
-        Coverage::Absent(_) => Ink::Warn,
-        Coverage::NeedsTypes(_) | Coverage::NotStatic(_) | Coverage::NotApplicable(_) => Ink::Muted,
-    }
-}
-
-fn write_entry(
+pub fn write_entry<Answer: Copy + std::fmt::Display + 'static>(
     out: &mut impl Write,
     palette: Palette,
     name: &str,
-    coverage: Coverage,
+    coverage: Coverage<Answer>,
 ) -> Result<()> {
-    let detail = match coverage.reason() {
-        Some(reason) => format!("{} \u{2014} {reason}", coverage.label()),
-        None => coverage
-            .rules()
-            .iter()
-            .map(|rule| rule.slug())
-            .collect::<Vec<_>>()
-            .join(", "),
-    };
+    let detail = coverage.detail();
     writeln!(
         out,
         "    {} {}  {}",
-        paint(palette.style(coverage_ink(coverage)), if coverage.is_implemented() { "\u{2713}" } else { "\u{25cb}" }),
+        paint(
+            palette.style(coverage_ink(coverage)),
+            if coverage.is_implemented() {
+                "\u{2713}"
+            } else {
+                "\u{25cb}"
+            }
+        ),
         paint(palette.style(Ink::Text), format!("{name:44}")),
         paint(palette.style(Ink::Muted), detail)
     )?;
     Ok(())
 }
 
-fn write_tally(out: &mut impl Write, palette: Palette, label: &str, tally: Tally) -> Result<()> {
+pub fn write_tally(out: &mut impl Write, palette: Palette, label: &str, tally: Tally) -> Result<()> {
     let mut parts = vec![format!("{} implemented", tally.implemented)];
     for (count, name) in [
         (tally.absent, "not yet"),
@@ -133,11 +193,17 @@ fn write_tally(out: &mut impl Write, palette: Palette, label: &str, tally: Tally
             parts.push(format!("{count} {name}"));
         }
     }
+    let rest = parts[1..].join(" \u{b7} ");
+    let counted = if rest.is_empty() {
+        format!("{} of {}", tally.implemented, tally.total())
+    } else {
+        format!("{} of {}  \u{b7} {rest}", tally.implemented, tally.total())
+    };
     writeln!(
         out,
         "  {}  {}",
         paint(palette.style(Ink::Text).bold(), format!("{label:34}")),
-        paint(palette.style(Ink::Muted), format!("{} of {}  \u{b7} {}", tally.implemented, tally.total(), parts[1..].join(" \u{b7} ")))
+        paint(palette.style(Ink::Muted), counted)
     )?;
     Ok(())
 }
@@ -147,18 +213,33 @@ fn write_tally(out: &mut impl Write, palette: Palette, label: &str, tally: Tally
 pub fn coverage(palette: Palette) -> Result<()> {
     let mut out = anstream::stdout().lock();
 
-    writeln!(out, "\n  {}\n", paint(palette.style(Ink::Accent).bold(), "Coverage"))?;
+    writeln!(
+        out,
+        "\n  {}\n",
+        paint(palette.style(Ink::Accent).bold(), "Coverage")
+    )?;
     write_tally(&mut out, palette, "refactoring.guru smells", Smell::tally())?;
-    write_tally(&mut out, palette, "Clean Code ch.17 heuristics", Heuristic::tally())?;
+    write_tally(
+        &mut out,
+        palette,
+        "Clean Code ch.17 heuristics",
+        Heuristic::tally(),
+    )?;
     writeln!(
         out,
         "  {}  {}",
-        paint(palette.style(Ink::Text).bold(), format!("{:34}", "refactoring.guru techniques")),
+        paint(
+            palette.style(Ink::Text).bold(),
+            format!("{:34}", "refactoring.guru techniques")
+        ),
         paint(
             palette.style(Ink::Muted),
             format!(
                 "{} catalogued \u{b7} {} prescribed by a rule",
-                FixTechnique::ALL.iter().filter(|t| t.origin() == Origin::Guru).count(),
+                FixTechnique::ALL
+                    .iter()
+                    .filter(|t| t.origin() == Origin::Guru)
+                    .count(),
                 prescribed().len()
             )
         )
@@ -169,7 +250,11 @@ pub fn coverage(palette: Palette) -> Result<()> {
         if smells.is_empty() {
             continue;
         }
-        writeln!(out, "\n  {}", paint(palette.style(Ink::Text).bold(), family.title()))?;
+        writeln!(
+            out,
+            "\n  {}",
+            paint(palette.style(Ink::Text).bold(), family.title())
+        )?;
         for smell in smells {
             write_entry(&mut out, palette, smell.name(), smell.coverage())?;
         }
@@ -179,7 +264,10 @@ pub fn coverage(palette: Palette) -> Result<()> {
         writeln!(
             out,
             "\n  {}",
-            paint(palette.style(Ink::Text).bold(), format!("Clean Code \u{2014} {}", chapter.title()))
+            paint(
+                palette.style(Ink::Text).bold(),
+                format!("Clean Code \u{2014} {}", chapter.title())
+            )
         )?;
         for entry in chapter.heuristics() {
             write_entry(
@@ -196,7 +284,10 @@ pub fn coverage(palette: Palette) -> Result<()> {
 }
 
 fn prescribed() -> BTreeSet<FixTechnique> {
-    RuleId::ALL.iter().flat_map(|rule| rule.spec().fixes.iter().copied()).collect()
+    RuleId::ALL
+        .iter()
+        .flat_map(|rule| rule.spec().fixes.iter().copied())
+        .collect()
 }
 
 /// The refactorings themselves, including the ones no rule prescribes yet — an
@@ -207,7 +298,11 @@ pub fn techniques(palette: Palette) -> Result<()> {
     let dim = palette.style(Ink::Muted);
 
     for group in Group::ALL {
-        writeln!(out, "\n  {}", paint(palette.style(Ink::Text).bold(), group.title()))?;
+        writeln!(
+            out,
+            "\n  {}",
+            paint(palette.style(Ink::Text).bold(), group.title())
+        )?;
         for technique in group.techniques() {
             let note = if prescribed.contains(&technique) {
                 RuleId::ALL
@@ -225,7 +320,11 @@ pub fn techniques(palette: Palette) -> Result<()> {
                 out,
                 "    {} {}",
                 paint(
-                    palette.style(if prescribed.contains(&technique) { Ink::Accent } else { Ink::Muted }),
+                    palette.style(if prescribed.contains(&technique) {
+                        Ink::Accent
+                    } else {
+                        Ink::Muted
+                    }),
                     format!("{:48}", technique.name())
                 ),
                 paint(dim, note)

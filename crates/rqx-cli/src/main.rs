@@ -4,13 +4,14 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use rqx_core::config::{CONFIG_FILE_NAME, GateGrade, GateSeverity, RqxConfig};
+use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 use rqx_core::rule::RuleId;
 
 mod brand;
 mod cache;
 mod check;
+mod config;
 mod history;
 mod lsp;
 mod preview;
@@ -25,8 +26,8 @@ use report::{FindingFilter, Layout, Report, Reporter};
 #[command(
     name = "rqx",
     version,
-    about = "Finds dead weight in TypeScript and says why it matters",
-    after_help = "Exit codes: 0 clean, 1 gate failed, 2 rqx could not run."
+    about = "Finds dead weight in TypeScript, Python, Go, Java and C++ and says why it matters",
+    after_help = AFTER_HELP,
 )]
 struct Cli {
     #[command(subcommand)]
@@ -42,6 +43,24 @@ struct Cli {
     motion: Motion,
 }
 
+/// Run on its own, `rqx` opens the interface, so the help a reader reaches is more
+/// often about what else it can do than about what it is.
+const AFTER_HELP: &str = "\
+Examples:
+  rqx                              open the interface on the working directory
+  rqx scan .                       report every finding, exit 0 either way
+  rqx scan . --fail-on error       report, and exit 1 if anything is an error
+  rqx check --base main            review only what changed, and gate on it
+  rqx explain unused-export        what one rule measures and how to fix it
+  rqx init                         write an RQX.toml you can edit
+
+Exit codes:
+  0   ran, nothing failed the gate
+  1   ran, the gate failed
+  2   rqx could not run: bad path, bad config, unreadable revision
+  101 rqx hit a bug; please report it
+";
+
 #[derive(Subcommand)]
 enum Command {
     /// Analyze a project and report every finding
@@ -52,6 +71,9 @@ enum Command {
         view: View,
         #[command(flatten)]
         gate: Gate,
+        /// Append what the design-pattern catalogue makes of the same files
+        #[arg(long)]
+        advice: bool,
         /// Display cap; 0 shows every finding. Never affects the health score.
         #[arg(long)]
         max_findings: Option<usize>,
@@ -60,10 +82,9 @@ enum Command {
         #[arg(long)]
         config: Option<PathBuf>,
     },
-    /// Print a rule's taxonomy entry: the smell it maps to, its metric, and its fix
-    Explain {
-        rule: String,
-    },
+    /// Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it,
+    /// and what fixes it
+    Explain { name: String },
     /// List every rule Rqx can report, grouped by smell family
     Rules {
         /// Show only one family
@@ -71,9 +92,28 @@ enum Command {
         /// Print what Rqx does about every entry in both canonical catalogues
         #[arg(long)]
         coverage: bool,
+        /// Show only the rules that apply to one language
+        #[arg(long)]
+        language: Option<String>,
     },
     /// List every refactoring both catalogues name, and which rules prescribe it
     Techniques,
+    /// Report which design patterns a project uses, which are half applied, and where
+    /// one would fit
+    Patterns {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Print what rqx does about every pattern in the book, without scanning
+        #[arg(long)]
+        coverage: bool,
+        /// Emit one JSON object per advisory instead of the reader's report
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
     /// Analyze changed files against a base revision and fail if the gate is not met
     Check {
         #[arg(default_value = ".")]
@@ -85,6 +125,29 @@ enum Command {
         view: View,
         #[command(flatten)]
         gate: Gate,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Regenerate the checked-in rule reference under docs/
+    #[command(hide = true)]
+    Docs {
+        #[arg(long, default_value = "docs")]
+        out: PathBuf,
+        #[arg(long, default_value = "fixtures")]
+        fixtures: PathBuf,
+    },
+    /// Write a commented RQX.toml with every setting at its default
+    Init {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Replace an RQX.toml that is already there
+        #[arg(long)]
+        force: bool,
+    },
+    /// Print the settings a run will use, and the file each one came from
+    Config {
+        #[arg(default_value = ".")]
+        path: PathBuf,
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -137,7 +200,7 @@ struct View {
     format: Option<Reporter>,
 }
 
-/// Overrides for `[gate]` in `rqx.toml`. The same repository often wants a strict
+/// Overrides for `[gate]` in `RQX.toml`. The same repository often wants a strict
 /// gate on its default branch and a lenient one everywhere else, which a committed
 /// config file cannot express.
 #[derive(Args)]
@@ -154,6 +217,9 @@ struct Gate {
     /// Lowest grade any single file may carry
     #[arg(long, value_enum)]
     min_grade: Option<MinGrade>,
+    /// Fail when a design pattern is half applied
+    #[arg(long)]
+    fail_on_incomplete: bool,
 }
 
 #[derive(Copy, Clone, ValueEnum)]
@@ -185,6 +251,7 @@ impl Gate {
             || self.allow_findings.is_some()
             || self.min_health.is_some()
             || self.min_grade.is_some()
+            || self.fail_on_incomplete
     }
 
     fn apply(&self, config: &mut RqxConfig) {
@@ -199,6 +266,9 @@ impl Gate {
         }
         if let Some(grade) = self.min_grade {
             config.gate.min_grade = grade.into();
+        }
+        if self.fail_on_incomplete {
+            config.gate.fail_on_incomplete = true;
         }
     }
 }
@@ -281,8 +351,19 @@ impl FromStr for Sink {
             Some((name, path)) => (name, Some(PathBuf::from(path))),
             None => (text, None),
         };
-        let reporter = Reporter::from_str(name, true)
-            .map_err(|_| format!("unknown reporter `{name}`"))?;
+        let reporter = Reporter::from_str(name, true).map_err(|_| {
+            let known: Vec<&str> = Reporter::ALL
+                .iter()
+                .map(|reporter| reporter.name())
+                .collect();
+            report::unknown(
+                "reporter",
+                name,
+                &known,
+                &format!("Pick one of: {}.", known.join(", ")),
+            )
+            .to_string()
+        })?;
         Ok(Self { reporter, path })
     }
 }
@@ -293,16 +374,25 @@ impl FromStr for Sink {
 fn sinks(view: &View) -> Result<Vec<Sink>> {
     let mut sinks = view.reporters.clone();
     if let Some(reporter) = view.format {
-        sinks.push(Sink { reporter, path: None });
+        sinks.push(Sink {
+            reporter,
+            path: None,
+        });
     }
     // A run that writes only files would otherwise print nothing at all, which
     // reads as a hang in CI and as a failure locally.
     if sinks.iter().all(|sink| sink.path.is_some()) {
-        sinks.push(Sink { reporter: Reporter::Terminal, path: None });
+        sinks.push(Sink {
+            reporter: Reporter::Terminal,
+            path: None,
+        });
     }
 
-    let to_stdout: Vec<Reporter> =
-        sinks.iter().filter(|sink| sink.path.is_none()).map(|sink| sink.reporter).collect();
+    let to_stdout: Vec<Reporter> = sinks
+        .iter()
+        .filter(|sink| sink.path.is_none())
+        .map(|sink| sink.reporter)
+        .collect();
     if let Some(document) = to_stdout.iter().find(|reporter| reporter.is_document())
         && to_stdout.len() > 1
     {
@@ -357,26 +447,15 @@ fn filter_of(view: &View) -> Result<FindingFilter> {
     )
 }
 
-fn load_config(root: &Path, explicit: Option<&Path>) -> Result<RqxConfig> {
-    let path = match explicit {
-        Some(path) => path.to_owned(),
-        None => root.join(CONFIG_FILE_NAME),
-    };
-    if !path.exists() {
-        if explicit.is_some() {
-            bail!("config file `{}` does not exist", path.display());
-        }
-        return Ok(RqxConfig::default());
-    }
-    let text = std::fs::read_to_string(&path)
-        .with_context(|| format!("reading {}", path.display()))?;
-    toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))
-}
-
 /// Falls back to help rather than an error: the user asked for the interface and
 /// the reason they cannot have it is environmental, so the useful response is the
 /// thing the interface would have shown them anyway.
-fn decline_to_help(reason: &tui::Decline, root: &str, settings: &RqxConfig, source: Option<&str>) -> Result<()> {
+fn decline_to_help(
+    reason: &tui::Decline,
+    root: &str,
+    settings: &RqxConfig,
+    source: Option<&str>,
+) -> Result<()> {
     use clap::CommandFactory;
 
     print!("{}", tui::static_header(root, settings, source));
@@ -386,58 +465,91 @@ fn decline_to_help(reason: &tui::Decline, root: &str, settings: &RqxConfig, sour
     Ok(())
 }
 
-fn open_tui(path: &Path, config: Option<&Path>, motion: Motion) -> Result<i32> {
+fn open_tui(path: &Path, config: Option<&Path>, motion: Motion) -> Result<Exit> {
     if !path.exists() {
-        bail!("`{}` does not exist", path.display());
+        bail!(
+            "`{}` does not exist. Give rqx a directory to open, or run `rqx` on its own \
+             to open the working directory.",
+            path.display()
+        );
     }
-    let settings = load_config(path, config)?;
-    let source = config_source(path, config);
+    let settings = config::resolve(path, config)?;
+    let source = settings.display_source();
     let root = path.display().to_string();
     let options = tui::Launch {
         path,
         config: &settings,
-        config_file: source.clone(),
         reduced_motion: matches!(motion, Motion::Off),
     };
     match tui::gate().and_then(|()| tui::launch(options)) {
-        Err(reason) => decline_to_help(&reason, &root, &settings, source.as_deref()).map(|()| 0),
-        Ok(None) => Ok(0),
-        // A review renders through the ordinary reporter rather than a second copy of
-        // it inside the interface.
-        Ok(Some(tui::Chosen::Review)) => {
-            let review = check::review(path, &settings, "origin/HEAD")?;
-            let verdict = check::judge(&review, &settings);
-            let filter = FindingFilter::default();
-            let report = Report::review(&review, &verdict, &filter);
-            let view = View::default();
-            emit(&report, &[Sink { reporter: Reporter::Terminal, path: None }], &view, Palette::detect())?;
-            Ok(i32::from(!verdict.passed()))
+        Err(reason) => decline_to_help(&reason, &root, &settings.config, source.as_deref())
+            .map(|()| Exit::Clean),
+        Ok(()) => Ok(Exit::Clean),
+    }
+}
+
+fn write_template(root: &Path, force: bool) -> Result<()> {
+    let path = root.join(rqx_core::config::CONFIG_FILE_NAME);
+    if path.exists() && !force {
+        bail!(
+            "`{}` is already there. Pass --force to replace it, or `rqx config` to see what \
+             it resolves to.",
+            path.display()
+        );
+    }
+    std::fs::write(&path, rqx_core::config::TEMPLATE)
+        .with_context(|| format!("writing {}", path.display()))?;
+    println!(
+        "\n  wrote {}\n  every value is the default; delete what you agree with.\n",
+        path.display()
+    );
+    Ok(())
+}
+
+/// The whole contract a pipeline branches on. Named rather than returned as bare
+/// integers so a new command cannot invent a fourth meaning by accident.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum Exit {
+    Clean = 0,
+    GateFailed = 1,
+    Failed = 2,
+}
+
+impl Exit {
+    const fn of(failed: bool) -> Self {
+        if failed {
+            Self::GateFailed
+        } else {
+            Self::Clean
         }
     }
 }
 
-/// The name of the file the settings came from, for the header and the config view.
-fn config_source(root: &Path, explicit: Option<&Path>) -> Option<String> {
-    let path = explicit.map_or_else(|| root.join(CONFIG_FILE_NAME), Path::to_path_buf);
-    if !path.exists() {
-        return None;
-    }
-    Some(path.file_name()?.to_string_lossy().into_owned())
+/// `rqx scan . | head` closes the reader mid-report. That is the reader's decision,
+/// not a failure of the scan, and reporting it as one fails a pipeline that did
+/// exactly what it was asked to.
+fn reader_went_away(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::BrokenPipe)
+    })
 }
 
 fn main() {
     match run() {
-        Ok(code) => std::process::exit(code),
+        Ok(code) => std::process::exit(code as i32),
+        Err(error) if reader_went_away(&error) => std::process::exit(Exit::Clean as i32),
         Err(error) => {
             eprintln!("Error: {error:#}");
             // Distinct from a failed gate: CI has to be able to tell "your code has
             // problems" from "rqx could not run".
-            std::process::exit(2);
+            std::process::exit(Exit::Failed as i32);
         }
     }
 }
 
-fn run() -> Result<i32> {
+fn run() -> Result<Exit> {
     let cli = Cli::parse();
     // Set before anything draws: `anstream::stdout()` and `Palette::detect()` both
     // read this global, so one flag governs every writer.
@@ -446,25 +558,42 @@ fn run() -> Result<i32> {
 
     let Some(command) = cli.command else {
         return if cli.no_tui {
-            decline_to_help(&tui::Decline::NotATerminal, ".", &RqxConfig::default(), None).map(|()| 0)
+            decline_to_help(
+                &tui::Decline::NotATerminal,
+                ".",
+                &RqxConfig::default(),
+                None,
+            )
+            .map(|()| Exit::Clean)
         } else {
             open_tui(Path::new("."), None, cli.motion)
         };
     };
 
     match command {
-        Command::Scan { path, view, gate, max_findings, threads, config } => {
+        Command::Scan {
+            path,
+            view,
+            gate,
+            advice,
+            max_findings,
+            threads,
+            config,
+        } => {
             if !path.exists() {
-                bail!("`{}` does not exist", path.display());
+                bail!(
+                    "`{}` does not exist. rqx scans a directory or a single file; try `rqx scan .`",
+                    path.display()
+                );
             }
-            let mut settings = load_config(&path, config.as_deref())?;
+            let mut settings = config::resolve(&path, config.as_deref())?;
             if let Some(max) = max_findings {
-                settings.scan.max_findings = max;
+                settings.config.scan.max_findings = max;
             }
             if let Some(count) = threads {
-                settings.scan.threads = count;
+                settings.config.scan.threads = count;
             }
-            gate.apply(&mut settings);
+            gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;
             let filter = filter_of(&view)?;
@@ -472,52 +601,117 @@ fn run() -> Result<i32> {
 
             // A bare `rqx scan` reports; it only gates when asked to, so adding a flag
             // is the whole opt-in and no existing pipeline changes meaning.
-            let verdict = gate.is_set().then(|| check::judge_scan(&outcome, &settings));
+            let verdict = gate
+                .is_set()
+                .then(|| check::judge_scan(&outcome, &settings.config));
             let report = Report::scan(&outcome, &filter);
             let report = match &verdict {
                 Some(verdict) => report.judged(verdict),
                 None => report,
             };
             emit(&report, &sinks, &view, palette)?;
-            Ok(i32::from(verdict.is_some_and(|verdict| !verdict.passed())))
-        }
-        Command::Explain { rule } => {
-            let Some(rule) = RuleId::parse(&rule) else {
-                bail!(
-                    "unknown rule `{rule}`. Known rules: {}",
-                    RuleId::ALL.iter().map(|rule| rule.slug()).collect::<Vec<_>>().join(", ")
-                );
-            };
-            report::explain(rule, palette).map(|()| 0)
-        }
-        Command::Check { path, base, view, gate, config } => {
-            if !path.exists() {
-                bail!("`{}` does not exist", path.display());
+            if advice {
+                let mut out = anstream::stdout().lock();
+                report::advice(&outcome, palette, &mut out)?;
             }
-            let mut settings = load_config(&path, config.as_deref())?;
-            gate.apply(&mut settings);
+            Ok(Exit::of(verdict.is_some_and(|verdict| !verdict.passed())))
+        }
+        Command::Explain { name } => {
+            if let Some(rule) = RuleId::parse(&name) {
+                return report::explain(rule, palette).map(|()| Exit::Clean);
+            }
+            // An advisory slug resolves to its pattern: `strategy-fits` and `strategy`
+            // are the same question asked two ways.
+            let pattern = rqx_core::Pattern::parse(&name)
+                .or_else(|| rqx_core::AdviceId::parse(&name).map(rqx_core::AdviceId::pattern));
+            let Some(pattern) = pattern else {
+                let mut names: Vec<&str> = RuleId::ALL.iter().map(|rule| rule.slug()).collect();
+                names.extend(rqx_core::Pattern::ALL.iter().map(|p| p.slug()));
+                names.extend(rqx_core::AdviceId::ALL.iter().map(|a| a.slug()));
+                return Err(report::unknown(
+                    "rule or pattern",
+                    &name,
+                    &names,
+                    "Run `rqx rules` for the rules and `rqx patterns --coverage` for the patterns.",
+                ));
+            };
+            report::explain_pattern(pattern, palette).map(|()| Exit::Clean)
+        }
+        Command::Patterns {
+            path,
+            coverage,
+            json,
+            threads,
+            config,
+        } => {
+            if coverage {
+                return report::pattern_coverage(palette).map(|()| Exit::Clean);
+            }
+            if !path.exists() {
+                bail!(
+                    "`{}` does not exist. rqx reads a directory or a single file; try                      `rqx patterns .`",
+                    path.display()
+                );
+            }
+            let mut settings = config::resolve(&path, config.as_deref())?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            let outcome = scan::scan(&path, &settings)?;
+            let mut out = anstream::stdout().lock();
+            if json {
+                return report::advice_json(&outcome, &mut out).map(|()| Exit::Clean);
+            }
+            report::advice(&outcome, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Docs { out, fixtures } => report::docs(&out, &fixtures).map(|()| Exit::Clean),
+        Command::Init { path, force } => write_template(&path, force).map(|()| Exit::Clean),
+        Command::Config { path, config } => {
+            let settings = config::resolve(&path, config.as_deref())?;
+            report::config(&settings, palette).map(|()| Exit::Clean)
+        }
+        Command::Check {
+            path,
+            base,
+            view,
+            gate,
+            config,
+        } => {
+            if !path.exists() {
+                bail!(
+                    "`{}` does not exist. rqx checks a directory or a single file; try `rqx check .`",
+                    path.display()
+                );
+            }
+            let mut settings = config::resolve(&path, config.as_deref())?;
+            gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;
             let filter = filter_of(&view)?;
             let review = check::review(&path, &settings, &base)?;
-            let verdict = check::judge(&review, &settings);
+            let verdict = check::judge(&review, &settings.config);
             let report = Report::review(&review, &verdict, &filter);
             emit(&report, &sinks, &view, palette)?;
-            Ok(i32::from(!verdict.passed()))
+            Ok(Exit::of(!verdict.passed()))
         }
         Command::Lsp { path, config } => {
-            let settings = load_config(&path, config.as_deref())?;
+            let settings = config::resolve(&path, config.as_deref())?;
             lsp::serve(&path, settings).map_err(|error| anyhow::anyhow!("{error}"))?;
-            Ok(0)
+            Ok(Exit::Clean)
         }
         Command::Tui { path, config } => open_tui(&path, config.as_deref(), cli.motion),
-        Command::Rules { category, coverage } => {
+        Command::Rules {
+            category,
+            coverage,
+            language,
+        } => {
             if coverage {
-                report::coverage(palette).map(|()| 0)
+                report::coverage(palette).map(|()| Exit::Clean)
             } else {
-                report::rules(category.as_deref(), palette).map(|()| 0)
+                report::rules(category.as_deref(), language.as_deref(), palette)
+                    .map(|()| Exit::Clean)
             }
         }
-        Command::Techniques => report::techniques(palette).map(|()| 0),
+        Command::Techniques => report::techniques(palette).map(|()| Exit::Clean),
     }
 }

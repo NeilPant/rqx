@@ -102,12 +102,11 @@ impl Screen for Scanning {
         }
     }
 
-    fn animating(&self, session: &Session) -> bool {
-        session.scanning
+    fn animating(&self, session: &Session) -> Option<std::time::Duration> {
+        session.scanning.then_some(crate::tui::motion::FRAME)
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[("esc", "cancel"), ("q", "quit")]
     }
 }
-

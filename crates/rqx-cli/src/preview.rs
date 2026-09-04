@@ -1,7 +1,7 @@
 use std::ops::Range;
 
+use rqx_core::LineIndex;
 use rqx_core::finding::SourceRange;
-use rqx_ts::LineIndex;
 use unicode_width::UnicodeWidthStr;
 
 /// Offending lines shown before the middle of a long span is elided, and after.
@@ -43,7 +43,10 @@ pub struct Preview {
 fn mark_of(text: &str, from: Option<u32>, to: Option<u32>) -> Option<Range<usize>> {
     let column_to_byte = |column: u32| -> Option<usize> {
         let index = (column as usize).checked_sub(1)?;
-        text.char_indices().nth(index).map(|(at, _)| at).or(Some(text.len()))
+        text.char_indices()
+            .nth(index)
+            .map(|(at, _)| at)
+            .or(Some(text.len()))
     };
     let start = from.map_or(Some(0), column_to_byte)?;
     let end = to.map_or(Some(text.len()), column_to_byte)?;
@@ -61,7 +64,11 @@ pub fn of(index: &LineIndex<'_>, range: &SourceRange, context: u32) -> Option<Pr
     }
     let whole_file = range.line == 0;
     let first = if whole_file { 1 } else { range.line.max(1) };
-    let last = if whole_file { first } else { range.end_line.max(first).min(total) };
+    let last = if whole_file {
+        first
+    } else {
+        range.end_line.max(first).min(total)
+    };
 
     let (end_line, end_column) = index.locate(range.end);
     let mut lines = Vec::new();
@@ -94,13 +101,27 @@ pub fn of(index: &LineIndex<'_>, range: &SourceRange, context: u32) -> Option<Pr
         push(&mut lines, index, number, None, Role::Context);
     }
 
-    lines.is_empty().then_some(()).map_or(Some(Preview { lines, elided }), |()| None)
+    lines
+        .is_empty()
+        .then_some(())
+        .map_or(Some(Preview { lines, elided }), |()| None)
 }
 
-fn push(lines: &mut Vec<Line>, index: &LineIndex<'_>, number: u32, mark: Option<Range<usize>>, role: Role) {
+fn push(
+    lines: &mut Vec<Line>,
+    index: &LineIndex<'_>,
+    number: u32,
+    mark: Option<Range<usize>>,
+    role: Role,
+) {
     let text = index.line_text(number).trim_end().to_owned();
     let mark = mark.filter(|range| range.end <= text.len());
-    lines.push(Line { number, text, mark, role });
+    lines.push(Line {
+        number,
+        text,
+        mark,
+        role,
+    });
 }
 
 #[cfg(test)]
@@ -109,9 +130,23 @@ mod tests {
 
     use super::*;
 
-    fn range(source: &str, line: u32, column: u32, end_line: u32, start: u32, end: u32) -> SourceRange {
+    fn range(
+        source: &str,
+        line: u32,
+        column: u32,
+        end_line: u32,
+        start: u32,
+        end: u32,
+    ) -> SourceRange {
         let _ = source;
-        SourceRange { file: Arc::from("a.ts"), start, end, line, column, end_line }
+        SourceRange {
+            file: Arc::from("a.ts"),
+            start,
+            end,
+            line,
+            column,
+            end_line,
+        }
     }
 
     #[test]
@@ -121,7 +156,10 @@ mod tests {
         let preview = of(&index, &range(source, 2, 1, 4, 4, 18), 0).unwrap();
         assert_eq!(preview.lines.len(), 3);
         assert!(preview.lines.iter().all(|line| line.role == Role::Offence));
-        assert!(preview.lines.iter().all(|line| line.mark.is_some()), "every line carries a mark");
+        assert!(
+            preview.lines.iter().all(|line| line.mark.is_some()),
+            "every line carries a mark"
+        );
     }
 
     #[test]
@@ -141,7 +179,10 @@ mod tests {
         let index = LineIndex::new(source);
         let preview = of(&index, &range(source, 0, 0, 0, 0, 0), 1).unwrap();
         assert_eq!(preview.lines.first().map(|line| line.number), Some(1));
-        assert!(preview.lines[0].mark.is_none(), "the file is the subject, not a column range");
+        assert!(
+            preview.lines[0].mark.is_none(),
+            "the file is the subject, not a column range"
+        );
     }
 
     #[test]

@@ -25,9 +25,14 @@ impl FindingFilter {
             .iter()
             .map(|name| {
                 RuleId::parse(name).ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "unknown rule `{name}`. Known rules: {}",
-                        RuleId::ALL.iter().map(|rule| rule.slug()).collect::<Vec<_>>().join(", ")
+                    super::unknown(
+                        "rule",
+                        name,
+                        &RuleId::ALL
+                            .iter()
+                            .map(|rule| rule.slug())
+                            .collect::<Vec<_>>(),
+                        "Run `rqx rules` for the whole catalogue.",
                     )
                 })
             })
@@ -36,9 +41,14 @@ impl FindingFilter {
             .iter()
             .map(|name| {
                 Category::parse(name).ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "unknown family `{name}`. Known families: {}",
-                        Category::ALL.map(Category::slug).join(", ")
+                    super::unknown(
+                        "family",
+                        name,
+                        &Category::ALL.map(Category::slug),
+                        &format!(
+                            "The families are: {}.",
+                            Category::ALL.map(Category::slug).join(", ")
+                        ),
                     )
                 })
             })
@@ -54,7 +64,13 @@ impl FindingFilter {
             Some(builder.build()?)
         };
 
-        Ok(Self { severity, rules, categories, paths, text: String::new() })
+        Ok(Self {
+            severity,
+            rules,
+            categories,
+            paths,
+            text: String::new(),
+        })
     }
 
     pub fn with_text(mut self, text: &str) -> Self {
@@ -69,13 +85,13 @@ impl FindingFilter {
         if !self.rules.is_empty() && !self.rules.contains(&finding.rule) {
             return false;
         }
-        if !self.categories.is_empty()
-            && !self.categories.contains(&finding.rule.spec().category)
-        {
+        if !self.categories.is_empty() && !self.categories.contains(&finding.rule.spec().category) {
             return false;
         }
         if let Some(paths) = &self.paths
-            && !paths.matched(finding.location.file.as_ref(), false).is_ignore()
+            && !paths
+                .matched(finding.location.file.as_ref(), false)
+                .is_ignore()
         {
             return false;
         }
@@ -110,7 +126,10 @@ mod tests {
             },
             severity,
             confidence: Confidence::Verified,
-            evidence: Evidence::StatementCount { count: 99, threshold: 40 },
+            evidence: Evidence::StatementCount {
+                count: 99,
+                threshold: 40,
+            },
             fix_hint: String::new(),
             related: Vec::new(),
         }
@@ -131,13 +150,25 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_rule_names_the_known_ones() {
+    fn an_unknown_rule_says_where_the_real_ones_are() {
         let error = FindingFilter::new(None, &["no-such-rule".to_owned()], &[], &[])
             .err()
             .expect("an unknown rule must be rejected");
         let message = error.to_string();
         assert!(message.contains("no-such-rule"), "{message}");
-        assert!(message.contains("long-function"), "{message}");
+        assert!(message.contains("rqx rules"), "{message}");
+    }
+
+    /// Sixty slugs printed as a list is not an answer to a typo.
+    #[test]
+    fn a_mistyped_rule_is_offered_the_one_it_almost_named() {
+        let error = FindingFilter::new(None, &["long-funtcion".to_owned()], &[], &[])
+            .err()
+            .expect("an unknown rule must be rejected");
+        assert!(
+            error.to_string().contains("Did you mean `long-function`?"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -152,7 +183,11 @@ mod tests {
         let filter = FindingFilter::default().with_text("LONG");
         assert!(filter.matches(&finding(RuleId::LongFunction, Severity::Info, "a.ts")));
         let filter = FindingFilter::default().with_text("orders");
-        assert!(filter.matches(&finding(RuleId::LongFunction, Severity::Info, "src/Orders.ts")));
+        assert!(filter.matches(&finding(
+            RuleId::LongFunction,
+            Severity::Info,
+            "src/Orders.ts"
+        )));
         assert!(!filter.matches(&finding(RuleId::LongFunction, Severity::Info, "src/a.ts")));
     }
 }

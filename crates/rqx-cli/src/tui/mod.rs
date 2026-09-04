@@ -17,6 +17,8 @@ use ratatui::{DefaultTerminal, Frame};
 use rqx_core::config::RqxConfig;
 
 use crate::brand::Palette;
+use crate::check;
+use crate::config::Resolved;
 use crate::scan::{self, ScanOutcome, ScanProgress};
 
 use app::{Nav, Screen, Session, Tab};
@@ -84,7 +86,7 @@ pub fn static_header(root: &str, config: &RqxConfig, config_file: Option<&str>) 
     let rows = sprite.render_frame(
         Palette::with_depth(crate::brand::ColorDepth::Monochrome),
         0,
-        crate::brand::Ink::Signal,
+        crate::brand::Ink::Accent,
         usize::MAX,
     );
     let enabled = rqx_core::rule::RuleId::ALL
@@ -99,10 +101,11 @@ pub fn static_header(root: &str, config: &RqxConfig, config_file: Option<&str>) 
             config_file.unwrap_or("defaults")
         ),
         root.to_owned(),
-        String::new(),
-        String::new(),
     ];
 
+    // Padded rather than sized to the art, so a taller mascot does not silently lose
+    // its bottom rows to a shorter `zip`.
+    let beside = beside.into_iter().chain(std::iter::repeat(String::new()));
     let mut out = String::from("\n");
     for (line, text) in rows.iter().zip(beside) {
         out.push_str("  ");
@@ -118,13 +121,14 @@ pub fn static_header(root: &str, config: &RqxConfig, config_file: Option<&str>) 
     out
 }
 
-/// What the interface was asked to run that it cannot run itself.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum Chosen {
-    Review,
+/// What a worker was asked for. A review is a scan of the whole project that reports
+/// only the changed part, so it produces everything a scan does plus a verdict.
+enum Work {
+    Scan(ScanOutcome),
+    Review(check::Review, check::Verdict),
 }
 
-type Worker = JoinHandle<anyhow::Result<ScanOutcome>>;
+type Worker = JoinHandle<anyhow::Result<Work>>;
 
 enum Mode {
     Menu,
@@ -142,13 +146,13 @@ struct App {
     files: screens::files::Files,
     rules: screens::catalogue::Rules,
     coverage: screens::catalogue::CoverageView,
+    patterns: screens::patterns::Patterns,
     settings: screens::settings::Settings,
     updates: Option<Receiver<ScanProgress>>,
     worker: Option<Worker>,
     help: bool,
     dirty: bool,
     quit: bool,
-    chosen: Option<Chosen>,
 }
 
 /// Splits the borrow the way the compiler can see: the screen and the session are
@@ -162,6 +166,7 @@ macro_rules! parts {
             Mode::Browsing(Tab::Overview) => &mut app.overview,
             Mode::Browsing(Tab::Findings) => &mut app.findings,
             Mode::Browsing(Tab::Files) => &mut app.files,
+            Mode::Browsing(Tab::Patterns) => &mut app.patterns,
             Mode::Browsing(Tab::Rules) => &mut app.rules,
             Mode::Browsing(Tab::Coverage) => &mut app.coverage,
             Mode::Browsing(Tab::Config) => &mut app.settings,
@@ -174,12 +179,39 @@ impl App {
     fn start_scan(&mut self) {
         let (sender, updates) = mpsc::sync_channel(1);
         let (path, config) = (self.session.path.clone(), self.session.config.clone());
-        self.worker = Some(thread::spawn(move || scan::scan_with_progress(&path, &config, sender)));
+        self.begin(
+            updates,
+            thread::spawn(move || scan::scan_with_progress(&path, &config, sender).map(Work::Scan)),
+        );
+        self.session.base = None;
+    }
+
+    /// A review runs in the interface rather than handing the terminal back, so one
+    /// menu choice is not the end of the session.
+    fn start_review(&mut self, base: String) {
+        let (_, updates) = mpsc::sync_channel(1);
+        let (path, config) = (self.session.path.clone(), self.session.config.clone());
+        let against = base.clone();
+        self.begin(
+            updates,
+            thread::spawn(move || {
+                let review = check::review(&path, &config, &against)?;
+                let verdict = check::judge(&review, &config.config);
+                Ok(Work::Review(review, verdict))
+            }),
+        );
+        self.session.base = Some(base);
+    }
+
+    fn begin(&mut self, updates: Receiver<ScanProgress>, worker: Worker) {
+        self.worker = Some(worker);
         self.updates = Some(updates);
         self.session.scanning = true;
         self.session.failure = None;
         self.session.progress = ScanProgress::default();
         self.session.outcome = None;
+        self.session.reviewed = None;
+        self.session.verdict = None;
         self.scanning = screens::scanning::Scanning::default();
         self.mode = Mode::Scanning;
     }
@@ -202,8 +234,15 @@ impl App {
         {
             self.session.scanning = false;
             match worker.join() {
-                Ok(Ok(outcome)) => {
-                    self.session.outcome = Some(Arc::new(outcome));
+                Ok(Ok(work)) => {
+                    match work {
+                        Work::Scan(outcome) => self.session.outcome = Some(Arc::new(outcome)),
+                        Work::Review(review, verdict) => {
+                            self.session.reviewed = Some(Arc::new(review.reviewed));
+                            self.session.verdict = Some(Arc::new(verdict));
+                            self.session.outcome = Some(Arc::new(review.outcome));
+                        }
+                    }
                     // Screens hold derived views of the outcome, so a new scan means a
                     // new set of them rather than a refresh flag on each.
                     self.overview = screens::overview::Overview::default();
@@ -211,11 +250,20 @@ impl App {
                     self.files = screens::files::Files::default();
                     self.mode = Mode::Browsing(Tab::Overview);
                 }
-                Ok(Err(error)) => self.session.failure = Some(error.to_string()),
-                Err(_) => self.session.failure = Some("the scan thread panicked".to_owned()),
+                Ok(Err(error)) => {
+                    self.session.failure = Some(format!("{error:#}"));
+                    self.mode = Mode::Menu;
+                }
+                Err(_) => {
+                    self.session.failure = Some("the scan thread stopped unexpectedly".to_owned());
+                    self.mode = Mode::Menu;
+                }
             }
             changed = true;
         }
+        // Last, so a scan that has just landed is repainted on the frame it lands rather
+        // than on the one after it.
+        changed |= self.session.repaint_if_verdict_changed();
         changed
     }
 
@@ -225,10 +273,7 @@ impl App {
             Nav::Redraw => self.dirty = true,
             Nav::Quit => self.quit = true,
             Nav::Scan => self.start_scan(),
-            Nav::Review => {
-                self.chosen = Some(Chosen::Review);
-                self.quit = true;
-            }
+            Nav::Review(base) => self.start_review(base),
             Nav::To(tab) => {
                 self.mode = Mode::Browsing(tab);
                 self.dirty = true;
@@ -254,8 +299,13 @@ impl App {
             return;
         }
 
+        let capturing = {
+            let (screen, _) = parts!(self);
+            screen.capturing()
+        };
         if let Mode::Browsing(active) = self.mode
-            && let Some(next) = tab_key(key, active, self.session.outcome.is_some())
+            && !capturing
+            && let Some(next) = tab_key(key, active)
         {
             self.mode = Mode::Browsing(next);
             self.dirty = true;
@@ -276,53 +326,59 @@ impl App {
         };
         let palette = self.session.palette;
         let help = self.help;
-        let body = Chrome { session: &self.session, active }.render(frame);
+        let body = Chrome {
+            session: &self.session,
+            active,
+        }
+        .render(frame);
 
         let keys = {
             let (screen, session) = parts!(self);
             screen.render(frame, body, session);
             screen.keys()
         };
-        Chrome { session: &self.session, active }.render_footer(frame, keys);
+        Chrome {
+            session: &self.session,
+            active,
+        }
+        .render_footer(frame, keys);
 
         if help {
             chrome::help(frame, palette, keys);
         }
     }
 
-    fn animating(&self) -> bool {
-        self.session.scanning
-            || match self.mode {
-                Mode::Menu => self.menu.animating(&self.session),
-                Mode::Scanning => self.scanning.animating(&self.session),
-                Mode::Browsing(Tab::Overview) => self.overview.animating(&self.session),
-                _ => false,
-            }
+    fn animating(&self) -> Option<std::time::Duration> {
+        if self.session.scanning || self.session.repainting() {
+            return Some(motion::FRAME);
+        }
+        let screen = match self.mode {
+            Mode::Menu => self.menu.animating(&self.session),
+            Mode::Scanning => self.scanning.animating(&self.session),
+            Mode::Browsing(Tab::Overview) => self.overview.animating(&self.session),
+            _ => None,
+        };
+        // The mascot blinks on every screen, not just the ones with a gauge on them, but
+        // it is the only thing moving there and does not need the full frame rate.
+        screen.or_else(|| (!self.session.motion.reduced()).then_some(motion::IDLE))
     }
 }
 
-/// `tab` cycles, digits jump. A tab with nothing to show before a scan is skipped
-/// rather than opened empty.
-fn tab_key(key: KeyEvent, active: Tab, scanned: bool) -> Option<Tab> {
-    let reachable = |tab: Tab| !tab.needs_outcome() || scanned;
-    let index = Tab::ALL.iter().position(|tab| *tab == active).unwrap_or(0);
-    let step = |delta: isize| {
-        let count = Tab::ALL.len() as isize;
-        let mut next = index as isize;
-        for _ in 0..count {
-            next = (next + delta).rem_euclid(count);
-            if reachable(Tab::ALL[next as usize]) {
-                return Some(Tab::ALL[next as usize]);
-            }
-        }
-        None
-    };
+/// `tab` cycles, digits jump. Every tab opens at any time: one that has nothing yet
+/// says what it will hold and how to fill it, which is more use than refusing to open.
+fn tab_key(key: KeyEvent, active: Tab) -> Option<Tab> {
+    let index = Tab::ALL.iter().position(|tab| *tab == active).unwrap_or(0) as isize;
+    let count = Tab::ALL.len() as isize;
+    let step = |delta: isize| Some(Tab::ALL[(index + delta).rem_euclid(count) as usize]);
     match key.code {
         KeyCode::Tab | KeyCode::Right => step(1),
         KeyCode::BackTab | KeyCode::Left => step(-1),
-        KeyCode::Char(digit @ '1'..='6') => {
-            let wanted = Tab::ALL[digit as usize - '1' as usize];
-            reachable(wanted).then_some(wanted)
+        // The range follows `Tab::ALL`, so a tab added to the enum is reachable by
+        // its digit without a second place to remember.
+        KeyCode::Char(digit @ '1'..='9')
+            if (digit as usize - '1' as usize) < Tab::ALL.len() =>
+        {
+            Some(Tab::ALL[digit as usize - '1' as usize])
         }
         _ => None,
     }
@@ -330,24 +386,25 @@ fn tab_key(key: KeyEvent, active: Tab, scanned: bool) -> Option<Tab> {
 
 pub struct Launch<'a> {
     pub path: &'a Path,
-    pub config: &'a RqxConfig,
-    pub config_file: Option<String>,
+    pub config: &'a Resolved,
     pub reduced_motion: bool,
 }
 
 /// One terminal, one panic hook, one restore. Everything the interface can do
 /// happens inside the loop, so nothing is ever printed over a screen it has just
 /// handed back.
-pub fn launch(options: Launch<'_>) -> Result<Option<Chosen>, Decline> {
+pub fn launch(options: Launch<'_>) -> Result<(), Decline> {
     install_panic_hook();
     let mut terminal =
         ratatui::try_init().map_err(|error| Decline::SetupFailed(error.to_string()))?;
     let outcome = run(&mut terminal, &options);
     ratatui::restore();
-    outcome.map_err(|error| Decline::SetupFailed(error.to_string()))
+    let farewell = outcome.map_err(|error| Decline::SetupFailed(error.to_string()))?;
+    print!("{farewell}");
+    Ok(())
 }
 
-fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<Option<Chosen>> {
+fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
     let mut app = App {
         session: Session {
             palette: Palette::detect(),
@@ -355,14 +412,18 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<Option<Ch
             motion: Motion::new(options.reduced_motion),
             root: display_root(options.path),
             path: options.path.to_path_buf(),
+            config_file: options.config.display_source(),
             config: options.config.clone(),
-            config_file: options.config_file.clone(),
             branch: crate::history::branch(options.path),
             outcome: None,
             progress: ScanProgress::default(),
             scanning: false,
             failure: None,
             base: None,
+            reviewed: None,
+            verdict: None,
+            painted: crate::brand::Ink::Accent,
+            painted_at: std::time::Instant::now(),
         },
         mode: Mode::Menu,
         menu: screens::menu::Menu::default(),
@@ -372,13 +433,13 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<Option<Ch
         files: screens::files::Files::default(),
         rules: screens::catalogue::Rules::default(),
         coverage: screens::catalogue::CoverageView::default(),
-        settings: screens::settings::Settings,
+        patterns: screens::patterns::Patterns::default(),
+        settings: screens::settings::Settings::default(),
         updates: None,
         worker: None,
         help: false,
         dirty: true,
         quit: false,
-        chosen: None,
     };
 
     while !app.quit {
@@ -388,7 +449,10 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<Option<Ch
         }
         // A screen with nothing moving blocks on input rather than waking to discover
         // nothing changed, so a still interface costs nothing to leave open.
-        let ready = if app.animating() { event::poll(motion::FRAME)? } else { true };
+        let ready = match app.animating() {
+            Some(interval) => event::poll(interval)?,
+            None => true,
+        };
         if ready {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => app.handle(key),
@@ -396,11 +460,41 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<Option<Ch
                 _ => {}
             }
         }
-        app.dirty |= app.tick() || app.animating();
+        app.dirty |= app.tick() || app.animating().is_some();
     }
 
-    let _ = terminal.clear();
-    Ok(app.chosen)
+    // Deliberately no `terminal.clear()`: leaving the alternate screen already puts
+    // back what was there, and ratatui's clear asks the terminal where its cursor is
+    // and blocks for the answer, which anything not emulating a terminal never sends.
+    Ok(farewell(&app.session))
+}
+
+/// What the session amounted to, printed once the terminal is the shell's again. A
+/// full-screen interface that vanishes leaves no trace of what it just told you, and
+/// the command it names is the one that would print the whole thing.
+fn farewell(session: &Session) -> String {
+    let Some(outcome) = &session.outcome else {
+        return String::new();
+    };
+    let health = session.health().unwrap_or(100);
+    let subject = match &session.base {
+        Some(base) => format!(
+            "{} changed files against {base}",
+            session.reviewed.as_ref().map_or(0, |files| files.len())
+        ),
+        None => format!("{} files", outcome.files_scanned),
+    };
+    let verdict = match &session.verdict {
+        Some(verdict) if verdict.passed() => "  gate passed\n".to_owned(),
+        Some(verdict) => format!("  gate failed: {}\n", verdict.failures.join("; ")),
+        None => String::new(),
+    };
+    format!(
+        "\n  rqx looked at {subject} \u{2014} health {health}/100, {} findings in {:.2}s\n{verdict}           `rqx scan {}` prints the whole report.\n\n",
+        outcome.counts.total,
+        outcome.elapsed_ms as f64 / 1000.0,
+        session.root,
+    )
 }
 
 /// Installed once. Ratatui installs its own on every init, each wrapping the last, so
@@ -449,19 +543,57 @@ mod tests {
         assert_eq!(display_root(Path::new(".")), ".");
     }
 
+    /// The three project tabs used to be skipped before a scan, which left `tab`
+    /// cycling three of six and the digits 1-3 doing nothing at all.
     #[test]
-    fn tabs_skip_what_a_scan_has_not_produced_yet() {
+    fn every_tab_opens_before_a_scan_has_run() {
         let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
-        // Overview, Findings and Files have nothing to show before a scan.
-        assert_eq!(tab_key(key(KeyCode::Tab), Tab::Rules, false), Some(Tab::Coverage));
-        assert_eq!(tab_key(key(KeyCode::Char('1')), Tab::Rules, false), None);
-        assert_eq!(tab_key(key(KeyCode::Char('1')), Tab::Rules, true), Some(Tab::Overview));
+        assert_eq!(tab_key(key(KeyCode::Tab), Tab::Rules), Some(Tab::Coverage));
+        assert_eq!(
+            tab_key(key(KeyCode::Char('1')), Tab::Rules),
+            Some(Tab::Overview)
+        );
+
+        let mut seen = Vec::new();
+        let mut active = Tab::Overview;
+        for _ in 0..Tab::ALL.len() {
+            seen.push(active);
+            active = tab_key(key(KeyCode::Tab), active).expect("tab always moves");
+        }
+        assert_eq!(seen, Tab::ALL.to_vec());
+        assert_eq!(active, Tab::Overview, "the cycle closes");
     }
 
     #[test]
-    fn tabs_wrap_in_both_directions_once_a_scan_exists() {
+    fn tabs_wrap_in_both_directions() {
         let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
-        assert_eq!(tab_key(key(KeyCode::Tab), Tab::Config, true), Some(Tab::Overview));
-        assert_eq!(tab_key(key(KeyCode::BackTab), Tab::Overview, true), Some(Tab::Config));
+        assert_eq!(tab_key(key(KeyCode::Tab), Tab::Config), Some(Tab::Overview));
+        assert_eq!(
+            tab_key(key(KeyCode::BackTab), Tab::Overview),
+            Some(Tab::Config)
+        );
+    }
+
+    /// A filter that swallowed its own digits was the second half of the tab bug: the
+    /// tab key was read before the screen composing text ever saw it.
+    #[test]
+    fn a_screen_composing_text_keeps_its_own_digits() {
+        let key = KeyEvent::new(KeyCode::Char('1'), crossterm::event::KeyModifiers::NONE);
+        let mut findings = screens::findings::Findings::default();
+        assert!(!findings.capturing());
+        findings.handle(
+            KeyEvent::new(KeyCode::Char('/'), crossterm::event::KeyModifiers::NONE),
+            &probe(),
+        );
+        assert!(findings.capturing(), "`/` starts a filter");
+        assert_eq!(
+            tab_key(key, Tab::Findings),
+            Some(Tab::Overview),
+            "the key still maps"
+        );
+    }
+
+    fn probe() -> Session {
+        Session::probe(Palette::detect())
     }
 }

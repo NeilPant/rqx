@@ -11,13 +11,16 @@ use anyhow::{Context, Result};
 use ignore::overrides::OverrideBuilder;
 use ignore::types::TypesBuilder;
 use ignore::{WalkBuilder, WalkState};
+use rqx_core::Language;
 use rqx_core::config::RqxConfig;
-use oxc_span as oxc_span_alias;
 use rqx_core::finding::{Evidence, Finding, SourceRange};
-use rqx_core::rule::RuleId;
 use rqx_core::impact::ImpactMap;
+use rqx_core::rule::RuleId;
 use rqx_core::score::FindingCounts;
+use rqx_core::span::Span;
 use smallvec::SmallVec;
+
+use crate::config::Resolved;
 
 const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_millis(80);
 
@@ -28,14 +31,27 @@ const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_millis(
 const CHANNEL_DEPTH: usize = 256;
 const MAX_CLONE_SITES: usize = 8;
 
+/// Everything the collector needs about one file, and nothing it would have to work
+/// out for itself. Boxed because the channel holds `CHANNEL_DEPTH` of these and the
+/// alternative is a queue sized by the largest variant rather than by the common one.
+struct Analyzed {
+    /// The path as the report will name it, resolved on the worker. The collector is
+    /// the one thread the whole parallel walk funnels through, so work done here is
+    /// work every other thread waits behind.
+    display: String,
+    /// `Some` only when a rule needs the import graph, since that is the only thing
+    /// that wants the canonical form and resolving it is a syscall.
+    canonical: Option<PathBuf>,
+    language: Language,
+    findings: Vec<Finding>,
+    advice: Vec<rqx_core::Advice>,
+    clones: Vec<rqx_lang::CloneSite>,
+    module: rqx_core::facts::ModuleFacts,
+    code_lines: u32,
+}
+
 enum ScanMessage {
-    File {
-        path: PathBuf,
-        findings: Vec<Finding>,
-        clones: Vec<rqx_ts::CloneSite>,
-        module: rqx_ts::semantics::ModuleFacts,
-        code_lines: u32,
-    },
+    File(Box<Analyzed>),
     Skipped { path: PathBuf, reason: String },
 }
 
@@ -60,6 +76,10 @@ pub struct ScanOutcome {
     /// importer -> imported, as display paths, so a diff can find dependents.
     pub import_edges: std::collections::BTreeMap<String, Vec<String>>,
     pub findings: Vec<Finding>,
+    /// What the pattern catalogue makes of the same files. Kept apart from `findings`
+    /// because nothing here is a defect: `counts` never sees it, so no advisory can
+    /// move the health score.
+    pub advice: Vec<rqx_core::Advice>,
     /// Findings per file before the display cap, so a file with nothing to report
     /// can be told from one whose findings the cap dropped.
     pub findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
@@ -99,9 +119,8 @@ impl Ord for Ranked {
 /// the end, so the set retained for a group with more than `MAX_CLONE_SITES`
 /// occurrences does not depend on which worker reached which file first.
 fn insert_bounded(sites: &mut SmallVec<[SourceRange; 2]>, range: SourceRange) {
-    let position = sites.partition_point(|existing| {
-        (&existing.file, existing.start) < (&range.file, range.start)
-    });
+    let position = sites
+        .partition_point(|existing| (&existing.file, existing.start) < (&range.file, range.start));
     if position >= MAX_CLONE_SITES {
         return;
     }
@@ -124,8 +143,9 @@ struct Collector {
     max_findings: usize,
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    advice: Vec<rqx_core::Advice>,
     clone_groups: HashMap<u64, CloneGroup>,
-    modules: Vec<rqx_ts::module_graph::ModuleEntry>,
+    modules: Vec<rqx_lang::module_graph::ModuleEntry>,
     analyzed: std::collections::BTreeSet<String>,
     impact: ImpactMap,
     import_edges: std::collections::BTreeMap<String, Vec<String>>,
@@ -152,6 +172,7 @@ impl Collector {
             max_findings,
             findings_by_file: std::collections::BTreeMap::new(),
             lines_by_file: std::collections::BTreeMap::new(),
+            advice: Vec::new(),
             clone_groups: HashMap::new(),
             modules: Vec::new(),
             analyzed: std::collections::BTreeSet::new(),
@@ -168,6 +189,14 @@ impl Collector {
         }
     }
 
+    /// Advice never passes through `accept`: it must not reach `counts`, and the way
+    /// to guarantee that is for it to have no route there at all.
+    fn advise_if_enabled(&mut self, config: &RqxConfig, advice: rqx_core::Advice) {
+        if config.patterns.enabled(advice.advisory) {
+            self.advice.push(advice);
+        }
+    }
+
     fn accept_if_enabled(&mut self, config: &RqxConfig, finding: Finding) {
         if config.rules.enabled(finding.rule) {
             self.accept(finding);
@@ -176,7 +205,10 @@ impl Collector {
 
     fn accept(&mut self, finding: Finding) {
         self.counts.record(&finding);
-        *self.findings_by_file.entry(Arc::clone(&finding.location.file)).or_default() += 1;
+        *self
+            .findings_by_file
+            .entry(Arc::clone(&finding.location.file))
+            .or_default() += 1;
         let candidate = Ranked(finding);
         if self.max_findings == 0 || self.retained.len() < self.max_findings {
             self.retained.push(Reverse(candidate));
@@ -192,16 +224,19 @@ impl Collector {
         }
     }
 
-    fn record_clone(&mut self, site: rqx_ts::CloneSite) {
+    fn record_clone(&mut self, site: rqx_lang::CloneSite) {
         if !self.track_clones {
             return;
         }
-        let group = self.clone_groups.entry(site.hash).or_insert_with(|| CloneGroup {
-            occurrences: 0,
-            statements: site.statements,
-            nodes: site.nodes,
-            sites: SmallVec::new(),
-        });
+        let group = self
+            .clone_groups
+            .entry(site.hash)
+            .or_insert_with(|| CloneGroup {
+                occurrences: 0,
+                statements: site.statements,
+                nodes: site.nodes,
+                sites: SmallVec::new(),
+            });
         group.occurrences += 1;
         insert_bounded(&mut group.sites, site.range);
     }
@@ -235,7 +270,7 @@ impl Collector {
     /// Clone findings are built here rather than per file because a duplicate is
     /// only a duplicate once a second site exists, which is knowable only after
     /// the whole walk.
-    fn finish_clones(&mut self) {
+    fn finish_clones(&mut self, root: &Path, settings: &Resolved) {
         let mut groups: Vec<CloneGroup> = self
             .clone_groups
             .drain()
@@ -261,7 +296,8 @@ impl Collector {
             reported.push(anchor.clone());
             let spec = RuleId::DuplicateCode.spec();
             let others: Vec<SourceRange> = group.sites.iter().skip(1).cloned().collect();
-            self.accept(Finding {
+            let config = settings.for_file(&root.join(anchor.file.as_ref()));
+            self.accept_if_enabled(config, Finding {
                 rule: RuleId::DuplicateCode,
                 location: anchor,
                 severity: spec.severity,
@@ -289,109 +325,264 @@ impl Collector {
         }
     }
 
+    /// The patterns built on inheritance, which cannot be seen from one file in a
+    /// language that puts one class in each.
+    fn advise_hierarchy(
+        &mut self,
+        modules: &[rqx_lang::module_graph::ModuleEntry],
+        root: &Path,
+        config: &RqxConfig,
+        at: &mut Positions,
+    ) {
+        use rqx_lang::hierarchy::{Hierarchy, Shape};
+
+        let by_path: std::collections::BTreeMap<PathBuf, &rqx_core::facts::ModuleFacts> = modules
+            .iter()
+            .map(|module| (module.path.clone(), &module.facts))
+            .collect();
+        let language_of: std::collections::HashMap<&Path, Language> = modules
+            .iter()
+            .map(|module| (module.path.as_path(), module.language))
+            .collect();
+        let hierarchy = Hierarchy::of(&by_path);
+        for found in rqx_lang::hierarchy::shapes(&hierarchy) {
+            let advisory = match found.kind {
+                Shape::FactoryMethod => rqx_core::AdviceId::FactoryMethodFound,
+                Shape::AbstractFactory => rqx_core::AdviceId::AbstractFactoryFound,
+                Shape::Bridge => rqx_core::AdviceId::BridgeFits,
+                Shape::Interpreter => rqx_core::AdviceId::InterpreterFound,
+                Shape::Visitor => rqx_core::AdviceId::VisitorFound,
+            };
+            // A declared exemption is about the language the type is written in, and
+            // the graph is the one place advice is built without one in hand.
+            let applies = language_of
+                .get(found.path)
+                .is_some_and(|language| advisory.applies_to(*language));
+            if !applies {
+                continue;
+            }
+            let Some(range) = at.range(found.path, root, found.span) else {
+                continue;
+            };
+            let note = match found.kind {
+                Shape::Bridge => format!(
+                    "give `{}` a field for the second axis, so the two vary apart \
+                     instead of multiplying",
+                    found.name
+                ),
+                _ => format!("`{}` is the seam the family varies behind", found.name),
+            };
+            self.advise_if_enabled(
+                config,
+                rqx_core::Advice {
+                    advisory,
+                    location: range,
+                    signal: rqx_core::Signal::Family {
+                        base: found.name.to_owned(),
+                        detail: found.detail,
+                    },
+                    note,
+                    related: Vec::new(),
+                },
+            );
+        }
+    }
+
     /// The graph can only be judged once every module has been seen, so these are
     /// the findings that cannot exist until the walk is over.
-    fn finish_modules(&mut self, root: &Path, config: &RqxConfig) {
+    fn finish_modules(&mut self, root: &Path, config: &RqxConfig, at: &mut Positions) {
         if !self.track_modules || self.modules.is_empty() {
             return;
         }
         let modules = std::mem::take(&mut self.modules);
-        let report =
-            rqx_ts::module_graph::analyze(modules, root, &config.entrypoints.paths);
+        self.advise_hierarchy(&modules, root, config, at);
+        let report = graph_report(modules, root, config);
 
         for dead in report.dead_exports {
-            let Some(range) = source_range(&dead.path, root, dead.span) else { continue };
-            self.accept_if_enabled(config, build(
-                RuleId::UnusedExport,
-                range,
-                Evidence::UnusedExport { symbol: dead.name.clone(), kind: dead.kind.to_owned() },
-                format!(
-                    "delete `{}`, or add its module to `entrypoints` if something outside \
+            let Some(range) = at.range(&dead.path, root, dead.span) else {
+                continue;
+            };
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::UnusedExport,
+                    range,
+                    Evidence::UnusedExport {
+                        symbol: dead.name.clone(),
+                        kind: dead.kind.to_owned(),
+                    },
+                    format!(
+                        "delete `{}`, or add its module to `entrypoints` if something outside \
                      the project imports it",
-                    dead.name
+                        dead.name
+                    ),
+                    Vec::new(),
                 ),
-                Vec::new(),
-            ));
+            );
         }
 
         for dead in report.dead_files {
-            let Some(range) = source_range(&dead.path, root, oxc_span(0, 0)) else { continue };
-            self.accept_if_enabled(config, build(
-                RuleId::UnusedFile,
-                range,
-                Evidence::UnusedFile { exports: dead.exports },
-                "delete the file, or add it to `entrypoints` if it is reached from outside \
+            let Some(range) = at.range(&dead.path, root, WHOLE_FILE) else {
+                continue;
+            };
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::UnusedFile,
+                    range,
+                    Evidence::UnusedFile {
+                        exports: dead.exports,
+                    },
+                    "delete the file, or add it to `entrypoints` if it is reached from outside \
                  the project"
-                    .to_owned(),
-                Vec::new(),
-            ));
+                        .to_owned(),
+                    Vec::new(),
+                ),
+            );
         }
 
         for (importer, targets) in &report.edges {
             self.import_edges.insert(
                 relative_to(root, importer),
-                targets.iter().map(|target| relative_to(root, target)).collect(),
+                targets
+                    .iter()
+                    .map(|target| relative_to(root, target))
+                    .collect(),
             );
         }
 
         for (path, importers) in &report.importers {
-            self.impact.set_importers(Arc::from(relative_to(root, path)), *importers);
+            self.impact
+                .set_importers(Arc::from(relative_to(root, path)), *importers);
         }
 
         for dead in report.unimplemented {
-            let Some(range) = source_range(&dead.path, root, dead.span) else { continue };
-            self.accept_if_enabled(config, build(
-                RuleId::SpeculativeGenerality,
-                range,
-                Evidence::UnusedBinding {
-                    name: dead.name.clone(),
-                    kind: format!("{} with no implementer", dead.kind),
-                },
-                format!(
-                    "inline `{}` into its single user until a second one arrives",
-                    dead.name
+            let Some(range) = at.range(&dead.path, root, dead.span) else {
+                continue;
+            };
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::SpeculativeGenerality,
+                    range,
+                    Evidence::UnusedBinding {
+                        name: dead.name.clone(),
+                        kind: format!("{} with no implementer", dead.kind),
+                    },
+                    format!(
+                        "inline `{}` into its single user until a second one arrives",
+                        dead.name
+                    ),
+                    Vec::new(),
                 ),
-                Vec::new(),
-            ));
+            );
         }
 
         for cycle in report.cycles {
-            let Some(anchor) = cycle.members.first() else { continue };
-            let Some(range) = source_range(anchor, root, oxc_span(0, 0)) else { continue };
-            let related = cycle
+            let Some(anchor) = cycle.members.first() else {
+                continue;
+            };
+            let Some(range) = at.range(anchor, root, WHOLE_FILE) else {
+                continue;
+            };
+            let related: Vec<SourceRange> = cycle
                 .members
                 .iter()
                 .skip(1)
-                .filter_map(|member| source_range(member, root, oxc_span(0, 0)))
+                .filter_map(|member| at.range(member, root, WHOLE_FILE))
                 .collect();
-            self.accept_if_enabled(config, build(
-                RuleId::CircularDependency,
-                range,
-                Evidence::ImportCycle { modules: cycle.members.len() as u32 },
-                "break the cycle by moving what they share into a module both can import, \
+            // Two modules importing each other is a cycle, which the rule above
+            // reports; three or more is a group no member can be read apart from,
+            // which is a different thing to say about the same fact.
+            if cycle.members.len() >= MEDIATOR_MEMBERS {
+                let names: Vec<String> = cycle
+                    .members
+                    .iter()
+                    .map(|member| relative_to(root, member))
+                    .collect();
+                self.advise_if_enabled(
+                    config,
+                    rqx_core::Advice {
+                        advisory: rqx_core::AdviceId::MediatorFits,
+                        location: range.clone(),
+                        signal: rqx_core::Signal::Cluster {
+                            names: names.join(", "),
+                            members: cycle.members.len() as u32,
+                        },
+                        note: format!(
+                            "give the group one place that knows how its members talk, \
+                             so each of the {} only has to know that one",
+                            cycle.members.len()
+                        ),
+                        related: related.clone(),
+                    },
+                );
+            }
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::CircularDependency,
+                    range,
+                    Evidence::ImportCycle {
+                        modules: cycle.members.len() as u32,
+                    },
+                    "break the cycle by moving what they share into a module both can import, \
                  or invert the weaker of the two dependencies behind an interface"
-                    .to_owned(),
-                related,
-            ));
+                        .to_owned(),
+                    related,
+                ),
+            );
+        }
+
+        for external in &report.external {
+            if external.importers.len() < FACADE_IMPORTERS {
+                continue;
+            }
+            let Some(range) = at.range(&external.path, root, external.span) else {
+                continue;
+            };
+            self.advise_if_enabled(
+                config,
+                rqx_core::Advice {
+                    advisory: rqx_core::AdviceId::FacadeFits,
+                    location: range,
+                    signal: rqx_core::Signal::Reach {
+                        name: external.specifier.clone(),
+                        sites: external.importers.len() as u32,
+                    },
+                    note: format!(
+                        "put `{}` behind one module of your own, so replacing it is one \
+                         edit rather than {}",
+                        external.specifier,
+                        crate::report::plural(external.importers.len() as u32, "edit", "edits"),
+                    ),
+                    related: Vec::new(),
+                },
+            );
         }
 
         for pair in report.parallel {
-            let Some(range) = source_range(&pair.path, root, pair.span) else { continue };
-            self.accept_if_enabled(config, build(
-                RuleId::ParallelInheritance,
-                range,
-                Evidence::ParallelHierarchy {
-                    parent: pair.parent.clone(),
-                    twin: pair.twin.clone(),
-                    shared: pair.shared.join(", "),
-                },
-                format!(
-                    "fold what varies into one hierarchy, so adding a case means one \
+            let Some(range) = at.range(&pair.path, root, pair.span) else {
+                continue;
+            };
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::ParallelInheritance,
+                    range,
+                    Evidence::ParallelHierarchy {
+                        parent: pair.parent.clone(),
+                        twin: pair.twin.clone(),
+                        shared: pair.shared.join(", "),
+                    },
+                    format!(
+                        "fold what varies into one hierarchy, so adding a case means one \
                      subclass rather than one in `{}` and one in `{}`",
-                    pair.parent, pair.twin
+                        pair.parent, pair.twin
+                    ),
+                    Vec::new(),
                 ),
-                Vec::new(),
-            ));
+            );
         }
     }
 
@@ -410,14 +601,15 @@ impl Collector {
             let Some(relative) = repo_path.strip_prefix(&prefix) else {
                 continue;
             };
-            self.impact.set_commits(Arc::from(relative.to_owned()), commits);
+            self.impact
+                .set_commits(Arc::from(relative.to_owned()), commits);
         }
     }
 
     /// Two files that almost always change together are one decision split across
     /// two places, which is what Shotgun Surgery describes. It needs history, so it
     /// runs last and stays silent outside a repository.
-    fn finish_cochange(&mut self, root: &Path, config: &RqxConfig) {
+    fn finish_cochange(&mut self, root: &Path, config: &RqxConfig, at: &mut Positions) {
         // Reads git history, not the import graph, so it must not ride on the gate
         // that builds one — enabling only this rule used to leave it silent.
         if !(config.rules.enabled(RuleId::ShotgunSurgery)
@@ -472,21 +664,24 @@ impl Collector {
                 .collect();
             diffuse.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
             for (file, total, peak) in diffuse.into_iter().take(5) {
-                let Some(range) = source_range(&root.join(file), root, oxc_span(0, 0)) else {
+                let Some(range) = at.range(&root.join(file), root, WHOLE_FILE) else {
                     continue;
                 };
-                self.accept_if_enabled(config, build(
-                    RuleId::DivergentChange,
-                    range,
-                    Evidence::CoChange {
-                        partner: "no single file".to_owned(),
-                        together: peak,
-                        total,
-                    },
-                    "split this file along the reasons it changes, so each part has one"
-                        .to_owned(),
-                    Vec::new(),
-                ));
+                self.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::DivergentChange,
+                        range,
+                        Evidence::CoChange {
+                            partner: "no single file".to_owned(),
+                            together: peak,
+                            total,
+                        },
+                        "split this file along the reasons it changes, so each part has one"
+                            .to_owned(),
+                        Vec::new(),
+                    ),
+                );
             }
         }
 
@@ -503,33 +698,46 @@ impl Collector {
             if total < 5 || together * 4 < total * 3 || !reported.insert(left.clone()) {
                 continue;
             }
-            let Some(range) = source_range(&root.join(&left), root, oxc_span(0, 0)) else {
+            let Some(range) = at.range(&root.join(&left), root, WHOLE_FILE) else {
                 continue;
             };
-            let Some(partner) = source_range(&root.join(&right), root, oxc_span(0, 0)) else {
+            let Some(partner) = at.range(&root.join(&right), root, WHOLE_FILE) else {
                 continue;
             };
-            self.accept_if_enabled(config, build(
-                RuleId::ShotgunSurgery,
-                range,
-                Evidence::CoChange { partner: right.clone(), together, total },
-                format!(
-                    "the decision these two share has no home; move it into one place so                      `{right}` stops needing an edit every time this file does"
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::ShotgunSurgery,
+                    range,
+                    Evidence::CoChange {
+                        partner: right.clone(),
+                        together,
+                        total,
+                    },
+                    format!(
+                        "the decision these two share has no home; move it into one place so \
+                     `{right}` stops needing an edit every time this file does"
+                    ),
+                    vec![partner],
                 ),
-                vec![partner],
-            ));
+            );
         }
     }
 
-    fn into_outcome(mut self, root: &Path, config: &RqxConfig) -> ScanOutcome {
+    fn into_outcome(mut self, root: &Path, settings: &Resolved) -> ScanOutcome {
+        let config = &settings.config;
         self.clear_progress();
-        self.finish_clones();
-        self.finish_modules(root, config);
+        self.finish_clones(root, settings);
+        let mut at = Positions::default();
+        self.finish_modules(root, config, &mut at);
         self.finish_history(root, config);
-        self.finish_cochange(root, config);
+        self.finish_cochange(root, config, &mut at);
         let retained = self.retained.len() as u32;
-        let mut findings: Vec<Finding> =
-            self.retained.into_iter().map(|Reverse(ranked)| ranked.0).collect();
+        let mut findings: Vec<Finding> = self
+            .retained
+            .into_iter()
+            .map(|Reverse(ranked)| ranked.0)
+            .collect();
         // The key has to be total. Two unused parameters of the same function share
         // a rule, a file and a line, so anything short of the byte offset lets the
         // order the heap happened to produce leak into the output — and that order
@@ -545,6 +753,15 @@ impl Collector {
                 // ordering falls back to their text rather than to heap order.
                 .then_with(|| a.fix_hint.cmp(&b.fix_hint))
         });
+        // Same reason the findings key is total: the collector sees files in whatever
+        // order the workers finish, and that order depends on the thread count.
+        self.advice.sort_by(|a, b| {
+            a.location
+                .file
+                .cmp(&b.location.file)
+                .then(a.location.start.cmp(&b.location.start))
+                .then(a.advisory.cmp(&b.advisory))
+        });
         self.skipped.sort();
         ScanOutcome {
             root: root.to_path_buf(),
@@ -554,6 +771,7 @@ impl Collector {
             impact: self.impact,
             import_edges: self.import_edges,
             findings,
+            advice: self.advice,
             findings_by_file: self.findings_by_file,
             lines_by_file: self.lines_by_file,
             code_lines: self.code_lines,
@@ -564,9 +782,17 @@ impl Collector {
     }
 }
 
-const fn oxc_span(start: u32, end: u32) -> oxc_span_alias::Span {
-    oxc_span_alias::Span::new(start, end)
-}
+/// A finding about a whole file has no interesting span; it points at the first
+/// byte so the report still opens the file at a real position.
+const WHOLE_FILE: Span = Span::new(0, 0);
+
+/// Two modules that import each other is a cycle and already reported as one. Three is
+/// the smallest group where no member can be understood on its own.
+const MEDIATOR_MEMBERS: usize = 3;
+
+/// Two files reaching for the same package is a coincidence; three is a decision the
+/// project has made without writing it down anywhere.
+const FACADE_IMPORTERS: usize = 3;
 
 /// Graph and history findings are constructed here rather than through
 /// `FindingBuilder`, so the rule filter has to be applied on this path too — without
@@ -593,19 +819,32 @@ fn build(
 /// Graph findings are discovered after the file's text is gone, so the line and
 /// column are resolved by re-reading it; a file that vanished mid-scan simply
 /// drops its finding rather than reporting a position that no longer exists.
-fn source_range(path: &Path, root: &Path, span: oxc_span_alias::Span) -> Option<SourceRange> {
-    let text = std::fs::read_to_string(path).ok()?;
-    let index = rqx_ts::LineIndex::new(&text);
-    let (line, column) = index.locate(span.start);
-    let (end_line, _) = index.locate(span.end);
-    Some(SourceRange {
-        file: Arc::from(relative_to(root, path)),
-        start: span.start,
-        end: span.end,
-        line,
-        column,
-        end_line,
-    })
+/// Reading is memoised because a module with twelve dead exports is one file, and
+/// the naive version read it twelve times.
+#[derive(Default)]
+struct Positions {
+    files: HashMap<PathBuf, Option<String>>,
+}
+
+impl Positions {
+    fn range(&mut self, path: &Path, root: &Path, span: Span) -> Option<SourceRange> {
+        let text = self
+            .files
+            .entry(path.to_path_buf())
+            .or_insert_with(|| std::fs::read_to_string(path).ok())
+            .as_deref()?;
+        let index = rqx_core::LineIndex::new(text);
+        let (line, column) = index.locate(span.start);
+        let (end_line, _) = index.locate(span.end);
+        Some(SourceRange {
+            file: Arc::from(relative_to(root, path)),
+            start: span.start,
+            end: span.end,
+            line,
+            column,
+            end_line,
+        })
+    }
 }
 
 /// Paths are shown relative to what was scanned, not to the shell's working
@@ -638,37 +877,50 @@ fn relative_to(root: &Path, path: &Path) -> String {
 fn collect(
     receiver: Receiver<ScanMessage>,
     root: &Path,
-    config: &RqxConfig,
+    settings: &Resolved,
     progress: bool,
     watcher: Option<&SyncSender<ScanProgress>>,
 ) -> ScanOutcome {
     let mut collector = Collector::new(
-        config.scan.max_findings,
-        config.rules.enabled(RuleId::DuplicateCode),
-        config.rules.needs_modules(),
+        settings.config.scan.max_findings,
+        settings.enabled_anywhere(RuleId::DuplicateCode),
+        settings.needs_modules(),
         progress,
     );
     for message in receiver {
         match message {
-            ScanMessage::File { path, findings, clones, module, code_lines } => {
+            ScanMessage::File(file) => {
+                let Analyzed {
+                    display,
+                    canonical,
+                    language,
+                    findings,
+                    advice,
+                    clones,
+                    module,
+                    code_lines,
+                } = *file;
                 collector.files_scanned += 1;
                 collector.code_lines += u64::from(code_lines);
                 for finding in findings {
                     collector.accept(finding);
                 }
+                collector.advice.extend(advice);
                 for site in clones {
                     collector.record_clone(site);
                 }
-                let display = relative_to(root, &path);
-                collector.lines_by_file.insert(Arc::from(display.as_str()), code_lines);
+                collector
+                    .lines_by_file
+                    .insert(Arc::from(display.as_str()), code_lines);
                 collector.report_progress(&display);
-                collector.analyzed.insert(display);
-                if collector.track_modules {
-                    collector.modules.push(rqx_ts::module_graph::ModuleEntry {
-                        path: path.canonicalize().unwrap_or(path),
+                if let Some(path) = canonical {
+                    collector.modules.push(rqx_lang::module_graph::ModuleEntry {
+                        language,
+                        path,
                         facts: module,
                     });
                 }
+                collector.analyzed.insert(display);
                 if let Some(watcher) = watcher {
                     // A dropped update costs nothing: the reader only ever wants the
                     // latest count, so a full channel means it is already current.
@@ -681,7 +933,7 @@ fn collect(
             ScanMessage::Skipped { path, reason } => collector.skipped.push((path, reason)),
         }
     }
-    collector.into_outcome(root, config)
+    collector.into_outcome(root, settings)
 }
 
 /// Oversized files are rejected here rather than by the walker's own
@@ -691,10 +943,11 @@ fn analyze_entry(
     path: &Path,
     root: &Path,
     size: Option<u64>,
-    config: &RqxConfig,
+    settings: &Resolved,
     cache: Option<&crate::cache::Cache>,
     sender: &SyncSender<ScanMessage>,
 ) {
+    let config = settings.for_file(path);
     if size.is_some_and(|bytes| bytes > config.scan.max_filesize) {
         let _ = sender.send(ScanMessage::Skipped {
             path: path.to_owned(),
@@ -712,36 +965,96 @@ fn analyze_entry(
             let cached = cache.and_then(|cache| cache.get(&display, &source).cloned());
             let analysed = match cached {
                 Some(analysis) => Ok(analysis),
-                None => rqx_ts::analyze(path, &display, &source, config).inspect(|analysis| {
+                None => rqx_lang::analyze(path, &display, &source, config).inspect(|analysis| {
                     if let Some(cache) = cache {
                         cache.put(&display, &source, analysis);
                     }
                 }),
             };
             match analysed {
-                Ok(analysis) => ScanMessage::File {
-                    path: path.to_owned(),
+                Ok(analysis) => ScanMessage::File(Box::new(Analyzed {
+                    canonical: settings
+                        .needs_modules()
+                        .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
+                    display,
+                    language: analysis.language,
                     findings: analysis.findings,
+                    advice: analysis.advice,
                     clones: analysis.clones,
                     module: analysis.module,
                     code_lines: analysis.code_lines,
+                })),
+                Err(error) => ScanMessage::Skipped {
+                    path: path.to_owned(),
+                    reason: error.to_string(),
                 },
-                Err(error) => {
-                    ScanMessage::Skipped { path: path.to_owned(), reason: error.to_string() }
-                }
             }
         }
-        Err(error) => ScanMessage::Skipped { path: path.to_owned(), reason: error.to_string() },
+        Err(error) => ScanMessage::Skipped {
+            path: path.to_owned(),
+            reason: error.to_string(),
+        },
     };
     let _ = sender.send(message);
 }
 
+/// One graph per language, merged. Import syntax means different things in different
+/// languages, so resolving a Python module against a Java classpath would invent
+/// edges — and a missing edge is a dead-code finding about live code.
+fn graph_report(
+    modules: Vec<rqx_lang::module_graph::ModuleEntry>,
+    root: &Path,
+    config: &RqxConfig,
+) -> rqx_lang::module_graph::GraphReport {
+    let mut by_language: HashMap<Language, Vec<rqx_lang::module_graph::ModuleEntry>> =
+        HashMap::new();
+    for module in modules {
+        by_language.entry(module.language).or_default().push(module);
+    }
+
+    let mut languages: Vec<Language> = by_language.keys().copied().collect();
+    languages.sort();
+
+    let mut merged = rqx_lang::module_graph::GraphReport::default();
+    for language in languages {
+        let support = rqx_lang::support(language);
+        let entries = by_language.remove(&language).unwrap_or_default();
+        let resolver = (support.resolver)(root);
+        let report = rqx_lang::module_graph::analyze(
+            entries,
+            root,
+            &config.entrypoints.paths,
+            resolver.as_ref(),
+            support.profile.is_vendor,
+        );
+        merged.dead_exports.extend(report.dead_exports);
+        merged.external.extend(report.external);
+        merged.dead_files.extend(report.dead_files);
+        merged.cycles.extend(report.cycles);
+        merged.unimplemented.extend(report.unimplemented);
+        merged.parallel.extend(report.parallel);
+        merged.importers.extend(report.importers);
+        merged.edges.extend(report.edges);
+    }
+    merged
+        .dead_exports
+        .sort_by(|a, b| a.path.cmp(&b.path).then(a.span.start.cmp(&b.span.start)));
+    merged.dead_files.sort_by(|a, b| a.path.cmp(&b.path));
+    merged.cycles.sort_by(|a, b| a.members.cmp(&b.members));
+    merged.external.sort_by(|a, b| a.specifier.cmp(&b.specifier));
+    merged
+}
+
 fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel> {
     let mut types = TypesBuilder::new();
-    for glob in ["*.ts", "*.tsx", "*.mts", "*.cts"] {
-        types.add("typescript", glob).context("registering a TypeScript file glob")?;
+    for language in config.languages.enabled() {
+        for extension in language.extensions() {
+            types
+                .add(language.slug(), &format!("*.{extension}"))
+                .with_context(|| format!("registering a {} file glob", language.title()))?;
+        }
+        types.select(language.slug());
     }
-    types.select("typescript");
 
     let mut overrides = OverrideBuilder::new(root);
     for pattern in &config.ignore.patterns {
@@ -753,7 +1066,7 @@ fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel>
     let pruned: Vec<String> = config.scan.prune_dirs.clone();
     let mut builder = WalkBuilder::new(root);
     builder
-        .types(types.build().context("building the TypeScript file matcher")?)
+        .types(types.build().context("building the source file matcher")?)
         .overrides(overrides.build().context("building ignore overrides")?)
         .threads(config.scan.threads)
         .filter_entry(move |entry| {
@@ -766,45 +1079,49 @@ fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel>
     Ok(builder.build_parallel())
 }
 
-pub fn scan(root: &Path, config: &RqxConfig) -> Result<ScanOutcome> {
-    scan_watched(root, config, None)
+pub fn scan(root: &Path, settings: &Resolved) -> Result<ScanOutcome> {
+    scan_watched(root, settings, None)
 }
 
 pub fn scan_with_progress(
     root: &Path,
-    config: &RqxConfig,
+    settings: &Resolved,
     watcher: SyncSender<ScanProgress>,
 ) -> Result<ScanOutcome> {
-    scan_watched(root, config, Some(watcher))
+    scan_watched(root, settings, Some(watcher))
 }
 
 fn scan_watched(
     root: &Path,
-    config: &RqxConfig,
+    settings: &Resolved,
     watcher: Option<SyncSender<ScanProgress>>,
 ) -> Result<ScanOutcome> {
+    let config = &settings.config;
     let walker = build_walker(root, config)?;
-    let cache = config.scan.cache.then(|| crate::cache::Cache::open(root, config));
+    let cache = config
+        .scan
+        .cache
+        .then(|| crate::cache::Cache::open(root, settings));
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
     // A caller watching the channel is drawing its own progress on this terminal,
     // and a second writer scribbling over it corrupts both.
     let progress = watcher.is_none() && std::io::stderr().is_terminal();
 
     let collector = thread::scope(|scope| {
-        let config_ref = &*config;
+        let settings_ref = &*settings;
         let watcher = watcher.as_ref();
         let root_ref = root;
         let handle =
-            scope.spawn(move || collect(receiver, root_ref, config_ref, progress, watcher));
+            scope.spawn(move || collect(receiver, root_ref, settings_ref, progress, watcher));
         let cached = cache.as_ref();
         walker.run(|| {
             let sender = sender.clone();
-            let config = &*config;
+            let settings = &*settings;
             Box::new(move |entry| {
                 match entry {
                     Ok(entry) if entry.file_type().is_some_and(|kind| kind.is_file()) => {
                         let size = entry.metadata().ok().map(|meta| meta.len());
-                        analyze_entry(entry.path(), root, size, config, cached, &sender);
+                        analyze_entry(entry.path(), root, size, settings, cached, &sender);
                     }
                     Ok(_) => {}
                     Err(error) => {

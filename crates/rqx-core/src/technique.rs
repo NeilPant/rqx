@@ -58,7 +58,10 @@ impl Group {
     }
 
     pub fn techniques(self) -> impl Iterator<Item = FixTechnique> {
-        FixTechnique::ALL.iter().copied().filter(move |technique| technique.group() == self)
+        FixTechnique::ALL
+            .iter()
+            .copied()
+            .filter(move |technique| technique.group() == self)
     }
 }
 
@@ -226,7 +229,11 @@ mod tests {
         let mut seen = BTreeSet::new();
         for technique in FixTechnique::ALL.iter().copied() {
             assert!(!technique.name().is_empty(), "{technique:?} has no name");
-            assert!(seen.insert(technique.name()), "duplicate name {}", technique.name());
+            assert!(
+                seen.insert(technique.name()),
+                "duplicate name {}",
+                technique.name()
+            );
         }
     }
 }

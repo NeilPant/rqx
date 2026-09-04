@@ -169,7 +169,10 @@ impl Smell {
     }
 
     pub fn in_family(family: Category) -> impl Iterator<Item = Self> {
-        Self::ALL.iter().copied().filter(move |smell| smell.family() == family)
+        Self::ALL
+            .iter()
+            .copied()
+            .filter(move |smell| smell.family() == family)
     }
 }
 
@@ -195,7 +198,12 @@ mod tests {
             (Category::Dispensables, 6),
             (Category::Couplers, 4),
         ] {
-            assert_eq!(Smell::in_family(family).count(), expected, "{}", family.title());
+            assert_eq!(
+                Smell::in_family(family).count(),
+                expected,
+                "{}",
+                family.title()
+            );
         }
     }
 

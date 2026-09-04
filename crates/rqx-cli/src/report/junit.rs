@@ -31,7 +31,11 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     let cases: usize = report
         .files
         .iter()
-        .map(|file| shown.get(file.as_str()).map_or(1, |findings| findings.len().max(1)))
+        .map(|file| {
+            shown
+                .get(file.as_str())
+                .map_or(1, |findings| findings.len().max(1))
+        })
         .sum();
     let failures = report
         .findings
@@ -50,19 +54,29 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
 
     for file in report.files {
         let path = format!("{prefix}{file}");
-        let findings = shown.get(file.as_str()).map(Vec::as_slice).unwrap_or_default();
+        let findings = shown
+            .get(file.as_str())
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         writeln!(
             out,
             r#"  <testsuite name="{}" tests="{}" failures="{}">"#,
             escape(&path),
             findings.len().max(1),
-            findings.iter().filter(|f| f.severity >= Severity::Warning).count()
+            findings
+                .iter()
+                .filter(|f| f.severity >= Severity::Warning)
+                .count()
         )?;
 
         // A clean file still emits a passing case, so a provider showing a pass rate
         // reports one against the whole tree rather than against the findings alone.
         if findings.is_empty() {
-            writeln!(out, r#"    <testcase classname="{}" name="rqx" />"#, escape(&path))?;
+            writeln!(
+                out,
+                r#"    <testcase classname="{}" name="rqx" />"#,
+                escape(&path)
+            )?;
         }
 
         for finding in findings {
@@ -78,7 +92,10 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
                 escape(&name)
             )?;
             let message = escape(&finding.evidence.to_string());
-            let body = escape(&format!("{}\n\nWhy: {}\nFix: {}", finding.evidence, spec.why, finding.fix_hint));
+            let body = escape(&format!(
+                "{}\n\nWhy: {}\nFix: {}",
+                finding.evidence, spec.why, finding.fix_hint
+            ));
             match finding.severity {
                 Severity::Info => {
                     writeln!(out, r#"      <skipped message="{message}" />"#)?;

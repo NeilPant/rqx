@@ -96,6 +96,11 @@ catalogue! {
         why: "a raw string or number carries no rules of its own, so every place that \
               uses it re-implements the same validation, and one of them gets it wrong",
         off_by_default: true,
+        not_applicable: [
+            (Go, "Go has no union types, so the string-literal alias this measures cannot be written"),
+            (Java, "Java has no union types, so the string-literal alias this measures cannot be written"),
+            (Cpp, "C++ has no union types, so the string-literal alias this measures cannot be written"),
+        ],
     },
 
     // ---- Object-Orientation Abusers -------------------------------------------
@@ -141,6 +146,9 @@ catalogue! {
         severity: Warning,
         why: "the subclass is inheriting an interface it cannot honour, so a caller \
               holding the base type has no safe way to know which methods actually work",
+        not_applicable: [
+            (Go, "nothing is inherited in Go, so nothing can be refused: a type either has a method or does not"),
+        ],
     },
     BaseDependsOnDerived {
         slug: "base-depends-on-derived",
@@ -154,6 +162,9 @@ catalogue! {
         severity: Warning,
         why: "the base cannot be deployed, tested or understood without its children, \
               which is the entire benefit of having a base class given away",
+        not_applicable: [
+            (Go, "Go has no inheritance: embedding is a field, so no type is a base another derives from"),
+        ],
     },
     InappropriateStatic {
         slug: "inappropriate-static",
@@ -167,6 +178,9 @@ catalogue! {
         severity: Info,
         why: "a static can never be overridden, so behaviour that clearly belongs to the \
               instance is frozen for every subclass and every test that wants to fake it",
+        not_applicable: [
+            (Go, "Go has no methods on the type itself, only on values of it, so the static-on-own-type shape cannot be written"),
+        ],
     },
 
     // ---- Change Preventers ----------------------------------------------------
@@ -213,6 +227,9 @@ catalogue! {
         why: "every new case means a new subclass in both trees, and the day someone \
               adds only one the two hierarchies quietly stop lining up",
         off_by_default: true,
+        not_applicable: [
+            (Go, "hierarchies need inheritance, and Go has none to build one from"),
+        ],
     },
 
     // ---- Dispensables ---------------------------------------------------------
@@ -293,6 +310,9 @@ catalogue! {
         severity: Warning,
         why: "a private member can only be used from inside its class, so one nothing in \
               the class touches is unreachable by construction",
+        not_applicable: [
+            (Go, "Go scopes visibility to the package, not the type, so a field unused in one file may be read by another beside it"),
+        ],
     },
     UnreachableCode {
         slug: "unreachable-code",
@@ -373,6 +393,9 @@ catalogue! {
         severity: Error,
         why: "the failure is swallowed silently, so the first sign of it is wrong data \
               somewhere far away with nothing in the logs to connect the two",
+        not_applicable: [
+            (Go, "Go has no exceptions and so no catch clause; an ignored error is a different shape this rule does not measure"),
+        ],
     },
     MagicNumber {
         slug: "magic-number",
@@ -815,6 +838,13 @@ catalogue! {
         severity: Error,
         why: "this silently disables every other test in the file, so the suite goes green \
               while almost nothing ran",
+        not_applicable: [
+            (Python, "pytest and unittest focus a run with `-k` on the command line; \
+                      there is nothing in the source to find"),
+            (Go, "`go test` focuses a run with `-run` on the command line; there is nothing in the source to find"),
+            (Java, "JUnit has no focus annotation; a run is narrowed by the build tool, not by the test"),
+            (Cpp, "GoogleTest focuses a run with `--gtest_filter` on the command line; there is nothing in the source to find"),
+        ],
     },
     AssertionlessTest {
         slug: "assertionless-test",

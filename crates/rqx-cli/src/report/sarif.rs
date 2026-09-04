@@ -77,8 +77,13 @@ fn result(finding: &Finding, prefix: &str) -> Value {
         }
     });
     if !finding.related.is_empty() {
-        value["relatedLocations"] =
-            Value::Array(finding.related.iter().map(|range| location(range, prefix)).collect());
+        value["relatedLocations"] = Value::Array(
+            finding
+                .related
+                .iter()
+                .map(|range| location(range, prefix))
+                .collect(),
+        );
     }
     value
 }
@@ -107,7 +112,11 @@ fn document(findings: &[&Finding], prefix: &str) -> Result<String> {
 }
 
 pub fn render(report: &crate::report::Report<'_>, out: &mut dyn std::io::Write) -> Result<()> {
-    writeln!(out, "{}", document(&report.findings, &report.path_prefix())?)?;
+    writeln!(
+        out,
+        "{}",
+        document(&report.findings, &report.path_prefix())?
+    )?;
     Ok(())
 }
 
@@ -133,7 +142,10 @@ mod tests {
             },
             severity: spec.severity,
             confidence: Confidence::Verified,
-            evidence: Evidence::StatementCount { count: 90, threshold: 40 },
+            evidence: Evidence::StatementCount {
+                count: 90,
+                threshold: 40,
+            },
             fix_hint: "split it".to_owned(),
             related: Vec::new(),
         }
@@ -141,7 +153,10 @@ mod tests {
 
     #[test]
     fn produces_a_well_formed_sarif_run() {
-        let items = [finding(RuleId::LongFunction, 12), finding(RuleId::DeepNesting, 30)];
+        let items = [
+            finding(RuleId::LongFunction, 12),
+            finding(RuleId::DeepNesting, 30),
+        ];
         let refs: Vec<&Finding> = items.iter().collect();
         let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
 
@@ -156,7 +171,10 @@ mod tests {
     /// two lists have to agree or findings silently vanish in the UI.
     #[test]
     fn every_result_names_a_described_rule() {
-        let items = [finding(RuleId::LongFunction, 1), finding(RuleId::LongFunction, 2)];
+        let items = [
+            finding(RuleId::LongFunction, 1),
+            finding(RuleId::LongFunction, 2),
+        ];
         let refs: Vec<&Finding> = items.iter().collect();
         let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
         let run = &document["runs"][0];
@@ -179,7 +197,8 @@ mod tests {
         item.location.column = 0;
         let refs = vec![&item];
         let document: Value = serde_json::from_str(&document(&refs, "").unwrap()).unwrap();
-        let region = &document["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"];
+        let region =
+            &document["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["region"];
         assert_eq!(region["startLine"], 1);
         assert_eq!(region["startColumn"], 1);
     }

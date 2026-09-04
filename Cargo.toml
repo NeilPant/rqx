@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/rqx-core", "crates/rqx-ts", "crates/rqx-cli"]
+members = ["crates/rqx-core", "crates/rqx-lang", "crates/rqx-cli"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,7 +10,7 @@ license = "MIT"
 
 [workspace.dependencies]
 rqx-core = { path = "crates/rqx-core" }
-rqx-ts = { path = "crates/rqx-ts" }
+rqx-lang = { path = "crates/rqx-lang" }
 
 [profile.release]
 lto = "thin"

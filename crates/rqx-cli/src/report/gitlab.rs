@@ -58,7 +58,9 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
             severity: severity(finding.severity),
             location: Location {
                 path: format!("{prefix}{}", finding.location.file),
-                lines: Lines { begin: finding.location.line.max(1) },
+                lines: Lines {
+                    begin: finding.location.line.max(1),
+                },
             },
         })
         .collect();
@@ -88,7 +90,10 @@ mod tests {
             },
             severity: Severity::Warning,
             confidence: Confidence::Verified,
-            evidence: Evidence::StatementCount { count: 99, threshold: 40 },
+            evidence: Evidence::StatementCount {
+                count: 99,
+                threshold: 40,
+            },
             fix_hint: String::new(),
             related: Vec::new(),
         }
@@ -102,7 +107,10 @@ mod tests {
     #[test]
     fn a_different_measurement_is_a_different_finding() {
         let mut other = finding(10);
-        other.evidence = Evidence::StatementCount { count: 120, threshold: 40 };
+        other.evidence = Evidence::StatementCount {
+            count: 120,
+            threshold: 40,
+        };
         assert_ne!(fingerprint(&finding(10)), fingerprint(&other));
     }
 }

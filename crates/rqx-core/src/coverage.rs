@@ -2,12 +2,16 @@ use crate::rule::RuleId;
 
 /// What Rqx does about one entry in a canonical catalogue. Every entry carries one,
 /// so "42 of 88 implemented" stops being a sentence in a README that nothing checks.
+///
+/// Generic over what implements an entry because there are two kinds of catalogue: a
+/// smell or a heuristic is answered by a rule, a design pattern by an advisory.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Coverage {
-    Implemented(&'static [RuleId]),
+pub enum Coverage<Answer: 'static = RuleId> {
+    Implemented(&'static [Answer]),
     /// Decidable, but no rule reports it yet.
     Absent(&'static str),
-    /// Needs a type checker; oxc has none, so guessing is the only alternative.
+    /// Needs a type checker, and Rqx parses without resolving types, so guessing is
+    /// the only alternative.
     NeedsTypes(&'static str),
     /// No metric can decide it. A tool that claimed otherwise would invent findings.
     NotStatic(&'static str),
@@ -15,8 +19,8 @@ pub enum Coverage {
     NotApplicable(&'static str),
 }
 
-impl Coverage {
-    pub const fn rules(self) -> &'static [RuleId] {
+impl<Answer: Copy + 'static> Coverage<Answer> {
+    pub const fn rules(self) -> &'static [Answer] {
         match self {
             Self::Implemented(rules) => rules,
             _ => &[],
@@ -34,6 +38,22 @@ impl Coverage {
             | Self::NeedsTypes(reason)
             | Self::NotStatic(reason)
             | Self::NotApplicable(reason) => Some(reason),
+        }
+    }
+
+    /// Lives here so the two catalogues cannot describe their coverage differently.
+    pub fn detail(self) -> String
+    where
+        Answer: std::fmt::Display,
+    {
+        match self.reason() {
+            Some(reason) => format!("{} \u{2014} {reason}", self.label()),
+            None => self
+                .rules()
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", "),
         }
     }
 
@@ -59,7 +79,7 @@ pub struct Tally {
 }
 
 impl Tally {
-    pub fn of(entries: impl Iterator<Item = Coverage>) -> Self {
+    pub fn of<Answer: Copy + 'static>(entries: impl Iterator<Item = Coverage<Answer>>) -> Self {
         let mut tally = Self::default();
         for entry in entries {
             match entry {

@@ -3,6 +3,9 @@ use std::time::{Duration, Instant};
 /// Frames per second while something is moving. The loop blocks on input when
 /// nothing is, so this is a ceiling on a busy screen rather than a steady wakeup.
 pub const FRAME: Duration = Duration::from_millis(33);
+/// What the mascot alone needs. A blink is the only thing moving on most screens, but it
+/// has to be shorter than a blink looks to be, so the wakeups have to outpace it.
+pub const IDLE: Duration = Duration::from_millis(200);
 
 const SPINNER: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
@@ -16,15 +19,14 @@ pub struct Motion {
 
 impl Motion {
     pub fn new(reduced: bool) -> Self {
-        Self { started: Instant::now(), reduced }
+        Self {
+            started: Instant::now(),
+            reduced,
+        }
     }
 
     pub const fn reduced(&self) -> bool {
         self.reduced
-    }
-
-    pub fn elapsed(&self) -> Duration {
-        self.started.elapsed()
     }
 
     /// Cubic ease-out over `over`, clamped to `0..=1`. With motion off everything is

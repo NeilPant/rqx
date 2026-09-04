@@ -17,7 +17,9 @@ const fn level(severity: Severity) -> &'static str {
 /// carry its breaks encoded or the annotation is silently truncated.
 /// https://docs.github.com/actions/reference/workflow-commands-for-github-actions
 fn encode(text: &str) -> String {
-    text.replace('%', "%25").replace('\r', "%0D").replace('\n', "%0A")
+    text.replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
 }
 
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {

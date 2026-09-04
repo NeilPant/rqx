@@ -13,9 +13,9 @@ use lsp_types::{
     Position, PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability,
     TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, Uri,
 };
-use rqx_core::config::RqxConfig;
 use rqx_core::finding::{Confidence, Finding, Severity};
 
+use crate::config::Resolved;
 use crate::scan;
 
 /// Custom request the extension uses to scan the whole workspace, since LSP has no
@@ -33,7 +33,10 @@ fn severity(severity: Severity) -> DiagnosticSeverity {
 /// LSP positions are zero-based in both axes while findings carry them one-based,
 /// so an off-by-one here puts every squiggle on the wrong line.
 fn position(line: u32, column: u32) -> Position {
-    Position { line: line.saturating_sub(1), character: column.saturating_sub(1) }
+    Position {
+        line: line.saturating_sub(1),
+        character: column.saturating_sub(1),
+    }
 }
 
 fn range_of(finding: &Finding) -> Range {
@@ -61,7 +64,10 @@ fn message_for(finding: &Finding) -> String {
         Confidence::Heuristic => " (measured threshold)",
         Confidence::Low => " (low confidence)",
     };
-    format!("{}{confidence}\n\n{}\n\nFix: {}", finding.evidence, spec.why, finding.fix_hint)
+    format!(
+        "{}{confidence}\n\n{}\n\nFix: {}",
+        finding.evidence, spec.why, finding.fix_hint
+    )
 }
 
 fn diagnostic(root: &Path, finding: &Finding) -> Diagnostic {
@@ -98,7 +104,7 @@ fn diagnostic(root: &Path, finding: &Finding) -> Diagnostic {
 
 struct Server {
     root: PathBuf,
-    config: RqxConfig,
+    config: Resolved,
     /// Findings per file, kept so hover can answer without rescanning and so a file
     /// that becomes clean can be published with an empty list rather than keeping
     /// stale squiggles.
@@ -107,13 +113,22 @@ struct Server {
 
 impl Server {
     fn analyze_file(&mut self, path: &Path) -> Vec<Finding> {
+        // A file no language claims, or one the workspace has switched off, is not a
+        // file with no findings — it is a file this server has nothing to say about.
+        let Some(language) = rqx_core::Language::of_path(path) else {
+            return Vec::new();
+        };
+        if !self.config.config.languages.includes(language) {
+            return Vec::new();
+        }
         let Ok(source) = std::fs::read_to_string(path) else {
             return Vec::new();
         };
-        let relative = path
-            .strip_prefix(&self.root)
-            .map_or_else(|_| path.display().to_string(), |rest| rest.display().to_string());
-        rqx_ts::analyze(path, &relative, &source, &self.config)
+        let relative = path.strip_prefix(&self.root).map_or_else(
+            |_| path.display().to_string(),
+            |rest| rest.display().to_string(),
+        );
+        rqx_lang::analyze(path, &relative, &source, self.config.for_file(path))
             .map(|analysis| analysis.findings)
             .unwrap_or_default()
     }
@@ -122,9 +137,15 @@ impl Server {
         let Some(uri) = uri_for(&self.root, &relative) else {
             return;
         };
-        let diagnostics =
-            findings.iter().map(|finding| diagnostic(&self.root, finding)).collect();
-        let params = PublishDiagnosticsParams { uri, diagnostics, version: None };
+        let diagnostics = findings
+            .iter()
+            .map(|finding| diagnostic(&self.root, finding))
+            .collect();
+        let params = PublishDiagnosticsParams {
+            uri,
+            diagnostics,
+            version: None,
+        };
         let _ = connection.sender.send(Message::Notification(Notification {
             method: PublishDiagnostics::METHOD.to_owned(),
             params: serde_json::to_value(params).unwrap_or_default(),
@@ -133,11 +154,14 @@ impl Server {
     }
 
     fn refresh(&mut self, connection: &Connection, uri: &Uri) {
-        let Some(path) = path_from_uri(uri) else { return };
+        let Some(path) = path_from_uri(uri) else {
+            return;
+        };
         let findings = self.analyze_file(&path);
-        let relative = path
-            .strip_prefix(&self.root)
-            .map_or_else(|_| path.display().to_string(), |rest| rest.display().to_string());
+        let relative = path.strip_prefix(&self.root).map_or_else(
+            |_| path.display().to_string(),
+            |rest| rest.display().to_string(),
+        );
         self.publish(connection, relative, findings);
     }
 
@@ -150,7 +174,10 @@ impl Server {
 
         let mut by_file: HashMap<String, Vec<Finding>> = HashMap::new();
         for finding in &outcome.findings {
-            by_file.entry(finding.location.file.to_string()).or_default().push(finding.clone());
+            by_file
+                .entry(finding.location.file.to_string())
+                .or_default()
+                .push(finding.clone());
         }
         // A file that had findings and now has none still needs an empty publish, or
         // the editor keeps showing the squiggles it was last told about.
@@ -174,14 +201,16 @@ impl Server {
     fn hover(&self, params: &HoverParams) -> Option<Hover> {
         let uri = &params.text_document_position_params.text_document.uri;
         let path = path_from_uri(uri)?;
-        let relative = path
-            .strip_prefix(&self.root)
-            .map_or_else(|_| path.display().to_string(), |rest| rest.display().to_string());
+        let relative = path.strip_prefix(&self.root).map_or_else(
+            |_| path.display().to_string(),
+            |rest| rest.display().to_string(),
+        );
         let line = params.text_document_position_params.position.line + 1;
 
         let findings = self.published.get(&relative)?;
         let finding = findings.iter().find(|finding| {
-            line >= finding.location.line && line <= finding.location.end_line.max(finding.location.line)
+            line >= finding.location.line
+                && line <= finding.location.end_line.max(finding.location.line)
         })?;
 
         let spec = finding.rule.spec();
@@ -190,13 +219,21 @@ impl Server {
             spec.slug,
             finding.evidence,
             spec.why,
-            spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / "),
+            spec.fixes
+                .iter()
+                .map(|fix| fix.name())
+                .collect::<Vec<_>>()
+                .join(" / "),
             finding.fix_hint,
             spec.citation(),
-            spec.guru_smell.map_or("no catalog entry", rqx_core::Smell::name)
+            spec.guru_smell
+                .map_or("no catalog entry", rqx_core::Smell::name)
         );
         Some(Hover {
-            contents: HoverContents::Markup(MarkupContent { kind: MarkupKind::Markdown, value }),
+            contents: HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value,
+            }),
             range: Some(range_of(finding)),
         })
     }
@@ -233,12 +270,14 @@ fn capabilities() -> ServerCapabilities {
     ServerCapabilities {
         // Diagnostics are recomputed on open and save rather than on every keystroke:
         // a half-typed function is not a finding, it is a work in progress.
-        text_document_sync: Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
-            open_close: Some(true),
-            change: Some(TextDocumentSyncKind::NONE),
-            save: Some(TextDocumentSyncSaveOptions::Supported(true)),
-            ..TextDocumentSyncOptions::default()
-        })),
+        text_document_sync: Some(TextDocumentSyncCapability::Options(
+            TextDocumentSyncOptions {
+                open_close: Some(true),
+                change: Some(TextDocumentSyncKind::NONE),
+                save: Some(TextDocumentSyncSaveOptions::Supported(true)),
+                ..TextDocumentSyncOptions::default()
+            },
+        )),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         ..ServerCapabilities::default()
     }
@@ -250,7 +289,7 @@ fn cast<R: lsp_types::request::Request>(
     request.extract(<R as lsp_types::request::Request>::METHOD)
 }
 
-pub fn serve(root: &Path, config: RqxConfig) -> Result<(), Box<dyn Error + Sync + Send>> {
+pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync + Send>> {
     let (connection, io_threads) = Connection::stdio();
     let initialize = serde_json::to_value(capabilities())?;
     let params = connection.initialize(initialize)?;
@@ -266,7 +305,11 @@ pub fn serve(root: &Path, config: RqxConfig) -> Result<(), Box<dyn Error + Sync 
         })
         .unwrap_or_else(|| root.to_path_buf());
 
-    let server = Server { root, config, published: HashMap::new() };
+    let server = Server {
+        root,
+        config,
+        published: HashMap::new(),
+    };
     // The connection owns the sender, and the writer thread only stops once every
     // sender is dropped — so it must go out of scope before joining, or a clean
     // editor shutdown hangs the process forever.
@@ -311,8 +354,7 @@ fn main_loop(
             }
             Message::Notification(notification) => {
                 let method = notification.method.as_str();
-                if (method == DidOpenTextDocument::METHOD
-                    || method == DidSaveTextDocument::METHOD)
+                if (method == DidOpenTextDocument::METHOD || method == DidSaveTextDocument::METHOD)
                     && let Some(uri) = notification
                         .params
                         .get("textDocument")
@@ -335,21 +377,42 @@ mod tests {
 
     #[test]
     fn lsp_positions_are_zero_based() {
-        assert_eq!(position(1, 1), Position { line: 0, character: 0 });
-        assert_eq!(position(12, 5), Position { line: 11, character: 4 });
+        assert_eq!(
+            position(1, 1),
+            Position {
+                line: 0,
+                character: 0
+            }
+        );
+        assert_eq!(
+            position(12, 5),
+            Position {
+                line: 11,
+                character: 4
+            }
+        );
     }
 
     /// A synthetic span for a whole-file finding carries line 0, and subtracting one
     /// from that would wrap a u32 into a position past the end of the universe.
     #[test]
     fn a_synthetic_position_does_not_underflow() {
-        assert_eq!(position(0, 0), Position { line: 0, character: 0 });
+        assert_eq!(
+            position(0, 0),
+            Position {
+                line: 0,
+                character: 0
+            }
+        );
     }
 
     #[test]
     fn file_uris_decode_back_into_paths() {
         let uri: Uri = "file:///tmp/my%20project/src/a.ts".parse().unwrap();
-        assert_eq!(path_from_uri(&uri), Some(PathBuf::from("/tmp/my project/src/a.ts")));
+        assert_eq!(
+            path_from_uri(&uri),
+            Some(PathBuf::from("/tmp/my project/src/a.ts"))
+        );
     }
 
     #[test]

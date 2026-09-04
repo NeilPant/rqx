@@ -120,7 +120,10 @@ pub fn changed_since(root: &Path, base: &str) -> Option<Vec<String>> {
 /// exists rather than only in CI.
 pub fn uncommitted(root: &Path) -> Vec<String> {
     let mut files = Vec::new();
-    for args in [["diff", "--name-only", "HEAD"], ["ls-files", "--others", "--exclude-standard"]] {
+    for args in [
+        ["diff", "--name-only", "HEAD"],
+        ["ls-files", "--others", "--exclude-standard"],
+    ] {
         let Ok(output) = Command::new("git").arg("-C").arg(root).args(args).output() else {
             continue;
         };

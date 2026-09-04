@@ -2,15 +2,14 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
+use ratatui::text::Span;
 use ratatui::widgets::{
-    Block, Borders, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table,
-    TableState,
+    Block, Borders, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState,
 };
 
 use rqx_core::Cleanliness;
 
-use crate::brand::Ink;
+use crate::brand::{Ink, grade_ink};
 use crate::tui::app::{Nav, Screen, Session, global};
 
 /// One row per file, ordered worst-first, because the question this screen answers is
@@ -23,24 +22,26 @@ pub struct Files {
     by_name: bool,
 }
 
-const fn grade_ink(grade: Cleanliness) -> Ink {
-    match grade {
-        Cleanliness::Pristine | Cleanliness::Clean => Ink::Good,
-        Cleanliness::Fair => Ink::Accent,
-        Cleanliness::Poor => Ink::Warn,
-        Cleanliness::Critical => Ink::Danger,
-    }
-}
-
 impl Files {
     fn build(&mut self, session: &Session) {
-        let Some(outcome) = &session.outcome else { return };
+        let Some(outcome) = &session.outcome else {
+            return;
+        };
         self.rows = outcome
             .analyzed
             .iter()
+            .filter(|file| session.in_scope(file))
             .map(|file| {
-                let lines = outcome.lines_by_file.get(file.as_str()).copied().unwrap_or(0);
-                let found = outcome.findings_by_file.get(file.as_str()).copied().unwrap_or(0);
+                let lines = outcome
+                    .lines_by_file
+                    .get(file.as_str())
+                    .copied()
+                    .unwrap_or(0);
+                let found = outcome
+                    .findings_by_file
+                    .get(file.as_str())
+                    .copied()
+                    .unwrap_or(0);
                 let impact = outcome.impact.get(file);
                 (
                     file.clone(),
@@ -55,7 +56,10 @@ impl Files {
             self.rows.sort_by(|left, right| left.0.cmp(&right.0));
         } else {
             self.rows.sort_by(|left, right| {
-                left.1.cmp(&right.1).then(right.2.cmp(&left.2)).then(left.0.cmp(&right.0))
+                left.1
+                    .cmp(&right.1)
+                    .then(right.2.cmp(&left.2))
+                    .then(left.0.cmp(&right.0))
             });
         }
         self.state.select((!self.rows.is_empty()).then_some(0));
@@ -70,10 +74,7 @@ impl Screen for Files {
             self.build(session);
         }
         if self.rows.is_empty() {
-            frame.render_widget(
-                Paragraph::new(Line::styled("  nothing scanned yet", palette.dim())),
-                area,
-            );
+            super::nothing_yet(frame, area, session, crate::tui::app::Tab::Files);
             return;
         }
 
@@ -114,7 +115,11 @@ impl Screen for Files {
                     .fg(palette.color(Ink::Text))
                     .add_modifier(Modifier::BOLD | Modifier::REVERSED),
             )
-            .block(Block::default().borders(Borders::TOP).border_style(palette.dim())),
+            .block(
+                Block::default()
+                    .borders(Borders::TOP)
+                    .border_style(palette.rule()),
+            ),
             area,
             &mut self.state,
         );
@@ -151,6 +156,11 @@ impl Screen for Files {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("↑↓", "move"), ("n", "sort by name"), ("tab", "next view"), ("esc", "back")]
+        &[
+            ("↑↓", "move"),
+            ("n", "sort by name"),
+            ("tab", "next view"),
+            ("esc", "back"),
+        ]
     }
 }

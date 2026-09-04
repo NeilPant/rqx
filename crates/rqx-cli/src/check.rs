@@ -3,6 +3,8 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 use rqx_core::config::{GateSeverity, RqxConfig};
+
+use crate::config::Resolved;
 use rqx_core::finding::Severity;
 
 use crate::history;
@@ -20,18 +22,21 @@ impl Review {
     }
 
     pub fn findings(&self) -> impl Iterator<Item = &rqx_core::finding::Finding> {
-        self.outcome.findings.iter().filter(|finding| self.is_reviewed(&finding.location.file))
+        self.outcome
+            .findings
+            .iter()
+            .filter(|finding| self.is_reviewed(&finding.location.file))
     }
 }
 
 /// The whole project is scanned even though only part of it is reported on: an
 /// export looks dead until the file that imports it is parsed, so narrowing the scan
 /// to the diff would invent findings that the full graph disproves.
-pub fn review(root: &Path, config: &RqxConfig, base: &str) -> Result<Review> {
+pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
     let Some(mut changed) = history::changed_since(root, base) else {
         bail!(
-            "could not diff against `{base}` — is this a git repository, and does that \
-             revision exist?"
+            "cannot diff against `{base}`. A review needs a git repository and a revision \
+             that exists; try `--base HEAD~1`, or `rqx scan` to look at every file instead."
         );
     };
     changed.extend(history::uncommitted(root));
@@ -42,7 +47,7 @@ pub fn review(root: &Path, config: &RqxConfig, base: &str) -> Result<Review> {
         .filter_map(|path| path.strip_prefix(&prefix).map(str::to_owned))
         .collect();
 
-    let outcome = crate::scan::scan(root, config)?;
+    let outcome = crate::scan::scan(root, settings)?;
 
     // Direct dependents are reviewed too, because deleting an export is only visible
     // as a problem in the file that was importing it.
@@ -57,7 +62,11 @@ pub fn review(root: &Path, config: &RqxConfig, base: &str) -> Result<Review> {
     // has an opinion about; counting it would overstate what was reviewed.
     reviewed.retain(|file| outcome.analyzed.contains(file));
 
-    Ok(Review { outcome, reviewed, base: base.to_owned() })
+    Ok(Review {
+        outcome,
+        reviewed,
+        base: base.to_owned(),
+    })
 }
 
 pub struct Verdict {
@@ -73,16 +82,23 @@ impl Verdict {
 
 pub fn judge(review: &Review, config: &RqxConfig) -> Verdict {
     let Some(threshold) = threshold(config) else {
-        return Verdict { failures: Vec::new(), counted: 0 };
+        return Verdict {
+            failures: Vec::new(),
+            counted: 0,
+        };
     };
-    let counted =
-        review.findings().filter(|finding| finding.severity >= threshold).count() as u32;
+    let counted = review
+        .findings()
+        .filter(|finding| finding.severity >= threshold)
+        .count() as u32;
     let health = review
         .outcome
         .counts
         .weighted_health_score(review.outcome.code_lines, &review.outcome.impact);
     let mut judgement = verdict(counted, health, config);
-    judgement.failures.extend(grade_failures(&review.outcome, &review.reviewed, config));
+    judgement
+        .failures
+        .extend(grade_failures(&review.outcome, &review.reviewed, config));
     judgement
 }
 
@@ -90,8 +106,10 @@ pub fn judge(review: &Review, config: &RqxConfig) -> Verdict {
 /// retained findings, which the display cap has already thinned.
 pub fn judge_scan(outcome: &ScanOutcome, config: &RqxConfig) -> Verdict {
     let Some(threshold) = threshold(config) else {
+        let mut failures = grade_failures(outcome, &outcome.analyzed, config);
+        failures.extend(half_applied(outcome, config));
         return Verdict {
-            failures: grade_failures(outcome, &outcome.analyzed, config),
+            failures,
             counted: 0,
         };
     };
@@ -102,10 +120,38 @@ pub fn judge_scan(outcome: &ScanOutcome, config: &RqxConfig) -> Verdict {
         .filter(|(severity, _)| **severity >= threshold)
         .map(|(_, count)| *count)
         .sum();
-    let health = outcome.counts.weighted_health_score(outcome.code_lines, &outcome.impact);
+    let health = outcome
+        .counts
+        .weighted_health_score(outcome.code_lines, &outcome.impact);
     let mut judgement = verdict(counted, health, config);
-    judgement.failures.extend(grade_failures(outcome, &outcome.analyzed, config));
     judgement
+        .failures
+        .extend(grade_failures(outcome, &outcome.analyzed, config));
+    judgement.failures.extend(half_applied(outcome, config));
+    judgement
+}
+
+/// The one route from advice to an exit code, and only for the stance that names
+/// something broken. A recognised pattern is inventory and one that would merely fit
+/// is a suggestion; failing a build on either would make the gate meaningless.
+fn half_applied(outcome: &ScanOutcome, config: &RqxConfig) -> Option<String> {
+    if !config.gate.fail_on_incomplete {
+        return None;
+    }
+    let broken: BTreeSet<&str> = outcome
+        .advice
+        .iter()
+        .filter(|advice| advice.advisory.stance() == rqx_core::Stance::Incomplete)
+        .map(|advice| advice.advisory.pattern().name())
+        .collect();
+    if broken.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "{} half applied: {}",
+        crate::report::plural(broken.len() as u32, "pattern", "patterns"),
+        broken.into_iter().collect::<Vec<_>>().join(", ")
+    ))
 }
 
 const fn threshold(config: &RqxConfig) -> Option<Severity> {
@@ -130,12 +176,17 @@ fn grade_failures(
     let mut below: Vec<(&str, rqx_core::Cleanliness)> = files
         .iter()
         .filter_map(|file| {
-            let lines = outcome.lines_by_file.get(file.as_str()).copied().unwrap_or(0);
-            let findings = outcome.findings_by_file.get(file.as_str()).copied().unwrap_or(0);
-            let grade = rqx_core::Cleanliness::of(
-                outcome.counts.file_score(file, lines),
-                findings,
-            );
+            let lines = outcome
+                .lines_by_file
+                .get(file.as_str())
+                .copied()
+                .unwrap_or(0);
+            let findings = outcome
+                .findings_by_file
+                .get(file.as_str())
+                .copied()
+                .unwrap_or(0);
+            let grade = rqx_core::Cleanliness::of(outcome.counts.file_score(file, lines), findings);
             (grade < floor).then_some((file.as_str(), grade))
         })
         .collect();
@@ -145,7 +196,11 @@ fn grade_failures(
         .first()
         .map(|(file, grade)| {
             let extra = below.len() - 1;
-            let tail = if extra > 0 { format!(" and {extra} more") } else { String::new() };
+            let tail = if extra > 0 {
+                format!(" and {extra} more")
+            } else {
+                String::new()
+            };
             format!(
                 "`{file}` grades {} against a floor of {}{tail}",
                 grade.label(),
@@ -173,7 +228,10 @@ fn verdict(counted: u32, health: u32, config: &RqxConfig) -> Verdict {
     }
 
     if gate.min_health > 0 && health < gate.min_health {
-        failures.push(format!("health score {health} is below the required {}", gate.min_health));
+        failures.push(format!(
+            "health score {health} is below the required {}",
+            gate.min_health
+        ));
     }
 
     Verdict { failures, counted }

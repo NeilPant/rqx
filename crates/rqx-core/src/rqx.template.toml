@@ -1,0 +1,134 @@
+# RQX.toml — every setting rqx reads, at its default.
+#
+# Delete anything you are happy with: an absent key keeps the default, and rqx
+# merges this file over your personal one at ~/.config/rqx/RQX.toml.
+# `rqx config` prints what a run will actually use, and where each value came from.
+
+# Stops rqx looking for another RQX.toml above this directory. Set it in a
+# repository that lives inside another repository.
+root = false
+
+[languages]
+# Empty means all of them. Naming one costs the others nothing either way: the
+# file walker never opens a path no enabled language claims.
+# enabled = ["typescript", "python", "go", "java", "cpp"]
+enabled = []
+
+[rules]
+# Rule slugs or whole family slugs. `rqx rules` lists both.
+disabled = []
+# Ten rules ship off by default because their signal is real but noisy. Name one
+# here to turn it on: meaningless-name, primitive-obsession, hungarian-notation,
+# short-name-wide-scope, negative-conditional, divergent-change,
+# misleading-pattern-name, inconsistent-vocabulary, alternative-classes,
+# parallel-inheritance.
+enabled = []
+# When non-empty, only these families run.
+categories = []
+
+[patterns]
+# Design-pattern advice: which patterns are in use, which are half applied, and where
+# one would fit. None of it moves the health score. `rqx patterns --coverage` lists
+# every pattern and what rqx does about it.
+# An advisory slug, a pattern slug, or a family: creational, structural, behavioural.
+disabled = []
+# Advisories whose signal is real but weak ship off; name one here to turn it on.
+enabled = []
+# When non-empty, only these families run.
+families = []
+# When non-empty, only these stances are reported: recognized, incomplete, applicable.
+stances = []
+
+[thresholds]
+# Every one of these is the highest acceptable value: a finding fires strictly
+# above it.
+long_function_statements = 40
+cognitive_complexity = 15
+nesting_depth = 3
+max_params = 4
+class_members = 20
+class_statements = 200
+clone_min_statements = 3
+clone_min_nodes = 12
+condition_operands = 3
+message_chain_depth = 3
+commented_code_lines = 2
+magic_number_repeats = 3
+class_public_members = 20
+feature_envy_ratio = 3
+data_clump_size = 3
+data_clump_sites = 3
+short_name_scope_lines = 25
+slow_test_ms = 100
+boundary_repeats = 3
+declaration_distance_lines = 20
+expression_operations = 6
+configuration_depth = 3
+
+[ignore]
+# Globs of files rqx should not read at all. Tests are deliberately absent: an
+# ignored file's imports are invisible to the module graph, so a helper used only
+# by its own test would be reported as an unused export.
+patterns = [
+  "**/*.d.ts",
+  "**/generated/**",
+  "**/*.generated.*",
+  "**/*.gen.ts",
+  "**/*_pb2.py",
+  "**/*_pb2.pyi",
+  "**/*.pb.go",
+  "**/*_gen.go",
+  "**/*.pb.h",
+  "**/*.pb.cc",
+]
+
+[entrypoints]
+# Modules the project is entered through. Anything reachable from one is live, so
+# these are read before an export is called unused.
+paths = []
+
+[scan]
+# 0 lets rqx pick from the machine.
+threads = 0
+# Bytes. A file over this is reported as skipped rather than silently dropped.
+max_filesize = 1048576
+# How many findings the report shows. 0 shows every one. Never moves the score.
+max_findings = 500
+# Days of git history read for churn. 0 turns the signal off.
+churn_days = 90
+# Reuse .rqx/cache.json for unchanged files. Off because it does not currently
+# pay: parsing a file is faster than deserializing its cached findings.
+cache = false
+# Directories never descended into. A glob still has to walk a directory to
+# reject what is in it, which on a populated node_modules is the whole cost.
+prune_dirs = [
+  "node_modules", "dist", "build", "out", "coverage", ".git", "vendor",
+  "__pycache__", ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
+  "target", ".gradle", ".mvn", "bin", "obj", "cmake-build-debug",
+  "cmake-build-release", "third_party",
+]
+
+[gate]
+# What makes a run fail. `rqx check` always gates. `rqx scan` gates only when you
+# pass one of --fail-on / --allow-findings / --min-health / --min-grade, so this
+# table does nothing for a bare scan.
+# Lowest severity that counts: error, warning, info, never.
+fail_on = "error"
+# Findings allowed before the run fails.
+max_findings = 0
+# Health score below which the run fails. 0 disables it.
+min_health = 0
+# Lowest grade any single file may carry, which catches a file rotting on its own
+# that a project-wide average hides: pristine, clean, fair, poor, critical, never.
+min_grade = "never"
+# Fail when a design pattern is half applied — a decorator that cannot substitute for
+# what it wraps, a subscribe with no unsubscribe. The only way pattern advice reaches
+# an exit code; nothing else in [patterns] can.
+fail_on_incomplete = false
+
+# A subtree can relax or tighten thresholds and rules, and nothing else — the
+# walker is built once and the gate reaches one verdict.
+# [[override]]
+# paths = ["src/generated/**"]
+# [override.rules]
+# disabled = ["dispensables"]
