@@ -2,18 +2,20 @@
 //! decided by the finding alone. A rule that is not here has no mechanical answer,
 //! and `edit` says so by returning `None` rather than guessing at one.
 
+use std::cell::OnceCell;
 use std::collections::BTreeSet;
 use std::fmt;
 
 use rqx_core::config::Fix;
 use rqx_core::edit::{Edit, Resolution, apply, resolve};
-use rqx_core::finding::Finding;
+use rqx_core::finding::{Confidence, Evidence, Finding};
 use rqx_core::rule::{Autofix, RuleId};
 use rqx_core::span::Span;
 use rqx_core::{Identity, Language, RqxConfig};
 use tree_sitter::{Node, Tree};
 
 use crate::profile::LanguageProfile;
+use crate::scope::{BindingKind, Scopes};
 use crate::{AnalysisError, support};
 
 /// One parse of one file, reused across every finding in it. Parsing per finding
@@ -23,6 +25,9 @@ pub struct Rewriter<'src> {
     source: &'src str,
     profile: &'static LanguageProfile,
     tree: Tree,
+    /// Resolved on the first fix that needs it. Scope resolution is the most
+    /// expensive stage in the per-file pipeline, and most fixes never ask.
+    scopes: OnceCell<Scopes>,
 }
 
 /// Why a file's edits were not written. Every variant is a reason the reader gets
@@ -134,6 +139,7 @@ impl<'src> Rewriter<'src> {
             source,
             profile: support.profile,
             tree,
+            scopes: OnceCell::new(),
         })
     }
 
@@ -209,27 +215,107 @@ impl<'src> Rewriter<'src> {
         (node.start_byte() as u32 == span.start).then_some(node)
     }
 
-    pub fn edit(&self, finding: &Finding) -> Option<Edit> {
+    /// Every edit one finding asks for. More than one where a fix has to change two
+    /// places at once — removing a parameter also removes the argument at every call
+    /// site — because applying half of that pair is worse than applying neither.
+    pub fn edit(&self, finding: &Finding) -> Vec<Edit> {
         if !finding.rule.spec().autofix.is_automatic() {
-            return None;
+            return Vec::new();
         }
         let span = Span::new(finding.location.start, finding.location.end);
-        self.anchored(span)?;
-
-        let node = self.anchored(span)?;
+        let Some(node) = self.anchored(span) else {
+            return Vec::new();
+        };
         match finding.rule {
             // The span is already the extent to remove.
             RuleId::UnreachableCode
             | RuleId::JournalComment
             | RuleId::RedundantComment
             | RuleId::CommentedOutCode => {
-                Some(self.deletion(finding, whole_lines(self.source, span)))
+                vec![self.deletion(finding, whole_lines(self.source, span))]
             }
-            RuleId::UnusedLocal => self.unused_local(finding, node),
-            RuleId::UnusedPrivateMember => self.unused_member(finding, node),
-            RuleId::FocusedTest => self.unfocus(finding, node),
-            _ => None,
+            RuleId::UnusedLocal => self.unused_local(finding, node).into_iter().collect(),
+            RuleId::UnusedPrivateMember => self.unused_member(finding, node).into_iter().collect(),
+            RuleId::FocusedTest => self.unfocus(finding, node).into_iter().collect(),
+            RuleId::UnusedParameter => self.unused_parameter(finding, node),
+            _ => Vec::new(),
         }
+    }
+
+    fn scopes(&self) -> &Scopes {
+        self.scopes
+            .get_or_init(|| crate::scope::resolve(self.profile, self.source, self.tree.root_node()))
+    }
+
+    /// The parameter and the argument at every call site, or nothing. The fix is only
+    /// offered at `Verified`, which the rule restricts to a trailing parameter of a
+    /// function this file does not export — so every caller is in this file and can be
+    /// found. A reference that is not a call means the function is passed around
+    /// rather than called, and its shape is not ours to change.
+    fn unused_parameter(&self, finding: &Finding, name: Node<'_>) -> Vec<Edit> {
+        if finding.confidence != Confidence::Verified {
+            return Vec::new();
+        }
+        let Evidence::UnusedParameter { position, .. } = finding.evidence else {
+            return Vec::new();
+        };
+        let Some(parameter) = climb(name, |node| {
+            self.profile.parameter_kinds.contains(&node.kind())
+        }) else {
+            return Vec::new();
+        };
+        let Some(list) = parameter
+            .parent()
+            .filter(|node| self.profile.parameter_list_kinds.contains(&node.kind()))
+        else {
+            return Vec::new();
+        };
+        let Some(function) = climb(list, |node| self.profile.is_function(node)) else {
+            return Vec::new();
+        };
+        let Some(called) = function
+            .child_by_field_name("name")
+            .map(|node| text_of(node, self.source))
+        else {
+            return Vec::new();
+        };
+
+        let mut edits =
+            vec![self.deletion(finding, with_separator(self.source, span_of(parameter)))];
+        let sites: Vec<Span> = self
+            .scopes()
+            .bindings
+            .iter()
+            .filter(|binding| binding.name == called && binding.kind != BindingKind::Parameter)
+            .flat_map(|binding| binding.references.iter().copied())
+            .collect();
+        for reference in sites {
+            let Some(site) = self.anchored(reference) else {
+                return Vec::new();
+            };
+            let Some(call) = site.parent().filter(|parent| self.profile.is_call(*parent)) else {
+                return Vec::new();
+            };
+            let mut cursor = call.walk();
+            let Some(arguments) = call
+                .named_children(&mut cursor)
+                .find(|node| self.profile.argument_list_kinds.contains(&node.kind()))
+            else {
+                return Vec::new();
+            };
+            let mut inner = arguments.walk();
+            let passed: Vec<Node<'_>> = arguments
+                .named_children(&mut inner)
+                .filter(|node| !self.profile.is_comment(*node))
+                .collect();
+            // Fewer arguments than parameters means a default is in play, and removing
+            // nothing is the correct edit for this site.
+            // `position` counts from one, the way the report says "parameter 2 of 2".
+            if let Some(argument) = passed.get(position.saturating_sub(1) as usize) {
+                edits.push(self.deletion(finding, with_separator(self.source, span_of(*argument))));
+            }
+        }
+        edits
     }
 
     fn deletion(&self, finding: &Finding, span: Span) -> Edit {
@@ -339,7 +425,7 @@ impl<'src> Rewriter<'src> {
             findings
                 .iter()
                 .filter(|finding| allowed.allows(finding.rule))
-                .filter_map(|finding| self.edit(finding))
+                .flat_map(|finding| self.edit(finding))
                 .collect(),
         )
     }
@@ -656,6 +742,38 @@ export const used = live;
     }
 
     #[test]
+    fn a_dead_trailing_parameter_goes_from_the_signature_and_every_call() {
+        let source = "\
+function work(used: number, spare: number) {
+  return used
+}
+export const total = work(1, 2) + work(3, 4)
+";
+        assert_eq!(
+            fixed(Language::TypeScript, source),
+            "\
+function work(used: number) {
+  return used
+}
+export const total = work(1) + work(3)
+"
+        );
+    }
+
+    /// The function is handed to something rather than called, so its shape is not
+    /// this file's to change.
+    #[test]
+    fn a_function_passed_as_a_value_keeps_its_parameters() {
+        let source = "\
+function work(used: number, spare: number) {
+  return used
+}
+export const deferred = [work]
+";
+        assert_eq!(fixed(Language::TypeScript, source), source);
+    }
+
+    #[test]
     fn parses_clean_names_the_first_broken_node() {
         assert_eq!(parses_clean(Language::TypeScript, "const a = 1\n"), Ok(()));
         let fault = parses_clean(Language::TypeScript, "function f( {\n").unwrap_err();
@@ -675,7 +793,7 @@ export const used = live;
         stale.location.start += 3;
 
         let rewriter = Rewriter::new(Language::TypeScript, source).unwrap();
-        assert!(rewriter.edit(&stale).is_none());
+        assert!(rewriter.edit(&stale).is_empty());
     }
 
     #[test]
@@ -686,7 +804,7 @@ export const used = live;
         let rewriter = Rewriter::new(Language::TypeScript, source).unwrap();
         for finding in &analysis.findings {
             if !is_fixable(finding.rule) {
-                assert!(rewriter.edit(finding).is_none(), "{}", finding.rule);
+                assert!(rewriter.edit(finding).is_empty(), "{}", finding.rule);
             }
         }
     }
