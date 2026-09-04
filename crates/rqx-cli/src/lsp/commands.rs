@@ -142,14 +142,16 @@ fn config_edit(path: &PathBuf, name: &str) -> Option<WorkspaceEdit> {
     // would silently apply nothing.
     let mut operations = Vec::new();
     if existing.is_none() {
-        operations.push(DocumentChangeOperation::Op(ResourceOp::Create(CreateFile {
-            uri: uri.clone(),
-            options: Some(CreateFileOptions {
-                overwrite: Some(false),
-                ignore_if_exists: Some(true),
-            }),
-            annotation_id: None,
-        })));
+        operations.push(DocumentChangeOperation::Op(ResourceOp::Create(
+            CreateFile {
+                uri: uri.clone(),
+                options: Some(CreateFileOptions {
+                    overwrite: Some(false),
+                    ignore_if_exists: Some(true),
+                }),
+                annotation_id: None,
+            },
+        )));
     }
     operations.push(DocumentChangeOperation::Edit(TextDocumentEdit {
         text_document: OptionalVersionedTextDocumentIdentifier { uri, version: None },

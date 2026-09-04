@@ -1,10 +1,9 @@
 use crate::rule::RuleId;
 
-/// What Rqx does about one entry in a canonical catalogue. Every entry carries one,
-/// so "42 of 88 implemented" stops being a sentence in a README that nothing checks.
+/// What Rqx does about one catalogue entry, so a coverage claim is counted rather
+/// than asserted in a README that nothing checks.
 ///
-/// Generic over what implements an entry because there are two kinds of catalogue: a
-/// smell or a heuristic is answered by a rule, a design pattern by an advisory.
+/// Generic over what answers an entry because a rule and an advisory both can.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Coverage<Answer: 'static = RuleId> {
     Implemented(&'static [Answer]),

@@ -8,10 +8,9 @@ use ratatui::widgets::{
     ScrollbarState, Wrap,
 };
 
-use rqx_core::rule::{Category, RuleId};
-use rqx_core::{Chapter, Coverage, Heuristic, Smell};
+use rqx_core::rule::RuleId;
 
-use crate::brand::{Ink, coverage_ink};
+use crate::brand::Ink;
 use crate::tui::app::{Nav, Screen, Session, global};
 
 /// The rule catalogue, browsable rather than printed. Nothing is written to stdout
@@ -161,15 +160,7 @@ impl Screen for Rules {
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::default(),
-            field(
-                "Smell",
-                spec.guru_smell
-                    .map_or("no catalogue entry".to_owned(), |smell| {
-                        smell.name().to_owned()
-                    }),
-            ),
             field("Family", spec.category.title().to_owned()),
-            field("Clean Code", spec.citation()),
             field("Metric", spec.metric.to_owned()),
             field(
                 "Fix",
@@ -234,183 +225,6 @@ impl Screen for Rules {
             ("/", "search"),
             ("tab", "next view"),
             ("esc", "back"),
-        ]
-    }
-}
-
-/// Every entry in both canonical catalogues and what Rqx does about it, so the
-/// coverage claim can be read rather than taken.
-#[derive(Default)]
-pub struct CoverageView {
-    state: ListState,
-    rows: Vec<Row>,
-    ready: bool,
-}
-
-enum Row {
-    Heading(String),
-    Entry { name: String, coverage: Coverage },
-}
-
-impl CoverageView {
-    fn build(&mut self) {
-        self.rows.clear();
-        for family in Category::ALL {
-            let smells: Vec<Smell> = Smell::in_family(family).collect();
-            if smells.is_empty() {
-                continue;
-            }
-            self.rows.push(Row::Heading(format!(
-                "refactoring.guru \u{2014} {}",
-                family.title()
-            )));
-            for smell in smells {
-                self.rows.push(Row::Entry {
-                    name: smell.name().to_owned(),
-                    coverage: smell.coverage(),
-                });
-            }
-        }
-        for chapter in Chapter::ALL {
-            self.rows.push(Row::Heading(format!(
-                "Clean Code \u{2014} {}",
-                chapter.title()
-            )));
-            for entry in chapter.heuristics() {
-                self.rows.push(Row::Entry {
-                    name: format!("{} {}", entry.id(), entry.title()),
-                    coverage: entry.coverage(),
-                });
-            }
-        }
-        self.state.select(Some(0));
-        self.ready = true;
-    }
-}
-
-impl Screen for CoverageView {
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, session: &Session) {
-        let palette = session.palette;
-        if !self.ready {
-            self.build();
-        }
-        let [bar, body] = Layout::vertical([Constraint::Length(2), Constraint::Min(0)]).areas(area);
-
-        let smells = Smell::tally();
-        let heuristics = Heuristic::tally();
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::from(vec![
-                    Span::styled("  smells ", palette.dim()),
-                    Span::styled(
-                        format!("{}/{}", smells.implemented, smells.total()),
-                        Style::new().fg(palette.color(Ink::Good)),
-                    ),
-                    Span::styled("   heuristics ", palette.dim()),
-                    Span::styled(
-                        format!("{}/{}", heuristics.implemented, heuristics.total()),
-                        Style::new().fg(palette.color(Ink::Good)),
-                    ),
-                    Span::styled(
-                        format!(
-                            "   {} not decidable \u{b7} {} not applicable",
-                            heuristics.not_static + smells.not_static,
-                            heuristics.not_applicable + smells.not_applicable
-                        ),
-                        palette.dim(),
-                    ),
-                ]),
-                Line::default(),
-            ]),
-            bar,
-        );
-
-        let items: Vec<ListItem<'static>> = self
-            .rows
-            .iter()
-            .map(|row| match row {
-                Row::Heading(title) => ListItem::new(Line::styled(
-                    format!("  {title}"),
-                    Style::new()
-                        .fg(palette.color(Ink::Text))
-                        .add_modifier(Modifier::BOLD),
-                )),
-                Row::Entry { name, coverage } => {
-                    let mark = match coverage {
-                        Coverage::Implemented(_) => "\u{2713}",
-                        Coverage::Absent(_) => "\u{25cb}",
-                        _ => "\u{2013}",
-                    };
-                    let ink = coverage_ink(*coverage);
-                    let detail = coverage.reason().map_or_else(
-                        || {
-                            coverage
-                                .rules()
-                                .iter()
-                                .map(|rule| rule.slug())
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        },
-                        ToOwned::to_owned,
-                    );
-                    ListItem::new(Line::from(vec![
-                        Span::styled(format!("    {mark} "), Style::new().fg(palette.color(ink))),
-                        Span::styled(
-                            format!("{name:<46}"),
-                            Style::new().fg(palette.color(Ink::Text)),
-                        ),
-                        Span::styled(detail, palette.dim()),
-                    ]))
-                }
-            })
-            .collect();
-
-        frame.render_stateful_widget(
-            List::new(items)
-                .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
-                .block(
-                    Block::default()
-                        .borders(Borders::TOP)
-                        .border_style(palette.rule()),
-                ),
-            body,
-            &mut self.state,
-        );
-        let mut scrollbar =
-            ScrollbarState::new(self.rows.len()).position(self.state.selected().unwrap_or(0));
-        frame.render_stateful_widget(
-            Scrollbar::new(ScrollbarOrientation::VerticalRight).style(palette.dim()),
-            body,
-            &mut scrollbar,
-        );
-    }
-
-    fn handle(&mut self, key: KeyEvent, _session: &Session) -> Nav {
-        let len = self.rows.len();
-        let mut step = |delta: isize| {
-            if len == 0 {
-                return;
-            }
-            let current = self.state.selected().unwrap_or(0) as isize;
-            self.state
-                .select(Some((current + delta).clamp(0, len as isize - 1) as usize));
-        };
-        match key.code {
-            KeyCode::Down | KeyCode::Char('j') => step(1),
-            KeyCode::Up | KeyCode::Char('k') => step(-1),
-            KeyCode::PageDown => step(14),
-            KeyCode::PageUp => step(-14),
-            _ => return global(key).unwrap_or(Nav::Stay),
-        }
-        Nav::Redraw
-    }
-
-    fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[
-            ("↑↓", "move"),
-            ("tab", "next view"),
-            ("esc", "back"),
-            ("q", "quit"),
         ]
     }
 }

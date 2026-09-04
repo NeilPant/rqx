@@ -73,7 +73,12 @@ impl Screen for Scanning {
                         palette.dim(),
                     ),
                     Span::styled(
-                        session.progress.file.as_deref().unwrap_or_default().to_owned(),
+                        session
+                            .progress
+                            .file
+                            .as_deref()
+                            .unwrap_or_default()
+                            .to_owned(),
                         palette.dim(),
                     ),
                 ]),

@@ -231,7 +231,11 @@ fn paging_returns_the_same_findings_whatever_the_page_size() {
     let (large, again) = walk(&mut session, 100);
 
     assert_eq!(matched, again, "the scan changed between walks");
-    assert_eq!(small.len() as u64, matched, "the walk skipped or stopped early");
+    assert_eq!(
+        small.len() as u64,
+        matched,
+        "the walk skipped or stopped early"
+    );
     assert_eq!(
         small, large,
         "the page size changed which findings came back"
@@ -249,7 +253,13 @@ fn walk(session: &mut Session, limit: u64) -> (Vec<Value>, u64) {
         }
         let page = session.structured("findings", arguments);
         let matched = page["matched"].as_u64().expect("a count");
-        collected.extend(page["findings"].as_array().expect("findings").iter().cloned());
+        collected.extend(
+            page["findings"]
+                .as_array()
+                .expect("findings")
+                .iter()
+                .cloned(),
+        );
         cursor = page["next_cursor"].clone();
         if cursor.is_null() {
             return (collected, matched);
@@ -353,10 +363,16 @@ fn a_buffer_is_analysed_without_touching_the_disk() {
     assert!(rules.contains(&"long-parameter-list"), "{rules:?}");
     assert_eq!(analysis["scope"], json!("buffer"));
     assert!(
-        analysis["note"].as_str().expect("a note").contains("52 of the 60"),
+        analysis["note"]
+            .as_str()
+            .expect("a note")
+            .contains("52 of the 60"),
         "an agent reading silence as a clean bill of health is the failure this prevents"
     );
-    assert!(!root.join("nowhere").exists(), "the buffer reached the disk");
+    assert!(
+        !root.join("nowhere").exists(),
+        "the buffer reached the disk"
+    );
     session.shutdown();
 }
 

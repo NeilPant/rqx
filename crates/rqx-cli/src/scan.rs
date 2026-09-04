@@ -436,10 +436,7 @@ impl Collector {
         for (importer, targets) in &report.edges {
             self.import_edges.insert(
                 at.relative(importer),
-                targets
-                    .iter()
-                    .map(|target| at.relative(target))
-                    .collect(),
+                targets.iter().map(|target| at.relative(target)).collect(),
             );
         }
 
@@ -1106,7 +1103,9 @@ fn graph_report(
         .sort_by(|a, b| a.path.cmp(&b.path).then(a.span.start.cmp(&b.span.start)));
     merged.dead_files.sort_by(|a, b| a.path.cmp(&b.path));
     merged.cycles.sort_by(|a, b| a.members.cmp(&b.members));
-    merged.external.sort_by(|a, b| a.specifier.cmp(&b.specifier));
+    merged
+        .external
+        .sort_by(|a, b| a.specifier.cmp(&b.specifier));
     merged
 }
 
@@ -1270,7 +1269,10 @@ mod tests {
     fn a_marker_past_a_wide_character_is_still_found() {
         let source = format!("{}\n// @generated\n", "\u{4e16}".repeat(2000));
         assert_eq!(generated_by(&source), None);
-        assert_eq!(generated_by("// @generated\nfn main() {}"), Some("generated code"));
+        assert_eq!(
+            generated_by("// @generated\nfn main() {}"),
+            Some("generated code")
+        );
     }
 
     #[test]

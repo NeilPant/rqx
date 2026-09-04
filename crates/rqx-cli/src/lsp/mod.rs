@@ -211,7 +211,10 @@ impl Server {
             command: Some(lsp_types::Command {
                 title: format!(
                     "rqx · {} · {} findings · {} importers · {} commits/90d",
-                    facts.grade.label(), facts.findings, facts.importers, facts.commits
+                    facts.grade.label(),
+                    facts.findings,
+                    facts.importers,
+                    facts.commits
                 ),
                 command: commands::SCAN.to_owned(),
                 arguments: None,
@@ -258,7 +261,11 @@ pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync +
     // rarely launched from the project it has open.
     let root = params
         .workspace_folders
-        .and_then(|folders| folders.first().and_then(|folder| path_from_uri(&folder.uri)))
+        .and_then(|folders| {
+            folders
+                .first()
+                .and_then(|folder| path_from_uri(&folder.uri))
+        })
         .unwrap_or_else(|| root.to_path_buf());
 
     // Re-resolved against the client's root rather than the directory rqx was launched

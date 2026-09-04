@@ -87,18 +87,15 @@ enum Command {
     /// Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it,
     /// and what fixes it
     Explain { name: String },
-    /// List every rule Rqx can report, grouped by smell family
+    /// List every rule Rqx can report, grouped by family
     Rules {
         /// Show only one family
         category: Option<String>,
-        /// Print what Rqx does about every entry in both canonical catalogues
-        #[arg(long)]
-        coverage: bool,
         /// Show only the rules that apply to one language
         #[arg(long)]
         language: Option<String>,
     },
-    /// List every refactoring both catalogues name, and which rules prescribe it
+    /// List every refactoring Rqx prescribes, and which rules ask for it
     Techniques,
     /// Report which design patterns a project uses, which are half applied, and where
     /// one would fit
@@ -718,17 +715,8 @@ fn run() -> Result<Exit> {
             Ok(Exit::Clean)
         }
         Command::Tui { path, config } => open_tui(&path, config.as_deref(), cli.motion),
-        Command::Rules {
-            category,
-            coverage,
-            language,
-        } => {
-            if coverage {
-                report::coverage(palette).map(|()| Exit::Clean)
-            } else {
-                report::rules(category.as_deref(), language.as_deref(), palette)
-                    .map(|()| Exit::Clean)
-            }
+        Command::Rules { category, language } => {
+            report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
         }
         Command::Techniques => report::techniques(palette).map(|()| Exit::Clean),
     }

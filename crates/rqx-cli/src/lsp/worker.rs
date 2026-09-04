@@ -104,7 +104,10 @@ impl Worker {
             return job.reply_to.map(Refused::Dead);
         };
         let displaced = {
-            let mut pending = self.pending.lock().expect("the pending slots are only swapped");
+            let mut pending = self
+                .pending
+                .lock()
+                .expect("the pending slots are only swapped");
             let slot = if job.is_review() {
                 &mut pending.review
             } else {
@@ -119,7 +122,9 @@ impl Worker {
         if wake.try_send(()).is_err() && wake.is_empty() {
             return displaced.and_then(|job| job.reply_to).map(Refused::Dead);
         }
-        displaced.and_then(|job| job.reply_to).map(Refused::Coalesced)
+        displaced
+            .and_then(|job| job.reply_to)
+            .map(Refused::Coalesced)
     }
 }
 
@@ -170,7 +175,13 @@ fn run(publisher: &Arc<Publisher>, job: &Job) {
         return;
     };
 
-    republish(publisher, outcome.findings.iter(), &outcome.advice, job, Clear::Stale);
+    republish(
+        publisher,
+        outcome.findings.iter(),
+        &outcome.advice,
+        job,
+        Clear::Stale,
+    );
 
     let report = Report::everything(&outcome);
     publisher.set_facts(facts_of(&report, &outcome));

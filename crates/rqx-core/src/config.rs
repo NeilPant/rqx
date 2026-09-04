@@ -1,10 +1,12 @@
 use std::collections::BTreeSet;
+use std::fmt;
 
 use serde::Deserialize;
 
-use crate::advice::AdviceId;
+use crate::advice::{AdviceId, Stance};
 use crate::language::Language;
-use crate::rule::{Analysis, RuleId};
+use crate::pattern::{Pattern, PatternFamily};
+use crate::rule::{Analysis, Category, RuleId};
 use crate::score::Cleanliness;
 
 /// Uppercase and unmistakable, the way `README`, `LICENSE` and `Dockerfile` are: a
@@ -33,7 +35,7 @@ pub struct RqxConfig {
 }
 
 impl RqxConfig {
-    /// Both catalogues read the same collectors, so a stage runs when either wants it.
+    /// Rules and advisories read the same collectors, so a stage runs when either wants it.
     /// Asking `rules` alone is what would leave the pattern advisories looking at facts
     /// nothing had collected.
     pub fn needs_semantics(&self) -> bool {
@@ -43,6 +45,68 @@ impl RqxConfig {
     pub fn needs_modules(&self) -> bool {
         self.rules.needs_modules() || self.patterns.needs(Analysis::Modules)
     }
+
+    /// A name that resolves to nothing would otherwise be a silent no-op, or worse: a
+    /// `categories` allowlist naming only unknown families turns every rule off.
+    pub fn unknown_names(&self) -> Vec<UnknownName> {
+        let mut unknown = self.rules.unknown_names();
+        unknown.extend(self.patterns.unknown_names());
+        unknown
+    }
+}
+
+/// The family slugs the catalogue carried before it took its own names, so a config
+/// written against the old ones says what to write instead.
+const RENAMED_FAMILIES: [(&str, Category); 5] = [
+    ("bloaters", Category::Size),
+    ("oo-abusers", Category::Abstraction),
+    ("change-preventers", Category::Change),
+    ("dispensables", Category::Waste),
+    ("couplers", Category::Coupling),
+];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownName {
+    pub table: &'static str,
+    pub key: &'static str,
+    pub name: String,
+    pub renamed_to: Option<&'static str>,
+}
+
+impl fmt::Display for UnknownName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "`{}` in [{}] {} names nothing",
+            self.name, self.table, self.key
+        )?;
+        match self.renamed_to {
+            Some(new) => write!(f, "; that family is now `{new}`"),
+            None => write!(
+                f,
+                "; `rqx rules` and `rqx patterns --coverage` list every name"
+            ),
+        }
+    }
+}
+
+fn unknown_in<'a>(
+    table: &'static str,
+    key: &'static str,
+    names: impl Iterator<Item = &'a String>,
+    known: impl Fn(&str) -> bool,
+) -> impl Iterator<Item = UnknownName> {
+    names
+        .filter(move |name| !known(name))
+        .map(move |name| UnknownName {
+            table,
+            key,
+            name: name.clone(),
+            renamed_to: RENAMED_FAMILIES
+                .iter()
+                .find(|(old, _)| old == name)
+                .map(|(_, category)| category.slug()),
+        })
 }
 
 /// A starting `RQX.toml`, every table present and every value at the default the
@@ -317,6 +381,26 @@ impl Rules {
             .filter(|rule| rule.spec().analysis >= level)
             .any(|rule| self.enabled(rule))
     }
+
+    pub fn unknown_names(&self) -> Vec<UnknownName> {
+        let rule_or_family =
+            |name: &str| RuleId::parse(name).is_some() || Category::parse(name).is_some();
+        let family = |name: &str| Category::parse(name).is_some();
+        unknown_in("rules", "disabled", self.disabled.iter(), rule_or_family)
+            .chain(unknown_in(
+                "rules",
+                "enabled",
+                self.enabled.iter(),
+                rule_or_family,
+            ))
+            .chain(unknown_in(
+                "rules",
+                "categories",
+                self.categories.iter(),
+                family,
+            ))
+            .collect()
+    }
 }
 
 /// Addressable four ways because the useful question differs: by advisory when one
@@ -371,6 +455,36 @@ impl Patterns {
             .copied()
             .filter(|advisory| advisory.spec().analysis >= level)
             .any(|advisory| self.enabled(advisory))
+    }
+
+    pub fn unknown_names(&self) -> Vec<UnknownName> {
+        let addressable = |name: &str| {
+            AdviceId::parse(name).is_some()
+                || Pattern::parse(name).is_some()
+                || PatternFamily::parse(name).is_some()
+        };
+        let family = |name: &str| PatternFamily::parse(name).is_some();
+        let stance = |name: &str| Stance::parse(name).is_some();
+        unknown_in("patterns", "disabled", self.disabled.iter(), addressable)
+            .chain(unknown_in(
+                "patterns",
+                "enabled",
+                self.enabled.iter(),
+                addressable,
+            ))
+            .chain(unknown_in(
+                "patterns",
+                "families",
+                self.families.iter(),
+                family,
+            ))
+            .chain(unknown_in(
+                "patterns",
+                "stances",
+                self.stances.iter(),
+                stance,
+            ))
+            .collect()
     }
 }
 
@@ -500,6 +614,41 @@ mod tests {
 
     /// The template is prose around a copy of the defaults, so the one thing that can
     /// go wrong is the copy drifting from what the code actually uses.
+    #[test]
+    fn a_renamed_family_says_its_new_name() {
+        for (old, category) in RENAMED_FAMILIES {
+            let mut rules = Rules::default();
+            rules.categories.insert(old.to_owned());
+            let unknown = rules.unknown_names();
+            assert_eq!(unknown.len(), 1, "{old}");
+            assert_eq!(unknown[0].renamed_to, Some(category.slug()), "{old}");
+            assert!(
+                unknown[0].to_string().contains(category.slug()),
+                "{}",
+                unknown[0]
+            );
+        }
+    }
+
+    #[test]
+    fn every_real_name_is_known_and_a_made_up_one_is_not() {
+        let mut rules = Rules::default();
+        rules.disabled.insert(RuleId::ALL[0].slug().to_owned());
+        rules.enabled.insert(Category::ALL[0].slug().to_owned());
+        rules.disabled.insert("no-such-rule".to_owned());
+        let unknown = rules.unknown_names();
+        assert_eq!(unknown.len(), 1);
+        assert_eq!(unknown[0].name, "no-such-rule");
+        assert_eq!(unknown[0].renamed_to, None);
+
+        let mut patterns = Patterns::default();
+        patterns.stances.insert("upside-down".to_owned());
+        patterns
+            .families
+            .insert(PatternFamily::ALL[0].slug().to_owned());
+        assert_eq!(patterns.unknown_names().len(), 1);
+    }
+
     #[test]
     fn the_template_states_the_defaults_it_claims_to() {
         let written: RqxConfig = toml::from_str(TEMPLATE).expect("the template parses");

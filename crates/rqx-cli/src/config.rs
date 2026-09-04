@@ -188,16 +188,14 @@ pub fn resolve(root: &Path, explicit: Option<&Path>) -> Result<Resolved> {
         .clone()
         .try_into()
         .with_context(|| describe(&sources))?;
+    reject_unknown_names(&config, &describe(&sources))?;
 
     let mut scopes = Vec::new();
     for (path, entry) in raw_overrides {
         scopes.push(scope(&path, entry, &merged)?);
     }
 
-    let modules = config.needs_modules()
-        || scopes
-            .iter()
-            .any(|scope| scope.config.needs_modules());
+    let modules = config.needs_modules() || scopes.iter().any(|scope| scope.config.needs_modules());
 
     Ok(Resolved {
         config,
@@ -390,8 +388,18 @@ fn scope(path: &Path, entry: Value, base: &Value) -> Result<Scope> {
     let config: RqxConfig = merged
         .try_into()
         .with_context(|| format!("reading an `[[override]]` in {}", path.display()))?;
+    reject_unknown_names(&config, &format!("an `[[override]]` in {}", path.display()))?;
 
     Ok(Scope { matcher, config })
+}
+
+fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
+    let unknown = config.unknown_names();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let lines: Vec<String> = unknown.iter().map(|name| format!("  {name}")).collect();
+    bail!("{source}:\n{}", lines.join("\n"));
 }
 
 /// Tables merge key by key so a file can set one threshold without restating the
@@ -465,6 +473,18 @@ mod tests {
         let entry = document("[thresholds]\nmax_params = 9\n").unwrap();
         let error = failure(scope(Path::new("RQX.toml"), entry, &base));
         assert!(error.contains("names no `paths`"), "{error}");
+    }
+
+    #[test]
+    fn an_override_naming_a_renamed_family_is_refused_with_the_new_name() {
+        let base = Value::Table(toml::Table::new());
+        let entry =
+            document("paths = [\"src/**\"]\n[rules]\ncategories = [\"bloaters\"]\n").unwrap();
+        let error = failure(scope(Path::new("RQX.toml"), entry, &base));
+        assert!(
+            error.contains("`bloaters`") && error.contains("`size`"),
+            "{error}"
+        );
     }
 
     #[test]

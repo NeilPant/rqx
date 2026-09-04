@@ -297,14 +297,24 @@ impl Resolver for TypeScriptResolver {
     }
 }
 
-
-
 /// `node:`-prefixed or one of the bare builtins. Everything else came from a registry
 /// and could be swapped for something else.
 pub fn is_vendor(specifier: &str) -> bool {
     const BUILTIN: [&str; 14] = [
-        "assert", "buffer", "child_process", "crypto", "events", "fs", "http", "https",
-        "os", "path", "stream", "url", "util", "zlib",
+        "assert",
+        "buffer",
+        "child_process",
+        "crypto",
+        "events",
+        "fs",
+        "http",
+        "https",
+        "os",
+        "path",
+        "stream",
+        "url",
+        "util",
+        "zlib",
     ];
     !specifier.starts_with("node:") && !BUILTIN.contains(&specifier)
 }

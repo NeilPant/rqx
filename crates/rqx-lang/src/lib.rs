@@ -5,9 +5,9 @@
 pub mod classes;
 pub mod cpp;
 pub mod go;
+pub mod hierarchy;
 pub mod hygiene;
 pub mod java;
-pub mod hierarchy;
 pub mod metrics;
 pub mod module_graph;
 pub mod parameters;

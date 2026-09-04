@@ -3,9 +3,9 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use rqx_core::advice::{Advice, AdviceId};
 use rqx_core::config::Thresholds;
 use rqx_core::finding::Finding;
-use rqx_core::advice::{Advice, AdviceId};
 use rqx_core::pattern::{Pattern, PatternFamily};
 use rqx_core::rule::{Analysis, Category, RuleId};
 
@@ -165,10 +165,7 @@ fn pattern_index() -> String {
          `rqx explain <pattern>` for any one of them.\n\n",
     );
     let tally = Pattern::tally();
-    let _ = writeln!(
-        page,
-        "| Family | Patterns | Advisories |\n|---|---|---|"
-    );
+    let _ = writeln!(page, "| Family | Patterns | Advisories |\n|---|---|---|");
     for family in PatternFamily::ALL {
         let count = family.patterns().count();
         let advisories: usize = family
@@ -201,7 +198,11 @@ fn pattern_page(family: PatternFamily, examples: &BTreeMap<AdviceId, Example>) -
         let _ = writeln!(page, "## {}\n", pattern.name());
         let _ = writeln!(page, "{}\n", pattern.intent());
         let _ = writeln!(page, "| | |\n|---|---|");
-        let _ = writeln!(page, "| Cited as | Design Patterns \u{a7}{} |", pattern.section());
+        let _ = writeln!(
+            page,
+            "| Cited as | Design Patterns \u{a7}{} |",
+            pattern.section()
+        );
         let _ = writeln!(page, "| Coverage | {} |", pattern.coverage().detail());
         let _ = writeln!(page);
         for advisory in pattern.advisories() {
@@ -284,8 +285,7 @@ fn index() -> String {
     let mut page = String::from(
         "# The rule catalogue\n\n\
          Every rule rqx can report, what it measures, and the named refactoring that \
-         answers it. Each one cites [refactoring.guru](https://refactoring.guru/refactoring/smells) \
-         or a numbered heuristic from *Clean Code* chapter 17, because a finding that \
+         answers it. Each one names the metric that decides it, because a finding that \
          cannot say where it comes from is an opinion.\n\n\
          `rqx explain <rule>` prints any of these at the terminal. \
          [Configuration](../configuration.md) covers the file that turns them on and off.\n\n",
@@ -354,13 +354,6 @@ fn family_page(family: Category, examples: &BTreeMap<RuleId, Example>) -> String
         let _ = writeln!(page, "| Reads | {} |", tier(spec.analysis));
         let _ = writeln!(
             page,
-            "| Smell | {} |",
-            spec.guru_smell
-                .map_or("no direct catalogue entry", rqx_core::Smell::name)
-        );
-        let _ = writeln!(page, "| Clean Code | {} |", spec.citation());
-        let _ = writeln!(
-            page,
             "| Fix | {} |",
             spec.fixes
                 .iter()
@@ -426,12 +419,16 @@ fn configuration_page() -> String {
          [override.thresholds]\n\
          long_function_statements = 200\n\n\
          [override.rules]\n\
-         disabled = [\"dispensables\"]\n\
+         disabled = [\"waste\"]\n\
          ```\n\n\
          An override may set `thresholds` and `rules` and nothing else. Every other \
          table describes the run as a whole — the file walker is built once and the gate \
          reaches one verdict — so naming one in an override is an error rather than a \
          setting that quietly does nothing.\n\n\
+         The same holds for names: a rule, family, pattern or stance that does not exist \
+         is an error, not a silent no-op, because a `categories` allowlist naming only \
+         unknown families would otherwise turn every rule off. `rqx rules` lists every \
+         name that is valid.\n\n\
          ## The gate\n\n\
          `rqx check` always gates. **`rqx scan` gates only when you pass one of \
          `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade`**, so a `[gate]` \

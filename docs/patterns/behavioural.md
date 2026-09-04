@@ -241,7 +241,7 @@ nothing that subscribes can ever be released, so the collection and everything i
 | Decided by | a collection of listeners with a way to subscribe and none to stop |
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
-| Fix | Add Parameter / Remove Setting Method |
+| Fix | Add Parameter / Remove Setter |
 
 From `fixtures/typescript/patterns.ts`, line 237:
 
@@ -272,7 +272,7 @@ the value being switched on is also the value the branches change, so the transi
 | Decided by | the same value switched on in more than one place, where a branch reassigns it |
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
-| Fix | Replace Type Code with State/Strategy / Replace Conditional with Polymorphism |
+| Fix | Replace Type Code with Polymorphic State / Replace Conditional with Polymorphism |
 
 From `fixtures/typescript/patterns.ts`, line 5:
 
@@ -311,7 +311,7 @@ the cases are spelled out in several places, so a new one is found by searching 
 | Decided by | the same value switched on in more than one place, where no branch reassigns it |
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
-| Fix | Replace Conditional with Polymorphism / Replace Type Code with State/Strategy |
+| Fix | Replace Conditional with Polymorphism / Replace Type Code with Polymorphic State |
 
 From `fixtures/typescript/shapes.ts`, line 26:
 

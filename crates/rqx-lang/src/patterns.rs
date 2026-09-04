@@ -282,7 +282,8 @@ impl<'a> Collector<'a> {
                 } else {
                     target
                 };
-                self.subject_text(target).is_some_and(|written| written == subject)
+                self.subject_text(target)
+                    .is_some_and(|written| written == subject)
             })
     }
 
@@ -630,9 +631,10 @@ pub fn collect(
     let mut chains = std::mem::take(&mut out.handler_chains);
     chains.sort_by_key(|chain| (chain.span.start, std::cmp::Reverse(chain.span.end)));
     for chain in chains {
-        let nested = out.handler_chains.iter().any(|outer| {
-            outer.span.start <= chain.span.start && chain.span.end <= outer.span.end
-        });
+        let nested = out
+            .handler_chains
+            .iter()
+            .any(|outer| outer.span.start <= chain.span.start && chain.span.end <= outer.span.end);
         if !nested {
             out.handler_chains.push(chain);
         }

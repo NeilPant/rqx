@@ -11,7 +11,7 @@ use rmcp::handler::server::tool::ToolRouter;
 use rmcp::model::{Implementation, ServerCapabilities, ServerInfo};
 use rmcp::transport::io::stdio;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-use rmcp::transport::streamable_http_server::{StreamableHttpService, StreamableHttpServerConfig};
+use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool_handler};
 
 use crate::config::Resolved;
@@ -118,7 +118,9 @@ pub fn serve(path: &Path, settings: Resolved, http: Option<SocketAddr>) -> Resul
     let root = path
         .canonicalize()
         .with_context(|| format!("`{}` cannot be read", path.display()))?;
-    let token = std::env::var(TOKEN_ENV).ok().filter(|token| !token.is_empty());
+    let token = std::env::var(TOKEN_ENV)
+        .ok()
+        .filter(|token| !token.is_empty());
 
     if let Some(address) = http
         && !address.ip().is_loopback()

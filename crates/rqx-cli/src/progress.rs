@@ -103,7 +103,14 @@ impl Bar {
         SPINNER[self.frame]
     }
 
-    pub fn update(&mut self, phase: Phase, done: u32, total: Option<u32>, findings: u32, file: &str) {
+    pub fn update(
+        &mut self,
+        phase: Phase,
+        done: u32,
+        total: Option<u32>,
+        findings: u32,
+        file: &str,
+    ) {
         if !self.live || self.painted.elapsed() < REPAINT {
             return;
         }

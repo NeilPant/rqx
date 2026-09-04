@@ -1,4 +1,4 @@
-# Bloaters
+# Size
 
 [Back to the catalogue](README.md)
 
@@ -11,8 +11,6 @@ a body this long is doing several things, so a reader has to hold all of them at
 | Measures | statement count in a function body |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Smell | Long Method |
-| Clean Code | G30 Functions Should Do One Thing |
 | Fix | Extract Method |
 | Tuned by | `thresholds.long_function_statements` |
 
@@ -34,8 +32,6 @@ every nested decision point multiplies the paths a reader has to trace, and untr
 | Measures | SonarSource cognitive complexity |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Smell | Long Method |
-| Clean Code | G34 Functions Should Descend Only One Level of Abstraction |
 | Fix | Decompose Conditional / Extract Method |
 | Tuned by | `thresholds.cognitive_complexity` |
 
@@ -58,8 +54,6 @@ at this depth the conditions that led here are off-screen, so the preconditions 
 | Measures | maximum block nesting depth |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Smell | Long Method |
-| Clean Code | G34 Functions Should Descend Only One Level of Abstraction |
 | Fix | Replace Nested Conditional with Guard Clauses |
 | Tuned by | `thresholds.nesting_depth` |
 
@@ -82,9 +76,7 @@ callers have to remember an order this long, and same-typed neighbours make a si
 | Measures | parameter count |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Smell | Long Parameter List |
-| Clean Code | F1 Too Many Arguments |
-| Fix | Introduce Parameter Object / Preserve Whole Object |
+| Fix | Introduce Parameter Object / Pass Whole Object |
 | Tuned by | `thresholds.max_params` |
 
 From `fixtures/typescript/bloat.ts`, line 1:
@@ -105,8 +97,6 @@ a class this size has more than one reason to change, so unrelated work lands in
 | Measures | member count and body statement count |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Smell | Large Class |
-| Clean Code | Ch.10 The Single Responsibility Principle |
 | Fix | Extract Class / Extract Subclass |
 | Tuned by | `thresholds.class_members`, `thresholds.class_statements` |
 
@@ -129,8 +119,6 @@ these values already travel together everywhere, so they are a concept the code 
 | Measures | the same group of three or more parameter names recurring across signatures |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Data Clumps |
-| Clean Code | G22 Make Logical Dependencies Physical |
 | Fix | Introduce Parameter Object / Extract Class |
 | Tuned by | `thresholds.data_clump_size`, `thresholds.data_clump_sites` |
 
@@ -153,8 +141,6 @@ a raw string or number carries no rules of its own, so every place that uses it 
 | Measures | a type alias that is a union of three or more string literals |
 | Reported as | info, low confidence |
 | Reads | resolved scopes and symbols |
-| Smell | Primitive Obsession |
-| Clean Code | G25 Replace Magic Numbers with Named Constants |
 | Fix | Replace Type Code with Class / Introduce Parameter Object |
 | Default | off; name it under `[rules] enabled` |
 | Not in Go | Go has no union types, so the string-literal alias this measures cannot be written |
@@ -179,8 +165,6 @@ nothing in the expression is named, so a reader has to re-derive every intermedi
 | Measures | operations packed into one returned expression beyond the limit |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G16 Obscured Intent |
 | Fix | Extract Variable / Extract Method |
 | Tuned by | `thresholds.expression_operations` |
 

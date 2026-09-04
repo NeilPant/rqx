@@ -145,7 +145,6 @@ struct App {
     findings: screens::findings::Findings,
     files: screens::files::Files,
     rules: screens::catalogue::Rules,
-    coverage: screens::catalogue::CoverageView,
     patterns: screens::patterns::Patterns,
     settings: screens::settings::Settings,
     updates: Option<Receiver<ScanProgress>>,
@@ -168,7 +167,6 @@ macro_rules! parts {
             Mode::Browsing(Tab::Files) => &mut app.files,
             Mode::Browsing(Tab::Patterns) => &mut app.patterns,
             Mode::Browsing(Tab::Rules) => &mut app.rules,
-            Mode::Browsing(Tab::Coverage) => &mut app.coverage,
             Mode::Browsing(Tab::Config) => &mut app.settings,
         };
         (screen, &app.session)
@@ -375,9 +373,7 @@ fn tab_key(key: KeyEvent, active: Tab) -> Option<Tab> {
         KeyCode::BackTab | KeyCode::Left => step(-1),
         // The range follows `Tab::ALL`, so a tab added to the enum is reachable by
         // its digit without a second place to remember.
-        KeyCode::Char(digit @ '1'..='9')
-            if (digit as usize - '1' as usize) < Tab::ALL.len() =>
-        {
+        KeyCode::Char(digit @ '1'..='9') if (digit as usize - '1' as usize) < Tab::ALL.len() => {
             Some(Tab::ALL[digit as usize - '1' as usize])
         }
         _ => None,
@@ -432,7 +428,6 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         findings: screens::findings::Findings::default(),
         files: screens::files::Files::default(),
         rules: screens::catalogue::Rules::default(),
-        coverage: screens::catalogue::CoverageView::default(),
         patterns: screens::patterns::Patterns::default(),
         settings: screens::settings::Settings::default(),
         updates: None,
@@ -548,7 +543,7 @@ mod tests {
     #[test]
     fn every_tab_opens_before_a_scan_has_run() {
         let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
-        assert_eq!(tab_key(key(KeyCode::Tab), Tab::Rules), Some(Tab::Coverage));
+        assert_eq!(tab_key(key(KeyCode::Tab), Tab::Rules), Some(Tab::Config));
         assert_eq!(
             tab_key(key(KeyCode::Char('1')), Tab::Rules),
             Some(Tab::Overview)

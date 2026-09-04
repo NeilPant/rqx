@@ -1,4 +1,4 @@
-# Dispensables
+# Waste
 
 [Back to the catalogue](README.md)
 
@@ -11,8 +11,6 @@ a fix applied to one copy leaves the others wrong, and nothing in the code point
 | Measures | identical normalized-AST block hash across sites |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
-| Smell | Duplicate Code |
-| Clean Code | G5 Duplication |
 | Fix | Extract Method / Pull Up Method |
 | Tuned by | `thresholds.clone_min_statements`, `thresholds.clone_min_nodes` |
 
@@ -38,8 +36,6 @@ an export nobody imports still has to be read, typechecked and kept working duri
 | Measures | exported symbol with no importer in the resolved module graph |
 | Reported as | warning, verified |
 | Reads | the import graph across every file |
-| Smell | Dead Code |
-| Clean Code | F4 Dead Function |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/dead-export.ts`, line 7:
@@ -61,8 +57,6 @@ nothing in the build reaches this file, so every hour spent maintaining it buys 
 | Measures | module reachable from no entry point, with no importer |
 | Reported as | warning, verified |
 | Reads | the import graph across every file |
-| Smell | Dead Code |
-| Clean Code | G9 Dead Code |
 | Fix | Delete File |
 
 From `fixtures/typescript/orphan.ts`, line 1:
@@ -83,8 +77,6 @@ every caller is passing a value that is read nowhere, so the argument list is te
 | Measures | declared parameter with no resolved reference in its own scope |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | Dead Code |
-| Clean Code | G9 Dead Code |
 | Fix | Remove Parameter |
 
 From `fixtures/typescript/families.ts`, line 130:
@@ -106,8 +98,6 @@ the value is computed and thrown away, which either wastes the work or hides the
 | Measures | local binding with no resolved reference |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | Dead Code |
-| Clean Code | G9 Dead Code |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/hygiene.ts`, line 4:
@@ -129,8 +119,6 @@ a private member can only be used from inside its class, so one nothing in the c
 | Measures | private class member never referenced inside its own class |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | Dead Code |
-| Clean Code | F4 Dead Function |
 | Fix | Remove Dead Code |
 | Not in Go | Go scopes visibility to the package, not the type, so a field unused in one file may be read by another beside it |
 
@@ -153,8 +141,6 @@ this code cannot run, so whatever it was meant to do is not happening and has no
 | Measures | statement following an unconditional return, throw, break or continue |
 | Reported as | error, verified |
 | Reads | resolved scopes and symbols |
-| Smell | Dead Code |
-| Clean Code | G9 Dead Code |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/hygiene.ts`, line 24:
@@ -176,8 +162,6 @@ nobody dares delete it because nobody knows if it matters, so it sits there rott
 | Measures | consecutive comment lines that read as statements rather than prose |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Comments |
-| Clean Code | C5 Commented-Out Code |
 | Fix | Remove Dead Code |
 | Tuned by | `thresholds.commented_code_lines` |
 
@@ -201,8 +185,6 @@ the class costs a file, an import and a name, and does not yet do enough to earn
 | Measures | class with at most one member and no heritage |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Lazy Class |
-| Clean Code | G12 Clutter |
 | Fix | Inline Class |
 
 From `fixtures/typescript/shapes.ts`, line 4:
@@ -224,8 +206,6 @@ the behaviour that belongs with this data lives somewhere else, so the rules abo
 | Measures | class whose members are all fields or trivial accessors |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Data Class |
-| Clean Code | G17 Misplaced Responsibility |
 | Fix | Move Method / Encapsulate Field |
 
 From `fixtures/typescript/shapes.ts`, line 3:
@@ -247,8 +227,6 @@ it was built for a case that never arrived, and until it does it is only an extr
 | Measures | abstract class with no subclass anywhere in the project |
 | Reported as | info, verified |
 | Reads | the import graph across every file |
-| Smell | Speculative Generality |
-| Clean Code | G12 Clutter |
 | Fix | Collapse Hierarchy / Inline Class |
 
 From `fixtures/typescript/patterns.ts`, line 257:
@@ -270,8 +248,6 @@ the failure is swallowed silently, so the first sign of it is wrong data somewhe
 | Measures | catch clause with an empty body |
 | Reported as | error, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G4 Overridden Safeties |
 | Fix | Remove Dead Code |
 | Not in Go | Go has no exceptions and so no catch clause; an ignored error is a different shape this rule does not measure |
 
@@ -295,9 +271,7 @@ the number encodes a decision nobody wrote down, so the next reader cannot tell 
 | Measures | unnamed numeric literal outside a declaration, excluding conventional values |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Primitive Obsession |
-| Clean Code | G25 Replace Magic Numbers with Named Constants |
-| Fix | Replace Magic Number with Symbolic Constant / Extract Variable |
+| Fix | Replace Magic Number with Constant / Extract Variable |
 | Tuned by | `thresholds.magic_number_repeats` |
 
 From `fixtures/typescript/hygiene.ts`, line 10:
@@ -319,8 +293,6 @@ a second language in the file gets none of the tooling the first one has, so not
 | Measures | SQL or HTML markup inside a template literal |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G1 Multiple Languages in One Source File |
 | Fix | Extract Class / Extract Variable |
 
 From `fixtures/typescript/conventions.ts`, line 5:
@@ -342,9 +314,7 @@ everything in between has to be read while still holding this name in mind, and 
 | Measures | lines between a local's declaration and the line that first reads it |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G10 Vertical Separation |
-| Fix | Extract Variable / Inline Temp |
+| Fix | Extract Variable / Inline Variable |
 | Tuned by | `thresholds.declaration_distance_lines` |
 
 From `fixtures/typescript/queries.ts`, line 16:
@@ -366,9 +336,7 @@ changing where the program points means finding this line first, and nothing abo
 | Measures | a URL or absolute path written below the configured block depth |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G35 Keep Configurable Data at High Levels |
-| Fix | Replace Magic Number with Symbolic Constant / Extract Variable |
+| Fix | Replace Magic Number with Constant / Extract Variable |
 | Tuned by | `thresholds.configuration_depth` |
 
 From `fixtures/typescript/config.ts`, line 5:
@@ -390,8 +358,6 @@ version control already answers who and when, and unlike the comment it is not l
 | Measures | a comment carrying an author, a date or a change log |
 | Reported as | info, verified |
 | Reads | resolved scopes and symbols |
-| Smell | Comments |
-| Clean Code | C1 Inappropriate Information |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/precision.ts`, line 1:
@@ -415,8 +381,6 @@ it takes space and attention to say what the name has already said, and it is on
 | Measures | a comment whose every word already appears in the name below it |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Comments |
-| Clean Code | C3 Redundant Comment |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/precision.ts`, line 10:

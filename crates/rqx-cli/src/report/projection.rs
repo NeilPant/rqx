@@ -92,20 +92,18 @@ pub fn rule(slug: &str) -> Option<Value> {
     let spec = rule.spec();
     let fixes = spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>();
     let markdown = format!(
-        "# `{}`\n\n**{}**\n\n{}\n\n**Measured by** {}\n\n**Fix — {}**\n\n---\n\n*{}*\n",
+        "# `{}`\n\n**{}**\n\n{}\n\n**Measured by** {}\n\n**Fix — {}**\n",
         spec.slug,
         spec.category.title(),
         spec.why,
         spec.metric,
         fixes.join(" / "),
-        spec.citation(),
     );
     Some(json!({
         "slug": spec.slug,
         "category": spec.category.title(),
         "metric": spec.metric,
         "why": spec.why,
-        "citation": spec.citation(),
         "fixes": fixes,
         "markdown": markdown,
     }))
@@ -123,8 +121,7 @@ pub fn catalogue() -> Value {
                     "family": spec.category.title(),
                     "metric": spec.metric,
                     "why": spec.why,
-                    "citation": spec.citation(),
-                    "severity": format!("{:?}", spec.severity).to_lowercase(),
+                                "severity": format!("{:?}", spec.severity).to_lowercase(),
                     "offByDefault": spec.off_by_default,
                     "fixes": spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>(),
                 })

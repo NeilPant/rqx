@@ -19,7 +19,7 @@ advisories! {
         stance: Applicable,
         analysis: Modules,
         signature: "three or more first-party files importing the same third-party package directly",
-        techniques: [ExtractSharedModule, HideDelegate],
+        techniques: [ExtractSharedModule, EncapsulateDelegation],
         confidence: Heuristic,
         why: "every one of those files is written against someone else's API, so the \
               blast radius of that dependency changing is the number of files, not one",
@@ -41,7 +41,7 @@ advisories! {
         stance: Applicable,
         analysis: Semantics,
         signature: "the same value switched on in more than one place, where no branch reassigns it",
-        techniques: [ReplaceConditionalWithPolymorphism, ReplaceTypeCodeWithStateStrategy],
+        techniques: [ReplaceConditionalWithPolymorphism, ReplaceTypeCodeWithPolymorphicState],
         confidence: Heuristic,
         why: "the cases are spelled out in several places, so a new one is found by \
               searching rather than by the compiler refusing to build",
@@ -63,7 +63,7 @@ advisories! {
         stance: Applicable,
         analysis: Semantics,
         signature: "the same value switched on in more than one place, where a branch reassigns it",
-        techniques: [ReplaceTypeCodeWithStateStrategy, ReplaceConditionalWithPolymorphism],
+        techniques: [ReplaceTypeCodeWithPolymorphicState, ReplaceConditionalWithPolymorphism],
         confidence: Heuristic,
         why: "the value being switched on is also the value the branches change, so the \
               transitions are scattered across every place that reads it",
@@ -87,7 +87,7 @@ advisories! {
         stance: Incomplete,
         analysis: Semantics,
         signature: "a class forwarding most of its methods to something it holds while declaring no interface of its own",
-        techniques: [ExtractInterface, ReplaceInheritanceWithDelegation],
+        techniques: [ExtractInterface, ReplaceInheritanceWithComposition],
         confidence: Heuristic,
         why: "it wraps the thing but cannot be passed where the thing is expected, so \
               every caller has to know which of the two it is holding",
@@ -238,7 +238,7 @@ advisories! {
         stance: Incomplete,
         analysis: Semantics,
         signature: "a collection of listeners with a way to subscribe and none to stop",
-        techniques: [AddParameter, RemoveSettingMethod],
+        techniques: [AddParameter, RemoveSetter],
         confidence: Heuristic,
         why: "nothing that subscribes can ever be released, so the collection and \
               everything it points at outlive the objects that registered",
@@ -298,7 +298,7 @@ advisories! {
         stance: Applicable,
         analysis: Modules,
         signature: "four or more subclasses whose names cover two independent axes exactly",
-        techniques: [ReplaceInheritanceWithDelegation, ExtractInterface],
+        techniques: [ReplaceInheritanceWithComposition, ExtractInterface],
         confidence: Heuristic,
         why: "the two things varying are multiplied into subclasses, so adding one \
               value to either axis means writing a class for every value of the other",

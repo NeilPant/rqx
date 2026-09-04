@@ -4,7 +4,7 @@ use crate::advice::AdviceId;
 use crate::coverage::{Coverage, Tally};
 
 /// The book's own three groupings. Kept because they are the ones a reader already
-/// knows, the same reason `Category` follows refactoring.guru's families.
+/// knows, the same reason `Category` groups the rules.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PatternFamily {
     Creational,
@@ -44,7 +44,7 @@ impl PatternFamily {
 }
 
 /// The twenty-three patterns of *Design Patterns*, all of them, each with what Rqx
-/// does about it. Same discipline as `Smell`: the catalogue is the claim, and holding
+/// does about it. The catalogue is the claim, and holding
 /// it as data is what makes the claim checkable rather than a sentence in a README.
 ///
 /// `intent` is the book's own one-line Intent, so a reader can tell whether the
@@ -356,7 +356,7 @@ mod tests {
 
     /// A pattern claiming an advisory that does not cite it back, or an advisory
     /// citing a pattern whose coverage does not list it, is the drift this pairing
-    /// exists to catch — the same check `rule.rs` runs over smells and heuristics.
+    /// exists to catch.
     #[test]
     fn coverage_and_the_advisories_agree_about_each_other() {
         for pattern in Pattern::ALL.iter().copied() {

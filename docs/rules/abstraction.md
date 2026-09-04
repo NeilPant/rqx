@@ -1,4 +1,4 @@
-# Object-Orientation Abusers
+# Abstraction
 
 [Back to the catalogue](README.md)
 
@@ -11,9 +11,7 @@ the same set of cases is now spelled out in several places, so adding a case mea
 | Measures | switch or if/else chain branching on the same discriminant in more than one place |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Switch Statements |
-| Clean Code | G23 Prefer Polymorphism to If/Else or Switch/Case |
-| Fix | Replace Conditional with Polymorphism / Replace Type Code with Subclasses / Replace Type Code with State/Strategy |
+| Fix | Replace Conditional with Polymorphism / Replace Type Code with Subclasses / Replace Type Code with Polymorphic State |
 
 From `fixtures/typescript/patterns.ts`, line 5:
 
@@ -42,8 +40,6 @@ the field is empty for most of the object's life, so every other method has to k
 | Measures | instance field written and read by exactly one method, never in the constructor |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Temporary Field |
-| Clean Code | G8 Too Much Information |
 | Fix | Extract Class / Extract Method |
 
 From `fixtures/typescript/shapes.ts`, line 13:
@@ -65,8 +61,6 @@ the subclass is inheriting an interface it cannot honour, so a caller holding th
 | Measures | override whose body only throws or is empty |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | Refused Bequest |
-| Clean Code | G7 Base Classes Depending on Their Derivatives |
 | Fix | Push Down Method / Extract Interface / Collapse Hierarchy |
 | Not in Go | nothing is inherited in Go, so nothing can be refused: a type either has a method or does not |
 
@@ -89,8 +83,6 @@ the base cannot be deployed, tested or understood without its children, which is
 | Measures | base class referencing one of its own subclasses by name |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G7 Base Classes Depending on Their Derivatives |
 | Fix | Invert Dependency / Push Down Method |
 | Not in Go | Go has no inheritance: embedding is a field, so no type is a base another derives from |
 
@@ -113,8 +105,6 @@ a static can never be overridden, so behaviour that clearly belongs to the insta
 | Measures | static method taking an instance of its own class as its first parameter |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G18 Inappropriate Static |
 | Fix | Move Method |
 | Not in Go | Go has no methods on the type itself, only on values of it, so the static-on-own-type shape cannot be written |
 
@@ -137,8 +127,6 @@ the order the methods must be called in is real but unwritten, so the only way t
 | Measures | a field no constructor sets that two or more methods test before acting |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G31 Hidden Temporal Couplings |
 | Fix | Introduce Assertion / Extract Class |
 
 From `fixtures/typescript/lifecycle.ts`, line 1:
@@ -159,8 +147,6 @@ callers have to learn both interfaces to do one job, and a fix applied to one of
 | Measures | two classes with the same method count and arities and no shared name |
 | Reported as | info, low confidence |
 | Reads | resolved scopes and symbols |
-| Smell | Alternative Classes with Different Interfaces |
-| Clean Code | G5 Duplication |
 | Fix | Rename Method / Extract Superclass / Move Method |
 | Default | off; name it under `[rules] enabled` |
 

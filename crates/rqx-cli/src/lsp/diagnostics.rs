@@ -13,6 +13,7 @@ use lsp_types::{
 };
 use rqx_core::advice::Advice;
 use rqx_core::finding::{Confidence, Finding, Severity};
+use rqx_core::rule::RuleId;
 use rqx_core::{Cleanliness, LineIndex};
 
 use super::protocol::{Encoding, range_at, uri_for};
@@ -103,9 +104,10 @@ fn of_finding(
         })
         .collect();
 
-    // Which rules mean "this code does nothing" is already declared in the catalogue,
-    // so reading it back beats a list here that goes stale when a rule is added.
-    let unnecessary = spec.guru_smell == Some(rqx_core::Smell::DeadCode);
+    // An unused parameter greys out like dead code but is rewritten rather than
+    // deleted, so the autofix kind alone would drop it.
+    let unnecessary = spec.autofix == rqx_core::rule::Autofix::Deletion
+        || finding.rule == RuleId::UnusedParameter;
 
     Diagnostic {
         range: range_at(index, encoding, &finding.location),
@@ -144,7 +146,7 @@ fn of_advice(index: &LineIndex<'_>, encoding: Encoding, advice: &Advice) -> Diag
 pub fn hover_markdown(finding: &Finding) -> String {
     let spec = finding.rule.spec();
     format!(
-        "**{}**\n\n{}\n\n{}\n\n**Fix — {}**\n\n{}\n\n---\n\n*{} · {}*",
+        "**{}**\n\n{}\n\n{}\n\n**Fix — {}**\n\n{}\n\n---\n\n*{}*",
         spec.slug,
         finding.evidence,
         spec.why,
@@ -154,9 +156,7 @@ pub fn hover_markdown(finding: &Finding) -> String {
             .collect::<Vec<_>>()
             .join(" / "),
         finding.fix_hint,
-        spec.citation(),
-        spec.guru_smell
-            .map_or("no catalog entry", rqx_core::Smell::name)
+        spec.category.title()
     )
 }
 
@@ -420,7 +420,8 @@ fn notify_diagnostics(
 }
 
 fn covers(range: Range, position: Position) -> bool {
-    let after_start = (range.start.line, range.start.character) <= (position.line, position.character);
+    let after_start =
+        (range.start.line, range.start.character) <= (position.line, position.character);
     let before_end = (position.line, position.character) <= (range.end.line, range.end.character);
     after_start && before_end
 }
@@ -493,6 +494,10 @@ mod tests {
         publisher.publish("saved.ts", "const b = 2;\n", vec![finding("saved.ts")], &[]);
 
         let files = drained(&publisher);
-        assert_eq!(files, vec!["old.ts", "saved.ts"], "the sweep took the wrong files");
+        assert_eq!(
+            files,
+            vec!["old.ts", "saved.ts"],
+            "the sweep took the wrong files"
+        );
     }
 }

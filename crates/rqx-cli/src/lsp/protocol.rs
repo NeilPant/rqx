@@ -237,9 +237,18 @@ mod tests {
     fn columns_follow_the_negotiated_encoding() {
         let source = "const 🎈 = value;";
         let offset = source.find("= value").unwrap() as u32;
-        assert_eq!(position_at(&index(source), Encoding::Utf8, offset).character, 11);
-        assert_eq!(position_at(&index(source), Encoding::Utf16, offset).character, 9);
-        assert_eq!(position_at(&index(source), Encoding::Utf32, offset).character, 8);
+        assert_eq!(
+            position_at(&index(source), Encoding::Utf8, offset).character,
+            11
+        );
+        assert_eq!(
+            position_at(&index(source), Encoding::Utf16, offset).character,
+            9
+        );
+        assert_eq!(
+            position_at(&index(source), Encoding::Utf32, offset).character,
+            8
+        );
     }
 
     #[test]
@@ -274,7 +283,11 @@ mod tests {
             "/tmp/quote'd/a.ts",
         ] {
             let uri = uri_of(Path::new(path)).expect(path);
-            assert_eq!(path_from_uri(&uri).as_deref(), Some(Path::new(path)), "{path}");
+            assert_eq!(
+                path_from_uri(&uri).as_deref(),
+                Some(Path::new(path)),
+                "{path}"
+            );
         }
     }
 

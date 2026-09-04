@@ -74,7 +74,10 @@ impl Screen for Patterns {
                         Ink::Accent
                     };
                     rows.push(Line::from(vec![
-                        Span::styled("    \u{25cf} ".to_owned(), Style::new().fg(palette.color(ink))),
+                        Span::styled(
+                            "    \u{25cf} ".to_owned(),
+                            Style::new().fg(palette.color(ink)),
+                        ),
                         Span::styled(
                             advice.location.to_string(),
                             Style::new().fg(palette.color(Ink::Text)),
@@ -120,7 +123,12 @@ impl Screen for Patterns {
 
         let height = area.height as usize;
         self.offset = self.offset.min(lines.len().saturating_sub(1));
-        let shown: Vec<Line<'static>> = lines.iter().skip(self.offset).take(height).cloned().collect();
+        let shown: Vec<Line<'static>> = lines
+            .iter()
+            .skip(self.offset)
+            .take(height)
+            .cloned()
+            .collect();
         frame.render_widget(Paragraph::new(shown), area);
 
         let mut scrollbar = ScrollbarState::new(lines.len()).position(self.offset);

@@ -292,7 +292,7 @@ mod tests {
         assert!(!draw(&session(), None, 100, 20).contains("Overview"));
         let tabbed = draw(&session(), Some(Tab::Rules), 100, 20);
         assert!(
-            tabbed.contains("Overview") && tabbed.contains("Coverage"),
+            tabbed.contains("Overview") && tabbed.contains("Patterns"),
             "{tabbed}"
         );
     }

@@ -72,7 +72,10 @@ pub fn render(outcome: &ScanOutcome, palette: Palette, out: &mut dyn Write) -> R
     writeln!(
         out,
         "\n  {}  {}\n",
-        paint(palette.style(Ink::Text).bold(), format!("{:NAME_WIDTH$}", "Patterns")),
+        paint(
+            palette.style(Ink::Text).bold(),
+            format!("{:NAME_WIDTH$}", "Patterns")
+        ),
         paint(
             palette.style(Ink::Muted),
             format!(
@@ -206,9 +209,17 @@ pub fn explain(pattern: Pattern, palette: Palette) -> Result<()> {
             out,
             "\n  {}  {}",
             paint(palette.style(stance_ink(spec.stance)), spec.slug),
-            paint(dim, format!("{} \u{b7} {}", spec.stance.label(), spec.confidence.label()))
+            paint(
+                dim,
+                format!("{} \u{b7} {}", spec.stance.label(), spec.confidence.label())
+            )
         )?;
-        writeln!(out, "  {} {}", paint(dim, format!("{:18}", "Signature")), spec.signature)?;
+        writeln!(
+            out,
+            "  {} {}",
+            paint(dim, format!("{:18}", "Signature")),
+            spec.signature
+        )?;
         if !spec.techniques.is_empty() {
             writeln!(
                 out,

@@ -135,4 +135,4 @@ fail_on_incomplete = false
 # [[override]]
 # paths = ["src/generated/**"]
 # [override.rules]
-# disabled = ["dispensables"]
+# disabled = ["waste"]

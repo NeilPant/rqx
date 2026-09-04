@@ -224,10 +224,16 @@ fn an_opened_file_under_a_path_with_a_space_gets_diagnostics() {
     assert_eq!(first["source"], "rqx");
     assert!(first["code"].is_string());
     assert!(
-        first["codeDescription"]["href"].as_str().unwrap().contains("docs/rules/"),
+        first["codeDescription"]["href"]
+            .as_str()
+            .unwrap()
+            .contains("docs/rules/"),
         "a rule code with no reference is inert text in the Problems panel"
     );
-    assert!(first["data"]["rule"].is_string(), "a code action has nothing to act on");
+    assert!(
+        first["data"]["rule"].is_string(),
+        "a code action has nothing to act on"
+    );
 
     session.shutdown();
 }
@@ -268,9 +274,8 @@ fn the_scan_reports_health_and_a_ranked_place_to_start() {
     let mut session = Session::start(&root);
     session.initialize(&root);
 
-    let report = session.wait_for(|message| {
-        message.get("method").and_then(Value::as_str) == Some("rqx/report")
-    });
+    let report = session
+        .wait_for(|message| message.get("method").and_then(Value::as_str) == Some("rqx/report"));
     let params = &report["params"];
     assert!(params["health"].as_u64().unwrap() <= 100);
     assert!(params["grades"].is_object());
@@ -301,7 +306,12 @@ fn explain_answers_with_the_catalogue_entry() {
     );
     let answer = session.response_to(id);
     assert_eq!(answer["result"]["slug"], "unused-export");
-    assert!(answer["result"]["markdown"].as_str().unwrap().contains("unused-export"));
+    assert!(
+        answer["result"]["markdown"]
+            .as_str()
+            .unwrap()
+            .contains("unused-export")
+    );
 
     session.shutdown();
 }
@@ -338,7 +348,9 @@ fn shutting_down_mid_scan_is_not_a_protocol_error() {
 /// and returned nothing, which is a lie it keeps asking on.
 #[test]
 fn an_unimplemented_method_is_refused_rather_than_answered_with_nothing() {
-    let root = workspace_with_a_space("an_unimplemented_method_is_refused_rather_than_answered_with_nothing");
+    let root = workspace_with_a_space(
+        "an_unimplemented_method_is_refused_rather_than_answered_with_nothing",
+    );
     let mut session = Session::start(&root);
     session.initialize(&root);
 
@@ -350,7 +362,10 @@ fn an_unimplemented_method_is_refused_rather_than_answered_with_nothing() {
         }),
     );
     let answer = session.response_to(id);
-    assert_eq!(answer["error"]["code"], -32601, "expected MethodNotFound: {answer}");
+    assert_eq!(
+        answer["error"]["code"], -32601,
+        "expected MethodNotFound: {answer}"
+    );
 
     session.shutdown();
 }

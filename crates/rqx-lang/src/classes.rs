@@ -128,9 +128,7 @@ impl<'a> Collector<'a> {
             if self.profile.is_member_access(current) {
                 let object = current.child_by_field_name(self.profile.object_field)?;
                 if self.is_receiver(object) {
-                    return Some(
-                        self.text(self.property_of(current)?).to_owned(),
-                    );
+                    return Some(self.text(self.property_of(current)?).to_owned());
                 }
                 return None;
             }
@@ -161,9 +159,10 @@ impl<'a> Collector<'a> {
             if !self.profile.is_member_access(node) {
                 continue;
             }
-            let (Some(object), Some(property)) =
-                (node.child_by_field_name(self.profile.object_field), self.property_of(node))
-            else {
+            let (Some(object), Some(property)) = (
+                node.child_by_field_name(self.profile.object_field),
+                self.property_of(node),
+            ) else {
                 continue;
             };
             if self.is_receiver(object) {
@@ -441,11 +440,10 @@ impl<'a> Collector<'a> {
         }
         let named_by = |node: Node<'a>| {
             let mut cursor = node.walk();
-            node.named_children(&mut cursor)
-                .find(|child| {
-                    self.profile.is_identifier(*child)
-                        || self.profile.property_kinds.contains(&child.kind())
-                })
+            node.named_children(&mut cursor).find(|child| {
+                self.profile.is_identifier(*child)
+                    || self.profile.property_kinds.contains(&child.kind())
+            })
         };
         // Declarators nest through their own `declarator` field: a method returning a
         // pointer is a `pointer_declarator` around the `function_declarator` that

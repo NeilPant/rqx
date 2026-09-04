@@ -36,18 +36,16 @@ pub enum Tab {
     Files,
     Patterns,
     Rules,
-    Coverage,
     Config,
 }
 
 impl Tab {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 6] = [
         Self::Overview,
         Self::Findings,
         Self::Files,
         Self::Patterns,
         Self::Rules,
-        Self::Coverage,
         Self::Config,
     ];
 
@@ -58,7 +56,6 @@ impl Tab {
             Self::Files => "Files",
             Self::Patterns => "Patterns",
             Self::Rules => "Rules",
-            Self::Coverage => "Coverage",
             Self::Config => "Config",
         }
     }
@@ -80,7 +77,6 @@ impl Tab {
             Self::Files => "one row per file, worst first",
             Self::Patterns => "which design patterns are in use, broken, or would fit",
             Self::Rules => "the rule catalogue",
-            Self::Coverage => "what rqx does about each catalogued smell",
             Self::Config => "the settings this run will use",
         }
     }

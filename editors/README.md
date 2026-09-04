@@ -12,7 +12,7 @@ small enough to survive being unmaintained.
 | | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Panel |
 |---|---|---|---|---|---|---|---|
 | **VS Code** (+ Cursor, Windsurf, VSCodium) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **JetBrains** (IDEA, WebStorm, PyCharm, GoLand, CLion) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | tool window |
+| **JetBrains** (via any LSP client plugin) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
@@ -46,7 +46,7 @@ same second key everywhere.
 
 | | Leader |
 |---|---|
-| VS Code, JetBrains | `⌘⌥R` / `Ctrl+Alt+R` |
+| VS Code | `⌘⌥R` / `Ctrl+Alt+R` |
 | Neovim, coc.nvim | `<leader>r` |
 | Helix | `space r` |
 | Sublime | `Ctrl+Alt+R` |

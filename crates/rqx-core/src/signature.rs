@@ -122,16 +122,26 @@ pub fn from_patterns(patterns: &Patterns, builder: &AdviceBuilder<'_>, out: &mut
     }
 }
 
-
-
 /// Words a language community uses for the same move. Name lists are the weakest thing
 /// here, so every advisory that leans on one is only ever as strong as `Heuristic`.
 const COPY_VERBS: [&str; 5] = ["clone", "copy", "duplicate", "dup", "replicate"];
 const SUBSCRIBE_VERBS: [&str; 6] = ["add", "subscribe", "register", "on", "attach", "listen"];
-const UNSUBSCRIBE_VERBS: [&str; 6] = ["remove", "unsubscribe", "deregister", "off", "detach", "unregister"];
+const UNSUBSCRIBE_VERBS: [&str; 6] = [
+    "remove",
+    "unsubscribe",
+    "deregister",
+    "off",
+    "detach",
+    "unregister",
+];
 const NOTIFY_VERBS: [&str; 6] = ["notify", "emit", "publish", "fire", "dispatch", "broadcast"];
 const LISTENER_WORDS: [&str; 6] = [
-    "listener", "observer", "subscriber", "handler", "callback", "watcher",
+    "listener",
+    "observer",
+    "subscriber",
+    "handler",
+    "callback",
+    "watcher",
 ];
 const SAVE_VERBS: [&str; 4] = ["save", "snapshot", "capture", "memento"];
 const RESTORE_VERBS: [&str; 4] = ["restore", "undo", "revert", "rollback"];
@@ -159,7 +169,10 @@ fn mentions(text: &str, words: &[&str]) -> bool {
 /// here resolves them, so `List<Handler>` and `Handler` both name `Handler`.
 fn names(type_name: Option<&String>, wanted: &str) -> bool {
     type_name.is_some_and(|text| {
-        text == wanted || text.split(['<', '>', '[', ']', ',', ' ', '*', '&']).any(|part| part == wanted)
+        text == wanted
+            || text
+                .split(['<', '>', '[', ']', ',', ' ', '*', '&'])
+                .any(|part| part == wanted)
     })
 }
 
@@ -177,11 +190,7 @@ fn behaviour(report: &ClassReport) -> impl Iterator<Item = &Method> {
         .filter(|method| !method.is_constructor)
 }
 
-pub fn from_classes(
-    classes: &[ClassReport],
-    builder: &AdviceBuilder<'_>,
-    out: &mut Vec<Advice>,
-) {
+pub fn from_classes(classes: &[ClassReport], builder: &AdviceBuilder<'_>, out: &mut Vec<Advice>) {
     for report in classes {
         wrapping(report, builder, out);
         composing(report, builder, out);
@@ -259,7 +268,10 @@ fn wrapping(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<Adv
             out,
             AdviceId::DecoratorNotSubstitutable,
             report.span,
-            shape(report, format!("wraps a `{wrapped}` and implements nothing")),
+            shape(
+                report,
+                format!("wraps a `{wrapped}` and implements nothing"),
+            ),
             format!(
                 "give `{}` the interface `{wrapped}` answers to, or callers have to \
                  know which of the two they are holding",
@@ -306,10 +318,7 @@ fn composing(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<Ad
         report.span,
         shape(
             report,
-            format!(
-                "holds `{}`, a collection of its own kind",
-                field.name
-            ),
+            format!("holds `{}`, a collection of its own kind", field.name),
         ),
         format!(
             "one `{}` and a tree of them answer the same way",
@@ -325,9 +334,8 @@ fn building(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<Adv
     if fluent.len() < 3 {
         return;
     }
-    let terminal = behaviour(report).find(|method| {
-        method.returns.is_some() && !names(method.returns.as_ref(), &report.name)
-    });
+    let terminal = behaviour(report)
+        .find(|method| method.returns.is_some() && !names(method.returns.as_ref(), &report.name));
     let detail = format!("has {} steps returning itself", fluent.len());
     match terminal {
         Some(build) => builder.emit(
@@ -415,8 +423,14 @@ fn instancing(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<A
             out,
             AdviceId::FlyweightFound,
             report.span,
-            shape(report, format!("hands out shared instances from `{}`", lookup.name)),
-            format!("the same `{}` is one object wherever it is held", report.name),
+            shape(
+                report,
+                format!("hands out shared instances from `{}`", lookup.name),
+            ),
+            format!(
+                "the same `{}` is one object wherever it is held",
+                report.name
+            ),
         );
     }
 }
@@ -432,9 +446,11 @@ fn listening(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<Ad
     }) else {
         return;
     };
-    let subscribe = behaviour(report).find(|method| starts_with_verb(&method.name, &SUBSCRIBE_VERBS));
+    let subscribe =
+        behaviour(report).find(|method| starts_with_verb(&method.name, &SUBSCRIBE_VERBS));
     let notify = behaviour(report).any(|method| starts_with_verb(&method.name, &NOTIFY_VERBS));
-    let unsubscribe = behaviour(report).any(|method| starts_with_verb(&method.name, &UNSUBSCRIBE_VERBS));
+    let unsubscribe =
+        behaviour(report).any(|method| starts_with_verb(&method.name, &UNSUBSCRIBE_VERBS));
     let Some(subscribe) = subscribe else { return };
     if !notify {
         return;
@@ -446,14 +462,20 @@ fn listening(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<Ad
             AdviceId::ObserverFound,
             report.span,
             shape(report, detail),
-            format!("`{}` tells its dependants without knowing them", report.name),
+            format!(
+                "`{}` tells its dependants without knowing them",
+                report.name
+            ),
         );
     } else {
         builder.emit(
             out,
             AdviceId::ObserverWithoutRemoval,
             report.span,
-            shape(report, format!("{detail} and only `{}` to join", subscribe.name)),
+            shape(
+                report,
+                format!("{detail} and only `{}` to join", subscribe.name),
+            ),
             format!(
                 "give `{}` a way to unsubscribe, or every listener it takes lives as \
                  long as it does",
@@ -464,9 +486,9 @@ fn listening(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<Ad
 }
 
 fn remembering(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<Advice>) {
-    let Some(save) = behaviour(report).find(|method| {
-        starts_with_verb(&method.name, &SAVE_VERBS) && method.returns.is_some()
-    }) else {
+    let Some(save) = behaviour(report)
+        .find(|method| starts_with_verb(&method.name, &SAVE_VERBS) && method.returns.is_some())
+    else {
         return;
     };
     let Some(kept) = save.returns.as_deref() else {
@@ -479,8 +501,14 @@ fn remembering(report: &ClassReport, builder: &AdviceBuilder<'_>, out: &mut Vec<
             out,
             AdviceId::MementoFound,
             report.span,
-            shape(report, format!("hands out a `{kept}` through `{}`", save.name)),
-            format!("`{}` puts its own state back without exposing it", report.name),
+            shape(
+                report,
+                format!("hands out a `{kept}` through `{}`", save.name),
+            ),
+            format!(
+                "`{}` puts its own state back without exposing it",
+                report.name
+            ),
         );
     }
 }
@@ -533,21 +561,12 @@ pub fn iterating(
         return;
     }
     for report in classes {
-        let declares = |wanted: &&str| {
-            report
-                .declared
-                .iter()
-                .any(|method| method.name == **wanted)
-        };
+        let declares = |wanted: &&str| report.declared.iter().any(|method| method.name == **wanted);
         if !members.iter().all(declares) {
             continue;
         }
         // Without something to walk, the members are a coincidence of naming.
-        if !report
-            .held
-            .iter()
-            .any(|field| field.element_type.is_some())
-        {
+        if !report.held.iter().any(|field| field.element_type.is_some()) {
             continue;
         }
         builder.emit(

@@ -1,4 +1,4 @@
-# Naming (Clean Code ch. 2)
+# Naming
 
 [Back to the catalogue](README.md)
 
@@ -11,8 +11,6 @@ a reader who has to guess which convention a name follows cannot skim, and the m
 | Measures | camelCase and snake_case names declared in one file |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G24 Follow Standard Conventions |
 | Fix | Rename Variable |
 
 From `fixtures/typescript/conventions.ts`, line 1:
@@ -33,8 +31,6 @@ the name has to be read past to learn anything, so every call site forces a trip
 | Measures | a function named with a bare verb and no object |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G20 Function Names Should Say What They Do |
 | Fix | Rename Method |
 
 From `fixtures/typescript/names.ts`, line 1:
@@ -55,8 +51,6 @@ a pattern name is a promise about the interface, and a reader who trusts it goes
 | Measures | a class named Factory or Builder with no method that makes or builds |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | N3 Use Standard Nomenclature Where Possible |
 | Fix | Rename Method / Extract Class |
 | Default | off; name it under `[rules] enabled` |
 
@@ -79,8 +73,6 @@ a reader who has met `fetchUser` cannot tell whether `getUser` is the same thing
 | Measures | two interchangeable verbs used for the same object in one file |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G11 Inconsistency |
 | Fix | Rename Method |
 | Default | off; name it under `[rules] enabled` |
 
@@ -102,8 +94,6 @@ a name that describes nothing forces every reader to re-derive the value's purpo
 | Measures | identifier matched against a curated non-name set |
 | Reported as | info, low confidence |
 | Reads | the syntax tree alone |
-| Smell | no direct catalogue entry |
-| Clean Code | N1 Choose Descriptive Names; N4 Unambiguous Names |
 | Fix | Rename Variable |
 | Default | off; name it under `[rules] enabled` |
 
@@ -126,8 +116,6 @@ a one-letter name is readable while its whole life fits on screen, and stops bei
 | Measures | binding of one or two characters living across many lines |
 | Reported as | info, low confidence |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | N5 Use Long Names for Long Scopes |
 | Fix | Rename Variable |
 | Tuned by | `thresholds.short_name_scope_lines` |
 | Default | off; name it under `[rules] enabled` |
@@ -151,8 +139,6 @@ the type is already in the declaration and checked by the compiler, so the prefi
 | Measures | identifier carrying a type prefix, or an interface named with a leading I |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | N6 Avoid Encodings |
 | Fix | Rename Variable |
 | Default | off; name it under `[rules] enabled` |
 

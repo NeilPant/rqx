@@ -27,10 +27,12 @@ paths = ["src/generated/**", "vendor/**"]
 long_function_statements = 200
 
 [override.rules]
-disabled = ["dispensables"]
+disabled = ["waste"]
 ```
 
 An override may set `thresholds` and `rules` and nothing else. Every other table describes the run as a whole — the file walker is built once and the gate reaches one verdict — so naming one in an override is an error rather than a setting that quietly does nothing.
+
+The same holds for names: a rule, family, pattern or stance that does not exist is an error, not a silent no-op, because a `categories` allowlist naming only unknown families would otherwise turn every rule off. `rqx rules` lists every name that is valid.
 
 ## The gate
 

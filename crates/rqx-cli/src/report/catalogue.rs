@@ -3,7 +3,7 @@ use std::io::Write;
 
 use anyhow::Result;
 use rqx_core::rule::{Category, RuleId, RuleSpec};
-use rqx_core::{Chapter, Coverage, FixTechnique, Group, Heuristic, Origin, Smell, Tally};
+use rqx_core::{Coverage, FixTechnique, Group, Tally};
 
 use crate::brand::{Ink, Palette, coverage_ink, paint};
 
@@ -13,7 +13,6 @@ pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
     let mut out = anstream::stdout().lock();
     let RuleSpec {
         slug,
-        guru_smell,
         metric,
         fixes,
         confidence,
@@ -31,20 +30,8 @@ pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
     writeln!(
         out,
         "  {} {}",
-        paint(dim, format!("{:18}", "Smell")),
-        guru_smell.map_or("no direct catalog entry", rqx_core::Smell::name)
-    )?;
-    writeln!(
-        out,
-        "  {} {}",
         paint(dim, format!("{:18}", "Family")),
         category.title()
-    )?;
-    writeln!(
-        out,
-        "  {} {}",
-        paint(dim, format!("{:18}", "Clean Code")),
-        rule.spec().citation()
     )?;
     writeln!(out, "  {} {metric}", paint(dim, format!("{:18}", "Metric")))?;
     writeln!(
@@ -138,7 +125,7 @@ pub fn rules(only: Option<&str>, language: Option<&str>, palette: Palette) -> Re
                 out,
                 "    {} {}{}",
                 paint(palette.style(Ink::Accent), format!("{:26}", spec.slug)),
-                paint(dim, spec.citation()),
+                paint(dim, spec.metric),
                 paint(dim, state)
             )?;
         }
@@ -181,7 +168,12 @@ pub fn write_entry<Answer: Copy + std::fmt::Display + 'static>(
     Ok(())
 }
 
-pub fn write_tally(out: &mut impl Write, palette: Palette, label: &str, tally: Tally) -> Result<()> {
+pub fn write_tally(
+    out: &mut impl Write,
+    palette: Palette,
+    label: &str,
+    tally: Tally,
+) -> Result<()> {
     let mut parts = vec![format!("{} implemented", tally.implemented)];
     for (count, name) in [
         (tally.absent, "not yet"),
@@ -208,81 +200,6 @@ pub fn write_tally(out: &mut impl Write, palette: Palette, label: &str, tally: T
     Ok(())
 }
 
-/// Traceability the tool can prove rather than assert: every entry in both
-/// catalogues, with what Rqx does about it and why when it does nothing.
-pub fn coverage(palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
-
-    writeln!(
-        out,
-        "\n  {}\n",
-        paint(palette.style(Ink::Accent).bold(), "Coverage")
-    )?;
-    write_tally(&mut out, palette, "refactoring.guru smells", Smell::tally())?;
-    write_tally(
-        &mut out,
-        palette,
-        "Clean Code ch.17 heuristics",
-        Heuristic::tally(),
-    )?;
-    writeln!(
-        out,
-        "  {}  {}",
-        paint(
-            palette.style(Ink::Text).bold(),
-            format!("{:34}", "refactoring.guru techniques")
-        ),
-        paint(
-            palette.style(Ink::Muted),
-            format!(
-                "{} catalogued \u{b7} {} prescribed by a rule",
-                FixTechnique::ALL
-                    .iter()
-                    .filter(|t| t.origin() == Origin::Guru)
-                    .count(),
-                prescribed().len()
-            )
-        )
-    )?;
-
-    for family in Category::ALL {
-        let smells: Vec<Smell> = Smell::in_family(family).collect();
-        if smells.is_empty() {
-            continue;
-        }
-        writeln!(
-            out,
-            "\n  {}",
-            paint(palette.style(Ink::Text).bold(), family.title())
-        )?;
-        for smell in smells {
-            write_entry(&mut out, palette, smell.name(), smell.coverage())?;
-        }
-    }
-
-    for chapter in Chapter::ALL {
-        writeln!(
-            out,
-            "\n  {}",
-            paint(
-                palette.style(Ink::Text).bold(),
-                format!("Clean Code \u{2014} {}", chapter.title())
-            )
-        )?;
-        for entry in chapter.heuristics() {
-            write_entry(
-                &mut out,
-                palette,
-                &format!("{} {}", entry.id(), entry.title()),
-                entry.coverage(),
-            )?;
-        }
-    }
-
-    writeln!(out)?;
-    Ok(())
-}
-
 fn prescribed() -> BTreeSet<FixTechnique> {
     RuleId::ALL
         .iter()
@@ -290,8 +207,6 @@ fn prescribed() -> BTreeSet<FixTechnique> {
         .collect()
 }
 
-/// The refactorings themselves, including the ones no rule prescribes yet — an
-/// incomplete list is what let the wrong fix stay attached to a rule.
 pub fn techniques(palette: Palette) -> Result<()> {
     let mut out = anstream::stdout().lock();
     let prescribed = prescribed();
@@ -300,22 +215,17 @@ pub fn techniques(palette: Palette) -> Result<()> {
     for group in Group::ALL {
         writeln!(
             out,
-            "\n  {}",
-            paint(palette.style(Ink::Text).bold(), group.title())
+            "\n  {}  {}",
+            paint(palette.style(Ink::Text).bold(), group.title()),
+            paint(dim, group.summary())
         )?;
         for technique in group.techniques() {
-            let note = if prescribed.contains(&technique) {
-                RuleId::ALL
-                    .iter()
-                    .filter(|rule| rule.spec().fixes.contains(&technique))
-                    .map(|rule| rule.slug())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            } else if technique.origin() == Origin::Guru {
-                String::new()
-            } else {
-                technique.origin().label().to_owned()
-            };
+            let note = RuleId::ALL
+                .iter()
+                .filter(|rule| rule.spec().fixes.contains(&technique))
+                .map(|rule| rule.slug())
+                .collect::<Vec<_>>()
+                .join(", ");
             writeln!(
                 out,
                 "    {} {}",

@@ -36,7 +36,7 @@ pub struct Page {
     /// Rule slugs to keep, e.g. `long-function`. Empty keeps every rule.
     #[serde(default)]
     pub rule: Vec<String>,
-    /// Rule families to keep, e.g. `dispensables`. Empty keeps every family.
+    /// Rule families to keep, e.g. `waste`. Empty keeps every family.
     #[serde(default)]
     pub category: Vec<String>,
     /// Path globs to keep, e.g. `src/orders/**`. Empty keeps every file.
@@ -77,7 +77,7 @@ pub struct Named {
 pub struct Catalogue {
     /// Substring to match against a rule's slug, metric or reason.
     pub query: Option<String>,
-    /// Family slug to keep, e.g. `bloaters`.
+    /// Family slug to keep, e.g. `size`.
     pub category: Option<String>,
     /// Keep only rules that apply to this language.
     pub language: Option<String>,
@@ -102,7 +102,11 @@ impl Rqx {
         description = "Analyse the project and answer with its health, its grade \
                        distribution and the files to open first. Returns no findings — \
                        page those out of `findings`, which reads this same scan.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn scan(&self, Parameters(asked): Parameters<Where>) -> Result<CallToolResult, McpError> {
         let scanned = within(&self.root, asked.path.as_deref()).map_err(refused)?;
@@ -148,9 +152,16 @@ impl Rqx {
         description = "Page the findings of the most recent scan, narrowed by severity, \
                        rule, family or path glob. Scans the project first if nothing has \
                        been scanned yet.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
-    async fn findings(&self, Parameters(page): Parameters<Page>) -> Result<CallToolResult, McpError> {
+    async fn findings(
+        &self,
+        Parameters(page): Parameters<Page>,
+    ) -> Result<CallToolResult, McpError> {
         let snapshot = self.snapshot(None).await?;
         let filter = FindingFilter::new(
             severity_of(page.severity.as_deref())?,
@@ -165,7 +176,9 @@ impl Rqx {
             Some(cursor) => Cursor::parse(cursor, snapshot.id).map_err(refused)?.offset,
             None => 0,
         };
-        let limit = page.limit.map_or(PAGE, |limit| (limit as usize).clamp(1, MAX_PAGE));
+        let limit = page
+            .limit
+            .map_or(PAGE, |limit| (limit as usize).clamp(1, MAX_PAGE));
         let matched = report.findings.len();
         let shown: Vec<&Finding> = report
             .findings
@@ -190,7 +203,11 @@ impl Rqx {
         name = "check",
         description = "Review only what changed against a base revision, plus everything \
                        that imports it, and say whether the configured gate passes.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn check(&self, Parameters(diff): Parameters<Diff>) -> Result<CallToolResult, McpError> {
         let root = within(&self.root, diff.path.as_deref()).map_err(refused)?;
@@ -230,9 +247,16 @@ impl Rqx {
         name = "analyze",
         description = "Analyse source held in memory — an unsaved buffer or code you just \
                        wrote — without touching the disk.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
-    async fn analyze(&self, Parameters(buffer): Parameters<Buffer>) -> Result<CallToolResult, McpError> {
+    async fn analyze(
+        &self,
+        Parameters(buffer): Parameters<Buffer>,
+    ) -> Result<CallToolResult, McpError> {
         let display = buffer.filename.as_deref().unwrap_or("<buffer>");
         let language = match buffer.language.as_deref() {
             Some(slug) => Language::parse(slug).ok_or_else(|| {
@@ -270,9 +294,16 @@ impl Rqx {
         name = "explain",
         description = "What one rule measures, why it matters and which named refactoring \
                        fixes it. Also answers for a design pattern.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
-    async fn explain(&self, Parameters(named): Parameters<Named>) -> Result<CallToolResult, McpError> {
+    async fn explain(
+        &self,
+        Parameters(named): Parameters<Named>,
+    ) -> Result<CallToolResult, McpError> {
         let name = named.name.trim();
         if let Some(rule) = projection::rule(name) {
             let digest = rule["markdown"].as_str().unwrap_or_default().to_owned();
@@ -291,9 +322,16 @@ impl Rqx {
         name = "rules",
         description = "Search the rule catalogue: what each rule measures, the smell it \
                        comes from and the refactoring it names.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
-    async fn rules(&self, Parameters(ask): Parameters<Catalogue>) -> Result<CallToolResult, McpError> {
+    async fn rules(
+        &self,
+        Parameters(ask): Parameters<Catalogue>,
+    ) -> Result<CallToolResult, McpError> {
         let category = match ask.category.as_deref() {
             Some(slug) => Some(Category::parse(slug).ok_or_else(|| {
                 refused(format!(
@@ -338,14 +376,21 @@ impl Rqx {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        Ok(answer(digest, json!({ "matched": matched.len(), "rules": matched })))
+        Ok(answer(
+            digest,
+            json!({ "matched": matched.len(), "rules": matched }),
+        ))
     }
 
     #[tool(
         name = "patterns",
         description = "Design patterns the project uses, half applies or has a shape for. \
                        None of it moves the health score.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn patterns(
         &self,
@@ -371,7 +416,9 @@ impl Rqx {
             Some(cursor) => Cursor::parse(cursor, snapshot.id).map_err(refused)?.offset,
             None => 0,
         };
-        let limit = ask.limit.map_or(PAGE, |limit| (limit as usize).clamp(1, MAX_PAGE));
+        let limit = ask
+            .limit
+            .map_or(PAGE, |limit| (limit as usize).clamp(1, MAX_PAGE));
         let shown: Vec<&Advice> = matched.iter().skip(offset).take(limit).copied().collect();
         let next = offset + shown.len();
 
@@ -407,7 +454,11 @@ impl Rqx {
         name = "config",
         description = "The settings this server will actually use, and which file each \
                        value came from.",
-        annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false)
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn config(&self) -> Result<CallToolResult, McpError> {
         let rows = setting_rows(&self.settings);

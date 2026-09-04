@@ -1,4 +1,4 @@
-# Change Preventers
+# Change
 
 [Back to the catalogue](README.md)
 
@@ -11,8 +11,6 @@ one decision is spread across files that must be edited in lockstep, and nothing
 | Measures | files that git history shows almost always change together |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
-| Smell | Shotgun Surgery |
-| Clean Code | G22 Make Logical Dependencies Physical |
 | Fix | Extract Class / Move Method |
 
 ## `divergent-change`
@@ -24,8 +22,6 @@ this file is edited for many unrelated reasons, which is the observable signatur
 | Measures | a file with many commits and no single frequent co-change partner |
 | Reported as | info, low confidence |
 | Reads | the syntax tree alone |
-| Smell | Divergent Change |
-| Clean Code | Ch.10 The Single Responsibility Principle |
 | Fix | Extract Class |
 | Default | off; name it under `[rules] enabled` |
 
@@ -38,8 +34,6 @@ every new case means a new subclass in both trees, and the day someone adds only
 | Measures | two class hierarchies whose subclasses are named for the same set of things |
 | Reported as | info, low confidence |
 | Reads | the import graph across every file |
-| Smell | Parallel Inheritance Hierarchies |
-| Clean Code | G22 Make Logical Dependencies Physical |
 | Fix | Move Method / Move Field / Collapse Hierarchy |
 | Default | off; name it under `[rules] enabled` |
 | Not in Go | hierarchies need inheritance, and Go has none to build one from |

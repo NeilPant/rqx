@@ -52,7 +52,7 @@ the two things varying are multiplied into subclasses, so adding one value to ei
 | Decided by | four or more subclasses whose names cover two independent axes exactly |
 | Confidence | measured threshold |
 | Reads | the import graph across every file |
-| Fix | Replace Inheritance with Delegation / Extract Interface |
+| Fix | Replace Inheritance with Composition / Extract Interface |
 | Not in Go | the language has no inheritance, so there is no hierarchy to split in two |
 
 From `fixtures/typescript/families.ts`, line 79:
@@ -136,7 +136,7 @@ it wraps the thing but cannot be passed where the thing is expected, so every ca
 | Decided by | a class forwarding most of its methods to something it holds while declaring no interface of its own |
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
-| Fix | Extract Interface / Replace Inheritance with Delegation |
+| Fix | Extract Interface / Replace Inheritance with Composition |
 | Not in Go | a type here declares no interface, so nothing says what it can stand in for |
 | Not in Python | nothing in the language declares an interface, so wrapping without one is ordinary composition |
 
@@ -169,7 +169,7 @@ every one of those files is written against someone else's API, so the blast rad
 | Decided by | three or more first-party files importing the same third-party package directly |
 | Confidence | measured threshold |
 | Reads | the import graph across every file |
-| Fix | Extract Shared Module / Hide Delegate |
+| Fix | Extract Shared Module / Encapsulate Delegation |
 
 From `fixtures/typescript/gateway-a.ts`, line 1:
 

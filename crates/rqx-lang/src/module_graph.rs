@@ -392,10 +392,10 @@ pub fn analyze(
             // The walk hands modules over as its workers finish, so "the first file
             // that imported this" depends on the thread count unless it is ordered.
             let mut sites = sites.clone();
-            sites.sort_by(|left, right| left.0.cmp(&right.0).then(left.1.start.cmp(&right.1.start)));
+            sites
+                .sort_by(|left, right| left.0.cmp(&right.0).then(left.1.start.cmp(&right.1.start)));
             let (path, span) = sites.first()?;
-            let mut importers: Vec<PathBuf> =
-                sites.iter().map(|(path, _)| path.clone()).collect();
+            let mut importers: Vec<PathBuf> = sites.iter().map(|(path, _)| path.clone()).collect();
             importers.dedup();
             Some(External {
                 specifier: specifier.clone(),

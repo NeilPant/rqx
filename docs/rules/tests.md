@@ -1,4 +1,4 @@
-# Tests (Clean Code ch. 9)
+# Tests
 
 [Back to the catalogue](README.md)
 
@@ -11,9 +11,7 @@ a suite slow enough to skip stops being run, and a test nobody runs is worth les
 | Measures | a sleep or timeout inside a test body above the configured pause |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | T9 Tests Should Be Fast |
-| Fix | Substitute Algorithm |
+| Fix | Replace Algorithm |
 | Tuned by | `thresholds.slow_test_ms` |
 
 From `fixtures/typescript/suite.test.ts`, line 12:
@@ -35,8 +33,6 @@ a skipped test is a question nobody answered; it reports green forever while the
 | Measures | test declared with skip, xit, xdescribe or todo |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | T4 An Ignored Test Is a Question about an Ambiguity |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/suite.test.ts`, line 3:
@@ -60,8 +56,6 @@ this silently disables every other test in the file, so the suite goes green whi
 | Measures | test declared with only, fit or fdescribe |
 | Reported as | error, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | T1 Insufficient Tests |
 | Fix | Remove Dead Code |
 | Not in Python | pytest and unittest focus a run with `-k` on the command line; there is nothing in the source to find |
 | Not in Go | `go test` focuses a run with `-run` on the command line; there is nothing in the source to find |
@@ -87,8 +81,6 @@ it passes as long as nothing throws, so it reports success for behaviour it neve
 | Measures | test body containing no assertion call |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | T1 Insufficient Tests |
 | Fix | Introduce Assertion |
 
 From `fixtures/typescript/suite.test.ts`, line 9:

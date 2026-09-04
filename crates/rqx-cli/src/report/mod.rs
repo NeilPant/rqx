@@ -23,11 +23,10 @@ use rqx_core::finding::{Finding, Severity};
 use crate::check::{Review, Verdict};
 use crate::scan::ScanOutcome;
 
-pub use catalogue::{coverage, explain, rules, techniques};
+pub use catalogue::{explain, rules, techniques};
 pub use docs::write as docs;
 pub use patterns::{
-    coverage as pattern_coverage, explain as explain_pattern, json as advice_json,
-    render as advice,
+    coverage as pattern_coverage, explain as explain_pattern, json as advice_json, render as advice,
 };
 
 /// A misspelling is the common case, and a list of sixty slugs is not an answer to

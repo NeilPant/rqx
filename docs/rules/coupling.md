@@ -1,4 +1,4 @@
-# Couplers
+# Coupling
 
 [Back to the catalogue](README.md)
 
@@ -11,8 +11,6 @@ no module in the cycle can be understood, tested or loaded on its own, and the i
 | Measures | strongly connected component of more than one module in the import graph |
 | Reported as | warning, verified |
 | Reads | the import graph across every file |
-| Smell | no direct catalogue entry |
-| Clean Code | Acyclic Dependencies Principle (Martin); Ch.12 minimal coupling |
 | Fix | Extract Shared Module / Invert Dependency |
 
 From `fixtures/typescript/cycle-a.ts`, line 1:
@@ -33,9 +31,7 @@ this line depends on the shape of every object along the chain, so a change to a
 | Measures | chained member access depth beyond the configured limit |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Message Chains |
-| Clean Code | G36 Avoid Transitive Navigation |
-| Fix | Hide Delegate / Extract Method |
+| Fix | Encapsulate Delegation / Extract Method |
 | Tuned by | `thresholds.message_chain_depth` |
 
 From `fixtures/typescript/hygiene.ts`, line 31:
@@ -57,8 +53,6 @@ the method wants to live on the other class, and while it does not, both classes
 | Measures | method touching another object's members more than its own |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Feature Envy |
-| Clean Code | G14 Feature Envy |
 | Fix | Move Method / Extract Method |
 | Tuned by | `thresholds.feature_envy_ratio` |
 
@@ -81,9 +75,7 @@ every call pays for a hop that adds nothing, and every new method on the delegat
 | Measures | class where most methods do nothing but delegate |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Middle Man |
-| Clean Code | G17 Misplaced Responsibility |
-| Fix | Remove Middle Man / Inline Class |
+| Fix | Inline Delegation / Inline Class |
 
 From `fixtures/typescript/lifecycle.ts`, line 24:
 
@@ -104,9 +96,7 @@ neither class can be read, tested or moved without the other coming with it, so 
 | Measures | two classes in one file that each reference the other by name |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | Inappropriate Intimacy |
-| Clean Code | G13 Artificial Coupling |
-| Fix | Move Method / Extract Class / Hide Delegate |
+| Fix | Move Method / Extract Class / Encapsulate Delegation |
 
 From `fixtures/typescript/intimacy.ts`, line 5:
 

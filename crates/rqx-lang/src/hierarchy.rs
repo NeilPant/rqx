@@ -249,7 +249,9 @@ fn interpreter<'a>(
 fn visitor<'a>(name: &'a str, declared: &Declared<'a>, found: &mut Vec<Finding<'a>>) {
     let visits: Vec<&Method> = declared
         .behaviour()
-        .filter(|method| method.name.len() > 5 && method.name.to_ascii_lowercase().starts_with("visit"))
+        .filter(|method| {
+            method.name.len() > 5 && method.name.to_ascii_lowercase().starts_with("visit")
+        })
         .collect();
     if visits.len() < 3 {
         return;
@@ -350,7 +352,10 @@ mod tests {
             facts(
                 "Kit",
                 &[],
-                vec![method("button", Some("Button")), method("panel", Some("Panel"))],
+                vec![
+                    method("button", Some("Button")),
+                    method("panel", Some("Panel")),
+                ],
             ),
             facts("DarkKit", &["Kit"], Vec::new()),
             facts("LightKit", &["Kit"], Vec::new()),

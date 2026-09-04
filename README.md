@@ -72,61 +72,53 @@ that file changes and how much depends on it, and a **named refactoring** — ne
 
 Each rule is traceable to an established catalogue, and that traceability is
 enforced by the compiler: `RuleId::spec()` is an exhaustive match, so a rule that
-does not declare its smell, metric and fix does not build.
+does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Two sources are canonical: **refactoring.guru's** smell and refactoring catalogues,
-and **Clean Code (Robert C. Martin), ch. 17 "Smells and Heuristics"**. Every rule
-cites an entry in at least one, names the metric that decides it, and names the
-refactoring that fixes it — verbatim from refactoring.guru's technique list.
+Sixty rules across eight families. Every rule names the metric that decides it and
+the refactoring that answers it, and neither is optional.
 
 That traceability is enforced by the compiler. The catalogue is one declarative
 table (`crates/rqx-core/src/catalogue.rs`) in which every field is mandatory, so a
-rule that omits its smell, its metric or its fix does not build. A test additionally
-asserts that every Clean Code citation names a real heuristic identifier, and
-another asserts that **every rule in the catalogue actually fires on a fixture** —
-a rule nothing can trigger is a documentation entry pretending to be a check.
+rule that omits its metric or its fix does not build. A second test asserts that
+**every rule in the catalogue actually fires on a fixture** — a rule nothing can
+trigger is a documentation entry pretending to be a check.
 
 `rqx rules` prints all 60 grouped by family, and `rqx explain <rule>` prints one in
 full. [`docs/rules/`](docs/rules/README.md) is the same catalogue as a reference: what
 each rule measures, the threshold that tunes it, the languages it cannot apply to, and
 a worked example lifted from the fixture that fires it.
 
-| Family | Rules |
-|---|---|
-| **Bloaters** | 8 |
-| **Object-Orientation Abusers** | 7 |
-| **Change Preventers** | 3 |
-| **Dispensables** | 18 |
-| **Couplers** | 5 |
-| **Naming** (Clean Code ch. 2) | 7 |
-| **Safety** (Clean Code ch. 17 general) | 8 |
-| **Tests** (Clean Code ch. 9) | 4 |
+| Family | Rules | What it measures |
+|---|---|---|
+| **Size** | 8 | units that outgrew what a reader can hold |
+| **Abstraction** | 7 | types that model the problem wrong |
+| **Change** | 3 | shapes that make an edit expensive |
+| **Waste** | 18 | code and comments nothing reaches |
+| **Coupling** | 5 | modules that know too much about each other |
+| **Naming** | 7 | names that mislead or say nothing |
+| **Safety** | 8 | silent failure and swallowed errors |
+| **Tests** | 4 | suites that pass without checking |
 
 Those pages are generated from the catalogue by `rqx docs`, and a test fails if they
 drift from it — a hand-written table of sixty rules is a table that goes stale, which
 is what the one here had already done.
 
+`rqx techniques` prints every refactoring the rules prescribe, grouped by the kind of
+move it is, with the rules that ask for it. A technique nothing prescribes fails the
+suite, because an unreachable menu entry is worse than no entry.
+
 ### What is deliberately absent
 
-Both catalogues are held as data, so the coverage is counted rather than claimed —
-`rqx rules --coverage` prints every one of refactoring.guru's 22 smells and Clean
-Code's 66 heuristics with what Rqx does about it, and the test suite fails if an
-entry has no answer. `rqx techniques` does the same for the 66 refactorings.
+Some things are visible in source and still not decidable from it. Whether a comment
+still matches the code beneath it, whether an algorithm is the right one, whether
+behaviour a reader expected is missing — no metric settles these, and a tool that
+claimed otherwise would be inventing findings. That costs more trust than the missing
+rules do.
 
-An entry Rqx does not report says why:
-
-**Not yet** — decidable from the source, no rule for it. This is the only group that
-is a backlog, and it is the only group whose size the suite pins to an exact number.
-
-**Not decidable** — G21 "Understand the algorithm", C2 "Obsolete comment", C4 "Poorly
-written comment", G2 "Obvious behavior is unimplemented", T2 "Use a coverage tool",
-E1/E2 build and test process. A tool that claimed to check these would be inventing
-findings, which costs more trust than the missing rules do.
-
-**Not applicable** — J1–J3 are Java-specific; TypeScript has no wildcard imports and
-no constants to inherit.
+Rqx also parses without resolving types, so anything that needs a type checker to be
+certain is either reported at lower confidence or not at all, and says which.
 
 ## Design patterns
 
@@ -319,11 +311,10 @@ from the menu and every screen returns to it, so nothing is a dead end:
 | Findings | every finding with the offending code marked, filter, group, severity floor |
 | Files | one row per file, worst grade first, with churn and blast radius |
 | Patterns | which design patterns are in use, which are half applied, and where one would fit |
-| Rules | the catalogue, searchable, with each rule's smell, metric, fix and why |
-| Coverage | every entry in both source catalogues and what Rqx does about it |
+| Rules | the catalogue, searchable, with each rule's family, metric, fix and why |
 | Config | the effective settings and where each one came from |
 
-`tab` cycles all seven, `1`–`7` jump, `r` runs a scan, `/` filters, `?` lists the keys
+`tab` cycles all six, `1`–`6` jump, `r` runs a scan, `/` filters, `?` lists the keys
 of the screen you are on, `esc` steps back, `q` leaves and prints what the session
 found. A tab opened before a scan says what it will hold rather than refusing to
 open, and nothing but `q` returns you to the shell. It animates only while something is moving — a

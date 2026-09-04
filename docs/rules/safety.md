@@ -1,4 +1,4 @@
-# Safety (Clean Code ch. 17 general)
+# Safety
 
 [Back to the catalogue](README.md)
 
@@ -11,8 +11,6 @@ each of these tells the checker to stop checking, so the guarantee the rest of t
 | Measures | an `any` annotation, a non-null assertion, or a cast that is not `as const` |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G26 Be Precise |
 | Fix | Replace Data Value with Object / Introduce Assertion |
 
 From `fixtures/typescript/precision.ts`, line 5:
@@ -34,8 +32,6 @@ every place the boundary is recomputed is a place it can be recomputed wrongly, 
 | Measures | the same subject adjusted by one at more sites than the threshold |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G33 Encapsulate Boundary Conditions |
 | Fix | Extract Variable / Extract Method |
 | Tuned by | `thresholds.boundary_repeats` |
 
@@ -58,8 +54,6 @@ callers assume asking is free, so they ask twice, order the calls freely, and ar
 | Measures | a get, is, has, should or can function that assigns to a member |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | N7 Names Should Describe Side-Effects |
 | Fix | Separate Query from Modifier / Rename Method |
 
 From `fixtures/typescript/queries.ts`, line 5:
@@ -81,8 +75,6 @@ a check that would have caught the next mistake here has been turned off, and th
 | Measures | ts-ignore, ts-nocheck, eslint-disable, or a cast through any |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G4 Overridden Safeties |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/hygiene.ts`, line 27:
@@ -104,8 +96,6 @@ the function does two things and the caller picks which, so `f(x, true)` tells a
 | Measures | parameter declared with a boolean type |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | F3 Flag Arguments; G15 Selector Arguments |
 | Fix | Replace Parameter with Explicit Methods |
 
 From `fixtures/typescript/config.ts`, line 1:
@@ -126,8 +116,6 @@ the caller's value changes without the call site saying so, which is the hardest
 | Measures | parameter reassigned or mutated inside the function body |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | F2 Output Arguments |
 | Fix | Remove Assignments to Parameters / Separate Query from Modifier |
 
 From `fixtures/typescript/hygiene.ts`, line 24:
@@ -149,9 +137,7 @@ nobody can hold this many clauses at once, so the reader takes the branch on tru
 | Measures | boolean operands in a single condition beyond the configured limit |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G19 Use Explanatory Variables; G28 Encapsulate Conditionals |
-| Fix | Consolidate Conditional Expression / Extract Variable |
+| Fix | Consolidate Conditional / Extract Variable |
 | Tuned by | `thresholds.condition_operands` |
 
 From `fixtures/typescript/hygiene.ts`, line 10:
@@ -173,8 +159,6 @@ the reader has to invert it mentally to follow the else, and inverting a compoun
 | Measures | negated condition that has an else branch |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Smell | no direct catalogue entry |
-| Clean Code | G29 Avoid Negative Conditionals |
 | Fix | Decompose Conditional |
 | Default | off; name it under `[rules] enabled` |
 

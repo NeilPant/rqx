@@ -506,7 +506,7 @@ fn a_finding_always_carries_its_taxonomy_and_a_named_fix() {
     {
         for field in [
             "\"why\":\"",
-            "\"clean_code_smell\":\"",
+            "\"category\":\"",
             "\"metric\":\"",
             "\"fix_hint\":\"",
         ] {
@@ -870,7 +870,11 @@ fn only_a_half_applied_pattern_can_fail_the_gate() {
         .args(["--config", &strict, "--fail-on-incomplete", "--quiet"])
         .output()
         .expect("failed to run rqx");
-    assert_eq!(output.status.code(), Some(1), "a half-applied pattern fails");
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "a half-applied pattern fails"
+    );
 
     // Nothing is half applied in the clean fixture, so the same key must let it pass.
     let clean = std::env::temp_dir().join(format!("rqx-gate-clean-{}", std::process::id()));
@@ -977,7 +981,7 @@ fn every_category_is_represented_in_the_fixtures() {
     let fired = counts_by_rule(&report);
 
     for category in Category::ALL {
-        if category == Category::ChangePreventers {
+        if category == Category::Change {
             continue; // history-backed; see the dedicated test
         }
         assert!(
@@ -1274,7 +1278,7 @@ fn a_display_filter_never_moves_the_health_score() {
     let full = summary_field(&scan(&[]), "health_score");
     for narrowing in [
         ["--severity", "error"],
-        ["--category", "bloaters"],
+        ["--category", "size"],
         ["--rule", "long-function"],
     ] {
         let narrowed = summary_field(&scan(&narrowing), "health_score");
@@ -1347,7 +1351,7 @@ fn disabling_three_families_does_not_silence_the_others() {
     let config = dir.join("RQX.toml");
     std::fs::write(
         &config,
-        "[rules]\ndisabled = [\"dispensables\", \"couplers\", \"oo-abusers\"]\n",
+        "[rules]\ndisabled = [\"waste\", \"coupling\", \"abstraction\"]\n",
     )
     .unwrap();
 
