@@ -273,3 +273,36 @@ impl LanguageProfile {
             .any(|prefix| name.starts_with(prefix))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// A kind named in a profile that the grammar does not have never matches anything,
+    /// which is a rule silently switched off rather than a loud failure.
+    #[test]
+    fn every_named_kind_exists_in_its_grammar() {
+        for language in rqx_core::Language::ALL {
+            let profile = crate::support(language).profile;
+            let grammar = (profile.grammar)();
+            let known: std::collections::HashSet<&str> = (0..grammar.node_kind_count())
+                .filter_map(|id| grammar.node_kind_for_id(id as u16))
+                .collect();
+            for (label, kinds) in [
+                ("function_kinds", profile.function_kinds),
+                ("class_kinds", profile.class_kinds),
+                ("statement_kinds", profile.statement_kinds),
+                ("block_kinds", profile.block_kinds),
+                ("comment_kinds", profile.comment_kinds),
+                ("identifier_kinds", profile.identifier_kinds),
+                ("member_access_kinds", profile.member_access_kinds),
+                ("call_kinds", profile.call_kinds),
+            ] {
+                for name in kinds {
+                    assert!(
+                        known.contains(name),
+                        "{language:?} {label} names `{name}`, which its grammar does not have"
+                    );
+                }
+            }
+        }
+    }
+}

@@ -224,8 +224,7 @@ impl<'a> Builder<'a> {
         }
 
         let mut cursor = node.walk();
-        let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
-        for child in children {
+        for child in node.named_children(&mut cursor) {
             self.walk(child, inner);
         }
     }

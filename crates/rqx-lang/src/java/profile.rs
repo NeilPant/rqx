@@ -52,7 +52,6 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         "synchronized_statement",
         "labeled_statement",
         "assert_statement",
-        "local_variable_declaration_statement",
         "class_declaration",
         "interface_declaration",
         "record_declaration",

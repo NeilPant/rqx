@@ -434,9 +434,7 @@ impl<'a> Collector<'a> {
             return vec![node];
         }
         let mut cursor = node.walk();
-        let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
-        children
-            .into_iter()
+        node.named_children(&mut cursor)
             .flat_map(|child| self.union_members(child))
             .collect()
     }
@@ -522,13 +520,20 @@ impl<'a> Collector<'a> {
             self.class_stack.push(name.unwrap_or_default());
             pushed_class = true;
         }
-        let declares = is_binding_position(
-            node,
-            profile.parameter_kinds,
-            profile.borrowed_name_kinds,
-            profile.local_declaring_kinds,
-            profile.expression_list_kinds,
-        );
+        // Only a name can be in binding position, and answering the question costs a
+        // walk of every sibling: a string literal's thousands of escape sequences each
+        // rescanning the whole literal is quadratic in one node's child count.
+        let names = profile.is_identifier(node)
+            || profile.reference_only_kinds.contains(&kind)
+            || profile.binding_identifier_kinds.contains(&kind);
+        let declares = names
+            && is_binding_position(
+                node,
+                profile.parameter_kinds,
+                profile.borrowed_name_kinds,
+                profile.local_declaring_kinds,
+                profile.expression_list_kinds,
+            );
         if (profile.is_identifier(node) || profile.reference_only_kinds.contains(&kind))
             && !declares
             && let Some(owner) = self.class_stack.last()
@@ -572,8 +577,7 @@ impl<'a> Collector<'a> {
         }
 
         let mut cursor = node.walk();
-        let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
-        for child in children {
+        for child in node.named_children(&mut cursor) {
             self.walk(child);
         }
         if pushed_class {

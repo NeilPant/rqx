@@ -6,7 +6,7 @@ use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
-use crate::tree::{field_name, find_within, is_binding_position, operator_of, span_of, text_of};
+use crate::tree::{find_within, is_binding_position, operator_of, span_of, text_of};
 
 struct FunctionFrame {
     name: Option<String>,
@@ -74,9 +74,9 @@ impl<'a> MetricsWalker<'a> {
         }
     }
 
-    fn nested(&mut self, node: Node<'a>) {
+    fn nested(&mut self, node: Node<'a>, field: Option<&'static str>) {
         self.push_nesting();
-        self.walk(node);
+        self.walk(node, field);
         self.pop_nesting();
     }
 
@@ -214,11 +214,11 @@ impl<'a> MetricsWalker<'a> {
         }
     }
 
-    fn feed_hash(&mut self, node: Node<'a>) {
+    fn feed_hash(&mut self, node: Node<'a>, field: Option<&'static str>) {
         if self.blocks.is_empty() {
             return;
         }
-        let token = self.shape_token(node);
+        let token = self.shape_token(node, field);
         for frame in &mut self.blocks {
             frame.hasher.write_u64(token);
             frame.nodes += 1;
@@ -230,7 +230,7 @@ impl<'a> MetricsWalker<'a> {
     /// names are hashed, because two blocks calling different methods on the same
     /// object are rarely extractable into one function — reporting them as duplicates
     /// would make the suggested fix a lie.
-    fn shape_token(&self, node: Node<'a>) -> u64 {
+    fn shape_token(&self, node: Node<'a>, field: Option<&'static str>) -> u64 {
         let mut hasher = DefaultHasher::new();
         node.kind_id().hash(&mut hasher);
         if self.profile.binary_kinds.contains(&node.kind())
@@ -241,7 +241,7 @@ impl<'a> MetricsWalker<'a> {
         // The name of a member is hashed by the field it fills rather than by its
         // node kind: in a language where a property name is a plain identifier,
         // hashing every identifier would defeat the normalisation this depends on.
-        if field_name(node) == Some(self.profile.property_field) {
+        if field == Some(self.profile.property_field) {
             text_of(node, self.source).hash(&mut hasher);
         }
         hasher.finish()
@@ -293,8 +293,18 @@ impl<'a> MetricsWalker<'a> {
 
     fn walk_children(&mut self, node: Node<'a>) {
         let mut cursor = node.walk();
-        for child in node.named_children(&mut cursor) {
-            self.walk(child);
+        if !cursor.goto_first_child() {
+            return;
+        }
+        loop {
+            let child = cursor.node();
+            if child.is_named() {
+                let field = cursor.field_name();
+                self.walk(child, field);
+            }
+            if !cursor.goto_next_sibling() {
+                return;
+            }
         }
     }
 
@@ -304,10 +314,10 @@ impl<'a> MetricsWalker<'a> {
     fn walk_if(&mut self, node: Node<'a>) {
         self.increment_with_nesting();
         if let Some(condition) = node.child_by_field_name(self.profile.condition_field) {
-            self.walk(condition);
+            self.walk(condition, Some(self.profile.condition_field));
         }
         if let Some(consequence) = node.child_by_field_name("consequence") {
-            self.nested(consequence);
+            self.nested(consequence, Some("consequence"));
         }
 
         if self.profile.else_is_sibling_list {
@@ -319,7 +329,7 @@ impl<'a> MetricsWalker<'a> {
             for clause in clauses {
                 self.increment();
                 if let Some(condition) = clause.child_by_field_name(self.profile.condition_field) {
-                    self.walk(condition);
+                    self.walk(condition, Some(self.profile.condition_field));
                 }
                 let mut inner = clause.walk();
                 let bodies: Vec<Node<'a>> = clause
@@ -327,7 +337,7 @@ impl<'a> MetricsWalker<'a> {
                     .filter(|child| self.profile.is_block(*child))
                     .collect();
                 for body in bodies {
-                    self.nested(body);
+                    self.nested(body, None);
                 }
             }
             return;
@@ -347,15 +357,15 @@ impl<'a> MetricsWalker<'a> {
                 self.count_statement(span_of(branch), false);
                 self.increment();
                 if let Some(condition) = branch.child_by_field_name(self.profile.condition_field) {
-                    self.walk(condition);
+                    self.walk(condition, Some(self.profile.condition_field));
                 }
                 if let Some(consequence) = branch.child_by_field_name("consequence") {
-                    self.nested(consequence);
+                    self.nested(consequence, Some("consequence"));
                 }
                 alternative = branch.child_by_field_name(self.profile.else_field);
             } else {
                 self.increment();
-                self.nested(branch);
+                self.nested(branch, None);
                 alternative = None;
             }
         }
@@ -397,8 +407,8 @@ impl<'a> MetricsWalker<'a> {
             })
     }
 
-    fn walk(&mut self, node: Node<'a>) {
-        self.feed_hash(node);
+    fn walk(&mut self, node: Node<'a>, field: Option<&'static str>) {
+        self.feed_hash(node, field);
         let kind = node.kind();
         let profile = self.profile;
 
@@ -543,6 +553,6 @@ pub fn measure(profile: &'static LanguageProfile, source: &str, root: Node<'_>) 
         logical_chain: None,
         out: FileMetrics::default(),
     };
-    walker.walk(root);
+    walker.walk(root, None);
     walker.out
 }

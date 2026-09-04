@@ -42,7 +42,6 @@ pub static GO: LanguageProfile = LanguageProfile {
         "labeled_statement",
         "fallthrough_statement",
         "empty_statement",
-        "declaration_statement",
         "var_declaration",
         "const_declaration",
         "type_declaration",

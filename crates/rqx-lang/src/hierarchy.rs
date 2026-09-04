@@ -99,7 +99,7 @@ pub struct Finding<'a> {
     pub detail: String,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Shape {
     FactoryMethod,
     AbstractFactory,
@@ -121,7 +121,7 @@ pub fn shapes<'a>(tree: &'a Hierarchy<'a>) -> Vec<Finding<'a>> {
         left.path
             .cmp(right.path)
             .then(left.span.start.cmp(&right.span.start))
-            .then_with(|| format!("{:?}", left.kind).cmp(&format!("{:?}", right.kind)))
+            .then(left.kind.cmp(&right.kind))
     });
     found
 }

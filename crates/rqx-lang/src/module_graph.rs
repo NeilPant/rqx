@@ -357,11 +357,6 @@ pub fn analyze(
         }
     }
 
-    report.edges = edges
-        .out
-        .iter()
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
     for targets in edges.out.values() {
         for target in targets {
             *report.importers.entry(target.clone()).or_insert(0) += 1;
@@ -416,6 +411,9 @@ pub fn analyze(
         .into_iter()
         .map(|members| Cycle { members })
         .collect();
+    // Moved rather than deep-copied: this used to clone every path and every target set
+    // in the graph, and then drop the originals unread.
+    report.edges = edges.out.into_iter().collect();
 
     report
         .dead_exports
