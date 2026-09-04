@@ -1,5 +1,4 @@
 use std::fmt;
-use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::finding::{Evidence, Finding};
 use crate::rule::RuleId;
@@ -14,33 +13,51 @@ impl Identity {
     /// Rule, file and subject. Never the line, never the measured value, so a
     /// finding survives being moved and survives its metric shrinking.
     pub fn of(rule: RuleId, file: &str, subject: &str) -> Self {
-        let mut hasher = DefaultHasher::new();
-        rule.slug().hash(&mut hasher);
-        file.hash(&mut hasher);
-        subject.hash(&mut hasher);
-        Self(hasher.finish())
+        Self(fnv1a(&[rule.slug(), file, subject]))
     }
 
     /// Rule, file and the evidence as printed. A changed metric is a changed
     /// identity, which is what a reporter that re-reports on drift wants.
     pub fn exact(finding: &Finding) -> Self {
-        let mut hasher = DefaultHasher::new();
-        finding.rule.slug().hash(&mut hasher);
-        finding.location.file.hash(&mut hasher);
-        finding.evidence.to_string().hash(&mut hasher);
-        Self(hasher.finish())
+        Self(fnv1a(&[
+            finding.rule.slug(),
+            &finding.location.file,
+            &finding.evidence.to_string(),
+        ]))
     }
 
     /// `of`, with the span's own text standing in for findings whose evidence
-    /// carries no name.
+    /// carries no name. Trimmed, so reindenting the line a finding sits on does
+    /// not rename it.
     pub fn resolved(finding: &Finding, source: &str) -> Self {
         let span = crate::span::Span::new(finding.location.start, finding.location.end);
         let subject = finding
             .evidence
             .subject()
-            .map_or_else(|| span.text(source).to_owned(), ToOwned::to_owned);
+            .map_or_else(|| span.text(source).trim().to_owned(), ToOwned::to_owned);
         Self::of(finding.rule, &finding.location.file, &subject)
     }
+}
+
+/// FNV-1a, written out rather than hashed with `DefaultHasher`, because every
+/// value it produces is persisted — in a GitLab report between CI runs, in a
+/// checked-in baseline, in a cache that outlives a toolchain upgrade — and
+/// `DefaultHasher` promises nothing across Rust versions.
+pub fn fnv1a(parts: &[&str]) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut eat = |byte: u8| {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    };
+    for (at, part) in parts.iter().enumerate() {
+        if at > 0 {
+            eat(0xff);
+        }
+        for byte in part.bytes() {
+            eat(byte);
+        }
+    }
+    hash
 }
 
 impl fmt::Display for Identity {
@@ -179,6 +196,26 @@ impl Evidence {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The value is checked in rather than recomputed, because a GitLab report and a
+    /// checked-in baseline both persist it: if this number ever moves, every waiver
+    /// and every existing annotation moves with it.
+    #[test]
+    fn an_identity_is_the_same_number_on_every_toolchain() {
+        assert_eq!(
+            Identity::of(RuleId::LongFunction, "src/a.ts", "parse").to_string(),
+            "e8288dc7aedd23a6"
+        );
+    }
+
+    /// The separator is what keeps two different splits of the same text apart.
+    #[test]
+    fn the_parts_of_an_identity_cannot_run_together() {
+        assert_ne!(
+            Identity::of(RuleId::LongFunction, "a", "bc"),
+            Identity::of(RuleId::LongFunction, "ab", "c")
+        );
+    }
     use crate::finding::{Confidence, Severity, SourceRange};
 
     fn finding(rule: RuleId, start: u32, evidence: Evidence) -> Finding {

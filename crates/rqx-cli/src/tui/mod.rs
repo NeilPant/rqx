@@ -506,7 +506,7 @@ fn install_panic_hook() {
             eprintln!("\nrqx hit a bug and stopped.\n");
             previous(info);
             eprintln!(
-                "\nPlease report this at https://github.com/jadhamwi/rqx/issues; \
+                "\nPlease report this at https://github.com/jadhamwi21/rqx/issues; \
                  run again with RUST_BACKTRACE=1 for more."
             );
         }));

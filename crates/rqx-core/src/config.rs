@@ -466,8 +466,6 @@ impl Thresholds {
         ("message_chain_depth", &[RuleId::MessageChain]),
         ("commented_code_lines", &[RuleId::CommentedOutCode]),
         ("magic_number_repeats", &[RuleId::MagicNumber]),
-        // Nothing reads this one yet: the count it would compare against is collected
-        // but no rule reports on it. Kept so an existing config still parses.
         ("class_public_members", &[RuleId::WideSurface]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),

@@ -5,7 +5,7 @@ import { execFile } from "node:child_process";
 import { arch, platform } from "node:os";
 import { join } from "node:path";
 
-const RELEASES = "https://github.com/jadhamwi/rqx/releases/download";
+const RELEASES = "https://github.com/jadhamwi21/rqx/releases/download";
 
 /// Bumped with the extension whenever it starts relying on a server capability. The
 /// server reports its own version in `serverInfo`, so a mismatch is a message rather

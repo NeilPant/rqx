@@ -44,9 +44,7 @@ fn analysis_version(settings: &Resolved) -> u64 {
 }
 
 fn fingerprint(source: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    source.hash(&mut hasher);
-    hasher.finish()
+    rqx_core::identity::fnv1a(&[source])
 }
 
 impl Cache {

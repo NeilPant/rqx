@@ -10,8 +10,8 @@ the ones with a single right answer, and grades the diff afterwards.**
 
 One Rust binary. No Node, no npm, no runtime dependencies.
 
-[![CI](https://github.com/jadhamwi/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi/rqx/actions/workflows/rqx.yml)
-[![Release](https://img.shields.io/github/v/release/jadhamwi/rqx?color=0a84ff)](https://github.com/jadhamwi/rqx/releases)
+[![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
+[![Release](https://img.shields.io/github/v/release/jadhamwi21/rqx?color=0a84ff)](https://github.com/jadhamwi21/rqx/releases)
 [![VS Code](https://img.shields.io/visual-studio-marketplace/v/jadhamwi.rqx?label=VS%20Code&color=0a84ff)](https://marketplace.visualstudio.com/items?itemName=jadhamwi.rqx)
 [![Open VSX](https://img.shields.io/open-vsx/v/jadhamwi/rqx?label=Open%20VSX&color=0a84ff)](https://open-vsx.org/extension/jadhamwi/rqx)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
@@ -41,12 +41,12 @@ A release ships one tarball per target, with `SHA256SUMS` beside them:
 ```bash
 # macOS (Apple silicon); swap the target for your platform
 VERSION=0.1.0 TARGET=aarch64-apple-darwin
-curl -fsSLO "https://github.com/jadhamwi/rqx/releases/download/v$VERSION/rqx-$VERSION-$TARGET.tar.gz"
+curl -fsSLO "https://github.com/jadhamwi21/rqx/releases/download/v$VERSION/rqx-$VERSION-$TARGET.tar.gz"
 tar -xzf "rqx-$VERSION-$TARGET.tar.gz"
 install "rqx-$VERSION-$TARGET/rqx" /usr/local/bin/
 
 # or build it
-cargo install --git https://github.com/jadhamwi/rqx rqx
+cargo install --git https://github.com/jadhamwi21/rqx rqx
 ```
 
 Targets: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`,

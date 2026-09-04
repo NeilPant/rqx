@@ -83,7 +83,7 @@ SARIF upload and a job summary from that single pass.
 rqx:
   image: rust:latest
   script:
-    - cargo install --locked --git https://github.com/jadhamwi/rqx rqx
+    - cargo install --locked --git https://github.com/jadhamwi21/rqx rqx
     - rqx check . --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
         --reporter terminal
         --reporter gitlab=gl-code-quality-report.json
@@ -121,7 +121,7 @@ code.
 ## CircleCI
 
 ```yaml
-- run: cargo install --locked --git https://github.com/jadhamwi/rqx rqx
+- run: cargo install --locked --git https://github.com/jadhamwi21/rqx rqx
 - run:
     command: rqx scan . --reporter terminal --reporter junit=/tmp/rqx/results.xml --fail-on error
     when: always

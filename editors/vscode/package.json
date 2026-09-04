@@ -280,12 +280,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jadhamwi/rqx.git"
+    "url": "https://github.com/jadhamwi21/rqx.git"
   },
   "bugs": {
-    "url": "https://github.com/jadhamwi/rqx/issues"
+    "url": "https://github.com/jadhamwi21/rqx/issues"
   },
-  "homepage": "https://github.com/jadhamwi/rqx/blob/main/editors/vscode/README.md",
+  "homepage": "https://github.com/jadhamwi21/rqx/blob/main/editors/vscode/README.md",
   "keywords": [
     "linter",
     "dead code",

@@ -21,7 +21,7 @@ use super::protocol::{Encoding, range_at, uri_for};
 pub const SOURCE: &str = "rqx";
 pub const PATTERN_SOURCE: &str = "rqx-patterns";
 
-const REFERENCE: &str = "https://github.com/jadhamwi/rqx/blob/main/docs/rules";
+const REFERENCE: &str = "https://github.com/jadhamwi21/rqx/blob/main/docs/rules";
 
 /// A finding kept beside the range it was published at, so hover and code actions
 /// answer from the coordinates the editor actually drew rather than recomputing them

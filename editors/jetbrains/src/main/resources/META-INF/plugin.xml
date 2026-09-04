@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.rqx.rqx</id>
     <name>rqx</name>
-    <vendor url="https://github.com/jadhamwi/rqx">Jad Alhamwi</vendor>
+    <vendor url="https://github.com/jadhamwi21/rqx">Jad Alhamwi</vendor>
 
     <description><![CDATA[
       Finds dead code, duplication and architectural drift in TypeScript, Python, Go,

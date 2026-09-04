@@ -102,7 +102,7 @@ fn document(findings: &[&Finding], prefix: &str) -> Result<String> {
             "tool": { "driver": {
                 "name": "rqx",
                 "version": env!("CARGO_PKG_VERSION"),
-                "informationUri": "https://github.com/jadhamwi/rqx",
+                "informationUri": "https://github.com/jadhamwi21/rqx",
                 "rules": fired.iter().map(|rule| rule_descriptor(*rule)).collect::<Vec<_>>()
             }},
             "results": findings.iter().map(|finding| result(finding, prefix)).collect::<Vec<_>>()

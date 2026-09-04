@@ -60,7 +60,7 @@ runs:
         esac
 
         asset="rqx-${version}-${target}.tar.gz"
-        base="https://github.com/jadhamwi/rqx/releases/download/v${version}"
+        base="https://github.com/jadhamwi21/rqx/releases/download/v${version}"
         if [ -n "$target" ] && curl -fsSL -o "$asset" "$base/$asset"; then
           curl -fsSL -o SHA256SUMS "$base/SHA256SUMS"
           grep " $asset\$" SHA256SUMS | sha256sum -c -
