@@ -914,11 +914,19 @@ fn every_applicable_rule_fires_on_every_language() {
     use rqx_core::Language;
     use std::collections::BTreeSet;
 
-    // These two read git history, which the fixture directories have none of; they
-    // are covered by `history_rules_fire_on_a_repository_with_a_shared_decision`.
-    let history_backed: BTreeSet<String> = ["shotgun-surgery", "divergent-change"]
-        .map(str::to_owned)
-        .into();
+    // These read something the fixture directories do not carry: two read git history,
+    // and two are silent until a project declares `[architecture]`, because an
+    // architecture nobody wrote down is not one rqx should infer. They are covered by
+    // `history_rules_fire_on_a_repository_with_a_shared_decision` and by
+    // `tests/architecture.rs`.
+    let history_backed: BTreeSet<String> = [
+        "shotgun-surgery",
+        "divergent-change",
+        "layer-violation",
+        "forbidden-import",
+    ]
+    .map(str::to_owned)
+    .into();
 
     let mut missing = Vec::new();
     for language in Language::ALL {

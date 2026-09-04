@@ -517,6 +517,29 @@ fn under(level: Level, explicit: &Value) -> Result<Value> {
 }
 
 fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
+    let plan = &config.architecture;
+    let undeclared = plan.undeclared_layers();
+    if !undeclared.is_empty() {
+        bail!(
+            "{source}: `[architecture.paths]` puts a subtree in {}, which `layers` does \
+             not declare. Layers are {:?}, ordered inner to outer.",
+            undeclared
+                .iter()
+                .map(|layer| format!("`{layer}`"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            plan.layers
+        );
+    }
+    let duplicates = plan.duplicate_layers();
+    if !duplicates.is_empty() {
+        bail!(
+            "{source}: `[architecture] layers` names {:?} twice, so which way a \
+             dependency may point between them has two answers.",
+            duplicates
+        );
+    }
+
     let unknown = config.unknown_names();
     if unknown.is_empty() {
         return Ok(());

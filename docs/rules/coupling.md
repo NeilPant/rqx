@@ -22,6 +22,28 @@ import { spin } from "./cycle-b";
 
 rqx says: break the cycle by moving what they share into a module both can import, or invert the weaker of the two dependencies behind an interface
 
+## `layer-violation`
+
+the layer the project put underneath now depends on the one above it, so the thing it was separated from cannot be replaced without changing it
+
+| | |
+|---|---|
+| Measures | an import pointing from an inner layer to an outer one |
+| Reported as | error, verified |
+| Reads | the import graph across every file |
+| Fix | Invert Dependency |
+
+## `forbidden-import`
+
+the boundary was written down and this import crosses it, which is the one kind of architectural drift a reader cannot infer from the code
+
+| | |
+|---|---|
+| Measures | an import the project's own rules say this subtree may not make |
+| Reported as | error, verified |
+| Reads | the import graph across every file |
+| Fix | Invert Dependency |
+
 ## `message-chain`
 
 this line depends on the shape of every object along the chain, so a change to any one of them breaks a caller that never mentioned it

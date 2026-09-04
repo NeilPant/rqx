@@ -146,6 +146,20 @@ disabled = []
 # nothing or this many rounds have run.
 max_rounds = 3
 
+[architecture]
+# The direction dependencies may point. `layers` is ordered inner to outer: a file
+# may import its own layer and any layer before it, so the domain cannot reach for an
+# adapter. Empty means rqx checks nothing here — an architecture nobody wrote down is
+# not one it should infer.
+layers = []
+
+# Which subtree is which layer, and the boundaries that are not about layering.
+# [architecture.paths]
+# "src/domain/**"      = { layer = "domain" }
+# "src/application/**" = { layer = "application" }
+# "src/adapters/**"    = { layer = "adapters", may_not_import = ["src/scripts/**"] }
+# "src/scripts/**"     = { may_only_import = ["src/adapters/**"] }
+
 # A subtree can be held to a different level, or relax or tighten thresholds and
 # rules — and nothing else, because the walker is built once and the gate reaches one
 # verdict. A scoped level moves that subtree's defaults and leaves the gate alone.

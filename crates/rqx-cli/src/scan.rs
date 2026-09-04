@@ -384,6 +384,92 @@ impl Collector {
 
     /// The graph can only be judged once every module has been seen, so these are
     /// the findings that cannot exist until the walk is over.
+    /// The direction a project said its dependencies may point, checked against the
+    /// direction they actually do. Silent unless `[architecture]` is declared: an
+    /// architecture nobody wrote down is not one rqx should infer.
+    fn finish_architecture(
+        &mut self,
+        root: &Path,
+        config: &RqxConfig,
+        report: &rqx_lang::module_graph::GraphReport,
+        at: &mut Positions,
+    ) {
+        let plan = &config.architecture;
+        if !plan.is_declared() {
+            return;
+        }
+        let Ok(assignments) = Assignments::build(plan) else {
+            return;
+        };
+
+        for (importer, imported) in &report.edges {
+            let from = relative_to(root, importer);
+            let Some(rules) = assignments.of(&from) else {
+                continue;
+            };
+            for target in imported {
+                let to = relative_to(root, target);
+                let span = report
+                    .edge_spans
+                    .get(&(importer.clone(), target.clone()))
+                    .copied()
+                    .unwrap_or(WHOLE_FILE);
+                let Some(range) = at.range(importer, span) else {
+                    continue;
+                };
+
+                if let Some(glob) = assignments.forbids(rules, &to) {
+                    self.accept_if_enabled(
+                        config,
+                        build(
+                            RuleId::ForbiddenImport,
+                            range.clone(),
+                            Evidence::ForbiddenImport {
+                                target: to.clone(),
+                                by: glob,
+                            },
+                            format!("`{to}` is outside what this subtree may reach for"),
+                            Vec::new(),
+                        ),
+                    );
+                    continue;
+                }
+
+                // Inner may import outward-of-itself never, itself and inward always.
+                // A file in no declared layer is not governed rather than free: the
+                // project named the subtrees it cares about.
+                let (Some(inner), Some(outer)) = (
+                    rules.layer.as_deref().and_then(|name| plan.rank(name)),
+                    assignments
+                        .of(&to)
+                        .and_then(|other| other.layer.as_deref())
+                        .and_then(|name| plan.rank(name)),
+                ) else {
+                    continue;
+                };
+                if outer > inner {
+                    self.accept_if_enabled(
+                        config,
+                        build(
+                            RuleId::LayerViolation,
+                            range,
+                            Evidence::LayerViolation {
+                                from: plan.layers[inner].clone(),
+                                to: plan.layers[outer].clone(),
+                                target: to,
+                            },
+                            format!(
+                                "invert it: let `{}` depend on an interface `{}` owns",
+                                plan.layers[outer], plan.layers[inner]
+                            ),
+                            Vec::new(),
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
     fn finish_modules(&mut self, root: &Path, config: &RqxConfig, at: &mut Positions) {
         if !self.track_modules || self.modules.is_empty() {
             return;
@@ -391,6 +477,7 @@ impl Collector {
         let modules = std::mem::take(&mut self.modules);
         self.advise_hierarchy(&modules, config, at);
         let report = graph_report(modules, root, config);
+        self.finish_architecture(root, config, &report, at);
 
         for dead in report.dead_exports {
             let Some(range) = at.range(&dead.path, dead.span) else {
@@ -800,6 +887,55 @@ const FACADE_IMPORTERS: usize = 3;
 /// Graph and history findings are constructed here rather than through
 /// `FindingBuilder`, so the rule filter has to be applied on this path too — without
 /// it, disabling a rule or selecting a family would silently miss them.
+/// The globs from `[architecture]`, compiled once per run. `globset` rather than the
+/// walker's `Override`, because a violation has to name the glob that forbade it and
+/// an `Override` only answers whether something matched.
+struct Assignments<'plan> {
+    matcher: globset::GlobSet,
+    order: Vec<(&'plan String, &'plan rqx_core::config::Assignment)>,
+}
+
+impl<'plan> Assignments<'plan> {
+    fn build(plan: &'plan rqx_core::config::Architecture) -> Result<Self, globset::Error> {
+        let mut builder = globset::GlobSetBuilder::new();
+        let mut order = Vec::new();
+        for (glob, assignment) in &plan.paths {
+            builder.add(globset::Glob::new(glob)?);
+            order.push((glob, assignment));
+        }
+        Ok(Self {
+            matcher: builder.build()?,
+            order,
+        })
+    }
+
+    /// The last declaration wins, the way the most specific rule a project wrote is
+    /// the one that answers elsewhere in the config.
+    fn of(&self, path: &str) -> Option<&'plan rqx_core::config::Assignment> {
+        self.matcher
+            .matches(path)
+            .last()
+            .map(|index| self.order[*index].1)
+    }
+
+    fn forbids(&self, rules: &rqx_core::config::Assignment, target: &str) -> Option<String> {
+        fn matches<'a>(patterns: &'a [String], target: &str) -> Option<&'a String> {
+            patterns.iter().find(|pattern| {
+                globset::Glob::new(pattern)
+                    .map(|glob| glob.compile_matcher().is_match(target))
+                    .unwrap_or(false)
+            })
+        }
+        if let Some(glob) = matches(&rules.may_not_import, target) {
+            return Some(glob.clone());
+        }
+        if !rules.may_only_import.is_empty() && matches(&rules.may_only_import, target).is_none() {
+            return Some(format!("may_only_import {:?}", rules.may_only_import));
+        }
+        None
+    }
+}
+
 fn build(
     rule: RuleId,
     location: SourceRange,
@@ -1113,6 +1249,7 @@ fn graph_report(
         merged.parallel.extend(report.parallel);
         merged.importers.extend(report.importers);
         merged.edges.extend(report.edges);
+        merged.edge_spans.extend(report.edge_spans);
     }
     merged
         .dead_exports

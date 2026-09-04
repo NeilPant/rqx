@@ -367,7 +367,7 @@ fn a_buffer_is_analysed_without_touching_the_disk() {
         analysis["note"]
             .as_str()
             .expect("a note")
-            .contains("52 of the 60"),
+            .contains("52 of the 62"),
         "an agent reading silence as a clean bill of health is the failure this prevents"
     );
     assert!(

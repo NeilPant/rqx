@@ -8,7 +8,7 @@ named refactoring that fixes it.
 It also scans the whole project on its own: once after the handshake, and again after
 every save. The eight cross-file rules — unused exports, unused files, import cycles,
 duplication, and the two co-change rules — cannot be answered from one open file, so
-without that a client would silently see 52 of the 60 rules. Diagnostics for files you
+without that a client would silently see 52 of the 62 rules. Diagnostics for files you
 never opened are published the same way as the ones for files you did.
 
 ## Commands
@@ -22,7 +22,7 @@ can bind it. Nothing here is a VS Code extension talking to itself.
 | `rqx.check` | Review the diff against a base (default `origin/HEAD`) and report the gate |
 | `rqx.explain` | The catalogue entry for a rule slug, as markdown |
 | `rqx.startHere` | What to open first, ranked by grade then blast radius |
-| `rqx.catalogue` | All 60 rules as data |
+| `rqx.catalogue` | Every rule as data |
 | `rqx.disableRule` / `rqx.disableCategory` | A `WorkspaceEdit` that switches one off in `RQX.toml` |
 | `rqx.togglePatterns` | Half-applied design patterns on or off, as hints |
 | `rqx.toggleCodeLens` | The per-file grade lens on or off |

@@ -64,6 +64,7 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
 - [What makes a finding](#what-makes-a-finding)
 - [The catalogue](#the-catalogue)
 - [Design patterns](#design-patterns)
+- [The direction dependencies may point](#the-direction-dependencies-may-point)
 - [Five languages, one rule set](#five-languages-one-rule-set)
 - [It applies the fixes that have one right answer](#it-applies-the-fixes-that-have-one-right-answer)
 - [Did the refactoring actually happen](#did-the-refactoring-actually-happen)
@@ -143,7 +144,7 @@ does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Sixty rules across eight families. Every rule names the metric that decides it and
+Sixty-two rules across eight families. Every rule names the metric that decides it and
 the refactoring that answers it, and neither is optional.
 
 That traceability is enforced by the compiler. The catalogue is one declarative
@@ -152,7 +153,7 @@ rule that omits its metric or its fix does not build. A second test asserts that
 **every rule in the catalogue actually fires on a fixture** — a rule nothing can
 trigger is a documentation entry pretending to be a check.
 
-`rqx rules` prints all 60 grouped by family, and `rqx explain <rule>` prints one in
+`rqx rules` prints all 62 grouped by family, and `rqx explain <rule>` prints one in
 full. [`docs/rules/`](docs/rules/README.md) is the same catalogue as a reference: what
 each rule measures, the threshold that tunes it, the languages it cannot apply to, and
 a worked example lifted from the fixture that fires it.
@@ -163,13 +164,13 @@ a worked example lifted from the fixture that fires it.
 | **Abstraction** | 7 | types that model the problem wrong |
 | **Change** | 3 | shapes that make an edit expensive |
 | **Waste** | 18 | code and comments nothing reaches |
-| **Coupling** | 5 | modules that know too much about each other |
+| **Coupling** | 7 | modules that know too much about each other, and dependencies pointing the wrong way |
 | **Naming** | 7 | names that mislead or say nothing |
 | **Safety** | 8 | silent failure and swallowed errors |
 | **Tests** | 4 | suites that pass without checking |
 
 Those pages are generated from the catalogue by `rqx docs`, and a test fails if they
-drift from it — a hand-written table of sixty rules is a table that goes stale, which
+drift from it — a hand-written table of sixty-odd rules is a table that goes stale, which
 is what the one here had already done.
 
 `rqx techniques` prints every refactoring the rules prescribe, grouped by the kind of
@@ -221,6 +222,32 @@ Confidence is per advisory, not per pattern: recognising a Decorator from what i
 holds is `verified`, reading a Bridge out of a cross-product of subclass names is a
 `measured threshold`, and pairing a save with a restore by name is `low confidence`
 and ships off. [`docs/patterns/`](docs/patterns/README.md) is the reference.
+
+## The direction dependencies may point
+
+ArchUnit does Java. dependency-cruiser does JavaScript. import-linter does Python.
+Nothing checks a polyglot monorepo in one config — which is exactly where the drift
+happens, because no single tool sees the whole thing.
+
+```toml
+[architecture]
+layers = ["domain", "application", "adapters"]
+
+[architecture.paths]
+"src/domain/**"      = { layer = "domain" }
+"src/application/**" = { layer = "application" }
+"src/adapters/**"    = { layer = "adapters" }
+"src/scripts/**"     = { may_only_import = ["src/adapters/**"] }
+```
+
+`layers` is ordered inner to outer: a file may import its own layer and any layer
+before it, so the domain cannot reach for an adapter. The finding points at the import
+line, in whichever of the five languages wrote it, because it reads the same module
+graph the cycle detection already uses.
+
+Silent until you declare it — an architecture nobody wrote down is not one rqx should
+infer — and a layer named in `paths` that `layers` never declares is an error rather
+than a rule that quietly governs nothing.
 
 ## Five languages, one rule set
 
@@ -467,7 +494,7 @@ import manufactures false "unused export" findings.
 capability lands in every editor at once rather than once per client.
 
 It scans the whole project after startup and after each save, publishing diagnostics for
-files you never opened. That matters because eight of the sixty rules — unused exports,
+files you never opened. That matters because ten of the sixty-two rules — unused exports,
 unused files, import cycles, duplication and the two co-change rules — cannot be answered
 from a single open file, and an editor that only saw the other 52 would be quietly wrong
 about dead code.

@@ -3,7 +3,7 @@
 | Page | What it covers |
 |---|---|
 | [configuration.md](configuration.md) | Every table in `RQX.toml`, how the layers merge, levels, and per-subtree overrides |
-| [rules/](rules/README.md) | All sixty rules, by family: what each measures, its threshold, and a worked example |
+| [rules/](rules/README.md) | Every rule, by family: what each measures, its threshold, and a worked example |
 | [patterns/](patterns/README.md) | The design-pattern catalogue: what rqx recognises, what it calls half applied, and where one would fit |
 | [editor.md](editor.md) | `rqx lsp` as a product, and a paste-in config for every editor |
 | [mcp.md](mcp.md) | The ten MCP tools, their payloads, paging, and HTTP with a token |

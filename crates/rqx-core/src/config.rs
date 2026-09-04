@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -90,6 +90,7 @@ pub struct RqxConfig {
     pub entrypoints: Entrypoints,
     pub gate: Gate,
     pub fix: Fix,
+    pub architecture: Architecture,
 }
 
 impl RqxConfig {
@@ -111,6 +112,66 @@ impl RqxConfig {
         unknown.extend(self.patterns.unknown_names());
         unknown.extend(self.fix.unknown_names());
         unknown
+    }
+}
+
+/// The direction dependencies are allowed to point. `layers` is ordered inner to
+/// outer, and a file may import its own layer and any layer before it — so the domain
+/// cannot reach for an adapter, whatever the import graph would otherwise allow.
+///
+/// Silent until a project declares it: an architecture nobody stated is not one rqx
+/// should invent.
+#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[serde(default, deny_unknown_fields)]
+pub struct Architecture {
+    pub layers: Vec<String>,
+    /// Glob to what it belongs to. A sub-table because `flatten` and
+    /// `deny_unknown_fields` cannot both apply to one struct, and losing the typo
+    /// check would cost more than the extra line of TOML.
+    pub paths: BTreeMap<String, Assignment>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[serde(default, deny_unknown_fields)]
+pub struct Assignment {
+    pub layer: Option<String>,
+    pub may_not_import: Vec<String>,
+    pub may_only_import: Vec<String>,
+}
+
+impl Architecture {
+    pub fn is_declared(&self) -> bool {
+        !self.paths.is_empty()
+    }
+
+    /// How far out a layer sits. `None` for a path in no declared layer, which is
+    /// neither a violation nor a licence: an unassigned file is simply not governed.
+    pub fn rank(&self, layer: &str) -> Option<usize> {
+        self.layers.iter().position(|name| name == layer)
+    }
+
+    /// A layer named in `paths` that `layers` never declares would silently govern
+    /// nothing, which is the failure mode the whole table exists to prevent.
+    pub fn undeclared_layers(&self) -> Vec<String> {
+        let mut unknown: Vec<String> = self
+            .paths
+            .values()
+            .filter_map(|assignment| assignment.layer.as_ref())
+            .filter(|layer| self.rank(layer).is_none())
+            .cloned()
+            .collect();
+        unknown.sort();
+        unknown.dedup();
+        unknown
+    }
+
+    pub fn duplicate_layers(&self) -> Vec<String> {
+        let mut seen = BTreeSet::new();
+        self.layers
+            .iter()
+            .filter(|layer| !seen.insert((*layer).clone()))
+            .cloned()
+            .collect()
     }
 }
 
@@ -227,7 +288,7 @@ fn unknown_in<'a>(
 /// have to carry the prose anyway; the test below is what keeps it honest.
 pub const TEMPLATE: &str = include_str!("rqx.template.toml");
 
-pub const TABLES: [&str; 9] = [
+pub const TABLES: [&str; 10] = [
     "languages",
     "thresholds",
     "rules",
@@ -237,6 +298,7 @@ pub const TABLES: [&str; 9] = [
     "entrypoints",
     "gate",
     "fix",
+    "architecture",
 ];
 
 /// Only these three, because every other table describes the run as a whole: the walker
@@ -872,6 +934,7 @@ mod tests {
         gate_advice: bool,
         gate: Vec<String>,
         fix: Vec<String>,
+        architecture: Vec<String>,
     }
 
     impl Comparable {
@@ -935,6 +998,7 @@ mod tests {
                     config.gate.min_health.to_string(),
                     format!("{:?}", config.gate.min_grade),
                 ],
+                architecture: config.architecture.layers.clone(),
                 fix: vec![
                     config
                         .fix

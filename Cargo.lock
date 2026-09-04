@@ -1733,6 +1733,7 @@ dependencies = [
  "clap",
  "crossbeam-channel",
  "crossterm",
+ "globset",
  "ignore",
  "lsp-server",
  "lsp-types",

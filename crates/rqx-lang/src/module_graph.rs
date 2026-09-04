@@ -67,6 +67,10 @@ pub struct GraphReport {
     pub importers: BTreeMap<PathBuf, u32>,
     /// importer -> imported, retained so a diff can find a change's dependents.
     pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    /// Where each edge is written, so a rule about a forbidden import can point at
+    /// the line rather than at the file. The first request wins where a module is
+    /// imported twice; requests arrive in source order.
+    pub edge_spans: BTreeMap<(PathBuf, PathBuf), Span>,
     /// Interfaces and abstract classes nothing in the project implements.
     pub unimplemented: Vec<DeadExport>,
     /// Two hierarchies whose subclasses are named for the same set of things.
@@ -142,6 +146,7 @@ fn parallel_hierarchies(by_path: &BTreeMap<&PathBuf, &ModuleFacts>) -> Vec<Paral
 struct Edges {
     /// importer -> imported modules
     out: HashMap<PathBuf, BTreeSet<PathBuf>>,
+    spans: HashMap<(PathBuf, PathBuf), Span>,
     /// module -> names other modules take from it
     used_names: HashMap<PathBuf, HashSet<String>>,
     /// modules imported wholesale, whose export list cannot be narrowed
@@ -161,6 +166,7 @@ fn resolve_edges(
     let known: HashSet<&PathBuf> = modules.iter().map(|module| &module.path).collect();
     let mut edges = Edges {
         out: HashMap::new(),
+        spans: HashMap::new(),
         used_names: HashMap::new(),
         opaque: HashSet::new(),
         imported_at_all: HashSet::new(),
@@ -208,6 +214,12 @@ fn resolve_edges(
                     .entry(module.path.clone())
                     .or_default()
                     .insert(target.clone());
+                if written {
+                    edges
+                        .spans
+                        .entry((module.path.clone(), target.clone()))
+                        .or_insert(request.span);
+                }
                 edges.imported_at_all.insert(target.clone());
                 if request.takes_everything {
                     edges.opaque.insert(target.clone());
@@ -413,6 +425,7 @@ pub fn analyze(
         .collect();
     // Moved rather than deep-copied: this used to clone every path and every target set
     // in the graph, and then drop the originals unread.
+    report.edge_spans = edges.spans.into_iter().collect();
     report.edges = edges.out.into_iter().collect();
 
     report

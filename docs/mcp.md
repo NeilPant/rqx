@@ -85,7 +85,7 @@ rather than answered from a different set of findings.
 explicit `language`. The text is never written to disk, and the filename need not exist —
 it is used to pick the language and to label the findings.
 
-One buffer answers 52 of the 60 rules. Unused exports, unused files, import cycles,
+One buffer answers 52 of the 62 rules. Unused exports, unused files, import cycles,
 duplication and the two co-change rules need the whole project, and the result says so,
 because an agent that gets no `unused-export` back would otherwise read the silence as a
 clean bill of health.

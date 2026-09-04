@@ -85,6 +85,9 @@ impl Evidence {
             Self::ForeignAccess { owner, .. } => Some(owner),
             Self::EmptyBody { construct } | Self::ImpreciseType { construct } => Some(construct),
             Self::ForeignLanguage { language } => Some(language),
+            Self::LayerViolation { target, .. } | Self::ForbiddenImport { target, .. } => {
+                Some(target)
+            }
             Self::BuriedConfiguration { kind, .. } => Some(kind),
             // A kind ("return", "TODO", "only") names a category of finding, not this
             // one, so the span's own text is the more faithful subject.
@@ -162,6 +165,8 @@ impl Evidence {
             | Self::TemporalCoupling { .. }
             | Self::MisleadingName { .. }
             | Self::IntimatePair { .. }
+            | Self::LayerViolation { .. }
+            | Self::ForbiddenImport { .. }
             | Self::ParallelHierarchy { .. } => None,
         }
     }

@@ -273,6 +273,15 @@ pub enum Evidence {
         other: String,
         methods: u32,
     },
+    LayerViolation {
+        from: String,
+        to: String,
+        target: String,
+    },
+    ForbiddenImport {
+        target: String,
+        by: String,
+    },
     ParallelHierarchy {
         parent: String,
         twin: String,
@@ -572,6 +581,13 @@ impl fmt::Display for Evidence {
                 f,
                 "Subclasses of `{parent}` and of `{twin}` are both named for {shared}."
             ),
+            Self::LayerViolation { from, to, target } => write!(
+                f,
+                "The `{from}` layer imports `{target}`, which is in `{to}`."
+            ),
+            Self::ForbiddenImport { target, by } => {
+                write!(f, "`{by}` says this subtree may not import `{target}`.")
+            }
             Self::MixedConventions { minority, count } => write!(
                 f,
                 "{} in this file use {minority} while the rest do not.",

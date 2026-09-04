@@ -476,6 +476,28 @@ catalogue! {
         why: "no module in the cycle can be understood, tested or loaded on its own, and \
               the initialisation order that makes it work today is accidental",
     },
+    LayerViolation {
+        slug: "layer-violation",
+        category: Coupling,
+        analysis: Modules,
+        metric: "an import pointing from an inner layer to an outer one",
+        fixes: [InvertDependency],
+        confidence: Verified,
+        severity: Error,
+        why: "the layer the project put underneath now depends on the one above it, so \
+              the thing it was separated from cannot be replaced without changing it",
+    },
+    ForbiddenImport {
+        slug: "forbidden-import",
+        category: Coupling,
+        analysis: Modules,
+        metric: "an import the project's own rules say this subtree may not make",
+        fixes: [InvertDependency],
+        confidence: Verified,
+        severity: Error,
+        why: "the boundary was written down and this import crosses it, which is the \
+              one kind of architectural drift a reader cannot infer from the code",
+    },
     MessageChain {
         slug: "message-chain",
         category: Coupling,
