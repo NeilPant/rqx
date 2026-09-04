@@ -282,11 +282,11 @@ impl Rqx {
             "findings": analysis.findings.iter().map(finding_of).collect::<Vec<_>>(),
             "advice": analysis.advice.iter().map(projection::advisory).collect::<Vec<_>>(),
             "scope": "buffer",
-            "note": BUFFER_SCOPE,
+            "note": buffer_scope(),
         });
         let shown: Vec<&Finding> = analysis.findings.iter().collect();
         let mut digest = listing(&shown, 0, shown.len());
-        let _ = write!(digest, "\n{BUFFER_SCOPE}\n");
+        let _ = write!(digest, "\n{}\n", buffer_scope());
         Ok(answer(digest, structured))
     }
 
@@ -502,9 +502,15 @@ impl Rqx {
 
 /// An agent that gets no `unused-export` back from one buffer will otherwise read the
 /// silence as a clean bill of health.
-const BUFFER_SCOPE: &str = "One buffer, so 52 of the 60 rules ran. Unused exports, unused \
-files, import cycles, duplication and the two co-change rules need the whole project — \
-call `scan` for those.";
+fn buffer_scope() -> String {
+    format!(
+        "One buffer, so {} of the {} rules ran. Unused exports, unused files, import \
+         cycles, duplication and the two co-change rules need the whole project — call \
+         `scan` for those.",
+        RuleId::ALL.len() - RuleId::PROJECT_SCOPED.len(),
+        RuleId::ALL.len()
+    )
+}
 
 fn answer(digest: String, structured: Value) -> CallToolResult {
     let mut result = CallToolResult::success(vec![ContentBlock::text(digest)]);

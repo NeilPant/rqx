@@ -161,8 +161,8 @@ impl Server {
 
     /// Cross-file rules cannot be answered from one open file, so the workspace is
     /// scanned on its own thread and every file republished at once. Without this a
-    /// client that does not know rqx's custom request sees 52 of the 60 rules and is
-    /// told nothing about the other eight.
+    /// client that does not know rqx's custom request sees every rule but the
+    /// project-scoped eight and is told nothing about those.
     fn scan(&self, reply_to: Option<RequestId>) -> Option<Refused> {
         self.worker.request(Job {
             config: self.config.clone(),

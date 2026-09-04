@@ -203,6 +203,25 @@ macro_rules! catalogue {
 }
 
 impl RuleId {
+    /// The rules one file's re-analysis cannot re-derive: the ones that read the
+    /// import graph, and three that are computed across files by the scan although
+    /// they declare `Syntax` — clones, and the two churn rules. Listed by id because
+    /// `analysis` alone would miss those three.
+    pub const PROJECT_SCOPED: [Self; 8] = [
+        Self::ParallelInheritance,
+        Self::UnusedExport,
+        Self::UnusedFile,
+        Self::SpeculativeGenerality,
+        Self::CircularDependency,
+        Self::DuplicateCode,
+        Self::DivergentChange,
+        Self::ShotgunSurgery,
+    ];
+
+    pub fn is_project_scoped(self) -> bool {
+        Self::PROJECT_SCOPED.contains(&self)
+    }
+
     /// Whether this rule has anything to measure in a language.
     pub fn applies_to(self, language: Language) -> bool {
         self.exemption(language).is_none()
@@ -288,6 +307,18 @@ mod tests {
                 slug.chars().all(|c| c.is_ascii_lowercase() || c == '-'),
                 "{slug} is not kebab-case"
             );
+        }
+    }
+
+    #[test]
+    fn project_scoped_names_every_modules_rule_and_only_the_three_collector_rules_besides() {
+        for rule in RuleId::ALL.iter().copied() {
+            let modules = rule.spec().analysis == Analysis::Modules;
+            let collector = matches!(
+                rule,
+                RuleId::DuplicateCode | RuleId::DivergentChange | RuleId::ShotgunSurgery
+            );
+            assert_eq!(rule.is_project_scoped(), modules || collector, "{rule}");
         }
     }
 

@@ -1,7 +1,7 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Write;
 
 use anyhow::Result;
+use rqx_core::Identity;
 use rqx_core::finding::{Finding, Severity};
 use serde::Serialize;
 
@@ -39,11 +39,7 @@ const fn severity(severity: Severity) -> &'static str {
 /// new finding, so hashing the position would re-report every finding in a file the
 /// moment anything above it moved.
 fn fingerprint(finding: &Finding) -> String {
-    let mut hasher = DefaultHasher::new();
-    finding.rule.slug().hash(&mut hasher);
-    finding.location.file.hash(&mut hasher);
-    finding.evidence.to_string().hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    Identity::exact(finding).to_string()
 }
 
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
