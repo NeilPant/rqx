@@ -7,6 +7,7 @@ mod json;
 mod junit;
 mod markdown;
 mod patterns;
+pub mod projection;
 mod sarif;
 mod settings;
 mod terminal;
@@ -38,6 +39,7 @@ pub fn unknown(kind: &str, named: &str, known: &[&str], hint: &str) -> anyhow::E
     anyhow::anyhow!("there is no {kind} called `{named}`.{near} {hint}")
 }
 pub use filter::FindingFilter;
+pub use json::finding_of;
 pub use settings::{render as config, rows as setting_rows};
 pub use terminal::Layout;
 
@@ -130,11 +132,23 @@ impl<'a> Report<'a> {
         }
     }
 
+    /// Everything the scan found, with no display filter. What a consumer that is not
+    /// a terminal wants, and the only way to build a report without naming the private
+    /// filter type.
+    pub fn everything(outcome: &'a ScanOutcome) -> Self {
+        Self::scan(outcome, &FindingFilter::default())
+    }
+
     /// A scan gates only when asked to, so the verdict is attached rather than built
     /// in: without this the run exits non-zero having explained nothing.
     pub fn judged(mut self, verdict: &'a Verdict) -> Self {
         self.verdict = Some(verdict);
         self
+    }
+
+    /// The reviewed slice with no display filter, for the same reason as `everything`.
+    pub fn reviewed(review: &'a Review, verdict: &'a Verdict) -> Self {
+        Self::review(review, verdict, &FindingFilter::default())
     }
 
     pub fn review(review: &'a Review, verdict: &'a Verdict, filter: &FindingFilter) -> Self {

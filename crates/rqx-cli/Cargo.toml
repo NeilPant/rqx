@@ -10,6 +10,7 @@ anstream = "1.0.0"
 anstyle = "1.0.14"
 anyhow = "1.0.104"
 clap = { version = "4.6.6", features = ["derive"] }
+crossbeam-channel = "0.5.16"
 crossterm = "0.29.0"
 ignore = "0.4.33"
 lsp-server = "0.10.0"
