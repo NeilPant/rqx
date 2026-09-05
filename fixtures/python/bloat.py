@@ -40,3 +40,47 @@ class Overgrown:
 
     def m3(self):
         return 3
+
+
+class SameAsOvergrown(Overgrown):
+    pass
+
+
+class Formatting:
+    @staticmethod
+    def pad(text):
+        return text
+
+    @staticmethod
+    def trim(text):
+        return text
+
+
+class Catalogue:
+    def __init__(self, path):
+        self.rows = _load_rows(path)
+
+    def size(self):
+        return len(self.rows)
+
+
+def _load_rows(path):
+    return [len(path), 1]
+
+
+def crowded_scope(seed):
+    c1 = seed; c2 = seed; c3 = seed; c4 = seed
+    c5 = seed; c6 = seed; c7 = seed; c8 = seed
+    c9 = seed; c10 = seed; c11 = seed; c12 = seed
+    c13 = seed; c14 = seed; c15 = seed; c16 = seed
+    return len([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16])
+
+
+def widely_guarded(seed):
+    try:
+        d1 = seed; d2 = seed; d3 = seed; d4 = seed
+        d5 = seed; d6 = seed; d7 = seed; d8 = seed
+        d9 = seed; d10 = seed; d11 = seed
+        return len([d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11])
+    except ValueError:
+        return 0

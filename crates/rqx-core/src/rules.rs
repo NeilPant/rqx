@@ -797,6 +797,74 @@ pub fn check_hygiene(
             "delete it; control was going there anyway".to_owned(),
         );
     }
+    for spot in &hygiene.crowded_functions {
+        emit(
+            out,
+            RuleId::ManyLocals,
+            spot,
+            Evidence::Breadth {
+                counted: "names introduced in one body".to_owned(),
+                found: spot.count,
+                limit: limits.function_locals,
+            },
+            "pull the run that uses one group of them into a function of its own".to_owned(),
+        );
+    }
+    for spot in &hygiene.wide_tries {
+        emit(
+            out,
+            RuleId::WideTry,
+            spot,
+            Evidence::Breadth {
+                counted: "statements under one handler".to_owned(),
+                found: spot.count,
+                limit: limits.try_statements,
+            },
+            "guard the line that can fail, and leave the rest outside".to_owned(),
+        );
+    }
+    for spot in &hygiene.empty_subclasses {
+        emit(
+            out,
+            RuleId::EmptySubclass,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "inherits and adds nothing".to_owned(),
+            },
+            "use what it inherits from, or give it the difference that justifies it".to_owned(),
+        );
+    }
+    for spot in &hygiene.static_only_classes {
+        emit(
+            out,
+            RuleId::StaticOnlyClass,
+            spot,
+            Evidence::Breadth {
+                counted: "methods, none of them on an instance".to_owned(),
+                found: spot.count,
+                limit: spot.count,
+            },
+            "make them functions in a module, or give the type the state that earns \
+             it"
+            .to_owned(),
+        );
+    }
+    for spot in &hygiene.working_constructors {
+        emit(
+            out,
+            RuleId::WorkingConstructor,
+            spot,
+            Evidence::Breadth {
+                counted: "statements doing work while the object is built".to_owned(),
+                found: spot.count,
+                limit: 0,
+            },
+            "take what it needs as an argument, and do the work in a method a caller \
+             chooses to call"
+                .to_owned(),
+        );
+    }
     for spot in &hygiene.mixed_returns {
         emit(
             out,

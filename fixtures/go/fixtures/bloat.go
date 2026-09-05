@@ -44,3 +44,23 @@ type Overgrown struct {
 func (o Overgrown) M1() int { return o.A1 }
 func (o Overgrown) M2() int { return o.A2 }
 func (o Overgrown) M3() int { return o.A3 }
+
+func CrowdedScope(seed int) int {
+	c1 := seed
+	c2 := seed
+	c3 := seed
+	c4 := seed
+	c5 := seed
+	c6 := seed
+	c7 := seed
+	c8 := seed
+	c9 := seed
+	c10 := seed
+	c11 := seed
+	c12 := seed
+	c13 := seed
+	c14 := seed
+	c15 := seed
+	c16 := seed
+	return len([]int{c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16})
+}

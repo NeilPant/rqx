@@ -70,6 +70,8 @@ relative_climb = 2
 # Statements in one file, across every function in it, before it is several files
 # that have not been separated yet.
 module_statements = 400
+function_locals = 15
+try_statements = 10
 # Ways out of one function body, past the guard clauses at the top.
 max_exits = 4
 # Arms in one switch before it stops being a table a reader scans.

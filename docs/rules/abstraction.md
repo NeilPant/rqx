@@ -182,3 +182,74 @@ export class Overgrown {
 
 rqx says: narrow what `Overgrown` promises: an interface for what callers use, and the rest kept inside
 
+## `empty-subclass`
+
+it is a second name for the thing it came from, and a reader has to open it to find that out
+
+| | |
+|---|---|
+| Measures | a type that inherits and declares nothing of its own |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Collapse Hierarchy / Inline Class |
+| Not in Go | there is no inheritance for a type to add nothing to |
+
+From `fixtures/typescript/bloat.ts`, line 24:
+
+```ts
+
+export class SameAsFeeder extends Overgrown {}
+
+```
+
+rqx says: use what it inherits from, or give it the difference that justifies it
+
+## `static-only-class`
+
+nothing is ever built from it, so the type is a namespace wearing a class's syntax and nothing can be substituted for it in a test
+
+| | |
+|---|---|
+| Measures | a type whose every method belongs to the type rather than to an instance |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Inline Class / Move Method |
+| Not in Go | there are no classes to hold the methods |
+
+From `fixtures/typescript/bloat.ts`, line 26:
+
+```ts
+
+export class Formatting {
+  static pad(text: string): string { return text; }
+  static trim(text: string): string { return text; }
+}
+
+```
+
+rqx says: make them functions in a module, or give the type the state that earns it
+
+## `working-constructor`
+
+the object cannot exist without whatever that work needs, so every test of it has to stand the work up first
+
+| | |
+|---|---|
+| Measures | calls made while an object is being built, beyond recording what it was given |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Separate Query from Modifier |
+| Not in Go | a value is built by a literal, which can only assign |
+
+From `fixtures/typescript/bloat.ts`, line 33:
+
+```ts
+  private rows: number[];
+  constructor(path: string) {
+    this.rows = loadRows(path);
+  }
+  size(): number { return this.rows.length; }
+```
+
+rqx says: take what it needs as an argument, and do the work in a method a caller chooses to call
+

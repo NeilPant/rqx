@@ -1120,16 +1120,19 @@ impl<'a> Walker<'a> {
         });
     }
 
-    /// The call a statement is, whether it is returned or stands on its own.
+    /// The call a statement is, whether it is returned or stands on its own. Only the
+    /// statement's own value counts: a call buried inside a larger expression means
+    /// the body is doing something with the answer.
     fn only_call(&self, statement: Node<'a>) -> Option<Node<'a>> {
-        let inner = statement.named_child(0)?;
-        let inner = self.see_through(inner);
-        let candidate = if self.profile.is_call(inner) {
-            inner
-        } else {
-            self.see_through(inner.named_child(0)?)
-        };
-        self.profile.is_call(candidate).then_some(candidate)
+        let mut value = self.see_through(statement.named_child(0)?);
+        // Go wraps a returned value in a list of one, which is not a step the author
+        // wrote.
+        while self.profile.expression_list_kinds.contains(&value.kind())
+            && value.named_child_count() == 1
+        {
+            value = self.see_through(value.named_child(0)?);
+        }
+        self.profile.is_call(value).then_some(value)
     }
 
     fn parameter_names(&self, function: Node<'a>) -> Vec<String> {
@@ -1419,6 +1422,219 @@ impl<'a> Walker<'a> {
                 .called_name(call)
                 .unwrap_or_else(|| "the call".to_owned()),
             count: 1,
+        });
+    }
+
+    /// How many names one body asks a reader to hold at once.
+    fn note_many_locals(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let mut declared: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        let mut cursor = body.walk();
+        let mut stack: Vec<Node<'a>> = body.children(&mut cursor).collect();
+        while let Some(node) = stack.pop() {
+            // A callback's own names live and die inside it.
+            if profile.is_function(node) {
+                continue;
+            }
+            if profile.is_identifier(node)
+                && crate::tree::is_binding_position(
+                    node,
+                    profile.parameter_kinds,
+                    profile.borrowed_name_kinds,
+                    profile.local_declaring_kinds,
+                    profile.expression_list_kinds,
+                )
+            {
+                declared.insert(self.text(node));
+            }
+            let mut inner = node.walk();
+            stack.extend(node.children(&mut inner));
+        }
+        let held = declared.len() as u32;
+        if held > self.limits.function_locals {
+            self.out.crowded_functions.push(Spot {
+                span: self.name_span(function),
+                detail: held.to_string(),
+                count: held,
+            });
+        }
+    }
+
+    /// A guarded block big enough that no single line in it is the one being
+    /// guarded.
+    fn note_wide_try(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(guarded) = node
+            .named_children(&mut node.walk())
+            .find(|child| profile.is_block(*child))
+        else {
+            return;
+        };
+        let holder = guarded
+            .named_children(&mut guarded.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(guarded);
+        let statements = holder
+            .named_children(&mut holder.walk())
+            .filter(|child| profile.is_statement(*child))
+            .count() as u32;
+        if statements > self.limits.try_statements {
+            self.out.wide_tries.push(Spot {
+                span: span_of(guarded),
+                detail: statements.to_string(),
+                count: statements,
+            });
+        }
+    }
+
+    /// A type that inherits and adds nothing, so every use of it could have used
+    /// what it came from.
+    fn note_class_shape(&mut self, class: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.class_body(class) else {
+            return;
+        };
+        let members: Vec<Node<'a>> = body
+            .named_children(&mut body.walk())
+            .filter(|child| !profile.is_comment(*child))
+            .map(|child| {
+                // A decorated member is wrapped, and the wrapper is not the member.
+                if profile.decorated_kinds.contains(&child.kind()) {
+                    child
+                        .named_child(child.named_child_count().saturating_sub(1))
+                        .unwrap_or(child)
+                } else {
+                    child
+                }
+            })
+            .collect();
+        let inherits = descendants(class).into_iter().any(|node| {
+            node.start_byte() < body.start_byte() && profile.heritage_kinds.contains(&node.kind())
+        });
+        let Some(name) = self.class_name(class) else {
+            return;
+        };
+        if inherits
+            && members
+                .iter()
+                .all(|member| profile.empty_body_kinds.contains(&member.kind()))
+        {
+            self.out.empty_subclasses.push(Spot {
+                span: span_of(class),
+                detail: name.clone(),
+                count: 1,
+            });
+        }
+        let behaviour: Vec<Node<'a>> = members
+            .iter()
+            .copied()
+            .filter(|member| profile.method_kinds.contains(&member.kind()))
+            .collect();
+        if !inherits
+            && behaviour.len() > 1
+            && behaviour.iter().all(|member| self.is_static(*member))
+        {
+            self.out.static_only_classes.push(Spot {
+                span: span_of(class),
+                detail: name,
+                count: behaviour.len() as u32,
+            });
+        }
+    }
+
+    fn enclosing_class_name(&self, node: Node<'a>) -> Option<String> {
+        let profile = self.profile;
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if profile.is_class(current) {
+                return self.class_name(current);
+            }
+            parent = current.parent();
+        }
+        None
+    }
+
+    fn class_body(&self, class: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        class.child_by_field_name("body").or_else(|| {
+            class
+                .named_children(&mut class.walk())
+                .find(|child| profile.is_block(*child))
+        })
+    }
+
+    fn class_name(&self, class: Node<'a>) -> Option<String> {
+        let profile = self.profile;
+        class
+            .child_by_field_name("name")
+            .filter(|node| {
+                profile.is_identifier(*node)
+                    || profile.binding_identifier_kinds.contains(&node.kind())
+            })
+            .map(|node| self.text(node).to_owned())
+    }
+
+    /// The marker is an anonymous keyword in most grammars and a decorator in
+    /// Python, so the unnamed children count as well as the named ones.
+    fn is_static(&self, member: Node<'a>) -> bool {
+        let profile = self.profile;
+        let holder = member
+            .parent()
+            .filter(|parent| profile.decorated_kinds.contains(&parent.kind()))
+            .unwrap_or(member);
+        let mut cursor = holder.walk();
+        holder
+            .children(&mut cursor)
+            .any(|node| profile.static_markers.contains(&self.text(node)))
+            || self.annotations(member).iter().any(|annotation| {
+                profile
+                    .static_markers
+                    .iter()
+                    .any(|marker| annotation.contains(marker))
+            })
+    }
+
+    /// Construction that does work rather than only recording what it was given: the
+    /// object cannot be made without whatever that work needs.
+    fn note_working_constructor(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let named = self.function_name(function).map(|node| self.text(node));
+        let is_constructor = profile.constructor_kinds.contains(&function.kind())
+            || named.is_some_and(|name| profile.constructor_names.contains(&name))
+            || named
+                .is_some_and(|name| self.enclosing_class_name(function).as_deref() == Some(name));
+        if !is_constructor {
+            return;
+        }
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let working = holder
+            .named_children(&mut holder.walk())
+            .filter(|statement| !profile.is_comment(*statement))
+            .filter(|statement| {
+                descendants(*statement).into_iter().any(|node| {
+                    profile.is_call(node)
+                        && !self
+                            .callee_name(node)
+                            .is_some_and(|name| profile.self_names.contains(&name.as_str()))
+                })
+            })
+            .count() as u32;
+        if working == 0 {
+            return;
+        }
+        self.out.working_constructors.push(Spot {
+            span: span_of(function),
+            detail: working.to_string(),
+            count: working,
         });
     }
 
@@ -2117,6 +2333,9 @@ impl<'a> Walker<'a> {
         if profile.finally_kinds.contains(&kind) {
             self.note_exit_from_finally(node);
         }
+        if kind == "try_statement" {
+            self.note_wide_try(node);
+        }
         if profile.throw_kinds.contains(&kind) {
             self.note_generic_throw(node);
         }
@@ -2146,8 +2365,13 @@ impl<'a> Walker<'a> {
         if profile.negation_kinds.contains(&kind) {
             self.note_negated_comparison(node);
         }
+        if profile.is_class(node) {
+            self.note_class_shape(node);
+        }
         if profile.is_function(node) {
             self.note_empty_method(node);
+            self.note_many_locals(node);
+            self.note_working_constructor(node);
             self.note_mixed_return(node);
             self.note_placeholder_body(node);
             self.note_passthrough(node);

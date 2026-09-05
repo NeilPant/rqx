@@ -6,8 +6,8 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 
 | Family | Rules | |
 |---|---|---|
-| [Size](size.md) | 12 | `long-function` `cognitive-complexity` `deep-nesting` `long-parameter-list` `large-class` `data-clump` `primitive-obsession` `obscured-expression` `many-exits` `wide-switch` `callback-nesting` `oversized-module` |
-| [Abstraction](abstraction.md) | 8 | `type-code-switch` `temporary-field` `refused-bequest` `base-depends-on-derived` `inappropriate-static` `temporal-coupling` `alternative-classes` `wide-surface` |
+| [Size](size.md) | 14 | `long-function` `cognitive-complexity` `deep-nesting` `long-parameter-list` `large-class` `data-clump` `primitive-obsession` `obscured-expression` `many-exits` `wide-switch` `callback-nesting` `many-locals` `wide-try` `oversized-module` |
+| [Abstraction](abstraction.md) | 11 | `type-code-switch` `temporary-field` `refused-bequest` `base-depends-on-derived` `inappropriate-static` `temporal-coupling` `alternative-classes` `wide-surface` `empty-subclass` `static-only-class` `working-constructor` |
 | [Change](change.md) | 3 | `shotgun-surgery` `divergent-change` `parallel-inheritance` |
 | [Waste](waste.md) | 27 | `duplicate-code` `unused-export` `unused-file` `unused-parameter` `unused-local` `unused-private-member` `unreachable-code` `commented-out-code` `lazy-class` `data-class` `speculative-generality` `empty-catch` `magic-number` `mixed-language-file` `distant-declaration` `buried-configuration` `journal-comment` `redundant-comment` `cross-language-duplicate` `empty-method` `discarded-expression` `unused-import` `rethrow-only-catch` `placeholder-body` `passthrough-function` `debug-output` `duplicate-import` |
 | [Coupling](coupling.md) | 11 | `circular-dependency` `layer-violation` `forbidden-import` `message-chain` `feature-envy` `middle-man` `inappropriate-intimacy` `deep-relative-import` `wildcard-import` `wide-fan-out` `wide-fan-in` |
@@ -18,7 +18,7 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 | [Noise](noise.md) | 5 | `banner-comment` `chat-residue` `apology-comment` `emoji-in-source` `example-value` |
 | [Performance](performance.md) | 8 | `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` |
 
-116 rules in total. 14 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
+121 rules in total. 14 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
 
 - `primitive-obsession`
 - `divergent-change`

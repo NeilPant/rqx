@@ -103,6 +103,11 @@ pub struct Hygiene {
     pub generic_throws: Vec<Spot>,
     pub library_exits: Vec<Spot>,
     pub boolean_arguments: Vec<Spot>,
+    pub crowded_functions: Vec<Spot>,
+    pub wide_tries: Vec<Spot>,
+    pub empty_subclasses: Vec<Spot>,
+    pub static_only_classes: Vec<Spot>,
+    pub working_constructors: Vec<Spot>,
     pub float_equalities: Vec<Spot>,
     pub discarded_expressions: Vec<Spot>,
     pub tiny_switches: Vec<Spot>,
@@ -155,6 +160,8 @@ pub struct Hygiene {
 
 #[derive(Clone, Copy)]
 pub struct Limits {
+    pub function_locals: u32,
+    pub try_statements: u32,
     pub max_exits: u32,
     pub max_cases: u32,
     pub min_cases: u32,

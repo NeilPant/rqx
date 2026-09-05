@@ -254,6 +254,56 @@ From `fixtures/typescript/flow.ts`, line 101:
 
 rqx says: name the inner steps and call them, so the order they run in is the order they read in
 
+## `many-locals`
+
+every one of them is a thing the reader has to keep in mind to the end of the body, and there is a number past which nobody does
+
+| | |
+|---|---|
+| Measures | distinct names one function body introduces |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Extract Variable |
+| Tuned by | `thresholds.function_locals` |
+
+From `fixtures/typescript/bloat.ts`, line 44:
+
+```ts
+
+export function crowdedScope(seed: number): number {
+  const c1 = seed; const c2 = seed; const c3 = seed; const c4 = seed;
+```
+
+rqx says: pull the run that uses one group of them into a function of its own
+
+## `wide-try`
+
+the handler is written for one of them and catches all of them, so a failure from any other line arrives somewhere that cannot answer it
+
+| | |
+|---|---|
+| Measures | statements inside one guarded block |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Decompose Conditional |
+| Tuned by | `thresholds.try_statements` |
+| Not in Go | failure is a returned value, so no block is guarded |
+
+From `fixtures/typescript/bloat.ts`, line 53:
+
+```ts
+export function widelyGuarded(seed: number): number {
+  try {
+    const d1 = seed; const d2 = seed; const d3 = seed; const d4 = seed;
+    const d5 = seed; const d6 = seed; const d7 = seed; const d8 = seed;
+    const d9 = seed; const d10 = seed; const d11 = seed;
+    return [d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11].length;
+  } catch (error) {
+    return 0;
+```
+
+rqx says: guard the line that can fail, and leave the rest outside
+
 ## `oversized-module`
 
 a file this long is several files that have not been separated yet, and every one of them is edited, reviewed and merged as though it were one
@@ -266,11 +316,11 @@ a file this long is several files that have not been separated yet, and every on
 | Fix | Extract Shared Module / Extract Class |
 | Tuned by | `thresholds.module_statements` |
 
-From `fixtures/typescript/flow.ts`, line 1:
+From `fixtures/typescript/bloat.ts`, line 1:
 
 ```ts
-export function restated(ready: boolean): boolean {
-  if (ready) {
+export function tooManyParameters(a: number, b: number, c: number, d: number, e: number) {
+  return a + b + c + d + e;
 ```
 
 rqx says: split it along whatever its functions already group into

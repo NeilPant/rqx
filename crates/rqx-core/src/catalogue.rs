@@ -922,6 +922,67 @@ catalogue! {
               work that succeeded, and the next reader cannot tell whether it is a stub \
               or a decision",
     },
+    ManyLocals {
+        slug: "many-locals",
+        category: Size,
+        analysis: Syntax,
+        metric: "distinct names one function body introduces",
+        fixes: [ExtractMethod, ExtractVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "every one of them is a thing the reader has to keep in mind to the end \
+              of the body, and there is a number past which nobody does",
+    },
+    WideTry {
+        slug: "wide-try",
+        category: Size,
+        analysis: Syntax,
+        metric: "statements inside one guarded block",
+        fixes: [ExtractMethod, DecomposeConditional],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the handler is written for one of them and catches all of them, so a \
+              failure from any other line arrives somewhere that cannot answer it",
+        not_applicable: [(Go, "failure is a returned value, so no block is guarded")],
+    },
+    EmptySubclass {
+        slug: "empty-subclass",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "a type that inherits and declares nothing of its own",
+        fixes: [CollapseHierarchy, InlineClass],
+        confidence: Verified,
+        severity: Info,
+        why: "it is a second name for the thing it came from, and a reader has to \
+              open it to find that out",
+        not_applicable: [(Go, "there is no inheritance for a type to add nothing to")],
+    },
+    StaticOnlyClass {
+        slug: "static-only-class",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "a type whose every method belongs to the type rather than to an \
+                 instance",
+        fixes: [InlineClass, MoveMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "nothing is ever built from it, so the type is a namespace wearing a \
+              class's syntax and nothing can be substituted for it in a test",
+        not_applicable: [(Go, "there are no classes to hold the methods")],
+    },
+    WorkingConstructor {
+        slug: "working-constructor",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "calls made while an object is being built, beyond recording what it \
+                 was given",
+        fixes: [ExtractMethod, SeparateQueryFromModifier],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the object cannot exist without whatever that work needs, so every test \
+              of it has to stand the work up first",
+        not_applicable: [(Go, "a value is built by a literal, which can only assign")],
+    },
     OversizedModule {
         slug: "oversized-module",
         category: Size,

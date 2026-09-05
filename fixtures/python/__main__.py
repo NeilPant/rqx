@@ -1,4 +1,4 @@
-from .bloat import Overgrown, deeply_nested, too_many_parameters
+from .bloat import Catalogue, Formatting, Overgrown, SameAsOvergrown, crowded_scope, deeply_nested, too_many_parameters, widely_guarded
 from .clean import add, describe
 from .config import endpoint, score
 from .conventions import limits, query, window
@@ -117,6 +117,12 @@ def main():
         process,
         Overgrown,
         deeply_nested,
+        Catalogue,
+        Formatting,
+        SameAsOvergrown,
+        crowded_scope,
+        widely_guarded,
+
         too_many_parameters,
         with_dead_tail,
         with_dead_middle,

@@ -282,6 +282,8 @@ pub fn analyze_as(
                 root,
                 scopes,
                 Limits {
+                    function_locals: thresholds.function_locals,
+                    try_statements: thresholds.try_statements,
                     max_exits: thresholds.max_exits,
                     max_cases: thresholds.max_cases,
                     min_cases: thresholds.min_cases,

@@ -5,6 +5,13 @@ public class Main {
         new Clean().add(1, 2);
         new Bloat().deeplyNested(java.util.List.of());
         new Overgrown().m1();
+        new SameAsOvergrown();
+        Formatting.pad("a");
+        Formatting.trim("a");
+        new Catalogue("p").size();
+        new Catalogue("p").first();
+        new Crowding().crowdedScope(1);
+        new Crowding().widelyGuarded(1);
         new Long().manySteps();
         new Names().process(java.util.List.of());
         new CycleA().orbit();
