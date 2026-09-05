@@ -35,8 +35,24 @@ pub enum Order {
     File,
 }
 
+/// How much of each finding to print. `Why:` is a property of the rule and reads
+/// the same on all twenty of its findings; `Cost:` is a property of the file and
+/// reads the same on every finding in it. Repeating both on every line is most of
+/// what makes the report a wall.
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
+pub enum Detail {
+    /// One line per finding: where, how bad, which rule, and what it found.
+    Terse,
+    /// The reason once per rule and the cost once per file.
+    #[default]
+    Normal,
+    /// Every line on every finding.
+    Full,
+}
+
 pub struct Layout {
     pub palette: Palette,
+    pub detail: Detail,
     pub show_passed: bool,
     pub quiet: bool,
     pub grouping: Grouping,
@@ -51,6 +67,27 @@ pub struct Layout {
     pub stats: bool,
     /// Lines of unmarked code shown either side of the offence.
     pub context: u32,
+}
+
+/// One listing in progress: what to print, what to print it from, and what has
+/// already been said so it is not said again. The ledger is per report rather than
+/// per file, because a rule's reason does not change between them.
+struct Listing<'a> {
+    layout: &'a Layout,
+    report: &'a Report<'a>,
+    prefix: String,
+    said: std::collections::HashSet<&'static str>,
+}
+
+impl<'a> Listing<'a> {
+    fn new(layout: &'a Layout, report: &'a Report<'a>) -> Self {
+        Self {
+            layout,
+            report,
+            prefix: report.path_prefix(),
+            said: std::collections::HashSet::new(),
+        }
+    }
 }
 
 /// The report with the findings taken out: what fired, where, and how often. The
@@ -149,6 +186,27 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
             paint(layout.palette.style(Ink::Text).bold(), "Reviewing changes"),
             paint(layout.palette.style(Ink::Accent), base)
         )?;
+    } else {
+        // The summary is at the end where the eye lands, but a listing this long is
+        // scrolled from the top, and the top used to say nothing about what it was.
+        let outcome = report.outcome;
+        writeln!(
+            out,
+            "\n  {}  {}",
+            paint(
+                layout.palette.style(Ink::Text).bold(),
+                outcome.root.display().to_string()
+            ),
+            paint(
+                layout.palette.style(Ink::Muted),
+                format!(
+                    "{} \u{b7} {} \u{b7} health {}/100",
+                    plural(outcome.files_scanned, "file", "files"),
+                    plural(report.totals.findings, "finding", "findings"),
+                    report.health()
+                )
+            )
+        )?;
     }
 
     let mut listed: Vec<(&&str, &Vec<&Finding>)> = shown.iter().collect();
@@ -163,14 +221,13 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
         });
         listed.truncate(layout.top.unwrap_or(listed.len()));
     }
+    let mut listing = Listing::new(layout, report);
     for (file, findings) in listed {
         let mut findings: Vec<&Finding> = findings.clone();
         sort_findings(&mut findings, layout.order);
         write_file(
             out,
-            layout,
-            report,
-            &prefix,
+            &mut listing,
             file,
             &findings,
             totals.get(*file).copied(),
@@ -211,6 +268,8 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
         )?;
     }
 
+    write_cycles(out, layout, report)?;
+    write_architecture(out, layout, report, &prefix)?;
     write_summary(out, layout, report, &totals)?;
     write_hotspots(out, layout, report, &prefix)?;
     write_skipped(out, layout, report.outcome)?;
@@ -221,6 +280,7 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
 /// grade and an excerpt per file; these headings have neither, so they are a count
 /// and the findings under it.
 fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
+    let mut listing = Listing::new(layout, report);
     let mut groups: std::collections::BTreeMap<String, Vec<&Finding>> =
         std::collections::BTreeMap::new();
     for finding in &report.findings {
@@ -272,7 +332,7 @@ fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<
                     )
                 )
             )?;
-            write_finding(out, layout, finding, None, None)?;
+            write_finding(out, &mut listing, finding, None, None)?;
         }
     }
     let unlisted = held - listed.len();
@@ -354,13 +414,12 @@ fn write_waived(
 
 fn write_file(
     out: &mut dyn Write,
-    layout: &Layout,
-    report: &Report<'_>,
-    prefix: &str,
+    listing: &mut Listing<'_>,
     file: &str,
     findings: &[&Finding],
     total: Option<u32>,
 ) -> Result<()> {
+    let (layout, report, prefix) = (listing.layout, listing.report, listing.prefix.clone());
     let grade = report.grade_of(file);
     let total = total.unwrap_or(findings.len() as u32);
     let tally = if total as usize == findings.len() {
@@ -384,23 +443,55 @@ fn write_file(
 
     let source = std::fs::read_to_string(report.outcome.root.join(file)).ok();
     let index = source.as_deref().map(LineIndex::new);
-    let cost = impact_line(report.outcome, file);
+    if layout.detail != Detail::Full
+        && let Some(cost) = impact_line(report.outcome, file)
+    {
+        writeln!(
+            out,
+            "        {} {}",
+            paint(layout.palette.style(Ink::Muted), "Cost:"),
+            paint(layout.palette.style(Ink::Warn), cost)
+        )?;
+    }
+    // Full repeats the cost on every finding; anything else has just printed it once
+    // above, where it belongs — it is the file's number, not the finding's.
+    let cost = (layout.detail == Detail::Full)
+        .then(|| impact_line(report.outcome, file))
+        .flatten();
     for finding in findings {
-        write_finding(out, layout, finding, index.as_ref(), cost.as_deref())?;
+        write_finding(out, listing, finding, index.as_ref(), cost.as_deref())?;
     }
     Ok(())
 }
 
 fn write_finding(
     out: &mut dyn Write,
-    layout: &Layout,
+    listing: &mut Listing<'_>,
     finding: &Finding,
     index: Option<&LineIndex<'_>>,
     cost: Option<&str>,
 ) -> Result<()> {
+    let layout = listing.layout;
     let palette = layout.palette;
     let spec = finding.rule.spec();
     let ink = severity_ink(finding.severity);
+    let dim = palette.style(Ink::Muted);
+
+    if layout.detail == Detail::Terse {
+        return writeln!(
+            out,
+            "   {} {}  {}  {}",
+            paint(palette.style(ink), finding.severity.label()),
+            paint(
+                palette.style(Ink::Muted),
+                format!("{}:{}", finding.location.line, finding.location.column)
+            ),
+            paint(palette.style(Ink::Accent), finding.slug()),
+            finding.evidence
+        )
+        .map_err(Into::into);
+    }
+
     writeln!(
         out,
         "\n   {} {}  {}  {}",
@@ -417,11 +508,11 @@ fn write_finding(
         write_excerpt(out, layout, finding, index)?;
     }
 
-    let dim = palette.style(Ink::Muted);
     writeln!(out, "     {}", finding.evidence)?;
     // A rule the project wrote has already said why in its own message; the
     // catalogue's rationale belongs to a rule rqx ships.
-    if !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
+    let fresh = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
+    if fresh && !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
         writeln!(out, "     {} {}", paint(dim, "Why: "), spec.why)?;
     }
     if let Some(cost) = cost {
@@ -725,10 +816,83 @@ fn write_summary(
                 "  {}",
                 paint(
                     layout.palette.style(Ink::Muted),
-                    format!("\u{2026} and {extra} more rules")
+                    format!("\u{2026} and {extra} more rules \u{b7} --stats for all of them")
                 )
             )?;
         }
+    }
+    Ok(())
+}
+
+/// The rings, as rings. A cycle is already reported as a finding, but it is one
+/// finding anchored on whichever member sorted first and buried in that file's
+/// group — which is not where anyone looks for "what are the cycles".
+fn write_cycles(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Result<()> {
+    let cycles = &report.outcome.cycles;
+    if cycles.is_empty() || layout.quiet {
+        return Ok(());
+    }
+    writeln!(
+        out,
+        "\n  {}",
+        paint(layout.palette.style(Ink::Text).bold(), "Cycles")
+    )?;
+    for ring in cycles {
+        writeln!(
+            out,
+            "    {}",
+            paint(layout.palette.style(Ink::Danger), ring.join(" \u{2192} "))
+        )?;
+    }
+    Ok(())
+}
+
+/// Only when a contract is declared: a project with no `[architecture]` has no
+/// layering to break, and a heading over an empty list says the wrong thing.
+fn write_architecture(
+    out: &mut dyn Write,
+    layout: &Layout,
+    report: &Report<'_>,
+    prefix: &str,
+) -> Result<()> {
+    if layout.quiet {
+        return Ok(());
+    }
+    let broken: Vec<&Finding> = report
+        .findings
+        .iter()
+        .copied()
+        .filter(|finding| {
+            matches!(
+                finding.rule,
+                rqx_core::rule::RuleId::LayerViolation | rqx_core::rule::RuleId::ForbiddenImport
+            )
+        })
+        .collect();
+    if broken.is_empty() {
+        return Ok(());
+    }
+    writeln!(
+        out,
+        "\n  {}",
+        paint(layout.palette.style(Ink::Text).bold(), "Architecture")
+    )?;
+    for finding in broken {
+        writeln!(
+            out,
+            "    {}  {}",
+            paint(
+                layout.palette.style(Ink::Muted),
+                format!(
+                    "{prefix}{}:{}",
+                    finding.location.file, finding.location.line
+                )
+            ),
+            paint(
+                layout.palette.style(Ink::Danger),
+                finding.evidence.to_string()
+            )
+        )?;
     }
     Ok(())
 }
@@ -838,6 +1002,7 @@ mod tests {
 
     fn layout() -> Layout {
         Layout {
+            detail: Detail::default(),
             show_suppressed: false,
             grouping: Grouping::File,
             order: Order::Line,

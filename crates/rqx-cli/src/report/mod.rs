@@ -93,7 +93,7 @@ pub fn unknown(kind: &str, named: &str, known: &[&str], hint: &str) -> anyhow::E
 pub use filter::FindingFilter;
 pub use json::finding_of;
 pub use settings::{render as config, rows as setting_rows};
-pub use terminal::{Grouping, Layout, Order};
+pub use terminal::{Detail, Grouping, Layout, Order};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum Reporter {

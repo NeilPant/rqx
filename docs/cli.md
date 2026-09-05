@@ -74,7 +74,8 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--sort` | What decides the order inside each group |
 | `--top` | List only this many groups; the rest are counted |
 | `--show-suppressed` | List the findings a comment waives, alongside the ones it does not |
-| `--context` | Lines of code shown either side of a finding |
+| `--context` | Lines of code shown either side of a finding. Two under `--detail full`, none otherwise, unless this says |
+| `--detail` | How much of each finding to print |
 | `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
 | `--fail-on` | Lowest severity that fails the run |
 | `--allow-findings` | Findings allowed before the run fails |
@@ -86,7 +87,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
-| `--help` | Print help |
+| `--help` | Print help (see more with '--help') |
 
 ## `rqx completions`
 
@@ -388,7 +389,8 @@ Analyze a project and report every finding
 | `--sort` | What decides the order inside each group |
 | `--top` | List only this many groups; the rest are counted |
 | `--show-suppressed` | List the findings a comment waives, alongside the ones it does not |
-| `--context` | Lines of code shown either side of a finding |
+| `--context` | Lines of code shown either side of a finding. Two under `--detail full`, none otherwise, unless this says |
+| `--detail` | How much of each finding to print |
 | `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
 | `--fail-on` | Lowest severity that fails the run |
 | `--allow-findings` | Findings allowed before the run fails |
@@ -406,7 +408,7 @@ Analyze a project and report every finding
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
-| `--help` | Print help |
+| `--help` | Print help (see more with '--help') |
 
 ## `rqx setup`
 

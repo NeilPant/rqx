@@ -978,6 +978,7 @@ fn ranked(priority: &[(&str, rqx_core::Cleanliness)], outcome: &scan::ScanOutcom
 /// keep in step with the reporters.
 fn markdown(report: &Report<'_>) -> Result<String, McpError> {
     let layout = Layout {
+        detail: crate::report::Detail::default(),
         grouping: crate::report::Grouping::File,
         show_suppressed: false,
         order: crate::report::Order::Line,

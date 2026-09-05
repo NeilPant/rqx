@@ -705,9 +705,13 @@ struct View {
     /// List the findings a comment waives, alongside the ones it does not
     #[arg(long, help_heading = "Display")]
     show_suppressed: bool,
-    /// Lines of code shown either side of a finding
-    #[arg(long, default_value_t = 2, help_heading = "Display")]
-    context: u32,
+    /// Lines of code shown either side of a finding. Two under `--detail full`,
+    /// none otherwise, unless this says
+    #[arg(long, value_name = "N", help_heading = "Display")]
+    context: Option<u32>,
+    /// How much of each finding to print
+    #[arg(long, value_enum, default_value_t = DetailArg::Normal, help_heading = "Display")]
+    detail: DetailArg,
     /// Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable
     #[arg(
         long = "reporter",
@@ -841,6 +845,29 @@ enum SeverityArg {
     Info,
     Warning,
     Error,
+}
+
+/// `normal` prints a rule's reason once and a file's churn once, because both read
+/// the same on every finding that repeats them.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
+enum DetailArg {
+    /// One line per finding
+    Terse,
+    /// The reason once per rule, the cost once per file
+    #[default]
+    Normal,
+    /// Every line on every finding
+    Full,
+}
+
+impl From<DetailArg> for report::Detail {
+    fn from(value: DetailArg) -> Self {
+        match value {
+            DetailArg::Terse => Self::Terse,
+            DetailArg::Normal => Self::Normal,
+            DetailArg::Full => Self::Full,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -1013,6 +1040,7 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     }
     for sink in sinks {
         let plain = Layout {
+            detail: view.detail.into(),
             grouping: view.grouping.into(),
             show_suppressed: view.show_suppressed,
             order: view.order.into(),
@@ -1021,7 +1049,12 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
             show_passed: view.show_passed,
             stats: view.stats,
             quiet: view.quiet,
-            context: view.context,
+            // Full is the level that shows everything, so it is the one that pays
+            // for surrounding lines; at 285 findings they are most of the scroll.
+            context: view.context.unwrap_or(match view.detail {
+                DetailArg::Full => 2,
+                DetailArg::Terse | DetailArg::Normal => 0,
+            }),
         };
         match &sink.path {
             Some(path) => {
