@@ -52,6 +52,7 @@ fn collect_exports(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
                     .filter_map(|node| node.child_by_field_name("name"))
                     .map(|name| text_of(name, source).to_owned())
                     .collect(),
+                locals: Vec::new(),
                 span: span_of(statement),
                 takes_everything: false,
                 re_export: true,
@@ -80,6 +81,7 @@ fn collect_exports(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
             facts.imports.push(ImportRequest {
                 specifier: specifier.to_owned(),
                 names: Vec::new(),
+                locals: Vec::new(),
                 span: span_of(statement),
                 takes_everything: true,
                 re_export: true,
@@ -131,18 +133,33 @@ fn collect_import(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
         return;
     };
     let mut names = Vec::new();
+    let mut locals = Vec::new();
     let mut takes_everything = false;
     if let Some(clause) = named_child_of_kinds(statement, &["import_clause"]) {
         let mut cursor = clause.walk();
         for child in clause.named_children(&mut cursor) {
             match child.kind() {
-                "identifier" => names.push("default".to_owned()),
-                "namespace_import" => takes_everything = true,
+                "identifier" => {
+                    names.push("default".to_owned());
+                    locals.push(text_of(child, source).to_owned());
+                }
+                "namespace_import" => {
+                    takes_everything = true;
+                    if let Some(alias) = child.named_child(0) {
+                        locals.push(text_of(alias, source).to_owned());
+                    }
+                }
                 "named_imports" => {
                     let mut inner = child.walk();
                     for specifier in child.named_children(&mut inner) {
                         if let Some(name) = specifier.child_by_field_name("name") {
                             names.push(text_of(name, source).to_owned());
+                        }
+                        if let Some(bound) = specifier
+                            .child_by_field_name("alias")
+                            .or_else(|| specifier.child_by_field_name("name"))
+                        {
+                            locals.push(text_of(bound, source).to_owned());
                         }
                     }
                 }
@@ -153,6 +170,7 @@ fn collect_import(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
     facts.imports.push(ImportRequest {
         specifier: specifier.to_owned(),
         names,
+        locals,
         span: span_of(statement),
         takes_everything,
         re_export: false,

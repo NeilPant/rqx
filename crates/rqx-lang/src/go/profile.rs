@@ -6,6 +6,7 @@ use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 pub static GO: LanguageProfile = LanguageProfile {
     language: Language::Go,
     grammar: || tree_sitter_go::LANGUAGE.into(),
+    markup_grammar: None,
     is_vendor: super::imports::is_vendor,
     iteration_members: &[],
     abstract_markers: &[],
@@ -103,6 +104,8 @@ pub static GO: LanguageProfile = LanguageProfile {
     ],
     binding_fields: &["name", "pattern", "declarator"],
     import_binding_kinds: &["import_spec"],
+    wildcard_import_kinds: &[("dot", "")],
+    debug_writers: &["println", "fmt.Print", "fmt.Println", "fmt.Printf"],
     export_kinds: &[],
     argument_list_kinds: &["argument_list"],
     heritage_kinds: &[],
@@ -244,4 +247,5 @@ pub static GO: LanguageProfile = LanguageProfile {
             ("Skipf", "skipped"),
         ],
     },
+    markup_runtimes: &[],
 };

@@ -102,7 +102,7 @@ the value is computed and thrown away, which either wastes the work or hides the
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 6:
+From `fixtures/typescript/hygiene.ts`, line 8:
 
 ```ts
 export function pricing(cart: number[], applyDiscount: boolean): number {
@@ -147,7 +147,7 @@ this code cannot run, so whatever it was meant to do is not happening and has no
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 28:
+From `fixtures/typescript/hygiene.ts`, line 30:
 
 ```ts
   return value + seed;
@@ -170,7 +170,7 @@ nobody dares delete it because nobody knows if it matters, so it sits there rott
 | Fix | Remove Dead Code |
 | Tuned by | `thresholds.commented_code_lines` |
 
-From `fixtures/typescript/hygiene.ts`, line 9:
+From `fixtures/typescript/hygiene.ts`, line 11:
 
 ```ts
 
@@ -256,7 +256,7 @@ the failure is swallowed silently, so the first sign of it is wrong data somewhe
 | Fix | Remove Dead Code |
 | Not in Go | Go has no exceptions and so no catch clause; an ignored error is a different shape this rule does not measure |
 
-From `fixtures/typescript/hygiene.ts`, line 19:
+From `fixtures/typescript/hygiene.ts`, line 21:
 
 ```ts
     return total + 4999;
@@ -456,6 +456,122 @@ export function dropped(total: number, other: number): number {
 
 rqx says: use the value, or delete the line
 
+## `unused-import`
+
+it makes the file look dependent on something it does not use, and the dependency survives every search for who needs that module
+
+| | |
+|---|---|
+| Measures | a name imported into a file and never read there |
+| Reported as | warning, verified |
+| Reads | resolved scopes and symbols |
+| Fix | Remove Dead Code |
+| Not in Go | the compiler refuses a file with one |
+| Not in C++ | an include may be there for a header that needs it |
+
+From `fixtures/typescript/hygiene.ts`, line 4:
+
+```ts
+import { orbit } from "./cycle-a";
+import type { Far } from "../../../shared/far";
+import { spinAgain } from "./cycle-a";
+```
+
+rqx says: delete it; the module it names is not one this file depends on
+
+## `rethrow-only-catch`
+
+it reads as a decision about the failure and makes none, while costing the stack trace in the languages that rebuild one on the way out
+
+| | |
+|---|---|
+| Measures | a handler whose only statement raises again |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+| Not in Go | errors are values, so there is no handler to empty |
+
+From `fixtures/typescript/hygiene.ts`, line 58:
+
+```ts
+    return orbit(1);
+  } catch (error) {
+    throw error;
+  }
+}
+```
+
+rqx says: delete the handler and let it propagate, or add what this level knows about the failure
+
+## `placeholder-body`
+
+it is a callable promise with nothing behind it, and every caller that trusts the signature finds that out at runtime
+
+| | |
+|---|---|
+| Measures | a body whose only statement raises to say the work is still to come |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+| Not in Go | failure is a returned value, so no statement is a refusal |
+
+From `fixtures/typescript/hygiene.ts`, line 51:
+
+```ts
+
+export function stillToWrite(): number {
+  throw new Error("not implemented");
+}
+
+```
+
+rqx says: write it, or delete it until there is a caller that needs it
+
+## `passthrough-function`
+
+it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged
+
+| | |
+|---|---|
+| Measures | a function whose whole body hands its own arguments to one other call |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Inline Delegation |
+
+From `fixtures/typescript/gateway-a.ts`, line 3:
+
+```ts
+
+export function collectA(amount: number) {
+  return charge(amount);
+}
+
+```
+
+rqx says: let the caller call the thing directly, unless this name is the seam
+
+## `debug-output`
+
+it was written to be read once by the person debugging, and it is still printing for everybody else
+
+| | |
+|---|---|
+| Measures | a write to the terminal outside a test, of the kind left behind after debugging |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+| Default | off; name it under `[rules] enabled` |
+
+From `fixtures/typescript/hygiene.ts`, line 64:
+
+```ts
+export function traced(): void {
+  console.log("traced", everything);
+}
+```
+
+rqx says: delete it, or route it through whatever this project logs with
+
 ## `duplicate-import`
 
 two statements bringing in one module means a reader has to check both to know what this file takes from it, and a merge put at least one there without anybody looking
@@ -467,7 +583,7 @@ two statements bringing in one module means a reader has to check both to know w
 | Reads | resolved scopes and symbols |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 3:
+From `fixtures/typescript/hygiene.ts`, line 5:
 
 ```ts
 import type { Far } from "../../../shared/far";

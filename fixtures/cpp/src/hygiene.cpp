@@ -1,5 +1,7 @@
 #include "hygiene.hpp"
 #include "../../../shared/far.hpp"
+#include <cstdio>
+using namespace std;
 #include "hygiene.hpp"
 
 int pricing(const std::vector<int>& cart, bool apply_discount) {
@@ -47,3 +49,27 @@ std::string ship(const Order& order) {
 // Here's the helper you asked for! 🎉
 // Sorry, this one is ugly.
 
+
+int orbit_of(int seed) {
+    return seed + 1;
+}
+
+int forward_orbit(int seed) {
+    return orbit_of(seed);
+}
+
+int still_to_write() {
+    throw std::runtime_error("not implemented");
+}
+
+int reraises() {
+    try {
+        return orbit_of(1);
+    } catch (const std::exception& error) {
+        throw error;
+    }
+}
+
+void traced() {
+    printf("traced\n");
+}

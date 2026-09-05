@@ -9,6 +9,10 @@ use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 pub struct LanguageProfile {
     pub language: Language,
     pub grammar: fn() -> tree_sitter::Language,
+    /// The same language with markup in it, where the language has a second grammar
+    /// for that. TypeScript's `<T>value` cast and JSX cannot both be parsed by one
+    /// grammar, so the file's extension picks.
+    pub markup_grammar: Option<fn() -> tree_sitter::Language>,
     /// Whether a specifier that resolved to no project file names something the
     /// project could replace, as opposed to the language's own standard library.
     /// Nothing is served by advising a team to wrap `java.util.List`.
@@ -118,6 +122,15 @@ pub struct LanguageProfile {
     pub binding_fields: &'static [&'static str],
     /// Nodes that bind a name brought in from another file.
     pub import_binding_kinds: &'static [&'static str],
+    /// The node that marks an import as taking everything a module has, and the text
+    /// the statement must carry for it to count — C++ writes `using` for one name and
+    /// for a whole namespace, and only the second is a wildcard.
+    pub wildcard_import_kinds: &'static [(&'static str, &'static str)],
+    /// The dotted names that write to a terminal for a human to read while debugging.
+    pub debug_writers: &'static [&'static str],
+    /// Names that markup compiles into calls on, so a file holding markup uses them
+    /// without ever writing them.
+    pub markup_runtimes: &'static [&'static str],
     /// Nodes that make what they contain visible outside the file.
     pub export_kinds: &'static [&'static str],
     /// Argument lists. A function written inside one has its arity fixed by whatever

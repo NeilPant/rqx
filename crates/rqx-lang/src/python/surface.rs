@@ -19,8 +19,11 @@ fn import_specifier(node: Node<'_>, source: &str) -> Option<String> {
     Some(text_of(module, source).to_owned())
 }
 
-fn imported_names(node: Node<'_>, source: &str) -> (Vec<String>, bool) {
+/// What the target exports, what this file calls it, and whether the statement took
+/// everything.
+fn imported_names(node: Node<'_>, source: &str) -> (Vec<String>, Vec<String>, bool) {
     let mut names = Vec::new();
+    let mut locals = Vec::new();
     let mut cursor = node.walk();
     let module = node.child_by_field_name("module_name");
     for child in node.named_children(&mut cursor) {
@@ -28,17 +31,23 @@ fn imported_names(node: Node<'_>, source: &str) -> (Vec<String>, bool) {
             continue;
         }
         match child.kind() {
-            "wildcard_import" => return (Vec::new(), true),
-            "dotted_name" | "identifier" => names.push(text_of(child, source).to_owned()),
+            "wildcard_import" => return (Vec::new(), Vec::new(), true),
+            "dotted_name" | "identifier" => {
+                names.push(text_of(child, source).to_owned());
+                locals.push(text_of(child, source).to_owned());
+            }
             "aliased_import" => {
                 if let Some(name) = child.child_by_field_name("name") {
                     names.push(text_of(name, source).to_owned());
+                }
+                if let Some(alias) = child.child_by_field_name("alias") {
+                    locals.push(text_of(alias, source).to_owned());
                 }
             }
             _ => {}
         }
     }
-    (names, false)
+    (names, locals, false)
 }
 
 fn public(name: &str) -> bool {
@@ -137,6 +146,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                         facts.imports.push(ImportRequest {
                             specifier,
                             names: Vec::new(),
+                            locals: Vec::new(),
                             span: span_of(statement),
                             // `import a.b` binds the whole module, so any name in it
                             // may be reached through the dotted path.
@@ -150,10 +160,11 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                 let Some(specifier) = import_specifier(statement, source) else {
                     continue;
                 };
-                let (names, wildcard) = imported_names(statement, source);
+                let (names, locals, wildcard) = imported_names(statement, source);
                 facts.imports.push(ImportRequest {
                     specifier,
                     names,
+                    locals,
                     span: span_of(statement),
                     takes_everything: wildcard,
                     re_export: false,

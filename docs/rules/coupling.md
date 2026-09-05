@@ -56,7 +56,7 @@ this line depends on the shape of every object along the chain, so a change to a
 | Fix | Encapsulate Delegation / Extract Method |
 | Tuned by | `thresholds.message_chain_depth` |
 
-From `fixtures/typescript/hygiene.ts`, line 35:
+From `fixtures/typescript/hygiene.ts`, line 37:
 
 ```ts
 export function ship(order: { customer: { address: { city: string } } }) {
@@ -144,7 +144,7 @@ a path that climbs this far is reaching across the shape of the project rather t
 | Not in Go | an import is a module path, so there is nothing relative to climb |
 | Not in Java | an import is a package name, and packages do not nest by path |
 
-From `fixtures/typescript/hygiene.ts`, line 2:
+From `fixtures/typescript/hygiene.ts`, line 4:
 
 ```ts
 import { orbit } from "./cycle-a";
@@ -153,6 +153,26 @@ import { spinAgain } from "./cycle-a";
 ```
 
 rqx says: move what `../../../shared/far` reaches for somewhere both ends can import, or turn the path into one the project resolves by name
+
+## `wildcard-import`
+
+nothing in the file says which names came from where, so a reader has to open the other module to find out and a new export there can shadow a local one silently
+
+| | |
+|---|---|
+| Measures | an import that brings in every name a module offers |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/hygiene.ts`, line 1:
+
+```ts
+import * as everything from "./cycle-b";
+import { neverRead } from "./cycle-c";
+```
+
+rqx says: name the handful of things this file actually uses
 
 ## `wide-fan-out`
 

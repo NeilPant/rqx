@@ -7,6 +7,9 @@ import (
 
 func main() {
 	_ = fixtures.Add
+	_ = fixtures.ForwardOrbit
+	_ = fixtures.Traced
+	_ = fixtures.Shout
 	_ = fixtures.Describe
 	_ = fixtures.ManySteps
 	_ = fixtures.Process

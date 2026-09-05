@@ -6,6 +6,7 @@ use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     language: Language::TypeScript,
     grammar: || tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+    markup_grammar: Some(|| tree_sitter_typescript::LANGUAGE_TSX.into()),
     is_vendor: super::imports::is_vendor,
     iteration_members: &["next"],
     abstract_markers: &["abstract"],
@@ -120,6 +121,13 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     ],
     binding_fields: &["name", "pattern", "declarator", "alias"],
     import_binding_kinds: &["import_specifier", "namespace_import"],
+    wildcard_import_kinds: &[("namespace_import", "")],
+    debug_writers: &[
+        "console.log",
+        "console.debug",
+        "console.dir",
+        "console.trace",
+    ],
     export_kinds: &["export_statement"],
     argument_list_kinds: &["arguments"],
     heritage_kinds: &["class_heritage", "extends_clause", "implements_clause"],
@@ -290,4 +298,5 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
         case_prefixes: &[],
         control_calls: &[],
     },
+    markup_runtimes: &["React", "h", "jsx", "Fragment"],
 };

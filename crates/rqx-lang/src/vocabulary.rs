@@ -375,6 +375,21 @@ pub fn placeholder_value(text: &str) -> Option<&'static str> {
     STANDINS.into_iter().find(|standin| body.contains(standin))
 }
 
+/// A body that says the work has not been done yet. The words are the whole of the
+/// evidence, which is why the rule reading this reports heuristically.
+pub fn unfinished_marker(text: &str) -> Option<&'static str> {
+    const MARKERS: [&str; 6] = [
+        "not implemented",
+        "notimplemented",
+        "unimplemented",
+        "not yet implemented",
+        "todo",
+        "coming soon",
+    ];
+    let body = text.to_lowercase();
+    MARKERS.into_iter().find(|marker| body.contains(marker))
+}
+
 /// An apology is a comment that knows the code is wrong and leaves it that way.
 pub fn apology(text: &str) -> Option<&'static str> {
     const REGRETS: [&str; 6] = [

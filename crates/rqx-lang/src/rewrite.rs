@@ -22,6 +22,9 @@ use crate::{AnalysisError, support};
 /// would re-read a large file once per fix, and the tree is the same either way.
 pub struct Rewriter<'src> {
     language: Language,
+    /// Whether this file's extension asks for the markup grammar, so a re-parse of
+    /// the edited text reads it the same way the original was read.
+    markup: bool,
     source: &'src str,
     profile: &'static LanguageProfile,
     tree: Tree,
@@ -104,9 +107,9 @@ pub struct Verified {
 /// The first `ERROR` or `MISSING` node in a parse of `source`, if any. Tree-sitter
 /// recovers from a bad edit by inventing one rather than failing, so a tree that
 /// parsed is not yet a tree that parsed clean.
-pub fn parses_clean(language: Language, source: &str) -> Result<(), ParseFault> {
+pub fn parses_clean(language: Language, markup: bool, source: &str) -> Result<(), ParseFault> {
     let support = support(language);
-    let tree = crate::parse(language, support.profile, source).map_err(|_| ParseFault {
+    let tree = crate::parse(language, support.profile, markup, source).map_err(|_| ParseFault {
         span: Span::new(0, source.len() as u32),
         missing: false,
     })?;
@@ -131,11 +134,12 @@ pub fn parses_clean(language: Language, source: &str) -> Result<(), ParseFault> 
 }
 
 impl<'src> Rewriter<'src> {
-    pub fn new(language: Language, source: &'src str) -> Result<Self, AnalysisError> {
+    pub fn new(language: Language, markup: bool, source: &'src str) -> Result<Self, AnalysisError> {
         let support = support(language);
-        let tree = crate::parse(language, support.profile, source)?;
+        let tree = crate::parse(language, support.profile, markup, source)?;
         Ok(Self {
             language,
+            markup,
             source,
             profile: support.profile,
             tree,
@@ -161,7 +165,7 @@ impl<'src> Rewriter<'src> {
         resolution: &Resolution,
     ) -> Result<Verified, Withheld> {
         let source = apply(self.source, resolution).ok_or(Withheld::OutOfRange)?;
-        parses_clean(self.language, &source).map_err(Withheld::DoesNotParse)?;
+        parses_clean(self.language, self.markup, &source).map_err(Withheld::DoesNotParse)?;
         let after = crate::analyze_as(self.language, display, &source, config)
             .map_err(|error| Withheld::Unanalysable(error.to_string()))?
             .findings;
@@ -533,7 +537,7 @@ mod tests {
     fn fixed(language: Language, source: &str) -> String {
         let config = RqxConfig::default();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
-        let rewriter = Rewriter::new(language, source).expect("parse");
+        let rewriter = Rewriter::new(language, false, source).expect("parse");
         let plan = rewriter.plan(&analysis.findings, &config.fix);
         apply(source, &plan).expect("edits within the source")
     }
@@ -588,7 +592,7 @@ export const used = live;
     fn verified(language: Language, source: &str) -> Result<Verified, Withheld> {
         let config = RqxConfig::default();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
-        let rewriter = Rewriter::new(language, source).expect("parse");
+        let rewriter = Rewriter::new(language, false, source).expect("parse");
         let plan = rewriter.plan(&analysis.findings, &config.fix);
         rewriter.verify("fixture", &config, &analysis.findings, &plan)
     }
@@ -638,7 +642,7 @@ export const used = live;
             Identity::resolved(finding, source),
             Span::new(closing, closing + 1),
         )]);
-        let rewriter = Rewriter::new(Language::TypeScript, source).unwrap();
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
         assert!(matches!(
             rewriter.verify("fixture", &config, &analysis.findings, &broken),
             Err(Withheld::DoesNotParse(_))
@@ -661,7 +665,7 @@ export const used = live;
             Identity::resolved(finding, source),
             Span::new(last - 1, last),
         )]);
-        let rewriter = Rewriter::new(Language::TypeScript, source).unwrap();
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
         assert!(matches!(
             rewriter.verify("fixture", &config, &analysis.findings, &elsewhere),
             Err(Withheld::Survives(_))
@@ -820,8 +824,11 @@ export const deferred = [work]
 
     #[test]
     fn parses_clean_names_the_first_broken_node() {
-        assert_eq!(parses_clean(Language::TypeScript, "const a = 1\n"), Ok(()));
-        let fault = parses_clean(Language::TypeScript, "function f( {\n").unwrap_err();
+        assert_eq!(
+            parses_clean(Language::TypeScript, false, "const a = 1\n"),
+            Ok(())
+        );
+        let fault = parses_clean(Language::TypeScript, false, "function f( {\n").unwrap_err();
         assert!(fault.span.end <= 14, "{fault}");
     }
 
@@ -837,7 +844,7 @@ export const deferred = [work]
             .expect("an unreachable finding");
         stale.location.start += 3;
 
-        let rewriter = Rewriter::new(Language::TypeScript, source).unwrap();
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
         assert!(rewriter.edit(&stale).is_empty());
     }
 
@@ -846,7 +853,7 @@ export const deferred = [work]
         let source = "function f(a: number) {\n  if (a > 1) { if (a > 2) { if (a > 3) { return 1 } } }\n  return 0\n}\n";
         let config = RqxConfig::default();
         let analysis = crate::analyze_as(Language::TypeScript, "fixture", source, &config).unwrap();
-        let rewriter = Rewriter::new(Language::TypeScript, source).unwrap();
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
         for finding in &analysis.findings {
             if !is_fixable(finding.rule) {
                 assert!(rewriter.edit(finding).is_empty(), "{}", finding.rule);

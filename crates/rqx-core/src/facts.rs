@@ -91,6 +91,12 @@ pub struct Hygiene {
     pub negated_comparisons: Vec<Spot>,
     pub defaultless_switches: Vec<Spot>,
     pub single_pass_loops: Vec<Spot>,
+    pub unused_imports: Vec<Spot>,
+    pub wildcard_imports: Vec<Spot>,
+    pub rethrow_only_catches: Vec<Spot>,
+    pub placeholder_bodies: Vec<Spot>,
+    pub passthrough_functions: Vec<Spot>,
+    pub debug_output: Vec<Spot>,
     pub float_equalities: Vec<Spot>,
     pub discarded_expressions: Vec<Spot>,
     pub tiny_switches: Vec<Spot>,
@@ -342,7 +348,14 @@ pub struct ExportedSymbol {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ImportRequest {
     pub specifier: String,
+    /// The names as the *target* exports them, which is what the graph matches on.
+    /// `import Thing from "./x"` records `default`, not `Thing`.
     pub names: Vec<String>,
+    /// The names as *this* file writes them, which is what a reader of this file
+    /// looks for. Empty where the language binds nothing a file can reference by a
+    /// name of its own.
+    #[serde(default)]
+    pub locals: Vec<String>,
     pub span: Span,
     /// A namespace import or `export *` uses every name the target offers, so the
     /// target's exports cannot be judged unused from the names list alone.

@@ -43,6 +43,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                     facts.imports.push(ImportRequest {
                         specifier: string_value(path, source).to_owned(),
                         names: Vec::new(),
+                        locals: Vec::new(),
                         span: span_of(spec),
                         takes_everything: false,
                         re_export: false,

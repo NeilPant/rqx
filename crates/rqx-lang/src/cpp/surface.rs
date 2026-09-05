@@ -94,6 +94,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                         .trim_matches(['"', '<', '>'])
                         .to_owned(),
                     names: Vec::new(),
+                    locals: Vec::new(),
                     span: span_of(node),
                     takes_everything: false,
                     re_export: false,

@@ -410,7 +410,8 @@ fn source_fixes(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrC
     if fixable.is_empty() {
         return Vec::new();
     }
-    let Ok(rewriter) = rqx_lang::rewrite::Rewriter::new(language, &source) else {
+    let markup = rqx_lang::holds_markup(&path.to_string_lossy());
+    let Ok(rewriter) = rqx_lang::rewrite::Rewriter::new(language, markup, &source) else {
         return Vec::new();
     };
 

@@ -400,6 +400,19 @@ impl<'a> Walker<'a> {
     fn note_call(&mut self, call: Node<'a>) {
         let vocabulary: &TestVocabulary = &self.profile.test;
         if let Some(name) = self.called_name(call) {
+            if self.test_depth == 0
+                && let Some(writer) = self
+                    .profile
+                    .debug_writers
+                    .iter()
+                    .find(|writer| **writer == name)
+            {
+                self.out.debug_output.push(Spot {
+                    span: span_of(call),
+                    detail: (*writer).to_owned(),
+                    count: 1,
+                });
+            }
             match vocabulary.directive(&name) {
                 Some(("skipped", directive)) => self.out.skipped_tests.push(Spot {
                     span: span_of(call),
@@ -968,6 +981,227 @@ impl<'a> Walker<'a> {
             Some((at, _)) => format!("{}…", &line[..at]),
             None => line.to_owned(),
         }
+    }
+
+    /// A catch that catches only to raise the same thing again. The handler reads as
+    /// a decision and makes none.
+    fn note_rethrow_only_catch(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = node
+            .child_by_field_name("body")
+            .or_else(|| self.function_body(node))
+        else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let mut statements = holder.named_children(&mut cursor);
+        let Some(only) = statements.next() else {
+            return;
+        };
+        if statements.next().is_some() || !profile.throw_kinds.contains(&only.kind()) {
+            return;
+        }
+        // Throwing something built here is translation, not a rethrow: the handler
+        // added what this level knows. Only handing the same value back is empty.
+        let thrown = only.named_child(0).map(|node| self.see_through(node));
+        let caught = self.caught_name(node);
+        let bare = only.named_child_count() == 0;
+        if !bare
+            && !thrown.is_some_and(|value| {
+                profile.is_identifier(value) && caught.as_deref() == Some(self.text(value))
+            })
+        {
+            return;
+        }
+        self.out.rethrow_only_catches.push(Spot {
+            span: span_of(node),
+            detail: self.snippet(only),
+            count: 1,
+        });
+    }
+
+    /// The name a handler binds the failure to, where it binds one.
+    fn caught_name(&self, catch: Node<'a>) -> Option<String> {
+        let profile = self.profile;
+        let bound = catch
+            .child_by_field_name("parameter")
+            .or_else(|| catch.child_by_field_name("name"))
+            .or_else(|| {
+                catch
+                    .named_children(&mut catch.walk())
+                    .find(|child| !profile.is_block(*child))
+            })?;
+        if profile.is_identifier(bound) {
+            return Some(self.text(bound).to_owned());
+        }
+        descendants(bound)
+            .into_iter()
+            .filter(|node| profile.is_identifier(*node))
+            .next_back()
+            .map(|node| self.text(node).to_owned())
+    }
+
+    /// A body whose whole content is a refusal saying the work is still to come.
+    fn note_placeholder_body(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let mut statements = holder
+            .named_children(&mut cursor)
+            .filter(|child| !profile.is_comment(*child));
+        let Some(only) = statements.next() else {
+            return;
+        };
+        if statements.next().is_some() || !profile.throw_kinds.contains(&only.kind()) {
+            return;
+        }
+        let Some(marker) = crate::vocabulary::unfinished_marker(self.text(only)) else {
+            return;
+        };
+        let Some(name) = self.function_name(function) else {
+            return;
+        };
+        let name = self.text(name).to_owned();
+        self.out.placeholder_bodies.push(Spot {
+            span: span_of(function),
+            detail: format!("{name}: {marker}"),
+            count: 1,
+        });
+    }
+
+    /// A function that takes arguments only to hand them on unchanged. The caller
+    /// could have called the thing itself.
+    fn note_passthrough(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let mut statements = holder
+            .named_children(&mut cursor)
+            .filter(|child| !profile.is_comment(*child));
+        let Some(only) = statements.next() else {
+            return;
+        };
+        if statements.next().is_some() {
+            return;
+        }
+        let Some(call) = self.only_call(only) else {
+            return;
+        };
+        let parameters = self.parameter_names(function);
+        if parameters.is_empty() || self.argument_names(call) != parameters {
+            return;
+        }
+        let Some(name) = self.function_name(function) else {
+            return;
+        };
+        let Some(target) = self.called_name(call) else {
+            return;
+        };
+        self.out.passthrough_functions.push(Spot {
+            span: span_of(function),
+            detail: format!("{} to {target}", self.text(name)),
+            count: 1,
+        });
+    }
+
+    /// The call a statement is, whether it is returned or stands on its own.
+    fn only_call(&self, statement: Node<'a>) -> Option<Node<'a>> {
+        let inner = statement.named_child(0)?;
+        let inner = self.see_through(inner);
+        let candidate = if self.profile.is_call(inner) {
+            inner
+        } else {
+            self.see_through(inner.named_child(0)?)
+        };
+        self.profile.is_call(candidate).then_some(candidate)
+    }
+
+    fn parameter_names(&self, function: Node<'a>) -> Vec<String> {
+        let profile = self.profile;
+        let Some(list) = find_within(function, profile.parameter_list_kinds, profile.block_kinds)
+            .into_iter()
+            .next_back()
+        else {
+            return Vec::new();
+        };
+        list.named_children(&mut list.walk())
+            .filter(|child| {
+                profile.parameter_kinds.contains(&child.kind()) || profile.is_identifier(*child)
+            })
+            .filter_map(|parameter| {
+                if profile.is_identifier(parameter) {
+                    return Some(self.text(parameter).to_owned());
+                }
+                profile
+                    .binding_fields
+                    .iter()
+                    .find_map(|field| parameter.child_by_field_name(field))
+                    .filter(|node| profile.is_identifier(*node))
+                    .or_else(|| {
+                        descendants(parameter)
+                            .into_iter()
+                            .find(|child| profile.is_identifier(*child))
+                    })
+                    .map(|node| self.text(node).to_owned())
+            })
+            .collect()
+    }
+
+    /// The argument list, but only when every argument is a bare name. Anything
+    /// computed on the way through means the function is doing something.
+    fn argument_names(&self, call: Node<'a>) -> Vec<String> {
+        let profile = self.profile;
+        let Some(list) = call
+            .named_children(&mut call.walk())
+            .find(|child| profile.argument_list_kinds.contains(&child.kind()))
+        else {
+            return Vec::new();
+        };
+        list.named_children(&mut list.walk())
+            .map(|argument| {
+                profile
+                    .is_identifier(argument)
+                    .then(|| self.text(argument).to_owned())
+                    .unwrap_or_default()
+            })
+            .collect()
+    }
+
+    fn note_wildcard_import(&mut self, node: Node<'a>) {
+        let Some((_, required)) = self
+            .profile
+            .wildcard_import_kinds
+            .iter()
+            .find(|(kind, _)| *kind == node.kind())
+        else {
+            return;
+        };
+        let statement = node.parent().unwrap_or(node);
+        let text = self.text(statement);
+        if !required.is_empty() && !text.contains(required) {
+            return;
+        }
+        self.out.wildcard_imports.push(Spot {
+            span: span_of(statement),
+            detail: self.snippet(statement),
+            count: 1,
+        });
     }
 
     fn note_exits(&mut self, function: Node<'a>) {
@@ -1658,6 +1892,23 @@ impl<'a> Walker<'a> {
             self.note_switch_width(node);
             self.note_missing_default(node);
         }
+        if profile.catch_kinds.contains(&kind) {
+            self.note_rethrow_only_catch(node);
+        }
+        self.note_wildcard_import(node);
+        if profile.qualified_name_kinds.contains(&kind)
+            && self.test_depth == 0
+            && let Some(writer) = profile
+                .debug_writers
+                .iter()
+                .find(|writer| **writer == self.text(node).replace("::", "."))
+        {
+            self.out.debug_output.push(Spot {
+                span: span_of(node),
+                detail: (*writer).to_owned(),
+                count: 1,
+            });
+        }
         if profile.loop_kinds.contains(&kind) {
             self.note_redundant_jump(node);
         }
@@ -1672,6 +1923,8 @@ impl<'a> Walker<'a> {
         }
         if profile.is_function(node) {
             self.note_empty_method(node);
+            self.note_placeholder_body(node);
+            self.note_passthrough(node);
             self.note_exits(node);
             self.note_callback_depth(node);
         }
@@ -1899,6 +2152,64 @@ fn distant_declarations(scopes: &Scopes, source: &str, distance: u32) -> Vec<Spo
                 detail: binding.name.clone(),
                 count: lines,
             })
+        })
+        .collect();
+    spots.sort_by_key(|spot| spot.span.start);
+    spots
+}
+
+/// A name an import binds and the file never mentions again. Read from the module
+/// facts rather than the scope table: an import binds at file level in every
+/// language here, while only some of them give the bound name a node the resolver
+/// would recognise as a declaration.
+pub fn unused_imports(
+    profile: &'static LanguageProfile,
+    source: &str,
+    root: Node<'_>,
+    markup: bool,
+    imports: &[rqx_core::facts::ImportRequest],
+) -> Vec<Spot> {
+    let brought: Vec<(&rqx_core::facts::ImportRequest, &String)> = imports
+        .iter()
+        .filter(|request| !request.re_export)
+        .flat_map(|request| request.locals.iter().map(move |name| (request, name)))
+        .collect();
+    // A tree with an error has swallowed some of its identifiers, and every one it
+    // swallowed reads here as a name the file never mentions.
+    if brought.is_empty() || root.has_error() {
+        return Vec::new();
+    }
+    let mut mentioned: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    for node in descendants(root) {
+        let named = profile.is_identifier(node)
+            || profile.binding_identifier_kinds.contains(&node.kind())
+            || profile.reference_only_kinds.contains(&node.kind())
+            || profile.property_kinds.contains(&node.kind());
+        if !named {
+            continue;
+        }
+        let span = span_of(node);
+        // The import statement spells the name it binds, so counting it there would
+        // make every import look read.
+        if imports
+            .iter()
+            .any(|request| request.span.start <= span.start && span.end <= request.span.end)
+        {
+            continue;
+        }
+        mentioned.insert(text_of(node, source));
+    }
+    let mut spots: Vec<Spot> = brought
+        .into_iter()
+        .filter(|(_, name)| {
+            !name.starts_with('_')
+                && !mentioned.contains(name.as_str())
+                && !(markup && profile.markup_runtimes.contains(&name.as_str()))
+        })
+        .map(|(request, name)| Spot {
+            span: request.span,
+            detail: name.clone(),
+            count: 1,
         })
         .collect();
     spots.sort_by_key(|spot| spot.span.start);

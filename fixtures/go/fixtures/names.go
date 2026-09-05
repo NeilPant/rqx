@@ -1,5 +1,7 @@
 package fixtures
 
+import . "strings"
+
 func Process(rows []int) int {
 	data := []int{}
 	for _, row := range rows {
@@ -9,4 +11,8 @@ func Process(rows []int) int {
 	}
 	temp2 := len(data)
 	return temp2
+}
+
+func Shout(name string) string {
+	return ToUpper(name)
 }

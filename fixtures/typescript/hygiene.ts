@@ -1,3 +1,5 @@
+import * as everything from "./cycle-b";
+import { neverRead } from "./cycle-c";
 import { orbit } from "./cycle-a";
 import type { Far } from "../../../shared/far";
 import { spinAgain } from "./cycle-a";
@@ -40,4 +42,24 @@ export function ship(order: { customer: { address: { city: string } } }) {
 // Sorry, this one is ugly.
 
 export function nothingHappens(): void {
+}
+
+export function forwardOrbit(seed: number): number {
+  return orbit(seed);
+}
+
+export function stillToWrite(): number {
+  throw new Error("not implemented");
+}
+
+export function reraises(): number {
+  try {
+    return orbit(1);
+  } catch (error) {
+    throw error;
+  }
+}
+
+export function traced(): void {
+  console.log("traced", everything);
 }

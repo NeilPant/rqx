@@ -108,7 +108,7 @@ pub fn for_file(
     if allowed.is_empty() {
         return None;
     }
-    let rewriter = Rewriter::new(language, source).ok()?;
+    let rewriter = Rewriter::new(language, rqx_lang::holds_markup(display), source).ok()?;
     let plan = rewriter.plan(&allowed, &config.fix);
     if plan.is_empty() {
         return None;
@@ -201,7 +201,7 @@ fn plan_round(
         let before = std::fs::read_to_string(&path)
             .with_context(|| format!("reading {} to fix it", path.display()))?;
         let owned: Vec<Finding> = findings.into_iter().cloned().collect();
-        let rewriter = match Rewriter::new(language, &before) {
+        let rewriter = match Rewriter::new(language, rqx_lang::holds_markup(file), &before) {
             Ok(rewriter) => rewriter,
             Err(error) => {
                 round.withheld.push(Withholding {

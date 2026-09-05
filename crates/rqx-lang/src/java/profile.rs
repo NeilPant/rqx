@@ -6,6 +6,7 @@ use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 pub static JAVA: LanguageProfile = LanguageProfile {
     language: Language::Java,
     grammar: || tree_sitter_java::LANGUAGE.into(),
+    markup_grammar: None,
     is_vendor: super::imports::is_vendor,
     iteration_members: &["hasNext", "next"],
     abstract_markers: &["abstract"],
@@ -130,6 +131,12 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     ],
     binding_fields: &["name", "pattern", "declarator"],
     import_binding_kinds: &[],
+    wildcard_import_kinds: &[("asterisk", "")],
+    debug_writers: &[
+        "System.out.println",
+        "System.out.print",
+        "System.out.printf",
+    ],
     export_kinds: &[],
     argument_list_kinds: &["argument_list"],
     heritage_kinds: &["superclass", "super_interfaces", "extends_interfaces"],
@@ -292,4 +299,5 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         case_prefixes: &["test", "Test"],
         control_calls: &[],
     },
+    markup_runtimes: &[],
 };

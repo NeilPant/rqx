@@ -797,6 +797,79 @@ pub fn check_hygiene(
             "delete it; control was going there anyway".to_owned(),
         );
     }
+    for spot in &hygiene.unused_imports {
+        emit(
+            out,
+            RuleId::UnusedImport,
+            spot,
+            Evidence::UnusedBinding {
+                name: spot.detail.clone(),
+                kind: "import".to_owned(),
+            },
+            "delete it; the module it names is not one this file depends on".to_owned(),
+        );
+    }
+    for spot in &hygiene.wildcard_imports {
+        emit(
+            out,
+            RuleId::WildcardImport,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "takes every name the module offers".to_owned(),
+            },
+            "name the handful of things this file actually uses".to_owned(),
+        );
+    }
+    for spot in &hygiene.rethrow_only_catches {
+        emit(
+            out,
+            RuleId::RethrowOnlyCatch,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("the handler is only `{}`", spot.detail),
+            },
+            "delete the handler and let it propagate, or add what this level knows \
+             about the failure"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.placeholder_bodies {
+        emit(
+            out,
+            RuleId::PlaceholderBody,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "promises work it does not do".to_owned(),
+            },
+            "write it, or delete it until there is a caller that needs it".to_owned(),
+        );
+    }
+    for spot in &hygiene.passthrough_functions {
+        emit(
+            out,
+            RuleId::PassthroughFunction,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "forwards its arguments unchanged".to_owned(),
+            },
+            "let the caller call the thing directly, unless this name is the seam".to_owned(),
+        );
+    }
+    for spot in &hygiene.debug_output {
+        emit(
+            out,
+            RuleId::DebugOutput,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "writes to the terminal outside a test".to_owned(),
+            },
+            "delete it, or route it through whatever this project logs with".to_owned(),
+        );
+    }
     for spot in &hygiene.nested_ternaries {
         emit(
             out,

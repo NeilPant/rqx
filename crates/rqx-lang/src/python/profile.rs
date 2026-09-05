@@ -6,6 +6,7 @@ use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 pub static PYTHON: LanguageProfile = LanguageProfile {
     language: Language::Python,
     grammar: || tree_sitter_python::LANGUAGE.into(),
+    markup_grammar: None,
     is_vendor: super::imports::is_vendor,
     iteration_members: &["__iter__", "__next__"],
     abstract_markers: &["abstractmethod", "abstractproperty"],
@@ -117,6 +118,8 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     ],
     binding_fields: &["name", "pattern", "declarator"],
     import_binding_kinds: &["aliased_import"],
+    wildcard_import_kinds: &[("wildcard_import", "")],
+    debug_writers: &["print", "pprint", "pprint.pprint"],
     export_kinds: &[],
     argument_list_kinds: &["argument_list"],
     heritage_kinds: &["argument_list"],
@@ -262,4 +265,5 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
         case_prefixes: &["test_"],
         control_calls: &[],
     },
+    markup_runtimes: &[],
 };

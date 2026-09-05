@@ -34,6 +34,7 @@ enabled = [
   "cross-language-duplicate",
   "emoji-in-source",
   "tiny-switch",
+  "debug-output",
 ]
 
 [gate]

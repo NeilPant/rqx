@@ -11,6 +11,10 @@ public class Main {
         new DeadExport().reachable();
         new Params().withDeadTail(1, "");
         new Hygiene().pricing(java.util.List.of(), true);
+        new Hygiene().forwardOrbit(1);
+        new Hygiene().stillToWrite();
+        new Hygiene().reraises();
+        new Hygiene().traced();
         new Reconcile().first(java.util.List.of());
         new Shapes();
         new Sweep().sweep(java.util.List.of());

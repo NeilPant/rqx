@@ -1,3 +1,6 @@
+from .cycle_b import *
+from .cycle_b import spin
+from .cycle_c import wobble
 from .cycle_a import orbit
 from ....shared.far import far
 from .cycle_a import orbit as orbit_again
@@ -41,3 +44,22 @@ def ship(order) -> str:
 
 def nothing_happens() -> None:
     pass
+
+
+def forward_orbit(seed):
+    return orbit(seed)
+
+
+def still_to_write():
+    raise NotImplementedError("not implemented")
+
+
+def reraises():
+    try:
+        return orbit(1)
+    except ValueError as error:
+        raise error
+
+
+def traced():
+    print("traced", spin)

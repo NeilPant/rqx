@@ -974,6 +974,81 @@ catalogue! {
             (Java, "an import is a package name, and packages do not nest by path"),
         ],
     },
+    UnusedImport {
+        slug: "unused-import",
+        category: Waste,
+        analysis: Semantics,
+        metric: "a name imported into a file and never read there",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "it makes the file look dependent on something it does not use, and the \
+              dependency survives every search for who needs that module",
+        not_applicable: [
+            (Go, "the compiler refuses a file with one"),
+            (Cpp, "an include may be there for a header that needs it"),
+        ],
+    },
+    WildcardImport {
+        slug: "wildcard-import",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "an import that brings in every name a module offers",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "nothing in the file says which names came from where, so a reader has \
+              to open the other module to find out and a new export there can shadow \
+              a local one silently",
+    },
+    RethrowOnlyCatch {
+        slug: "rethrow-only-catch",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a handler whose only statement raises again",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "it reads as a decision about the failure and makes none, while costing \
+              the stack trace in the languages that rebuild one on the way out",
+        not_applicable: [(Go, "errors are values, so there is no handler to empty")],
+    },
+    PlaceholderBody {
+        slug: "placeholder-body",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a body whose only statement raises to say the work is still to come",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "it is a callable promise with nothing behind it, and every caller that \
+              trusts the signature finds that out at runtime",
+        not_applicable: [(Go, "failure is a returned value, so no statement is a refusal")],
+    },
+    PassthroughFunction {
+        slug: "passthrough-function",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a function whose whole body hands its own arguments to one other call",
+        fixes: [InlineDelegation],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it adds a name and a stack frame between a caller and the thing it \
+              wanted, and the indirection buys nothing while it forwards unchanged",
+    },
+    DebugOutput {
+        slug: "debug-output",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a write to the terminal outside a test, of the kind left behind after \
+                 debugging",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it was written to be read once by the person debugging, and it is still \
+              printing for everybody else",
+        off_by_default: true,
+    },
     DuplicateImport {
         slug: "duplicate-import",
         category: Waste,

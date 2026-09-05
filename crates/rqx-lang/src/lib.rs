@@ -181,22 +181,34 @@ thread_local! {
     /// A `Parser` allocates and loads its language's tables on construction, which on
     /// a twelve-thousand-file walk is twelve thousand of each. The tree it produces
     /// borrows nothing from it, so one per language per worker is enough.
-    static PARSERS: std::cell::RefCell<std::collections::HashMap<Language, tree_sitter::Parser>> =
-        std::cell::RefCell::new(std::collections::HashMap::new());
+    static PARSERS: std::cell::RefCell<
+        std::collections::HashMap<(Language, bool), tree_sitter::Parser>,
+    > = std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// Extensions whose contents are markup as well as code, and so need the second
+/// grammar where the language has one.
+pub fn holds_markup(display: &str) -> bool {
+    display.ends_with(".tsx") || display.ends_with(".jsx")
 }
 
 fn parse(
     language: Language,
     profile: &'static LanguageProfile,
+    markup: bool,
     source: &str,
 ) -> Result<tree_sitter::Tree, AnalysisError> {
+    let grammar = match (markup, profile.markup_grammar) {
+        (true, Some(grammar)) => grammar,
+        _ => profile.grammar,
+    };
     PARSERS.with_borrow_mut(|parsers| {
-        let parser = match parsers.entry(language) {
+        let parser = match parsers.entry((language, markup)) {
             std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
             std::collections::hash_map::Entry::Vacant(entry) => {
                 let mut parser = tree_sitter::Parser::new();
                 parser
-                    .set_language(&(profile.grammar)())
+                    .set_language(&grammar())
                     .map_err(|error| AnalysisError::Parse(error.to_string()))?;
                 entry.insert(parser)
             }
@@ -225,7 +237,7 @@ pub fn analyze_as(
 ) -> Result<FileAnalysis, AnalysisError> {
     let support = support(language);
     let profile = support.profile;
-    let tree = parse(language, profile, source)?;
+    let tree = parse(language, profile, holds_markup(display), source)?;
     let root = tree.root_node();
 
     let index = LineIndex::new(source);
@@ -309,6 +321,13 @@ pub fn analyze_as(
     hygiene
         .unused_locals
         .retain(|spot| !exported.contains(spot.detail.as_str()));
+    hygiene.unused_imports = hygiene::unused_imports(
+        profile,
+        source,
+        root,
+        holds_markup(display),
+        &module.imports,
+    );
     // A waiver reaches by line, and only the index knows which line a byte is on.
     for waiver in &mut hygiene.waivers {
         waiver.line = index.locate(waiver.span.start).0;

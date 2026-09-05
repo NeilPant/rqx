@@ -2,6 +2,8 @@ package rqx;
 
 import java.util.List;
 import java.util.List;
+import java.util.Map;
+import java.io.*;
 
 public class Hygiene {
     public int pricing(List<Integer> cart, boolean applyDiscount) {
@@ -48,9 +50,32 @@ public class Hygiene {
     public String ship(Order order) {
         return order.getCustomer().getAddress().getCity().trim();
     }
+
+    public int forwardOrbit(int seed) {
+        return this.orbitOf(seed);
+    }
+
+    private int orbitOf(int seed) {
+        return seed + 1;
+    }
+
+    public int stillToWrite() {
+        throw new UnsupportedOperationException("not implemented");
+    }
+
+    public int reraises() {
+        try {
+            return this.orbitOf(1);
+        } catch (RuntimeException error) {
+            throw error;
+        }
+    }
+
+    public void traced() {
+        System.out.println("traced");
+    }
 }
 
 // ---------------- helpers ----------------
 // Here's the helper you asked for! 🎉
 // Sorry, this one is ugly.
-

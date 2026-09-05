@@ -152,10 +152,16 @@ pub struct Capture {
 /// Run a query over one file's text. The query is compiled per call rather than
 /// cached: this runs once per file for one query, and a cache keyed on the text
 /// would outlive its usefulness immediately.
-pub fn probe(language: Language, query: &str, source: &str) -> Result<Vec<Match>, String> {
+pub fn probe(
+    language: Language,
+    markup: bool,
+    query: &str,
+    source: &str,
+) -> Result<Vec<Match>, String> {
     let query = compile(language, query)?;
     let profile = crate::support(language).profile;
-    let tree = crate::parse(language, profile, source).map_err(|error| error.to_string())?;
+    let tree =
+        crate::parse(language, profile, markup, source).map_err(|error| error.to_string())?;
     let index = rqx_core::line_index::LineIndex::new(source);
     let names = query.capture_names();
     let mut cursor = QueryCursor::new();

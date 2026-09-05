@@ -6,6 +6,7 @@ use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 pub static CPP: LanguageProfile = LanguageProfile {
     language: Language::Cpp,
     grammar: || tree_sitter_cpp::LANGUAGE.into(),
+    markup_grammar: None,
     is_vendor: super::imports::is_vendor,
     iteration_members: &["begin", "end"],
     abstract_markers: &[],
@@ -112,6 +113,8 @@ pub static CPP: LanguageProfile = LanguageProfile {
     ],
     binding_fields: &["name", "pattern", "declarator"],
     import_binding_kinds: &[],
+    wildcard_import_kinds: &[("using_declaration", "using namespace")],
+    debug_writers: &["printf", "puts", "std.cout", "std.cerr"],
     export_kinds: &[],
     argument_list_kinds: &["argument_list"],
     heritage_kinds: &["base_class_clause"],
@@ -270,4 +273,5 @@ pub static CPP: LanguageProfile = LanguageProfile {
         case_prefixes: &["TEST"],
         control_calls: &[("GTEST_SKIP", "skipped")],
     },
+    markup_runtimes: &[],
 };

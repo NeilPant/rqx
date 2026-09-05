@@ -25,7 +25,8 @@ pub fn run(
         let Ok(text) = std::fs::read_to_string(&path) else {
             continue;
         };
-        let found = rqx_lang::custom::probe(language, query, &text)
+        let markup = rqx_lang::holds_markup(&path.to_string_lossy());
+        let found = rqx_lang::custom::probe(language, markup, query, &text)
             .map_err(|error| anyhow::anyhow!("{error}"))?;
         for one in found {
             matched += 1;

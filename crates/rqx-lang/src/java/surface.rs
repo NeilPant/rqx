@@ -74,9 +74,19 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
         let kind = node.kind();
         if kind == "import_declaration" {
             if let Some(name) = node.named_child(0) {
+                let specifier = text_of(name, source).to_owned();
+                // The simple name is what the rest of the file writes; a wildcard
+                // import binds no name of its own.
+                let bound = specifier
+                    .rsplit('.')
+                    .next()
+                    .filter(|simple| *simple != "*" && !text_of(*node, source).ends_with(".*;"))
+                    .map(str::to_owned);
+                let bound: Vec<String> = bound.into_iter().collect();
                 facts.imports.push(ImportRequest {
-                    specifier: text_of(name, source).to_owned(),
-                    names: Vec::new(),
+                    specifier,
+                    names: bound.clone(),
+                    locals: bound,
                     span: span_of(*node),
                     // An import names one type, and that type is the whole of what
                     // the importing file takes.
@@ -164,6 +174,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
             let mut names = vec![name.clone()];
             names.extend(called.iter().cloned());
             facts.imports.push(ImportRequest {
+                locals: Vec::new(),
                 specifier: format!("{package}.{name}"),
                 names,
                 span: rqx_core::span::Span::new(0, 0),

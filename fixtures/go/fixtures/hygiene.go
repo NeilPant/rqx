@@ -1,5 +1,7 @@
 package fixtures
 
+import "fmt"
+
 func Pricing(cart []int, applyDiscount bool) int {
 	neverRead := len(cart)
 	total := 0
@@ -52,4 +54,16 @@ func Ship(target order) string {
 // Sorry, this one is ugly.
 
 func NothingHappens() {
+}
+
+func ForwardOrbit(step int) int {
+	return orbitOf(step)
+}
+
+func orbitOf(step int) int {
+	return step + 1
+}
+
+func Traced() {
+	fmt.Println("traced")
 }
