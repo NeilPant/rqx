@@ -13,12 +13,12 @@ each of these tells the checker to stop checking, so the guarantee the rest of t
 | Reads | resolved scopes and symbols |
 | Fix | Replace Data Value with Object / Introduce Assertion |
 
-From `fixtures/typescript/precision.ts`, line 5:
+From `fixtures/typescript/hygiene.ts`, line 89:
 
 ```ts
- */
-export function widen(input: any): string {
-  const raw = input as string;
+    return rows.length;
+  } catch (error: any) {
+    return error ? 0 : 0;
 ```
 
 rqx says: name the shape you actually accept, or `unknown` and narrow it
@@ -109,6 +109,141 @@ export function settled(balance: number): boolean {
 ```
 
 rqx says: compare the difference against a tolerance the domain decides
+
+## `mixed-return`
+
+a caller cannot write one line that handles both, so every call site carries a check for the path the author happened to think of
+
+| | |
+|---|---|
+| Measures | one function answering with a value on one path and with nothing on another |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Separate Query from Modifier / Decompose Conditional |
+| Not in Go | a naked return beside a named result is the language's own idiom |
+| Not in Java | the compiler refuses a body that answers two shapes |
+| Not in C++ | the compiler refuses a body that answers two shapes |
+
+From `fixtures/typescript/hygiene.ts`, line 69:
+
+```ts
+  if (rows.length === 0) {
+    return;
+  }
+```
+
+rqx says: answer with the same shape on every path, or split the two answers into two functions
+
+## `exit-from-finally`
+
+it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing anywhere records that it happened
+
+| | |
+|---|---|
+| Measures | a return, break, continue or raise inside the clause that runs on the way out |
+| Reported as | error, verified |
+| Reads | the syntax tree alone |
+| Fix | Decompose Conditional |
+| Not in Go | cleanup is a deferred call, which cannot replace the return |
+| Not in C++ | there is no finally clause |
+
+From `fixtures/typescript/hygiene.ts`, line 78:
+
+```ts
+  } finally {
+    return 0;
+  }
+```
+
+rqx says: move it after the block, so what the block was leaving with survives
+
+## `catch-all-handler`
+
+it takes the failures it was written for and every other one too, including the ones that mean the program is already wrong
+
+| | |
+|---|---|
+| Measures | a handler naming the root of the error hierarchy, or naming nothing at all |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Decompose Conditional |
+| Not in Go | errors are values, so there is no handler to widen |
+
+From `fixtures/typescript/hygiene.ts`, line 89:
+
+```ts
+    return rows.length;
+  } catch (error: any) {
+    return error ? 0 : 0;
+  }
+}
+```
+
+rqx says: name the failures this level knows what to do about, and let the rest through
+
+## `generic-throw`
+
+the only way to react to it is to catch everything, so a caller that wanted to handle this one failure cannot
+
+| | |
+|---|---|
+| Measures | raising the root error type rather than one that names the failure |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Replace Data Value with Object |
+| Not in Go | errors are values, and the language raises nothing |
+
+From `fixtures/typescript/hygiene.ts`, line 52:
+
+```ts
+export function stillToWrite(): number {
+  throw new Error("not implemented");
+}
+```
+
+rqx says: raise a type named for the failure, so a caller can catch this one
+
+## `library-exit`
+
+it takes the decision away from every caller above it, and a test that reaches the line takes the runner down with it
+
+| | |
+|---|---|
+| Measures | a call that ends the process, written outside the entry point |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Separate Query from Modifier |
+
+From `fixtures/typescript/hygiene.ts`, line 95:
+
+```ts
+export function stops(code: number): void {
+  process.exit(code);
+}
+```
+
+rqx says: return or raise, and let whatever owns the process decide to stop
+
+## `boolean-literal-argument`
+
+nothing at the call site says what it turns on, so the reader has to open the callee to find out what they just asked for
+
+| | |
+|---|---|
+| Measures | a bare true or false among a call's arguments |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Replace Parameter with Explicit Methods |
+
+From `fixtures/typescript/hygiene.ts`, line 99:
+
+```ts
+export function requests(url: string): string {
+  return fetchPage(url, true);
+}
+```
+
+rqx says: name the value at the call site, or give the callee two methods
 
 ## `unjustified-suppression`
 

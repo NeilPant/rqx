@@ -797,6 +797,82 @@ pub fn check_hygiene(
             "delete it; control was going there anyway".to_owned(),
         );
     }
+    for spot in &hygiene.mixed_returns {
+        emit(
+            out,
+            RuleId::MixedReturn,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("{} returns: {}", spot.count, spot.detail),
+            },
+            "answer with the same shape on every path, or split the two answers into \
+             two functions"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.exits_from_finally {
+        emit(
+            out,
+            RuleId::ExitFromFinally,
+            spot,
+            Evidence::BranchShape {
+                shape: format!(
+                    "`{}` inside the clause that runs on the way out",
+                    spot.detail
+                ),
+            },
+            "move it after the block, so what the block was leaving with survives".to_owned(),
+        );
+    }
+    for spot in &hygiene.catch_all_handlers {
+        emit(
+            out,
+            RuleId::CatchAllHandler,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("catches `{}`", spot.detail),
+            },
+            "name the failures this level knows what to do about, and let the rest \
+             through"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.generic_throws {
+        emit(
+            out,
+            RuleId::GenericThrow,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is the root of the hierarchy".to_owned(),
+            },
+            "raise a type named for the failure, so a caller can catch this one".to_owned(),
+        );
+    }
+    for spot in &hygiene.library_exits {
+        emit(
+            out,
+            RuleId::LibraryExit,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "ends the process".to_owned(),
+            },
+            "return or raise, and let whatever owns the process decide to stop".to_owned(),
+        );
+    }
+    for spot in &hygiene.boolean_arguments {
+        emit(
+            out,
+            RuleId::BooleanLiteralArgument,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is handed a bare true or false".to_owned(),
+            },
+            "name the value at the call site, or give the callee two methods".to_owned(),
+        );
+    }
     for spot in &hygiene.unused_imports {
         emit(
             out,

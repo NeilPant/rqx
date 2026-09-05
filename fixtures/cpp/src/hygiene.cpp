@@ -73,3 +73,34 @@ int reraises() {
 void traced() {
     printf("traced\n");
 }
+
+int maybe_count(int rows) {
+    if (rows == 0) {
+        return 0;
+    }
+    return rows;
+}
+
+int catches_everything(int rows) {
+    try {
+        return rows;
+    } catch (...) {
+        return 0;
+    }
+}
+
+int refuses() {
+    throw std::exception();
+}
+
+void stops(int code) {
+    exit(code);
+}
+
+const char *requests(const char *url) {
+    return fetch_page(url, true);
+}
+
+const char *fetch_page(const char *url, bool retry) {
+    return retry ? url : url;
+}

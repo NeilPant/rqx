@@ -63,3 +63,42 @@ export function reraises(): number {
 export function traced(): void {
   console.log("traced", everything);
 }
+
+export function maybeCount(rows: number[]): number | undefined {
+  if (rows.length === 0) {
+    return;
+  }
+  return rows.length;
+}
+
+export function closesOut(rows: number[]): number {
+  try {
+    return rows.length;
+  } finally {
+    return 0;
+  }
+}
+
+export function refuses(): number {
+  throw new Error("no");
+}
+
+export function catchesEverything(rows: number[]): number {
+  try {
+    return rows.length;
+  } catch (error: any) {
+    return error ? 0 : 0;
+  }
+}
+
+export function stops(code: number): void {
+  process.exit(code);
+}
+
+export function requests(url: string): string {
+  return fetchPage(url, true);
+}
+
+function fetchPage(url: string, retry: boolean): string {
+  return retry ? url : url;
+}

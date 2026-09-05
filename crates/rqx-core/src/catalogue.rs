@@ -974,6 +974,86 @@ catalogue! {
             (Java, "an import is a package name, and packages do not nest by path"),
         ],
     },
+    MixedReturn {
+        slug: "mixed-return",
+        category: Safety,
+        analysis: Syntax,
+        metric: "one function answering with a value on one path and with nothing on \
+                 another",
+        fixes: [SeparateQueryFromModifier, DecomposeConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "a caller cannot write one line that handles both, so every call site \
+              carries a check for the path the author happened to think of",
+        not_applicable: [
+            (Go, "a naked return beside a named result is the language's own idiom"),
+            (Java, "the compiler refuses a body that answers two shapes"),
+            (Cpp, "the compiler refuses a body that answers two shapes"),
+        ],
+    },
+    ExitFromFinally {
+        slug: "exit-from-finally",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a return, break, continue or raise inside the clause that runs on the \
+                 way out",
+        fixes: [DecomposeConditional],
+        confidence: Verified,
+        severity: Error,
+        why: "it replaces whatever the block was leaving with, so a failure raised in \
+              the body disappears and nothing anywhere records that it happened",
+        not_applicable: [
+            (Go, "cleanup is a deferred call, which cannot replace the return"),
+            (Cpp, "there is no finally clause"),
+        ],
+    },
+    CatchAllHandler {
+        slug: "catch-all-handler",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a handler naming the root of the error hierarchy, or naming nothing at \
+                 all",
+        fixes: [DecomposeConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "it takes the failures it was written for and every other one too, \
+              including the ones that mean the program is already wrong",
+        not_applicable: [(Go, "errors are values, so there is no handler to widen")],
+    },
+    GenericThrow {
+        slug: "generic-throw",
+        category: Safety,
+        analysis: Syntax,
+        metric: "raising the root error type rather than one that names the failure",
+        fixes: [ReplaceDataValueWithObject],
+        confidence: Verified,
+        severity: Info,
+        why: "the only way to react to it is to catch everything, so a caller that \
+              wanted to handle this one failure cannot",
+        not_applicable: [(Go, "errors are values, and the language raises nothing")],
+    },
+    LibraryExit {
+        slug: "library-exit",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a call that ends the process, written outside the entry point",
+        fixes: [SeparateQueryFromModifier],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "it takes the decision away from every caller above it, and a test that \
+              reaches the line takes the runner down with it",
+    },
+    BooleanLiteralArgument {
+        slug: "boolean-literal-argument",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a bare true or false among a call's arguments",
+        fixes: [ReplaceParameterWithExplicitMethods],
+        confidence: Heuristic,
+        severity: Info,
+        why: "nothing at the call site says what it turns on, so the reader has to \
+              open the callee to find out what they just asked for",
+    },
     UnusedImport {
         slug: "unused-import",
         category: Waste,

@@ -74,6 +74,45 @@ public class Hygiene {
     public void traced() {
         System.out.println("traced");
     }
+
+    public Integer maybeCount(List<Integer> rows) {
+        if (rows.isEmpty()) {
+            return null;
+        }
+        return rows.size();
+    }
+
+    public int closesOut(List<Integer> rows) {
+        try {
+            return rows.size();
+        } finally {
+            return 0;
+        }
+    }
+
+    public int catchesEverything(List<Integer> rows) {
+        try {
+            return rows.size();
+        } catch (Exception error) {
+            return 0;
+        }
+    }
+
+    public int refuses() {
+        throw new RuntimeException("no");
+    }
+
+    public void stops(int code) {
+        System.exit(code);
+    }
+
+    public String requests(String url) {
+        return this.fetchPage(url, true);
+    }
+
+    private String fetchPage(String url, boolean retry) {
+        return retry ? url : url;
+    }
 }
 
 // ---------------- helpers ----------------

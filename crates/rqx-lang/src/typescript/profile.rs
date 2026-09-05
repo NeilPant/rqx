@@ -76,6 +76,11 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     if_kind: "if_statement",
     else_field: "alternative",
     catch_kinds: &["catch_clause"],
+    finally_kinds: &["finally_clause"],
+    catch_all_types: &["any", "unknown"],
+    catch_names_a_type: false,
+    base_error_types: &["Error"],
+    exit_calls: &["process.exit"],
 
     comment_kinds: &["comment"],
     number_kinds: &["number"],

@@ -1,6 +1,9 @@
 package fixtures
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 func Pricing(cart []int, applyDiscount bool) int {
 	neverRead := len(cart)
@@ -66,4 +69,19 @@ func orbitOf(step int) int {
 
 func Traced() {
 	fmt.Println("traced")
+}
+
+func Stops(code int) {
+	os.Exit(code)
+}
+
+func Requests(url string) string {
+	return fetchPage(url, true)
+}
+
+func fetchPage(url string, retry bool) string {
+	if retry {
+		return url
+	}
+	return url
 }

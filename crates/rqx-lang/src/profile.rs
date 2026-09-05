@@ -62,6 +62,18 @@ pub struct LanguageProfile {
     pub if_kind: &'static str,
     pub else_field: &'static str,
     pub catch_kinds: &'static [&'static str],
+    /// The clause that runs whichever way the block was left.
+    pub finally_kinds: &'static [&'static str],
+    /// Error types a handler names when it means "anything".
+    pub catch_all_types: &'static [&'static str],
+    /// Whether a handler in this language names the failures it takes. Where it does,
+    /// naming nothing is itself a catch-all; where it does not, only an explicit
+    /// widening annotation says the author chose to take everything.
+    pub catch_names_a_type: bool,
+    /// Error types that say nothing about what went wrong.
+    pub base_error_types: &'static [&'static str],
+    /// Calls that end the process rather than return from it.
+    pub exit_calls: &'static [&'static str],
 
     pub comment_kinds: &'static [&'static str],
     pub number_kinds: &'static [&'static str],

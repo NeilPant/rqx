@@ -6,7 +6,7 @@ export { process } from "./names";
 export { orbit } from "./cycle-a";
 export { reachable } from "./dead-export";
 export { withDeadTail, withDeadMiddle, respectsUnderscore, twoDeadOnOneLine } from "./params";
-export { pricing, unreachable, suppressed, ship, nothingHappens, forwardOrbit, stillToWrite, reraises, traced } from "./hygiene";
+export { pricing, unreachable, suppressed, ship, nothingHappens, forwardOrbit, stillToWrite, reraises, traced, maybeCount, closesOut, refuses, catchesEverything, stops, requests } from "./hygiene";
 export { Coordinate, Marker, Facade, Vehicle, Engine, Broken, Totals, routeOf, priceOf, notify, enqueue, record } from "./shapes";
 export type { Channel, IShipment } from "./shapes";
 export { Registry, CachedRegistry, gate, sweep } from "./shapes";

@@ -70,6 +70,11 @@ pub static CPP: LanguageProfile = LanguageProfile {
     if_kind: "if_statement",
     else_field: "alternative",
     catch_kinds: &["catch_clause"],
+    finally_kinds: &[],
+    catch_all_types: &["std::exception", "exception"],
+    catch_names_a_type: true,
+    base_error_types: &["std.exception", "exception"],
+    exit_calls: &["exit", "std.exit", "abort", "std.abort"],
 
     comment_kinds: &["comment"],
     number_kinds: &["number_literal"],

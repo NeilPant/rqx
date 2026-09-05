@@ -8,6 +8,8 @@ import (
 func main() {
 	_ = fixtures.Add
 	_ = fixtures.ForwardOrbit
+	_ = fixtures.Stops
+	_ = fixtures.Requests
 	_ = fixtures.Traced
 	_ = fixtures.Shout
 	_ = fixtures.Describe

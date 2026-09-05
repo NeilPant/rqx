@@ -85,6 +85,11 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     if_kind: "if_statement",
     else_field: "alternative",
     catch_kinds: &["except_clause"],
+    finally_kinds: &["finally_clause"],
+    catch_all_types: &["Exception", "BaseException"],
+    catch_names_a_type: true,
+    base_error_types: &["Exception", "BaseException"],
+    exit_calls: &["sys.exit", "os._exit"],
 
     comment_kinds: &["comment"],
     number_kinds: &["integer", "float"],

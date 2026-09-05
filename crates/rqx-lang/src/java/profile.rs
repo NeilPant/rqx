@@ -86,6 +86,11 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     if_kind: "if_statement",
     else_field: "alternative",
     catch_kinds: &["catch_clause"],
+    finally_kinds: &["finally_clause"],
+    catch_all_types: &["Exception", "Throwable", "RuntimeException"],
+    catch_names_a_type: true,
+    base_error_types: &["Exception", "RuntimeException", "Throwable"],
+    exit_calls: &["System.exit"],
 
     comment_kinds: &["line_comment", "block_comment"],
     number_kinds: &[

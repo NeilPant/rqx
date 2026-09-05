@@ -15,6 +15,12 @@ public class Main {
         new Hygiene().stillToWrite();
         new Hygiene().reraises();
         new Hygiene().traced();
+        new Hygiene().maybeCount(java.util.List.of());
+        new Hygiene().closesOut(java.util.List.of());
+        new Hygiene().catchesEverything(java.util.List.of());
+        new Hygiene().refuses();
+        new Hygiene().stops(0);
+        new Hygiene().requests("u");
         new Reconcile().first(java.util.List.of());
         new Shapes();
         new Sweep().sweep(java.util.List.of());

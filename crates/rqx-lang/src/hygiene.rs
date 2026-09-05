@@ -1204,6 +1204,224 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// A function that answers with a value on one path and with nothing on another.
+    fn note_mixed_return(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let (mut valued, mut bare) = (0_u32, 0_u32);
+        let mut cursor = body.walk();
+        let mut stack: Vec<Node<'a>> = body.children(&mut cursor).collect();
+        let mut first_bare = None;
+        while let Some(node) = stack.pop() {
+            // A callback answers for itself, not for the function it was written in.
+            if profile.is_function(node) {
+                continue;
+            }
+            if node.kind() == "return_statement" {
+                if node.named_child_count() == 0 {
+                    bare += 1;
+                    first_bare = Some(node);
+                } else {
+                    valued += 1;
+                }
+            }
+            let mut inner = node.walk();
+            stack.extend(node.children(&mut inner));
+        }
+        if let Some(node) = first_bare
+            && valued > 0
+            && bare > 0
+        {
+            self.out.mixed_returns.push(Spot {
+                span: span_of(node),
+                detail: format!("{valued} with a value, {bare} without"),
+                count: valued + bare,
+            });
+        }
+    }
+
+    /// A jump out of the clause that runs on the way out. It discards whatever the
+    /// block was leaving with, including a failure nobody will ever see.
+    fn note_exit_from_finally(&mut self, clause: Node<'a>) {
+        let profile = self.profile;
+        for node in descendants(clause) {
+            let leaves = matches!(
+                node.kind(),
+                "return_statement" | "break_statement" | "continue_statement"
+            ) || profile.throw_kinds.contains(&node.kind());
+            if !leaves {
+                continue;
+            }
+            if Self::under_function_within(node, clause, profile) {
+                continue;
+            }
+            self.out.exits_from_finally.push(Spot {
+                span: span_of(node),
+                detail: node.kind().trim_end_matches("_statement").to_owned(),
+                count: 1,
+            });
+            return;
+        }
+    }
+
+    fn under_function_within(node: Node<'a>, outer: Node<'a>, profile: &LanguageProfile) -> bool {
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if current.id() == outer.id() {
+                return false;
+            }
+            if profile.is_function(current) {
+                return true;
+            }
+            parent = current.parent();
+        }
+        false
+    }
+
+    /// A handler that names the root of the error hierarchy, or names nothing, takes
+    /// every failure including the ones it was never written for.
+    fn note_catch_all(&mut self, catch: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = catch.child_by_field_name("body").or_else(|| {
+            catch
+                .named_children(&mut catch.walk())
+                .find(|child| profile.is_block(*child))
+        }) else {
+            return;
+        };
+        let header: Vec<Node<'a>> = descendants(catch)
+            .into_iter()
+            .filter(|node| node.start_byte() < body.start_byte())
+            .collect();
+        // A language that spells the type separately from the binding puts it in an
+        // annotation, and the annotation is the half that says what is taken.
+        let annotated = header
+            .iter()
+            .find(|node| profile.type_annotation_kinds.contains(&node.kind()))
+            .and_then(|node| node.named_child(0));
+        let named = annotated.or_else(|| {
+            header
+                .iter()
+                .copied()
+                .find(|node| {
+                    profile.is_identifier(*node)
+                        || profile.binding_identifier_kinds.contains(&node.kind())
+                        || profile.qualified_name_kinds.contains(&node.kind())
+                })
+                .filter(|_| profile.catch_names_a_type)
+        });
+        let caught = named.map(|node| self.text(node));
+        let takes_everything = match caught {
+            Some(name) => profile.catch_all_types.contains(&name),
+            // Naming nothing is a catch-all only where the language offered a name.
+            None => profile.catch_names_a_type,
+        };
+        if !takes_everything {
+            return;
+        }
+        self.out.catch_all_handlers.push(Spot {
+            span: span_of(catch),
+            detail: caught.unwrap_or("everything").to_owned(),
+            count: 1,
+        });
+    }
+
+    /// Raising the root type tells a caller that something failed and nothing else,
+    /// so the only way to react to it is to catch everything.
+    fn note_generic_throw(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(raised) = node.named_child(0) else {
+            return;
+        };
+        let raised = self.see_through(raised);
+        let Some(name) = self
+            .constructed_name(raised)
+            .or_else(|| self.called_name(raised))
+            .or_else(|| {
+                profile
+                    .is_identifier(raised)
+                    .then(|| self.text(raised).to_owned())
+            })
+        else {
+            return;
+        };
+        if !profile.base_error_types.contains(&name.as_str()) {
+            return;
+        }
+        self.out.generic_throws.push(Spot {
+            span: span_of(node),
+            detail: name,
+            count: 1,
+        });
+    }
+
+    /// Ending the process from somewhere that is not the entry point takes the
+    /// decision away from every caller above it.
+    fn note_library_exit(&mut self, call: Node<'a>) {
+        let profile = self.profile;
+        let Some(name) = self.called_name(call) else {
+            return;
+        };
+        if !profile.exit_calls.contains(&name.as_str()) || self.inside_entry_point(call) {
+            return;
+        }
+        self.out.library_exits.push(Spot {
+            span: span_of(call),
+            detail: name,
+            count: 1,
+        });
+    }
+
+    fn inside_entry_point(&self, node: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if profile.is_function(current)
+                && let Some(name) = self.function_name(current)
+            {
+                return self.text(name).eq_ignore_ascii_case("main");
+            }
+            parent = current.parent();
+        }
+        false
+    }
+
+    /// A literal `true` at a call site says nothing about what it turns on; the
+    /// reader has to open the callee to find out.
+    fn note_boolean_argument(&mut self, call: Node<'a>) {
+        let profile = self.profile;
+        if self.test_depth > 0 {
+            return;
+        }
+        let Some(list) = call
+            .named_children(&mut call.walk())
+            .find(|child| profile.argument_list_kinds.contains(&child.kind()))
+        else {
+            return;
+        };
+        let arguments: Vec<Node<'a>> = list.named_children(&mut list.walk()).collect();
+        // One argument reads as the whole of what the call does; it is the flag among
+        // others that nobody can name from the call site.
+        if arguments.len() < 2 {
+            return;
+        }
+        let Some(flag) = arguments
+            .into_iter()
+            .find(|argument| profile.boolean_literals.contains(&self.text(*argument)))
+        else {
+            return;
+        };
+        self.out.boolean_arguments.push(Spot {
+            span: span_of(flag),
+            detail: self
+                .called_name(call)
+                .unwrap_or_else(|| "the call".to_owned()),
+            count: 1,
+        });
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -1894,6 +2112,13 @@ impl<'a> Walker<'a> {
         }
         if profile.catch_kinds.contains(&kind) {
             self.note_rethrow_only_catch(node);
+            self.note_catch_all(node);
+        }
+        if profile.finally_kinds.contains(&kind) {
+            self.note_exit_from_finally(node);
+        }
+        if profile.throw_kinds.contains(&kind) {
+            self.note_generic_throw(node);
         }
         self.note_wildcard_import(node);
         if profile.qualified_name_kinds.contains(&kind)
@@ -1923,6 +2148,7 @@ impl<'a> Walker<'a> {
         }
         if profile.is_function(node) {
             self.note_empty_method(node);
+            self.note_mixed_return(node);
             self.note_placeholder_body(node);
             self.note_passthrough(node);
             self.note_exits(node);
@@ -1962,6 +2188,8 @@ impl<'a> Walker<'a> {
         if profile.is_call(node) {
             self.note_perf_call(node);
             self.note_call(node);
+            self.note_library_exit(node);
+            self.note_boolean_argument(node);
             if self
                 .called_name(node)
                 .is_some_and(|name| profile.test.is_test(&name))

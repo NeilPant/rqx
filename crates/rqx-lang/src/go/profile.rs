@@ -67,6 +67,11 @@ pub static GO: LanguageProfile = LanguageProfile {
     // Go has no exceptions; `recover` inside a deferred function is the nearest
     // thing and is not a clause the grammar names.
     catch_kinds: &[],
+    finally_kinds: &[],
+    catch_all_types: &[],
+    catch_names_a_type: true,
+    base_error_types: &[],
+    exit_calls: &["os.Exit", "log.Fatal", "log.Fatalf", "log.Fatalln"],
 
     comment_kinds: &["comment"],
     number_kinds: &["int_literal", "float_literal"],

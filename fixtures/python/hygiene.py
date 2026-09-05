@@ -1,3 +1,4 @@
+import sys
 from .cycle_b import *
 from .cycle_b import spin
 from .cycle_c import wobble
@@ -63,3 +64,39 @@ def reraises():
 
 def traced():
     print("traced", spin)
+
+
+def maybe_count(rows):
+    if len(rows) == 0:
+        return
+    return len(rows)
+
+
+def closes_out(rows):
+    try:
+        return len(rows)
+    finally:
+        return 0
+
+
+def catches_everything(rows):
+    try:
+        return len(rows)
+    except Exception:
+        return 0
+
+
+def refuses():
+    raise Exception("no")
+
+
+def stops(code):
+    sys.exit(code)
+
+
+def requests(url):
+    return _fetch_page(url, True)
+
+
+def _fetch_page(url, retry):
+    return url if retry else url
