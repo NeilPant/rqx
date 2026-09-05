@@ -7,20 +7,6 @@ use serde::Serialize;
 use crate::report::Report;
 
 #[derive(Serialize)]
-struct JsonFinding<'a> {
-    #[serde(flatten)]
-    finding: &'a Finding,
-    /// Written after the flattened finding so it wins: a rule the project wrote
-    /// serialises as `custom` from the enum, and a pipeline filtering on rule names
-    /// needs the name the project gave it.
-    rule: &'a str,
-    why: &'static str,
-    fixes: Vec<&'static str>,
-    category: &'static str,
-    metric: &'static str,
-}
-
-#[derive(Serialize)]
 struct JsonSummary<'a> {
     kind: &'static str,
     health_score: u32,
@@ -52,16 +38,26 @@ struct JsonReview<'a> {
     failures: &'a [String],
 }
 
-pub fn finding_of(finding: &Finding) -> impl Serialize + '_ {
+/// The finding as an object, with the catalogue's answers merged into it. Built as a
+/// map rather than flattened into a struct because `rule` has to be overwritten: a rule
+/// the project wrote serialises as `custom` from the enum, and a pipeline filtering on
+/// rule names needs the name the project gave it. Flattening can only append the key a
+/// second time, which is a duplicate a strict parser rejects.
+pub fn finding_of(finding: &Finding) -> serde_json::Value {
     let spec = finding.rule.spec();
-    JsonFinding {
-        finding,
-        rule: finding.slug(),
-        why: spec.why,
-        fixes: spec.fixes.iter().map(|fix| fix.name()).collect(),
-        category: finding.category().slug(),
-        metric: spec.metric,
-    }
+    let mut object = match serde_json::to_value(finding) {
+        Ok(serde_json::Value::Object(object)) => object,
+        _ => serde_json::Map::new(),
+    };
+    object.insert("rule".to_owned(), finding.slug().into());
+    object.insert("why".to_owned(), spec.why.into());
+    object.insert(
+        "fixes".to_owned(),
+        spec.fixes.iter().map(|fix| fix.name()).collect(),
+    );
+    object.insert("category".to_owned(), finding.category().slug().into());
+    object.insert("metric".to_owned(), spec.metric.into());
+    serde_json::Value::Object(object)
 }
 
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {

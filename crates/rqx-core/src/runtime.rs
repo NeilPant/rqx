@@ -430,13 +430,7 @@ struct Weight {
 
 impl Weight {
     fn share(self, of: u64) -> Share {
-        let permille = |part: u64| {
-            if of == 0 {
-                0
-            } else {
-                (part * 1000 / of) as u32
-            }
-        };
+        let permille = |part: u64| part.saturating_mul(1000).checked_div(of).unwrap_or(0) as u32;
         Share {
             own: permille(self.own),
             total: permille(self.total),
@@ -801,6 +795,10 @@ mod pprof {
 
     use super::{Frame, Samples, credit};
 
+    /// A location's own id, and the `(function id, line)` pair for each frame inlined
+    /// into it — innermost first, which is the order pprof writes them in.
+    type Located = (u64, Vec<(u64, u32)>);
+
     #[derive(Default)]
     struct Reader<'a> {
         bytes: &'a [u8],
@@ -943,7 +941,7 @@ mod pprof {
     }
 
     /// `Location { 1: id, 4: line }` with `Line { 1: function_id, 2: line }`.
-    fn location(bytes: &[u8]) -> Result<(u64, Vec<(u64, u32)>), &'static str> {
+    fn location(bytes: &[u8]) -> Result<Located, &'static str> {
         let mut reader = Reader::new(bytes);
         let mut id = 0;
         let mut lines = Vec::new();

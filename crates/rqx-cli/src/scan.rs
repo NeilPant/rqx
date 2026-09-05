@@ -1143,10 +1143,12 @@ impl Collector {
                 let relative = repo_path.strip_prefix(prefix)?;
                 self.analyzed.contains(relative).then(|| {
                     let findings = self.findings_by_file.get(relative).copied().unwrap_or(0);
-                    let sole = (authors.len() == 1)
-                        .then(|| authors.iter().next().copied().unwrap_or_default())
-                        .unwrap_or_default()
-                        .to_owned();
+                    let sole = if authors.len() == 1 {
+                        authors.iter().next().copied().unwrap_or_default()
+                    } else {
+                        Default::default()
+                    }
+                    .to_owned();
                     (relative.to_owned(), commits, findings, sole)
                 })
             })

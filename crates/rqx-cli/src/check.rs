@@ -33,6 +33,16 @@ impl Review {
 /// export looks dead until the file that imports it is parsed, so narrowing the scan
 /// to the diff would invent findings that the full graph disproves.
 pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
+    review_watched(root, settings, base, None)
+}
+
+/// A review is a whole-project scan, so it has the same progress to report as one.
+pub fn review_watched(
+    root: &Path,
+    settings: &Resolved,
+    base: &str,
+    watcher: Option<std::sync::mpsc::SyncSender<crate::scan::ScanProgress>>,
+) -> Result<Review> {
     let Some(mut changed) = history::changed_since(root, base) else {
         bail!(
             "cannot diff against `{base}`. A review needs a git repository and a revision \
@@ -47,7 +57,10 @@ pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
         .filter_map(|path| path.strip_prefix(&prefix).map(str::to_owned))
         .collect();
 
-    let outcome = crate::scan::scan(root, settings)?;
+    let outcome = match watcher {
+        Some(watcher) => crate::scan::scan_with_progress(root, settings, watcher)?,
+        None => crate::scan::scan(root, settings)?,
+    };
 
     // Direct dependents are reviewed too, because deleting an export is only visible
     // as a problem in the file that was importing it.

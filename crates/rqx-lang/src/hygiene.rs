@@ -384,8 +384,7 @@ impl<'a> Walker<'a> {
             // The last one is the case; whatever comes before it is the suite.
             if let Some(spelled) = descendants(list)
                 .into_iter()
-                .filter(|node| profile.is_identifier(*node))
-                .next_back()
+                .rfind(|node| profile.is_identifier(*node))
             {
                 label = self.text(spelled).to_owned();
             }
@@ -1104,8 +1103,7 @@ impl<'a> Walker<'a> {
         }
         descendants(bound)
             .into_iter()
-            .filter(|node| profile.is_identifier(*node))
-            .next_back()
+            .rfind(|node| profile.is_identifier(*node))
             .map(|node| self.text(node).to_owned())
     }
 
@@ -1242,10 +1240,11 @@ impl<'a> Walker<'a> {
         };
         list.named_children(&mut list.walk())
             .map(|argument| {
-                profile
-                    .is_identifier(argument)
-                    .then(|| self.text(argument).to_owned())
-                    .unwrap_or_default()
+                if profile.is_identifier(argument) {
+                    self.text(argument).to_owned()
+                } else {
+                    String::new()
+                }
             })
             .collect()
     }
@@ -2473,7 +2472,7 @@ impl<'a> Walker<'a> {
             return;
         }
         let mut asked: Vec<(String, Node<'a>)> = Vec::new();
-        let mut ask = |node: Node<'a>, asked: &mut Vec<(String, Node<'a>)>| {
+        let ask = |node: Node<'a>, asked: &mut Vec<(String, Node<'a>)>| {
             if let Some(condition) = node.child_by_field_name(profile.condition_field) {
                 asked.push((squashed(self.text(condition)), condition));
             }
@@ -3279,7 +3278,7 @@ impl<'a> Walker<'a> {
             return;
         }
         let name = self.text(answer).to_owned();
-        if !shared.iter().any(|held| *held == name) {
+        if !shared.contains(&name) {
             return;
         }
         self.out.global_accessors.push(Spot {
@@ -3555,7 +3554,7 @@ impl<'a> Walker<'a> {
             return;
         };
         let tail = dotted.rsplit('.').next().unwrap_or(&dotted).to_owned();
-        if !awaited.iter().any(|known| *known == tail) {
+        if !awaited.contains(&tail) {
             return;
         }
         self.out.dropped_promises.push(Spot {
@@ -5497,8 +5496,7 @@ fn restates_signature(
             let stop = parameters.map_or(u32::MAX as usize, |list| list.start_byte());
             descendants(declared)
                 .into_iter()
-                .filter(|node| node.start_byte() < stop && profile.is_identifier(*node))
-                .next_back()
+                .rfind(|node| node.start_byte() < stop && profile.is_identifier(*node))
         })
         .map(|node| text_of(node, source).to_owned())?;
     let mut known: Vec<String> = split_words(&name);
@@ -5596,12 +5594,9 @@ fn note_twin_functions(
         let Some(name) = function
             .child_by_field_name("name")
             .or_else(|| {
-                descendants(function)
-                    .into_iter()
-                    .filter(|node| {
-                        node.start_byte() < body.start_byte() && profile.is_identifier(*node)
-                    })
-                    .next_back()
+                descendants(function).into_iter().rfind(|node| {
+                    node.start_byte() < body.start_byte() && profile.is_identifier(*node)
+                })
             })
             .map(|node| text_of(node, source))
         else {
@@ -5644,12 +5639,9 @@ fn note_unused_fixtures(
                     .map_or(usize::MAX, |body| body.start_byte());
                 node.child_by_field_name("name")
                     .or_else(|| {
-                        descendants(*node)
-                            .into_iter()
-                            .filter(|inner| {
-                                inner.start_byte() < body_at && profile.is_identifier(*inner)
-                            })
-                            .next_back()
+                        descendants(*node).into_iter().rfind(|inner| {
+                            inner.start_byte() < body_at && profile.is_identifier(*inner)
+                        })
                     })
                     .map(|name| text_of(name, source).to_owned())
             };

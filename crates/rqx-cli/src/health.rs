@@ -13,6 +13,7 @@ use clap::ValueEnum;
 use rqx_core::finding::Finding;
 
 use crate::brand::{Ink, Palette, paint, score_ink};
+use crate::report::{Align, column};
 use crate::scan::ScanOutcome;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -64,9 +65,9 @@ pub fn render(outcome: &ScanOutcome, by: By, palette: Palette, out: &mut dyn Wri
     // The curve bottoms out: past a certain density every bucket leaves the score at
     // zero, and a column reading `0 (+0)` on every row is worse than no column.
     let moves = buckets.iter().any(|bucket| bucket.without > now);
-    let without = |text: String| {
+    let without = |text: &str, paint: &dyn Fn(String) -> String| {
         if moves {
-            format!(" {text:>9}")
+            format!(" {}", paint(column(text, 9, Align::Right)))
         } else {
             String::new()
         }
@@ -74,11 +75,11 @@ pub fn render(outcome: &ScanOutcome, by: By, palette: Palette, out: &mut dyn Wri
 
     writeln!(
         out,
-        "\n    {:<width$} {:>7} {:>7}{}  {}",
+        "\n    {:<width$} {} {}{}  {}",
         "",
-        paint(dim, "found"),
-        paint(dim, "debt"),
-        without(paint(dim, "without")),
+        paint(dim, column("found", 7, Align::Right)),
+        paint(dim, column("debt", 7, Align::Right)),
+        without("without", &|text| paint(dim, text)),
         paint(dim, "worst of it")
     )?;
     for bucket in &buckets {
@@ -89,10 +90,12 @@ pub fn render(outcome: &ScanOutcome, by: By, palette: Palette, out: &mut dyn Wri
             bucket.name,
             bucket.findings,
             bucket.share,
-            without(paint(
-                palette.style(if gain > 0 { Ink::Good } else { Ink::Muted }),
-                format!("{} (+{gain})", bucket.without)
-            )),
+            without(&format!("{} (+{gain})", bucket.without), &|text| {
+                paint(
+                    palette.style(if gain > 0 { Ink::Good } else { Ink::Muted }),
+                    text,
+                )
+            }),
             paint(dim, bucket.worst.join(", "))
         )?;
     }

@@ -107,8 +107,11 @@ fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()
     for (rule, (count, severity)) in &rules {
         writeln!(
             out,
-            "    {:<width$} {:>6}  {}",
-            paint(palette.style(severity_ink(*severity)), rule),
+            "    {} {:>6}  {}",
+            paint(
+                palette.style(severity_ink(*severity)),
+                super::column(rule, width, super::Align::Left)
+            ),
             count,
             paint(dim, bar(*count, total))
         )?;

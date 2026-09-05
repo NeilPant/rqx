@@ -11,6 +11,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 
 use crate::brand::{Ink, Palette, paint};
+use crate::report::{Align, column};
 use crate::scan::ScanOutcome;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -102,12 +103,12 @@ pub fn render(
 
     writeln!(
         out,
-        "\n    {:<width$} {:>5} {:>6} {:>5} {:>4}  {}",
+        "\n    {:<width$} {} {} {} {}  {}",
         "",
-        paint(dim, "cplx"),
-        paint(dim, "stmts"),
-        paint(dim, "nest"),
-        paint(dim, "args"),
+        paint(dim, column("cplx", 5, Align::Right)),
+        paint(dim, column("stmts", 6, Align::Right)),
+        paint(dim, column("nest", 5, Align::Right)),
+        paint(dim, column("args", 4, Align::Right)),
         paint(dim, "where")
     )?;
     for row in rows.iter().take(view.top) {
@@ -118,8 +119,11 @@ pub fn render(
         };
         writeln!(
             out,
-            "    {:<width$} {:>5} {:>6} {:>5} {:>4}  {}",
-            paint(palette.style(ink), trim(&row.name, width)),
+            "    {} {:>5} {:>6} {:>5} {:>4}  {}",
+            paint(
+                palette.style(ink),
+                column(&trim(&row.name, width), width, Align::Left)
+            ),
             row.complexity,
             row.statements,
             row.nesting,
