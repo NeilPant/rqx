@@ -989,6 +989,64 @@ catalogue! {
         why: "the original is unreachable for the rest of the scope, and the next line \
               that wanted it fails somewhere that names neither",
     },
+    CommentPerLine {
+        slug: "comment-per-line",
+        category: Noise,
+        analysis: Syntax,
+        metric: "a run of statements each carrying a comment of its own",
+        fixes: [RemoveDeadCode, RenameVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the code is being read aloud rather than explained, so the reader now \
+              has two things to keep in step and only one of them is checked",
+    },
+    ExplanationLongerThanCode {
+        slug: "explanation-longer-than-code",
+        category: Noise,
+        analysis: Syntax,
+        metric: "lines of comment above a function against statements inside it",
+        fixes: [ExtractMethod, RenameMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a body that needs more prose than code is a body whose names are not \
+              carrying it, and the prose is what goes stale",
+    },
+    DocstringRestatesSignature {
+        slug: "docstring-restates-signature",
+        category: Noise,
+        analysis: Syntax,
+        metric: "a doc comment whose every word is already in the name or the \
+                 parameters",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it is the signature written twice, so it costs a reader a second pass \
+              and goes wrong the first time the signature changes",
+    },
+    GuardCascade {
+        slug: "guard-cascade",
+        category: Safety,
+        analysis: Syntax,
+        metric: "checks at the top of a body that all answer the same way",
+        fixes: [IntroduceAssertion, IntroduceParameterObject],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the body has not started and the reader has read several decisions, \
+              none of which says anything about what the function is for",
+    },
+    BlanketTry {
+        slug: "blanket-try",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a guarded block holding nearly every statement of its function",
+        fixes: [DecomposeConditional, ExtractMethod],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the handler is a net under the whole body rather than an answer to one \
+              failure, so a mistake anywhere inside arrives as the failure it was \
+              written for",
+        not_applicable: [(Go, "failure is a returned value, so no block is guarded")],
+    },
     ManyLocals {
         slug: "many-locals",
         category: Size,

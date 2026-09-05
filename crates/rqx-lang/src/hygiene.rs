@@ -2048,6 +2048,110 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// A run of parameter checks at the top of a body, each answering the same way.
+    /// The body has not started yet and the reader has read four decisions.
+    fn note_guard_cascade(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let guards = holder
+            .named_children(&mut cursor)
+            .take_while(|statement| self.is_bare_guard(*statement))
+            .count() as u32;
+        if guards >= self.limits.guard_cascade {
+            self.out.guard_cascades.push(Spot {
+                span: self.name_span(function),
+                detail: guards.to_string(),
+                count: guards,
+            });
+        }
+    }
+
+    /// An `if` whose whole body is one way out and nothing else.
+    fn is_bare_guard(&self, statement: Node<'a>) -> bool {
+        let profile = self.profile;
+        if statement.kind() != profile.if_kind {
+            return false;
+        }
+        let Some(taken) = statement.child_by_field_name("consequence") else {
+            return false;
+        };
+        let leaves = |node: Node<'a>| {
+            profile.throw_kinds.contains(&node.kind()) || node.kind() == "return_statement"
+        };
+        // A guard is often written without braces, in which case the consequence is
+        // the way out rather than a block holding it.
+        if leaves(taken) {
+            return true;
+        }
+        let holder = taken
+            .named_children(&mut taken.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(taken);
+        let mut cursor = holder.walk();
+        let mut inside = holder.named_children(&mut cursor);
+        let Some(only) = inside.next() else {
+            return false;
+        };
+        inside.next().is_none() && leaves(only)
+    }
+
+    /// A guarded block holding nearly the whole body: the handler is not answering a
+    /// failure, it is a net under the function.
+    fn note_blanket_try(&mut self, node: Node<'a>) {
+        // What a function is allowed to do outside the guard and still be reading as
+        // one line guarded rather than a body inside a net.
+        const OUTSIDE_ALLOWANCE: u32 = 1;
+        const WORTH_SAYING: u32 = 3;
+        let profile = self.profile;
+        let Some(function) = self.enclosing_function(node) else {
+            return;
+        };
+        let Some(guarded) = node
+            .named_children(&mut node.walk())
+            .find(|child| profile.is_block(*child))
+        else {
+            return;
+        };
+        let inside = self.statements_in(guarded);
+        let whole = self
+            .function_body(function)
+            .map_or(0, |body| self.statements_in(body));
+        let outside = whole.saturating_sub(inside + 1);
+        if inside < WORTH_SAYING || outside > OUTSIDE_ALLOWANCE {
+            return;
+        }
+        self.out.blanket_tries.push(Spot {
+            span: span_of(guarded),
+            detail: format!("{inside} of {whole}"),
+            count: inside,
+        });
+    }
+
+    fn statements_in(&self, holder: Node<'a>) -> u32 {
+        descendants(holder)
+            .into_iter()
+            .filter(|node| self.profile.is_statement(*node))
+            .count() as u32
+    }
+
+    fn enclosing_function(&self, node: Node<'a>) -> Option<Node<'a>> {
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if self.profile.is_function(current) {
+                return Some(current);
+            }
+            parent = current.parent();
+        }
+        None
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -2746,6 +2850,7 @@ impl<'a> Walker<'a> {
         }
         if kind == "try_statement" {
             self.note_wide_try(node);
+            self.note_blanket_try(node);
         }
         if profile.throw_kinds.contains(&kind) {
             self.note_generic_throw(node);
@@ -2786,6 +2891,7 @@ impl<'a> Walker<'a> {
         }
         if profile.is_function(node) {
             self.note_empty_method(node);
+            self.note_guard_cascade(node);
             self.note_many_locals(node);
             self.note_working_constructor(node);
             self.note_mixed_return(node);
@@ -3224,6 +3330,9 @@ fn scan_comments(
         }
     }
 
+    note_narration(profile, source, root, limits, out);
+    note_body_docstrings(profile, source, root, out);
+
     // Consecutive commented-out lines are one decision, not one finding per line.
     let mut index = 0;
     while index < runs.len() {
@@ -3383,4 +3492,288 @@ pub fn collect(
         .retain(|spot| parameters.contains(&spot.detail.as_str()));
     out.mutated_parameters.dedup_by(|a, b| a.detail == b.detail);
     out
+}
+
+/// The three rules about a comment's relationship to the code under it. They share
+/// one walk because each needs the same pairing of a comment with what it precedes.
+fn note_narration(
+    profile: &'static LanguageProfile,
+    source: &str,
+    root: Node<'_>,
+    limits: Limits,
+    out: &mut Hygiene,
+) {
+    let index = rqx_core::LineIndex::new(source);
+    let comments: Vec<Node<'_>> = descendants(root)
+        .into_iter()
+        .filter(|node| profile.is_comment(*node))
+        .collect();
+
+    // A comment, a line of code, a comment, a line of code: the author is reading the
+    // code aloud. A run of comment lines with no code between them is a paragraph.
+    let mut run = 0_u32;
+    let mut opened = None;
+    let mut previous: Option<Span> = None;
+    for comment in &comments {
+        let span = span_of(*comment);
+        // Code between two comments continues the narration; a blank line ends it,
+        // and so does a second comment written directly underneath the first.
+        // A comment above a field or a property signature is documentation of a
+        // shape, not narration of a run of work.
+        let over_a_statement = leads(profile, *comment).is_some_and(|node| {
+            let kind = node.kind();
+            !profile.field_kinds.contains(&kind)
+                && !profile.signature_kinds.contains(&kind)
+                && !profile.property_definition_kinds.contains(&kind)
+        });
+        let narrates = over_a_statement
+            && previous.is_some_and(|last| {
+                let between = &source[last.end as usize..span.start as usize];
+                // The first and last fragments are the tails of the two comment lines
+                // themselves, so only the lines between them can be blank.
+                let lines: Vec<&str> = between.lines().collect();
+                let blank = lines
+                    .iter()
+                    .enumerate()
+                    .any(|(at, line)| at > 0 && at + 1 < lines.len() && line.trim().is_empty());
+                between.chars().any(|c| !c.is_whitespace()) && !blank
+            });
+        if narrates {
+            run += 1;
+        } else {
+            run = if over_a_statement { 1 } else { 0 };
+            opened = Some(*comment);
+        }
+        if run == limits.narrated_run
+            && let Some(first) = opened
+        {
+            out.narrated_runs.push(Spot {
+                span: Span::new(span_of(first).start, span.end),
+                detail: run.to_string(),
+                count: run,
+            });
+        }
+        previous = Some(span);
+    }
+
+    // Each `//` line is a node of its own, so the block above a function has to be
+    // put back together before it can be measured against the body.
+    let mut blocks: Vec<(Span, u32)> = Vec::new();
+    for comment in &comments {
+        let span = span_of(*comment);
+        let lines = text_of(*comment, source).lines().count() as u32;
+        match blocks.last_mut() {
+            Some((last, held))
+                if source[last.end as usize..span.start as usize]
+                    .chars()
+                    .all(char::is_whitespace)
+                    && index.locate(span.start).0 == index.locate(last.end).0 + 1 =>
+            {
+                *last = Span::new(last.start, span.end);
+                *held += lines;
+            }
+            _ => blocks.push((span, lines)),
+        }
+    }
+
+    for (span, explanation) in blocks {
+        let Some(comment) = comments
+            .iter()
+            .copied()
+            .find(|node| span_of(*node).start == span.start)
+        else {
+            continue;
+        };
+        let Some(declared) = leads(profile, comment).map(|node| unwrap_export(profile, node))
+        else {
+            continue;
+        };
+        if !profile.is_function(declared) {
+            continue;
+        }
+        // A comment opening the file describes the file, and the first declaration
+        // under it is not what it was written about.
+        if root
+            .named_child(0)
+            .is_some_and(|first| span_of(first).start == span.start)
+        {
+            continue;
+        }
+        // Lines rather than statements: a body that is one long expression — a
+        // returned tree of markup, a chained pipeline — has almost no statements in
+        // it and is not thereby short.
+        let body = declared
+            .child_by_field_name("body")
+            .or_else(|| {
+                declared
+                    .named_children(&mut declared.walk())
+                    .find(|child| profile.is_block(*child))
+            })
+            .map(|body| {
+                let extent = span_of(body);
+                index
+                    .locate(extent.end)
+                    .0
+                    .saturating_sub(index.locate(extent.start).0)
+                    + 1
+            })
+            .unwrap_or(0);
+        if body > 0 && explanation > body * limits.explanation_ratio {
+            out.long_explanations.push(Spot {
+                span,
+                detail: format!("{explanation} lines above {body}"),
+                count: explanation,
+            });
+        }
+        if let Some(name) = restates_signature(profile, source, comment, declared) {
+            out.restated_docs.push(Spot {
+                span,
+                detail: name,
+                count: 1,
+            });
+        }
+    }
+}
+
+/// A language whose doc comment is a string inside the body rather than a comment
+/// above the declaration.
+fn note_body_docstrings(
+    profile: &'static LanguageProfile,
+    source: &str,
+    root: Node<'_>,
+    out: &mut Hygiene,
+) {
+    for declared in descendants(root)
+        .into_iter()
+        .filter(|node| profile.is_function(*node))
+    {
+        let Some(body) = declared.child_by_field_name("body") else {
+            continue;
+        };
+        let Some(first) = body.named_child(0) else {
+            continue;
+        };
+        let doc = if profile.string_kinds.contains(&first.kind()) {
+            first
+        } else if first.kind() == "expression_statement"
+            && first
+                .named_child(0)
+                .is_some_and(|value| profile.string_kinds.contains(&value.kind()))
+        {
+            first.named_child(0).unwrap_or(first)
+        } else {
+            continue;
+        };
+        if let Some(name) = restates_signature(profile, source, doc, declared) {
+            out.restated_docs.push(Spot {
+                span: span_of(doc),
+                detail: name,
+                count: 1,
+            });
+        }
+    }
+}
+
+/// A declaration wearing an export wrapper is still the declaration.
+fn unwrap_export<'tree>(profile: &'static LanguageProfile, node: Node<'tree>) -> Node<'tree> {
+    if profile.export_kinds.contains(&node.kind()) {
+        return node.named_child(0).unwrap_or(node);
+    }
+    node
+}
+
+/// The declaration a comment sits directly above, if it sits above one.
+fn leads<'tree>(profile: &'static LanguageProfile, comment: Node<'tree>) -> Option<Node<'tree>> {
+    let mut next = comment.next_named_sibling();
+    while let Some(node) = next {
+        if profile.is_comment(node) {
+            next = node.next_named_sibling();
+            continue;
+        }
+        // Python writes a docstring inside the body rather than above the def, so the
+        // parent is what the comment describes.
+        return Some(node);
+    }
+    comment
+        .parent()
+        .filter(|parent| profile.is_block(*parent))
+        .and_then(|block| block.parent())
+}
+
+/// Whether a doc comment says only what the signature already says. Every word it
+/// adds beyond the name and the parameters is the reason to keep it.
+fn restates_signature(
+    profile: &'static LanguageProfile,
+    source: &str,
+    comment: Node<'_>,
+    declared: Node<'_>,
+) -> Option<String> {
+    const FILLER: [&str; 18] = [
+        "the", "a", "an", "of", "to", "for", "and", "or", "this", "that", "is", "it", "with",
+        "from", "in", "on", "by", "as",
+    ];
+    const SIGNATURE_WORDS: [&str; 6] = ["return", "returns", "param", "params", "parameter", "arg"];
+    let parameters =
+        crate::tree::find_within(declared, profile.parameter_list_kinds, profile.block_kinds)
+            .into_iter()
+            .next_back();
+    // C++ keeps the name under a declarator rather than in a field of its own, so
+    // the last name written before the parameter list is the one.
+    let name = declared
+        .child_by_field_name("name")
+        .or_else(|| {
+            let stop = parameters.map_or(u32::MAX as usize, |list| list.start_byte());
+            descendants(declared)
+                .into_iter()
+                .filter(|node| node.start_byte() < stop && profile.is_identifier(*node))
+                .next_back()
+        })
+        .map(|node| text_of(node, source).to_owned())?;
+    let mut known: Vec<String> = split_words(&name);
+    if let Some(list) = parameters {
+        for parameter in list.named_children(&mut list.walk()) {
+            for word in split_words(text_of(parameter, source)) {
+                known.push(word);
+            }
+        }
+    }
+    let body: Vec<String> = split_words(text_of(comment, source))
+        .into_iter()
+        .filter(|word| word.len() > 1)
+        .filter(|word| !FILLER.contains(&word.as_str()))
+        .filter(|word| !SIGNATURE_WORDS.contains(&word.as_str()))
+        .collect();
+    // Nothing said at all is `empty-block`'s business, not this rule's.
+    if body.is_empty() || body.iter().any(|word| !known.contains(word)) {
+        return None;
+    }
+    Some(name)
+}
+
+/// One identifier or one line of prose as its separate lowercase words.
+fn split_words(text: &str) -> Vec<String> {
+    let letters: Vec<char> = text.chars().collect();
+    let mut words = Vec::new();
+    let mut current = String::new();
+    for (at, character) in letters.iter().copied().enumerate() {
+        if !character.is_alphanumeric() {
+            if !current.is_empty() {
+                words.push(std::mem::take(&mut current));
+            }
+            continue;
+        }
+        // A run of capitals is one word: `userID` is user and id, not user, i and d.
+        let opens_word = character.is_uppercase()
+            && !current.is_empty()
+            && (letters[at - 1].is_lowercase()
+                || letters.get(at + 1).is_some_and(|next| next.is_lowercase()));
+        if opens_word {
+            words.push(std::mem::take(&mut current));
+        }
+        current.push(character.to_ascii_lowercase());
+    }
+    if !current.is_empty() {
+        words.push(current);
+    }
+    words
 }

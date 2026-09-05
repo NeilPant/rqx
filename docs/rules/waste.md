@@ -390,15 +390,15 @@ it takes space and attention to say what the name has already said, and it is on
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/precision.ts`, line 10:
+From `fixtures/typescript/hygiene.ts`, line 128:
 
 ```ts
 
-// user name
-export const userName = "ada";
+/** Score of user id */
+export function scoreOfUser(userId: number): number {
 ```
 
-rqx says: delete it, or say why `userName` exists rather than what it is
+rqx says: delete it, or say why `scoreOfUser` exists rather than what it is
 
 ## `cross-language-duplicate`
 

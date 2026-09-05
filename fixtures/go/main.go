@@ -8,6 +8,10 @@ import (
 func main() {
 	_ = fixtures.Add
 	_ = fixtures.ForwardOrbit
+	_ = fixtures.Narrated
+	_ = fixtures.ScoreOf
+	_ = fixtures.ScoreOfUser
+	_ = fixtures.GuardedAdd
 	_ = fixtures.Stops
 	_ = fixtures.Requests
 	_ = fixtures.Traced

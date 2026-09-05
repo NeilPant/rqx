@@ -72,6 +72,9 @@ relative_climb = 2
 module_statements = 400
 function_locals = 15
 try_statements = 10
+narrated_run = 4
+explanation_ratio = 2
+guard_cascade = 3
 # Ways out of one function body, past the guard clauses at the top.
 max_exits = 4
 # Arms in one switch before it stops being a table a reader scans.

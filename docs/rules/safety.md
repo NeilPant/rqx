@@ -89,6 +89,55 @@ From `fixtures/typescript/flow.ts`, line 58:
 
 rqx says: assign above the branch, or compare if that is what was meant
 
+## `guard-cascade`
+
+the body has not started and the reader has read several decisions, none of which says anything about what the function is for
+
+| | |
+|---|---|
+| Measures | checks at the top of a body that all answer the same way |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion / Introduce Parameter Object |
+| Tuned by | `thresholds.guard_cascade` |
+
+From `fixtures/typescript/hygiene.ts`, line 133:
+
+```ts
+
+export function guardedAdd(a: number, b: number, c: number): number {
+  if (a < 0) return 0;
+```
+
+rqx says: take a type that cannot be wrong, or check once where the values enter
+
+## `blanket-try`
+
+the handler is a net under the whole body rather than an answer to one failure, so a mistake anywhere inside arrives as the failure it was written for
+
+| | |
+|---|---|
+| Measures | a guarded block holding nearly every statement of its function |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Decompose Conditional / Extract Method |
+| Not in Go | failure is a returned value, so no block is guarded |
+
+From `fixtures/typescript/bloat.ts`, line 53:
+
+```ts
+export function widelyGuarded(seed: number): number {
+  try {
+    const d1 = seed; const d2 = seed; const d3 = seed; const d4 = seed;
+    const d5 = seed; const d6 = seed; const d7 = seed; const d8 = seed;
+    const d9 = seed; const d10 = seed; const d11 = seed;
+    return [d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11].length;
+  } catch (error) {
+    return 0;
+```
+
+rqx says: guard the line that can fail, and let the rest raise
+
 ## `float-equality`
 
 a binary float almost never lands on the decimal a person wrote, so the branch that depends on it is decided by rounding rather than by the value

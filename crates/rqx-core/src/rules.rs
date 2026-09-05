@@ -871,6 +871,72 @@ pub fn check_hygiene(
             "give it a name of this project's own".to_owned(),
         );
     }
+    for spot in &hygiene.narrated_runs {
+        emit(
+            out,
+            RuleId::CommentPerLine,
+            spot,
+            Evidence::Breadth {
+                counted: "statements in a row, each with its own comment".to_owned(),
+                found: spot.count,
+                limit: limits.narrated_run,
+            },
+            "let the names say it, and keep the one comment that gives a reason".to_owned(),
+        );
+    }
+    for spot in &hygiene.long_explanations {
+        emit(
+            out,
+            RuleId::ExplanationLongerThanCode,
+            spot,
+            Evidence::Breadth {
+                counted: "lines of comment above the body".to_owned(),
+                found: spot.count,
+                limit: limits.explanation_ratio,
+            },
+            "put what the prose is explaining into the names, and keep the part that \
+             says why"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.restated_docs {
+        emit(
+            out,
+            RuleId::DocstringRestatesSignature,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is described in the words of its own signature".to_owned(),
+            },
+            "say why it exists, or delete it".to_owned(),
+        );
+    }
+    for spot in &hygiene.guard_cascades {
+        emit(
+            out,
+            RuleId::GuardCascade,
+            spot,
+            Evidence::Breadth {
+                counted: "checks before the body starts".to_owned(),
+                found: spot.count,
+                limit: limits.guard_cascade,
+            },
+            "take a type that cannot be wrong, or check once where the values enter".to_owned(),
+        );
+    }
+    for spot in &hygiene.blanket_tries {
+        emit(
+            out,
+            RuleId::BlanketTry,
+            spot,
+            Evidence::Breadth {
+                counted: "statements under one handler".to_owned(),
+                found: spot.count,
+                limit: 0,
+            },
+            "guard the line that can fail, and let the rest raise".to_owned(),
+        );
+    }
     for spot in &hygiene.crowded_functions {
         emit(
             out,

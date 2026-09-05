@@ -282,6 +282,9 @@ pub fn analyze_as(
                 root,
                 scopes,
                 Limits {
+                    narrated_run: thresholds.narrated_run,
+                    explanation_ratio: thresholds.explanation_ratio,
+                    guard_cascade: thresholds.guard_cascade,
                     function_locals: thresholds.function_locals,
                     try_statements: thresholds.try_statements,
                     max_exits: thresholds.max_exits,

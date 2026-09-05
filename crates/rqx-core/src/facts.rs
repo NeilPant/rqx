@@ -119,6 +119,11 @@ pub struct Hygiene {
     pub self_built_collaborators: Vec<Spot>,
     pub import_time_work: Vec<Spot>,
     pub private_reaches: Vec<Spot>,
+    pub narrated_runs: Vec<Spot>,
+    pub long_explanations: Vec<Spot>,
+    pub restated_docs: Vec<Spot>,
+    pub guard_cascades: Vec<Spot>,
+    pub blanket_tries: Vec<Spot>,
     pub float_equalities: Vec<Spot>,
     pub discarded_expressions: Vec<Spot>,
     pub tiny_switches: Vec<Spot>,
@@ -171,6 +176,9 @@ pub struct Hygiene {
 
 #[derive(Clone, Copy)]
 pub struct Limits {
+    pub narrated_run: u32,
+    pub explanation_ratio: u32,
+    pub guard_cascade: u32,
     pub function_locals: u32,
     pub try_statements: u32,
     pub max_exits: u32,

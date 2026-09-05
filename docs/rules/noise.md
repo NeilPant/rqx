@@ -2,6 +2,83 @@
 
 [Back to the catalogue](README.md)
 
+## `comment-per-line`
+
+the code is being read aloud rather than explained, so the reader now has two things to keep in step and only one of them is checked
+
+| | |
+|---|---|
+| Measures | a run of statements each carrying a comment of its own |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code / Rename Variable |
+| Tuned by | `thresholds.narrated_run` |
+
+From `fixtures/typescript/hygiene.ts`, line 107:
+
+```ts
+export function narrated(rows: number[]): number {
+  // set the total
+  let total = 0;
+  // walk the rows
+  for (const row of rows) total += row;
+  // halve it
+  total = total / 2;
+  // give it back
+  return total;
+```
+
+rqx says: let the names say it, and keep the one comment that gives a reason
+
+## `explanation-longer-than-code`
+
+a body that needs more prose than code is a body whose names are not carrying it, and the prose is what goes stale
+
+| | |
+|---|---|
+| Measures | lines of comment above a function against statements inside it |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Rename Method |
+| Tuned by | `thresholds.explanation_ratio` |
+
+From `fixtures/typescript/hygiene.ts`, line 117:
+
+```ts
+
+// Works out the score for the given user id, and gives back the score it
+// worked out, having looked at the id that was handed in by whoever called
+// it, which is the id of the user whose score is wanted here. The id is not
+// checked, because whoever calls this has already checked it, and checking
+// twice would be slower for no benefit anybody has ever measured. If the id
+// is wrong the answer is wrong, which is the same as it has always been in
+// every version of this that anybody has written since the beginning.
+export function scoreOf(userId: number): number {
+```
+
+rqx says: put what the prose is explaining into the names, and keep the part that says why
+
+## `docstring-restates-signature`
+
+it is the signature written twice, so it costs a reader a second pass and goes wrong the first time the signature changes
+
+| | |
+|---|---|
+| Measures | a doc comment whose every word is already in the name or the parameters |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/hygiene.ts`, line 128:
+
+```ts
+
+/** Score of user id */
+export function scoreOfUser(userId: number): number {
+```
+
+rqx says: say why it exists, or delete it
+
 ## `banner-comment`
 
 a table of contents for a file short enough not to need one, and it goes stale the moment a section moves

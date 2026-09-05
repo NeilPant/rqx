@@ -482,6 +482,9 @@ pub struct Thresholds {
     pub module_statements: u32,
     pub function_locals: u32,
     pub try_statements: u32,
+    pub narrated_run: u32,
+    pub explanation_ratio: u32,
+    pub guard_cascade: u32,
     pub max_exits: u32,
     pub max_cases: u32,
     pub min_cases: u32,
@@ -507,7 +510,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 33] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 36] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -527,6 +530,9 @@ impl Thresholds {
         ("module_statements", &[RuleId::OversizedModule]),
         ("function_locals", &[RuleId::ManyLocals]),
         ("try_statements", &[RuleId::WideTry]),
+        ("narrated_run", &[RuleId::CommentPerLine]),
+        ("explanation_ratio", &[RuleId::ExplanationLongerThanCode]),
+        ("guard_cascade", &[RuleId::GuardCascade]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),
         ("min_cases", &[RuleId::TinySwitch]),
@@ -583,6 +589,9 @@ impl Default for Thresholds {
             module_statements: 400,
             function_locals: 15,
             try_statements: 10,
+            narrated_run: 4,
+            explanation_ratio: 2,
+            guard_cascade: 3,
             max_exits: 4,
             max_cases: 12,
             min_cases: 3,
@@ -1099,6 +1108,9 @@ mod tests {
                     t.module_statements,
                     t.function_locals,
                     t.try_statements,
+                    t.narrated_run,
+                    t.explanation_ratio,
+                    t.guard_cascade,
                     t.max_exits,
                     t.max_cases,
                     t.min_cases,

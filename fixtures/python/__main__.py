@@ -6,7 +6,7 @@ from .cycle_a import orbit
 from .dead_export import reachable
 from .hierarchy import Cat, Dog, Feeder
 from .hierarchy_food import CatFood, DogFood, Store
-from .hygiene import catches_everything, closes_out, forward_orbit, maybe_count, pricing, refuses, reraises, requests, ship, still_to_write, stops, suppressed, traced, unreachable
+from .hygiene import guarded_add, narrated, netted, score_of, score_of_user, catches_everything, closes_out, forward_orbit, maybe_count, pricing, refuses, reraises, requests, ship, still_to_write, stops, suppressed, traced, unreachable
 from .intimacy import Cart, Checkout, CsvWriter, JsonEmitter, Ledger, open_sessions, warm_the_cache
 from .lifecycle import ReportFactory, Session
 from .long import many_steps
@@ -101,6 +101,11 @@ def main():
         reachable,
         pricing,
         forward_orbit,
+        guarded_add,
+        narrated,
+        netted,
+        score_of,
+        score_of_user,
         catches_everything,
         closes_out,
         maybe_count,

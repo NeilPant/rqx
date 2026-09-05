@@ -80,6 +80,9 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `module_statements` | 400 | `oversized-module` |
 | `function_locals` | 15 | `many-locals` |
 | `try_statements` | 10 | `wide-try` |
+| `narrated_run` | 4 | `comment-per-line` |
+| `explanation_ratio` | 2 | `explanation-longer-than-code` |
+| `guard_cascade` | 3 | `guard-cascade` |
 | `max_exits` | 4 | `many-exits` |
 | `max_cases` | 12 | `wide-switch` |
 | `min_cases` | 3 | `tiny-switch` |
