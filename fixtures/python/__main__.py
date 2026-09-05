@@ -90,7 +90,7 @@ from .performance import (
     settings_of,
     sum_cube,
 )
-from .flow import buried_exits, compared, decided_nothing, nested_callbacks, restated, same_either_way, shadows_outer, wide_match
+from .flow import admits, buried_exits, changed, compared, decided_nothing, first_of, label_of, nested_callbacks, restated, same_either_way, shadows_outer, tier_of, wide_match
 
 
 def main():

@@ -86,6 +86,7 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     binary_kinds: &["binary_expression"],
     logical_operators: &["&&", "||", "??"],
     negation_operators: &["!"],
+    negation_kinds: &["unary_expression"],
     equality_operators: &["===", "==", "!==", "!="],
     boolean_literals: &["true", "false"],
     loop_kinds: &[
@@ -201,6 +202,8 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     accessor_markers: &["get", "set"],
     switch_kinds: &["switch_statement"],
     case_kinds: &["switch_case", "switch_default"],
+    default_case_markers: &["default"],
+    ternary_kinds: &["ternary_expression"],
     extends_kinds: &["extends_clause"],
     type_alias_kinds: &["type_alias_declaration"],
     alias_name_field: "name",

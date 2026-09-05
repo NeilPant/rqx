@@ -148,7 +148,7 @@ does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-99 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
+104 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
 
 | Family | Rules | What it measures |
 |---|---|---|
@@ -157,7 +157,7 @@ does not declare its metric and fix does not build.
 | **Change** | 3 | shapes that make an edit expensive |
 | **Waste** | 22 | code and comments nothing reaches |
 | **Coupling** | 10 | modules that know too much about each other, and dependencies pointing the wrong way |
-| **Flow** | 9 | control flow that says less than it looks like |
+| **Flow** | 14 | control flow that says less than it looks like |
 | **Naming** | 7 | names that mislead or say nothing |
 | **Safety** | 11 | silent failure and swallowed errors |
 | **Tests** | 4 | suites that pass without checking |

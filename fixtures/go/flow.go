@@ -75,3 +75,30 @@ func NestedCallbacks() func() func() func() func() int {
 		}
 	}
 }
+
+func Admits(rank int, guests int, staff int) bool {
+	return rank > 0 && guests > 0 || staff > 0
+}
+
+func Changed(before string, after string) bool {
+	return !(before == after)
+}
+
+func LabelOf(state int) string {
+	switch state {
+	case 0:
+		return "new"
+	case 1:
+		return "open"
+	case 2:
+		return "closed"
+	}
+	return "unknown"
+}
+
+func FirstOf(items []int) int {
+	for _, item := range items {
+		return item
+	}
+	return 0
+}

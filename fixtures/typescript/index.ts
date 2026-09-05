@@ -31,5 +31,5 @@ export { Transport, Road, Rail, Logistics, RoadLogistics, RailLogistics } from "
 export { Button, FlatButton, Panel, FlatPanel, Kit, DarkKit, LightKit } from "./families";
 export { Shape, RedCircle, RedSquare, BlueCircle, BlueSquare } from "./families";
 export { Expression, Literal, Sum, Product, Printer } from "./families";
-export { restated, compared, sameEitherWay, decidedNothing, buriedExits, assigns, wideSwitch, deeplyNestedCallbacks, trailingJump, twoArmed, settled, dropped } from "./flow";
+export { restated, compared, sameEitherWay, decidedNothing, buriedExits, assigns, wideSwitch, deeplyNestedCallbacks, trailingJump, twoArmed, settled, dropped, tierOf, admits, changed, labelOf, firstOf } from "./flow";
 export { keepWanted, sumCube, queryEach, readEach, countDigits, flattenByCopy, fibonacci, settingsOf } from "./performance";

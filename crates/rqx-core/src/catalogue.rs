@@ -828,6 +828,64 @@ catalogue! {
     },
 
     // ---- Safety ---------------------------------------------------------------
+    NestedTernary {
+        slug: "nested-ternary",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a conditional expression written inside another one",
+        fixes: [DecomposeConditional, ExtractVariable],
+        confidence: Verified,
+        severity: Warning,
+        why: "two conditions folded into one expression have to be unfolded in the \
+              reader's head before either can be checked",
+        not_applicable: [(Go, "Go has no conditional expression")],
+    },
+    AmbiguousPrecedence {
+        slug: "ambiguous-precedence",
+        category: Flow,
+        analysis: Syntax,
+        metric: "two different logical operators in one condition with no parentheses \
+                 between them",
+        fixes: [ExtractVariable, ConsolidateConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "the language knows which one binds tighter and the reader has to \
+              remember, so the parentheses cost nothing and settle it",
+    },
+    NegatedComparison {
+        slug: "negated-comparison",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a negation wrapped around an equality test",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Info,
+        why: "the language already has the operator this spells out the long way, and \
+              the short one is read without inverting anything",
+    },
+    NoDefaultBranch {
+        slug: "no-default-branch",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a switch with arms enough to be one and no arm for the values it \
+                 does not name",
+        fixes: [ConsolidateConditional, ReplaceConditionalWithPolymorphism],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "a value the switch never anticipated falls straight through it, and \
+              nothing in the code says whether that was the intent",
+    },
+    LoopRunsOnce {
+        slug: "loop-runs-once",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a loop whose body always leaves before a second iteration",
+        fixes: [RemoveDeadCode, ReplaceNestedConditionalWithGuardClauses],
+        confidence: Verified,
+        severity: Warning,
+        why: "it is written as repetition and runs once, so either the exit is \
+              misplaced or the loop is a lookup wearing a loop's clothes",
+    },
     RedundantJump {
         slug: "redundant-jump",
         category: Flow,

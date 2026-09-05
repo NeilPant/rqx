@@ -165,6 +165,119 @@ export function decidedNothing(count: number): void {
 
 rqx says: write what should happen, or delete the branch
 
+## `nested-ternary`
+
+two conditions folded into one expression have to be unfolded in the reader's head before either can be checked
+
+| | |
+|---|---|
+| Measures | a conditional expression written inside another one |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Decompose Conditional / Extract Variable |
+| Not in Go | Go has no conditional expression |
+
+From `fixtures/typescript/flow.ts`, line 137:
+
+```ts
+export function tierOf(score: number): string {
+  return score > 90 ? "gold" : score > 50 ? "silver" : "bronze";
+}
+```
+
+rqx says: give the inner condition a named value, or write the whole thing as statements
+
+## `ambiguous-precedence`
+
+the language knows which one binds tighter and the reader has to remember, so the parentheses cost nothing and settle it
+
+| | |
+|---|---|
+| Measures | two different logical operators in one condition with no parentheses between them |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Variable / Consolidate Conditional |
+
+From `fixtures/typescript/flow.ts`, line 141:
+
+```ts
+export function admits(rank: number, guests: number, staff: number): boolean {
+  return rank > 0 && guests > 0 || staff > 0;
+}
+```
+
+rqx says: put the tighter half in parentheses, or name it
+
+## `negated-comparison`
+
+the language already has the operator this spells out the long way, and the short one is read without inverting anything
+
+| | |
+|---|---|
+| Measures | a negation wrapped around an equality test |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Consolidate Conditional |
+
+From `fixtures/typescript/flow.ts`, line 145:
+
+```ts
+export function changed(before: string, after: string): boolean {
+  return !(before === after);
+}
+```
+
+rqx says: invert the operator and drop the negation
+
+## `no-default-branch`
+
+a value the switch never anticipated falls straight through it, and nothing in the code says whether that was the intent
+
+| | |
+|---|---|
+| Measures | a switch with arms enough to be one and no arm for the values it does not name |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Consolidate Conditional / Replace Conditional with Polymorphism |
+
+From `fixtures/typescript/flow.ts`, line 149:
+
+```ts
+export function labelOf(state: number): string {
+  switch (state) {
+    case 0:
+      return "new";
+    case 1:
+      return "open";
+    case 2:
+      return "closed";
+  }
+  return "unknown";
+```
+
+rqx says: add the arm that says what an unnamed value means, even if it only raises
+
+## `loop-runs-once`
+
+it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup wearing a loop's clothes
+
+| | |
+|---|---|
+| Measures | a loop whose body always leaves before a second iteration |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code / Replace Nested Conditional with Guard Clauses |
+
+From `fixtures/typescript/flow.ts`, line 162:
+
+```ts
+  for (const item of items) {
+    return item;
+  }
+```
+
+rqx says: drop the loop and take the first match, or move the exit behind the condition that should end it
+
 ## `redundant-jump`
 
 control was going there anyway, so the keyword makes a reader stop and look for the condition that is not there

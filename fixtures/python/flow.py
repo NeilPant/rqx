@@ -121,3 +121,32 @@ def settled(balance: float) -> bool:
 def dropped(total: int, other: int) -> int:
     total == other
     return total
+
+
+def tier_of(score):
+    return "gold" if score > 90 else ("silver" if score > 50 else "bronze")
+
+
+def admits(rank, guests, staff):
+    return rank > 0 and guests > 0 or staff > 0
+
+
+def changed(before, after):
+    return not (before == after)
+
+
+def label_of(state):
+    match state:
+        case 0:
+            return "new"
+        case 1:
+            return "open"
+        case 2:
+            return "closed"
+    return "unknown"
+
+
+def first_of(items):
+    for item in items:
+        return item
+    return 0

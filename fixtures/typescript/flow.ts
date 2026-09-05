@@ -132,3 +132,34 @@ export function dropped(total: number, other: number): number {
   total === other;
   return total;
 }
+
+export function tierOf(score: number): string {
+  return score > 90 ? "gold" : score > 50 ? "silver" : "bronze";
+}
+
+export function admits(rank: number, guests: number, staff: number): boolean {
+  return rank > 0 && guests > 0 || staff > 0;
+}
+
+export function changed(before: string, after: string): boolean {
+  return !(before === after);
+}
+
+export function labelOf(state: number): string {
+  switch (state) {
+    case 0:
+      return "new";
+    case 1:
+      return "open";
+    case 2:
+      return "closed";
+  }
+  return "unknown";
+}
+
+export function firstOf(items: number[]): number {
+  for (const item of items) {
+    return item;
+  }
+  return 0;
+}

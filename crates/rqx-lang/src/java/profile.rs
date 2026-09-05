@@ -100,6 +100,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     binary_kinds: &["binary_expression"],
     logical_operators: &["&&", "||"],
     negation_operators: &["!"],
+    negation_kinds: &["unary_expression"],
     equality_operators: &["==", "!=", "equals"],
     boolean_literals: &["true", "false"],
     loop_kinds: &[
@@ -222,6 +223,8 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     accessor_markers: &[],
     switch_kinds: &["switch_expression"],
     case_kinds: &["switch_block_statement_group", "switch_rule"],
+    default_case_markers: &["default"],
+    ternary_kinds: &["ternary_expression"],
     extends_kinds: &["superclass"],
     type_alias_kinds: &[],
     alias_name_field: "name",

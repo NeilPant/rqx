@@ -797,6 +797,69 @@ pub fn check_hygiene(
             "delete it; control was going there anyway".to_owned(),
         );
     }
+    for spot in &hygiene.nested_ternaries {
+        emit(
+            out,
+            RuleId::NestedTernary,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` is the inner half of another conditional", spot.detail),
+            },
+            "give the inner condition a named value, or write the whole thing as \
+             statements"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.ambiguous_precedence {
+        emit(
+            out,
+            RuleId::AmbiguousPrecedence,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` with nothing to say which binds first", spot.detail),
+            },
+            "put the tighter half in parentheses, or name it".to_owned(),
+        );
+    }
+    for spot in &hygiene.negated_comparisons {
+        emit(
+            out,
+            RuleId::NegatedComparison,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("a negation wrapped around `{}`", spot.detail),
+            },
+            "invert the operator and drop the negation".to_owned(),
+        );
+    }
+    for spot in &hygiene.defaultless_switches {
+        emit(
+            out,
+            RuleId::NoDefaultBranch,
+            spot,
+            Evidence::Breadth {
+                counted: "arms, none of them the last resort".to_owned(),
+                found: spot.count,
+                limit: spot.count,
+            },
+            "add the arm that says what an unnamed value means, even if it only \
+             raises"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.single_pass_loops {
+        emit(
+            out,
+            RuleId::LoopRunsOnce,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("the body always `{}` before the next pass", spot.detail),
+            },
+            "drop the loop and take the first match, or move the exit behind the \
+             condition that should end it"
+                .to_owned(),
+        );
+    }
     for spot in &hygiene.tiny_switches {
         emit(
             out,

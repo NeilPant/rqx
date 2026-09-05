@@ -764,20 +764,9 @@ impl<'a> Walker<'a> {
     /// A `continue` or `break` that control was reaching anyway. The keyword makes a
     /// reader stop and look for the condition that is not there.
     fn note_redundant_jump(&mut self, loop_node: Node<'a>) {
-        let profile = self.profile;
-        let Some(body) = self.function_body(loop_node).or_else(|| {
-            loop_node
-                .named_children(&mut loop_node.walk())
-                .find(|child| profile.is_block(*child))
-        }) else {
+        let Some(holder) = self.loop_statements(loop_node) else {
             return;
         };
-        // Go puts a `statement_list` inside the `block` that is the loop's body, so
-        // the statements are one level further down than the body field suggests.
-        let holder = body
-            .named_children(&mut body.walk())
-            .find(|child| profile.is_block(*child))
-            .unwrap_or(body);
         let mut cursor = holder.walk();
         let Some(last) = holder.named_children(&mut cursor).last() else {
             return;
@@ -792,6 +781,192 @@ impl<'a> Walker<'a> {
                 detail: "continue".to_owned(),
                 count: 1,
             });
+        }
+    }
+
+    /// The run of statements a loop repeats. Go puts a `statement_list` inside the
+    /// `block` a loop's body field names, so the statements are one level deeper
+    /// than that field suggests.
+    fn loop_statements(&self, loop_node: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let body = self.function_body(loop_node).or_else(|| {
+            loop_node
+                .named_children(&mut loop_node.walk())
+                .find(|child| profile.is_block(*child))
+        })?;
+        Some(
+            body.named_children(&mut body.walk())
+                .find(|child| profile.is_block(*child))
+                .unwrap_or(body),
+        )
+    }
+
+    /// A loop that cannot reach a second iteration: the last thing it does is leave,
+    /// and nothing inside it starts the next pass.
+    fn note_single_pass_loop(&mut self, loop_node: Node<'a>) {
+        let profile = self.profile;
+        let Some(holder) = self.loop_statements(loop_node) else {
+            return;
+        };
+        let Some(last) = holder.named_children(&mut holder.walk()).last() else {
+            return;
+        };
+        let leaves = matches!(last.kind(), "return_statement" | "break_statement");
+        // A labelled break leaves an outer loop, so this one is not the loop that
+        // stops.
+        if !leaves || last.named_child_count() > 0 && last.kind() == "break_statement" {
+            return;
+        }
+        let restarts = descendants(loop_node).into_iter().any(|node| {
+            node.kind() == "continue_statement"
+                && !Self::inside_nested_loop(node, loop_node, profile)
+        });
+        if restarts {
+            return;
+        }
+        self.out.single_pass_loops.push(Spot {
+            span: span_of(last),
+            detail: last.kind().trim_end_matches("_statement").to_owned(),
+            count: 1,
+        });
+    }
+
+    fn inside_nested_loop(node: Node<'a>, outer: Node<'a>, profile: &LanguageProfile) -> bool {
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if current.id() == outer.id() {
+                return false;
+            }
+            if profile.loop_kinds.contains(&current.kind()) || profile.is_function(current) {
+                return true;
+            }
+            parent = current.parent();
+        }
+        false
+    }
+
+    /// Reported on the inner conditional, which is where a reader has already lost
+    /// track of the first condition.
+    fn note_nested_ternary(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if profile.ternary_kinds.contains(&current.kind()) {
+                self.out.nested_ternaries.push(Spot {
+                    span: span_of(node),
+                    detail: self.snippet(node),
+                    count: 1,
+                });
+                return;
+            }
+            if profile.is_statement(current) || profile.is_function(current) {
+                return;
+            }
+            parent = current.parent();
+        }
+    }
+
+    /// Two different logical operators in one condition with nothing written to say
+    /// which binds tighter.
+    fn note_ambiguous_precedence(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(outer) = operator_of(node, self.source) else {
+            return;
+        };
+        if !profile.logical_operators.contains(&outer) {
+            return;
+        }
+        let Some((left, right)) = operands_of(node) else {
+            return;
+        };
+        for side in [left, right] {
+            if !profile.binary_kinds.contains(&side.kind()) {
+                continue;
+            }
+            let Some(inner) = operator_of(side, self.source) else {
+                continue;
+            };
+            if profile.logical_operators.contains(&inner) && inner != outer {
+                self.out.ambiguous_precedence.push(Spot {
+                    span: span_of(node),
+                    detail: format!("{inner} inside {outer}"),
+                    count: 1,
+                });
+                return;
+            }
+        }
+    }
+
+    fn note_negated_comparison(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(operator) = operator_of(node, self.source) else {
+            return;
+        };
+        if !profile.negation_operators.contains(&operator) {
+            return;
+        }
+        let Some(operand) = node.named_child(0) else {
+            return;
+        };
+        let inner = self.see_through(operand);
+        if !profile.binary_kinds.contains(&inner.kind()) {
+            return;
+        }
+        let Some(compared) = operator_of(inner, self.source) else {
+            return;
+        };
+        if !profile.equality_operators.contains(&compared) {
+            return;
+        }
+        self.out.negated_comparisons.push(Spot {
+            span: span_of(node),
+            detail: compared.to_owned(),
+            count: 1,
+        });
+    }
+
+    /// A switch wide enough to be worth writing as a switch, with nothing said about
+    /// the values it does not name.
+    fn note_missing_default(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let mut cursor = node.walk();
+        let mut stack: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
+        let mut arms = 0_u32;
+        let mut catches_the_rest = false;
+        while let Some(current) = stack.pop() {
+            if profile.case_kinds.contains(&current.kind()) {
+                arms += 1;
+                let text = self.text(current).trim_start();
+                if profile
+                    .default_case_markers
+                    .iter()
+                    .any(|marker| text.starts_with(marker))
+                {
+                    catches_the_rest = true;
+                }
+                continue;
+            }
+            if profile.switch_kinds.contains(&current.kind()) {
+                continue;
+            }
+            let mut inner = current.walk();
+            stack.extend(current.named_children(&mut inner));
+        }
+        if arms >= self.limits.min_cases && !catches_the_rest {
+            self.out.defaultless_switches.push(Spot {
+                span: span_of(node),
+                detail: arms.to_string(),
+                count: arms,
+            });
+        }
+    }
+
+    /// One line of a node's text, short enough to read inside a finding.
+    fn snippet(&self, node: Node<'a>) -> String {
+        let line = self.text(node).lines().next().unwrap_or("").trim();
+        match line.char_indices().nth(48) {
+            Some((at, _)) => format!("{}…", &line[..at]),
+            None => line.to_owned(),
         }
     }
 
@@ -1109,11 +1284,22 @@ impl<'a> Walker<'a> {
         capitals || self.declaration_of(last).starts_with('[')
     }
 
+    /// `Buffer.concat` and `Array.from` are called on a type rather than on something
+    /// holding elements, so they walk their argument once instead of once per pass.
+    fn names_a_type(&self, receiver: &str) -> bool {
+        receiver
+            .rsplit('.')
+            .next()
+            .unwrap_or(receiver)
+            .starts_with(|first: char| first.is_ascii_uppercase())
+    }
+
     fn worth_scanning(&self, receiver: &str) -> bool {
         !receiver.is_empty()
             && !self.already_keyed(receiver)
             && !self.holds_text(receiver)
             && !self.fixed_size(receiver)
+            && !self.names_a_type(receiver)
     }
 
     fn arguments(&self, call: Node<'a>) -> Vec<Node<'a>> {
@@ -1470,9 +1656,19 @@ impl<'a> Walker<'a> {
         }
         if profile.switch_kinds.contains(&kind) {
             self.note_switch_width(node);
+            self.note_missing_default(node);
         }
         if profile.loop_kinds.contains(&kind) {
             self.note_redundant_jump(node);
+        }
+        if profile.loop_kinds.contains(&kind) {
+            self.note_single_pass_loop(node);
+        }
+        if profile.ternary_kinds.contains(&kind) {
+            self.note_nested_ternary(node);
+        }
+        if profile.negation_kinds.contains(&kind) {
+            self.note_negated_comparison(node);
         }
         if profile.is_function(node) {
             self.note_empty_method(node);
@@ -1486,6 +1682,7 @@ impl<'a> Walker<'a> {
         }
         if profile.binary_kinds.contains(&kind) {
             self.note_comparison(node);
+            self.note_ambiguous_precedence(node);
         }
         if kind == "expression_statement" {
             self.note_discarded_expression(node);

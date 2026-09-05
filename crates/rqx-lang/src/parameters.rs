@@ -35,6 +35,18 @@ impl<'a> Grader<'a> {
         if self.profile.is_identifier(parameter) {
             return Some((text_of(parameter, self.source), parameter));
         }
+        // Named field first: a grammar that counts type names as identifiers would
+        // otherwise answer `String` for `String subject`, and then find that name
+        // used nowhere.
+        if let Some(declared) = self
+            .profile
+            .binding_fields
+            .iter()
+            .find_map(|field| parameter.child_by_field_name(field))
+            .filter(|node| self.profile.is_identifier(*node))
+        {
+            return Some((text_of(declared, self.source), declared));
+        }
         crate::tree::descendants(parameter)
             .into_iter()
             .find(|child| self.profile.is_identifier(*child))

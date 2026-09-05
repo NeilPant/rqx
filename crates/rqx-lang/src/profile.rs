@@ -76,6 +76,8 @@ pub struct LanguageProfile {
     pub binary_kinds: &'static [&'static str],
     pub logical_operators: &'static [&'static str],
     pub negation_operators: &'static [&'static str],
+    /// The node kind that carries a negation operator.
+    pub negation_kinds: &'static [&'static str],
     pub equality_operators: &'static [&'static str],
     /// What this language writes for true and false, so a comparison against one can
     /// be told from a comparison against a value.
@@ -232,6 +234,12 @@ pub struct LanguageProfile {
     /// A branch on one value, and the arms inside it.
     pub switch_kinds: &'static [&'static str],
     pub case_kinds: &'static [&'static str],
+    /// How this language spells the arm a switch falls to when nothing matched.
+    /// Matched against the arm's text because two of the grammars give it no node
+    /// kind of its own.
+    pub default_case_markers: &'static [&'static str],
+    /// A conditional written as an expression. Empty where the language has none.
+    pub ternary_kinds: &'static [&'static str],
     /// The clause naming a single superclass, as opposed to interfaces implemented.
     pub extends_kinds: &'static [&'static str],
     /// A name given to a type, and the union and literal members it may be made of.

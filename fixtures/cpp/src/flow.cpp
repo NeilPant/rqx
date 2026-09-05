@@ -92,3 +92,34 @@ int dropped(int total, int other) {
     total == other;
     return total;
 }
+
+const char *tier_of(int score) {
+    return score > 90 ? "gold" : score > 50 ? "silver" : "bronze";
+}
+
+bool admits(int rank, int guests, int staff) {
+    return rank > 0 && guests > 0 || staff > 0;
+}
+
+bool changed(int before, int after) {
+    return !(before == after);
+}
+
+const char *label_of(int state) {
+    switch (state) {
+        case 0:
+            return "new";
+        case 1:
+            return "open";
+        case 2:
+            return "closed";
+    }
+    return "unknown";
+}
+
+int first_of(int items[], int count) {
+    for (int at = 0; at < count; at++) {
+        return items[at];
+    }
+    return 0;
+}

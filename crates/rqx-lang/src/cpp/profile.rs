@@ -84,6 +84,7 @@ pub static CPP: LanguageProfile = LanguageProfile {
     binary_kinds: &["binary_expression"],
     logical_operators: &["&&", "||", "and", "or"],
     negation_operators: &["!", "not"],
+    negation_kinds: &["unary_expression"],
     equality_operators: &["==", "!="],
     boolean_literals: &["true", "false"],
     loop_kinds: &[
@@ -202,6 +203,8 @@ pub static CPP: LanguageProfile = LanguageProfile {
     accessor_markers: &[],
     switch_kinds: &["switch_statement"],
     case_kinds: &["case_statement"],
+    default_case_markers: &["default"],
+    ternary_kinds: &["conditional_expression"],
     extends_kinds: &["base_class_clause"],
     type_alias_kinds: &["alias_declaration"],
     alias_name_field: "name",
