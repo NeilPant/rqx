@@ -254,3 +254,24 @@ From `fixtures/typescript/flow.ts`, line 101:
 
 rqx says: name the inner steps and call them, so the order they run in is the order they read in
 
+## `oversized-module`
+
+a file this long is several files that have not been separated yet, and every one of them is edited, reviewed and merged as though it were one
+
+| | |
+|---|---|
+| Measures | statements in one file, across every function in it |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Shared Module / Extract Class |
+| Tuned by | `thresholds.module_statements` |
+
+From `fixtures/typescript/flow.ts`, line 1:
+
+```ts
+export function restated(ready: boolean): boolean {
+  if (ready) {
+```
+
+rqx says: split it along whatever its functions already group into
+

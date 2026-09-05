@@ -983,6 +983,44 @@ impl Collector {
 
     /// Churn is read once for the whole repository after the walk, because a file
     /// with no findings needs no history and most files have none.
+    fn finish_size(&mut self, config: &RqxConfig, at: &mut Positions) {
+        // Collected first: accepting a finding borrows the collector, and the shapes it
+        // reads live on the collector too.
+        let counted: Vec<(PathBuf, u32, Span)> = self
+            .shape_by_file
+            .iter()
+            .map(|(file, shape)| {
+                let statements = shape.functions.iter().map(|f| f.statements).sum();
+                let opens = shape.functions.first().map_or(WHOLE_FILE, |function| {
+                    Span::new(function.range.start, function.range.end)
+                });
+                (self.root.join(file.as_ref()), statements, opens)
+            })
+            .collect();
+        for (path, statements, opens) in counted {
+            if statements <= config.thresholds.module_statements {
+                continue;
+            }
+            let Some(range) = at.range(&path, opens) else {
+                continue;
+            };
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::OversizedModule,
+                    range,
+                    Evidence::Breadth {
+                        counted: "statements in this file".to_owned(),
+                        found: statements,
+                        limit: config.thresholds.module_statements,
+                    },
+                    "split it along whatever its functions already group into".to_owned(),
+                    Vec::new(),
+                ),
+            );
+        }
+    }
+
     fn finish_history(&mut self, config: &RqxConfig, history: &crate::history::History) {
         if config.scan.churn_days == 0 {
             return;
@@ -1135,6 +1173,7 @@ impl Collector {
         let mut at = Positions::new(root);
         self.report_phase(Phase::Imports);
         self.finish_modules(root, config, &mut at);
+        self.finish_size(config, &mut at);
         self.report_phase(Phase::History);
         let history = history();
         self.finish_history(config, &history);

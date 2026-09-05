@@ -12,6 +12,7 @@ nesting_depth = 2
 max_params = 3
 class_members = 15
 class_statements = 150
+module_statements = 300
 condition_operands = 2
 message_chain_depth = 2
 magic_number_repeats = 2

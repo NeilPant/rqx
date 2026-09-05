@@ -2,6 +2,7 @@
 # small: twenty importers needs twenty files that do nothing else.
 [thresholds]
 fan_in = 1
+module_statements = 45
 
 [rules]
 disabled = []

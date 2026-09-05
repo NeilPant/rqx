@@ -864,6 +864,17 @@ catalogue! {
               work that succeeded, and the next reader cannot tell whether it is a stub \
               or a decision",
     },
+    OversizedModule {
+        slug: "oversized-module",
+        category: Size,
+        analysis: Syntax,
+        metric: "statements in one file, across every function in it",
+        fixes: [ExtractSharedModule, ExtractClass],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a file this long is several files that have not been separated yet, and \
+              every one of them is edited, reviewed and merged as though it were one",
+    },
     DiscardedExpression {
         slug: "discarded-expression",
         category: Waste,

@@ -67,6 +67,9 @@ fan_in = 20
 # Levels a relative import may climb before it is reaching across the project
 # rather than through it.
 relative_climb = 2
+# Statements in one file, across every function in it, before it is several files
+# that have not been separated yet.
+module_statements = 400
 # Ways out of one function body, past the guard clauses at the top.
 max_exits = 4
 # Arms in one switch before it stops being a table a reader scans.

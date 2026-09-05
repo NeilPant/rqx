@@ -6,7 +6,7 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 
 | Family | Rules | |
 |---|---|---|
-| [Size](size.md) | 11 | `long-function` `cognitive-complexity` `deep-nesting` `long-parameter-list` `large-class` `data-clump` `primitive-obsession` `obscured-expression` `many-exits` `wide-switch` `callback-nesting` |
+| [Size](size.md) | 12 | `long-function` `cognitive-complexity` `deep-nesting` `long-parameter-list` `large-class` `data-clump` `primitive-obsession` `obscured-expression` `many-exits` `wide-switch` `callback-nesting` `oversized-module` |
 | [Abstraction](abstraction.md) | 8 | `type-code-switch` `temporary-field` `refused-bequest` `base-depends-on-derived` `inappropriate-static` `temporal-coupling` `alternative-classes` `wide-surface` |
 | [Change](change.md) | 3 | `shotgun-surgery` `divergent-change` `parallel-inheritance` |
 | [Waste](waste.md) | 22 | `duplicate-code` `unused-export` `unused-file` `unused-parameter` `unused-local` `unused-private-member` `unreachable-code` `commented-out-code` `lazy-class` `data-class` `speculative-generality` `empty-catch` `magic-number` `mixed-language-file` `distant-declaration` `buried-configuration` `journal-comment` `redundant-comment` `cross-language-duplicate` `empty-method` `discarded-expression` `duplicate-import` |
@@ -18,7 +18,7 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 | [Noise](noise.md) | 5 | `banner-comment` `chat-residue` `apology-comment` `emoji-in-source` `example-value` |
 | [Performance](performance.md) | 8 | `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` |
 
-98 rules in total. 13 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
+99 rules in total. 13 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
 
 - `primitive-obsession`
 - `divergent-change`
