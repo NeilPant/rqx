@@ -530,6 +530,50 @@ export function secondWay(rows: number[]): number {
 
 rqx says: keep one and call it from the other, or delete the copy
 
+## `dead-store`
+
+the first write did nothing, so either a line meant to read it is missing or the line that wrote it is
+
+| | |
+|---|---|
+| Measures | a value written and written again with nothing reading the first |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/flow.ts`, line 57:
+
+```ts
+export function assigns(a: number, b: number): number {
+  let found = 0;
+  if ((found = a + b)) {
+```
+
+rqx says: delete the write nobody reads, or read it
+
+## `never-reassigned`
+
+a reader has to hold open the possibility that it moves, and it never does, so the declaration is asking for attention it does not need
+
+| | |
+|---|---|
+| Measures | a name declared as changeable that never changes |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Rename Variable |
+| Not in Python | the language has no word for a name that cannot change |
+| Not in Go | a short declaration says nothing about whether the name moves |
+
+From `fixtures/typescript/shapes.ts`, line 59:
+
+```ts
+export function sweep(rows: number[]) {
+  let n = 0;
+  const seen: number[] = [];
+```
+
+rqx says: declare it as fixed, and let the compiler hold it there
+
 ## `discarded-expression`
 
 either the line was meant to do something and does not, or it does nothing and should not be here, and a reader cannot tell which

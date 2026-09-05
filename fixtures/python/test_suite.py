@@ -82,3 +82,16 @@ def test_drives_five_units():
     d = many_paths("a", [1])
     e = fresh_total([1])
     assert a + b + c + d + e > 0
+
+
+spare = 0
+
+
+def setup_function():
+    global spare
+    spare = 1
+
+
+def test_stands_something_in():
+    client = Mock()
+    assert add(1, 1) == 2

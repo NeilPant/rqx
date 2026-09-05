@@ -126,3 +126,9 @@ func Joined(rows []string) string {
 	}
 	return out
 }
+
+func Overwritten(value int) int {
+	total := value
+	total = value * 2
+	return total
+}

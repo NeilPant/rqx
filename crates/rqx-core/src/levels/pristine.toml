@@ -52,6 +52,7 @@ enabled = [
   "unexplained-expected-value",
   "method-ignores-instance",
   "eager-test",
+  "assign-once-field",
 ]
 
 [gate]

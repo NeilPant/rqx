@@ -1283,6 +1283,70 @@ catalogue! {
         why: "it holds the code to how the answer prints rather than to what it is, \
               so a change in spacing fails a test about behaviour",
     },
+    DeadStore {
+        slug: "dead-store",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a value written and written again with nothing reading the first",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "the first write did nothing, so either a line meant to read it is \
+              missing or the line that wrote it is",
+    },
+    NeverReassigned {
+        slug: "never-reassigned",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a name declared as changeable that never changes",
+        fixes: [RenameVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a reader has to hold open the possibility that it moves, and it never \
+              does, so the declaration is asking for attention it does not need",
+        not_applicable: [
+            (Python, "the language has no word for a name that cannot change"),
+            (Go, "a short declaration says nothing about whether the name moves"),
+        ],
+    },
+    AssignOnceField {
+        slug: "assign-once-field",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "a changeable field only the constructor ever writes",
+        fixes: [EncapsulateField],
+        confidence: Heuristic,
+        severity: Info,
+        why: "nothing after construction moves it, so every reader has to check that \
+              for themselves before they can rely on it",
+        off_by_default: true,
+        not_applicable: [
+            (Python, "an attribute is written into the instance, not declared on the type"),
+            (Go, "a struct field is written by whatever holds the struct"),
+        ],
+    },
+    UnusedFixture {
+        slug: "unused-fixture",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a value a setup hook prepares that no test reads",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "every case in the file pays for it and none of them wanted it, which is \
+              time on every run and a reader wondering what it is for",
+    },
+    UncheckedStub {
+        slug: "unchecked-stub",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a stand-in built for a test and never asked what it saw",
+        fixes: [IntroduceAssertion],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it made the test run and held it to nothing, so the call it was standing \
+              in for could stop happening and the test would still pass",
+    },
     BranchingTest {
         slug: "branching-test",
         category: Tests,

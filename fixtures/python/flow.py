@@ -179,3 +179,9 @@ def joined(rows):
 class Settled(abc.ABC):
     def run(self):
         return 1
+
+
+def overwritten(value):
+    total = value
+    total = value * 2
+    return total

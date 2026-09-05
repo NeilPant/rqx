@@ -175,6 +175,8 @@ pub struct TestVocabulary {
     /// Roots whose bodies must assert. A suite asserts through the cases inside it.
     pub case_roots: &'static [&'static str],
     pub assertion_roots: &'static [&'static str],
+    /// Hooks that prepare the ground before a case runs.
+    pub setup_roots: &'static [&'static str],
     /// Suffixes and prefixes that skip or focus, as (marker, is_prefix).
     pub skip_markers: &'static [(&'static str, bool)],
     pub focus_markers: &'static [(&'static str, bool)],
@@ -194,6 +196,11 @@ pub struct TestVocabulary {
 impl TestVocabulary {
     pub fn root_of(name: &str) -> &str {
         name.split('.').next().unwrap_or(name)
+    }
+
+    pub fn is_setup(&self, name: &str) -> bool {
+        let root = Self::root_of(name);
+        self.setup_roots.contains(&root)
     }
 
     pub fn is_assertion(&self, name: &str) -> bool {

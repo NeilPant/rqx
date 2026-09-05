@@ -160,6 +160,8 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     ],
     hoisted_kinds: &[],
     assignment_kinds: &["assignment", "augmented_assignment"],
+    stub_calls: &["Mock", "MagicMock", "AsyncMock", "patch", "create_autospec"],
+    markup_kinds: &[],
     compound_assignment_kinds: &["augmented_assignment"],
     transparent_kinds: &["parenthesized_expression"],
     condition_field: "condition",
@@ -212,6 +214,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     // and the community treats it as binding.
     private_name_prefixes: &["_"],
     immutable_markers: &[],
+    locals_can_be_fixed: false,
     variable_declaration_kinds: &["expression_statement"],
     ambient_names: &[
         "os.environ",
@@ -291,6 +294,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
             "verify",
             "must",
         ],
+        setup_roots: &["setUp", "setup_method", "setup_function", "fixture"],
         skip_markers: &[("skip", false), ("xfail", false)],
         focus_markers: &[("only", false)],
         delay_calls: &["sleep"],

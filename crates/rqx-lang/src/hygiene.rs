@@ -1770,6 +1770,56 @@ impl<'a> Walker<'a> {
                 count: checks.len() as u32,
             });
         }
+        // A stand-in built and never asked what it saw. It made the test run and
+        // held it to nothing.
+        let stubs: Vec<(String, Node<'a>)> = descendants(body)
+            .into_iter()
+            .filter(|node| profile.is_call(*node))
+            .filter(|node| {
+                self.called_name(*node).is_some_and(|dotted| {
+                    let tail = dotted.rsplit('.').next().unwrap_or(&dotted).to_owned();
+                    profile.stub_calls.contains(&tail.as_str())
+                })
+            })
+            .filter_map(|node| {
+                let parent = node.parent().map(|parent| {
+                    // The value half of a declaration can sit in a list of one.
+                    if profile.expression_list_kinds.contains(&parent.kind()) {
+                        parent.parent().unwrap_or(parent)
+                    } else {
+                        parent
+                    }
+                })?;
+                let held = profile
+                    .binding_fields
+                    .iter()
+                    .find_map(|field| parent.child_by_field_name(field))
+                    .or_else(|| parent.child_by_field_name("left"))
+                    .map(|held| {
+                        if profile.expression_list_kinds.contains(&held.kind()) {
+                            held.named_child(0).unwrap_or(held)
+                        } else {
+                            held
+                        }
+                    })
+                    .filter(|held| profile.is_identifier(*held))?;
+                Some((self.text(held).to_owned(), node))
+            })
+            .collect();
+        for (name, at) in stubs {
+            let checked = checks.iter().any(|check| {
+                descendants(*check)
+                    .into_iter()
+                    .any(|node| profile.is_identifier(node) && self.text(node) == name)
+            });
+            if !checked {
+                self.out.unchecked_stubs.push(Spot {
+                    span: span_of(at),
+                    detail: name,
+                    count: 1,
+                });
+            }
+        }
         // A test that drives several units at once fails for any of them, and the run
         // says only that the test failed.
         let vocabulary = &profile.test;
@@ -3515,6 +3565,208 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// Every mention of a name inside one body, in order, and whether the mention
+    /// wrote to it. Three rules ask the same question of this and get different
+    /// answers out of it.
+    fn touches(&self, body: Node<'a>) -> HashMap<&'a str, Vec<Touch>> {
+        let profile = self.profile;
+        let mut seen: HashMap<&'a str, Vec<Touch>> = HashMap::new();
+        for node in descendants(body) {
+            let names_something =
+                profile.is_identifier(node) || profile.property_kinds.contains(&node.kind());
+            if !names_something {
+                continue;
+            }
+            let declares = crate::tree::is_binding_position(
+                node,
+                &[],
+                profile.borrowed_name_kinds,
+                profile.local_declaring_kinds,
+                profile.expression_list_kinds,
+            );
+            // The left of an assignment is a write even where it declares nothing —
+            // and `+=` is a read as well, which is what stops it looking like a
+            // second write over a value nobody looked at.
+            // A language that writes `a, b = x, y` puts the target inside a list even
+            // when there is only one of them.
+            let holder = node.parent().filter(|parent| {
+                profile.expression_list_kinds.contains(&parent.kind())
+                    && parent.named_child_count() == 1
+            });
+            let statement = holder
+                .and_then(|list| list.parent())
+                .or_else(|| node.parent());
+            let target = |kinds: &[&str]| {
+                statement.is_some_and(|parent| {
+                    kinds.contains(&parent.kind())
+                        && parent.child_by_field_name("left").is_some_and(|left| {
+                            left.id() == node.id() || Some(left.id()) == holder.map(|l| l.id())
+                        })
+                })
+            };
+            // A method's name sits in the same field a declaration's does in some
+            // grammars, so `rows.add(x)` would read as a write to `add`.
+            let reaching = node.parent().is_some_and(|parent| {
+                profile.is_call(parent)
+                    || profile.is_member_access(parent)
+                    || profile.markup_kinds.contains(&parent.kind())
+            });
+            let assigns = target(profile.assignment_kinds);
+            let updates = target(profile.compound_assignment_kinds)
+                && operator_of(node.parent().unwrap_or(node), self.source)
+                    .is_some_and(|operator| operator.len() > 1 && operator.ends_with('='));
+            let wrote = (declares || assigns || updates) && !reaching;
+            // A write lands after everything the right-hand side read, even though
+            // the name being written is the first thing on the line.
+            let at = if assigns || updates {
+                statement.map_or(node.end_byte(), |parent| parent.end_byte())
+            } else {
+                node.start_byte()
+            };
+            let mut block = body.id();
+            let mut parent = node.parent();
+            while let Some(current) = parent {
+                if current.id() == body.id() {
+                    break;
+                }
+                if profile.is_block(current) {
+                    block = current.id();
+                    break;
+                }
+                parent = current.parent();
+            }
+            seen.entry(self.text(node)).or_default().push(Touch {
+                at,
+                block,
+                wrote,
+                read: !wrote || updates,
+                declared: declares && !reaching,
+            });
+        }
+        for mentions in seen.values_mut() {
+            mentions.sort_unstable_by_key(|touch| touch.at);
+        }
+        seen
+    }
+
+    /// A value written and written again with nothing reading the first one.
+    fn note_stores(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        // A callback can read the outer name at any time, so a second write is not
+        // dead just because no line between the two mentions it.
+        if descendants(body)
+            .into_iter()
+            .any(|node| profile.is_function(node))
+        {
+            return;
+        }
+        for (name, mentions) in self.touches(body) {
+            if name.starts_with('_') {
+                continue;
+            }
+            let reassigned = mentions.iter().filter(|touch| touch.wrote).count();
+            let read = mentions.iter().filter(|touch| touch.read).count();
+            if let Some(window) = mentions.windows(2).find(|pair| {
+                pair[0].wrote
+                    && !pair[0].read
+                    && pair[1].wrote
+                    && !pair[1].read
+                    && pair[0].block == pair[1].block
+            }) {
+                self.out.dead_stores.push(Spot {
+                    span: Span::new(window[0].at as u32, window[0].at as u32 + name.len() as u32),
+                    detail: name.to_owned(),
+                    count: reassigned as u32,
+                });
+            }
+            // A name written once and read after is a constant the language was not
+            // told about — but only where the language has a word for that.
+            if reassigned == 1
+                && read > 0
+                && profile.locals_can_be_fixed
+                && let Some(first) = mentions.first()
+                && first.declared
+            {
+                let opens = self.source[..first.at]
+                    .rsplit('\n')
+                    .next()
+                    .unwrap_or_default()
+                    .trim_start();
+                let fixed = profile
+                    .immutable_markers
+                    .iter()
+                    .any(|marker| opens.split_whitespace().any(|word| word == *marker));
+                if !fixed {
+                    self.out.never_reassigned.push(Spot {
+                        span: Span::new(first.at as u32, first.at as u32 + name.len() as u32),
+                        detail: name.to_owned(),
+                        count: 1,
+                    });
+                }
+            }
+        }
+    }
+
+    /// A field the constructor sets and nothing else ever writes.
+    fn note_assign_once_fields(&mut self, class: Node<'a>) {
+        let profile = self.profile;
+        if profile.immutable_markers.is_empty() {
+            return;
+        }
+        let Some(body) = self.class_body(class) else {
+            return;
+        };
+        let fields: Vec<(String, Node<'a>)> = body
+            .named_children(&mut body.walk())
+            .filter(|child| profile.field_kinds.contains(&child.kind()))
+            .filter(|child| {
+                let head = self.text(*child);
+                !profile
+                    .immutable_markers
+                    .iter()
+                    .any(|marker| head.split_whitespace().any(|word| word == *marker))
+            })
+            .filter_map(|field| Some((self.declared_field_name(field)?, field)))
+            .collect();
+        if fields.is_empty() {
+            return;
+        }
+        let members: Vec<Node<'a>> = body
+            .named_children(&mut body.walk())
+            .filter(|child| profile.method_kinds.contains(&child.kind()))
+            .collect();
+        for (name, at) in fields {
+            let written_outside = members.iter().any(|member| {
+                let is_constructor = self
+                    .function_name(*member)
+                    .map(|node| self.text(node))
+                    .is_some_and(|named| {
+                        profile.constructor_names.contains(&named)
+                            || self.enclosing_class_name(*member).as_deref() == Some(named)
+                    })
+                    || profile.constructor_kinds.contains(&member.kind());
+                if is_constructor {
+                    return false;
+                }
+                self.function_body(*member).is_some_and(|inner| {
+                    self.touches(inner)
+                        .get(name.as_str())
+                        .is_some_and(|mentions| mentions.iter().any(|touch| touch.wrote))
+                })
+            });
+            if !written_outside {
+                self.out.assign_once_fields.push(Spot {
+                    span: span_of(at),
+                    detail: name,
+                    count: 1,
+                });
+            }
+        }
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -4254,6 +4506,7 @@ impl<'a> Walker<'a> {
             self.note_class_shape(node);
             self.note_empty_abstraction(node);
             self.note_split_cohesion(node);
+            self.note_assign_once_fields(node);
             self.note_lonely_fields(node);
             self.note_many_collaborators(node);
         }
@@ -4267,6 +4520,7 @@ impl<'a> Walker<'a> {
             self.note_empty_method(node);
             self.note_loop_capture(node);
             self.note_passthrough_override(node);
+            self.note_stores(node);
             self.note_instance_free_method(node);
             self.note_over_logging(node);
             self.note_sequential_await(node);
@@ -4722,6 +4976,7 @@ fn scan_comments(
 
     note_narration(profile, source, root, limits, out);
     note_twin_functions(profile, source, root, out);
+    note_unused_fixtures(profile, source, root, out);
     note_body_docstrings(profile, source, root, out);
 
     // Consecutive commented-out lines are one decision, not one finding per line.
@@ -5273,4 +5528,105 @@ fn note_twin_functions(
             }
         }
     }
+}
+
+/// A value a setup hook prepares that no test in the file ever reads. Every case
+/// pays for it and none of them wanted it.
+fn note_unused_fixtures(
+    profile: &'static LanguageProfile,
+    source: &str,
+    root: Node<'_>,
+    out: &mut Hygiene,
+) {
+    let vocabulary = &profile.test;
+    let setups: Vec<Node<'_>> = descendants(root)
+        .into_iter()
+        .filter(|node| profile.is_call(*node) || profile.is_function(*node))
+        .filter(|node| {
+            let named = if profile.is_call(*node) {
+                profile.call_tail(*node, source).map(str::to_owned)
+            } else {
+                // C++ keeps a function's name under a declarator, so the last name
+                // written before the body is the one.
+                let body_at = node
+                    .child_by_field_name("body")
+                    .map_or(usize::MAX, |body| body.start_byte());
+                node.child_by_field_name("name")
+                    .or_else(|| {
+                        descendants(*node)
+                            .into_iter()
+                            .filter(|inner| {
+                                inner.start_byte() < body_at && profile.is_identifier(*inner)
+                            })
+                            .next_back()
+                    })
+                    .map(|name| text_of(name, source).to_owned())
+            };
+            named.is_some_and(|name| vocabulary.is_setup(&name))
+        })
+        .collect();
+    if setups.is_empty() {
+        return;
+    }
+    for setup in setups {
+        let prepared: Vec<Node<'_>> = descendants(setup)
+            .into_iter()
+            .filter(|node| profile.is_identifier(*node))
+            .filter(|node| {
+                // The target can sit inside a list of one where the language writes
+                // `a, b = x, y`.
+                let listed = node.parent().filter(|parent| {
+                    profile.expression_list_kinds.contains(&parent.kind())
+                        && parent.named_child_count() == 1
+                });
+                let statement = listed
+                    .and_then(|list| list.parent())
+                    .or_else(|| node.parent());
+                statement.is_some_and(|parent| {
+                    profile.assignment_kinds.contains(&parent.kind())
+                        && parent.child_by_field_name("left").is_some_and(|left| {
+                            left.id() == node.id() || Some(left.id()) == listed.map(|l| l.id())
+                        })
+                })
+            })
+            .collect();
+        for node in prepared {
+            let name = text_of(node, source);
+            let read = descendants(root).into_iter().any(|other| {
+                other.id() != node.id()
+                    && profile.is_identifier(other)
+                    && text_of(other, source) == name
+                    && !(other.start_byte() >= setup.start_byte()
+                        && other.end_byte() <= setup.end_byte())
+                    // Its own declaration is not somebody reading it.
+                    && !crate::tree::is_binding_position(
+                        other,
+                        &[],
+                        profile.borrowed_name_kinds,
+                        profile.local_declaring_kinds,
+                        profile.expression_list_kinds,
+                    )
+            });
+            if !read {
+                out.unused_fixtures.push(Spot {
+                    span: span_of(node),
+                    detail: name.to_owned(),
+                    count: 1,
+                });
+            }
+        }
+    }
+}
+
+/// One mention of a name: where it is, and what it did to the value. A compound
+/// assignment is both, which is the case the two rules reading this disagree about.
+#[derive(Clone, Copy)]
+struct Touch {
+    at: usize,
+    /// The run of statements the mention sits in. Two writes only overwrite each
+    /// other when both always happen, and a write inside a branch does not.
+    block: usize,
+    wrote: bool,
+    read: bool,
+    declared: bool,
 }

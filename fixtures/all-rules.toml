@@ -7,7 +7,7 @@ class_collaborators = 2
 
 [rules]
 disabled = []
-enabled = ["tiny-switch","meaningless-name","primitive-obsession","hungarian-notation","short-name-wide-scope","negative-conditional","divergent-change","misleading-pattern-name","inconsistent-vocabulary","alternative-classes","parallel-inheritance","emoji-in-source","debug-output","reaches-into-private","real-world-test","unlabelled-assertions","unexplained-expected-value","method-ignores-instance","eager-test"]
+enabled = ["tiny-switch","meaningless-name","primitive-obsession","hungarian-notation","short-name-wide-scope","negative-conditional","divergent-change","misleading-pattern-name","inconsistent-vocabulary","alternative-classes","parallel-inheritance","emoji-in-source","debug-output","reaches-into-private","real-world-test","unlabelled-assertions","unexplained-expected-value","method-ignores-instance","eager-test","assign-once-field"]
 
 [patterns]
 enabled = ["memento", "interpreter"]

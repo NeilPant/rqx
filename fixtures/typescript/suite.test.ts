@@ -77,3 +77,14 @@ it("drives five units", () => {
   const e = manyPaths("a", [1]);
   expect(a + b + Number(c.length) + d + e).toBeGreaterThan(0);
 });
+
+let spare = 0;
+
+beforeEach(() => {
+  spare = 1;
+});
+
+it("stands something in", () => {
+  const client = jest.fn();
+  expect(add(1, 1)).toBe(2);
+});

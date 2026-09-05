@@ -76,3 +76,14 @@ TEST(Pricing, DrivesFiveUnits) {
     int e = guarded_add(1, 1, 1);
     EXPECT_GT(a + b + c + d + e, 0);
 }
+
+TEST(Pricing, StandsSomethingIn) {
+    auto client = NiceMock();
+    EXPECT_EQ(2, add(1, 1));
+}
+
+int spare = 0;
+
+void SetUp() {
+    spare = 1;
+}

@@ -264,6 +264,30 @@ From `fixtures/typescript/bloat.ts`, line 21:
 
 rqx says: move it to whatever it is about, or make it a function of its own
 
+## `assign-once-field`
+
+nothing after construction moves it, so every reader has to check that for themselves before they can rely on it
+
+| | |
+|---|---|
+| Measures | a changeable field only the constructor ever writes |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Encapsulate Field |
+| Default | off; name it under `[rules] enabled` |
+| Not in Python | an attribute is written into the instance, not declared on the type |
+| Not in Go | a struct field is written by whatever holds the struct |
+
+From `fixtures/typescript/bloat.ts`, line 19:
+
+```ts
+export class Overgrown {
+  a1 = 1; a2 = 1; a3 = 1; a4 = 1; a5 = 1; a6 = 1; a7 = 1; a8 = 1; a9 = 1; a10 = 1;
+  a11 = 1; a12 = 1; a13 = 1; a14 = 1; a15 = 1; a16 = 1; a17 = 1; a18 = 1; a19 = 1;
+```
+
+rqx says: make it final, so every reader can see it cannot move
+
 ## `single-method-field`
 
 it is that method's local kept where every other method can reach it, so every one of them has to be read before it can be changed

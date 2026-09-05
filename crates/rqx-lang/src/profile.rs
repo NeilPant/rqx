@@ -180,6 +180,11 @@ pub struct LanguageProfile {
     pub hoisted_kinds: &'static [&'static str],
     /// Nodes that write to something.
     pub assignment_kinds: &'static [&'static str],
+    /// Calls that stand something in for the real thing while a test runs.
+    pub stub_calls: &'static [&'static str],
+    /// Nodes that name a tag rather than a value. A grammar with markup in it puts
+    /// the tag's name in the same field a declaration's name goes in.
+    pub markup_kinds: &'static [&'static str],
     /// Nodes that read a name and write it back, which some grammars give a kind
     /// of their own and others fold into a plain assignment.
     pub compound_assignment_kinds: &'static [&'static str],
@@ -274,6 +279,10 @@ pub struct LanguageProfile {
     /// Keywords that fix a binding's value for good. A file-level binding without one
     /// is state the whole program shares.
     pub immutable_markers: &'static [&'static str],
+    /// Whether one of those keywords can be written on a local. Go spells `const`
+    /// only for compile-time constants, so a local it never rewrites still cannot
+    /// say so.
+    pub locals_can_be_fixed: bool,
     /// The statement that introduces a binding at file level.
     pub variable_declaration_kinds: &'static [&'static str],
     /// Dotted names that answer with something outside the program: the clock, the

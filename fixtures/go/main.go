@@ -7,6 +7,7 @@ import (
 
 func main() {
 	_ = fixtures.Add
+	_ = Overwritten
 	_ = fixtures.FirstWay
 	_ = fixtures.SecondWay
 	_ = fixtures.Narrates

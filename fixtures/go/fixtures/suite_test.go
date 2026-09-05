@@ -82,3 +82,14 @@ func TestDrivesFiveUnits(t *testing.T) {
 	e := FreshTotal([]int{1})
 	require.Greater(t, a+b+c+d+e, 0)
 }
+
+func TestStandsSomethingIn(t *testing.T) {
+	client := NewMock()
+	require.Equal(t, Add(1, 1), 2)
+}
+
+var spare int
+
+func setup() {
+	spare = 1
+}

@@ -140,6 +140,8 @@ pub static GO: LanguageProfile = LanguageProfile {
         "type_declaration",
     ],
     assignment_kinds: &["assignment_statement", "short_var_declaration"],
+    stub_calls: &["NewMock", "NewFake", "NewStub"],
+    markup_kinds: &[],
     compound_assignment_kinds: &["assignment_statement"],
     transparent_kinds: &["parenthesized_expression"],
     condition_field: "condition",
@@ -204,6 +206,7 @@ pub static GO: LanguageProfile = LanguageProfile {
     // Go has no access keyword: a lower-case initial is the whole of it.
     private_name_prefixes: &[],
     immutable_markers: &["const"],
+    locals_can_be_fixed: false,
     variable_declaration_kinds: &["var_declaration"],
     ambient_names: &[
         "os.Getenv",
@@ -263,6 +266,7 @@ pub static GO: LanguageProfile = LanguageProfile {
         suite_roots: &[],
         case_roots: &[],
         assertion_roots: &["assert", "require", "expect", "verify", "must"],
+        setup_roots: &["TestMain", "setup"],
         skip_markers: &[("Skip", false), ("SkipNow", false), ("Skipf", false)],
         focus_markers: &[],
         delay_calls: &["Sleep", "sleep"],

@@ -1129,6 +1129,66 @@ pub fn check_hygiene(
             "check the parts that matter, so spacing cannot fail the test".to_owned(),
         );
     }
+    for spot in &hygiene.dead_stores {
+        emit(
+            out,
+            RuleId::DeadStore,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is written again before anything reads it".to_owned(),
+            },
+            "delete the write nobody reads, or read it".to_owned(),
+        );
+    }
+    for spot in &hygiene.never_reassigned {
+        emit(
+            out,
+            RuleId::NeverReassigned,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is declared changeable and never changes".to_owned(),
+            },
+            "declare it as fixed, and let the compiler hold it there".to_owned(),
+        );
+    }
+    for spot in &hygiene.assign_once_fields {
+        emit(
+            out,
+            RuleId::AssignOnceField,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is written only while the object is built".to_owned(),
+            },
+            "make it final, so every reader can see it cannot move".to_owned(),
+        );
+    }
+    for spot in &hygiene.unused_fixtures {
+        emit(
+            out,
+            RuleId::UnusedFixture,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is prepared before every case and read by none".to_owned(),
+            },
+            "delete it, or move it into the one case that wanted it".to_owned(),
+        );
+    }
+    for spot in &hygiene.unchecked_stubs {
+        emit(
+            out,
+            RuleId::UncheckedStub,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is built and never asked what it saw".to_owned(),
+            },
+            "check what it was called with, or let the real thing run".to_owned(),
+        );
+    }
     for spot in &hygiene.branching_tests {
         emit(
             out,

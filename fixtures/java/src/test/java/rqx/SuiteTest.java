@@ -116,6 +116,24 @@ public class SuiteTest {
         assertEquals(0, a + b + c + d + e);
     }
 
+
+    @Test
+    public void testStandsSomethingIn() {
+        Object client = mock("x");
+        assertEquals(2, new Clean().add(1, 1));
+    }
+
+    static Object mock(String of) {
+        return null;
+    }
+
+
+    int spare;
+
+    void setUp() {
+        spare = 1;
+    }
+
     static void assertEquals(int expected, int actual) {
     }
 }

@@ -185,6 +185,48 @@ From `fixtures/typescript/suite.test.ts`, line 69:
 
 rqx says: check the parts that matter, so spacing cannot fail the test
 
+## `unused-fixture`
+
+every case in the file pays for it and none of them wanted it, which is time on every run and a reader wondering what it is for
+
+| | |
+|---|---|
+| Measures | a value a setup hook prepares that no test reads |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/suite.test.ts`, line 84:
+
+```ts
+beforeEach(() => {
+  spare = 1;
+});
+```
+
+rqx says: delete it, or move it into the one case that wanted it
+
+## `unchecked-stub`
+
+it made the test run and held it to nothing, so the call it was standing in for could stop happening and the test would still pass
+
+| | |
+|---|---|
+| Measures | a stand-in built for a test and never asked what it saw |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+
+From `fixtures/typescript/suite.test.ts`, line 88:
+
+```ts
+it("stands something in", () => {
+  const client = jest.fn();
+  expect(add(1, 1)).toBe(2);
+```
+
+rqx says: check what it was called with, or let the real thing run
+
 ## `branching-test`
 
 a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked
