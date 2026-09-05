@@ -284,6 +284,10 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
 
     let modules = config.needs_modules() || scopes.iter().any(|scope| scope.config.needs_modules());
 
+    // Compiled once, before anything is scanned, so a typo in a query is a config
+    // error naming the rule rather than a rule that silently never fires.
+    rqx_lang::custom::validate(&config.custom).map_err(|error| anyhow::anyhow!("{error}"))?;
+
     // Read once here rather than at each of the commands that scan, so no command can
     // forget it and quietly gate on the whole backlog.
     let recorded = match &config.gate.baseline {

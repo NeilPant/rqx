@@ -18,6 +18,7 @@ mod history;
 mod lsp;
 mod mcp;
 mod plan;
+mod query;
 mod preview;
 mod progress;
 mod report;
@@ -240,6 +241,21 @@ enum Command {
         json: bool,
         #[arg(long)]
         threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Run a tree-sitter query over a project, to try one out before writing it into
+    /// a `[[rule]]`
+    Query {
+        /// typescript, python, go, java or cpp
+        language: String,
+        /// The query, in tree-sitter's s-expression syntax
+        query: String,
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Show every capture of every match, not just where it starts
+        #[arg(long)]
+        captures: bool,
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -1111,6 +1127,21 @@ fn run() -> Result<Exit> {
                 return report::waivers_json(&path, &outcome, &mut out).map(|()| Exit::Clean);
             }
             report::waivers(&path, &outcome, expiring, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Query {
+            language,
+            query,
+            path,
+            captures,
+            config,
+        } => {
+            let settings = config::resolve(&path, config.as_deref(), None)?;
+            let language = query::language_named(&language)?;
+            let mut out = anstream::stdout().lock();
+            query::run(
+                &path, language, &query, &settings, captures, palette, &mut out,
+            )
+            .map(|_| Exit::Clean)
         }
         Command::Docs { out, fixtures } => report::docs(&out, &fixtures).map(|()| Exit::Clean),
         Command::Init { path, force } => write_template(&path, force).map(|()| Exit::Clean),

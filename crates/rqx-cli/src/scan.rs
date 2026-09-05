@@ -1061,7 +1061,7 @@ impl Collector {
                 .file
                 .cmp(&b.finding.location.file)
                 .then(a.finding.location.start.cmp(&b.finding.location.start))
-                .then(a.finding.rule.slug().cmp(b.finding.rule.slug()))
+                .then(a.finding.slug().cmp(b.finding.slug()))
                 .then(a.at.start.cmp(&b.at.start))
         });
         self.skipped.sort();
@@ -1540,6 +1540,31 @@ fn graph_report(
         .external
         .sort_by(|a, b| a.specifier.cmp(&b.specifier));
     merged
+}
+
+/// Every file of one language the scan would look at. Collected rather than streamed
+/// because the one caller wants them in a stable order and there are no findings to
+/// race.
+pub(crate) fn files_of(
+    root: &Path,
+    language: rqx_core::Language,
+    config: &RqxConfig,
+) -> Result<Vec<PathBuf>> {
+    let found = std::sync::Mutex::new(Vec::new());
+    build_walker(root, config)?.run(|| {
+        Box::new(|entry| {
+            if let Ok(entry) = entry
+                && entry.file_type().is_some_and(|kind| kind.is_file())
+                && rqx_core::Language::of_path(entry.path()) == Some(language)
+            {
+                found.lock().expect("the walk holds no lock").push(entry.into_path());
+            }
+            ignore::WalkState::Continue
+        })
+    });
+    let mut found = found.into_inner().expect("the walk is done");
+    found.sort();
+    Ok(found)
 }
 
 pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel> {

@@ -385,7 +385,7 @@ impl Rqx {
                 .iter()
                 .map(|change| json!({
                     "outcome": change.outcome.slug(),
-                    "rule": change.rule.slug(),
+                    "rule": change.slug,
                     "subject": change.subject,
                     "before": change.before.as_ref().map(ToString::to_string),
                     "after": change.after.as_ref().map(ToString::to_string),
@@ -410,7 +410,7 @@ impl Rqx {
                 digest,
                 "  {:11} {} \u{b7} {}",
                 change.outcome.slug(),
-                change.rule.slug(),
+                &change.slug,
                 change.subject
             );
         }

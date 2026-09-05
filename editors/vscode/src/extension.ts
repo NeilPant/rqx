@@ -388,15 +388,20 @@ export async function activate(extension: ExtensionContext): Promise<void> {
     status,
     log,
     window.registerWebviewViewProvider(Panel.id, panel),
+    // These ids are deliberately not the ones the server advertises. vscode-
+    // languageclient registers every command in `executeCommandProvider` as a VS Code
+    // command that forwards to the server, so a UI wrapper sharing a name with one of
+    // them makes `commands.registerCommand` throw and the whole client fail to start.
+    // The names sent over `workspace/executeCommand` below are the server's own.
     commands.registerCommand("rqx.scanWorkspace", scanWorkspace),
-    commands.registerCommand("rqx.check", check),
-    commands.registerCommand("rqx.explain", explain),
-    commands.registerCommand("rqx.startHere", startHere),
-    commands.registerCommand("rqx.disableRule", disableRule),
-    commands.registerCommand("rqx.togglePatterns", () =>
+    commands.registerCommand("rqx.reviewDiff", check),
+    commands.registerCommand("rqx.explainRule", explain),
+    commands.registerCommand("rqx.openStartHere", startHere),
+    commands.registerCommand("rqx.disableRuleHere", disableRule),
+    commands.registerCommand("rqx.togglePatternAdvice", () =>
       toggle("rqx.togglePatterns", "patterns"),
     ),
-    commands.registerCommand("rqx.toggleCodeLens", () =>
+    commands.registerCommand("rqx.toggleLens", () =>
       toggle("rqx.toggleCodeLens", "codeLens"),
     ),
     commands.registerCommand("rqx.openPanel", () => panel.reveal()),

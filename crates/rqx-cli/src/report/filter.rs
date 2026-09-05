@@ -85,7 +85,7 @@ impl FindingFilter {
         if !self.rules.is_empty() && !self.rules.contains(&finding.rule) {
             return false;
         }
-        if !self.categories.is_empty() && !self.categories.contains(&finding.rule.spec().category) {
+        if !self.categories.is_empty() && !self.categories.contains(&finding.category()) {
             return false;
         }
         if let Some(paths) = &self.paths
@@ -96,7 +96,7 @@ impl FindingFilter {
             return false;
         }
         if !self.text.is_empty()
-            && !finding.rule.slug().contains(&self.text)
+            && !finding.slug().contains(&self.text)
             && !finding.location.file.to_lowercase().contains(&self.text)
         {
             return false;

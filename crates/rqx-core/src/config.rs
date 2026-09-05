@@ -4,6 +4,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::advice::{AdviceId, Stance};
+use crate::finding::{Confidence, Severity};
 use crate::language::Language;
 use crate::pattern::{Pattern, PatternFamily};
 use crate::rule::{Analysis, Autofix, Category, RuleId};
@@ -91,6 +92,38 @@ pub struct RqxConfig {
     pub gate: Gate,
     pub fix: Fix,
     pub architecture: Architecture,
+    /// Rules this project wrote, as `[[rule]]` blocks. The grammars are already in
+    /// the binary; this is what lets a team ask a question rqx will never ship.
+    #[serde(rename = "rule")]
+    pub custom: Vec<CustomRule>,
+}
+
+/// A rule written as a tree-sitter query. The query is not compiled here — core has
+/// no grammars — but every other field is checked the moment the config parses.
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CustomRule {
+    pub id: String,
+    pub languages: Vec<Language>,
+    pub query: String,
+    pub message: String,
+    #[serde(default = "warning")]
+    pub severity: Severity,
+    pub family: Category,
+    #[serde(default = "verified")]
+    pub confidence: Confidence,
+    #[serde(default)]
+    pub hint: String,
+}
+
+const fn warning() -> Severity {
+    Severity::Warning
+}
+
+/// A query either matched or it did not — there is no judgement in between, which is
+/// what every other `Verified` rule means by the word.
+const fn verified() -> Confidence {
+    Confidence::Verified
 }
 
 impl RqxConfig {
@@ -108,7 +141,7 @@ impl RqxConfig {
     /// A name that resolves to nothing would otherwise be a silent no-op, or worse: a
     /// `categories` allowlist naming only unknown families turns every rule off.
     pub fn unknown_names(&self) -> Vec<UnknownName> {
-        let mut unknown = self.rules.unknown_names();
+        let mut unknown = self.rules.unknown_names(&self.custom);
         unknown.extend(self.patterns.unknown_names());
         unknown.extend(self.fix.unknown_names());
         unknown
@@ -568,6 +601,16 @@ impl Rules {
         true
     }
 
+    /// A project's own rule, gated by its id or its family. Never off by default —
+    /// writing one is the act of asking for it.
+    pub fn enabled_custom(&self, rule: &CustomRule) -> bool {
+        let family = rule.family.slug();
+        if self.disabled.contains(&rule.id) || self.disabled.contains(family) {
+            return false;
+        }
+        self.categories.is_empty() || self.categories.contains(family)
+    }
+
     pub fn needs_semantics(&self) -> bool {
         self.needs(Analysis::Semantics)
     }
@@ -586,9 +629,11 @@ impl Rules {
             .any(|rule| self.enabled(rule))
     }
 
-    pub fn unknown_names(&self) -> Vec<UnknownName> {
-        let rule_or_family =
-            |name: &str| RuleId::parse(name).is_some() || Category::parse(name).is_some();
+    pub fn unknown_names(&self, custom: &[CustomRule]) -> Vec<UnknownName> {
+        let known_custom = |name: &str| custom.iter().any(|rule| rule.id == name);
+        let rule_or_family = |name: &str| {
+            RuleId::parse(name).is_some() || Category::parse(name).is_some() || known_custom(name)
+        };
         let family = |name: &str| Category::parse(name).is_some();
         unknown_in("rules", "disabled", self.disabled.iter(), rule_or_family)
             .chain(unknown_in(
@@ -892,7 +937,7 @@ mod tests {
         for (old, category) in RENAMED_FAMILIES {
             let mut rules = Rules::default();
             rules.categories.insert(old.to_owned());
-            let unknown = rules.unknown_names();
+            let unknown = rules.unknown_names(&[]);
             assert_eq!(unknown.len(), 1, "{old}");
             assert_eq!(unknown[0].renamed_to, Some(category.slug()), "{old}");
             assert!(
@@ -909,7 +954,7 @@ mod tests {
         rules.disabled.insert(RuleId::ALL[0].slug().to_owned());
         rules.enabled.insert(Category::ALL[0].slug().to_owned());
         rules.disabled.insert("no-such-rule".to_owned());
-        let unknown = rules.unknown_names();
+        let unknown = rules.unknown_names(&[]);
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].name, "no-such-rule");
         assert_eq!(unknown[0].renamed_to, None);

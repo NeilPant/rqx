@@ -27,7 +27,7 @@ impl fmt::Display for SourceRange {
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     Info,
@@ -55,7 +55,7 @@ impl Severity {
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Confidence {
     Low,
@@ -172,6 +172,13 @@ pub enum Evidence {
     },
     Suppression {
         directive: String,
+    },
+    /// A rule the project wrote. Its identity and its family travel with the finding
+    /// because no `RuleSpec` was compiled for it.
+    Custom {
+        id: Arc<str>,
+        message: String,
+        family: crate::rule::Category,
     },
     BooleanParameter {
         name: String,
@@ -479,6 +486,7 @@ impl fmt::Display for Evidence {
             Self::Suppression { directive } => {
                 write!(f, "`{directive}` turns off a check that covers this code.")
             }
+            Self::Custom { message, .. } => f.write_str(message),
             Self::BooleanParameter { name, position } => write!(
                 f,
                 "Boolean parameter `{name}` ({position} in the list) selects between behaviours."
@@ -657,5 +665,22 @@ pub struct Finding {
 impl Finding {
     pub fn rank(&self) -> (Severity, Confidence, RuleId) {
         (self.severity, self.confidence, self.rule)
+    }
+
+    /// What to call this rule anywhere a reader or a machine sees it. A rule the
+    /// project wrote carries its own name on the evidence, because the enum has one
+    /// variant for all of them.
+    pub fn slug(&self) -> &str {
+        match &self.evidence {
+            Evidence::Custom { id, .. } => id,
+            _ => self.rule.slug(),
+        }
+    }
+
+    pub fn category(&self) -> crate::rule::Category {
+        match &self.evidence {
+            Evidence::Custom { family, .. } => *family,
+            _ => self.rule.spec().category,
+        }
     }
 }

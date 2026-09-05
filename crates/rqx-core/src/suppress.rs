@@ -102,7 +102,7 @@ impl Suppression {
     fn names(&self, finding: &Finding) -> bool {
         self.rules.is_empty()
             || self.rules.iter().any(|named| {
-                named == finding.rule.slug() || named == finding.rule.spec().category.slug()
+                named == finding.slug() || named == finding.category().slug()
             })
     }
 }

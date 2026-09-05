@@ -6,6 +6,7 @@ pub mod classes;
 pub mod cpp;
 pub mod go;
 pub mod hierarchy;
+pub mod custom;
 pub mod hygiene;
 pub mod java;
 pub mod metrics;
@@ -322,6 +323,14 @@ pub fn analyze_as(
         rules::check_parameter(parameter, &builder, &mut findings);
     }
     rules::check_hygiene(&hygiene, &builder, &mut findings);
+    custom::run(
+        language,
+        source,
+        root,
+        &config.custom,
+        &builder,
+        &mut findings,
+    );
     for class in &classes {
         rules::check_class_shape(class, &builder, &mut findings);
     }

@@ -63,7 +63,7 @@ pub fn render(verified: &Verified, palette: Palette, out: &mut dyn Write) -> Res
                 palette.style(ink(&change.outcome)),
                 format!("{:11}", change.outcome.slug())
             ),
-            paint(palette.style(Ink::Accent), change.rule.slug())
+            paint(palette.style(Ink::Accent), &change.slug)
         )?;
         writeln!(
             out,
@@ -205,7 +205,7 @@ pub fn json(verified: &Verified, out: &mut dyn Write) -> Result<()> {
             json!({
                 "kind": "change",
                 "outcome": change.outcome.slug(),
-                "rule": change.rule.slug(),
+                "rule": change.slug,
                 "subject": change.subject,
                 "before": change.before.as_ref().map(ToString::to_string),
                 "after": change.after.as_ref().map(ToString::to_string),

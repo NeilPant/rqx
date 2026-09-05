@@ -51,21 +51,32 @@ fn severity_of(severity: Severity) -> DiagnosticSeverity {
 }
 
 fn message_for(finding: &Finding) -> String {
-    let spec = finding.rule.spec();
     let confidence = match finding.confidence {
         Confidence::Verified => "",
         Confidence::Heuristic => " (measured threshold)",
         Confidence::Low => " (low confidence)",
     };
-    format!(
-        "{}{confidence}\n\n{}\n\nFix: {}",
-        finding.evidence, spec.why, finding.fix_hint
-    )
+    // A rule the project wrote says everything it has to say in its message; the
+    // catalogue's rationale is not its rationale.
+    let why = match &finding.evidence {
+        rqx_core::finding::Evidence::Custom { .. } => String::new(),
+        _ => format!("\n\n{}", finding.rule.spec().why),
+    };
+    let fix = if finding.fix_hint.is_empty() {
+        String::new()
+    } else {
+        format!("\n\nFix: {}", finding.fix_hint)
+    };
+    format!("{}{confidence}{why}{fix}", finding.evidence)
 }
 
 /// The generated reference is one page per family with a heading per rule, so the
 /// anchor a client follows is the rule's own slug.
 fn reference_for(finding: &Finding) -> Option<CodeDescription> {
+    // A rule the project wrote is not in the reference, so there is nothing to link.
+    if matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
+        return None;
+    }
     let spec = finding.rule.spec();
     let href = format!("{REFERENCE}/{}.md#{}", spec.category.slug(), spec.slug);
     Some(CodeDescription {
@@ -112,15 +123,15 @@ fn of_finding(
     Diagnostic {
         range: range_at(index, encoding, &finding.location),
         severity: Some(severity_of(finding.severity)),
-        code: Some(NumberOrString::String(spec.slug.to_owned())),
+        code: Some(NumberOrString::String(finding.slug().to_owned())),
         code_description: reference_for(finding),
         source: Some(SOURCE.to_owned()),
         message: message_for(finding),
         related_information: (!related.is_empty()).then_some(related),
         tags: unnecessary.then(|| vec![DiagnosticTag::UNNECESSARY]),
         data: Some(serde_json::json!({
-            "rule": spec.slug,
-            "category": spec.category.slug(),
+            "rule": finding.slug(),
+            "category": finding.category().slug(),
         })),
     }
 }

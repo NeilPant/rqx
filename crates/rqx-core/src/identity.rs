@@ -20,7 +20,7 @@ impl Identity {
     /// identity, which is what a reporter that re-reports on drift wants.
     pub fn exact(finding: &Finding) -> Self {
         Self(fnv1a(&[
-            finding.rule.slug(),
+            finding.slug(),
             &finding.location.file,
             &finding.evidence.to_string(),
         ]))
@@ -77,6 +77,9 @@ impl Evidence {
     /// new variant has to say whether it names something.
     pub fn subject(&self) -> Option<&str> {
         match self {
+            // A query names whatever it matched; the span's own text is the subject,
+            // and `resolved` supplies it.
+            Self::Custom { .. } => None,
             Self::Name { identifier, .. } => Some(identifier),
             Self::UnusedExport { symbol, .. } => Some(symbol),
             Self::UnusedParameter { name, .. }
@@ -141,6 +144,8 @@ impl Evidence {
     /// The one number a threshold compares against, when there is one.
     pub fn magnitude(&self) -> Option<u32> {
         match self {
+            // A query either matched or did not; there is no number to shrink.
+            Self::Custom { .. } => None,
             Self::CognitiveComplexity { score, .. } => Some(*score),
             Self::StatementCount { count, .. } | Self::ParameterCount { count, .. } => Some(*count),
             Self::NestingDepth { depth, .. } | Self::MessageChain { depth, .. } => Some(*depth),

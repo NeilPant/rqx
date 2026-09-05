@@ -157,6 +157,23 @@ pub struct RuleSpec {
 /// Declares the whole catalogue in one table. Every field is mandatory, so a rule
 /// that omits its metric or its fix fails to compile — the traceability
 /// gate is the type system, not a review checklist.
+/// What every project-written rule shares. The parts that differ — the slug, the
+/// family, the severity — are on the finding, not here.
+const CUSTOM: RuleSpec = RuleSpec {
+    id: RuleId::Custom,
+    slug: "custom",
+    category: Category::Safety,
+    analysis: Analysis::Syntax,
+    metric: "a tree-sitter query this project wrote",
+    fixes: &[],
+    autofix: Autofix::Refactoring,
+    confidence: Confidence::Verified,
+    severity: Severity::Warning,
+    why: "this project asked to be told about it",
+    off_by_default: false,
+    not_applicable: &[],
+};
+
 macro_rules! catalogue {
     ($(
         $variant:ident {
@@ -175,13 +192,22 @@ macro_rules! catalogue {
     ),+ $(,)?) => {
         #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
         #[serde(rename_all = "kebab-case")]
-        pub enum RuleId { $($variant),+ }
+        pub enum RuleId {
+            $($variant,)+
+            /// A rule the project wrote, not one rqx ships. Its slug, family and
+            /// severity live on the finding's evidence, because they are data a
+            /// config supplied rather than a spec the compiler checked. Deliberately
+            /// outside `ALL`, so nothing that enumerates the catalogue has to know
+            /// about it.
+            Custom,
+        }
 
         impl RuleId {
             pub const ALL: &'static [RuleId] = &[$(RuleId::$variant),+];
 
             pub const fn spec(self) -> &'static RuleSpec {
                 match self {
+                    Self::Custom => &CUSTOM,
                     $(Self::$variant => &RuleSpec {
                         id: Self::$variant,
                         slug: $slug,

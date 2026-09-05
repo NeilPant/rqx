@@ -77,6 +77,10 @@ impl Consistency {
 #[derive(Clone, Debug)]
 pub struct Change {
     pub rule: RuleId,
+    /// What the rule is called. Held rather than derived, because a rule the project
+    /// wrote has its name on the finding and the finding is gone by the time this is
+    /// rendered.
+    pub slug: String,
     pub subject: String,
     pub before: Option<SourceRange>,
     pub after: Option<SourceRange>,
@@ -190,6 +194,7 @@ pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -
             };
             changes.push(Change {
                 rule: old.finding.rule,
+                slug: old.finding.slug().to_owned(),
                 subject: old.subject.clone(),
                 before: Some(old.finding.location.clone()),
                 after: Some(new.finding.location.clone()),
@@ -213,6 +218,7 @@ pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -
             matched.insert(index);
             changes.push(Change {
                 rule: old.finding.rule,
+                slug: old.finding.slug().to_owned(),
                 subject: old.subject.clone(),
                 before: Some(old.finding.location.clone()),
                 after: Some(new.finding.location.clone()),
@@ -227,6 +233,7 @@ pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -
         let technique = consistency(old.finding, &shapes);
         changes.push(Change {
             rule: old.finding.rule,
+            slug: old.finding.slug().to_owned(),
             subject: old.subject.clone(),
             before: Some(old.finding.location.clone()),
             after: None,
@@ -241,6 +248,7 @@ pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -
         }
         changes.push(Change {
             rule: new.finding.rule,
+            slug: new.finding.slug().to_owned(),
             subject: new.subject.clone(),
             before: None,
             after: Some(new.finding.location.clone()),
@@ -252,7 +260,7 @@ pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -
     changes.sort_by(|left, right| {
         left.rule
             .slug()
-            .cmp(right.rule.slug())
+            .cmp(&right.slug)
             .then(left.subject.cmp(&right.subject))
     });
 
@@ -280,13 +288,13 @@ pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -
 fn matches(change: &Change, wanted: &str) -> bool {
     match wanted.split_once('@') {
         Some((rule, file)) => {
-            change.rule.slug() == rule
+            change.slug == rule
                 && change
                     .before
                     .as_ref()
                     .is_some_and(|range| &*range.file == file)
         }
-        None => change.rule.slug() == wanted,
+        None => change.slug == wanted,
     }
 }
 

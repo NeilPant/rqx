@@ -80,7 +80,7 @@ impl Findings {
                 let (left, right) = (&outcome.findings[*a], &outcome.findings[*b]);
                 left.rule
                     .slug()
-                    .cmp(right.rule.slug())
+                    .cmp(right.slug())
                     .then(left.location.line.cmp(&right.location.line))
             }),
         }
@@ -176,7 +176,7 @@ impl Screen for Findings {
                         Style::new().fg(palette.color(severity_ink(finding.severity))),
                     ),
                     Span::styled(
-                        finding.rule.slug().to_owned(),
+                        finding.slug().to_owned(),
                         Style::new().fg(palette.color(Ink::Accent)),
                     ),
                     Span::styled(finding.location.to_string(), palette.dim()),

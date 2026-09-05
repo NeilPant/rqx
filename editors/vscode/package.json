@@ -30,35 +30,35 @@
         "icon": "$(sync)"
       },
       {
-        "command": "rqx.check",
+        "command": "rqx.reviewDiff",
         "title": "Review the Diff",
         "category": "Rqx",
         "icon": "$(git-compare)"
       },
       {
-        "command": "rqx.explain",
+        "command": "rqx.explainRule",
         "title": "Explain the Rule at the Cursor",
         "category": "Rqx",
         "icon": "$(book)"
       },
       {
-        "command": "rqx.startHere",
+        "command": "rqx.openStartHere",
         "title": "Open What Matters First",
         "category": "Rqx",
         "icon": "$(target)"
       },
       {
-        "command": "rqx.disableRule",
+        "command": "rqx.disableRuleHere",
         "title": "Disable the Rule at the Cursor",
         "category": "Rqx"
       },
       {
-        "command": "rqx.togglePatterns",
+        "command": "rqx.togglePatternAdvice",
         "title": "Toggle Design Pattern Advice",
         "category": "Rqx"
       },
       {
-        "command": "rqx.toggleCodeLens",
+        "command": "rqx.toggleLens",
         "title": "Toggle Code Lens",
         "category": "Rqx"
       },
@@ -86,34 +86,34 @@
         "mac": "cmd+alt+r s"
       },
       {
-        "command": "rqx.check",
+        "command": "rqx.reviewDiff",
         "key": "ctrl+alt+r c",
         "mac": "cmd+alt+r c"
       },
       {
-        "command": "rqx.explain",
+        "command": "rqx.explainRule",
         "key": "ctrl+alt+r e",
         "mac": "cmd+alt+r e",
         "when": "editorTextFocus"
       },
       {
-        "command": "rqx.startHere",
+        "command": "rqx.openStartHere",
         "key": "ctrl+alt+r h",
         "mac": "cmd+alt+r h"
       },
       {
-        "command": "rqx.disableRule",
+        "command": "rqx.disableRuleHere",
         "key": "ctrl+alt+r d",
         "mac": "cmd+alt+r d",
         "when": "editorTextFocus"
       },
       {
-        "command": "rqx.togglePatterns",
+        "command": "rqx.togglePatternAdvice",
         "key": "ctrl+alt+r p",
         "mac": "cmd+alt+r p"
       },
       {
-        "command": "rqx.toggleCodeLens",
+        "command": "rqx.toggleLens",
         "key": "ctrl+alt+r l",
         "mac": "cmd+alt+r l"
       },
@@ -158,7 +158,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "rqx.check",
+          "command": "rqx.reviewDiff",
           "when": "view == rqx.panel",
           "group": "navigation@2"
         }

@@ -1,6 +1,5 @@
 use anyhow::Result;
 use rqx_core::finding::{Finding, Severity, SourceRange};
-use rqx_core::rule::RuleId;
 use serde_json::{Value, json};
 
 const SCHEMA: &str = "https://json.schemastore.org/sarif-2.1.0.json";
@@ -34,38 +33,49 @@ fn location(range: &SourceRange, prefix: &str) -> Value {
     })
 }
 
-fn rule_descriptor(rule: RuleId) -> Value {
-    let spec = rule.spec();
+/// Built from a finding rather than from a `RuleId`, because a rule the project
+/// wrote has no spec: its name, family and message travel with the finding, and
+/// describing them all under one id would collapse them into one rule in the UI.
+fn rule_descriptor(finding: &Finding) -> Value {
+    let spec = finding.rule.spec();
+    let slug = finding.slug();
+    let family = finding.category();
+    let (metric, why) = match &finding.evidence {
+        rqx_core::finding::Evidence::Custom { message, .. } => {
+            (message.as_str(), "this project asked to be told about it")
+        }
+        _ => (spec.metric, spec.why),
+    };
     let tags = vec![
         "rqx".to_owned(),
         "maintainability".to_owned(),
-        spec.category.slug().to_owned(),
+        family.slug().to_owned(),
     ];
     json!({
-        "id": spec.slug,
-        "name": spec.slug,
-        "shortDescription": { "text": spec.metric },
-        "fullDescription": { "text": spec.why },
+        "id": slug,
+        "name": slug,
+        "shortDescription": { "text": metric },
+        "fullDescription": { "text": why },
         "help": {
             "text": format!(
-                "{}\n\nFix: {}\nMetric: {}",
-                spec.why,
+                "{why}\n\nFix: {}\nMetric: {metric}",
                 spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>().join(" / "),
-                spec.metric
             )
         },
-        "defaultConfiguration": { "level": level(spec.severity) },
-        "properties": { "tags": tags, "problem.severity": level(spec.severity) }
+        "defaultConfiguration": { "level": level(finding.severity) },
+        "properties": { "tags": tags, "problem.severity": level(finding.severity) }
     })
 }
 
 fn result(finding: &Finding, prefix: &str) -> Value {
     let spec = finding.rule.spec();
     let mut value = json!({
-        "ruleId": spec.slug,
+        "ruleId": finding.slug(),
         "level": level(finding.severity),
         "message": {
             "text": format!("{} {} Fix: {}", finding.evidence, spec.why, finding.fix_hint)
+                .trim_end()
+                .to_owned()
         },
         "locations": [location(&finding.location, prefix)],
         "properties": {
@@ -95,13 +105,13 @@ fn document(
 ) -> Result<String> {
     // Only rules that actually fired are described, so the report does not carry a
     // catalogue of rules the run had nothing to say about.
-    let mut fired: Vec<RuleId> = findings
+    let mut fired: Vec<&Finding> = findings
         .iter()
-        .map(|finding| finding.rule)
-        .chain(waived.iter().map(|waived| waived.finding.rule))
+        .copied()
+        .chain(waived.iter().map(|waived| &waived.finding))
         .collect();
-    fired.sort();
-    fired.dedup();
+    fired.sort_by_key(|finding| finding.slug().to_owned());
+    fired.dedup_by_key(|finding| finding.slug().to_owned());
 
     // SARIF carries suppression as a property of the result rather than as an
     // absence, so a waived finding is reported and marked rather than dropped —
@@ -127,7 +137,7 @@ fn document(
                 "name": "rqx",
                 "version": env!("CARGO_PKG_VERSION"),
                 "informationUri": "https://github.com/jadhamwi21/rqx",
-                "rules": fired.iter().map(|rule| rule_descriptor(*rule)).collect::<Vec<_>>()
+                "rules": fired.iter().map(|finding| rule_descriptor(finding)).collect::<Vec<_>>()
             }},
             "results": results
         }]
@@ -153,6 +163,7 @@ mod tests {
     use std::sync::Arc;
 
     use rqx_core::finding::{Confidence, Evidence};
+    use rqx_core::rule::RuleId;
 
     use super::*;
 

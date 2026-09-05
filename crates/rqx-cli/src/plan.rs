@@ -154,11 +154,11 @@ mod tests {
         ]);
         let first: Vec<&str> = rank(&outcome, None, 10)
             .iter()
-            .map(|item| item.finding.rule.slug())
+            .map(|item| item.finding.slug())
             .collect();
         let second: Vec<&str> = rank(&outcome, None, 10)
             .iter()
-            .map(|item| item.finding.rule.slug())
+            .map(|item| item.finding.slug())
             .collect();
         assert_eq!(first, second);
     }

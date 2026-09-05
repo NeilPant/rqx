@@ -385,7 +385,7 @@ fn source_fixes(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrC
             })
             .collect();
         actions.push(source_action(
-            format!("rqx: fix `{}`", finding.rule.slug()),
+            format!("rqx: fix `{}`", finding.slug()),
             WorkspaceEdit {
                 changes: Some(
                     [(params.text_document.uri.clone(), edits)]

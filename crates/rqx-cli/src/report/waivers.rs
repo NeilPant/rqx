@@ -46,7 +46,7 @@ pub fn render(
             out,
             "  {} {}  {}",
             paint(palette.style(severity_ink(finding.severity)), "\u{25cf}"),
-            paint(palette.style(Ink::Text), finding.rule.slug()),
+            paint(palette.style(Ink::Text), finding.slug()),
             paint(
                 dim,
                 format!("{}:{}", finding.location.file, finding.location.line)
@@ -84,8 +84,8 @@ pub fn json(root: &Path, outcome: &ScanOutcome, out: &mut dyn Write) -> Result<(
             out,
             "{}",
             json!({
-                "rule": waived.finding.rule.slug(),
-                "family": waived.finding.rule.spec().category.slug(),
+                "rule": waived.finding.slug(),
+                "family": waived.finding.category().slug(),
                 "file": waived.finding.location.file,
                 "line": waived.finding.location.line,
                 "severity": waived.finding.severity.label(),

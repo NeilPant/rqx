@@ -10,7 +10,7 @@ use crate::report::Report;
 #[derive(Serialize)]
 struct Entry {
     description: String,
-    check_name: &'static str,
+    check_name: String,
     fingerprint: String,
     severity: &'static str,
     location: Location,
@@ -60,7 +60,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         .iter()
         .map(|finding| Entry {
             description: format!("{} — {}", finding.evidence, finding.rule.spec().why),
-            check_name: finding.rule.slug(),
+            check_name: finding.slug().to_owned(),
             fingerprint: {
                 let identity = Identity::exact(finding).to_string();
                 let repeat = seen.entry(identity).or_default();

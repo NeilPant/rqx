@@ -151,7 +151,7 @@ fn write_withheld(out: &mut dyn Write, palette: Palette, outcome: &Outcome) -> R
             writeln!(
                 out,
                 "     {}  {}",
-                paint(palette.style(Ink::Accent), finding.rule.slug()),
+                paint(palette.style(Ink::Accent), finding.slug()),
                 paint(palette.style(Ink::Muted), &finding.location)
             )?;
         }

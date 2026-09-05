@@ -10,6 +10,10 @@ use crate::report::Report;
 struct JsonFinding<'a> {
     #[serde(flatten)]
     finding: &'a Finding,
+    /// Written after the flattened finding so it wins: a rule the project wrote
+    /// serialises as `custom` from the enum, and a pipeline filtering on rule names
+    /// needs the name the project gave it.
+    rule: &'a str,
     why: &'static str,
     fixes: Vec<&'static str>,
     category: &'static str,
@@ -52,9 +56,10 @@ pub fn finding_of(finding: &Finding) -> impl Serialize + '_ {
     let spec = finding.rule.spec();
     JsonFinding {
         finding,
+        rule: finding.slug(),
         why: spec.why,
         fixes: spec.fixes.iter().map(|fix| fix.name()).collect(),
-        category: spec.category.slug(),
+        category: finding.category().slug(),
         metric: spec.metric,
     }
 }

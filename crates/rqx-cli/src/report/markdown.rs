@@ -60,7 +60,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
                 "- `{}:{}` **{}** — {}",
                 escape(&format!("{prefix}{}", finding.location.file)),
                 finding.location.line,
-                escape(finding.rule.slug()),
+                escape(finding.slug()),
                 escape(&finding.evidence.to_string())
             )?;
         }

@@ -259,7 +259,7 @@ mod tests {
         let mut found: Vec<String> = outcome
             .findings
             .iter()
-            .map(|finding| format!("{} {}", finding.rule.slug(), finding.location.file))
+            .map(|finding| format!("{} {}", finding.slug(), finding.location.file))
             .collect();
         found.sort();
         found

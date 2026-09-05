@@ -46,7 +46,7 @@ impl Baseline {
         let mut entries: Vec<Entry> = identities(outcome)
             .map(|(identity, finding)| Entry {
                 identity: identity.to_string(),
-                rule: finding.rule.slug().to_owned(),
+                rule: finding.slug().to_owned(),
                 file: finding.location.file.to_string(),
             })
             .collect();

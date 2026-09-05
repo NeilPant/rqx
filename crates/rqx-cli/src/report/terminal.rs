@@ -141,7 +141,7 @@ fn write_finding(
         out,
         "\n   {} {}  {}  {}",
         paint(palette.style(ink), "\u{25cf}"),
-        paint(palette.style(Ink::Accent), spec.slug),
+        paint(palette.style(Ink::Accent), finding.slug()),
         paint(
             palette.style(Ink::Muted),
             format!("{}:{}", finding.location.line, finding.location.column)
@@ -155,7 +155,11 @@ fn write_finding(
 
     let dim = palette.style(Ink::Muted);
     writeln!(out, "     {}", finding.evidence)?;
-    writeln!(out, "     {} {}", paint(dim, "Why: "), spec.why)?;
+    // A rule the project wrote has already said why in its own message; the
+    // catalogue's rationale belongs to a rule rqx ships.
+    if !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
+        writeln!(out, "     {} {}", paint(dim, "Why: "), spec.why)?;
+    }
     if let Some(cost) = cost {
         writeln!(
             out,
@@ -170,13 +174,22 @@ fn write_finding(
         .map(|fix| fix.name())
         .collect::<Vec<_>>()
         .join(" / ");
-    writeln!(
-        out,
-        "     {} {} \u{2014} {}",
-        paint(dim, "Fix: "),
-        paint(palette.style(Ink::Good), techniques),
-        finding.fix_hint
-    )?;
+    if !techniques.is_empty() || !finding.fix_hint.is_empty() {
+        let named = if techniques.is_empty() || finding.fix_hint.is_empty() {
+            format!(
+                "{}{}",
+                paint(palette.style(Ink::Good), &techniques),
+                finding.fix_hint
+            )
+        } else {
+            format!(
+                "{} \u{2014} {}",
+                paint(palette.style(Ink::Good), &techniques),
+                finding.fix_hint
+            )
+        };
+        writeln!(out, "     {} {named}", paint(dim, "Fix: "))?;
+    }
 
     for site in &finding.related {
         writeln!(out, "     {} {site}", paint(dim, "also at"))?;
