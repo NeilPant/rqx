@@ -101,6 +101,7 @@ pub fn render(report: &Report<'_>, settings: &Resolved, out: &mut dyn Write) -> 
 /// cannot answer rather than an empty table it presents as real.
 const SHIM: &str = r#"
 (function () {
+  window.__rqxStatic = true;
   var held = JSON.parse(document.getElementById('rqx-payloads').textContent);
   window.fetch = function (input) {
     var url = String(input && input.url ? input.url : input);

@@ -8,11 +8,19 @@ use crate::finding::{Confidence, Finding, Severity};
 use crate::impact::ImpactMap;
 use crate::rule::RuleId;
 
-/// Weighted findings per 1000 LOC at which the score decays to 1/e. Crude and
-/// deliberately so: the churn and blast-radius weighting that makes a score mean
-/// something is a later phase, and a tunable constant is cheaper to replace than
-/// a curve fitted to guesses.
-const DECAY_DENSITY: f64 = 20.0;
+/// Weighted findings per 1000 LOC at which the score decays to 1/e.
+///
+/// Measured rather than guessed. Two codebases nobody would call bad — a 457,000-line
+/// product and this repository's own editor extension — both sit at about 150 weighted
+/// findings per thousand lines with the whole catalogue on. The constant is set so
+/// that density scores fifty: ordinary working software gets half marks, which says
+/// there is real work available without saying the code is broken. A corpus written
+/// to be bad measures four times that and scores five.
+///
+/// It moves when the catalogue does. A hundred and ten rules were added at once and
+/// the old constant, chosen for seventy-five, read zero for every real project —
+/// which ranks nothing and shows no movement, so it measured nothing at all.
+const DECAY_DENSITY: f64 = 216.0;
 
 /// Added to the denominator because without it a 45-line file with three warnings
 /// is extrapolated to a whole-repo rate and scores zero. Negligible at real sizes.
@@ -264,11 +272,11 @@ mod tests {
         for _ in 0..3 {
             counts.record(&finding(Severity::Warning, Confidence::Heuristic));
         }
+        // Without the smoothing this is 67 weighted findings per thousand lines and
+        // scores in the twenties; three warnings in a short file is a little to do,
+        // not a repository in trouble.
         let score = counts.health_score(45);
-        assert!(
-            (30..=70).contains(&score),
-            "3 warnings in 45 lines scored {score}"
-        );
+        assert!(score > 80, "3 warnings in 45 lines scored {score}");
     }
 
     #[test]

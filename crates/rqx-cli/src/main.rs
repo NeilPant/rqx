@@ -1184,6 +1184,11 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;
+            // The page is the whole report, so the display cap has no business in it:
+            // a file the reader scrolls is not a terminal they are protecting.
+            if sinks.iter().any(|sink| sink.reporter == Reporter::Html) {
+                settings.config.scan.max_findings = 0;
+            }
             let filter = filter_of(&view, &path)?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
                 let outcome = scan::scan(&path, settings)?;

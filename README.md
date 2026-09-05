@@ -365,6 +365,9 @@ A dashboard on `127.0.0.1`, updated as you save. It re-analyses the file you tou
 and nothing else — a save costs about 6 ms on a small project, and the page shows the
 change within one poll interval.
 
+![The dashboard's overview: a health score, the grade distribution, what each level would score, and what to open first](assets/dashboard.png)
+
+
 | Page | Shows |
 |---|---|
 | Overview | health, the trend, the grade distribution, what to open first, and what the project would score under each level |
@@ -825,9 +828,15 @@ rqx scan . \
   --fail-on error
 ```
 
-`terminal`, `json`, `sarif`, `junit`, `gitlab`, `github` and `markdown` — between
-JUnit XML and GitLab Code Quality that covers GitHub, GitLab, Jenkins, CircleCI,
-Azure Pipelines, Bitbucket and Buildkite natively. Copy-paste snippets for each
+`terminal`, `json`, `sarif`, `junit`, `gitlab`, `github`, `markdown` and `html` —
+between JUnit XML and GitLab Code Quality that covers GitHub, GitLab, Jenkins,
+CircleCI, Azure Pipelines, Bitbucket and Buildkite natively. `html` writes the whole
+dashboard as one file for anyone who will not run a server:
+
+```sh
+rqx scan . --reporter html=rqx-report.html
+```
+ Copy-paste snippets for each
 are in [docs/ci.md](docs/ci.md); `action.yml` wires up GitHub Actions in five
 lines.
 

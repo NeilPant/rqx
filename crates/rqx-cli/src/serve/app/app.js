@@ -2,6 +2,10 @@
    runtime dependencies, and a page that needed a bundler to exist would be a second
    toolchain in a repository that has one. */
 
+// A page written to a file has nothing to connect to, and says so rather than
+// spending the session claiming it is about to.
+const STATIC = Boolean(globalThis.__rqxStatic);
+
 const { h, render } = preact;
 const { useState, useEffect, useMemo, useRef, useCallback } = preactHooks;
 const html = htm.bind(h);
@@ -1788,8 +1792,8 @@ function App() {
         )}
         <div class="rail-foot">
           <span class="pulse">
-            <span class=${`dot ${connected ? "" : "stale"} ${beat ? "beat" : ""}`} key=${beat}></span>
-            ${connected ? "watching" : "reconnecting"}
+            <span class=${`dot ${connected || STATIC ? "" : "stale"} ${beat ? "beat" : ""}`} key=${beat}></span>
+            ${STATIC ? "snapshot" : connected ? "watching" : "reconnecting"}
           </span>
           <span>⌘K to jump</span>
         </div>
