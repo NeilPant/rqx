@@ -112,3 +112,22 @@ int shadowed(int rows) {
         return 1;
     }
 }
+
+class Level1 : public Overgrown {};
+class Level2 : public Level1 {};
+class Level3 : public Level2 {};
+class Level4 : public Level3 {};
+
+int halved(int total) {
+    // TODO: work out what happens to the remainder
+    return 7 / 2 + total;
+}
+
+int count_rows(int rows) {
+    return rows;
+}
+
+int ignored(int rows) {
+    int _ = count_rows(rows);
+    return rows;
+}

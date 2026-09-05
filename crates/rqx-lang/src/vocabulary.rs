@@ -469,6 +469,36 @@ pub fn says_nothing(label: &str) -> bool {
         || bare.chars().all(|c| c.is_ascii_digit())
 }
 
+/// A comment that records work still to do, and whether it says who or what will
+/// do it. A marker with nothing attached is a note to nobody.
+pub fn unattached_todo(text: &str) -> Option<&'static str> {
+    const MARKERS: [&str; 5] = ["TODO", "FIXME", "HACK", "XXX", "REVIEW"];
+    let marker = MARKERS.into_iter().find(|marker| text.contains(marker))?;
+    // A ticket, a name or a link is somebody to ask; a bare marker is not.
+    // A comment opens with `#` in some languages, so only a number behind it is a
+    // ticket rather than the comment's own marker.
+    let numbered = text
+        .split('#')
+        .skip(1)
+        .any(|rest| rest.starts_with(|c: char| c.is_ascii_digit()));
+    let attached = text.contains("http")
+        || text.contains('@')
+        || numbered
+        || text
+            .split(|c: char| !c.is_ascii_alphanumeric() && c != '-')
+            .any(|word| {
+                let mut halves = word.splitn(2, '-');
+                let (Some(project), Some(number)) = (halves.next(), halves.next()) else {
+                    return false;
+                };
+                project.len() >= 2
+                    && project.chars().all(|c| c.is_ascii_uppercase())
+                    && !number.is_empty()
+                    && number.chars().all(|c| c.is_ascii_digit())
+            });
+    (!attached).then_some(marker)
+}
+
 /// An apology is a comment that knows the code is wrong and leaves it that way.
 pub fn apology(text: &str) -> Option<&'static str> {
     const REGRETS: [&str; 6] = [

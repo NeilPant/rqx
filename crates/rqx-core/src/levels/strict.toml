@@ -24,6 +24,7 @@ cyclomatic_complexity = 8
 max_results = 3
 class_collaborators = 6
 log_percent = 30
+inheritance_depth = 2
 condition_operands = 2
 message_chain_depth = 2
 magic_number_repeats = 2

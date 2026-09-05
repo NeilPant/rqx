@@ -247,7 +247,7 @@ impl RuleId {
     /// import graph, and three that are computed across files by the scan although
     /// they declare `Syntax` — clones, and the two churn rules. Listed by id because
     /// `analysis` alone would miss those three.
-    pub const PROJECT_SCOPED: [Self; 14] = [
+    pub const PROJECT_SCOPED: [Self; 15] = [
         Self::ParallelInheritance,
         Self::UnusedExport,
         Self::UnusedFile,
@@ -262,6 +262,7 @@ impl RuleId {
         Self::ShotgunSurgery,
         Self::Hotspot,
         Self::SingleAuthorFile,
+        Self::DeepInheritance,
     ];
 
     pub fn is_project_scoped(self) -> bool {

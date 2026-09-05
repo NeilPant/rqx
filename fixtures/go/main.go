@@ -17,6 +17,8 @@ func main() {
 	_ = fixtures.Paced
 	_ = fixtures.Prunes
 	_ = FreshTotal
+	_ = Halved
+	_ = Ignored
 	_ = AsksTwice
 	_ = Joined
 	_ = fixtures.ForwardOrbit

@@ -3767,6 +3767,75 @@ impl<'a> Walker<'a> {
         }
     }
 
+    /// Dividing one whole number by another. The remainder goes and nothing in the
+    /// line says it was meant to.
+    fn note_integer_division(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        if operator_of(node, self.source) != Some("/") {
+            return;
+        }
+        let Some((left, right)) = operands_of(node) else {
+            return;
+        };
+        let whole = |side: Node<'a>| {
+            let side = self.see_through(side);
+            profile.number_kinds.contains(&side.kind())
+                && !self.text(side).contains(['.', 'e', 'E'])
+        };
+        if !whole(left) || !whole(right) {
+            return;
+        }
+        self.out.integer_divisions.push(Spot {
+            span: span_of(node),
+            detail: squashed(self.text(node)),
+            count: 1,
+        });
+    }
+
+    /// A call whose answer is put somewhere nobody reads. The name says the author
+    /// saw the answer and decided not to look at it.
+    fn note_discarded_error(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(target) = node.child_by_field_name("left").or_else(|| {
+            profile
+                .binding_fields
+                .iter()
+                .find_map(|field| node.child_by_field_name(field))
+        }) else {
+            return;
+        };
+        let target = if profile.expression_list_kinds.contains(&target.kind()) {
+            target.named_child(0).unwrap_or(target)
+        } else {
+            target
+        };
+        if !profile.is_ignored_name(self.text(target)) || self.text(target).len() > 2 {
+            return;
+        }
+        let Some(value) = node
+            .child_by_field_name("right")
+            .or_else(|| node.child_by_field_name("value"))
+            .map(|node| self.see_through(node))
+        else {
+            return;
+        };
+        let value = if profile.expression_list_kinds.contains(&value.kind()) {
+            value.named_child(0).unwrap_or(value)
+        } else {
+            value
+        };
+        if !profile.is_call(value) {
+            return;
+        }
+        self.out.discarded_errors.push(Spot {
+            span: span_of(node),
+            detail: self
+                .called_name(value)
+                .unwrap_or_else(|| "the call".to_owned()),
+            count: 1,
+        });
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -4542,6 +4611,7 @@ impl<'a> Walker<'a> {
         if profile.binary_kinds.contains(&kind) {
             self.note_comparison(node);
             self.note_ambiguous_precedence(node);
+            self.note_integer_division(node);
         }
         if kind == "expression_statement" {
             self.note_discarded_expression(node);
@@ -4561,6 +4631,12 @@ impl<'a> Walker<'a> {
         if kind == "declaration" {
             self.note_declaration(node);
             self.note_regex_declaration(node);
+        }
+        if profile.assignment_kinds.contains(&kind)
+            || profile.local_declaring_kinds.contains(&kind)
+            || profile.declarator_kinds.contains(&kind)
+        {
+            self.note_discarded_error(node);
         }
         if profile.assignment_kinds.contains(&kind) {
             self.note_copy_accumulation(node);
@@ -4946,6 +5022,12 @@ fn scan_comments(
             out.banner_comments.push(Spot {
                 span,
                 detail: String::new(),
+                count: 1,
+            });
+        } else if let Some(marker) = crate::vocabulary::unattached_todo(text) {
+            out.orphan_todos.push(Spot {
+                span,
+                detail: marker.to_owned(),
                 count: 1,
             });
         } else if let Some(marker) = journal_marker(text) {

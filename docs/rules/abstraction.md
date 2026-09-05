@@ -312,6 +312,29 @@ export class ReportBuilder {
 
 rqx says: make it that method's own, or move the method to whatever the field belongs with
 
+## `deep-inheritance`
+
+answering what one method does means reading every type above it, and a change to any of them reaches every type below
+
+| | |
+|---|---|
+| Measures | types above one type in its own hierarchy |
+| Reported as | warning, verified |
+| Reads | the import graph across every file |
+| Fix | Replace Inheritance with Composition / Collapse Hierarchy |
+| Tuned by | `thresholds.inheritance_depth` |
+| Not in Go | there is no inheritance to climb |
+
+From `fixtures/typescript/hierarchy.ts`, line 40:
+
+```ts
+class Level3 extends Level2 {}
+export class Level4 extends Level3 {}
+
+```
+
+rqx says: give it what it needs as a collaborator, so the answer is one object away rather than four types up
+
 ## `empty-subclass`
 
 it is a second name for the thing it came from, and a reader has to open it to find that out

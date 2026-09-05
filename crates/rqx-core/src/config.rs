@@ -491,6 +491,7 @@ pub struct Thresholds {
     pub max_results: u32,
     pub class_collaborators: u32,
     pub log_percent: u32,
+    pub inheritance_depth: u32,
     pub max_exits: u32,
     pub max_cases: u32,
     pub min_cases: u32,
@@ -516,7 +517,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 42] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 43] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -545,6 +546,7 @@ impl Thresholds {
         ("max_results", &[RuleId::ManyResults]),
         ("class_collaborators", &[RuleId::ManyCollaborators]),
         ("log_percent", &[RuleId::OverLogging]),
+        ("inheritance_depth", &[RuleId::DeepInheritance]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),
         ("min_cases", &[RuleId::TinySwitch]),
@@ -610,6 +612,7 @@ impl Default for Thresholds {
             max_results: 3,
             class_collaborators: 8,
             log_percent: 40,
+            inheritance_depth: 3,
             max_exits: 4,
             max_cases: 12,
             min_cases: 3,
@@ -1135,6 +1138,7 @@ mod tests {
                     t.max_results,
                     t.class_collaborators,
                     t.log_percent,
+                    t.inheritance_depth,
                     t.max_exits,
                     t.max_cases,
                     t.min_cases,

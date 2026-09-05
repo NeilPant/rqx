@@ -132,3 +132,17 @@ func Overwritten(value int) int {
 	total = value * 2
 	return total
 }
+
+func Halved(total int) int {
+	// TODO: work out what happens to the remainder
+	return 7/2 + total
+}
+
+func Ignored(rows []int) int {
+	_ = countRows(rows)
+	return len(rows)
+}
+
+func countRows(rows []int) int {
+	return len(rows)
+}

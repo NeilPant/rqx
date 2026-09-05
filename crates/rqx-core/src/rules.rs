@@ -1393,6 +1393,43 @@ pub fn check_hygiene(
             "log the decision and the failure; the steps between are the code".to_owned(),
         );
     }
+    for spot in &hygiene.orphan_todos {
+        emit(
+            out,
+            RuleId::OrphanTodo,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "names nobody and no ticket".to_owned(),
+            },
+            "put a ticket or a name on it, or do the thing and delete it".to_owned(),
+        );
+    }
+    for spot in &hygiene.integer_divisions {
+        emit(
+            out,
+            RuleId::IntegerDivision,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` divides one whole number by another", spot.detail),
+            },
+            "say what happens to the remainder, by rounding on purpose or dividing \
+             as a fraction"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.discarded_errors {
+        emit(
+            out,
+            RuleId::DiscardedError,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "answers something the line throws away".to_owned(),
+            },
+            "handle what it answered, or say in the code why there is nothing to do".to_owned(),
+        );
+    }
     for spot in &hygiene.crowded_functions {
         emit(
             out,

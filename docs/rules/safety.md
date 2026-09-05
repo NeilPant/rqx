@@ -295,6 +295,48 @@ export function loops(rows: number[]): number {
 
 rqx says: give `loops` the case that answers without calling itself
 
+## `integer-division`
+
+the remainder goes and nothing on the line says it was meant to, so a reader has to know the types to know whether the answer is right
+
+| | |
+|---|---|
+| Measures | one whole number divided by another |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+
+From `fixtures/typescript/hierarchy.ts`, line 44:
+
+```ts
+  // TODO: work out what happens to the remainder
+  return 7 / 2 + total;
+}
+```
+
+rqx says: say what happens to the remainder, by rounding on purpose or dividing as a fraction
+
+## `discarded-error`
+
+the author saw the answer and decided not to look at it, and nothing records what happens when the call fails
+
+| | |
+|---|---|
+| Measures | a call whose answer is assigned to a name that means "ignore this" |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Decompose Conditional |
+
+From `fixtures/typescript/hierarchy.ts`, line 48:
+
+```ts
+export function ignored(rows: number[]): number {
+  const _ = countRows(rows);
+  return rows.length;
+```
+
+rqx says: handle what it answered, or say in the code why there is nothing to do
+
 ## `float-equality`
 
 a binary float almost never lands on the decimal a person wrote, so the branch that depends on it is decided by rounding rather than by the value

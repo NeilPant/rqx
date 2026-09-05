@@ -90,3 +90,24 @@ export class RailLogistics extends Logistics {
 
 rqx says: fold what varies into one hierarchy, so adding a case means one subclass rather than one in `Logistics` and one in `Transport`
 
+## `orphan-todo`
+
+there is no ticket to close and nobody to ask, so it stays until somebody deletes it without knowing what it was for
+
+| | |
+|---|---|
+| Measures | a note about work still to do with nobody attached to it |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/hierarchy.ts`, line 43:
+
+```ts
+export function halved(total: number): number {
+  // TODO: work out what happens to the remainder
+  return 7 / 2 + total;
+```
+
+rqx says: put a ticket or a name on it, or do the thing and delete it
+

@@ -1592,6 +1592,51 @@ catalogue! {
         why: "the body says more about what it is doing than it does, and the reader \
               has to separate the work from the commentary on every line",
     },
+    DeepInheritance {
+        slug: "deep-inheritance",
+        category: Abstraction,
+        analysis: Modules,
+        metric: "types above one type in its own hierarchy",
+        fixes: [ReplaceInheritanceWithComposition, CollapseHierarchy],
+        confidence: Verified,
+        severity: Warning,
+        why: "answering what one method does means reading every type above it, and \
+              a change to any of them reaches every type below",
+        not_applicable: [(Go, "there is no inheritance to climb")],
+    },
+    OrphanTodo {
+        slug: "orphan-todo",
+        category: Change,
+        analysis: Syntax,
+        metric: "a note about work still to do with nobody attached to it",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "there is no ticket to close and nobody to ask, so it stays until \
+              somebody deletes it without knowing what it was for",
+    },
+    IntegerDivision {
+        slug: "integer-division",
+        category: Safety,
+        analysis: Syntax,
+        metric: "one whole number divided by another",
+        fixes: [IntroduceAssertion],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the remainder goes and nothing on the line says it was meant to, so a \
+              reader has to know the types to know whether the answer is right",
+    },
+    DiscardedError {
+        slug: "discarded-error",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a call whose answer is assigned to a name that means \"ignore this\"",
+        fixes: [DecomposeConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "the author saw the answer and decided not to look at it, and nothing \
+              records what happens when the call fails",
+    },
     ManyLocals {
         slug: "many-locals",
         category: Size,
