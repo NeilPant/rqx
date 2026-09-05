@@ -1604,6 +1604,18 @@ catalogue! {
               a change to any of them reaches every type below",
         not_applicable: [(Go, "there is no inheritance to climb")],
     },
+    StaleTodo {
+        slug: "stale-todo",
+        category: Change,
+        analysis: Syntax,
+        metric: "days since the line holding a note about work still to do was last \
+                 written",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "a note nobody has touched in this long is not a plan, and every reader \
+              since has had to decide for themselves whether it still applies",
+    },
     OrphanTodo {
         slug: "orphan-todo",
         category: Change,

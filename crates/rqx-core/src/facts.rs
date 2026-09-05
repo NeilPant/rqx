@@ -166,6 +166,7 @@ pub struct Hygiene {
     pub unused_fixtures: Vec<Spot>,
     pub unchecked_stubs: Vec<Spot>,
     pub orphan_todos: Vec<Spot>,
+    pub todos: Vec<Spot>,
     pub integer_divisions: Vec<Spot>,
     pub discarded_errors: Vec<Spot>,
     pub float_equalities: Vec<Spot>,

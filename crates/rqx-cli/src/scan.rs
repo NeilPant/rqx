@@ -48,6 +48,7 @@ pub(crate) struct Analyzed {
     code_lines: u32,
     shape: rqx_lang::FileShape,
     suppressions: Vec<rqx_core::suppress::Suppression>,
+    todos: Vec<rqx_core::facts::Spot>,
 }
 
 #[derive(Clone)]
@@ -186,6 +187,9 @@ struct Collector {
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     suppressions: HashMap<Arc<str>, Vec<rqx_core::suppress::Suppression>>,
+    /// Where each file records work still to do, so the history pass can ask how
+    /// long each note has been there.
+    todos: HashMap<Arc<str>, Vec<rqx_core::facts::Spot>>,
     cycles: Vec<Vec<String>>,
     baseline: Option<Arc<std::collections::HashSet<rqx_core::Identity>>>,
     baseline_findings: Option<u32>,
@@ -239,6 +243,7 @@ impl Collector {
             findings_by_file: std::collections::BTreeMap::new(),
             lines_by_file: std::collections::BTreeMap::new(),
             suppressions: HashMap::new(),
+            todos: HashMap::new(),
             cycles: Vec::new(),
             baseline: None,
             baseline_findings: None,
@@ -553,6 +558,54 @@ impl Collector {
             .map(|module| (module.path.as_path(), module.language))
             .collect();
         let hierarchy = Hierarchy::of(&by_path);
+
+        // Collected first: accepting a finding borrows the collector, and the tree it
+        // reads borrows the modules.
+        let mut deep: Vec<(PathBuf, Span, String, u32)> = Vec::new();
+        for (name, declared) in hierarchy.declared() {
+            let mut depth = 0_u32;
+            let mut climbing = declared.facts.supertypes.first().map(String::as_str);
+            let mut seen = std::collections::BTreeSet::new();
+            while let Some(parent) = climbing {
+                if !seen.insert(parent) {
+                    break;
+                }
+                depth += 1;
+                climbing = hierarchy
+                    .get(parent)
+                    .and_then(|above| above.facts.supertypes.first().map(String::as_str));
+            }
+            if depth > config.thresholds.inheritance_depth {
+                deep.push((
+                    declared.path.to_path_buf(),
+                    declared.facts.span,
+                    (*name).to_owned(),
+                    depth,
+                ));
+            }
+        }
+        for (path, span, name, depth) in deep {
+            let Some(range) = at.range(&path, span) else {
+                continue;
+            };
+            self.accept_if_enabled(
+                config,
+                build(
+                    RuleId::DeepInheritance,
+                    range,
+                    Evidence::Breadth {
+                        counted: format!("types above `{name}`"),
+                        found: depth,
+                        limit: config.thresholds.inheritance_depth,
+                    },
+                    "give it what it needs as a collaborator, so the answer is one \
+                     object away rather than four types up"
+                        .to_owned(),
+                    Vec::new(),
+                ),
+            );
+        }
+
         for found in rqx_lang::hierarchy::shapes(&hierarchy) {
             let advisory = match found.kind {
                 Shape::FactoryMethod => rqx_core::AdviceId::FactoryMethodFound,
@@ -1036,6 +1089,49 @@ impl Collector {
                 continue;
             };
             self.impact.set_commits(Arc::from(relative), commits);
+        }
+
+        // One blame per file, and only for the files that hold a note: the per-line
+        // form costs a process each, and a repository with a thousand notes would
+        // spend the whole scan in git.
+        const MOST_FILES_WORTH_BLAMING: usize = 200;
+        let today = rqx_core::suppress::today();
+        let mut noted: Vec<(Arc<str>, Vec<rqx_core::facts::Spot>)> =
+            std::mem::take(&mut self.todos).into_iter().collect();
+        noted.sort_by(|left, right| left.0.cmp(&right.0));
+        noted.truncate(MOST_FILES_WORTH_BLAMING);
+        for (file, spots) in noted {
+            let dates = crate::history::blame_dates(&self.root, &file);
+            if dates.is_empty() {
+                continue;
+            }
+            let path = self.root.join(file.as_ref());
+            for spot in spots {
+                let Some(range) = at.range(&path, spot.span) else {
+                    continue;
+                };
+                let Some(written) = dates.get(&range.line) else {
+                    continue;
+                };
+                let age = rqx_core::suppress::days_between(written, &today);
+                if age < i64::from(config.thresholds.todo_age_days) {
+                    continue;
+                }
+                self.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::StaleTodo,
+                        range,
+                        Evidence::Breadth {
+                            counted: format!("days since this {} was written", spot.detail),
+                            found: age.unsigned_abs() as u32,
+                            limit: config.thresholds.todo_age_days,
+                        },
+                        "do it, ticket it, or delete it".to_owned(),
+                        Vec::new(),
+                    ),
+                );
+            }
         }
 
         // Collected first: accepting a finding borrows the collector, and the counts
@@ -1661,6 +1757,7 @@ pub(crate) fn collect(
                     code_lines,
                     shape,
                     suppressions,
+                    todos,
                 } = *file;
                 collector.files_scanned += 1;
                 collector.code_lines += u64::from(code_lines);
@@ -1671,6 +1768,9 @@ pub(crate) fn collect(
                     collector
                         .suppressions
                         .insert(Arc::clone(&shared), suppressions);
+                }
+                if !todos.is_empty() {
+                    collector.todos.insert(Arc::clone(&shared), todos);
                 }
                 for finding in findings {
                     collector.accept(finding);
@@ -1789,6 +1889,7 @@ pub(crate) fn analyze_file(
                         code_lines: analysis.code_lines,
                         shape: analysis.shape,
                         suppressions: analysis.suppressions,
+                        todos: analysis.todos,
                     }))
                 }
                 Err(error) => ScanMessage::Skipped {

@@ -90,6 +90,18 @@ export class RailLogistics extends Logistics {
 
 rqx says: fold what varies into one hierarchy, so adding a case means one subclass rather than one in `Logistics` and one in `Transport`
 
+## `stale-todo`
+
+a note nobody has touched in this long is not a plan, and every reader since has had to decide for themselves whether it still applies
+
+| | |
+|---|---|
+| Measures | days since the line holding a note about work still to do was last written |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+| Tuned by | `thresholds.todo_age_days` |
+
 ## `orphan-todo`
 
 there is no ticket to close and nobody to ask, so it stays until somebody deletes it without knowing what it was for

@@ -25,6 +25,7 @@ max_results = 2
 class_collaborators = 5
 log_percent = 25
 inheritance_depth = 2
+todo_age_days = 60
 condition_operands = 2
 message_chain_depth = 2
 magic_number_repeats = 2

@@ -90,6 +90,7 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `class_collaborators` | 8 | `many-collaborators` |
 | `log_percent` | 40 | `over-logging` |
 | `inheritance_depth` | 3 | `deep-inheritance` |
+| `todo_age_days` | 180 | `stale-todo` |
 | `max_exits` | 4 | `many-exits` |
 | `max_cases` | 12 | `wide-switch` |
 | `min_cases` | 3 | `tiny-switch` |

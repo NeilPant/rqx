@@ -809,7 +809,12 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
     // Measured against the repository the fixtures happen to live in rather than
     // against the fixtures, so their counts move with rqx's own commit history.
     // `history_rules_fire_on_a_repository_with_a_shared_decision` covers them.
-    let from_the_repository = ["hotspot", "single-author-file", "shotgun-surgery"];
+    let from_the_repository = [
+        "hotspot",
+        "single-author-file",
+        "shotgun-surgery",
+        "stale-todo",
+    ];
 
     let mut wrong = Vec::new();
     for (language, table) in expected {
@@ -1425,6 +1430,7 @@ fn every_applicable_rule_fires_on_every_language() {
     // `history_rules_fire_on_a_repository_with_a_shared_decision` and by
     // `tests/architecture.rs`.
     let history_backed: BTreeSet<String> = [
+        "stale-todo",
         "hotspot",
         "single-author-file",
         "shotgun-surgery",
@@ -1539,6 +1545,9 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
         r#"{"name":"h","main":"src/index.ts"}"#,
     )
     .unwrap();
+    // Every commit here is made now, so a note is never old by the calendar. The
+    // rule is what is under test, not the clock.
+    fs::write(root.join("RQX.toml"), "[thresholds]\ntodo_age_days = 0\n").unwrap();
     fs::write(
         root.join("src/index.ts"),
         "export { route } from \"./router\";\n",
@@ -1551,7 +1560,7 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
         fs::write(
             root.join("src/router.ts"),
             format!(
-                "export function route(kind: string) {{\n  const answer = {step};\n  return answer;\n}}\n"
+                "// TODO: give this a real table\nexport function route(kind: string) {{\n  const answer = {step};\n  return answer;\n}}\n"
             ),
         )
         .unwrap();
@@ -1583,6 +1592,12 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
     assert!(
         !sole.is_empty(),
         "a file only one person has ever edited should be reported\n{report}"
+    );
+
+    let stale = findings_for(&report, "stale-todo");
+    assert!(
+        !stale.is_empty(),
+        "a note older than the window should be reported\n{report}"
     );
 
     let hot = findings_for(&report, "hotspot");

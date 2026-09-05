@@ -187,6 +187,32 @@ pub fn civil_date(days: i64) -> String {
     format!("{year:04}-{month:02}-{day:02}")
 }
 
+/// Days from one civil date to another, both as `YYYY-MM-DD`. Zero when either is
+/// not a date, so an unreadable one is never reported as old.
+pub fn days_between(from: &str, to: &str) -> i64 {
+    let (Some(first), Some(second)) = (days_since_epoch(from), days_since_epoch(to)) else {
+        return 0;
+    };
+    second - first
+}
+
+/// A civil date to days since 1970-01-01, by Howard Hinnant's `days_from_civil`.
+fn days_since_epoch(text: &str) -> Option<i64> {
+    if !is_date(text) {
+        return None;
+    }
+    let mut parts = text.split('-');
+    let year: i64 = parts.next()?.parse().ok()?;
+    let month: i64 = parts.next()?.parse().ok()?;
+    let day: i64 = parts.next()?.parse().ok()?;
+    let year = year - i64::from(month <= 2);
+    let era = year.div_euclid(400);
+    let year_of_era = year - era * 400;
+    let day_of_year = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    Some(era * 146_097 + day_of_era - 719_468)
+}
+
 fn is_date(text: &str) -> bool {
     let mut parts = text.split('-');
     let mut digits = |width: usize| {

@@ -244,6 +244,56 @@ pub fn head(root: &Path) -> Option<String> {
 /// Who wrote one line, and when. One `git blame` per line asked about rather than
 /// per file, because the only caller wants a handful of lines out of a repository
 /// and blaming a whole file to read one of them is the slower way round.
+/// When each line of one file was last written, as a civil date. One `git blame`
+/// answers for the whole file, which is what makes this affordable on a scan: the
+/// per-line form costs a process each.
+pub fn blame_dates(root: &Path, file: &str) -> HashMap<u32, String> {
+    let Ok(output) = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["blame", "--porcelain", "--"])
+        .arg(file)
+        .output()
+    else {
+        return HashMap::new();
+    };
+    if !output.status.success() {
+        return HashMap::new();
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    // Porcelain names the commit on every line but describes it only once, so the
+    // dates are gathered by sha and joined to the lines afterwards.
+    let mut when: HashMap<&str, String> = HashMap::new();
+    let mut lines: Vec<(u32, &str)> = Vec::new();
+    let mut sha = "";
+    for entry in text.lines() {
+        if let Some((head, rest)) = entry.split_once(' ')
+            && head.len() == 40
+            && head.chars().all(|c| c.is_ascii_hexdigit())
+        {
+            sha = head;
+            if let Some(number) = rest
+                .split_whitespace()
+                .nth(1)
+                .and_then(|number| number.parse().ok())
+            {
+                lines.push((number, head));
+            }
+            continue;
+        }
+        if let Some(stamp) = entry.strip_prefix("author-time ")
+            && let Ok(seconds) = stamp.trim().parse::<i64>()
+        {
+            when.insert(sha, rqx_core::suppress::civil_date(seconds / 86_400));
+        }
+    }
+    let dates: HashMap<u32, String> = lines
+        .into_iter()
+        .filter_map(|(line, sha)| Some((line, when.get(sha)?.clone())))
+        .collect();
+    dates
+}
+
 pub fn blame_line(root: &Path, file: &str, line: u32) -> Option<(String, String)> {
     let output = Command::new("git")
         .arg("-C")

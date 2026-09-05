@@ -4992,6 +4992,15 @@ fn scan_comments(
                 count: 1,
             });
         }
+        // Recorded outside the chain below: how old a note is has nothing to do with
+        // which of the comment rules claims it.
+        if let Some(marker) = crate::vocabulary::todo_marker(text) {
+            out.todos.push(Spot {
+                span,
+                detail: marker.to_owned(),
+                count: 1,
+            });
+        }
         // Checked before the suppression-directive branch: rqx's own waiver is not
         // one of the diagnostics `suppressed-diagnostic` is meant to report.
         if let Some(waiver) = rqx_core::suppress::Suppression::parse(text, span) {

@@ -469,11 +469,16 @@ pub fn says_nothing(label: &str) -> bool {
         || bare.chars().all(|c| c.is_ascii_digit())
 }
 
-/// A comment that records work still to do, and whether it says who or what will
-/// do it. A marker with nothing attached is a note to nobody.
-pub fn unattached_todo(text: &str) -> Option<&'static str> {
+/// A comment that records work still to do.
+pub fn todo_marker(text: &str) -> Option<&'static str> {
     const MARKERS: [&str; 5] = ["TODO", "FIXME", "HACK", "XXX", "REVIEW"];
-    let marker = MARKERS.into_iter().find(|marker| text.contains(marker))?;
+    MARKERS.into_iter().find(|marker| text.contains(marker))
+}
+
+/// The same, when it says nothing about who or what will do it. A marker with
+/// nothing attached is a note to nobody.
+pub fn unattached_todo(text: &str) -> Option<&'static str> {
+    let marker = todo_marker(text)?;
     // A ticket, a name or a link is somebody to ask; a bare marker is not.
     // A comment opens with `#` in some languages, so only a number behind it is a
     // ticket rather than the comment's own marker.

@@ -82,6 +82,7 @@ max_results = 3
 class_collaborators = 8
 log_percent = 40
 inheritance_depth = 3
+todo_age_days = 180
 # Ways out of one function body, past the guard clauses at the top.
 max_exits = 4
 # Arms in one switch before it stops being a table a reader scans.

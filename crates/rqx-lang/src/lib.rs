@@ -99,6 +99,10 @@ pub struct FileAnalysis {
     /// because a waiver can name a rule only the whole project can decide.
     #[serde(default)]
     pub suppressions: Vec<rqx_core::suppress::Suppression>,
+    /// Where this file records work still to do. Carried out of the file because how
+    /// old a note is can only be answered by the repository.
+    #[serde(default)]
+    pub todos: Vec<rqx_core::facts::Spot>,
 }
 
 #[derive(Debug)]
@@ -472,6 +476,7 @@ pub fn analyze_as(
         code_lines: index.code_lines(),
         shape,
         suppressions: hygiene.waivers,
+        todos: hygiene.todos,
     })
 }
 
