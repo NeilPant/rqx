@@ -732,6 +732,7 @@ fn markdown(report: &Report<'_>) -> Result<String, McpError> {
     let layout = Layout {
         palette: Palette::with_depth(ColorDepth::Monochrome),
         show_passed: false,
+        stats: false,
         quiet: false,
         context: 0,
     };

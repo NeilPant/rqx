@@ -17,8 +17,81 @@ pub struct Layout {
     pub palette: Palette,
     pub show_passed: bool,
     pub quiet: bool,
+    /// Counts only: which rules and families fired, and how often. For deciding
+    /// where to look before reading a single finding.
+    pub stats: bool,
     /// Lines of unmarked code shown either side of the offence.
     pub context: u32,
+}
+
+/// The report with the findings taken out: what fired, where, and how often. The
+/// answer to "which of these forty rules is my actual problem" is a count, and
+/// reading five hundred findings to arrive at it is the slow way.
+fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
+    use std::collections::BTreeMap;
+    let palette = layout.palette;
+    let dim = palette.style(Ink::Muted);
+
+    let mut by_family: BTreeMap<&'static str, u32> = BTreeMap::new();
+    let mut by_rule: BTreeMap<String, (u32, Severity)> = BTreeMap::new();
+    for finding in &report.findings {
+        *by_family.entry(finding.category().slug()).or_default() += 1;
+        let entry = by_rule
+            .entry(finding.slug().to_owned())
+            .or_insert((0, finding.severity));
+        entry.0 += 1;
+    }
+
+    let mut families: Vec<(&str, u32)> = by_family.into_iter().collect();
+    families.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    let mut rules: Vec<(String, (u32, Severity))> = by_rule.into_iter().collect();
+    rules.sort_by(|a, b| b.1.0.cmp(&a.1.0).then(a.0.cmp(&b.0)));
+
+    let total = report.findings.len().max(1) as u32;
+    writeln!(
+        out,
+        "\n  {}  {}",
+        paint(palette.style(Ink::Text).bold(), "By family"),
+        paint(dim, plural(total, "finding", "findings"))
+    )?;
+    for (family, count) in &families {
+        writeln!(
+            out,
+            "    {:<14} {:>6}  {}",
+            family,
+            count,
+            paint(dim, bar(*count, total))
+        )?;
+    }
+
+    writeln!(
+        out,
+        "\n  {}",
+        paint(palette.style(Ink::Text).bold(), "By rule")
+    )?;
+    let width = rules
+        .iter()
+        .map(|(rule, _)| rule.chars().count())
+        .max()
+        .unwrap_or(0)
+        .clamp(8, 34);
+    for (rule, (count, severity)) in &rules {
+        writeln!(
+            out,
+            "    {:<width$} {:>6}  {}",
+            paint(palette.style(severity_ink(*severity)), rule),
+            count,
+            paint(dim, bar(*count, total))
+        )?;
+    }
+    writeln!(out)?;
+    write_summary(out, layout, report, &report.totals_by_file())
+}
+
+/// Proportional to the largest, not to the total: the point is the ranking.
+fn bar(count: u32, total: u32) -> String {
+    let width = ((count as usize * 30) / total.max(1) as usize).max(1);
+    "\u{2588}".repeat(width.min(30))
 }
 
 const LABEL_WIDTH: usize = 10;
@@ -27,6 +100,9 @@ const MAX_SKIPPED_ROWS: usize = 10;
 const HOTSPOTS: usize = 3;
 
 pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
+    if layout.stats {
+        return stats(report, layout, out);
+    }
     let shown = report.shown_by_file();
     let totals = report.totals_by_file();
     let prefix = report.path_prefix();
@@ -577,6 +653,7 @@ mod tests {
             palette: Palette::with_depth(ColorDepth::Monochrome),
             show_passed: false,
             quiet: false,
+            stats: false,
             context: 1,
         }
     }

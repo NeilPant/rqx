@@ -34,6 +34,7 @@ tokio = { version = "1.53.1", features = ["rt", "io-std", "net", "sync", "time"]
 toml = "1.1.5"
 unicode-width = "0.2.2"
 toml_edit = "0.25.13"
+clap_complete = "4.6.9"
 
 [dev-dependencies]
 rqx-core = { path = "../rqx-core" }

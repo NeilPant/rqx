@@ -285,6 +285,11 @@ enum Command {
         #[arg(long)]
         config: Option<PathBuf>,
     },
+    /// Print a shell completion script
+    Completions {
+        /// bash, zsh, fish, elvish or powershell
+        shell: clap_complete::Shell,
+    },
     /// What to do about this project, as distinct from what is wrong with it
     Recommend {
         #[arg(default_value = ".")]
@@ -534,6 +539,9 @@ struct View {
     /// Print how long each stage of the scan took
     #[arg(long)]
     timings: bool,
+    /// Counts only: which rules and families fired, and how often
+    #[arg(long)]
+    stats: bool,
     /// Lines of code shown either side of a finding
     #[arg(long, default_value_t = 2)]
     context: u32,
@@ -824,6 +832,7 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
         let plain = Layout {
             palette: Palette::with_depth(ColorDepth::Monochrome),
             show_passed: view.show_passed,
+            stats: view.stats,
             quiet: view.quiet,
             context: view.context,
         };
@@ -1326,6 +1335,14 @@ fn run() -> Result<Exit> {
                 return complexity::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
             }
             complexity::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Completions { shell } => {
+            // Generated from the parser itself, so a flag added anywhere is
+            // completable the moment it exists.
+            let mut command = <Cli as clap::CommandFactory>::command();
+            let name = command.get_name().to_owned();
+            clap_complete::generate(shell, &mut command, name, &mut std::io::stdout());
+            Ok(Exit::Clean)
         }
         Command::Recommend {
             path,
