@@ -90,3 +90,25 @@ int sweep(const std::vector<int>& rows) {
     }
     return n + static_cast<int>(seen.size());
 }
+
+int first_way(int rows) {
+    int total = rows;
+    int doubled = total * 2;
+    return doubled + 1;
+}
+
+int second_way(int rows) {
+    int total = rows;
+    int doubled = total * 2;
+    return doubled + 1;
+}
+
+int shadowed(int rows) {
+    try {
+        return first_way(rows);
+    } catch (const std::exception& wide) {
+        return 0;
+    } catch (const std::runtime_error& narrow) {
+        return 1;
+    }
+}

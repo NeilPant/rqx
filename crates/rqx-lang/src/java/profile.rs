@@ -120,6 +120,8 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     qualified_name_kinds: &["scoped_identifier"],
 
     self_names: &["this"],
+    super_names: &["super"],
+    continuation_calls: &["thenApply", "thenCompose", "thenAccept"],
     ignored_prefixes: &["_"],
     builtin_names: &[
         "String",

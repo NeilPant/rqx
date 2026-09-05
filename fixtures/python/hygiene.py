@@ -148,3 +148,12 @@ def netted(rows):
 def score_of_user(user_id):
     """Score of user id"""
     return user_id
+
+
+def shadowed(rows):
+    try:
+        return len(rows)
+    except Exception:
+        return 0
+    except ValueError:
+        return 1

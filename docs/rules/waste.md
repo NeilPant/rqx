@@ -482,6 +482,54 @@ export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, C
 
 rqx says: let the callers name the file they mean
 
+## `passthrough-override`
+
+it changes nothing and costs a reader a hop, while making the type look like it has an opinion about the member when it has none
+
+| | |
+|---|---|
+| Measures | a member that overrides something and then calls it unchanged |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code / Collapse Hierarchy |
+| Not in Go | there is no inheritance to override |
+| Not in C++ | a call to the base is written with the type's own name, which one file cannot resolve |
+
+From `fixtures/typescript/hierarchy.ts`, line 14:
+
+```ts
+export class QuietFeeder extends Feeder {
+  feed(): string {
+    return super.feed();
+```
+
+rqx says: delete it, and let the inherited one answer
+
+## `duplicate-function`
+
+one of them was copied from the other, and the next change to either has to find both or leave them disagreeing
+
+| | |
+|---|---|
+| Measures | two functions in one file written the same way |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Remove Dead Code |
+
+From `fixtures/typescript/hierarchy.ts`, line 25:
+
+```ts
+
+export function secondWay(rows: number[]): number {
+  const total = rows.length;
+  const doubled = total * 2;
+  return doubled + 1;
+}
+
+```
+
+rqx says: keep one and call it from the other, or delete the copy
+
 ## `discarded-expression`
 
 either the line was meant to do something and does not, or it does nothing and should not be here, and a reader cannot tell which

@@ -58,3 +58,6 @@ TEST(Pricing, CountsThreeWays) {
 TEST(Pricing, HoldsTheCodeToItself) {
     EXPECT_EQ(add(1, 1), add(1, 1));
 }
+
+TEST(Pricing, IsNotWrittenYet) {
+}

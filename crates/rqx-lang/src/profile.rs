@@ -124,6 +124,11 @@ pub struct LanguageProfile {
 
     /// What the receiver is called inside a method body.
     pub self_names: &'static [&'static str],
+    /// How a body reaches the member it is overriding.
+    pub super_names: &'static [&'static str],
+    /// Calls that take a callback to run when a value arrives, so a callback holding
+    /// another one is a chain nobody had to write.
+    pub continuation_calls: &'static [&'static str],
     /// A parameter or field spelled with this prefix is the author saying they
     /// already know it is unused.
     pub ignored_prefixes: &'static [&'static str],

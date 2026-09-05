@@ -62,3 +62,7 @@ def test_holds_the_code_to_itself():
 
 def test_expects_a_number_from_nowhere():
     assert add(2400, 2599) == 4999
+
+
+def test_is_not_written_yet():
+    pass

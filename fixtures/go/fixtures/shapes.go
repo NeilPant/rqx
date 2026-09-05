@@ -163,3 +163,15 @@ func TwoArmed(kind string) int {
 func Settled(balance float64) bool {
 	return balance == 0.1
 }
+
+func FirstWay(rows []int) int {
+	total := len(rows)
+	doubled := total * 2
+	return doubled + 1
+}
+
+func SecondWay(rows []int) int {
+	total := len(rows)
+	doubled := total * 2
+	return doubled + 1
+}

@@ -110,6 +110,8 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     qualified_name_kinds: &[],
 
     self_names: &["self", "cls"],
+    super_names: &["super()", "super"],
+    continuation_calls: &["add_done_callback"],
     ignored_prefixes: &["_"],
     builtin_names: &[
         "list", "dict", "set", "str", "int", "float", "bytes", "type", "id", "input", "filter",

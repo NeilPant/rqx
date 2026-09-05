@@ -106,6 +106,8 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     qualified_name_kinds: &[],
 
     self_names: &["this"],
+    super_names: &["super"],
+    continuation_calls: &["then", "catch", "finally"],
     ignored_prefixes: &["_"],
     builtin_names: &[
         "Array", "Object", "String", "Number", "Boolean", "Map", "Set", "Promise", "Date", "Error",

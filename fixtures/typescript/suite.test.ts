@@ -59,3 +59,5 @@ it("holds the code to itself", () => {
 it("expects a number from nowhere", () => {
   expect(add(2400, 2599)).toBe(4999);
 });
+
+it("is not written yet", () => {});

@@ -104,6 +104,8 @@ pub static CPP: LanguageProfile = LanguageProfile {
     qualified_name_kinds: &["qualified_identifier"],
 
     self_names: &["this"],
+    super_names: &[],
+    continuation_calls: &[],
     ignored_prefixes: &["_"],
     builtin_names: &[
         "size_t", "malloc", "free", "abs", "swap", "move", "distance",

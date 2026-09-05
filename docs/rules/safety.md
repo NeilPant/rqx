@@ -177,6 +177,30 @@ export async function paced(): Promise<number> {
 
 rqx says: wait for the thing itself, and give up on it after a time nobody has to guess
 
+## `shadowed-handler`
+
+the one below it can never run, so whatever it was written to do about that failure has never been done
+
+| | |
+|---|---|
+| Measures | a handler that takes everything, written before one that takes less |
+| Reported as | error, verified |
+| Reads | the syntax tree alone |
+| Fix | Decompose Conditional |
+| Not in Go | errors are values, so there is no handler to order |
+| Not in TypeScript | the language allows one handler per block |
+
+From `fixtures/python/hygiene.py`, line 156:
+
+```python
+        return len(rows)
+    except Exception:
+        return 0
+    except ValueError:
+```
+
+rqx says: put the narrow handler first, so the wide one only takes what is left
+
 ## `guard-cascade`
 
 the body has not started and the reader has read several decisions, none of which says anything about what the function is for

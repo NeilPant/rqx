@@ -415,12 +415,18 @@ mod language_tests {
         }
     }
 
+    /// TypeScript is the corpus every rule is written against, so a rule that does
+    /// not apply there is a rule with nowhere to be tried. The exceptions are
+    /// constructs the language does not have; each is listed so that adding one is a
+    /// decision rather than an accident.
     #[test]
-    fn typescript_is_the_reference_and_exempts_nothing() {
+    fn typescript_runs_every_rule_but_the_ones_it_has_no_syntax_for() {
+        const NO_SYNTAX_FOR_IT: [&str; 1] = ["shadowed-handler"];
         let exempt: Vec<&str> = RuleId::ALL
             .iter()
             .filter(|rule| !rule.applies_to(Language::TypeScript))
             .map(|rule| rule.slug())
+            .filter(|slug| !NO_SYNTAX_FOR_IT.contains(slug))
             .collect();
         assert!(
             exempt.is_empty(),

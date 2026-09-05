@@ -373,3 +373,29 @@ export function twoArmed(kind: string): number {
 
 rqx says: write it as an if, or give the switch the arms that justify it
 
+## `nested-then`
+
+the order is real and none of it is written as an order, so a reader follows it by tracing which callback holds which
+
+| | |
+|---|---|
+| Measures | a callback that starts another wait inside itself |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Replace Algorithm |
+| Not in Go | waiting is a channel receive, not a callback |
+| Not in Python | waiting is written as a statement |
+| Not in C++ | waiting is a call that returns |
+
+From `fixtures/typescript/hierarchy.ts`, line 32:
+
+```ts
+export function chained(rows: number[]): Promise<number> {
+  return Promise.resolve(rows.length).then((count) => {
+    return Promise.resolve(count).then((inner) => inner + 1);
+  });
+}
+```
+
+rqx says: wait for each in turn where the language lets you, so the order is the order of the lines
+

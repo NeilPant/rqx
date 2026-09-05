@@ -58,14 +58,13 @@ a failing run prints two values and the reader has to count lines to find which 
 | Fix | Introduce Assertion |
 | Default | off; name it under `[rules] enabled` |
 
-From `fixtures/typescript/suite.test.ts`, line 49:
+From `fixtures/typescript/suite.test.ts`, line 22:
 
 ```ts
 
-it("counts three ways", () => {
+it("asserts the same thing twice", () => {
   expect(add(1, 1)).toBe(2);
-  expect(add(2, 2)).toBe(4);
-  expect(add(3, 3)).toBe(6);
+  expect(add(1, 1)).toBe(2);
 });
 
 ```
@@ -114,6 +113,27 @@ describe.skip("pricing", () => {
 ```
 
 rqx says: name it, or work it out in the test from the inputs it came from
+
+## `empty-test`
+
+it passes on every run and holds the code to nothing, while counting towards whatever number the team watches
+
+| | |
+|---|---|
+| Measures | a test with nothing in it |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code / Introduce Assertion |
+
+From `fixtures/typescript/suite.test.ts`, line 63:
+
+```ts
+
+it("is not written yet", () => {});
+
+```
+
+rqx says: write what it was going to check, or delete it
 
 ## `branching-test`
 

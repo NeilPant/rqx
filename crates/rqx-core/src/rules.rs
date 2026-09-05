@@ -1004,6 +1004,69 @@ pub fn check_hygiene(
             "let the callers name the file they mean".to_owned(),
         );
     }
+    for spot in &hygiene.passthrough_overrides {
+        emit(
+            out,
+            RuleId::PassthroughOverride,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "overrides and then calls what it overrode".to_owned(),
+            },
+            "delete it, and let the inherited one answer".to_owned(),
+        );
+    }
+    for spot in &hygiene.duplicate_functions {
+        emit(
+            out,
+            RuleId::DuplicateFunction,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "are written the same way".to_owned(),
+            },
+            "keep one and call it from the other, or delete the copy".to_owned(),
+        );
+    }
+    for spot in &hygiene.shadowed_handlers {
+        emit(
+            out,
+            RuleId::ShadowedHandler,
+            spot,
+            Evidence::BranchShape {
+                shape: format!(
+                    "`{}` takes everything before the handler below it",
+                    spot.detail
+                ),
+            },
+            "put the narrow handler first, so the wide one only takes what is left".to_owned(),
+        );
+    }
+    for spot in &hygiene.nested_continuations {
+        emit(
+            out,
+            RuleId::NestedThen,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("a `{}` inside a `{}`", spot.detail, spot.detail),
+            },
+            "wait for each in turn where the language lets you, so the order is the \
+             order of the lines"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.empty_tests {
+        emit(
+            out,
+            RuleId::EmptyTest,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "holds the code to nothing".to_owned(),
+            },
+            "write what it was going to check, or delete it".to_owned(),
+        );
+    }
     for spot in &hygiene.branching_tests {
         emit(
             out,

@@ -7,6 +7,8 @@ import (
 
 func main() {
 	_ = fixtures.Add
+	_ = fixtures.FirstWay
+	_ = fixtures.SecondWay
 	_ = fixtures.Narrates
 	_ = fixtures.ItemList
 	_ = fixtures.EntryCount

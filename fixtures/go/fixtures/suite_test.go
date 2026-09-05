@@ -65,3 +65,6 @@ func TestHoldsTheCodeToItself(t *testing.T) {
 func TestExpectsANumberFromNowhere(t *testing.T) {
 	require.Equal(t, Add(2400, 2599), 4999)
 }
+
+func TestIsNotWrittenYet(t *testing.T) {
+}

@@ -1147,6 +1147,75 @@ catalogue! {
             (Python, "a package re-exports through `__all__`, which names rather than forwards"),
         ],
     },
+    PassthroughOverride {
+        slug: "passthrough-override",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a member that overrides something and then calls it unchanged",
+        fixes: [RemoveDeadCode, CollapseHierarchy],
+        confidence: Verified,
+        severity: Info,
+        why: "it changes nothing and costs a reader a hop, while making the type look \
+              like it has an opinion about the member when it has none",
+        not_applicable: [
+            (Go, "there is no inheritance to override"),
+            (Cpp, "a call to the base is written with the type's own name, which one \
+                   file cannot resolve"),
+        ],
+    },
+    DuplicateFunction {
+        slug: "duplicate-function",
+        category: Waste,
+        analysis: Syntax,
+        metric: "two functions in one file written the same way",
+        fixes: [ExtractMethod, RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "one of them was copied from the other, and the next change to either \
+              has to find both or leave them disagreeing",
+    },
+    ShadowedHandler {
+        slug: "shadowed-handler",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a handler that takes everything, written before one that takes less",
+        fixes: [DecomposeConditional],
+        confidence: Verified,
+        severity: Error,
+        why: "the one below it can never run, so whatever it was written to do about \
+              that failure has never been done",
+        not_applicable: [
+            (Go, "errors are values, so there is no handler to order"),
+            (TypeScript, "the language allows one handler per block"),
+        ],
+    },
+    NestedThen {
+        slug: "nested-then",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a callback that starts another wait inside itself",
+        fixes: [ExtractMethod, ReplaceAlgorithm],
+        confidence: Verified,
+        severity: Warning,
+        why: "the order is real and none of it is written as an order, so a reader \
+              follows it by tracing which callback holds which",
+        not_applicable: [
+            (Go, "waiting is a channel receive, not a callback"),
+            (Python, "waiting is written as a statement"),
+            (Cpp, "waiting is a call that returns"),
+        ],
+    },
+    EmptyTest {
+        slug: "empty-test",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a test with nothing in it",
+        fixes: [RemoveDeadCode, IntroduceAssertion],
+        confidence: Verified,
+        severity: Warning,
+        why: "it passes on every run and holds the code to nothing, while counting \
+              towards whatever number the team watches",
+    },
     BranchingTest {
         slug: "branching-test",
         category: Tests,

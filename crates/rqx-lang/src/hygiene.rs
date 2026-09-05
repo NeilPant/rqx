@@ -70,13 +70,31 @@ impl<'a> Walker<'a> {
         if self.profile.is_identifier(node) {
             return Some(self.text(node).to_owned());
         }
-        if self.profile.is_member_access(node) {
-            let object = self.callee_name(node.child_by_field_name(self.profile.object_field)?)?;
-            let property = self.member_property(node)?;
+        // `super` and `this` are keywords with nodes of their own in most grammars,
+        // and both name the receiver a call is written on.
+        let word = self.text(node);
+        if self.profile.super_names.contains(&word) || self.profile.self_names.contains(&word) {
+            return Some(word.to_owned());
+        }
+        if self.profile.is_member_access(node)
+            && let Some(object) = node
+                .child_by_field_name(self.profile.object_field)
+                .and_then(|object| self.callee_name(object))
+            && let Some(property) = self.member_property(node)
+        {
             return Some(format!("{object}.{}", self.text(property)));
         }
         if self.profile.qualified_name_kinds.contains(&node.kind()) {
             return Some(self.text(node).replace("::", "."));
+        }
+        // A call written on the answer of another call. Read from the callee rather
+        // than from the whole call, so a grammar that gives a call and a member reach
+        // the same node kind cannot send this round in a circle.
+        if self.profile.is_call(node)
+            && let Some(callee) = node.child_by_field_name(self.profile.callee_field)
+            && callee.id() != node.id()
+        {
+            return self.callee_name(callee);
         }
         None
     }
@@ -1775,6 +1793,19 @@ impl<'a> Walker<'a> {
                 count: 1,
             });
         }
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        if holder.named_children(&mut holder.walk()).all(|child| {
+            profile.is_comment(child) || profile.empty_body_kinds.contains(&child.kind())
+        }) {
+            self.out.empty_tests.push(Spot {
+                span: span_of(body),
+                detail: label.to_owned(),
+                count: 1,
+            });
+        }
         if named && crate::vocabulary::says_nothing(label) {
             self.out.unnamed_tests.push(Spot {
                 span: span_of(body),
@@ -3169,6 +3200,134 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// A member that overrides something and then calls the thing it overrode,
+    /// changing nothing on the way.
+    fn note_passthrough_override(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        if profile.super_names.is_empty() {
+            return;
+        }
+        let Some(name) = self.function_name(function).map(|node| self.text(node)) else {
+            return;
+        };
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let mut statements = holder
+            .named_children(&mut cursor)
+            .filter(|child| !profile.is_comment(*child));
+        let Some(only) = statements.next() else {
+            return;
+        };
+        if statements.next().is_some() {
+            return;
+        }
+        let Some(call) = self.only_call(only) else {
+            return;
+        };
+        let Some(dotted) = self.called_name(call) else {
+            return;
+        };
+        let mut parts = dotted.rsplitn(2, '.');
+        let tail = parts.next().unwrap_or_default();
+        let receiver = parts.next().unwrap_or_default();
+        if tail != name || !profile.super_names.contains(&receiver) {
+            return;
+        }
+        self.out.passthrough_overrides.push(Spot {
+            span: self.name_span(function),
+            detail: name.to_owned(),
+            count: 1,
+        });
+    }
+
+    /// A handler that takes everything, written before one that takes less. The
+    /// second can never run.
+    fn note_shadowed_handler(&mut self, guarded: Node<'a>) {
+        let profile = self.profile;
+        let mut cursor = guarded.walk();
+        let handlers: Vec<Node<'a>> = guarded
+            .named_children(&mut cursor)
+            .filter(|child| profile.catch_kinds.contains(&child.kind()))
+            .collect();
+        if handlers.len() < 2 {
+            return;
+        }
+        let Some((_, earlier)) = handlers.split_last() else {
+            return;
+        };
+        let Some(wide) = earlier
+            .iter()
+            .find(|handler| self.takes_everything(**handler))
+        else {
+            return;
+        };
+        self.out.shadowed_handlers.push(Spot {
+            span: span_of(*wide),
+            detail: self.snippet(*wide),
+            count: 1,
+        });
+    }
+
+    /// Whether a handler names the root of the hierarchy, or names nothing.
+    fn takes_everything(&self, catch: Node<'a>) -> bool {
+        let profile = self.profile;
+        let Some(body) = catch.child_by_field_name("body").or_else(|| {
+            catch
+                .named_children(&mut catch.walk())
+                .find(|child| profile.is_block(*child))
+        }) else {
+            return false;
+        };
+        let named = descendants(catch).into_iter().find(|node| {
+            node.start_byte() < body.start_byte()
+                && (profile.is_identifier(*node)
+                    || profile.binding_identifier_kinds.contains(&node.kind())
+                    || profile.qualified_name_kinds.contains(&node.kind()))
+        });
+        match named.map(|node| self.text(node)) {
+            Some(name) => profile.catch_all_types.contains(&name),
+            None => true,
+        }
+    }
+
+    /// A callback that starts another wait. The order is real and none of it is
+    /// written as an order.
+    fn note_nested_continuation(&mut self, call: Node<'a>) {
+        let profile = self.profile;
+        if profile.continuation_calls.is_empty() {
+            return;
+        }
+        let Some(dotted) = self.called_name(call) else {
+            return;
+        };
+        let tail = dotted.rsplit('.').next().unwrap_or(&dotted);
+        if !profile.continuation_calls.contains(&tail) {
+            return;
+        }
+        let inside = descendants(call).into_iter().any(|node| {
+            node.id() != call.id()
+                && profile.is_call(node)
+                && self.called_name(node).is_some_and(|inner| {
+                    let tail = inner.rsplit('.').next().unwrap_or(&inner).to_owned();
+                    profile.continuation_calls.contains(&tail.as_str())
+                })
+        });
+        if !inside {
+            return;
+        }
+        self.out.nested_continuations.push(Spot {
+            span: span_of(call),
+            detail: tail.to_owned(),
+            count: 1,
+        });
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -3871,6 +4030,7 @@ impl<'a> Walker<'a> {
         if kind == "try_statement" {
             self.note_wide_try(node);
             self.note_blanket_try(node);
+            self.note_shadowed_handler(node);
         }
         if profile.throw_kinds.contains(&kind) {
             self.note_generic_throw(node);
@@ -3918,6 +4078,7 @@ impl<'a> Walker<'a> {
         if profile.is_function(node) {
             self.note_empty_method(node);
             self.note_loop_capture(node);
+            self.note_passthrough_override(node);
             self.note_over_logging(node);
             self.note_sequential_await(node);
             self.note_guard_cascade(node);
@@ -3971,6 +4132,7 @@ impl<'a> Walker<'a> {
             self.note_perf_call(node);
             self.note_call(node);
             self.note_sleep(node);
+            self.note_nested_continuation(node);
             self.note_library_exit(node);
             self.note_boolean_argument(node);
             if self
@@ -4370,6 +4532,7 @@ fn scan_comments(
     }
 
     note_narration(profile, source, root, limits, out);
+    note_twin_functions(profile, source, root, out);
     note_body_docstrings(profile, source, root, out);
 
     // Consecutive commented-out lines are one decision, not one finding per line.
@@ -4848,4 +5011,58 @@ fn plural(name: &str) -> bool {
         return false;
     }
     word.len() > 2 && word.ends_with('s') && !word.ends_with("ss") && !word.ends_with("us")
+}
+
+/// Two functions in one file written the same way. One of them was copied, and the
+/// next change has to find both.
+fn note_twin_functions(
+    profile: &'static LanguageProfile,
+    source: &str,
+    root: Node<'_>,
+    out: &mut Hygiene,
+) {
+    const WORTH_SAYING: usize = 3;
+    let mut seen: HashMap<String, &str> = HashMap::new();
+    for function in descendants(root)
+        .into_iter()
+        .filter(|node| profile.is_function(*node))
+    {
+        let Some(body) = function.child_by_field_name("body") else {
+            continue;
+        };
+        let statements = descendants(body)
+            .into_iter()
+            .filter(|node| profile.is_statement(*node))
+            .count();
+        if statements < WORTH_SAYING {
+            continue;
+        }
+        // C++ keeps the name under a declarator, so the last name written before the
+        // body is the one.
+        let Some(name) = function
+            .child_by_field_name("name")
+            .or_else(|| {
+                descendants(function)
+                    .into_iter()
+                    .filter(|node| {
+                        node.start_byte() < body.start_byte() && profile.is_identifier(*node)
+                    })
+                    .next_back()
+            })
+            .map(|node| text_of(node, source))
+        else {
+            continue;
+        };
+        let shape = squashed(text_of(body, source));
+        match seen.get(&shape) {
+            Some(first) => out.duplicate_functions.push(Spot {
+                span: span_of(function),
+                detail: format!("{name} and {first}"),
+                count: 2,
+            }),
+            None => {
+                seen.insert(shape, name);
+            }
+        }
+    }
 }

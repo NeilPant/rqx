@@ -89,6 +89,11 @@ public class SuiteTest {
         assertEquals(4999, new Clean().add(2400, 2599));
     }
 
+
+    @Test
+    public void testIsNotWrittenYet() {
+    }
+
     static void assertEquals(int expected, int actual) {
     }
 }

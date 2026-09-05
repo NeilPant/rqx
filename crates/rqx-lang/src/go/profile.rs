@@ -94,6 +94,8 @@ pub static GO: LanguageProfile = LanguageProfile {
     // Go names the receiver per method; `crate::classes` reads that name from the
     // declaration, and this list is only the fallback.
     self_names: &[],
+    super_names: &[],
+    continuation_calls: &[],
     ignored_prefixes: &["_"],
     builtin_names: &[
         "len", "cap", "new", "make", "copy", "append", "delete", "close", "panic", "recover",
