@@ -124,4 +124,45 @@ class Flow {
         }
         return 0;
     }
+
+    public int freshTotal(int rows) {
+        int total = rows * 2;
+        return total;
+    }
+
+    public int asksTwice(String kind) {
+        if (kind.equals("a")) {
+            return 1;
+        } else if (kind.equals("b")) {
+            return 2;
+        } else if (kind.equals("a")) {
+            return 3;
+        }
+        return 0;
+    }
+
+    public String joined(java.util.List<String> rows) {
+        String out = "";
+        for (String row : rows) {
+            out += row;
+        }
+        return out;
+    }
+
+    public int fallsThrough(int kind) {
+        switch (kind) {
+            case 1:
+                this.freshTotal(1);
+            case 2:
+                return 2;
+            default:
+                return 0;
+        }
+    }
+}
+
+abstract class Settled {
+    int run() {
+        return 1;
+    }
 }

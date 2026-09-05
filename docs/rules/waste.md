@@ -14,14 +14,18 @@ a fix applied to one copy leaves the others wrong, and nothing in the code point
 | Fix | Extract Method / Pull Up Method |
 | Tuned by | `thresholds.clone_min_statements`, `thresholds.clone_min_nodes` |
 
-From `fixtures/typescript/reconcile.ts`, line 33:
+From `fixtures/typescript/flow.ts`, line 173:
 
 ```ts
-function first(rows: Row[]) {
-  const total = sum(rows);
-  record(total);
-  notify(total);
-  return total;
+export function asksTwice(kind: string): number {
+  if (kind === "a") {
+    return 1;
+  } else if (kind === "b") {
+    return 2;
+  } else if (kind === "a") {
+    return 3;
+  }
+  return 0;
 }
 ```
 
@@ -234,15 +238,15 @@ it was built for a case that never arrived, and until it does it is only an extr
 | Reads | the import graph across every file |
 | Fix | Collapse Hierarchy / Inline Class |
 
-From `fixtures/typescript/patterns.ts`, line 257:
+From `fixtures/typescript/flow.ts`, line 202:
 
 ```ts
 
-export abstract class Importer {
-  abstract read(): string;
+export abstract class Settled {
+  run(): number {
 ```
 
-rqx says: inline `Importer` into its single user until a second one arrives
+rqx says: inline `Settled` into its single user until a second one arrives
 
 ## `empty-catch`
 
@@ -287,7 +291,7 @@ From `fixtures/typescript/flow.ts`, line 34:
     if (step > scale) {
 ```
 
-rqx says: name `3` once and refer to the name at all 3 sites
+rqx says: name `3` once and refer to the name at all 4 sites
 
 ## `mixed-language-file`
 
@@ -411,6 +415,27 @@ the same rule is written twice in two languages, so the day it changes it change
 | Reads | the syntax tree alone |
 | Fix | Extract Shared Module |
 | Default | off; name it under `[rules] enabled` |
+
+## `return-of-fresh-local`
+
+the name is read once, by the line under it, and says nothing the expression it holds did not already say
+
+| | |
+|---|---|
+| Measures | a name introduced on one line and returned on the next |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Inline Variable |
+
+From `fixtures/typescript/flow.ts`, line 168:
+
+```ts
+export function freshTotal(rows: number[]): number {
+  const total = rows.length * 2;
+  return total;
+```
+
+rqx says: return the expression, or keep the name because it says something the expression does not
 
 ## `empty-method`
 

@@ -28,6 +28,10 @@ public class Main {
         new Hygiene().scoreOfUser(1);
         new Hygiene().guardedAdd(1, 1, 1);
         new Hygiene().netted(1);
+        new Flow().freshTotal(1);
+        new Flow().asksTwice("a");
+        new Flow().joined(java.util.List.of());
+        new Flow().fallsThrough(1);
         new Hygiene().maybeCount(java.util.List.of());
         new Hygiene().closesOut(java.util.List.of());
         new Hygiene().catchesEverything(java.util.List.of());

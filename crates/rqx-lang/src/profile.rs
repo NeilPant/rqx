@@ -170,6 +170,9 @@ pub struct LanguageProfile {
     pub hoisted_kinds: &'static [&'static str],
     /// Nodes that write to something.
     pub assignment_kinds: &'static [&'static str],
+    /// Nodes that read a name and write it back, which some grammars give a kind
+    /// of their own and others fold into a plain assignment.
+    pub compound_assignment_kinds: &'static [&'static str],
     /// Wrappers that add no meaning and must be seen through when counting operands.
     pub transparent_kinds: &'static [&'static str],
     /// The field holding a branch's condition.

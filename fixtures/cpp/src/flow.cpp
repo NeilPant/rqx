@@ -123,3 +123,38 @@ int first_of(int items[], int count) {
     }
     return 0;
 }
+
+int fresh_total(int rows) {
+    int total = rows * 2;
+    return total;
+}
+
+int asks_twice(int kind) {
+    if (kind == 1) {
+        return 1;
+    } else if (kind == 2) {
+        return 2;
+    } else if (kind == 1) {
+        return 3;
+    }
+    return 0;
+}
+
+std::string joined(const std::vector<std::string>& rows) {
+    std::string out;
+    for (const auto& row : rows) {
+        out += row;
+    }
+    return out;
+}
+
+int falls_through(int kind) {
+    switch (kind) {
+        case 1:
+            fresh_total(1);
+        case 2:
+            return 2;
+        default:
+            return 0;
+    }
+}

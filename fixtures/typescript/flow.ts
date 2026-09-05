@@ -163,3 +163,44 @@ export function firstOf(items: number[]): number {
   }
   return 0;
 }
+
+export function freshTotal(rows: number[]): number {
+  const total = rows.length * 2;
+  return total;
+}
+
+export function asksTwice(kind: string): number {
+  if (kind === "a") {
+    return 1;
+  } else if (kind === "b") {
+    return 2;
+  } else if (kind === "a") {
+    return 3;
+  }
+  return 0;
+}
+
+export function joined(rows: string[]): string {
+  let out = "";
+  for (const row of rows) {
+    out += row;
+  }
+  return out;
+}
+
+export function fallsThrough(kind: number): number {
+  switch (kind) {
+    case 1:
+      globalThis.console.warn("one");
+    case 2:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+export abstract class Settled {
+  run(): number {
+    return 1;
+  }
+}

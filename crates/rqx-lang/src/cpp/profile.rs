@@ -144,6 +144,7 @@ pub static CPP: LanguageProfile = LanguageProfile {
     ],
     hoisted_kinds: &["class_specifier", "struct_specifier", "type_definition"],
     assignment_kinds: &["assignment_expression"],
+    compound_assignment_kinds: &["assignment_expression"],
     transparent_kinds: &["parenthesized_expression", "condition_clause"],
     condition_field: "condition",
     property_field: "field",

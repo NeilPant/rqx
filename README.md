@@ -148,21 +148,21 @@ does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-137 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
+142 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
 
 | Family | Rules | What it measures |
 |---|---|---|
 | **Size** | 14 | units that outgrew what a reader can hold |
-| **Abstraction** | 11 | types that model the problem wrong |
+| **Abstraction** | 12 | types that model the problem wrong |
 | **Change** | 3 | shapes that make an edit expensive |
-| **Waste** | 27 | code and comments nothing reaches |
+| **Waste** | 28 | code and comments nothing reaches |
 | **Coupling** | 16 | modules that know too much about each other, and dependencies pointing the wrong way |
-| **Flow** | 14 | control flow that says less than it looks like |
+| **Flow** | 16 | control flow that says less than it looks like |
 | **Naming** | 9 | names that mislead or say nothing |
 | **Safety** | 19 | silent failure and swallowed errors |
 | **Tests** | 8 | suites that pass without checking |
 | **Noise** | 8 | text that costs a reader and buys nothing |
-| **Performance** | 8 | work done more often, or more expensively, than it needs to be |
+| **Performance** | 9 | work done more often, or more expensively, than it needs to be |
 <!-- /rqx:catalogue -->
 
 Those pages are generated from the catalogue by `rqx docs`, and a test fails if they

@@ -2,6 +2,27 @@
 
 [Back to the catalogue](README.md)
 
+## `loop-concatenation`
+
+each pass copies everything written so far, so the work grows with the square of the number of pieces
+
+| | |
+|---|---|
+| Measures | text built one piece at a time inside a loop |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Replace Algorithm |
+
+From `fixtures/typescript/flow.ts`, line 186:
+
+```ts
+  for (const row of rows) {
+    out += row;
+  }
+```
+
+rqx says: collect the pieces and join them once
+
 ## `scan-in-loop`
 
 the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that was fine at a hundred items stalls at ten thousand
@@ -121,11 +142,11 @@ each step copies everything gathered so far, so building a result of n items tou
 | Reads | resolved scopes and symbols |
 | Fix | Accumulate in Place |
 
-From `fixtures/typescript/performance.ts`, line 56:
+From `fixtures/typescript/flow.ts`, line 186:
 
 ```ts
-  for (const group of groups) {
-    flat = [...flat, ...group];
+  for (const row of rows) {
+    out += row;
   }
 ```
 

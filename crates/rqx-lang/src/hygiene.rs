@@ -2152,6 +2152,261 @@ impl<'a> Walker<'a> {
         None
     }
 
+    /// A name introduced on one line and returned on the next. The name is read
+    /// once, by the line under it, and says nothing the expression did not.
+    fn note_fresh_local_return(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let statements: Vec<Node<'a>> = holder
+            .named_children(&mut cursor)
+            .filter(|child| !profile.is_comment(*child))
+            .collect();
+        let [.., declares, returns] = statements.as_slice() else {
+            return;
+        };
+        if returns.kind() != "return_statement" {
+            return;
+        }
+        let Some(mut answer) = returns.named_child(0).map(|node| self.see_through(node)) else {
+            return;
+        };
+        while profile.expression_list_kinds.contains(&answer.kind())
+            && answer.named_child_count() == 1
+        {
+            let Some(only) = answer.named_child(0) else {
+                break;
+            };
+            answer = self.see_through(only);
+        }
+        if !profile.is_identifier(answer) {
+            return;
+        }
+        let name = self.text(answer);
+        let introduces = descendants(*declares).into_iter().any(|node| {
+            profile.is_identifier(node)
+                && self.text(node) == name
+                && crate::tree::is_binding_position(
+                    node,
+                    &[],
+                    profile.borrowed_name_kinds,
+                    profile.local_declaring_kinds,
+                    profile.expression_list_kinds,
+                )
+        });
+        // Read anywhere else and the name is holding a value two lines need.
+        let read_elsewhere = descendants(holder)
+            .into_iter()
+            .filter(|node| profile.is_identifier(*node) && self.text(*node) == name)
+            .count()
+            > 2;
+        if introduces && !read_elsewhere {
+            self.out.fresh_local_returns.push(Spot {
+                span: span_of(*declares),
+                detail: name.to_owned(),
+                count: 1,
+            });
+        }
+    }
+
+    /// Two arms of one chain asking the same question. The second can never be
+    /// reached, and a reader has to compare them to find that out.
+    fn note_duplicate_condition(&mut self, branch: Node<'a>) {
+        let profile = self.profile;
+        // Only from the head of a chain, so a chain of four is read once.
+        let is_tail = branch.parent().is_some_and(|parent| {
+            parent.kind() == profile.if_kind
+                && parent
+                    .child_by_field_name(profile.else_field)
+                    .is_some_and(|alternative| alternative.id() == branch.id())
+        });
+        if is_tail {
+            return;
+        }
+        let mut asked: Vec<(String, Node<'a>)> = Vec::new();
+        let mut ask = |node: Node<'a>, asked: &mut Vec<(String, Node<'a>)>| {
+            if let Some(condition) = node.child_by_field_name(profile.condition_field) {
+                asked.push((squashed(self.text(condition)), condition));
+            }
+        };
+        ask(branch, &mut asked);
+        if profile.else_is_sibling_list {
+            // The clauses hang off the `if` as a list rather than nesting inside one
+            // another, so the whole chain is one node's children.
+            let mut cursor = branch.walk();
+            let clauses: Vec<Node<'a>> = branch
+                .named_children(&mut cursor)
+                .filter(|child| profile.else_clause_kinds.contains(&child.kind()))
+                .collect();
+            for clause in clauses {
+                ask(clause, &mut asked);
+            }
+        } else {
+            let mut current = branch.child_by_field_name(profile.else_field);
+            while let Some(node) = current {
+                // Some grammars hang the next `if` straight off the field; others put
+                // an `else` clause in between and nest the `if` inside that.
+                let arm = if node.kind() == profile.if_kind {
+                    node
+                } else if profile.else_clause_kinds.contains(&node.kind()) {
+                    match node
+                        .named_children(&mut node.walk())
+                        .find(|child| child.kind() == profile.if_kind)
+                    {
+                        Some(nested) => nested,
+                        None => break,
+                    }
+                } else {
+                    break;
+                };
+                ask(arm, &mut asked);
+                current = arm.child_by_field_name(profile.else_field);
+            }
+        }
+        for (at, (text, node)) in asked.iter().enumerate() {
+            if asked[..at].iter().any(|(earlier, _)| earlier == text) {
+                self.out.duplicate_conditions.push(Spot {
+                    span: span_of(*node),
+                    detail: text.clone(),
+                    count: 1,
+                });
+                return;
+            }
+        }
+    }
+
+    /// Building a string one piece at a time inside a loop: every pass copies
+    /// everything written so far.
+    fn note_loop_concatenation(&mut self, assignment: Node<'a>) {
+        if self.loop_depth() == 0 {
+            return;
+        }
+        let profile = self.profile;
+        let Some(operator) = operator_of(assignment, self.source) else {
+            return;
+        };
+        if operator != "+=" {
+            return;
+        }
+        let Some(target) = assignment.child_by_field_name("left") else {
+            return;
+        };
+        let name = self.text(target);
+        // Either the declaration named a text type, or the value it started with was
+        // a piece of text — a language with no type annotation only offers the second.
+        let holds_text = self.declared.get(name).is_some_and(|introduced| {
+            let lowered = introduced.to_lowercase();
+            lowered.contains("string")
+                || lowered.contains("str")
+                || introduced.trim_start().starts_with(['"', '\'', '`'])
+        }) || assignment
+            .child_by_field_name("right")
+            .is_some_and(|value| profile.string_kinds.contains(&value.kind()));
+        if !holds_text {
+            return;
+        }
+        self.out.loop_concatenations.push(Spot {
+            span: span_of(assignment),
+            detail: name.to_owned(),
+            count: self.loop_depth(),
+        });
+    }
+
+    /// A type declared abstract that leaves nothing for anyone to fill in.
+    fn note_empty_abstraction(&mut self, class: Node<'a>) {
+        let profile = self.profile;
+        if profile.abstract_markers.is_empty() {
+            return;
+        }
+        let mut cursor = class.walk();
+        let marked = class
+            .children(&mut cursor)
+            .any(|node| profile.abstract_markers.contains(&self.text(node)));
+        if !marked {
+            return;
+        }
+        let Some(body) = self.class_body(class) else {
+            return;
+        };
+        let unfinished = descendants(body).into_iter().any(|node| {
+            let mut inner = node.walk();
+            profile.method_kinds.contains(&node.kind())
+                && (node
+                    .children(&mut inner)
+                    .any(|child| profile.abstract_markers.contains(&self.text(child)))
+                    || profile.signature_kinds.contains(&node.kind()))
+        }) || descendants(body)
+            .into_iter()
+            .any(|node| profile.signature_kinds.contains(&node.kind()));
+        if unfinished {
+            return;
+        }
+        let Some(name) = self.class_name(class) else {
+            return;
+        };
+        self.out.empty_abstractions.push(Spot {
+            span: span_of(class),
+            detail: name,
+            count: 1,
+        });
+    }
+
+    /// A switch arm that does work and then runs into the next one.
+    fn note_silent_fallthrough(&mut self, switch: Node<'a>) {
+        let profile = self.profile;
+        let mut cursor = switch.walk();
+        let mut stack: Vec<Node<'a>> = switch.named_children(&mut cursor).collect();
+        let mut arms: Vec<Node<'a>> = Vec::new();
+        while let Some(current) = stack.pop() {
+            if profile.case_kinds.contains(&current.kind()) {
+                arms.push(current);
+                continue;
+            }
+            if profile.switch_kinds.contains(&current.kind()) {
+                continue;
+            }
+            let mut inner = current.walk();
+            stack.extend(current.named_children(&mut inner));
+        }
+        arms.sort_by_key(|arm| arm.start_byte());
+        let Some((_, earlier)) = arms.split_last() else {
+            return;
+        };
+        for arm in earlier {
+            let mut inside = arm.walk();
+            let statements: Vec<Node<'a>> = arm
+                .named_children(&mut inside)
+                .filter(|child| profile.is_statement(*child) || self.leaves_the_arm(*child))
+                .collect();
+            let Some(last) = statements.last() else {
+                continue;
+            };
+            if statements.is_empty() || self.leaves_the_arm(*last) {
+                continue;
+            }
+            self.out.silent_fallthroughs.push(Spot {
+                span: span_of(*arm),
+                detail: self.snippet(*arm),
+                count: 1,
+            });
+            return;
+        }
+    }
+
+    fn leaves_the_arm(&self, node: Node<'a>) -> bool {
+        let profile = self.profile;
+        matches!(
+            node.kind(),
+            "break_statement" | "return_statement" | "continue_statement" | "goto_statement"
+        ) || profile.throw_kinds.contains(&node.kind())
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -2836,10 +3091,12 @@ impl<'a> Walker<'a> {
         if kind == profile.if_kind {
             self.note_branch_shape(node);
             self.note_assignment_in_condition(node);
+            self.note_duplicate_condition(node);
         }
         if profile.switch_kinds.contains(&kind) {
             self.note_switch_width(node);
             self.note_missing_default(node);
+            self.note_silent_fallthrough(node);
         }
         if profile.catch_kinds.contains(&kind) {
             self.note_rethrow_only_catch(node);
@@ -2883,6 +3140,7 @@ impl<'a> Walker<'a> {
         }
         if profile.is_class(node) {
             self.note_class_shape(node);
+            self.note_empty_abstraction(node);
         }
         self.note_declared_name(node);
         self.note_ambient_dependency(node);
@@ -2892,6 +3150,7 @@ impl<'a> Walker<'a> {
         if profile.is_function(node) {
             self.note_empty_method(node);
             self.note_guard_cascade(node);
+            self.note_fresh_local_return(node);
             self.note_many_locals(node);
             self.note_working_constructor(node);
             self.note_mixed_return(node);
@@ -2931,6 +3190,11 @@ impl<'a> Walker<'a> {
         if profile.assignment_kinds.contains(&kind) {
             self.note_copy_accumulation(node);
             self.note_self_built_collaborator(node);
+        }
+        if profile.assignment_kinds.contains(&kind)
+            || profile.compound_assignment_kinds.contains(&kind)
+        {
+            self.note_loop_concatenation(node);
         }
         if profile.is_call(node) {
             self.note_perf_call(node);

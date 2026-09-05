@@ -134,6 +134,7 @@ pub static GO: LanguageProfile = LanguageProfile {
         "type_declaration",
     ],
     assignment_kinds: &["assignment_statement", "short_var_declaration"],
+    compound_assignment_kinds: &["assignment_statement"],
     transparent_kinds: &["parenthesized_expression"],
     condition_field: "condition",
     property_field: "field",

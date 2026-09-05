@@ -1216,6 +1216,66 @@ pub fn check_hygiene(
             "delete it, or route it through whatever this project logs with".to_owned(),
         );
     }
+    for spot in &hygiene.fresh_local_returns {
+        emit(
+            out,
+            RuleId::ReturnOfFreshLocal,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is introduced and returned in two lines".to_owned(),
+            },
+            "return the expression, or keep the name because it says something the \
+             expression does not"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.duplicate_conditions {
+        emit(
+            out,
+            RuleId::DuplicateCondition,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` is asked twice in one chain", spot.detail),
+            },
+            "decide which of the two arms was meant, and delete the other".to_owned(),
+        );
+    }
+    for spot in &hygiene.loop_concatenations {
+        emit(
+            out,
+            RuleId::LoopConcatenation,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is rebuilt on every pass".to_owned(),
+            },
+            "collect the pieces and join them once".to_owned(),
+        );
+    }
+    for spot in &hygiene.empty_abstractions {
+        emit(
+            out,
+            RuleId::AbstractNothing,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is abstract and leaves nothing unfinished".to_owned(),
+            },
+            "drop the word, or give it the member a subclass has to write".to_owned(),
+        );
+    }
+    for spot in &hygiene.silent_fallthroughs {
+        emit(
+            out,
+            RuleId::SilentFallthrough,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` runs on into the arm below", spot.detail),
+            },
+            "end the arm, or say in the code that falling through is the point".to_owned(),
+        );
+    }
     for spot in &hygiene.nested_ternaries {
         emit(
             out,

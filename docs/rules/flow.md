@@ -165,6 +165,51 @@ export function decidedNothing(count: number): void {
 
 rqx says: write what should happen, or delete the branch
 
+## `duplicate-condition`
+
+the second arm cannot be reached, so whatever it was written to do has never run and nobody has noticed
+
+| | |
+|---|---|
+| Measures | the same question asked twice in one chain of branches |
+| Reported as | error, verified |
+| Reads | the syntax tree alone |
+| Fix | Consolidate Conditional |
+
+From `fixtures/typescript/flow.ts`, line 177:
+
+```ts
+    return 2;
+  } else if (kind === "a") {
+    return 3;
+```
+
+rqx says: decide which of the two arms was meant, and delete the other
+
+## `silent-fallthrough`
+
+the arm below runs too, and nothing written here says whether that was wanted or forgotten
+
+| | |
+|---|---|
+| Measures | a switch arm that does work and then runs into the next one |
+| Reported as | error, verified |
+| Reads | the syntax tree alone |
+| Fix | Consolidate Conditional |
+| Not in Go | an arm ends where the next begins unless it says otherwise |
+| Not in Python | an arm ends where the next begins |
+
+From `fixtures/typescript/flow.ts`, line 193:
+
+```ts
+  switch (kind) {
+    case 1:
+      globalThis.console.warn("one");
+    case 2:
+```
+
+rqx says: end the arm, or say in the code that falling through is the point
+
 ## `nested-ternary`
 
 two conditions folded into one expression have to be unfolded in the reader's head before either can be checked

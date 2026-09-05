@@ -29,7 +29,7 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-rqx says: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 2 edits
+rqx says: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 5 edits
 
 ## `temporary-field`
 
@@ -181,6 +181,34 @@ export class Overgrown {
 ```
 
 rqx says: narrow what `Overgrown` promises: an interface for what callers use, and the rest kept inside
+
+## `abstract-nothing`
+
+the word says a subclass has work to do and there is none, so the only thing it stops is somebody constructing it
+
+| | |
+|---|---|
+| Measures | a type declared abstract with nothing left for anyone to fill in |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Collapse Hierarchy / Inline Class |
+| Not in Go | there is no inheritance and no abstract keyword |
+| Not in C++ | abstractness is a member with no body, which the type never declares |
+| Not in Python | abstractness is a base class it inherits, not a word on the type |
+
+From `fixtures/typescript/flow.ts`, line 202:
+
+```ts
+
+export abstract class Settled {
+  run(): number {
+    return 1;
+  }
+}
+
+```
+
+rqx says: drop the word, or give it the member a subclass has to write
 
 ## `empty-subclass`
 

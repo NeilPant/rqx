@@ -1,3 +1,5 @@
+import abc
+
 def restated(ready):
     if ready:
         return True
@@ -150,3 +152,30 @@ def first_of(items):
     for item in items:
         return item
     return 0
+
+
+def fresh_total(rows):
+    total = len(rows) * 2
+    return total
+
+
+def asks_twice(kind):
+    if kind == "a":
+        return 1
+    elif kind == "b":
+        return 2
+    elif kind == "a":
+        return 3
+    return 0
+
+
+def joined(rows):
+    out = ""
+    for row in rows:
+        out += row
+    return out
+
+
+class Settled(abc.ABC):
+    def run(self):
+        return 1

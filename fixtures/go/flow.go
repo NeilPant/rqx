@@ -102,3 +102,27 @@ func FirstOf(items []int) int {
 	}
 	return 0
 }
+
+func FreshTotal(rows []int) int {
+	total := len(rows) * 2
+	return total
+}
+
+func AsksTwice(kind string) int {
+	if kind == "a" {
+		return 1
+	} else if kind == "b" {
+		return 2
+	} else if kind == "a" {
+		return 3
+	}
+	return 0
+}
+
+func Joined(rows []string) string {
+	out := ""
+	for _, row := range rows {
+		out += row
+	}
+	return out
+}

@@ -185,6 +185,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         "record_declaration",
     ],
     assignment_kinds: &["assignment_expression"],
+    compound_assignment_kinds: &["assignment_expression"],
     transparent_kinds: &["parenthesized_expression"],
     condition_field: "condition",
     property_field: "field",

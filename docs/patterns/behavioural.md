@@ -329,7 +329,7 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-rqx says: give `kind` a type per case behind one interface, so adding a case is one new class rather than 2 edits
+rqx says: give `kind` a type per case behind one interface, so adding a case is one new class rather than 5 edits
 
 ## Template Method
 

@@ -828,6 +828,70 @@ catalogue! {
     },
 
     // ---- Safety ---------------------------------------------------------------
+    ReturnOfFreshLocal {
+        slug: "return-of-fresh-local",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a name introduced on one line and returned on the next",
+        fixes: [InlineVariable],
+        confidence: Verified,
+        severity: Info,
+        why: "the name is read once, by the line under it, and says nothing the \
+              expression it holds did not already say",
+    },
+    DuplicateCondition {
+        slug: "duplicate-condition",
+        category: Flow,
+        analysis: Syntax,
+        metric: "the same question asked twice in one chain of branches",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Error,
+        why: "the second arm cannot be reached, so whatever it was written to do has \
+              never run and nobody has noticed",
+    },
+    LoopConcatenation {
+        slug: "loop-concatenation",
+        category: Performance,
+        analysis: Syntax,
+        metric: "text built one piece at a time inside a loop",
+        fixes: [ReplaceAlgorithm],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "each pass copies everything written so far, so the work grows with the \
+              square of the number of pieces",
+    },
+    AbstractNothing {
+        slug: "abstract-nothing",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "a type declared abstract with nothing left for anyone to fill in",
+        fixes: [CollapseHierarchy, InlineClass],
+        confidence: Verified,
+        severity: Info,
+        why: "the word says a subclass has work to do and there is none, so the only \
+              thing it stops is somebody constructing it",
+        not_applicable: [
+            (Go, "there is no inheritance and no abstract keyword"),
+            (Cpp, "abstractness is a member with no body, which the type never declares"),
+            (Python, "abstractness is a base class it inherits, not a word on the type"),
+        ],
+    },
+    SilentFallthrough {
+        slug: "silent-fallthrough",
+        category: Flow,
+        analysis: Syntax,
+        metric: "a switch arm that does work and then runs into the next one",
+        fixes: [ConsolidateConditional],
+        confidence: Verified,
+        severity: Error,
+        why: "the arm below runs too, and nothing written here says whether that was \
+              wanted or forgotten",
+        not_applicable: [
+            (Go, "an arm ends where the next begins unless it says otherwise"),
+            (Python, "an arm ends where the next begins"),
+        ],
+    },
     NestedTernary {
         slug: "nested-ternary",
         category: Flow,

@@ -7,6 +7,9 @@ import (
 
 func main() {
 	_ = fixtures.Add
+	_ = FreshTotal
+	_ = AsksTwice
+	_ = Joined
 	_ = fixtures.ForwardOrbit
 	_ = fixtures.Narrated
 	_ = fixtures.ScoreOf

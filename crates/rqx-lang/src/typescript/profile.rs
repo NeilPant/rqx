@@ -159,6 +159,7 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
         "type_alias_declaration",
     ],
     assignment_kinds: &["assignment_expression", "augmented_assignment_expression"],
+    compound_assignment_kinds: &["augmented_assignment_expression"],
     transparent_kinds: &["parenthesized_expression"],
     condition_field: "condition",
     property_field: "property",

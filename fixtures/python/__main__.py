@@ -90,7 +90,7 @@ from .performance import (
     settings_of,
     sum_cube,
 )
-from .flow import admits, buried_exits, changed, compared, decided_nothing, first_of, label_of, nested_callbacks, restated, same_either_way, shadows_outer, tier_of, wide_match
+from .flow import admits, buried_exits, changed, compared, decided_nothing, first_of, label_of, nested_callbacks, restated, same_either_way, shadows_outer, tier_of, wide_match, Settled, asks_twice, fresh_total, joined
 
 
 def main():
@@ -244,6 +244,10 @@ def main():
         settings_of,
         sum_cube,
         admits,
+        Settled,
+        asks_twice,
+        fresh_total,
+        joined,
         buried_exits,
         changed,
         compared,

@@ -145,6 +145,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     ],
     hoisted_kinds: &[],
     assignment_kinds: &["assignment", "augmented_assignment"],
+    compound_assignment_kinds: &["augmented_assignment"],
     transparent_kinds: &["parenthesized_expression"],
     condition_field: "condition",
     property_field: "attribute",
