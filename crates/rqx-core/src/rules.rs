@@ -1067,6 +1067,68 @@ pub fn check_hygiene(
             "write what it was going to check, or delete it".to_owned(),
         );
     }
+    for spot in &hygiene.split_cohesion {
+        emit(
+            out,
+            RuleId::SplitCohesion,
+            spot,
+            Evidence::Breadth {
+                counted: "groups of methods sharing no state".to_owned(),
+                found: spot.count,
+                limit: 1,
+            },
+            "give each group its own type, and let one of them hold the other".to_owned(),
+        );
+    }
+    for spot in &hygiene.instance_free_methods {
+        emit(
+            out,
+            RuleId::MethodIgnoresInstance,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "never mentions the instance".to_owned(),
+            },
+            "move it to whatever it is about, or make it a function of its own".to_owned(),
+        );
+    }
+    for spot in &hygiene.dropped_promises {
+        emit(
+            out,
+            RuleId::DroppedPromise,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "answers later and nothing takes the answer".to_owned(),
+            },
+            "wait for it, or say in the code who is going to".to_owned(),
+        );
+    }
+    for spot in &hygiene.eager_tests {
+        emit(
+            out,
+            RuleId::EagerTest,
+            spot,
+            Evidence::Breadth {
+                counted: "units this one test drives".to_owned(),
+                found: spot.count,
+                limit: 5,
+            },
+            "hold one of them to one thing, so a failing run names what broke".to_owned(),
+        );
+    }
+    for spot in &hygiene.shape_assertions {
+        emit(
+            out,
+            RuleId::StringShapeAssertion,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is a shape written out as text".to_owned(),
+            },
+            "check the parts that matter, so spacing cannot fail the test".to_owned(),
+        );
+    }
     for spot in &hygiene.branching_tests {
         emit(
             out,

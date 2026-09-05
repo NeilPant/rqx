@@ -68,3 +68,17 @@ func TestExpectsANumberFromNowhere(t *testing.T) {
 
 func TestIsNotWrittenYet(t *testing.T) {
 }
+
+func TestDrivesTheLot(t *testing.T) {
+	one := Add(1, 1)
+	require.Equal(t, fmt.Sprintf("%v", one), "{\"two\":4,\"spare\":\"padding here\"}")
+}
+
+func TestDrivesFiveUnits(t *testing.T) {
+	a := Add(1, 1)
+	b := Pricing([]int{1}, false)
+	c := Process([]int{1})
+	d := ManyPaths("a", []int{1})
+	e := FreshTotal([]int{1})
+	require.Greater(t, a+b+c+d+e, 0)
+}

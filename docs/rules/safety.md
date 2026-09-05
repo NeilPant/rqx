@@ -201,6 +201,30 @@ From `fixtures/python/hygiene.py`, line 156:
 
 rqx says: put the narrow handler first, so the wide one only takes what is left
 
+## `dropped-promise`
+
+nothing waits for it and nothing hears if it fails, so the failure arrives somewhere with no idea what asked for it
+
+| | |
+|---|---|
+| Measures | work that answers later, started and then thrown away |
+| Reported as | error, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Separate Query from Modifier |
+| Not in Go | work started in the background is a goroutine, which the language marks |
+| Not in Java | a future is a value, and dropping it is dropping a value |
+| Not in C++ | a future is a value, and dropping it is dropping a value |
+
+From `fixtures/typescript/performance.ts`, line 126:
+
+```ts
+export async function fires(rows: number[]): Promise<number> {
+  loadOne();
+  return rows.length;
+```
+
+rqx says: wait for it, or say in the code who is going to
+
 ## `guard-cascade`
 
 the body has not started and the reader has read several decisions, none of which says anything about what the function is for

@@ -135,6 +135,56 @@ it("is not written yet", () => {});
 
 rqx says: write what it was going to check, or delete it
 
+## `eager-test`
+
+it fails for any of them and the run says only that the test failed, so the name it prints does not narrow anything down
+
+| | |
+|---|---|
+| Measures | distinct units one test drives |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method |
+| Default | off; name it under `[rules] enabled` |
+
+From `fixtures/typescript/suite.test.ts`, line 72:
+
+```ts
+
+it("drives five units", () => {
+  const a = add(1, 1);
+  const b = pricing([1]);
+  const c = ship({ customer: { address: { city: "x" } } });
+  const d = process([1]);
+  const e = manyPaths("a", [1]);
+  expect(a + b + Number(c.length) + d + e).toBeGreaterThan(0);
+});
+
+```
+
+rqx says: hold one of them to one thing, so a failing run names what broke
+
+## `string-shape-assertion`
+
+it holds the code to how the answer prints rather than to what it is, so a change in spacing fails a test about behaviour
+
+| | |
+|---|---|
+| Measures | a check against a serialised shape written out as a string |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+
+From `fixtures/typescript/suite.test.ts`, line 69:
+
+```ts
+  expect(String(one)).toBe("2");
+  expect(JSON.stringify({ two })).toBe('{"two":4,"spare":"padding here"}');
+});
+```
+
+rqx says: check the parts that matter, so spacing cannot fail the test
+
 ## `branching-test`
 
 a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked

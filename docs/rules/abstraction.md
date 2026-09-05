@@ -210,6 +210,60 @@ export abstract class Settled {
 
 rqx says: drop the word, or give it the member a subclass has to write
 
+## `split-cohesion`
+
+each group is a type nobody has separated yet, so a change to one of them is read against the fields of all of them
+
+| | |
+|---|---|
+| Measures | groups of methods inside one type that share no state with each other |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Class / Move Method |
+| Not in Go | methods are attached to a type from outside it |
+| Not in Python | an attribute is written into the instance, not declared on the type |
+
+From `fixtures/typescript/conventions.ts`, line 17:
+
+```ts
+
+export class Ledger {
+  private entryList: number[] = [];
+  private label = "ledger";
+
+  record(entry: number): void {
+    this.entryList.push(entry);
+    return this.label;
+  }
+}
+
+```
+
+rqx says: give each group its own type, and let one of them hold the other
+
+## `method-ignores-instance`
+
+it needs nothing the type holds, so the type is a namespace for it and every caller has to build one to reach it
+
+| | |
+|---|---|
+| Measures | a method that never mentions the instance it hangs off |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Move Method |
+| Default | off; name it under `[rules] enabled` |
+| Not in Go | a method names its receiver, and one that does not is a function |
+
+From `fixtures/typescript/bloat.ts`, line 21:
+
+```ts
+  a11 = 1; a12 = 1; a13 = 1; a14 = 1; a15 = 1; a16 = 1; a17 = 1; a18 = 1; a19 = 1;
+  m1() {} m2() {} m3() {}
+}
+```
+
+rqx says: move it to whatever it is about, or make it a function of its own
+
 ## `single-method-field`
 
 it is that method's local kept where every other method can reach it, so every one of them has to be read before it can be changed

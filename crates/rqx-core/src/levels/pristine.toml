@@ -50,6 +50,8 @@ enabled = [
   "real-world-test",
   "unlabelled-assertions",
   "unexplained-expected-value",
+  "method-ignores-instance",
+  "eager-test",
 ]
 
 [gate]

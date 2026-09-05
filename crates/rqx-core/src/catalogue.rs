@@ -1216,6 +1216,73 @@ catalogue! {
         why: "it passes on every run and holds the code to nothing, while counting \
               towards whatever number the team watches",
     },
+    SplitCohesion {
+        slug: "split-cohesion",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "groups of methods inside one type that share no state with each other",
+        fixes: [ExtractClass, MoveMethod],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "each group is a type nobody has separated yet, so a change to one of \
+              them is read against the fields of all of them",
+        not_applicable: [
+            (Go, "methods are attached to a type from outside it"),
+            (Python, "an attribute is written into the instance, not declared on the type"),
+        ],
+    },
+    MethodIgnoresInstance {
+        slug: "method-ignores-instance",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "a method that never mentions the instance it hangs off",
+        fixes: [MoveMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it needs nothing the type holds, so the type is a namespace for it and \
+              every caller has to build one to reach it",
+        off_by_default: true,
+        not_applicable: [(Go, "a method names its receiver, and one that does not is a function")],
+    },
+    DroppedPromise {
+        slug: "dropped-promise",
+        category: Safety,
+        analysis: Syntax,
+        metric: "work that answers later, started and then thrown away",
+        fixes: [SeparateQueryFromModifier],
+        confidence: Heuristic,
+        severity: Error,
+        why: "nothing waits for it and nothing hears if it fails, so the failure \
+              arrives somewhere with no idea what asked for it",
+        not_applicable: [
+            (Go, "work started in the background is a goroutine, which the language marks"),
+            (Java, "a future is a value, and dropping it is dropping a value"),
+            (Cpp, "a future is a value, and dropping it is dropping a value"),
+        ],
+    },
+    EagerTest {
+        slug: "eager-test",
+        category: Tests,
+        analysis: Syntax,
+        metric: "distinct units one test drives",
+        fixes: [ExtractMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it fails for any of them and the run says only that the test failed, so \
+              the name it prints does not narrow anything down",
+        off_by_default: true,
+    },
+    StringShapeAssertion {
+        slug: "string-shape-assertion",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a check against a serialised shape written out as a string",
+        fixes: [IntroduceAssertion],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it holds the code to how the answer prints rather than to what it is, \
+              so a change in spacing fails a test about behaviour",
+    },
     BranchingTest {
         slug: "branching-test",
         category: Tests,

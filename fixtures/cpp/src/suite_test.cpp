@@ -61,3 +61,18 @@ TEST(Pricing, HoldsTheCodeToItself) {
 
 TEST(Pricing, IsNotWrittenYet) {
 }
+
+TEST(Pricing, DrivesTheLot) {
+    int one = add(1, 1);
+    EXPECT_EQ(one, 2);
+    EXPECT_EQ(0, std::string("{\"two\":4,\"spare\":\"padding here\"}").size());
+}
+
+TEST(Pricing, DrivesFiveUnits) {
+    int a = add(1, 1);
+    int b = many_paths(1, 1);
+    int c = fresh_total(1);
+    int d = narrated(1);
+    int e = guarded_add(1, 1, 1);
+    EXPECT_GT(a + b + c + d + e, 0);
+}

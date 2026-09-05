@@ -66,3 +66,19 @@ def test_expects_a_number_from_nowhere():
 
 def test_is_not_written_yet():
     pass
+
+
+def test_drives_the_lot():
+    one = add(1, 1)
+    two = add(2, 2)
+    assert str(one) == "2"
+    assert repr({"two": two}) == "{'two': 4, 'spare': 'padding here'}"
+
+
+def test_drives_five_units():
+    a = add(1, 1)
+    b = pricing([1])
+    c = process([1])
+    d = many_paths("a", [1])
+    e = fresh_total([1])
+    assert a + b + c + d + e > 0

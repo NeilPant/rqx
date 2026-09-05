@@ -100,3 +100,8 @@ open_tabs = 0
 
 def tabs_open():
     return open_tabs
+
+
+async def fires(rows):
+    _load_one()
+    return len(rows)

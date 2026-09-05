@@ -121,3 +121,8 @@ export async function paced(): Promise<number> {
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
+
+export async function fires(rows: number[]): Promise<number> {
+  loadOne();
+  return rows.length;
+}

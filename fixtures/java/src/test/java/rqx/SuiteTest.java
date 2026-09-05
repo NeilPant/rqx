@@ -94,6 +94,28 @@ public class SuiteTest {
     public void testIsNotWrittenYet() {
     }
 
+
+    @Test
+    public void testDrivesTheLot() {
+        int one = new Clean().add(1, 1);
+        assertEquals(2, one);
+        assertSame("{\"two\":4,\"spare\":\"padding here\"}", "x");
+    }
+
+    static void assertSame(String expected, String actual) {
+    }
+
+
+    @Test
+    public void testDrivesFiveUnits() {
+        int a = new Clean().add(1, 1);
+        int b = new Hygiene().narrated(1);
+        int c = new Hygiene().scoreOf(1);
+        int d = new Hygiene().guardedAdd(1, 1, 1);
+        int e = new Flow().freshTotal(1);
+        assertEquals(0, a + b + c + d + e);
+    }
+
     static void assertEquals(int expected, int actual) {
     }
 }

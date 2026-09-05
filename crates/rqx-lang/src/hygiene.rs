@@ -1770,6 +1770,45 @@ impl<'a> Walker<'a> {
                 count: checks.len() as u32,
             });
         }
+        // A test that drives several units at once fails for any of them, and the run
+        // says only that the test failed.
+        let vocabulary = &profile.test;
+        let driven: std::collections::BTreeSet<String> = descendants(body)
+            .into_iter()
+            .filter(|node| profile.is_call(*node))
+            .filter_map(|node| self.called_name(node))
+            .filter(|dotted| {
+                !vocabulary.is_assertion(dotted)
+                    && !vocabulary.is_test(dotted)
+                    && vocabulary.control(dotted).is_none()
+            })
+            .map(|dotted| dotted.rsplit('.').next().unwrap_or(&dotted).to_owned())
+            .collect();
+        if driven.len() >= 5 {
+            self.out.eager_tests.push(Spot {
+                span: span_of(body),
+                detail: driven.len().to_string(),
+                count: driven.len() as u32,
+            });
+        }
+        // A check against a serialised shape holds the code to how it prints rather
+        // than to what it answered.
+        if let Some(printed) = descendants(body).into_iter().find(|node| {
+            profile.string_kinds.contains(&node.kind()) && {
+                // A serialised shape opens with its own bracket; a sentence that
+                // happens to hold one is prose.
+                let text = self
+                    .text(*node)
+                    .trim_matches(['"', '\'', '`', 'r', 'f', 'b']);
+                text.len() > 30 && text.starts_with(['{', '['])
+            }
+        }) {
+            self.out.shape_assertions.push(Spot {
+                span: span_of(printed),
+                detail: self.snippet(printed),
+                count: 1,
+            });
+        }
         // The whole statement, not the call that names the check: a fluent framework
         // puts the expected value on the far side of the call that does the asserting.
         let written: Vec<Node<'a>> = checks
@@ -3328,6 +3367,154 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// A type whose methods fall into groups that share no state. Each group is a
+    /// type somebody has not separated yet.
+    fn note_split_cohesion(&mut self, class: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.class_body(class) else {
+            return;
+        };
+        let fields: Vec<String> = body
+            .named_children(&mut body.walk())
+            .filter(|child| profile.field_kinds.contains(&child.kind()))
+            .filter_map(|field| self.declared_field_name(field))
+            .collect();
+        if fields.len() < 2 {
+            return;
+        }
+        let touched: Vec<std::collections::BTreeSet<&str>> = body
+            .named_children(&mut body.walk())
+            .filter(|child| profile.method_kinds.contains(&child.kind()))
+            .map(|member| {
+                let names: Vec<&str> = descendants(member)
+                    .into_iter()
+                    .filter(|node| {
+                        profile.is_identifier(*node)
+                            || profile.property_kinds.contains(&node.kind())
+                    })
+                    .map(|node| self.text(node))
+                    .collect();
+                fields
+                    .iter()
+                    .filter(|field| names.contains(&field.as_str()))
+                    .map(String::as_str)
+                    .collect()
+            })
+            .filter(|used: &std::collections::BTreeSet<&str>| !used.is_empty())
+            .collect();
+        if touched.len() < 2 {
+            return;
+        }
+        // Two methods belong together when they share a field, directly or through a
+        // third; the groups left over are the types inside this one.
+        let mut groups: Vec<std::collections::BTreeSet<&str>> = Vec::new();
+        for used in touched {
+            let (mut joined, apart): (Vec<_>, Vec<_>) = groups
+                .into_iter()
+                .partition(|group| group.intersection(&used).next().is_some());
+            let mut merged = used;
+            for group in joined.drain(..) {
+                merged.extend(group);
+            }
+            groups = apart;
+            groups.push(merged);
+        }
+        if groups.len() < 2 {
+            return;
+        }
+        let Some(name) = self.class_name(class) else {
+            return;
+        };
+        self.out.split_cohesion.push(Spot {
+            span: span_of(class),
+            detail: name,
+            count: groups.len() as u32,
+        });
+    }
+
+    fn declared_field_name(&self, field: Node<'a>) -> Option<String> {
+        let profile = self.profile;
+        let spells_a_name = |node: &Node<'a>| {
+            profile.is_identifier(*node) || profile.property_kinds.contains(&node.kind())
+        };
+        let holder = field
+            .named_children(&mut field.walk())
+            .find(|child| profile.declarator_kinds.contains(&child.kind()))
+            .unwrap_or(field);
+        profile
+            .binding_fields
+            .iter()
+            .find_map(|binding| holder.child_by_field_name(binding))
+            .filter(spells_a_name)
+            .or_else(|| descendants(holder).into_iter().find(spells_a_name))
+            .map(|node| self.text(node).to_owned())
+    }
+
+    /// A method that never mentions the instance it was written on.
+    fn note_instance_free_method(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        if profile.self_names.is_empty() || self.is_static(function) {
+            return;
+        }
+        let inside_class = function
+            .parent()
+            .and_then(|parent| parent.parent())
+            .is_some_and(|grand| profile.is_class(grand));
+        if !inside_class || profile.constructor_kinds.contains(&function.kind()) {
+            return;
+        }
+        let Some(name) = self
+            .function_name(function)
+            .map(|node| self.text(node).to_owned())
+        else {
+            return;
+        };
+        if profile.constructor_names.contains(&name.as_str()) {
+            return;
+        }
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let mentions_self = descendants(body)
+            .into_iter()
+            .any(|node| profile.self_names.contains(&self.text(node)));
+        if mentions_self {
+            return;
+        }
+        self.out.instance_free_methods.push(Spot {
+            span: self.name_span(function),
+            detail: name,
+            count: 1,
+        });
+    }
+
+    /// Starting work that answers later and throwing the answer away. Nothing waits
+    /// for it and nothing hears if it fails.
+    fn note_dropped_promise(&mut self, statement: Node<'a>, awaited: &[String]) {
+        let profile = self.profile;
+        let Some(call) = self.only_call(statement) else {
+            return;
+        };
+        if descendants(statement)
+            .into_iter()
+            .any(|node| profile.await_kinds.contains(&node.kind()))
+        {
+            return;
+        }
+        let Some(dotted) = self.called_name(call) else {
+            return;
+        };
+        let tail = dotted.rsplit('.').next().unwrap_or(&dotted).to_owned();
+        if !awaited.iter().any(|known| *known == tail) {
+            return;
+        }
+        self.out.dropped_promises.push(Spot {
+            span: span_of(statement),
+            detail: dotted,
+            count: 1,
+        });
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -4066,6 +4253,7 @@ impl<'a> Walker<'a> {
         if profile.is_class(node) {
             self.note_class_shape(node);
             self.note_empty_abstraction(node);
+            self.note_split_cohesion(node);
             self.note_lonely_fields(node);
             self.note_many_collaborators(node);
         }
@@ -4079,6 +4267,7 @@ impl<'a> Walker<'a> {
             self.note_empty_method(node);
             self.note_loop_capture(node);
             self.note_passthrough_override(node);
+            self.note_instance_free_method(node);
             self.note_over_logging(node);
             self.note_sequential_await(node);
             self.note_guard_cascade(node);
@@ -4593,6 +4782,25 @@ pub fn collect(
     }
     // Which names the file shares is only settled once every declaration has been
     // seen, so the functions that hand one back are read afterwards.
+    // Which functions answer later is only settled once the file has been read, so
+    // the statements that drop one of those answers are found afterwards.
+    let awaited: Vec<String> = descendants(root)
+        .into_iter()
+        .filter(|node| profile.is_function(*node) && profile.is_async(*node))
+        .filter_map(|node| {
+            let named = node.child_by_field_name("name")?;
+            Some(text_of(named, source).to_owned())
+        })
+        .collect();
+    if !awaited.is_empty() {
+        let statements: Vec<Node<'_>> = descendants(root)
+            .into_iter()
+            .filter(|node| node.kind() == "expression_statement")
+            .collect();
+        for statement in statements {
+            walker.note_dropped_promise(statement, &awaited);
+        }
+    }
     let shared: Vec<String> = walker
         .out
         .module_state

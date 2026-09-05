@@ -61,3 +61,19 @@ it("expects a number from nowhere", () => {
 });
 
 it("is not written yet", () => {});
+
+it("drives the lot", () => {
+  const one = add(1, 1);
+  const two = add(2, 2);
+  expect(String(one)).toBe("2");
+  expect(JSON.stringify({ two })).toBe('{"two":4,"spare":"padding here"}');
+});
+
+it("drives five units", () => {
+  const a = add(1, 1);
+  const b = pricing([1]);
+  const c = ship({ customer: { address: { city: "x" } } });
+  const d = process([1]);
+  const e = manyPaths("a", [1]);
+  expect(a + b + Number(c.length) + d + e).toBeGreaterThan(0);
+});
