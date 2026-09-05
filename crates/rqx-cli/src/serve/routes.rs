@@ -267,29 +267,8 @@ async fn graph(State(live): State<Arc<Live>>) -> Response {
             }))
             .collect::<Vec<_>>(),
         "edges": outcome.import_edges,
-        "cycles": cycles(&outcome),
+        "cycles": outcome.cycles,
     }))
-}
-
-/// Cycles as the scan already found them: a two-member cycle is an `import-cycle`
-/// finding whose related site names the other file, and a longer one is the
-/// mediator advice that lists every member.
-fn cycles(outcome: &crate::scan::ScanOutcome) -> Vec<Vec<String>> {
-    let mut cycles: Vec<Vec<String>> = outcome
-        .findings
-        .iter()
-        .filter(|finding| finding.rule == rqx_core::rule::RuleId::CircularDependency)
-        .map(|finding| {
-            let mut members = vec![finding.location.file.to_string()];
-            members.extend(finding.related.iter().map(|site| site.file.to_string()));
-            members.sort();
-            members.dedup();
-            members
-        })
-        .collect();
-    cycles.sort();
-    cycles.dedup();
-    cycles
 }
 
 /// One file's source, for the code view. Contained to the project root, so a page
