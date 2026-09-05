@@ -657,6 +657,38 @@ impl<'a> Walker<'a> {
     /// Ways out of one body, past the guard clauses. A `return` in the first few
     /// statements is a precondition a reader expects; the ones written deep in the
     /// body are the ones they have to hunt for.
+    /// A body with nothing in it. An abstract declaration has no body at all, so it
+    /// never reaches here; a constructor is exempt because an empty one is how several
+    /// languages spell "the default, but private".
+    fn note_empty_method(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        if profile.constructor_kinds.contains(&function.kind()) {
+            return;
+        }
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        // `empty_body_kinds` is how each language spells nothing: a comment
+        // everywhere, and `pass` or `...` in Python.
+        let empty = body
+            .named_children(&mut body.walk())
+            .all(|child| profile.empty_body_kinds.contains(&child.kind()));
+        if !empty {
+            return;
+        }
+        // An empty function literal passed as a callback is a deliberate no-op, and
+        // being empty is the whole of what it says.
+        let Some(name) = self.function_name(function) else {
+            return;
+        };
+        let name = self.text(name).to_owned();
+        self.out.empty_methods.push(Spot {
+            span: span_of(function),
+            detail: name,
+            count: 1,
+        });
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -913,6 +945,7 @@ impl<'a> Walker<'a> {
             self.note_switch_width(node);
         }
         if profile.is_function(node) {
+            self.note_empty_method(node);
             self.note_exits(node);
             self.note_callback_depth(node);
         }

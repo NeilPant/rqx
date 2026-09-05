@@ -38,3 +38,5 @@ export function ship(order: { customer: { address: { city: string } } }) {
 // Here's the helper you asked for! 🎉
 // Sorry, this one is ugly.
 
+export function nothingHappens(): void {
+}

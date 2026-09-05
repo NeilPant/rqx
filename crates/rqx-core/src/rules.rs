@@ -643,6 +643,20 @@ pub fn check_hygiene(
             "pick one verb for the idea and rename the rest to match".to_owned(),
         );
     }
+    for spot in &hygiene.empty_methods {
+        emit(
+            out,
+            RuleId::EmptyMethod,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "has an empty body".to_owned(),
+            },
+            "give it a body, delete it, or make it explicit that doing nothing is the \
+             answer here"
+                .to_owned(),
+        );
+    }
     for (spots, rule, hint) in [
         (
             &hygiene.banner_comments,

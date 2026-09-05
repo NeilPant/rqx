@@ -26,6 +26,9 @@ public class Hygiene {
         return 0;
     }
 
+    public void nothingHappens() {
+    }
+
     public int unreachable(int value) {
         // rqx-ignore magic-number
         int seed = 1;

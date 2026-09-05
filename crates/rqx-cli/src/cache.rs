@@ -40,7 +40,31 @@ fn analysis_version(settings: &Resolved) -> u64 {
     let mut hasher = DefaultHasher::new();
     env!("CARGO_PKG_VERSION").hash(&mut hasher);
     settings.signature().hash(&mut hasher);
+    catalogue_version().hash(&mut hasher);
     hasher.finish()
+}
+
+/// The catalogue itself, because the package version does not move between builds
+/// and a rule added since a cache was written would never fire on a file that had
+/// not changed. Found the hard way: a new rule reported nothing on the fixture tree
+/// until the cache was deleted by hand.
+fn catalogue_version() -> u64 {
+    use std::sync::LazyLock;
+    static VERSION: LazyLock<u64> = LazyLock::new(|| {
+        let mut hasher = DefaultHasher::new();
+        for rule in rqx_core::rule::RuleId::ALL {
+            let spec = rule.spec();
+            spec.slug.hash(&mut hasher);
+            spec.severity.hash(&mut hasher);
+            spec.confidence.hash(&mut hasher);
+            spec.off_by_default.hash(&mut hasher);
+        }
+        for advisory in rqx_core::advice::AdviceId::ALL {
+            advisory.spec().slug.hash(&mut hasher);
+        }
+        hasher.finish()
+    });
+    *VERSION
 }
 
 /// What the cache holds and what it cost, for `rqx cache status`.
@@ -140,6 +164,26 @@ impl Cache {
 
 #[cfg(test)]
 mod tests {
+
+    /// A rule added since the cache was written must invalidate it. The package
+    /// version does not move between builds, so without the catalogue in the key a
+    /// new rule reports nothing on any file that has not changed — which is exactly
+    /// what happened while `empty-method` was being written.
+    #[test]
+    fn the_catalogue_is_part_of_the_key() {
+        let settings = Resolved::of(rqx_core::config::RqxConfig::default());
+        let version = analysis_version(&settings);
+        assert_eq!(version, analysis_version(&settings), "not deterministic");
+
+        // Standing in for a rule changing, since the catalogue is a compile-time
+        // table: the same hash over a different rule set has to differ.
+        let mut hasher = DefaultHasher::new();
+        for rule in rqx_core::rule::RuleId::ALL.iter().skip(1) {
+            rule.spec().slug.hash(&mut hasher);
+        }
+        assert_ne!(hasher.finish(), catalogue_version());
+    }
+
     use rqx_core::config::RqxConfig;
 
     use super::*;

@@ -828,6 +828,18 @@ catalogue! {
     },
 
     // ---- Safety ---------------------------------------------------------------
+    EmptyMethod {
+        slug: "empty-method",
+        category: Waste,
+        analysis: Semantics,
+        metric: "a function or method with nothing in its body",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "a caller that reaches this gets silence and no way to tell it apart from \
+              work that succeeded, and the next reader cannot tell whether it is a stub \
+              or a decision",
+    },
     DuplicateImport {
         slug: "duplicate-import",
         category: Waste,

@@ -51,3 +51,5 @@ func Ship(target order) string {
 // Here's the helper you asked for! 🎉
 // Sorry, this one is ugly.
 
+func NothingHappens() {
+}

@@ -38,3 +38,5 @@ def ship(order) -> str:
 # Here's the helper you asked for! 🎉
 # Sorry, this one is ugly.
 
+def nothing_happens() -> None:
+    pass

@@ -412,6 +412,27 @@ the same rule is written twice in two languages, so the day it changes it change
 | Fix | Extract Shared Module |
 | Default | off; name it under `[rules] enabled` |
 
+## `empty-method`
+
+a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision
+
+| | |
+|---|---|
+| Measures | a function or method with nothing in its body |
+| Reported as | info, verified |
+| Reads | resolved scopes and symbols |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/bloat.ts`, line 21:
+
+```ts
+  a11 = 1; a12 = 1; a13 = 1; a14 = 1; a15 = 1; a16 = 1; a17 = 1; a18 = 1; a19 = 1;
+  m1() {} m2() {} m3() {}
+}
+```
+
+rqx says: give it a body, delete it, or make it explicit that doing nothing is the answer here
+
 ## `duplicate-import`
 
 two statements bringing in one module means a reader has to check both to know what this file takes from it, and a merge put at least one there without anybody looking

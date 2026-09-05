@@ -73,6 +73,7 @@ pub struct Hygiene {
     pub magic_numbers: Vec<Spot>,
     pub empty_catches: Vec<Spot>,
     pub suppressions: Vec<Spot>,
+    pub empty_methods: Vec<Spot>,
     pub banner_comments: Vec<Spot>,
     pub chat_residue: Vec<Spot>,
     pub apologies: Vec<Spot>,
