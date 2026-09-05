@@ -258,6 +258,14 @@ pub struct LanguageProfile {
     pub private_markers: &'static [&'static str],
     /// Naming conventions that stand in for a keyword the language does not have.
     pub private_name_prefixes: &'static [&'static str],
+    /// Keywords that fix a binding's value for good. A file-level binding without one
+    /// is state the whole program shares.
+    pub immutable_markers: &'static [&'static str],
+    /// The statement that introduces a binding at file level.
+    pub variable_declaration_kinds: &'static [&'static str],
+    /// Dotted names that answer with something outside the program: the clock, the
+    /// environment, a random source.
+    pub ambient_names: &'static [&'static str],
     /// Markers that make a member belong to the type rather than to an instance.
     pub static_markers: &'static [&'static str],
     /// Markers for members that read as fields but are written as methods.

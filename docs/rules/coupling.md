@@ -154,6 +154,119 @@ import { spinAgain } from "./cycle-a";
 
 rqx says: move what `../../../shared/far` reaches for somewhere both ends can import, or turn the path into one the project resolves by name
 
+## `mutable-module-state`
+
+every function that reads it takes an argument nobody passed, so two calls with the same arguments can answer differently and no signature says why
+
+| | |
+|---|---|
+| Measures | a binding at file level that anything in the file can write to |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Encapsulate Field / Extract Class |
+
+From `fixtures/typescript/intimacy.ts`, line 30:
+
+```ts
+
+export let openSessions = 0;
+
+```
+
+rqx says: fix it at its declaration, or give it an owner that decides who writes it
+
+## `ambient-dependency`
+
+the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine
+
+| | |
+|---|---|
+| Measures | a body reaching for the clock, the environment or a random source |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Parameter Object / Invert Dependency |
+
+From `fixtures/typescript/flow.ts`, line 102:
+
+```ts
+        setTimeout(() => {
+          globalThis.console.log("deep");
+        }, 1);
+```
+
+rqx says: take it as an argument, so a test can hand it whatever it needs
+
+## `self-built-collaborators`
+
+nothing can be put in its place, so every test of the owner stands up the real collaborator and everything behind it
+
+| | |
+|---|---|
+| Measures | a field filled with something the object constructed itself |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Invert Dependency / Introduce Parameter Object |
+| Not in Go | a value is built by a literal, which names no type to stand in for |
+
+From `fixtures/typescript/intimacy.ts`, line 37:
+
+```ts
+  constructor() {
+    this.writer = new CsvWriter();
+  }
+```
+
+rqx says: accept it as an argument, so a caller can decide what it is
+
+## `import-time-work`
+
+it happens before any caller has asked for anything, in whatever order the imports happen to resolve, and nothing can stop it
+
+| | |
+|---|---|
+| Measures | a call that runs the moment the file is loaded |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Separate Query from Modifier |
+| Not in Go | a file holds declarations, and only `init` runs on load |
+| Not in Java | a file holds declarations, and only a static block runs on load |
+| Not in C++ | a translation unit holds declarations |
+
+From `fixtures/typescript/intimacy.ts`, line 32:
+
+```ts
+
+warmTheCache();
+
+```
+
+rqx says: put it behind a function the caller chooses to call
+
+## `reaches-into-private`
+
+the other type is free to change it and has said so, so this line breaks on a change nobody could have known would reach it
+
+| | |
+|---|---|
+| Measures | reading a member another type marked as its own business |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Encapsulate Delegation / Move Method |
+| Default | off; name it under `[rules] enabled` |
+| Not in Go | the package boundary is the language's, and the compiler holds it |
+| Not in Java | the compiler refuses it |
+| Not in C++ | the compiler refuses it |
+
+From `fixtures/typescript/intimacy.ts`, line 43:
+
+```ts
+  peek(other: Cart & { _items: string[] }): number {
+    return other._items.length;
+  }
+```
+
+rqx says: ask the other type for what this line wanted, and let it decide how
+
 ## `wildcard-import`
 
 nothing in the file says which names came from where, so a reader has to open the other module to find out and a new export there can shadow a local one silently

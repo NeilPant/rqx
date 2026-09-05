@@ -1015,6 +1015,68 @@ pub fn check_hygiene(
             "name the value at the call site, or give the callee two methods".to_owned(),
         );
     }
+    for spot in &hygiene.module_state {
+        emit(
+            out,
+            RuleId::MutableModuleState,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is writable from anywhere in the file".to_owned(),
+            },
+            "fix it at its declaration, or give it an owner that decides who writes \
+             it"
+            .to_owned(),
+        );
+    }
+    for spot in &hygiene.ambient_dependencies {
+        emit(
+            out,
+            RuleId::AmbientDependency,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "answers with something no caller set".to_owned(),
+            },
+            "take it as an argument, so a test can hand it whatever it needs".to_owned(),
+        );
+    }
+    for spot in &hygiene.self_built_collaborators {
+        emit(
+            out,
+            RuleId::SelfBuiltCollaborators,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is built by the object that holds it".to_owned(),
+            },
+            "accept it as an argument, so a caller can decide what it is".to_owned(),
+        );
+    }
+    for spot in &hygiene.import_time_work {
+        emit(
+            out,
+            RuleId::ImportTimeWork,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "runs when the file is loaded".to_owned(),
+            },
+            "put it behind a function the caller chooses to call".to_owned(),
+        );
+    }
+    for spot in &hygiene.private_reaches {
+        emit(
+            out,
+            RuleId::ReachesIntoPrivate,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "belongs to the other type".to_owned(),
+            },
+            "ask the other type for what this line wanted, and let it decide how".to_owned(),
+        );
+    }
     for spot in &hygiene.unused_imports {
         emit(
             out,

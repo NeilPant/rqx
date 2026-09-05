@@ -1197,6 +1197,75 @@ catalogue! {
             (Cpp, "an include may be there for a header that needs it"),
         ],
     },
+    MutableModuleState {
+        slug: "mutable-module-state",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "a binding at file level that anything in the file can write to",
+        fixes: [EncapsulateField, ExtractClass],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every function that reads it takes an argument nobody passed, so two \
+              calls with the same arguments can answer differently and no signature \
+              says why",
+    },
+    AmbientDependency {
+        slug: "ambient-dependency",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "a body reaching for the clock, the environment or a random source",
+        fixes: [IntroduceParameterObject, InvertDependency],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the answer depends on something no caller can set, so the only way to \
+              test the branch that reads it is to change the machine",
+    },
+    SelfBuiltCollaborators {
+        slug: "self-built-collaborators",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "a field filled with something the object constructed itself",
+        fixes: [InvertDependency, IntroduceParameterObject],
+        confidence: Verified,
+        severity: Warning,
+        why: "nothing can be put in its place, so every test of the owner stands up \
+              the real collaborator and everything behind it",
+        not_applicable: [(Go, "a value is built by a literal, which names no type to \
+                              stand in for")],
+    },
+    ImportTimeWork {
+        slug: "import-time-work",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "a call that runs the moment the file is loaded",
+        fixes: [ExtractMethod, SeparateQueryFromModifier],
+        confidence: Verified,
+        severity: Warning,
+        why: "it happens before any caller has asked for anything, in whatever order \
+              the imports happen to resolve, and nothing can stop it",
+        not_applicable: [
+            (Go, "a file holds declarations, and only `init` runs on load"),
+            (Java, "a file holds declarations, and only a static block runs on load"),
+            (Cpp, "a translation unit holds declarations"),
+        ],
+    },
+    ReachesIntoPrivate {
+        slug: "reaches-into-private",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "reading a member another type marked as its own business",
+        fixes: [EncapsulateDelegation, MoveMethod],
+        confidence: Verified,
+        severity: Warning,
+        why: "the other type is free to change it and has said so, so this line \
+              breaks on a change nobody could have known would reach it",
+        off_by_default: true,
+        not_applicable: [
+            (Go, "the package boundary is the language's, and the compiler holds it"),
+            (Java, "the compiler refuses it"),
+            (Cpp, "the compiler refuses it"),
+        ],
+    },
     WildcardImport {
         slug: "wildcard-import",
         category: Coupling,

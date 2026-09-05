@@ -1,5 +1,7 @@
 package fixtures
 
+import "time"
+
 var CheckoutRate = 3
 
 type Cart struct {
@@ -32,3 +34,7 @@ type JsonEmitter struct{}
 func (JsonEmitter) Begin(path string) {}
 func (JsonEmitter) Emit(row string)   {}
 func (JsonEmitter) Finish()           {}
+
+func StampedAt() int64 {
+	return time.Now().Unix()
+}

@@ -37,6 +37,7 @@ enabled = [
   "emoji-in-source",
   "tiny-switch",
   "debug-output",
+  "reaches-into-private",
 ]
 
 [gate]

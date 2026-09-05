@@ -26,3 +26,24 @@ export class JsonEmitter {
   emit(row: string): void { void row; }
   finish(): void {}
 }
+
+export let openSessions = 0;
+
+warmTheCache();
+
+export class Ledger {
+  private writer: CsvWriter;
+  constructor() {
+    this.writer = new CsvWriter();
+  }
+  stampedAt(): number {
+    return Date.now();
+  }
+  peek(other: Cart & { _items: string[] }): number {
+    return other._items.length;
+  }
+}
+
+function warmTheCache(): void {
+  openSessions = 0;
+}

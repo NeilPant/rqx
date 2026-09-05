@@ -34,3 +34,15 @@ class JsonEmitter {
     public void emit(String row) { }
     public void finish() { }
 }
+
+class Ledger {
+    private CsvWriter writer;
+
+    Ledger() {
+        this.writer = new CsvWriter();
+    }
+
+    long stampedAt() {
+        return System.currentTimeMillis();
+    }
+}

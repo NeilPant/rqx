@@ -7,7 +7,7 @@ from .dead_export import reachable
 from .hierarchy import Cat, Dog, Feeder
 from .hierarchy_food import CatFood, DogFood, Store
 from .hygiene import catches_everything, closes_out, forward_orbit, maybe_count, pricing, refuses, reraises, requests, ship, still_to_write, stops, suppressed, traced, unreachable
-from .intimacy import Cart, Checkout, CsvWriter, JsonEmitter
+from .intimacy import Cart, Checkout, CsvWriter, JsonEmitter, Ledger, open_sessions, warm_the_cache
 from .lifecycle import ReportFactory, Session
 from .long import many_steps
 from .names import process, guards_the_gate
@@ -116,6 +116,9 @@ def main():
         many_steps,
         process,
         Overgrown,
+        Ledger,
+        open_sessions,
+        warm_the_cache,
         guards_the_gate,
         deeply_nested,
         Catalogue,

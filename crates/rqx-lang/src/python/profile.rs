@@ -195,6 +195,17 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     // Python has no `private` keyword; a leading underscore is the whole convention,
     // and the community treats it as binding.
     private_name_prefixes: &["_"],
+    immutable_markers: &[],
+    variable_declaration_kinds: &["expression_statement"],
+    ambient_names: &[
+        "os.environ",
+        "os.getenv",
+        "random.random",
+        "random.randint",
+        "time.time",
+        "datetime.now",
+        "datetime.utcnow",
+    ],
     static_markers: &["staticmethod", "classmethod"],
     accessor_markers: &["property", "setter", "getter", "cached_property"],
     switch_kinds: &["match_statement"],

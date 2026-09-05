@@ -196,6 +196,15 @@ pub static GO: LanguageProfile = LanguageProfile {
     private_markers: &[],
     // Go has no access keyword: a lower-case initial is the whole of it.
     private_name_prefixes: &[],
+    immutable_markers: &["const"],
+    variable_declaration_kinds: &["var_declaration"],
+    ambient_names: &[
+        "os.Getenv",
+        "os.LookupEnv",
+        "time.Now",
+        "rand.Int",
+        "rand.Intn",
+    ],
     static_markers: &[],
     accessor_markers: &[],
     switch_kinds: &["expression_switch_statement"],

@@ -41,6 +41,9 @@ struct Walker<'a> {
     declared: HashMap<String, String>,
     frames: Vec<PerfFrame>,
     test_depth: u32,
+    /// Whether anything in this file turned out to be a test. Known only once the
+    /// walk is over, so the rules that need it run after it.
+    holds_tests: bool,
     block_depth: u32,
 }
 
@@ -1605,8 +1608,18 @@ impl<'a> Walker<'a> {
             .filter(|parent| profile.decorated_kinds.contains(&parent.kind()))
             .unwrap_or(member);
         let mut cursor = holder.walk();
-        holder
-            .children(&mut cursor)
+        let mut direct: Vec<Node<'a>> = holder.children(&mut cursor).collect();
+        let containers: Vec<Node<'a>> = direct
+            .iter()
+            .copied()
+            .filter(|node| profile.modifier_container_kinds.contains(&node.kind()))
+            .collect();
+        for container in containers {
+            let mut inner = container.walk();
+            direct.extend(container.children(&mut inner));
+        }
+        direct
+            .into_iter()
             .any(|node| profile.static_markers.contains(&self.text(node)))
             || self.annotations(member).iter().any(|annotation| {
                 profile
@@ -1774,6 +1787,265 @@ impl<'a> Walker<'a> {
                 count: 1,
             });
         }
+    }
+
+    /// A binding at file level that anything in the file can write to. Every function
+    /// that reads it has an argument nobody passed.
+    fn note_module_state(&mut self, root: Node<'a>) {
+        let profile = self.profile;
+        let mut holders = vec![root];
+        // A language that has no file-level binding spells the same thing as a static
+        // member, so the class bodies are read too.
+        holders.extend(
+            descendants(root)
+                .into_iter()
+                .filter(|node| profile.is_class(*node))
+                .filter_map(|class| self.class_body(class)),
+        );
+        for holder in holders {
+            self.note_shared_bindings(holder, holder.id() != root.id());
+        }
+    }
+
+    fn note_shared_bindings(&mut self, root: Node<'a>, members_only: bool) {
+        let profile = self.profile;
+        for statement in root.named_children(&mut root.walk()) {
+            // `export let x = 1` is a declaration wearing a wrapper.
+            let statement = if profile.export_kinds.contains(&statement.kind()) {
+                statement.named_child(0).unwrap_or(statement)
+            } else {
+                statement
+            };
+            // Inside a type, only what belongs to the type rather than to an instance
+            // is shared by the whole program.
+            if members_only && !self.is_static(statement) {
+                continue;
+            }
+            let declares = profile
+                .variable_declaration_kinds
+                .contains(&statement.kind())
+                || profile.local_declaring_kinds.contains(&statement.kind())
+                || profile.field_kinds.contains(&statement.kind());
+            if !declares {
+                continue;
+            }
+            // The keyword can sit behind other modifiers, so the words before the
+            // type are all read rather than only the first.
+            let declared = self.text(statement);
+            let head = declared.split('=').next().unwrap_or(declared);
+            if head
+                .split_whitespace()
+                .any(|word| profile.immutable_markers.contains(&word))
+            {
+                continue;
+            }
+            // A file-level statement that declares a function is not a binding, and
+            // in C++ a bare prototype wears the same node kind as one.
+            let inner = descendants(statement);
+            if inner.iter().any(|node| {
+                profile.is_function(*node)
+                    || profile.declarator_wrapper_kinds.contains(&node.kind())
+                    || profile.is_class(*node)
+            }) {
+                continue;
+            }
+            let Some(name) = inner.into_iter().find(|node| {
+                profile.is_identifier(*node)
+                    && crate::tree::is_binding_position(
+                        *node,
+                        &[],
+                        profile.borrowed_name_kinds,
+                        profile.local_declaring_kinds,
+                        profile.expression_list_kinds,
+                    )
+            }) else {
+                continue;
+            };
+            let name = self.text(name);
+            // A name in capitals is the convention a language without a keyword uses
+            // to say the same thing.
+            let spelled_constant = name
+                .chars()
+                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_');
+            if spelled_constant || name.starts_with('_') {
+                continue;
+            }
+            self.out.module_state.push(Spot {
+                span: span_of(statement),
+                detail: name.to_owned(),
+                count: 1,
+            });
+        }
+    }
+
+    /// A statement that runs work the moment the file is loaded, before any caller
+    /// has asked for anything.
+    fn note_import_time_work(&mut self, root: Node<'a>) {
+        let profile = self.profile;
+        for statement in root.named_children(&mut root.walk()) {
+            if statement.kind() != "expression_statement" {
+                continue;
+            }
+            let Some(call) = statement
+                .named_child(0)
+                .map(|value| self.see_through(value))
+                .filter(|value| profile.is_call(*value))
+            else {
+                continue;
+            };
+            let Some(name) = self.called_name(call) else {
+                continue;
+            };
+            // A test file is a list of registrations, and registering is the whole of
+            // what loading it is for.
+            if profile.test.is_test(&name) || profile.test.is_assertion(&name) {
+                continue;
+            }
+            self.out.import_time_work.push(Spot {
+                span: span_of(statement),
+                detail: name,
+                count: 1,
+            });
+        }
+    }
+
+    /// Reaching for the clock, the environment or a random source from inside a body
+    /// nobody handed one to.
+    fn note_ambient_dependency(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let Some(dotted) = self
+            .callee_name(node)
+            .or_else(|| self.called_name(node))
+            .or_else(|| {
+                profile
+                    .qualified_name_kinds
+                    .contains(&node.kind())
+                    .then(|| self.text(node).replace("::", "."))
+            })
+        else {
+            return;
+        };
+        if !profile.ambient_names.contains(&dotted.as_str()) || self.test_depth > 0 {
+            return;
+        }
+        // The callee and the call both spell the same reach; the call is the one a
+        // reader points at.
+        if node
+            .parent()
+            .is_some_and(|parent| profile.is_call(parent) && !profile.is_call(node))
+        {
+            return;
+        }
+        // Only inside a body: a file-level constant reading the environment once is
+        // configuration, and every caller can see it happen.
+        if !self.inside_body(node) {
+            return;
+        }
+        self.out.ambient_dependencies.push(Spot {
+            span: span_of(node),
+            detail: dotted,
+            count: 1,
+        });
+    }
+
+    fn inside_body(&self, node: Node<'a>) -> bool {
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if self.profile.is_function(current) {
+                return true;
+            }
+            parent = current.parent();
+        }
+        false
+    }
+
+    /// A field filled with something the object built itself. Nothing can be put in
+    /// its place, so nothing can be tested without the real thing.
+    fn note_self_built_collaborator(&mut self, assignment: Node<'a>) {
+        let profile = self.profile;
+        let Some(target) = assignment.child_by_field_name("left") else {
+            return;
+        };
+        if !profile.is_member_access(target) {
+            return;
+        }
+        let reaches_self = target
+            .child_by_field_name(profile.object_field)
+            .map(|object| self.text(object))
+            .is_some_and(|object| profile.self_names.contains(&object));
+        if !reaches_self {
+            return;
+        }
+        let Some(value) = assignment.child_by_field_name("right") else {
+            return;
+        };
+        let value = self.see_through(value);
+        let Some(built) = self.constructed_type(value) else {
+            return;
+        };
+        self.out.self_built_collaborators.push(Spot {
+            span: span_of(assignment),
+            detail: built,
+            count: 1,
+        });
+    }
+
+    /// What a `new` builds, whichever field the grammar keeps it in — or, in a
+    /// language with no `new`, a call on a name spelled like a type.
+    fn constructed_type(&self, node: Node<'a>) -> Option<String> {
+        if let Some(built) = self
+            .profile
+            .constructor_field
+            .and_then(|field| node.child_by_field_name(field))
+        {
+            return self
+                .callee_name(built)
+                .or_else(|| Some(self.text(built).to_owned()));
+        }
+        let name = self.called_name(node)?;
+        let tail = name.rsplit('.').next().unwrap_or(&name);
+        tail.chars()
+            .next()
+            .is_some_and(|first| first.is_uppercase())
+            .then(|| tail.to_owned())
+    }
+
+    /// Reading a member the other type marked as its own business.
+    fn note_private_reach(&mut self, access: Node<'a>) {
+        let profile = self.profile;
+        if profile.private_name_prefixes.is_empty() {
+            return;
+        }
+        let Some(property) = self.member_property(access) else {
+            return;
+        };
+        let name = self.text(property);
+        if !profile
+            .private_name_prefixes
+            .iter()
+            .any(|prefix| name.starts_with(prefix))
+        {
+            return;
+        }
+        let receiver = access
+            .child_by_field_name(profile.object_field)
+            .map(|object| self.text(object));
+        // The receiver is the only one entitled to it, and so is a name that is
+        // itself private.
+        if receiver.is_none_or(|object| {
+            profile.self_names.contains(&object)
+                || profile
+                    .private_name_prefixes
+                    .iter()
+                    .any(|prefix| object.starts_with(prefix))
+        }) {
+            return;
+        }
+        self.out.private_reaches.push(Spot {
+            span: span_of(access),
+            detail: name.to_owned(),
+            count: 1,
+        });
     }
 
     fn note_exits(&mut self, function: Node<'a>) {
@@ -2429,6 +2701,7 @@ impl<'a> Walker<'a> {
             || kind == "translation_unit"
         {
             self.note_unreachable(node);
+            self.note_module_state(node);
         }
         if profile.is_function(node) {
             self.note_flag_parameters(node);
@@ -2507,6 +2780,10 @@ impl<'a> Walker<'a> {
             self.note_class_shape(node);
         }
         self.note_declared_name(node);
+        self.note_ambient_dependency(node);
+        if profile.is_member_access(node) {
+            self.note_private_reach(node);
+        }
         if profile.is_function(node) {
             self.note_empty_method(node);
             self.note_many_locals(node);
@@ -2547,6 +2824,7 @@ impl<'a> Walker<'a> {
         }
         if profile.assignment_kinds.contains(&kind) {
             self.note_copy_accumulation(node);
+            self.note_self_built_collaborator(node);
         }
         if profile.is_call(node) {
             self.note_perf_call(node);
@@ -2558,6 +2836,7 @@ impl<'a> Walker<'a> {
                 .is_some_and(|name| profile.test.is_test(&name))
             {
                 self.test_depth += 1;
+                self.holds_tests = true;
                 entered_test = true;
             }
         }
@@ -2992,9 +3271,15 @@ pub fn collect(
         declared: HashMap::new(),
         frames: vec![PerfFrame::default()],
         test_depth: 0,
+        holds_tests: false,
         block_depth: 0,
     };
     walker.walk(root);
+    // A test file is a list of registrations, and registering is the whole of what
+    // loading it is for — which is only knowable once the file has been read.
+    if !walker.holds_tests {
+        walker.note_import_time_work(root);
+    }
 
     let mut out = std::mem::take(&mut walker.out);
     note_conventions(&scopes.bindings, &mut walker.conventions);

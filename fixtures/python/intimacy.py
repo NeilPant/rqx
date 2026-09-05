@@ -1,3 +1,5 @@
+import time
+
 class Cart:
     def __init__(self):
         self.items = []
@@ -34,3 +36,23 @@ class JsonEmitter:
 
     def finish(self) -> None:
         return None
+
+
+open_sessions = 0
+
+warm_the_cache()
+
+
+class Ledger:
+    def __init__(self):
+        self.writer = CsvWriter()
+
+    def stamped_at(self):
+        return time.time()
+
+    def peek(self, other):
+        return len(other._items)
+
+
+def warm_the_cache():
+    return 0
