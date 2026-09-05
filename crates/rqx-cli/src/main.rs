@@ -103,7 +103,7 @@ enum Command {
         /// Display cap; 0 shows every finding. Never affects the health score.
         #[arg(long)]
         max_findings: Option<usize>,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -132,7 +132,7 @@ enum Command {
         /// With --plan, emit markdown a person can paste rather than a report to read
         #[arg(long)]
         markdown: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -153,7 +153,7 @@ enum Command {
         /// Emit one JSON object per change instead of the reader's report
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -210,7 +210,7 @@ enum Command {
         /// Emit one JSON object per item instead of the reader's plan
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -240,7 +240,7 @@ enum Command {
         /// Record a larger set than the last one held
         #[arg(long)]
         force: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -257,7 +257,7 @@ enum Command {
         /// Emit one JSON object per waiver instead of the reader's report
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -285,7 +285,7 @@ enum Command {
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -314,7 +314,7 @@ enum Command {
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -335,7 +335,7 @@ enum Command {
         only: Option<recommend::Only>,
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -353,7 +353,7 @@ enum Command {
         min: u32,
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -369,7 +369,7 @@ enum Command {
         /// Emit one JSON object per bucket
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -391,7 +391,7 @@ enum Command {
         /// How far from `--focus` to follow
         #[arg(long, default_value_t = 2)]
         depth: u32,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -434,7 +434,7 @@ enum Command {
         /// Emit one JSON object per advisory instead of the reader's report
         #[arg(long)]
         json: bool,
-        #[arg(long)]
+        #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
@@ -524,7 +524,7 @@ enum Command {
 #[derive(Args, Default)]
 struct Standard {
     /// relaxed, standard, strict or pristine
-    #[arg(long, value_name = "LEVEL")]
+    #[arg(long, value_name = "LEVEL", env = "RQX_LEVEL")]
     level: Option<String>,
 }
 
@@ -629,6 +629,9 @@ struct View {
     /// Show only findings in files not yet committed
     #[arg(long)]
     changed: bool,
+    /// List the findings a comment waives, alongside the ones it does not
+    #[arg(long)]
+    show_suppressed: bool,
     /// Lines of code shown either side of a finding
     #[arg(long, default_value_t = 2)]
     context: u32,
@@ -918,6 +921,7 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     for sink in sinks {
         let plain = Layout {
             grouping: view.grouping.into(),
+            show_suppressed: view.show_suppressed,
             order: view.order.into(),
             top: view.top,
             palette: Palette::with_depth(ColorDepth::Monochrome),

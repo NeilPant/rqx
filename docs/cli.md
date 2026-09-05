@@ -62,6 +62,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--top` | List only this many groups; the rest are counted |
 | `--since` | Show only findings in files this revision changed |
 | `--changed` | Show only findings in files not yet committed |
+| `--show-suppressed` | List the findings a comment waives, alongside the ones it does not |
 | `--context` | Lines of code shown either side of a finding |
 | `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
 | `--fail-on` | Lowest severity that fails the run |
@@ -329,6 +330,7 @@ Analyze a project and report every finding
 | `--top` | List only this many groups; the rest are counted |
 | `--since` | Show only findings in files this revision changed |
 | `--changed` | Show only findings in files not yet committed |
+| `--show-suppressed` | List the findings a comment waives, alongside the ones it does not |
 | `--context` | Lines of code shown either side of a finding |
 | `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
 | `--fail-on` | Lowest severity that fails the run |

@@ -40,6 +40,9 @@ pub struct Layout {
     pub show_passed: bool,
     pub quiet: bool,
     pub grouping: Grouping,
+    /// Whether to list what a comment waived. Off by default: a waiver is a decision
+    /// already taken, and the point of taking it is not to read it again.
+    pub show_suppressed: bool,
     pub order: Order,
     /// How many groups to list. The rest are counted, not shown.
     pub top: Option<usize>,
@@ -186,6 +189,10 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
         }
     }
 
+    if layout.show_suppressed {
+        write_waived(out, layout, report, &prefix)?;
+    }
+
     let unlisted = totals.len() - shown.len();
     if unlisted > 0 {
         writeln!(
@@ -294,6 +301,52 @@ fn sort_findings(findings: &mut [&Finding], order: Order) {
                 .then(left.location.start.cmp(&right.location.start))
         }),
     }
+}
+
+/// What a comment waived, and the reason it gave. Dim, and under everything else:
+/// these are not the run's findings, they are the decisions somebody already made
+/// about them.
+fn write_waived(
+    out: &mut dyn Write,
+    layout: &Layout,
+    report: &Report<'_>,
+    prefix: &str,
+) -> Result<()> {
+    let waived = &report.outcome.suppressed;
+    if waived.is_empty() {
+        return Ok(());
+    }
+    let dim = layout.palette.style(Ink::Muted);
+    writeln!(
+        out,
+        "\n  {}",
+        paint(
+            layout.palette.style(Ink::Text).bold(),
+            plural(waived.len() as u32, "waived finding", "waived findings")
+        )
+    )?;
+    for one in waived {
+        writeln!(
+            out,
+            "   {} {}  {}",
+            paint(dim, "\u{25cb}"),
+            paint(layout.palette.style(Ink::Accent), one.finding.slug()),
+            paint(
+                dim,
+                format!(
+                    "{prefix}{}:{}",
+                    one.finding.location.file, one.finding.location.line
+                )
+            )
+        )?;
+        if let Some(reason) = &one.reason {
+            writeln!(out, "     {} {reason}", paint(dim, "Because:"))?;
+        }
+        if let Some(until) = &one.until {
+            writeln!(out, "     {} {until}", paint(dim, "Until:   "))?;
+        }
+    }
+    Ok(())
 }
 
 fn write_file(
@@ -782,6 +835,7 @@ mod tests {
 
     fn layout() -> Layout {
         Layout {
+            show_suppressed: false,
             grouping: Grouping::File,
             order: Order::Line,
             top: None,

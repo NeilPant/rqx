@@ -2084,7 +2084,10 @@ fn scan_watched(
     // builds of the same version would go on serving the answer it gave before it
     // was fixed. That is a confusing hour for a contributor and it has already cost
     // two; a released binary carries a version that moves.
-    let cache = (config.scan.cache && !cfg!(debug_assertions))
+    // The environment turns it off for one run without editing a file anybody else
+    // shares: a CI job proving a cache bug should not have to commit a config.
+    let asked_off = std::env::var_os("RQX_NO_CACHE").is_some();
+    let cache = (config.scan.cache && !asked_off && !cfg!(debug_assertions))
         .then(|| crate::cache::Cache::open(root, settings));
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 
