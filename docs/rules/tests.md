@@ -46,6 +46,75 @@ it("reads the store", async () => {
 
 rqx says: hand the test something standing in for it, and test the real one once
 
+## `unlabelled-assertions`
+
+a failing run prints two values and the reader has to count lines to find which check they came from
+
+| | |
+|---|---|
+| Measures | a run of checks in one test with nothing said about any of them |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+| Default | off; name it under `[rules] enabled` |
+
+From `fixtures/typescript/suite.test.ts`, line 49:
+
+```ts
+
+it("counts three ways", () => {
+  expect(add(1, 1)).toBe(2);
+  expect(add(2, 2)).toBe(4);
+  expect(add(3, 3)).toBe(6);
+});
+
+```
+
+rqx says: say what each one is holding to, or split them into tests that say it in their names
+
+## `self-asserting-test`
+
+it holds the code to whatever the code already does, so it passes through every change including the one that breaks it
+
+| | |
+|---|---|
+| Measures | a check with the same expression on both sides |
+| Reported as | error, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+
+From `fixtures/typescript/suite.test.ts`, line 56:
+
+```ts
+it("holds the code to itself", () => {
+  expect(add(1, 1)).toBe(add(1, 1));
+});
+```
+
+rqx says: write the answer the test expects, not the call that produces it
+
+## `unexplained-expected-value`
+
+when it changes, nobody can tell whether the code is wrong or the number was, so the test is edited until it passes
+
+| | |
+|---|---|
+| Measures | a number a check expects with nothing saying where it came from |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Replace Magic Number with Constant |
+| Default | off; name it under `[rules] enabled` |
+
+From `fixtures/typescript/suite.test.ts`, line 4:
+
+```ts
+describe.skip("pricing", () => {
+  it("discounts", () => { expect(add(1, 2)).toBe(3); });
+});
+```
+
+rqx says: name it, or work it out in the test from the inputs it came from
+
 ## `branching-test`
 
 a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked

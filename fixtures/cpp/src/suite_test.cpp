@@ -48,3 +48,13 @@ TEST(Pricing, ReadsTheStore) {
 TEST(Works, Works) {
     EXPECT_EQ(2, add(1, 1));
 }
+
+TEST(Pricing, CountsThreeWays) {
+    EXPECT_EQ(2, add(1, 1));
+    EXPECT_EQ(4, add(2, 2));
+    EXPECT_EQ(6, add(3, 3));
+}
+
+TEST(Pricing, HoldsTheCodeToItself) {
+    EXPECT_EQ(add(1, 1), add(1, 1));
+}

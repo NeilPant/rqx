@@ -272,6 +272,7 @@ pub static CPP: LanguageProfile = LanguageProfile {
         regex_types: &["regex"],
         blocking: &[],
         blocking_receivers: &[],
+        sleep_calls: &["sleep", "sleep_for", "usleep", "nanosleep"],
         string_types: &["string", "std::string"],
     },
     test: TestVocabulary {

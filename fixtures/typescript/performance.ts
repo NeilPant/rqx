@@ -106,3 +106,18 @@ async function loadOne(): Promise<number> {
 async function loadTwo(): Promise<number> {
   return 2;
 }
+
+let openTabs = 0;
+
+export function tabsOpen(): number {
+  return openTabs;
+}
+
+export async function paced(): Promise<number> {
+  await sleep(500);
+  return openTabs;
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+}

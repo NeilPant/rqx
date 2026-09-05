@@ -254,6 +254,7 @@ pub static GO: LanguageProfile = LanguageProfile {
         regex_types: &[],
         blocking: &[],
         blocking_receivers: &[],
+        sleep_calls: &["Sleep"],
         string_types: &["string"],
     },
     test: TestVocabulary {

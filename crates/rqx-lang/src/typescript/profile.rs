@@ -310,6 +310,7 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
             "spawnSync",
         ],
         blocking_receivers: &["fs", "fsSync", "childProcess", "child_process", "cp"],
+        sleep_calls: &["sleep"],
         string_types: &["string", "String"],
     },
     test: TestVocabulary {

@@ -93,3 +93,10 @@ async def _load_one():
 
 async def _load_two():
     return 2
+
+
+open_tabs = 0
+
+
+def tabs_open():
+    return open_tabs

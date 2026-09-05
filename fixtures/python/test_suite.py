@@ -48,3 +48,17 @@ def test_reads_the_store():
 
 def test_works():
     assert add(1, 1) == 2
+
+
+def test_counts_three_ways():
+    assert add(1, 1) == 2
+    assert add(2, 2) == 4
+    assert add(3, 3) == 6
+
+
+def test_holds_the_code_to_itself():
+    assert add(1, 1) == add(1, 1)
+
+
+def test_expects_a_number_from_nowhere():
+    assert add(2400, 2599) == 4999

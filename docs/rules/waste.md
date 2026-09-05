@@ -458,6 +458,30 @@ From `fixtures/typescript/bloat.ts`, line 21:
 
 rqx says: give it a body, delete it, or make it explicit that doing nothing is the answer here
 
+## `barrel-module`
+
+it adds a name to every path through the project and answers no question of its own, while hiding from every tool which file a name really came from
+
+| | |
+|---|---|
+| Measures | a file whose every import comes straight back out of it |
+| Reported as | info, verified |
+| Reads | resolved scopes and symbols |
+| Fix | Inline Class / Remove Dead Code |
+| Not in Go | a package is the unit of import, and it has no index file |
+| Not in Java | a class is imported by its own name |
+| Not in C++ | a header is included by its own path |
+| Not in Python | a package re-exports through `__all__`, which names rather than forwards |
+
+From `fixtures/typescript/index.ts`, line 1:
+
+```ts
+export { add, describe } from "./clean";
+export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
+```
+
+rqx says: let the callers name the file they mean
+
 ## `discarded-expression`
 
 either the line was meant to do something and does not, or it does nothing and should not be here, and a reader cannot tell which

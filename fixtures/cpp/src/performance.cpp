@@ -90,3 +90,14 @@ int guards(int value) {
     assert(value > 0);
     return value;
 }
+
+int open_tabs = 0;
+
+int tabs_open() {
+    return open_tabs;
+}
+
+int paced() {
+    sleep(500);
+    return open_tabs;
+}

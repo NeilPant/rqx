@@ -45,3 +45,17 @@ it("reads the store", async () => {
 it("works", () => {
   expect(add(1, 1)).toBe(2);
 });
+
+it("counts three ways", () => {
+  expect(add(1, 1)).toBe(2);
+  expect(add(2, 2)).toBe(4);
+  expect(add(3, 3)).toBe(6);
+});
+
+it("holds the code to itself", () => {
+  expect(add(1, 1)).toBe(add(1, 1));
+});
+
+it("expects a number from nowhere", () => {
+  expect(add(2400, 2599)).toBe(4999);
+});

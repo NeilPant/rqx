@@ -81,6 +81,8 @@ from .shapes import (
 )
 from .vocabulary import fetch_order, getOrder, load_order, save_order
 from .performance import (
+    open_tabs,
+    tabs_open,
     both_waits,
     guards,
     prunes,
@@ -254,6 +256,8 @@ def main():
         sum_cube,
         admits,
         both_waits,
+        open_tabs,
+        tabs_open,
         guards,
         prunes,
         schedules,

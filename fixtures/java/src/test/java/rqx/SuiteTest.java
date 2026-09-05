@@ -71,6 +71,24 @@ public class SuiteTest {
         assertEquals(2, new Clean().add(1, 1));
     }
 
+
+    @Test
+    public void testCountsThreeWays() {
+        assertEquals(2, new Clean().add(1, 1));
+        assertEquals(4, new Clean().add(2, 2));
+        assertEquals(6, new Clean().add(3, 3));
+    }
+
+    @Test
+    public void testHoldsTheCodeToItself() {
+        assertEquals(new Clean().add(1, 1), new Clean().add(1, 1));
+    }
+
+    @Test
+    public void testExpectsANumberFromNowhere() {
+        assertEquals(4999, new Clean().add(2400, 2599));
+    }
+
     static void assertEquals(int expected, int actual) {
     }
 }

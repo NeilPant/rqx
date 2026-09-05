@@ -156,6 +156,27 @@ export function guards(value: number): number {
 
 rqx says: raise the failure this is checking for, so it is checked wherever it runs
 
+## `sleep-in-production`
+
+it is waiting for a length of time rather than for the thing it needs, so it is either too short to work or too long to be worth it
+
+| | |
+|---|---|
+| Measures | a call that stops the thread for a fixed time, outside a test |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Replace Algorithm |
+
+From `fixtures/typescript/performance.ts`, line 117:
+
+```ts
+export async function paced(): Promise<number> {
+  await sleep(500);
+  return openTabs;
+```
+
+rqx says: wait for the thing itself, and give up on it after a time nobody has to guess
+
 ## `guard-cascade`
 
 the body has not started and the reader has read several decisions, none of which says anything about what the function is for

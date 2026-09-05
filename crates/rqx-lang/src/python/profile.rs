@@ -275,6 +275,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
             "open",
         ],
         blocking_receivers: &["time", "requests", "urllib", "subprocess", "socket"],
+        sleep_calls: &["sleep"],
         string_types: &["str"],
     },
     test: TestVocabulary {

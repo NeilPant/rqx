@@ -51,3 +51,17 @@ func TestReadsTheStore(t *testing.T) {
 func TestWorks(t *testing.T) {
 	require.Equal(t, Add(1, 1), 2)
 }
+
+func TestCountsThreeWays(t *testing.T) {
+	require.Equal(t, Add(1, 1), 2)
+	require.Equal(t, Add(2, 2), 4)
+	require.Equal(t, Add(3, 3), 6)
+}
+
+func TestHoldsTheCodeToItself(t *testing.T) {
+	require.Equal(t, Add(1, 1), Add(1, 1))
+}
+
+func TestExpectsANumberFromNowhere(t *testing.T) {
+	require.Equal(t, Add(2400, 2599), 4999)
+}

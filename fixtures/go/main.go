@@ -11,6 +11,7 @@ func main() {
 	_ = fixtures.ItemList
 	_ = fixtures.EntryCount
 	_ = fixtures.Schedules
+	_ = fixtures.Paced
 	_ = fixtures.Prunes
 	_ = FreshTotal
 	_ = AsksTwice

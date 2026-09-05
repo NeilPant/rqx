@@ -927,6 +927,83 @@ pub fn check_hygiene(
             "name the behaviour it holds to, so a failing run says what broke".to_owned(),
         );
     }
+    for spot in &hygiene.sleeps {
+        emit(
+            out,
+            RuleId::SleepInProduction,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "waits for a length of time".to_owned(),
+            },
+            "wait for the thing itself, and give up on it after a time nobody has to \
+             guess"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.unlabelled_assertions {
+        emit(
+            out,
+            RuleId::UnlabelledAssertions,
+            spot,
+            Evidence::Breadth {
+                counted: "checks with nothing said about any of them".to_owned(),
+                found: spot.count,
+                limit: 3,
+            },
+            "say what each one is holding to, or split them into tests that say it \
+             in their names"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.self_asserting_tests {
+        emit(
+            out,
+            RuleId::SelfAssertingTest,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` has the same expression on both sides", spot.detail),
+            },
+            "write the answer the test expects, not the call that produces it".to_owned(),
+        );
+    }
+    for spot in &hygiene.unexplained_values {
+        emit(
+            out,
+            RuleId::UnexplainedExpectedValue,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is expected with nothing saying why".to_owned(),
+            },
+            "name it, or work it out in the test from the inputs it came from".to_owned(),
+        );
+    }
+    for spot in &hygiene.global_accessors {
+        emit(
+            out,
+            RuleId::GlobalAccessor,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is the shared value with a function around it".to_owned(),
+            },
+            "hand the value to whoever needs it, so a caller can decide what it is".to_owned(),
+        );
+    }
+    for spot in &hygiene.barrel_modules {
+        emit(
+            out,
+            RuleId::BarrelModule,
+            spot,
+            Evidence::Breadth {
+                counted: "imports, every one of them passed straight back out".to_owned(),
+                found: spot.count,
+                limit: spot.count,
+            },
+            "let the callers name the file they mean".to_owned(),
+        );
+    }
     for spot in &hygiene.branching_tests {
         emit(
             out,

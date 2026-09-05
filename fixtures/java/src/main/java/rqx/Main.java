@@ -32,6 +32,7 @@ public class Main {
         new Hygiene().netted(1);
         new Performance().prunes(java.util.List.of());
         new Performance().guards(1);
+        new Performance().tabsOpen();
         new Flow().freshTotal(1);
         new Flow().asksTwice("a");
         new Flow().joined(java.util.List.of());

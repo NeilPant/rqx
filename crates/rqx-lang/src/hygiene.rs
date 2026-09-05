@@ -1734,6 +1734,47 @@ impl<'a> Walker<'a> {
         for text in assertions.into_values() {
             *seen.entry(text).or_default() += 1;
         }
+        // A run of checks with nothing said about any of them: a failing run prints
+        // two values and the reader has to find which line they came from.
+        let checks: Vec<Node<'a>> = descendants(body)
+            .into_iter()
+            .filter(|node| self.asserts(*node))
+            .collect();
+        let labelled = checks.iter().any(|check| {
+            descendants(*check)
+                .into_iter()
+                .any(|node| profile.string_kinds.contains(&node.kind()))
+        });
+        if checks.len() >= 3 && !labelled {
+            self.out.unlabelled_assertions.push(Spot {
+                span: span_of(body),
+                detail: checks.len().to_string(),
+                count: checks.len() as u32,
+            });
+        }
+        // The whole statement, not the call that names the check: a fluent framework
+        // puts the expected value on the far side of the call that does the asserting.
+        let written: Vec<Node<'a>> = checks
+            .iter()
+            .filter_map(|check| self.enclosing_statement(*check, body))
+            .collect();
+        if let Some(circular) = written.iter().find(|check| self.compares_itself(**check)) {
+            self.out.self_asserting_tests.push(Spot {
+                span: span_of(*circular),
+                detail: self.snippet(*circular),
+                count: 1,
+            });
+        }
+        if let Some(bare) = written
+            .iter()
+            .find_map(|check| self.unexplained_value(*check))
+        {
+            self.out.unexplained_values.push(Spot {
+                span: span_of(bare),
+                detail: self.text(bare).to_owned(),
+                count: 1,
+            });
+        }
         if named && crate::vocabulary::says_nothing(label) {
             self.out.unnamed_tests.push(Spot {
                 span: span_of(body),
@@ -1803,6 +1844,38 @@ impl<'a> Walker<'a> {
             }
             current = parent;
         }
+    }
+
+    /// Whether a check has the same expression on both sides, so it holds the code
+    /// to whatever the code already does.
+    fn compares_itself(&self, check: Node<'a>) -> bool {
+        let profile = self.profile;
+        let calls: Vec<String> = descendants(check)
+            .into_iter()
+            .filter(|node| profile.is_call(*node))
+            .filter(|node| {
+                !self
+                    .called_name(*node)
+                    .is_some_and(|name| profile.test.is_assertion(&name))
+            })
+            .map(|node| squashed(self.text(node)))
+            .collect();
+        // Any two of them, not just two in a row: the tree walk interleaves a call
+        // with whatever it was written on.
+        let mut seen: std::collections::HashSet<&String> = std::collections::HashSet::new();
+        calls.iter().any(|call| !seen.insert(call))
+    }
+
+    /// A number a check expects with nothing anywhere saying where it came from.
+    fn unexplained_value(&self, check: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        descendants(check).into_iter().find(|node| {
+            profile.number_kinds.contains(&node.kind())
+                && self
+                    .text(*node)
+                    .parse::<f64>()
+                    .is_ok_and(|value| !CONVENTIONAL.contains(&value) && value.abs() > 1.0)
+        })
     }
 
     /// A name that says what a thing is not, and a name the language already owns.
@@ -3029,6 +3102,73 @@ impl<'a> Walker<'a> {
         }
     }
 
+    /// Stopping the thread for a fixed time, outside a test. Whatever it is waiting
+    /// for, it is not waiting for that.
+    fn note_sleep(&mut self, call: Node<'a>) {
+        if self.test_depth > 0 {
+            return;
+        }
+        let profile = self.profile;
+        let Some(dotted) = self.called_name(call) else {
+            return;
+        };
+        let tail = dotted.rsplit('.').next().unwrap_or(&dotted);
+        if !profile.perf.sleep_calls.contains(&tail) {
+            return;
+        }
+        self.out.sleeps.push(Spot {
+            span: span_of(call),
+            detail: dotted.clone(),
+            count: 1,
+        });
+    }
+
+    /// A function whose whole body hands back something the file keeps at module
+    /// level.
+    fn note_global_accessor(&mut self, function: Node<'a>, shared: &[String]) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let mut statements = holder
+            .named_children(&mut cursor)
+            .filter(|child| !profile.is_comment(*child));
+        let Some(only) = statements.next() else {
+            return;
+        };
+        if statements.next().is_some() || only.kind() != "return_statement" {
+            return;
+        }
+        let Some(mut answer) = only.named_child(0).map(|node| self.see_through(node)) else {
+            return;
+        };
+        while profile.expression_list_kinds.contains(&answer.kind())
+            && answer.named_child_count() == 1
+        {
+            let Some(inner) = answer.named_child(0) else {
+                break;
+            };
+            answer = self.see_through(inner);
+        }
+        if !profile.is_identifier(answer) {
+            return;
+        }
+        let name = self.text(answer).to_owned();
+        if !shared.iter().any(|held| *held == name) {
+            return;
+        }
+        self.out.global_accessors.push(Spot {
+            span: self.name_span(function),
+            detail: name,
+            count: 1,
+        });
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -3830,6 +3970,7 @@ impl<'a> Walker<'a> {
         if profile.is_call(node) {
             self.note_perf_call(node);
             self.note_call(node);
+            self.note_sleep(node);
             self.note_library_exit(node);
             self.note_boolean_argument(node);
             if self
@@ -4286,6 +4427,22 @@ pub fn collect(
     // loading it is for — which is only knowable once the file has been read.
     if !walker.holds_tests {
         walker.note_import_time_work(root);
+    }
+    // Which names the file shares is only settled once every declaration has been
+    // seen, so the functions that hand one back are read afterwards.
+    let shared: Vec<String> = walker
+        .out
+        .module_state
+        .iter()
+        .map(|spot| spot.detail.clone())
+        .collect();
+    if !shared.is_empty() {
+        for function in descendants(root)
+            .into_iter()
+            .filter(|node| profile.is_function(*node))
+        {
+            walker.note_global_accessor(function, &shared);
+        }
     }
 
     let mut out = std::mem::take(&mut walker.out);

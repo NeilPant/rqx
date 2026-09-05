@@ -305,6 +305,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         regex_types: &[],
         blocking: &[],
         blocking_receivers: &[],
+        sleep_calls: &["sleep"],
         string_types: &["String", "CharSequence", "StringBuilder"],
     },
     test: TestVocabulary {

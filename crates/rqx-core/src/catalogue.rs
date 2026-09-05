@@ -1071,6 +1071,82 @@ catalogue! {
               slow enough that somebody eventually stops running it",
         off_by_default: true,
     },
+    SleepInProduction {
+        slug: "sleep-in-production",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a call that stops the thread for a fixed time, outside a test",
+        fixes: [ReplaceAlgorithm],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "it is waiting for a length of time rather than for the thing it needs, \
+              so it is either too short to work or too long to be worth it",
+    },
+    UnlabelledAssertions {
+        slug: "unlabelled-assertions",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a run of checks in one test with nothing said about any of them",
+        fixes: [IntroduceAssertion],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a failing run prints two values and the reader has to count lines to \
+              find which check they came from",
+        off_by_default: true,
+    },
+    SelfAssertingTest {
+        slug: "self-asserting-test",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a check with the same expression on both sides",
+        fixes: [IntroduceAssertion],
+        confidence: Heuristic,
+        severity: Error,
+        why: "it holds the code to whatever the code already does, so it passes \
+              through every change including the one that breaks it",
+    },
+    UnexplainedExpectedValue {
+        slug: "unexplained-expected-value",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a number a check expects with nothing saying where it came from",
+        fixes: [ReplaceMagicNumberWithConstant],
+        confidence: Heuristic,
+        severity: Info,
+        why: "when it changes, nobody can tell whether the code is wrong or the \
+              number was, so the test is edited until it passes",
+        off_by_default: true,
+    },
+    GlobalAccessor {
+        slug: "global-accessor",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "a function whose whole body hands back something the file keeps at \
+                 module level",
+        fixes: [EncapsulateField, InvertDependency],
+        confidence: Verified,
+        severity: Info,
+        why: "it is the shared value wearing a function's clothes, and every caller \
+              is still reading the same one thing",
+    },
+    BarrelModule {
+        slug: "barrel-module",
+        category: Waste,
+        analysis: Semantics,
+        metric: "a file whose every import comes straight back out of it",
+        fixes: [InlineClass, RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "it adds a name to every path through the project and answers no \
+              question of its own, while hiding from every tool which file a name \
+              really came from",
+        not_applicable: [
+            (Go, "a package is the unit of import, and it has no index file"),
+            (Java, "a class is imported by its own name"),
+            (Cpp, "a header is included by its own path"),
+            (Python, "a package re-exports through `__all__`, which names rather than forwards"),
+        ],
+    },
     BranchingTest {
         slug: "branching-test",
         category: Tests,

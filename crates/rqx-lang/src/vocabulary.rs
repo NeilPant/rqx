@@ -22,6 +22,9 @@ pub struct PerfVocabulary {
     /// Receivers a blocking call is written on, so `time.sleep` is told from a
     /// project's own `sleep` helper.
     pub blocking_receivers: &'static [&'static str],
+    /// Calls that stop the thread for a fixed time. Distinct from `blocking`,
+    /// which waits for work to finish: this waits for nothing.
+    pub sleep_calls: &'static [&'static str],
     /// How this language spells its string type, for the accumulator that is a
     /// string rather than a list.
     pub string_types: &'static [&'static str],

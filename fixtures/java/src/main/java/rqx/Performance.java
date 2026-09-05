@@ -89,4 +89,15 @@ public class Performance {
         assert value > 0;
         return value;
     }
+
+    static int openTabs = 0;
+
+    public int tabsOpen() {
+        return openTabs;
+    }
+
+    public int paced() throws InterruptedException {
+        Thread.sleep(500);
+        return openTabs;
+    }
 }

@@ -130,6 +130,27 @@ From `fixtures/typescript/intimacy.ts`, line 5:
 
 rqx says: move what they share into one of them, or behind an interface both use
 
+## `global-accessor`
+
+it is the shared value wearing a function's clothes, and every caller is still reading the same one thing
+
+| | |
+|---|---|
+| Measures | a function whose whole body hands back something the file keeps at module level |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Encapsulate Field / Invert Dependency |
+
+From `fixtures/typescript/performance.ts`, line 112:
+
+```ts
+
+export function tabsOpen(): number {
+  return openTabs;
+```
+
+rqx says: hand the value to whoever needs it, so a caller can decide what it is
+
 ## `many-collaborators`
 
 each one is a reason for this type to change, and a test of it has to stand up all of them first

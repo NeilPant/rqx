@@ -336,6 +336,20 @@ pub fn analyze_as(
         holds_markup(display),
         &module.imports,
     );
+    // A file whose every import comes straight back out of it is an index: it adds a
+    // name to every path through the project and nothing else.
+    let forwarded = module
+        .imports
+        .iter()
+        .filter(|request| request.re_export)
+        .count();
+    if forwarded > 1 && forwarded == module.imports.len() && !module.exports.is_empty() {
+        hygiene.barrel_modules.push(rqx_core::facts::Spot {
+            span: rqx_core::span::Span::new(0, 0),
+            detail: module.exports.len().to_string(),
+            count: forwarded as u32,
+        });
+    }
     // A waiver reaches by line, and only the index knows which line a byte is on.
     for waiver in &mut hygiene.waivers {
         waiver.line = index.locate(waiver.span.start).0;

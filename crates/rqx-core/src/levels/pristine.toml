@@ -48,6 +48,8 @@ enabled = [
   "debug-output",
   "reaches-into-private",
   "real-world-test",
+  "unlabelled-assertions",
+  "unexplained-expected-value",
 ]
 
 [gate]

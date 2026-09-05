@@ -99,3 +99,8 @@ func Prunes(rows []int) int {
 	}
 	return len(rows)
 }
+
+func Paced() int {
+	time.Sleep(500)
+	return 0
+}
