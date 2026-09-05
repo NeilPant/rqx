@@ -26,8 +26,8 @@ struct Item {
     severity: rqx_core::finding::Severity,
 }
 
-/// Effort points to spend. The slider on the dashboard runs 2 to 40 and this is the
-/// same range, because the two are the same question asked in two places.
+/// Effort points to spend. The same range `rqx plan --budget` takes, because the
+/// slider and the flag are the same question asked in two places.
 const MIN_BUDGET: u32 = 2;
 const MAX_BUDGET: u32 = 40;
 const STEP: u32 = 2;

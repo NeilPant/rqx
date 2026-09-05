@@ -259,8 +259,8 @@ mod tests {
         assert!(!filter.matches(&finding(RuleId::LongFunction, Severity::Info, "test/b.ts")));
     }
 
-    /// The dashboard has always searched the evidence and the interface never did, so
-    /// the same query answered two different questions depending on where it was typed.
+    /// Searching the slug alone answers a different question from the one anyone is
+    /// asking: "99 statements" is what a reader remembers seeing, not `long-function`.
     #[test]
     fn text_search_covers_the_evidence_too() {
         let filter = FindingFilter::default().with_text("99 statements");

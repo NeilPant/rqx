@@ -40,7 +40,6 @@ pub struct View {
     pub min_depth: u32,
 }
 
-/// One finding as the table shows it: what was measured, and the move that answers it.
 pub struct Line {
     pub rule: &'static str,
     pub evidence: String,
@@ -52,8 +51,8 @@ pub struct Row {
     pub at: String,
     pub loops: u32,
     pub self_calls: u32,
-    /// Round trips and waits inside a loop, which is the cost that shows up as
-    /// latency rather than as processor time.
+    /// Counted apart from the other shapes because a round trip shows up as latency
+    /// rather than as processor time.
     pub io: u32,
     pub weight: f64,
     pub reach: f64,
@@ -182,7 +181,6 @@ fn innermost(shape: &rqx_lang::FileShape, offset: u32) -> Option<u32> {
         .map(|function| function.range.start)
 }
 
-/// The rows a view asks for, grouped and ordered.
 pub fn ranked(outcome: &ScanOutcome, view: &View) -> Vec<Row> {
     group(rows(outcome), view)
 }
@@ -454,7 +452,6 @@ mod tests {
         }
     }
 
-    /// `(file, name, start, end, loop_depth, self_calls)`.
     fn measured(functions: &[(&str, &str, u32, u32, u32, u32)]) -> ScanOutcome {
         let mut outcome = crate::report::tests::outcome_with(&[], 0);
         for (file, name, start, end, loops, calls) in functions {

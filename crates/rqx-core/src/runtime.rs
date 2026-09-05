@@ -567,7 +567,6 @@ pub struct Profile {
 }
 
 impl Profile {
-    /// `known` answers whether a recorded line falls inside a function rqx measured.
     pub fn placed(samples: Samples, known: impl Fn(&str, u32) -> bool) -> Self {
         let mut matched = 0;
         let mut unmatched = 0;

@@ -78,8 +78,8 @@ pub fn start_here(report: &Report<'_>) -> Vec<Value> {
         .collect()
 }
 
-/// The verdict of a diff review, shaped once so the LSP reply, the dashboard's check
-/// page and the MCP tool cannot drift apart.
+/// The verdict of a diff review, shaped once so the LSP reply and the MCP tool
+/// cannot drift apart.
 pub fn review(review: &crate::check::Review, verdict: &crate::check::Verdict) -> Value {
     let report = Report::reviewed(review, verdict);
     json!({
@@ -245,9 +245,9 @@ pub fn findings(outcome: &ScanOutcome, filter: &FindingFilter, settings: &Resolv
     )
 }
 
-/// The ranked plan, in the shape the dashboard's Plan page has always read.
-/// The bottleneck rows, shared by the dashboard and the MCP tool so a page and an
-/// agent cannot disagree about which function to open first.
+/// The ranked plan, in the shape the LSP's `rqx.plan` reply has always read.
+/// The bottleneck rows, shaped once so an agent and the command line cannot
+/// disagree about which function to open first.
 pub fn perf(outcome: &ScanOutcome, threshold: u32, limit: usize) -> Value {
     let view = crate::perf::View {
         by: crate::perf::By::Function,

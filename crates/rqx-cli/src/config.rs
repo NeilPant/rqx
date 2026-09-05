@@ -1057,8 +1057,8 @@ mod tests {
     }
 }
 
-/// A change to `RQX.toml` as a position and the text to put there, so the editor can
-/// apply it as an edit and the dashboard can apply it to the file.
+/// A change to `RQX.toml` as a position and the text to put there, so an editor can
+/// apply it as a `WorkspaceEdit` rather than being handed a rewritten file.
 pub struct Insertion {
     /// Zero-based.
     pub line: u32,
