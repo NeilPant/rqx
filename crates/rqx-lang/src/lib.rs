@@ -377,12 +377,14 @@ pub fn analyze_as(
         })
         .collect();
 
+    // Moved out of `measured` rather than copied: the names are already owned here
+    // and this runs for every function in the project.
     let shape = FileShape {
         functions: measured
             .functions
-            .iter()
+            .into_iter()
             .map(|function| FunctionShape {
-                name: function.name.clone(),
+                name: function.name,
                 range: builder.range(function.report),
                 parameters: function.parameters,
                 statements: function.statements,
@@ -392,9 +394,9 @@ pub fn analyze_as(
             .collect(),
         classes: measured
             .classes
-            .iter()
+            .into_iter()
             .map(|class| ClassShape {
-                name: class.name.clone(),
+                name: class.name,
                 range: builder.range(class.report),
                 fields: class.fields,
                 methods: class.methods,
