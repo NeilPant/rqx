@@ -13,3 +13,27 @@ export function window(items: string[], cursor: number): string[] {
 }
 
 export const limits = { retry_limit, retryBackoff };
+
+export class Ledger {
+  private entryList: number[] = [];
+  private label = "ledger";
+
+  record(entry: number): void {
+    this.entryList.push(entry);
+  }
+
+  name(): string {
+    return this.label;
+  }
+}
+
+export const tier = [1, 2, 3];
+
+export function narrates(rows: number[]): number {
+  const log = { info: (message: string) => message };
+  log.info("starting");
+  const total = rows.length;
+  log.info("counted");
+  log.info("finishing");
+  return total;
+}

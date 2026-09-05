@@ -79,6 +79,28 @@ export function scoreOfUser(userId: number): number {
 
 rqx says: say why it exists, or delete it
 
+## `over-logging`
+
+the body says more about what it is doing than it does, and the reader has to separate the work from the commentary on every line
+
+| | |
+|---|---|
+| Measures | log calls against the statements of the body they are in |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+| Tuned by | `thresholds.log_percent` |
+
+From `fixtures/typescript/conventions.ts`, line 32:
+
+```ts
+
+export function narrates(rows: number[]): number {
+  const log = { info: (message: string) => message };
+```
+
+rqx says: log the decision and the failure; the steps between are the code
+
 ## `banner-comment`
 
 a table of contents for a file short enough not to need one, and it goes stale the moment a section moves

@@ -14,3 +14,14 @@ def window(items: list, cursor: int) -> list:
 
 
 limits = {"retry_limit": retry_limit, "retryBackoff": retryBackoff}
+
+
+item_list = [1, 2, 3]
+
+
+def narrates(rows):
+    log.info("starting")
+    total = len(rows)
+    log.info("counted")
+    log.info("finishing")
+    return total

@@ -489,6 +489,8 @@ pub struct Thresholds {
     pub hotspot_commits: u32,
     pub cyclomatic_complexity: u32,
     pub max_results: u32,
+    pub class_collaborators: u32,
+    pub log_percent: u32,
     pub max_exits: u32,
     pub max_cases: u32,
     pub min_cases: u32,
@@ -514,7 +516,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 40] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 42] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -541,6 +543,8 @@ impl Thresholds {
         ("hotspot_commits", &[RuleId::Hotspot]),
         ("cyclomatic_complexity", &[RuleId::CyclomaticComplexity]),
         ("max_results", &[RuleId::ManyResults]),
+        ("class_collaborators", &[RuleId::ManyCollaborators]),
+        ("log_percent", &[RuleId::OverLogging]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),
         ("min_cases", &[RuleId::TinySwitch]),
@@ -604,6 +608,8 @@ impl Default for Thresholds {
             hotspot_commits: 12,
             cyclomatic_complexity: 12,
             max_results: 3,
+            class_collaborators: 8,
+            log_percent: 40,
             max_exits: 4,
             max_cases: 12,
             min_cases: 3,
@@ -1127,6 +1133,8 @@ mod tests {
                     t.hotspot_commits,
                     t.cyclomatic_complexity,
                     t.max_results,
+                    t.class_collaborators,
+                    t.log_percent,
                     t.max_exits,
                     t.max_cases,
                     t.min_cases,

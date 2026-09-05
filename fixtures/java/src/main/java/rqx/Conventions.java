@@ -19,3 +19,33 @@ public class Conventions {
         return out;
     }
 }
+
+class Ledger {
+    private int[] entryList = {1, 2, 3};
+    private String label = "ledger";
+
+    int record() {
+        return this.entryList.length;
+    }
+
+    String name() {
+        return this.label;
+    }
+}
+
+class Narrator {
+    int narrates(int rows) {
+        log.info("starting");
+        int total = rows;
+        log.info("counted");
+        log.info("finishing");
+        return total;
+    }
+
+    static Logger log = new Logger();
+
+    static class Logger {
+        void info(String message) {
+        }
+    }
+}

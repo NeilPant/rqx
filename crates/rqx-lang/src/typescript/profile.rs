@@ -137,6 +137,10 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
         "console.dir",
         "console.trace",
     ],
+    log_calls: &[
+        "log", "info", "warn", "error", "debug", "trace", "verbose", "fatal",
+    ],
+    type_suffixes: &["Str", "Int", "Obj", "Arr", "Dict", "List", "Array"],
     export_kinds: &["export_statement"],
     argument_list_kinds: &["arguments"],
     heritage_kinds: &["class_heritage", "extends_clause", "implements_clause"],

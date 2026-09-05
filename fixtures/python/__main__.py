@@ -1,7 +1,7 @@
 from .bloat import Catalogue, Formatting, Overgrown, SameAsOvergrown, crowded_scope, deeply_nested, too_many_parameters, widely_guarded, loops, many_paths, spread_out
 from .clean import add, describe
 from .config import endpoint, score
-from .conventions import limits, query, window
+from .conventions import limits, query, window, item_list, narrates
 from .cycle_a import orbit
 from .dead_export import reachable
 from .hierarchy import Cat, Dog, Feeder
@@ -125,6 +125,8 @@ def main():
         many_steps,
         process,
         Overgrown,
+        item_list,
+        narrates,
         loops,
         many_paths,
         spread_out,

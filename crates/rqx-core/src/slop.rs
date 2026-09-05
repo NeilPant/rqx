@@ -12,7 +12,7 @@ use crate::rule::RuleId;
 
 /// What each signal is worth. Weighted rather than counted because a chat comment
 /// says far more about how a file was made than a magic number does.
-pub const SIGNALS: [(RuleId, u32); 14] = [
+pub const SIGNALS: [(RuleId, u32); 15] = [
     (RuleId::ChatResidue, 10),
     (RuleId::ApologyComment, 6),
     (RuleId::BannerComment, 4),
@@ -27,6 +27,7 @@ pub const SIGNALS: [(RuleId, u32); 14] = [
     (RuleId::CommentPerLine, 6),
     (RuleId::ExplanationLongerThanCode, 4),
     (RuleId::DocstringRestatesSignature, 4),
+    (RuleId::OverLogging, 3),
 ];
 
 pub fn weight(rule: RuleId) -> u32 {

@@ -210,6 +210,30 @@ export abstract class Settled {
 
 rqx says: drop the word, or give it the member a subclass has to write
 
+## `single-method-field`
+
+it is that method's local kept where every other method can reach it, so every one of them has to be read before it can be changed
+
+| | |
+|---|---|
+| Measures | a field only one method of its type ever reads |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Class / Inline Variable |
+| Not in Go | a struct field is read by whatever holds the struct |
+| Not in C++ | the methods that read it are in another file |
+| Not in Python | an attribute is written into the instance, not declared on the type |
+
+From `fixtures/typescript/patterns.ts`, line 155:
+
+```ts
+export class ReportBuilder {
+  private title = "";
+  withTitle(title: string): ReportBuilder {
+```
+
+rqx says: make it that method's own, or move the method to whatever the field belongs with
+
 ## `empty-subclass`
 
 it is a second name for the thing it came from, and a reader has to open it to find that out

@@ -3,6 +3,7 @@
 [thresholds]
 fan_in = 1
 module_statements = 45
+class_collaborators = 2
 
 [rules]
 disabled = []

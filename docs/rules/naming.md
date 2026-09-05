@@ -214,3 +214,45 @@ export function restated(ready: boolean): boolean {
 
 rqx says: name it as the question it answers, so a condition reads as one
 
+## `name-repeats-type`
+
+the declaration beside it already says what it is, so the word is read twice and goes wrong the day the type changes
+
+| | |
+|---|---|
+| Measures | a name ending in the word for what it holds |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Rename Variable |
+
+From `fixtures/typescript/conventions.ts`, line 18:
+
+```ts
+export class Ledger {
+  private entryList: number[] = [];
+  private label = "ledger";
+```
+
+rqx says: name what it is for, and let the declaration say what it is
+
+## `plural-mismatch`
+
+a reader counts on the name to say whether there is one of something or many, and here it says the opposite
+
+| | |
+|---|---|
+| Measures | a name whose number disagrees with what it was given |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Rename Variable |
+
+From `fixtures/typescript/conventions.ts`, line 30:
+
+```ts
+
+export const tier = [1, 2, 3];
+
+```
+
+rqx says: make the name agree with how many there are
+

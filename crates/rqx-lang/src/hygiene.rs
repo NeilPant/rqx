@@ -2808,6 +2808,227 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// A name that ends in the word for what it holds, next to a declaration that
+    /// already says so, and a name whose number disagrees with its value.
+    fn note_named_shape(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        // A field's name wears a kind of its own in some grammars, and a field is a
+        // declaration like any other.
+        let names_something =
+            profile.is_identifier(node) || profile.property_kinds.contains(&node.kind());
+        if !names_something
+            || !crate::tree::is_binding_position(
+                node,
+                &[],
+                profile.borrowed_name_kinds,
+                profile.local_declaring_kinds,
+                profile.expression_list_kinds,
+            )
+        {
+            return;
+        }
+        let name = self.text(node);
+        // A capital opens a type or a component, whose name is its own word; the
+        // rule is about a value that spells its type into its name.
+        // A capital opens a type or a component, whose name is its own word; and a
+        // function named for what it answers with is named for the answer, not for
+        // the type of a value it holds.
+        let holds_a_function = node.parent().is_some_and(|parent| {
+            profile.is_function(parent)
+                || parent
+                    .child_by_field_name("value")
+                    .is_some_and(|value| profile.is_function(self.see_through(value)))
+        });
+        let names_a_value =
+            name.chars().next().is_some_and(char::is_lowercase) && !holds_a_function;
+        if names_a_value
+            && let Some(suffix) = profile
+                .type_suffixes
+                .iter()
+                .find(|suffix| name.len() > suffix.len() && name.ends_with(*suffix))
+        {
+            self.out.typed_names.push(Spot {
+                span: span_of(node),
+                detail: format!("{name} ({suffix})"),
+                count: 1,
+            });
+        }
+        let holder = node.parent().filter(|parent| {
+            parent.child_by_field_name("value").is_some()
+                || parent.child_by_field_name("right").is_some()
+        });
+        // C++ wraps the name in a declarator of its own, so the value it was given is
+        // a level further out.
+        let holder = holder.or_else(|| node.parent().and_then(|parent| parent.parent()));
+        let Some(mut value) = holder
+            .and_then(|parent| {
+                parent
+                    .child_by_field_name("value")
+                    .or_else(|| parent.child_by_field_name("right"))
+            })
+            .map(|value| self.see_through(value))
+        else {
+            return;
+        };
+        // A list of one is how some grammars spell every initialiser, and it is not
+        // the collection this rule is about.
+        while profile.expression_list_kinds.contains(&value.kind())
+            && value.named_child_count() == 1
+        {
+            let Some(only) = value.named_child(0) else {
+                break;
+            };
+            value = self.see_through(only);
+        }
+        if profile.expression_list_kinds.contains(&value.kind()) {
+            return;
+        }
+        // Only a literal can settle this: a call may answer with anything, and
+        // guessing from its name is how the rule would start being wrong.
+        let kind = value.kind();
+        let literal_many = kind.contains("array")
+            || kind.contains("list")
+            || kind.contains("set")
+            || kind.contains("dictionary")
+            || kind.contains("composite_literal");
+        // Only this direction: a plural name holding a scalar is usually a counter,
+        // and `openSessions = 0` says how many there are rather than what it is.
+        let reads_many = plural(name);
+        // An empty collection under a singular name is an accumulator waiting to be
+        // filled; one written with things in it is already many.
+        if literal_many && !reads_many && value.named_child_count() > 0 {
+            self.out.plural_mismatches.push(Spot {
+                span: span_of(node),
+                detail: name.to_owned(),
+                count: 1,
+            });
+        }
+    }
+
+    /// A field only one method ever reads. It is that method's local, kept where
+    /// every other method can see it.
+    fn note_lonely_fields(&mut self, class: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.class_body(class) else {
+            return;
+        };
+        let members: Vec<Node<'a>> = body
+            .named_children(&mut body.walk())
+            .filter(|child| profile.method_kinds.contains(&child.kind()))
+            .collect();
+        // A type whose methods are declared here and written elsewhere cannot say who
+        // reads a field: most of its behaviour is in another file.
+        if members.len() < 2
+            || members
+                .iter()
+                .any(|member| self.function_body(*member).is_none())
+        {
+            return;
+        }
+        let declared: Vec<(String, Node<'a>)> = body
+            .named_children(&mut body.walk())
+            .filter(|child| profile.field_kinds.contains(&child.kind()))
+            .filter_map(|field| {
+                // The declared name, not the type beside it: both are identifiers
+                // under the same node in most of these grammars.
+                let holder = field
+                    .named_children(&mut field.walk())
+                    .find(|child| profile.declarator_kinds.contains(&child.kind()))
+                    .unwrap_or(field);
+                let spells_a_name = |node: &Node<'a>| {
+                    profile.is_identifier(*node) || profile.property_kinds.contains(&node.kind())
+                };
+                let name = profile
+                    .binding_fields
+                    .iter()
+                    .find_map(|binding| holder.child_by_field_name(binding))
+                    .filter(spells_a_name)
+                    .or_else(|| descendants(holder).into_iter().find(spells_a_name))?;
+                Some((self.text(name).to_owned(), name))
+            })
+            .collect();
+        for (name, at) in declared {
+            let readers = members
+                .iter()
+                .filter(|member| {
+                    descendants(**member)
+                        .into_iter()
+                        .any(|node| profile.is_identifier(node) && self.text(node) == name)
+                })
+                .count();
+            if readers == 1 {
+                self.out.lonely_fields.push(Spot {
+                    span: span_of(at),
+                    detail: name,
+                    count: 1,
+                });
+            }
+        }
+    }
+
+    /// How many other types one type has to know about to do its job.
+    fn note_many_collaborators(&mut self, class: Node<'a>) {
+        let profile = self.profile;
+        let Some(name) = self.class_name(class) else {
+            return;
+        };
+        let mut known: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for node in descendants(class) {
+            if let Some(built) = self.constructed_type(node) {
+                known.insert(built);
+                continue;
+            }
+            if profile.type_annotation_kinds.contains(&node.kind())
+                && let Some(inner) = node.named_child(0)
+                && profile.binding_identifier_kinds.contains(&inner.kind())
+            {
+                known.insert(self.text(inner).to_owned());
+            }
+        }
+        known.remove(&name);
+        let count = known.len() as u32;
+        if count > self.limits.class_collaborators {
+            self.out.many_collaborators.push(Spot {
+                span: span_of(class),
+                detail: name,
+                count,
+            });
+        }
+    }
+
+    /// A body that says more about what it is doing than it does.
+    fn note_over_logging(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let inside = descendants(body);
+        let statements = inside
+            .iter()
+            .filter(|node| profile.is_statement(**node))
+            .count() as u32;
+        if statements < 4 {
+            return;
+        }
+        let logged = inside
+            .iter()
+            .filter(|node| profile.is_call(**node))
+            .filter(|node| {
+                self.called_name(**node).is_some_and(|dotted| {
+                    let tail = dotted.rsplit('.').next().unwrap_or(&dotted).to_owned();
+                    dotted.contains('.') && profile.log_calls.contains(&tail.as_str())
+                })
+            })
+            .count() as u32;
+        if logged * 100 >= statements * self.limits.log_percent && logged > 1 {
+            self.out.over_logging.push(Spot {
+                span: self.name_span(function),
+                detail: format!("{logged} of {statements}"),
+                count: logged,
+            });
+        }
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -3545,8 +3766,11 @@ impl<'a> Walker<'a> {
         if profile.is_class(node) {
             self.note_class_shape(node);
             self.note_empty_abstraction(node);
+            self.note_lonely_fields(node);
+            self.note_many_collaborators(node);
         }
         self.note_declared_name(node);
+        self.note_named_shape(node);
         self.note_ambient_dependency(node);
         if profile.is_member_access(node) {
             self.note_private_reach(node);
@@ -3554,6 +3778,7 @@ impl<'a> Walker<'a> {
         if profile.is_function(node) {
             self.note_empty_method(node);
             self.note_loop_capture(node);
+            self.note_over_logging(node);
             self.note_sequential_await(node);
             self.note_guard_cascade(node);
             self.note_fresh_local_return(node);
@@ -4449,4 +4674,21 @@ fn split_words(text: &str) -> Vec<String> {
         words.push(current);
     }
     words
+}
+
+/// Whether a name reads as more than one thing. English only, and only the endings
+/// that are unambiguous: `status` is not a plural and neither is `data`.
+fn plural(name: &str) -> bool {
+    const NOT_PLURAL: [&str; 12] = [
+        "status", "address", "class", "process", "access", "success", "business", "less", "cross",
+        "press", "pass", "gas",
+    ];
+    let words = split_words(name);
+    let Some(word) = words.last().map(String::as_str) else {
+        return false;
+    };
+    if NOT_PLURAL.iter().any(|exception| word.ends_with(exception)) {
+        return false;
+    }
+    word.len() > 2 && word.ends_with('s') && !word.ends_with("ss") && !word.ends_with("us")
 }

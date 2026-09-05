@@ -123,6 +123,8 @@ pub static CPP: LanguageProfile = LanguageProfile {
     import_binding_kinds: &[],
     wildcard_import_kinds: &[("using_declaration", "using namespace")],
     debug_writers: &["printf", "puts", "std.cout", "std.cerr"],
+    log_calls: &["info", "warn", "error", "debug", "trace", "log"],
+    type_suffixes: &["_str", "_int", "_list", "_vec", "_obj", "_object", "_array"],
     export_kinds: &[],
     argument_list_kinds: &["argument_list"],
     heritage_kinds: &["base_class_clause"],

@@ -87,6 +87,8 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `hotspot_commits` | 12 | `hotspot` |
 | `cyclomatic_complexity` | 12 | `cyclomatic-complexity` |
 | `max_results` | 3 | `many-results` |
+| `class_collaborators` | 8 | `many-collaborators` |
+| `log_percent` | 40 | `over-logging` |
 | `max_exits` | 4 | `many-exits` |
 | `max_cases` | 12 | `wide-switch` |
 | `min_cases` | 3 | `tiny-switch` |

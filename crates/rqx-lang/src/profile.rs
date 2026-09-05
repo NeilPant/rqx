@@ -143,6 +143,11 @@ pub struct LanguageProfile {
     pub wildcard_import_kinds: &'static [(&'static str, &'static str)],
     /// The dotted names that write to a terminal for a human to read while debugging.
     pub debug_writers: &'static [&'static str],
+    /// Method names a logger answers to, matched on the last segment because the
+    /// logger itself is named by whoever made it.
+    pub log_calls: &'static [&'static str],
+    /// Words a name ends with to say what type it holds, which the type already says.
+    pub type_suffixes: &'static [&'static str],
     /// Names that markup compiles into calls on, so a file holding markup uses them
     /// without ever writing them.
     pub markup_runtimes: &'static [&'static str],

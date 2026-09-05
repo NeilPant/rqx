@@ -282,6 +282,8 @@ pub fn analyze_as(
                 root,
                 scopes,
                 Limits {
+                    class_collaborators: thresholds.class_collaborators,
+                    log_percent: thresholds.log_percent,
                     max_results: thresholds.max_results,
                     narrated_run: thresholds.narrated_run,
                     explanation_ratio: thresholds.explanation_ratio,

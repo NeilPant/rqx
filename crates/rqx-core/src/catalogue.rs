@@ -1255,6 +1255,67 @@ catalogue! {
         why: "a failing run names the test and nothing else, so the name is the whole \
               of what the reader is given before they open the file",
     },
+    NameRepeatsType {
+        slug: "name-repeats-type",
+        category: Naming,
+        analysis: Syntax,
+        metric: "a name ending in the word for what it holds",
+        fixes: [RenameVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the declaration beside it already says what it is, so the word is read \
+              twice and goes wrong the day the type changes",
+    },
+    PluralMismatch {
+        slug: "plural-mismatch",
+        category: Naming,
+        analysis: Syntax,
+        metric: "a name whose number disagrees with what it was given",
+        fixes: [RenameVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a reader counts on the name to say whether there is one of something \
+              or many, and here it says the opposite",
+    },
+    SingleMethodField {
+        slug: "single-method-field",
+        category: Abstraction,
+        analysis: Syntax,
+        metric: "a field only one method of its type ever reads",
+        fixes: [ExtractClass, InlineVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it is that method's local kept where every other method can reach it, \
+              so every one of them has to be read before it can be changed",
+        not_applicable: [
+            (Go, "a struct field is read by whatever holds the struct"),
+            (Cpp, "the methods that read it are in another file"),
+            (Python, "an attribute is written into the instance, not declared on the type"),
+        ],
+    },
+    ManyCollaborators {
+        slug: "many-collaborators",
+        category: Coupling,
+        analysis: Syntax,
+        metric: "other types one type has to know about",
+        fixes: [ExtractClass, InvertDependency],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "each one is a reason for this type to change, and a test of it has to \
+              stand up all of them first",
+        not_applicable: [(Go, "there are no types that hold behaviour to collect them")],
+    },
+    OverLogging {
+        slug: "over-logging",
+        category: Noise,
+        analysis: Syntax,
+        metric: "log calls against the statements of the body they are in",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the body says more about what it is doing than it does, and the reader \
+              has to separate the work from the commentary on every line",
+    },
     ManyLocals {
         slug: "many-locals",
         category: Size,

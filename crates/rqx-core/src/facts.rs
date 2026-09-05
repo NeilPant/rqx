@@ -139,6 +139,11 @@ pub struct Hygiene {
     pub many_results: Vec<Spot>,
     pub unquestioning_names: Vec<Spot>,
     pub unnamed_tests: Vec<Spot>,
+    pub typed_names: Vec<Spot>,
+    pub plural_mismatches: Vec<Spot>,
+    pub lonely_fields: Vec<Spot>,
+    pub many_collaborators: Vec<Spot>,
+    pub over_logging: Vec<Spot>,
     pub float_equalities: Vec<Spot>,
     pub discarded_expressions: Vec<Spot>,
     pub tiny_switches: Vec<Spot>,
@@ -191,6 +196,8 @@ pub struct Hygiene {
 
 #[derive(Clone, Copy)]
 pub struct Limits {
+    pub class_collaborators: u32,
+    pub log_percent: u32,
     pub max_results: u32,
     pub narrated_run: u32,
     pub explanation_ratio: u32,

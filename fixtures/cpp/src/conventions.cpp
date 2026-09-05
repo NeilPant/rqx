@@ -14,3 +14,13 @@ std::vector<std::string> window(const std::vector<std::string>& items, int curso
     out.push_back(items[cursor + 1]);
     return out;
 }
+
+int item_list[] = {1, 2, 3};
+
+int narrates(int rows) {
+    log.info("starting");
+    int total = rows;
+    log.info("counted");
+    log.info("finishing");
+    return total;
+}

@@ -158,6 +158,8 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         "System.out.print",
         "System.out.printf",
     ],
+    log_calls: &["info", "warn", "error", "debug", "trace", "fatal", "log"],
+    type_suffixes: &["Str", "Int", "Obj", "List", "Array"],
     export_kinds: &[],
     argument_list_kinds: &["argument_list"],
     heritage_kinds: &["superclass", "super_interfaces", "extends_interfaces"],

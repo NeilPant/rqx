@@ -115,6 +115,10 @@ pub static GO: LanguageProfile = LanguageProfile {
     import_binding_kinds: &["import_spec"],
     wildcard_import_kinds: &[("dot", "")],
     debug_writers: &["println", "fmt.Print", "fmt.Println", "fmt.Printf"],
+    log_calls: &[
+        "Info", "Infof", "Warn", "Warnf", "Error", "Errorf", "Debug", "Debugf", "Printf", "Print",
+    ],
+    type_suffixes: &["Str", "Int", "List", "Slice", "Obj", "Object", "Array"],
     export_kinds: &[],
     argument_list_kinds: &["argument_list"],
     heritage_kinds: &[],

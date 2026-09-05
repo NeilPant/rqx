@@ -1067,6 +1067,70 @@ pub fn check_hygiene(
             "guard the line that can fail, and let the rest raise".to_owned(),
         );
     }
+    for spot in &hygiene.typed_names {
+        emit(
+            out,
+            RuleId::NameRepeatsType,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "spells its type into its name".to_owned(),
+            },
+            "name what it is for, and let the declaration say what it is".to_owned(),
+        );
+    }
+    for spot in &hygiene.plural_mismatches {
+        emit(
+            out,
+            RuleId::PluralMismatch,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "disagrees in number with what it holds".to_owned(),
+            },
+            "make the name agree with how many there are".to_owned(),
+        );
+    }
+    for spot in &hygiene.lonely_fields {
+        emit(
+            out,
+            RuleId::SingleMethodField,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is read by one method and no other".to_owned(),
+            },
+            "make it that method's own, or move the method to whatever the field \
+             belongs with"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.many_collaborators {
+        emit(
+            out,
+            RuleId::ManyCollaborators,
+            spot,
+            Evidence::Breadth {
+                counted: "other types it has to know about".to_owned(),
+                found: spot.count,
+                limit: limits.class_collaborators,
+            },
+            "give one of them the work that needs the rest".to_owned(),
+        );
+    }
+    for spot in &hygiene.over_logging {
+        emit(
+            out,
+            RuleId::OverLogging,
+            spot,
+            Evidence::Breadth {
+                counted: "of the statements here are log calls".to_owned(),
+                found: spot.count,
+                limit: limits.log_percent,
+            },
+            "log the decision and the failure; the steps between are the code".to_owned(),
+        );
+    }
     for spot in &hygiene.crowded_functions {
         emit(
             out,

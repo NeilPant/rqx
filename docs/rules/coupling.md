@@ -130,6 +130,36 @@ From `fixtures/typescript/intimacy.ts`, line 5:
 
 rqx says: move what they share into one of them, or behind an interface both use
 
+## `many-collaborators`
+
+each one is a reason for this type to change, and a test of it has to stand up all of them first
+
+| | |
+|---|---|
+| Measures | other types one type has to know about |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Class / Invert Dependency |
+| Tuned by | `thresholds.class_collaborators` |
+| Not in Go | there are no types that hold behaviour to collect them |
+
+From `fixtures/typescript/families.ts`, line 61:
+
+```ts
+
+export class DarkKit extends Kit {
+  button(): Button {
+    return new FlatButton();
+  }
+  panel(): Panel {
+    return new FlatPanel();
+  }
+}
+
+```
+
+rqx says: give one of them the work that needs the rest
+
 ## `deep-relative-import`
 
 a path that climbs this far is reaching across the shape of the project rather than through it, and it breaks the moment either end is moved
