@@ -233,6 +233,7 @@ impl<'src> Rewriter<'src> {
             | RuleId::RedundantComment
             | RuleId::BannerComment
             | RuleId::ChatResidue
+            | RuleId::RedundantJump
             | RuleId::CommentedOutCode => {
                 vec![self.deletion(finding, whole_lines(self.source, span))]
             }
@@ -795,6 +796,7 @@ export const deferred = [work]
             RuleId::RedundantComment,
             RuleId::BannerComment,
             RuleId::ChatResidue,
+            RuleId::RedundantJump,
             RuleId::CommentedOutCode,
             RuleId::UnusedLocal,
             RuleId::UnusedPrivateMember,

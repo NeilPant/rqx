@@ -1433,7 +1433,9 @@ impl<'a> Walker<'a> {
         if profile.binary_kinds.contains(&kind) {
             self.note_comparison(node);
         }
-        if profile.declarator_kinds.contains(&kind) || profile.local_declaring_kinds.contains(&kind)
+        if profile.declarator_kinds.contains(&kind)
+            || profile.local_declaring_kinds.contains(&kind)
+            || profile.parameter_kinds.contains(&kind)
         {
             self.note_declaration(node);
         }

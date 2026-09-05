@@ -21,6 +21,7 @@ mod health;
 mod history;
 mod lsp;
 mod mcp;
+mod perf;
 mod plan;
 mod preview;
 mod progress;
@@ -277,6 +278,35 @@ enum Command {
         /// Draw the distribution as well as the worst of it
         #[arg(long)]
         histogram: bool,
+        /// Emit one JSON object per row
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Where the work grows faster than the data, ranked by reach
+    Perf {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// One row per function, per file, or per directory
+        #[arg(long, value_enum, default_value_t = perf::By::Function)]
+        by: perf::By,
+        #[arg(long, value_enum, default_value_t = perf::Sort::Weight)]
+        sort: perf::Sort,
+        /// How many rows
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+        /// Skip anything whose loops nest less deeply than this
+        #[arg(long, default_value_t = 0)]
+        min_depth: u32,
+        /// A CPU profile, so a finding nothing ran stops counting. A V8
+        /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
+        #[arg(long, value_name = "FILE")]
+        profile: Vec<PathBuf>,
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
@@ -1335,6 +1365,44 @@ fn run() -> Result<Exit> {
                 return complexity::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
             }
             complexity::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Perf {
+            path,
+            standard,
+            by,
+            sort,
+            top,
+            min_depth,
+            profile,
+            json,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            // The display cap would drop findings this ranking has to weigh.
+            settings.config.scan.max_findings = 0;
+            if !profile.is_empty() {
+                settings.config.scan.profile = profile
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect();
+            }
+            let threshold = settings.config.thresholds.loop_nesting;
+            let outcome = scan::scan(&path, &settings)?;
+            let view = perf::View {
+                by,
+                sort,
+                top,
+                min_depth,
+            };
+            let mut out = anstream::stdout().lock();
+            if json {
+                return perf::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
+            }
+            perf::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
         }
         Command::Completions { shell } => {
             // Generated from the parser itself, so a flag added anywhere is

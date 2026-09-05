@@ -20,6 +20,7 @@ pub enum Only {
     Config,
     Refactor,
     Reading,
+    Perf,
 }
 
 /// A section of the report: which flag selects it, what it is called, and how it is
@@ -40,9 +41,10 @@ pub fn render(
     palette: Palette,
     out: &mut dyn Write,
 ) -> Result<()> {
-    let sections: [Section; 3] = [
+    let sections: [Section; 4] = [
         (Only::Config, "Configuration", configuration),
         (Only::Refactor, "Refactoring", refactoring),
+        (Only::Perf, "Bottlenecks", bottlenecks),
         (Only::Reading, "Read these first", reading),
     ];
 
@@ -141,8 +143,14 @@ fn configuration(outcome: &ScanOutcome, settings: &Resolved) -> Vec<Note> {
 /// One technique answering forty findings is a week's work with a shape. Forty
 /// findings answered by forty different techniques is just a list.
 fn refactoring(outcome: &ScanOutcome, _settings: &Resolved) -> Vec<Note> {
+    techniques_of(outcome.findings.iter())
+}
+
+/// Which single move answers the most at once, and where those findings cluster. One
+/// technique answering hundreds in one directory is a week's work with a shape to it.
+fn techniques_of<'a>(findings: impl Iterator<Item = &'a rqx_core::finding::Finding>) -> Vec<Note> {
     let mut by_technique: BTreeMap<&'static str, (u32, BTreeMap<String, u32>)> = BTreeMap::new();
-    for finding in &outcome.findings {
+    for finding in findings {
         let Some(technique) = finding.rule.spec().fixes.first() else {
             continue;
         };

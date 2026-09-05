@@ -75,6 +75,7 @@ pub fn router(live: Arc<Live>) -> Router {
         .route("/api/report", get(report))
         .route("/api/rules", get(rules))
         .route("/api/plan", get(plan))
+        .route("/api/perf", get(perf))
         .route("/api/levels", get(levels))
         .route("/api/trend", get(trend))
         .route("/api/graph", get(graph))
@@ -200,6 +201,15 @@ async fn plan(State(live): State<Arc<Live>>, RawQuery(query): RawQuery) -> Respo
         .and_then(|value| value.parse().ok())
         .unwrap_or(20);
     ok(projection::plan(&outcome, budget, limit))
+}
+
+async fn perf(State(live): State<Arc<Live>>, RawQuery(query): RawQuery) -> Response {
+    let outcome = live.outcome();
+    let limit = param(query.as_deref(), "limit")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(40);
+    let threshold = live.settings().config.thresholds.loop_nesting;
+    ok(projection::perf(&outcome, threshold, limit))
 }
 
 async fn config(State(live): State<Arc<Live>>) -> Response {

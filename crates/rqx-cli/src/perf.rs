@@ -1,0 +1,437 @@
+//! Which functions to look at first when something is slow.
+//!
+//! `rqx scan` lists findings by file and `rqx complexity` measures how hard a
+//! function is to read. Neither answers the question a lead asks about a slow
+//! service: which body does work that grows faster than its input, weighted by how
+//! much of the project depends on it — and, when a profile was read, whether
+//! anything actually ran it.
+
+use std::collections::BTreeMap;
+use std::io::Write;
+
+use anyhow::Result;
+use clap::ValueEnum;
+use rqx_core::finding::Finding;
+use rqx_core::rule::Category;
+
+use crate::brand::{Ink, Palette, paint};
+use crate::scan::ScanOutcome;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+pub enum By {
+    Function,
+    File,
+    Dir,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+pub enum Sort {
+    Weight,
+    Order,
+    Io,
+    Reach,
+    Sampled,
+}
+
+pub struct View {
+    pub by: By,
+    pub sort: Sort,
+    pub top: usize,
+    pub min_depth: u32,
+}
+
+/// One finding as the table shows it: what was measured, and the move that answers it.
+pub struct Line {
+    pub rule: &'static str,
+    pub evidence: String,
+    pub fix: &'static str,
+}
+
+pub struct Row {
+    pub name: String,
+    pub at: String,
+    pub loops: u32,
+    pub self_calls: u32,
+    /// Round trips and waits inside a loop, which is the cost that shows up as
+    /// latency rather than as processor time.
+    pub io: u32,
+    pub weight: f64,
+    pub reach: f64,
+    pub sampled: Option<rqx_core::runtime::Share>,
+    pub findings: Vec<Line>,
+    pub counted: u32,
+}
+
+impl Row {
+    fn key(&self, sort: Sort) -> f64 {
+        match sort {
+            Sort::Weight => self.weight,
+            Sort::Order => f64::from(self.loops * 10 + self.self_calls),
+            Sort::Io => f64::from(self.io),
+            Sort::Reach => self.reach,
+            Sort::Sampled => f64::from(self.sampled.map_or(0, |share| share.total)),
+        }
+    }
+}
+
+/// What the innermost body costs as the input grows. Loop order, not a proof: three
+/// nested loops over the same short list are still three passes of nothing.
+pub const fn order(loops: u32, self_calls: u32) -> &'static str {
+    if self_calls >= 2 {
+        return "exp";
+    }
+    match loops {
+        0 => "O(1)",
+        1 => "O(n)",
+        2 => "O(n\u{b2})",
+        _ => "O(n\u{b3}+)",
+    }
+}
+
+/// Every function carrying a performance finding, and — when a profile was read —
+/// every function it put on the stack, because a hot body with no static shape is
+/// still where to look.
+pub fn rows(outcome: &ScanOutcome) -> Vec<Row> {
+    const HOT_ENOUGH: u32 = 10;
+
+    let mut rows: Vec<Row> = Vec::new();
+    for (file, shape) in &outcome.shape_by_file {
+        let reach = outcome.impact.get(file).multiplier();
+        let mut carried: BTreeMap<u32, Vec<&Finding>> = BTreeMap::new();
+        for finding in outcome
+            .findings
+            .iter()
+            .filter(|finding| finding.rule.spec().category == Category::Performance)
+            .filter(|finding| finding.location.file.as_ref() == file.as_ref())
+        {
+            if let Some(function) = innermost(shape, finding.location.start) {
+                carried.entry(function).or_default().push(finding);
+            }
+        }
+
+        for function in &shape.functions {
+            let held = carried.get(&function.range.start);
+            let sampled = outcome
+                .profile
+                .as_ref()
+                .and_then(|profile| profile.of(file, function.range.line, function.last_line));
+            let hot = sampled.is_some_and(|share| share.total >= HOT_ENOUGH);
+            if held.is_none() && !hot {
+                continue;
+            }
+            let findings = held.map(Vec::as_slice).unwrap_or_default();
+            let weight: f64 = findings
+                .iter()
+                .filter(|finding| finding.confidence != rqx_core::finding::Confidence::Low)
+                .map(|finding| finding.severity.weight())
+                .sum();
+            let io = findings
+                .iter()
+                .filter(|finding| {
+                    matches!(
+                        finding.rule.slug(),
+                        "query-in-loop" | "await-in-loop" | "blocking-call-in-async"
+                    )
+                })
+                .count() as u32;
+            let ranked = (1.0 + weight * reach)
+                * (1.0 + f64::from(sampled.map_or(0, |share| share.total)) / 1000.0);
+            rows.push(Row {
+                name: function
+                    .name
+                    .clone()
+                    .unwrap_or_else(|| "(anonymous)".to_owned()),
+                at: format!("{file}:{}", function.range.line),
+                loops: function.loop_depth,
+                self_calls: function.self_calls,
+                io,
+                weight: ranked,
+                reach,
+                sampled,
+                findings: findings
+                    .iter()
+                    .map(|finding| Line {
+                        rule: finding.rule.slug(),
+                        evidence: finding.evidence.to_string(),
+                        fix: finding
+                            .rule
+                            .spec()
+                            .fixes
+                            .first()
+                            .map_or("", |technique| technique.name()),
+                    })
+                    .collect(),
+                counted: 1,
+            });
+        }
+    }
+    // A total order before ranking, so two runs of the same scan cannot disagree
+    // about two rows that weigh the same.
+    rows.sort_by(|a, b| a.at.cmp(&b.at).then(a.name.cmp(&b.name)));
+    rows
+}
+
+/// The function a finding sits in, innermost first: a callback inside a method is
+/// where the work is, not the method around it.
+fn innermost(shape: &rqx_lang::FileShape, offset: u32) -> Option<u32> {
+    shape
+        .functions
+        .iter()
+        .filter(|function| function.range.start <= offset && offset <= function.end)
+        .min_by_key(|function| function.end.saturating_sub(function.range.start))
+        .map(|function| function.range.start)
+}
+
+/// The rows a view asks for, grouped and ordered.
+pub fn ranked(outcome: &ScanOutcome, view: &View) -> Vec<Row> {
+    group(rows(outcome), view)
+}
+
+fn group(rows: Vec<Row>, view: &View) -> Vec<Row> {
+    let mut grouped: Vec<Row> = match view.by {
+        By::Function => rows
+            .into_iter()
+            .filter(|row| row.loops >= view.min_depth)
+            .collect(),
+        By::File | By::Dir => {
+            let mut worst: BTreeMap<String, Row> = BTreeMap::new();
+            for row in rows.into_iter().filter(|row| row.loops >= view.min_depth) {
+                let file = row
+                    .at
+                    .rsplit_once(':')
+                    .map_or(row.at.clone(), |(at, _)| at.to_owned());
+                let key = match view.by {
+                    By::Dir => file
+                        .rsplit_once('/')
+                        .map_or(".".to_owned(), |(at, _)| at.to_owned()),
+                    _ => file,
+                };
+                let held = worst.entry(key.clone()).or_insert_with(|| Row {
+                    name: key,
+                    at: String::new(),
+                    loops: 0,
+                    self_calls: 0,
+                    io: 0,
+                    weight: 0.0,
+                    reach: 0.0,
+                    sampled: None,
+                    findings: Vec::new(),
+                    counted: 0,
+                });
+                held.loops = held.loops.max(row.loops);
+                held.self_calls = held.self_calls.max(row.self_calls);
+                held.reach = held.reach.max(row.reach);
+                held.io += row.io;
+                held.weight += row.weight;
+                held.counted += 1;
+            }
+            worst
+                .into_values()
+                .map(|mut row| {
+                    row.at = crate::report::plural(row.counted, "function", "functions");
+                    row
+                })
+                .collect()
+        }
+    };
+    grouped.sort_by(|a, b| {
+        b.key(view.sort)
+            .total_cmp(&a.key(view.sort))
+            .then(b.loops.cmp(&a.loops))
+            .then(a.name.cmp(&b.name))
+            .then(a.at.cmp(&b.at))
+    });
+    grouped
+}
+
+const fn title(by: By) -> &'static str {
+    match by {
+        By::Function => "Bottlenecks",
+        By::File => "Bottlenecks by file",
+        By::Dir => "Bottlenecks by directory",
+    }
+}
+
+pub fn render(
+    outcome: &ScanOutcome,
+    view: &View,
+    threshold: u32,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let measured = rows(outcome);
+    let found = measured.len() as u32;
+    let profiled = outcome.profile.is_some();
+    let shown = group(measured, view);
+    let dim = palette.style(Ink::Muted);
+
+    writeln!(
+        out,
+        "\n  {}  {}",
+        paint(palette.style(Ink::Text).bold(), title(view.by)),
+        paint(
+            dim,
+            format!(
+                "{} worth a look",
+                crate::report::plural(found, "function", "functions")
+            )
+        )
+    )?;
+
+    if shown.is_empty() {
+        writeln!(
+            out,
+            "\n  {}\n",
+            paint(dim, "nothing here grows faster than its input")
+        )?;
+        return Ok(());
+    }
+
+    let width = shown
+        .iter()
+        .take(view.top)
+        .map(|row| row.name.chars().count())
+        .max()
+        .unwrap_or(0)
+        .clamp(8, 40);
+
+    // Padded before it is painted: a colour escape counts towards a format width
+    // and would push every column right by the length of the escape.
+    let sampled_header = if profiled { "sampled" } else { "" };
+    writeln!(
+        out,
+        "\n    {}",
+        paint(
+            dim,
+            format!(
+                "{:<width$} {:>6} {:>6} {:>4} {:>6} {:>9}  where",
+                "", "order", "loops", "io", "reach", sampled_header
+            )
+        )
+    )?;
+
+    for row in shown.iter().take(view.top) {
+        let label = order(row.loops, row.self_calls);
+        let ink = if row.loops > threshold || row.self_calls >= 2 {
+            Ink::Warn
+        } else {
+            Ink::Text
+        };
+        writeln!(
+            out,
+            "    {} {}  {}",
+            paint(
+                palette.style(ink),
+                format!("{:<width$}", trim(&row.name, width))
+            ),
+            paint(
+                palette.style(Ink::Text),
+                format!(
+                    "{label:>6} {:>6} {:>4} {:>6} {:>9}",
+                    row.loops,
+                    row.io,
+                    format!("\u{d7}{:.1}", row.reach),
+                    share_text(row.sampled, profiled)
+                )
+            ),
+            paint(dim, &row.at)
+        )?;
+        for line in &row.findings {
+            writeln!(
+                out,
+                "    {:<width$} {}",
+                "",
+                paint(dim, format!("{}  \u{b7} Fix: {}", line.evidence, line.fix))
+            )?;
+        }
+    }
+
+    writeln!(out, "\n    {}", paint(dim, summary(outcome, threshold)))?;
+    writeln!(out)?;
+    Ok(())
+}
+
+fn summary(outcome: &ScanOutcome, threshold: u32) -> String {
+    let depths: Vec<u32> = outcome
+        .shape_by_file
+        .values()
+        .flat_map(|shape| shape.functions.iter().map(|function| function.loop_depth))
+        .collect();
+    let over = depths.iter().filter(|depth| **depth > threshold).count();
+    let with_io = outcome
+        .findings
+        .iter()
+        .filter(|finding| matches!(finding.rule.slug(), "query-in-loop" | "await-in-loop"))
+        .count();
+    let mut text = format!(
+        "p50 {} \u{b7} p90 {} \u{b7} p99 {} loop depth \u{b7} {over} over {threshold} \u{b7} {with_io} with a round trip inside a loop",
+        percentile(&depths, 50),
+        percentile(&depths, 90),
+        percentile(&depths, 99)
+    );
+    if let Some(profile) = &outcome.profile {
+        text.push_str(&format!(
+            " \u{b7} profile: {} samples, {} matched, {} frames unplaced",
+            profile.samples(),
+            profile.matched(),
+            profile.unmatched()
+        ));
+    }
+    text
+}
+
+fn share_text(share: Option<rqx_core::runtime::Share>, profiled: bool) -> String {
+    match (profiled, share) {
+        (false, _) => String::new(),
+        (true, None) => "\u{2013}".to_owned(),
+        (true, Some(share)) => format!("{}/{}", tenths(share.own), tenths(share.total)),
+    }
+}
+
+fn tenths(permille: u32) -> String {
+    format!("{}.{}%", permille / 10, permille % 10)
+}
+
+fn percentile(depths: &[u32], at: u32) -> u32 {
+    if depths.is_empty() {
+        return 0;
+    }
+    let mut sorted = depths.to_vec();
+    sorted.sort_unstable();
+    let index = (sorted.len() as u64 * u64::from(at) / 100) as usize;
+    sorted[index.min(sorted.len() - 1)]
+}
+
+fn trim(name: &str, width: usize) -> String {
+    if name.chars().count() <= width {
+        return name.to_owned();
+    }
+    let kept: String = name.chars().take(width.saturating_sub(1)).collect();
+    format!("{kept}\u{2026}")
+}
+
+pub fn json(outcome: &ScanOutcome, view: &View, out: &mut dyn Write) -> Result<()> {
+    for row in ranked(outcome, view).iter().take(view.top) {
+        let line = serde_json::json!({
+            "name": row.name,
+            "at": row.at,
+            "order": order(row.loops, row.self_calls),
+            "loops": row.loops,
+            "io": row.io,
+            "reach": row.reach,
+            "weight": row.weight,
+            "sampled": row.sampled.map(|share| serde_json::json!({
+                "self": share.own,
+                "inclusive": share.total,
+            })),
+            "findings": row.findings.iter().map(|line| serde_json::json!({
+                "rule": line.rule,
+                "evidence": line.evidence,
+                "fix": line.fix,
+            })).collect::<Vec<_>>(),
+            "functions": row.counted,
+        });
+        writeln!(out, "{line}")?;
+    }
+    Ok(())
+}

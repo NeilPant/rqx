@@ -49,6 +49,14 @@ pub struct Page {
 }
 
 #[derive(Deserialize, JsonSchema, Default)]
+pub struct Bottlenecks {
+    /// Directory to look at, relative to the project root.
+    pub path: Option<String>,
+    /// How many functions to return. Defaults to 20.
+    pub limit: Option<u32>,
+}
+
+#[derive(Deserialize, JsonSchema, Default)]
 pub struct Diff {
     /// Revision to compare against, e.g. `main` or `HEAD~1`.
     pub base: String,
@@ -384,6 +392,67 @@ impl Rqx {
                 "No import cycles.".to_owned()
             } else {
                 format!("Import cycles:\n\n{cycles}")
+            },
+            structured,
+        ))
+    }
+
+    #[tool(
+        name = "perf",
+        description = "Where the work grows faster than the data it runs on: every \
+                       function carrying a performance finding, ranked by what it costs \
+                       against how much of the project depends on it, with the loop \
+                       order, the round trips inside its loops and the named fix. When \
+                       the project points at a CPU profile, how much of the run each one \
+                       was on the stack for.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn perf(
+        &self,
+        Parameters(asked): Parameters<Bottlenecks>,
+    ) -> Result<CallToolResult, McpError> {
+        let scanned = within(&self.root, asked.path.as_deref()).map_err(refused)?;
+        let snapshot = self.snapshot(Some(scanned)).await?;
+        let limit = asked.limit.unwrap_or(20).min(100) as usize;
+        let threshold = self.settings.config.thresholds.loop_nesting;
+        let structured = projection::perf(&snapshot.outcome, threshold, limit);
+        let rows = crate::perf::ranked(
+            &snapshot.outcome,
+            &crate::perf::View {
+                by: crate::perf::By::Function,
+                sort: crate::perf::Sort::Weight,
+                top: limit,
+                min_depth: 0,
+            },
+        );
+        let listed = rows
+            .iter()
+            .take(limit)
+            .map(|row| {
+                format!(
+                    "- {} ({}) {} \u{b7} {} inside a loop \u{b7} {}",
+                    row.name,
+                    row.at,
+                    crate::perf::order(row.loops, row.self_calls),
+                    row.io,
+                    row.findings
+                        .iter()
+                        .map(|line| line.rule)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        Ok(answer(
+            if listed.is_empty() {
+                "Nothing here grows faster than its input.".to_owned()
+            } else {
+                format!("Bottlenecks:\n\n{listed}")
             },
             structured,
         ))

@@ -418,6 +418,7 @@ pub mod tests {
             code_lines: 10_000,
             files_scanned,
             skipped: Vec::new(),
+            profile: None,
             elapsed_ms: 840,
         };
         for (file, severity) in findings {

@@ -110,6 +110,9 @@ pub struct ScanOutcome {
     pub code_lines: u64,
     pub files_scanned: u32,
     pub skipped: Vec<(PathBuf, String)>,
+    /// What a run spent its time in, when a profile was read. Per run rather than
+    /// per file, so it never reaches the cache the shapes come from.
+    pub profile: Option<rqx_core::runtime::Profile>,
     pub elapsed_ms: u128,
 }
 
@@ -210,6 +213,8 @@ struct Collector {
     track_modules: bool,
     /// What a test run reached, when the project pointed at a coverage file.
     coverage: Option<rqx_core::Hits>,
+    /// What a run actually spent its time in, when the project pointed at a profile.
+    profile: Option<rqx_core::runtime::Samples>,
     code_lines: u64,
     files_scanned: u32,
     skipped: Vec<(PathBuf, String)>,
@@ -256,6 +261,7 @@ impl Collector {
             track_ported,
             track_modules,
             coverage: None,
+            profile: None,
             code_lines: 0,
             files_scanned: 0,
             skipped: Vec::new(),
@@ -1176,6 +1182,28 @@ impl Collector {
                 .then(a.finding.slug().cmp(b.finding.slug()))
                 .then(a.at.start.cmp(&b.at.start))
         });
+        let profile = self.profile.take().map(|samples| {
+            let shapes = &self.shape_by_file;
+            rqx_core::runtime::Profile::placed(samples, |file, line| {
+                // A profile records the path the runtime saw and rqx records the one
+                // the scan walked, so the two agree on the end of a path, not its start.
+                shapes
+                    .iter()
+                    .find(|(known, _)| {
+                        known.as_ref() == file
+                            || file.ends_with(&format!("/{known}"))
+                            || known.ends_with(&format!("/{file}"))
+                    })
+                    .is_some_and(|(_, shape)| {
+                        shape.functions.iter().any(|function| {
+                            function.range.line <= line && line <= function.last_line
+                        })
+                    })
+            })
+        });
+        if let Some(profile) = &profile {
+            speak_for(&mut findings, &self.shape_by_file, profile);
+        }
         self.skipped.sort();
         // The last stage has no successor to close it, so it is closed here.
         self.timings
@@ -1199,7 +1227,49 @@ impl Collector {
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
+            profile,
             elapsed_ms: self.started.elapsed().as_millis(),
+        }
+    }
+}
+
+/// A performance finding names a shape that costs when the input grows. A profile
+/// says whether anything reached it: one it never sampled keeps its finding and
+/// stops counting, exactly as a covered symbol stops counting as dead code.
+fn speak_for(
+    findings: &mut [Finding],
+    shapes: &std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
+    profile: &rqx_core::runtime::Profile,
+) {
+    for finding in findings {
+        let Some(lowered) = rqx_core::runtime::unsampled(finding.rule) else {
+            continue;
+        };
+        let Some(shape) = shapes.get(&finding.location.file) else {
+            continue;
+        };
+        // Code outside every function is code a profile has nothing to say about.
+        let Some(function) = shape
+            .functions
+            .iter()
+            .filter(|function| {
+                function.range.start <= finding.location.start
+                    && finding.location.start <= function.end
+            })
+            .min_by_key(|function| function.end.saturating_sub(function.range.start))
+        else {
+            continue;
+        };
+        let share = profile
+            .of(
+                &finding.location.file,
+                function.range.line,
+                function.last_line,
+            )
+            .map_or(0, |share| share.total);
+        finding.evidence.mark_sampled(share);
+        if share == 0 {
+            finding.confidence = finding.confidence.min(lowered);
         }
     }
 }
@@ -1271,6 +1341,24 @@ impl<'plan> Assignments<'plan> {
 /// Every coverage file the project named, merged. A file that cannot be read is
 /// skipped rather than fatal: a scan that failed because yesterday's coverage was
 /// missing would be a scan nobody runs.
+/// Every profile the project named, merged. Unreadable is skipped rather than fatal,
+/// for the same reason a stale coverage file is.
+fn read_profile(root: &Path, paths: &[String]) -> Option<rqx_core::runtime::Samples> {
+    let mut merged: Option<rqx_core::runtime::Samples> = None;
+    for name in paths {
+        match rqx_core::runtime::Samples::read(&root.join(name)) {
+            Ok(samples) => {
+                merged = Some(match merged {
+                    Some(existing) => existing.merged(samples),
+                    None => samples,
+                })
+            }
+            Err(reason) => eprintln!("rqx: skipping profile \u{2014} {reason}"),
+        }
+    }
+    merged.filter(|samples| !samples.is_empty())
+}
+
 fn read_coverage(root: &Path, paths: &[String]) -> Option<rqx_core::Hits> {
     let mut merged: Option<rqx_core::Hits> = None;
     for name in paths {
@@ -1449,6 +1537,7 @@ pub(crate) fn collect(
         total,
     );
     collector.coverage = read_coverage(root, &settings.config.scan.coverage);
+    collector.profile = read_profile(root, &settings.config.scan.profile);
     collector.baseline = settings.baseline.clone();
     collector.baseline_findings = settings.baseline_findings;
     collector.root = root.to_path_buf();

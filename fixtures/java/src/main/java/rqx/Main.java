@@ -29,7 +29,7 @@ public class Main {
         Performance performance = new Performance();
         performance.keepWanted(java.util.List.of(), java.util.List.of());
         performance.sumCube(new int[0][0][0]);
-        performance.queryEach(java.util.Map.of(), java.util.List.of());
+        performance.queryEach(java.util.List.of());
         performance.countDigits(java.util.List.of());
         performance.joinByCopy(java.util.List.of());
         performance.fibonacci(1);

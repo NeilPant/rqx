@@ -249,6 +249,47 @@ pub fn findings(outcome: &ScanOutcome, filter: &FindingFilter, settings: &Resolv
 }
 
 /// The ranked plan, in the shape the dashboard's Plan page has always read.
+/// The bottleneck rows, shared by the dashboard and the MCP tool so a page and an
+/// agent cannot disagree about which function to open first.
+pub fn perf(outcome: &ScanOutcome, threshold: u32, limit: usize) -> Value {
+    let view = crate::perf::View {
+        by: crate::perf::By::Function,
+        sort: crate::perf::Sort::Weight,
+        top: limit,
+        min_depth: 0,
+    };
+    json!({
+        "threshold": threshold,
+        "functions": crate::perf::ranked(outcome, &view)
+            .iter()
+            .take(limit)
+            .map(|row| json!({
+                "name": row.name,
+                "at": row.at,
+                "order": crate::perf::order(row.loops, row.self_calls),
+                "loops": row.loops,
+                "io": row.io,
+                "reach": row.reach,
+                "weight": row.weight,
+                "sampled": row.sampled.map(|share| json!({
+                    "self": share.own,
+                    "inclusive": share.total,
+                })),
+                "findings": row.findings.iter().map(|line| json!({
+                    "rule": line.rule,
+                    "evidence": line.evidence,
+                    "fix": line.fix,
+                })).collect::<Vec<_>>(),
+            }))
+            .collect::<Vec<_>>(),
+        "profile": outcome.profile.as_ref().map(|profile| json!({
+            "samples": profile.samples(),
+            "matched": profile.matched(),
+            "unmatched": profile.unmatched(),
+        })),
+    })
+}
+
 pub fn plan(outcome: &ScanOutcome, budget: Option<u32>, limit: usize) -> Value {
     let ranked = crate::plan::rank(outcome, budget, limit);
     let (before, after) = crate::plan::simulated(outcome, &ranked);

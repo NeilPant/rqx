@@ -1,0 +1,46 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "callFrame": {
+        "functionName": "(root)",
+        "url": "",
+        "lineNumber": -1
+      },
+      "children": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 2,
+      "callFrame": {
+        "functionName": "sumCube",
+        "url": "file:///fixtures/typescript/performance.ts",
+        "lineNumber": 15
+      }
+    },
+    {
+      "id": 3,
+      "callFrame": {
+        "functionName": "fibonacci",
+        "url": "file:///fixtures/typescript/performance.ts",
+        "lineNumber": 60
+      }
+    }
+  ],
+  "samples": [
+    2,
+    2,
+    2,
+    3
+  ],
+  "timeDeltas": [
+    1000,
+    1000,
+    1000,
+    1000
+  ],
+  "startTime": 0,
+  "endTime": 4000
+}

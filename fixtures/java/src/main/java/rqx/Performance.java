@@ -2,10 +2,26 @@ package rqx;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
+class Rows {
+    private final List<String> values = new ArrayList<>();
+
+    String findById(int id) {
+        if (id < values.size()) {
+            return values.get(id);
+        }
+        return "";
+    }
+
+    int count() {
+        return values.size();
+    }
+}
+
 public class Performance {
+    private final Rows repository = new Rows();
+
     public List<Integer> keepWanted(List<Integer> rows, List<Integer> wanted) {
         List<Integer> kept = new ArrayList<>();
         for (Integer row : rows) {
@@ -28,10 +44,10 @@ public class Performance {
         return total;
     }
 
-    public List<String> queryEach(Map<Integer, String> repository, List<Integer> ids) {
+    public List<String> queryEach(List<Integer> ids) {
         List<String> found = new ArrayList<>();
         for (Integer id : ids) {
-            found.add(repository.get(id));
+            found.add(repository.findById(id));
         }
         return found;
     }

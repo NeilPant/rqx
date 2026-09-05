@@ -20,7 +20,12 @@ func (s *rowStore) Get(id int) string {
 	return ""
 }
 
-func KeepWanted(rows []int, wanted []int) []int {
+func loadWanted() []int {
+	return nil
+}
+
+func KeepWanted(rows []int) []int {
+	wanted := loadWanted()
 	kept := []int{}
 	for _, row := range rows {
 		if slices.Contains(wanted, row) {

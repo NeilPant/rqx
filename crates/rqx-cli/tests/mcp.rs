@@ -183,6 +183,7 @@ fn the_handshake_advertises_every_tool_with_a_schema() {
             "graph",
             "health",
             "patterns",
+            "perf",
             "plan",
             "recommend",
             "rules",

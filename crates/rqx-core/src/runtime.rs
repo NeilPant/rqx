@@ -562,6 +562,55 @@ impl Samples {
     }
 }
 
+/// A profile placed against the functions rqx measured. Frames it could not place
+/// are counted rather than guessed at, because a share attributed to the wrong
+/// function is worse than no share at all.
+#[derive(Debug)]
+pub struct Profile {
+    samples: Samples,
+    matched: u32,
+    unmatched: u32,
+}
+
+impl Profile {
+    /// `known` answers whether a recorded line falls inside a function rqx measured.
+    pub fn placed(samples: Samples, known: impl Fn(&str, u32) -> bool) -> Self {
+        let mut matched = 0;
+        let mut unmatched = 0;
+        for (file, lines) in &samples.by_line {
+            for line in lines.keys() {
+                if known(file, *line) {
+                    matched += 1;
+                } else {
+                    unmatched += 1;
+                }
+            }
+        }
+        unmatched += samples.by_name.len() as u32;
+        Self {
+            samples,
+            matched,
+            unmatched,
+        }
+    }
+
+    pub fn of(&self, file: &str, from: u32, to: u32) -> Option<Share> {
+        self.samples.within(file, from, to)
+    }
+
+    pub fn samples(&self) -> u64 {
+        self.samples.total()
+    }
+
+    pub const fn matched(&self) -> u32 {
+        self.matched
+    }
+
+    pub const fn unmatched(&self) -> u32 {
+        self.unmatched
+    }
+}
+
 /// One frame of a stack. A profile that names a file and a line can be placed
 /// exactly; one that names only a symbol has to be matched against function names.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

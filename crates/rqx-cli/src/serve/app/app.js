@@ -47,6 +47,7 @@ const PAGES = [
   ["findings", "Findings"],
   ["files", "Files"],
   ["plan", "Plan"],
+  ["perf", "Bottlenecks"],
   ["patterns", "Patterns"],
   ["check", "Check"],
   ["rules", "Rules"],
@@ -990,6 +991,77 @@ function Plan({ openFinding }) {
   `;
 }
 
+/* ── bottlenecks ──────────────────────────────────────────────────────── */
+
+function share(sampled) {
+  if (!sampled) return "–";
+  return `${(sampled.inclusive / 10).toFixed(1)}%`;
+}
+
+function Perf({ openFinding }) {
+  const [rows, setRows] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    json("/api/perf?limit=40").then((answer) => live && setRows(answer));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (!rows) return html`<div class="empty">Measuring…</div>`;
+
+  const profile = rows.profile;
+  return html`
+    <div class="page-head">
+      <h1>Bottlenecks</h1>
+      <div class="sub">
+        ${rows.functions.length} worth a look${profile
+          ? ` · profile: ${profile.matched} matched, ${profile.unmatched} unplaced`
+          : ""}
+      </div>
+    </div>
+
+    <div class="rows">
+      ${rows.functions.map(
+        (row) => html`
+          <div class="row row-plan" key=${row.at}>
+            <span class="tag">${row.order}</span>
+            <span>
+              <span class="rule">${row.name}</span>
+              <span class="sub"> · ${shortPath(row.at)}</span>
+            </span>
+            <span class="evidence">
+              ${row.loops} loops · ${row.io} io · ×${row.reach.toFixed(1)}
+            </span>
+            <span class="num">${profile ? share(row.sampled) : ""}</span>
+          </div>
+          ${row.findings.map(
+            (finding) => html`
+              <button class="row" key=${`${row.at}${finding.rule}`}
+                      onClick=${() =>
+                        openFinding({
+                          file: row.at.split(":")[0],
+                          line: Number(row.at.split(":").pop()),
+                          rule: finding.rule,
+                          evidence: finding.evidence,
+                          why: "",
+                        })}>
+                <span class="num"></span>
+                <span><span class="rule">${finding.rule}</span></span>
+                <span class="evidence">${finding.evidence}</span>
+                <span class="sub">${finding.fix}</span>
+              </button>
+            `,
+          )}
+        `,
+      )}
+      ${rows.functions.length === 0 &&
+      html`<div class="empty">Nothing here grows faster than its input.</div>`}
+    </div>
+  `;
+}
+
 /* ── patterns ─────────────────────────────────────────────────────────── */
 
 function Patterns({ report, openFinding }) {
@@ -1732,6 +1804,7 @@ function App() {
         html`<${Findings} report=${report} params=${params} go=${go} openFinding=${setTarget} />`}
         ${page === "files" && html`<${Files} report=${report} params=${params} go=${go} />`}
         ${page === "plan" && html`<${Plan} openFinding=${setTarget} />`}
+        ${page === "perf" && html`<${Perf} openFinding=${setTarget} />`}
         ${page === "patterns" && html`<${Patterns} report=${report} openFinding=${setTarget} />`}
         ${page === "check" && html`<${Check} report=${report} openFinding=${setTarget} />`}
         ${page === "rules" && html`<${Rules} report=${report} go=${go} act=${act} />`}

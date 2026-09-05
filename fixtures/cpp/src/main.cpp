@@ -22,9 +22,17 @@
 #include "families.hpp"
 #include "structures.hpp"
 #include "shapes.hpp"
+#include "performance.hpp"
 #include "vocabulary.hpp"
 
 int main() {
+    keep_wanted({}, {});
+    sum_cube({});
+    query_each({});
+    read_each({});
+    count_digits({});
+    join_by_copy({});
+    fibonacci(1);
     add(1, 2);
     describe("x");
     too_many_parameters(1, 2, 3, 4, 5);
