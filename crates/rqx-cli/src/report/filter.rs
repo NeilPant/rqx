@@ -1,5 +1,5 @@
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
-use rqx_core::finding::{Finding, Severity};
+use rqx_core::finding::{Confidence, Finding, Severity};
 use rqx_core::rule::{Category, RuleId};
 
 /// Narrows what is shown, never what is scanned. A finding the filter hides is
@@ -15,6 +15,14 @@ pub struct FindingFilter {
     /// revision at all, which is not the same as a revision that changed nothing.
     touched: Option<std::collections::HashSet<String>>,
     text: String,
+    /// What to leave out. Kept apart from what to keep because they answer different
+    /// questions: `--rule` is "only this", `--not-rule` is "everything but this", and
+    /// a project uses one or the other rather than both.
+    without_rules: Vec<RuleId>,
+    without_categories: Vec<Category>,
+    without_paths: Option<Gitignore>,
+    confidence: Option<Confidence>,
+    fixable: bool,
 }
 
 impl FindingFilter {
@@ -72,9 +80,35 @@ impl FindingFilter {
             rules,
             categories,
             paths,
-            touched: None,
-            text: String::new(),
+            ..Self::default()
         })
+    }
+
+    /// The negative of the three list filters. Unknown names are refused the same way
+    /// they are on the positive side; a typo that silently hid nothing would be worse
+    /// here, because the reader would see a full list and believe it was narrowed.
+    pub fn without(
+        mut self,
+        rules: &[String],
+        categories: &[String],
+        paths: &[String],
+    ) -> anyhow::Result<Self> {
+        let named = Self::new(None, rules, categories, paths)?;
+        self.without_rules = named.rules;
+        self.without_categories = named.categories;
+        self.without_paths = named.paths;
+        Ok(self)
+    }
+
+    pub const fn at_confidence(mut self, confidence: Option<Confidence>) -> Self {
+        self.confidence = confidence;
+        self
+    }
+
+    /// Only findings whose rule can fix itself — the set `rqx fix` would act on.
+    pub const fn fixable(mut self, only: bool) -> Self {
+        self.fixable = only;
+        self
     }
 
     /// Narrow to the files a revision changed. Unlike `check --base`, nothing that
@@ -97,6 +131,27 @@ impl FindingFilter {
             return false;
         }
         if !self.categories.is_empty() && !self.categories.contains(&finding.category()) {
+            return false;
+        }
+        if self.without_rules.contains(&finding.rule)
+            || self.without_categories.contains(&finding.category())
+        {
+            return false;
+        }
+        if let Some(paths) = &self.without_paths
+            && paths
+                .matched(finding.location.file.as_ref(), false)
+                .is_ignore()
+        {
+            return false;
+        }
+        if self
+            .confidence
+            .is_some_and(|wanted| finding.confidence != wanted)
+        {
+            return false;
+        }
+        if self.fixable && !finding.rule.spec().autofix.is_automatic() {
             return false;
         }
         if let Some(touched) = &self.touched

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 use rqx_core::rule::RuleId;
@@ -68,11 +68,25 @@ pub struct Cli {
 const AFTER_HELP: &str = "\
 Examples:
   rqx                              open the interface on the working directory
-  rqx scan .                       report every finding, exit 0 either way
+  rqx scan . --no-tui              print the whole report instead
   rqx scan . --fail-on error       report, and exit 1 if anything is an error
   rqx check --base main            review only what changed, and gate on it
   rqx explain unused-export        what one rule measures and how to fix it
   rqx init                         write an RQX.toml you can edit
+
+What answers what:
+  `scan` already reports import cycles, layer violations against a declared
+  [architecture], dead code, duplication, churn and every function over a
+  threshold. These narrow the same scan to one question:
+
+  complexity   every function it measured, not only the ones over the line
+  perf         what grows faster than its input
+  graph        the import graph, as text, Graphviz, Mermaid or data
+  health       which family the score is losing to, and what removing it buys
+  slop         which files read as written rather than read
+  patterns     which design patterns are half applied, and where one would fit
+  plan         the work ranked by what it buys against what it costs
+  recommend    what to do about the project, as against what is wrong with it
 
 Exit codes:
   0   ran, nothing failed the gate
@@ -84,8 +98,11 @@ Exit codes:
 #[derive(Subcommand)]
 enum Command {
     /// Analyze a project and report every finding
+    #[command(
+        after_help = "Examples:\n  rqx scan .                          the interface, on a terminal\n  rqx scan . --no-tui                 the whole report as text\n  rqx scan . --rule empty-catch       open on one rule\n  rqx scan . --not-path 'test/**'     everything except the tests\n  rqx scan . --fixable                only what `rqx fix` can act on\n  rqx scan . --stats                  which rules fired, and how often"
+    )]
     Scan {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -98,11 +115,11 @@ enum Command {
         advice: bool,
         /// A coverage file, so a test run can contradict a dead-code finding.
         /// lcov, a Go cover profile and coverage.py JSON are read by content.
-        #[arg(long)]
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         coverage: Vec<PathBuf>,
         /// A CPU profile, so a run can contradict a performance finding. A V8
         /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
-        #[arg(long)]
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         profile: Vec<PathBuf>,
         /// Display cap; 0 shows every finding. Never affects the health score.
         #[arg(long)]
@@ -110,15 +127,20 @@ enum Command {
         /// Scan again whenever a file changes, until interrupted
         #[arg(long)]
         watch: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Apply the fixes a finding decides on its own, proving each one before it is
     /// written. Previews by default.
+    #[command(
+        after_help = "Examples:\n  rqx fix                             show what would change\n  rqx fix -w                          write it\n  rqx fix --plan                      the edits as a list, not a diff"
+    )]
     Fix {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -139,15 +161,17 @@ enum Command {
         /// With --plan, emit markdown a person can paste rather than a report to read
         #[arg(long)]
         markdown: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Compare the working tree against a base revision and say what happened to
     /// each finding: resolved, improved, relocated, or introduced
     Verify {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -160,9 +184,11 @@ enum Command {
         /// Emit one JSON object per change instead of the reader's report
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Print the configuration one editor needs to talk to rqx, or list them all
@@ -175,8 +201,11 @@ enum Command {
     },
     /// Rank the work by what it buys against what it costs, and say what the health
     /// score would be after it
+    #[command(
+        after_help = "Examples:\n  rqx plan --budget 20                the best twenty points of work\n  rqx plan --simulate                 the score each step would leave"
+    )]
     Plan {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -192,9 +221,11 @@ enum Command {
         /// Emit one JSON object per item instead of the reader's plan
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it,
@@ -207,11 +238,17 @@ enum Command {
         /// Show only the rules that apply to one language
         #[arg(long)]
         language: Option<String>,
+        /// One slug per line and nothing else, for a script or a shell completion
+        #[arg(long)]
+        slugs: bool,
     },
     /// Record the findings this project already has, so a gate can judge only what a
     /// change adds
+    #[command(
+        after_help = "Examples:\n  rqx baseline                        snapshot today's debt\n  rqx baseline --update               after a cleanup, record the new floor"
+    )]
     Baseline {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -222,14 +259,16 @@ enum Command {
         /// Record a larger set than the last one held
         #[arg(long)]
         force: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// List every finding a comment in the source waives, with the reason given
     Suppressions {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -239,14 +278,19 @@ enum Command {
         /// Emit one JSON object per waiver instead of the reader's report
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// What the analyser measured, as a distribution rather than only its tail
+    #[command(
+        after_help = "Examples:\n  rqx complexity --top 20             the twenty worst functions\n  rqx complexity --by dir             the worst of each directory\n  rqx complexity --histogram          where the codebase actually sits"
+    )]
     Complexity {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -267,14 +311,16 @@ enum Command {
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Where the work grows faster than the data, ranked by reach
     Perf {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -291,14 +337,16 @@ enum Command {
         min_depth: u32,
         /// A CPU profile, so a finding nothing ran stops counting. A V8
         /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
-        #[arg(long, value_name = "FILE")]
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         profile: Vec<PathBuf>,
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Print a shell completion script
@@ -307,8 +355,11 @@ enum Command {
         shell: clap_complete::Shell,
     },
     /// What to do about this project, as distinct from what is wrong with it
+    #[command(
+        after_help = "Examples:\n  rqx recommend                       all four answers\n  rqx recommend --only config         thresholds this codebase would fit"
+    )]
     Recommend {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -317,14 +368,16 @@ enum Command {
         only: Option<recommend::Only>,
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Which files read as written rather than read
     Slop {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -335,14 +388,16 @@ enum Command {
         min: u32,
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Where the health score comes from, and what removing each part would buy
     Health {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -351,14 +406,19 @@ enum Command {
         /// Emit one JSON object per bucket
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Print the import graph — as text, Graphviz, Mermaid or data
+    #[command(
+        after_help = "Examples:\n  rqx graph --cycles                  only the rings\n  rqx graph --format mermaid          paste it into a design doc\n  rqx graph --focus src/api.ts        what it reaches, and what reaches it"
+    )]
     Graph {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -368,14 +428,16 @@ enum Command {
         #[arg(long)]
         cycles: bool,
         /// Only what this file reaches, and what reaches it
-        #[arg(long, value_name = "FILE")]
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         focus: Option<String>,
         /// How far from `--focus` to follow
         #[arg(long, default_value_t = 2)]
         depth: u32,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Show what the analysis cache holds, or throw it away
@@ -390,12 +452,13 @@ enum Command {
         language: String,
         /// The query, in tree-sitter's s-expression syntax
         query: String,
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         /// Show every capture of every match, not just where it starts
         #[arg(long)]
         captures: bool,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// List every refactoring Rqx prescribes, and which rules ask for it
@@ -406,7 +469,7 @@ enum Command {
     /// Report which design patterns a project uses, which are half applied, and where
     /// one would fit
     Patterns {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -416,14 +479,19 @@ enum Command {
         /// Emit one JSON object per advisory instead of the reader's report
         #[arg(long)]
         json: bool,
-        #[arg(long, env = "RQX_THREADS")]
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Analyze changed files against a base revision and fail if the gate is not met
+    #[command(
+        after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and fail CI on any error\n  rqx check --fix -w                  apply the proven fixes first"
+    )]
     Check {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
@@ -441,20 +509,21 @@ enum Command {
         view: View,
         #[command(flatten)]
         gate: Gate,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Regenerate the checked-in rule reference under docs/
     #[command(hide = true)]
     Docs {
-        #[arg(long, default_value = "docs")]
+        #[arg(long, default_value = "docs", value_hint = ValueHint::DirPath)]
         out: PathBuf,
-        #[arg(long, default_value = "fixtures")]
+        #[arg(long, default_value = "fixtures", value_hint = ValueHint::DirPath)]
         fixtures: PathBuf,
     },
     /// Write a commented RQX.toml with every setting at its default
     Init {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         /// Replace an RQX.toml that is already there
         #[arg(long)]
@@ -462,30 +531,33 @@ enum Command {
     },
     /// Print the settings a run will use, and the file each one came from
     Config {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
         #[command(subcommand)]
         action: Option<ConfigAction>,
     },
     /// Run as an MCP server, so an AI agent can ask what a project's problems are
     Mcp {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         /// Serve Streamable HTTP on this address instead of speaking over stdio
         #[arg(long, value_name = "ADDR")]
         http: Option<std::net::SocketAddr>,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Run as a Language Server over stdio, for editor integration
     Lsp {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
 }
@@ -563,55 +635,85 @@ impl From<OrderArg> for report::Order {
     }
 }
 
+/// Display only: a filter narrows what is printed, never what is scanned. The gate,
+/// the health score and the counts all see the whole set, because a score that moved
+/// with a display flag would not mean anything.
 #[derive(Args, Default)]
 struct View {
     /// Show only findings at or above this severity
-    #[arg(long, value_enum)]
+    #[arg(long, value_enum, help_heading = "Filtering")]
     severity: Option<SeverityArg>,
     /// Show only this rule; repeatable
-    #[arg(long = "rule", value_name = "SLUG")]
+    #[arg(long = "rule", value_name = "SLUG", help_heading = "Filtering")]
     rules: Vec<String>,
     /// Show only this smell family; repeatable
-    #[arg(long = "category", value_name = "FAMILY")]
+    #[arg(long = "category", value_name = "FAMILY", help_heading = "Filtering")]
     categories: Vec<String>,
     /// Show only findings in files matching this glob; repeatable
-    #[arg(long = "path", value_name = "GLOB")]
+    #[arg(long = "path", value_name = "GLOB", help_heading = "Filtering")]
     paths: Vec<String>,
-    /// List files that have no findings as well
-    #[arg(long)]
-    show_passed: bool,
-    /// Print the summary without the findings
-    #[arg(short, long)]
-    quiet: bool,
-    /// Print how long each stage of the scan took
-    #[arg(long)]
-    timings: bool,
-    /// Counts only: which rules and families fired, and how often
-    #[arg(long)]
-    stats: bool,
-    /// What the listing is a list of
-    #[arg(long = "group-by", value_enum, default_value_t = GroupArg::File)]
-    grouping: GroupArg,
-    /// What decides the order inside each group
-    #[arg(long = "sort", value_enum, default_value_t = OrderArg::Line)]
-    order: OrderArg,
-    /// List only this many groups; the rest are counted
-    #[arg(long, value_name = "N")]
-    top: Option<usize>,
+    /// Hide this rule; repeatable
+    #[arg(long = "not-rule", value_name = "SLUG", help_heading = "Filtering")]
+    not_rules: Vec<String>,
+    /// Hide this smell family; repeatable
+    #[arg(
+        long = "not-category",
+        value_name = "FAMILY",
+        help_heading = "Filtering"
+    )]
+    not_categories: Vec<String>,
+    /// Hide findings in files matching this glob; repeatable
+    #[arg(long = "not-path", value_name = "GLOB", help_heading = "Filtering")]
+    not_paths: Vec<String>,
+    /// Show only findings rqx is certain of, or only the ones it is guessing at
+    #[arg(long, value_enum, help_heading = "Filtering")]
+    confidence: Option<ConfidenceArg>,
+    /// Show only findings `rqx fix` can act on
+    #[arg(long, help_heading = "Filtering")]
+    fixable: bool,
+    /// Show only findings whose rule, file or evidence contains this text
+    #[arg(long, value_name = "TEXT", help_heading = "Filtering")]
+    search: Option<String>,
     /// Show only findings in files this revision changed
-    #[arg(long, value_name = "REF")]
+    #[arg(long, value_name = "REF", help_heading = "Filtering")]
     since: Option<String>,
     /// Show only findings in files not yet committed
-    #[arg(long)]
+    #[arg(long, help_heading = "Filtering")]
     changed: bool,
+
+    /// List files that have no findings as well
+    #[arg(long, help_heading = "Display")]
+    show_passed: bool,
+    /// Print the summary without the findings
+    #[arg(short, long, help_heading = "Display")]
+    quiet: bool,
+    /// Print how long each stage of the scan took
+    #[arg(long, help_heading = "Display")]
+    timings: bool,
+    /// Counts only: which rules and families fired, and how often
+    #[arg(long, help_heading = "Display")]
+    stats: bool,
+    /// What the listing is a list of
+    #[arg(long = "group-by", value_enum, default_value_t = GroupArg::File, help_heading = "Display")]
+    grouping: GroupArg,
+    /// What decides the order inside each group
+    #[arg(long = "sort", value_enum, default_value_t = OrderArg::Line, help_heading = "Display")]
+    order: OrderArg,
+    /// List only this many groups; the rest are counted
+    #[arg(long, value_name = "N", help_heading = "Display")]
+    top: Option<usize>,
     /// List the findings a comment waives, alongside the ones it does not
-    #[arg(long)]
+    #[arg(long, help_heading = "Display")]
     show_suppressed: bool,
     /// Lines of code shown either side of a finding
-    #[arg(long, default_value_t = 2)]
+    #[arg(long, default_value_t = 2, help_heading = "Display")]
     context: u32,
     /// Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable
-    #[arg(long = "reporter", value_name = "NAME[=PATH]")]
+    #[arg(
+        long = "reporter",
+        value_name = "NAME[=PATH]",
+        help_heading = "Display"
+    )]
     reporters: Vec<Sink>,
     #[arg(long, value_enum, hide = true)]
     format: Option<Reporter>,
@@ -651,14 +753,15 @@ enum ConfigAction {
 enum CacheAction {
     /// What the cache holds, and whether the next scan can use it
     Status {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[arg(long)]
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
     /// Throw the cache away, leaving everything else under `.rqx` alone
     Clear {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
     },
 }
@@ -666,19 +769,19 @@ enum CacheAction {
 #[derive(Args)]
 struct Gate {
     /// Lowest severity that fails the run
-    #[arg(long, value_enum)]
+    #[arg(long, value_enum, help_heading = "Gate")]
     fail_on: Option<FailOn>,
     /// Findings allowed before the run fails
-    #[arg(long)]
+    #[arg(long, help_heading = "Gate")]
     allow_findings: Option<u32>,
     /// Health score below which the run fails; 0 disables
-    #[arg(long)]
+    #[arg(long, help_heading = "Gate")]
     min_health: Option<u32>,
     /// Lowest grade any single file may carry
-    #[arg(long, value_enum)]
+    #[arg(long, value_enum, help_heading = "Gate")]
     min_grade: Option<MinGrade>,
     /// Fail when a design pattern is half applied
-    #[arg(long)]
+    #[arg(long, help_heading = "Gate")]
     fail_on_incomplete: bool,
 }
 
@@ -738,6 +841,21 @@ enum SeverityArg {
     Info,
     Warning,
     Error,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum ConfidenceArg {
+    Verified,
+    Heuristic,
+}
+
+impl From<ConfidenceArg> for rqx_core::finding::Confidence {
+    fn from(value: ConfidenceArg) -> Self {
+        match value {
+            ConfidenceArg::Verified => Self::Verified,
+            ConfidenceArg::Heuristic => Self::Heuristic,
+        }
+    }
 }
 
 impl From<SeverityArg> for Severity {
@@ -961,7 +1079,11 @@ fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
         &view.rules,
         &view.categories,
         &view.paths,
-    )?;
+    )?
+    .without(&view.not_rules, &view.not_categories, &view.not_paths)?
+    .at_confidence(view.confidence.map(Into::into))
+    .fixable(view.fixable)
+    .with_text(view.search.as_deref().unwrap_or_default());
     let mut touched: Option<Vec<String>> = None;
     if let Some(base) = &view.since {
         touched = Some(history::changed_since(root, base).ok_or_else(|| {
@@ -1753,7 +1875,17 @@ fn run() -> Result<Exit> {
             lsp::serve(&path, settings).map_err(|error| anyhow::anyhow!("{error}"))?;
             Ok(Exit::Clean)
         }
-        Command::Rules { category, language } => {
+        Command::Rules {
+            category,
+            language,
+            slugs,
+        } => {
+            if slugs {
+                for rule in rqx_core::rule::RuleId::ALL {
+                    println!("{}", rule.spec().slug);
+                }
+                return Ok(Exit::Clean);
+            }
             report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
         }
         Command::Techniques => {

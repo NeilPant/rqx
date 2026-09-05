@@ -24,6 +24,8 @@ Record the findings this project already has, so a gate can judge only what a ch
 | `--level` | relaxed, standard, strict or pristine |
 | `--update` | Take it again over the current findings. Refuses to record more than the last one did unless --force |
 | `--force` | Record a larger set than the last one held |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -56,6 +58,14 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--rule` | Show only this rule; repeatable |
 | `--category` | Show only this smell family; repeatable |
 | `--path` | Show only findings in files matching this glob; repeatable |
+| `--not-rule` | Hide this rule; repeatable |
+| `--not-category` | Hide this smell family; repeatable |
+| `--not-path` | Hide findings in files matching this glob; repeatable |
+| `--confidence` | Show only findings rqx is certain of, or only the ones it is guessing at |
+| `--fixable` | Show only findings `rqx fix` can act on |
+| `--search` | Show only findings whose rule, file or evidence contains this text |
+| `--since` | Show only findings in files this revision changed |
+| `--changed` | Show only findings in files not yet committed |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
 | `--timings` | Print how long each stage of the scan took |
@@ -63,8 +73,6 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--group-by` | What the listing is a list of |
 | `--sort` | What decides the order inside each group |
 | `--top` | List only this many groups; the rest are counted |
-| `--since` | Show only findings in files this revision changed |
-| `--changed` | Show only findings in files not yet committed |
 | `--show-suppressed` | List the findings a comment waives, alongside the ones it does not |
 | `--context` | Lines of code shown either side of a finding |
 | `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
@@ -73,6 +81,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--min-health` | Health score below which the run fails; 0 disables |
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -104,6 +113,8 @@ What the analyser measured, as a distribution rather than only its tail
 | `--min` | Skip anything below this, on whatever `--sort` measures |
 | `--histogram` | Draw the distribution as well as the worst of it |
 | `--json` | Emit one JSON object per row |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -117,6 +128,7 @@ Print the settings a run will use, and the file each one came from
 | Flag | What it does |
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -147,6 +159,8 @@ Apply the fixes a finding decides on its own, proving each one before it is writ
 | `--json` | Emit one JSON object per fixed file instead of the reader's preview |
 | `--plan` | Report the findings `fix` will not touch, with the span, the source, the metric and the named refactoring, for a person or an agent to act on |
 | `--markdown` | With --plan, emit markdown a person can paste rather than a report to read |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -163,6 +177,8 @@ Print the import graph — as text, Graphviz, Mermaid or data
 | `--cycles` | Only the edges that close a cycle |
 | `--focus` | Only what this file reaches, and what reaches it |
 | `--depth` | How far from `--focus` to follow |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -177,6 +193,8 @@ Where the health score comes from, and what removing each part would buy
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--json` | Emit one JSON object per bucket |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -219,6 +237,7 @@ Run as a Language Server over stdio, for editor integration
 
 | Flag | What it does |
 | --- | --- |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -232,6 +251,7 @@ Run as an MCP server, so an AI agent can ask what a project's problems are
 | Flag | What it does |
 | --- | --- |
 | `--http` | Serve Streamable HTTP on this address instead of speaking over stdio |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -247,6 +267,8 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--level` | relaxed, standard, strict or pristine |
 | `--coverage` | Print what rqx does about every pattern in the book, without scanning |
 | `--json` | Emit one JSON object per advisory instead of the reader's report |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -265,6 +287,8 @@ Where the work grows faster than the data, ranked by reach
 | `--min-depth` | Skip anything whose loops nest less deeply than this |
 | `--profile` | A CPU profile, so a finding nothing ran stops counting. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--json` | Emit one JSON object per row |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -282,6 +306,8 @@ Rank the work by what it buys against what it costs, and say what the health sco
 | `--limit` | How many items to rank when no budget is given |
 | `--simulate` | Also print what the plan does to the grade of every file |
 | `--json` | Emit one JSON object per item instead of the reader's plan |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -297,6 +323,7 @@ Run a tree-sitter query over a project, to try one out before writing it into a 
 | `<language>` | typescript, python, go, java or cpp |
 | `<query>` | The query, in tree-sitter's s-expression syntax |
 | `--captures` | Show every capture of every match, not just where it starts |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -311,6 +338,8 @@ What to do about this project, as distinct from what is wrong with it
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--only` | Just one section |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -325,6 +354,7 @@ List every rule Rqx can report, grouped by family
 | --- | --- |
 | `<category>` | Show only one family |
 | `--language` | Show only the rules that apply to one language |
+| `--slugs` | One slug per line and nothing else, for a script or a shell completion |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -342,6 +372,14 @@ Analyze a project and report every finding
 | `--rule` | Show only this rule; repeatable |
 | `--category` | Show only this smell family; repeatable |
 | `--path` | Show only findings in files matching this glob; repeatable |
+| `--not-rule` | Hide this rule; repeatable |
+| `--not-category` | Hide this smell family; repeatable |
+| `--not-path` | Hide findings in files matching this glob; repeatable |
+| `--confidence` | Show only findings rqx is certain of, or only the ones it is guessing at |
+| `--fixable` | Show only findings `rqx fix` can act on |
+| `--search` | Show only findings whose rule, file or evidence contains this text |
+| `--since` | Show only findings in files this revision changed |
+| `--changed` | Show only findings in files not yet committed |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
 | `--timings` | Print how long each stage of the scan took |
@@ -349,8 +387,6 @@ Analyze a project and report every finding
 | `--group-by` | What the listing is a list of |
 | `--sort` | What decides the order inside each group |
 | `--top` | List only this many groups; the rest are counted |
-| `--since` | Show only findings in files this revision changed |
-| `--changed` | Show only findings in files not yet committed |
 | `--show-suppressed` | List the findings a comment waives, alongside the ones it does not |
 | `--context` | Lines of code shown either side of a finding |
 | `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
@@ -364,6 +400,8 @@ Analyze a project and report every finding
 | `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--max-findings` | Display cap; 0 shows every finding. Never affects the health score |
 | `--watch` | Scan again whenever a file changes, until interrupted |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -392,6 +430,8 @@ Which files read as written rather than read
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--min` | Skip anything scoring below this |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -407,6 +447,8 @@ List every finding a comment in the source waives, with the reason given
 | `--level` | relaxed, standard, strict or pristine |
 | `--expiring` | Show only the waivers that carry an `until` date |
 | `--json` | Emit one JSON object per waiver instead of the reader's report |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -435,6 +477,8 @@ Compare the working tree against a base revision and say what happened to each f
 | `--base` | Revision to compare against |
 | `--expect` | Rules that must be resolved, as `rule` or `rule@file`. Repeatable |
 | `--json` | Emit one JSON object per change instead of the reader's report |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
 | `--no-tui` | Print the report instead of opening the interactive interface |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
