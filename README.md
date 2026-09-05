@@ -146,7 +146,7 @@ does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Eighty-one rules across nine families. Every rule names the metric that decides it and
+Eighty-one rules across ten families. Every rule names the metric that decides it and
 the refactoring that answers it, and neither is optional.
 
 That traceability is enforced by the compiler. The catalogue is one declarative
@@ -155,7 +155,7 @@ rule that omits its metric or its fix does not build. A second test asserts that
 **every rule in the catalogue actually fires on a fixture** — a rule nothing can
 trigger is a documentation entry pretending to be a check.
 
-`rqx rules` prints all 75 grouped by family, and `rqx explain <rule>` prints one in
+`rqx rules` prints all 81 grouped by family, and `rqx explain <rule>` prints one in
 full. [`docs/rules/`](docs/rules/README.md) is the same catalogue as a reference: what
 each rule measures, the threshold that tunes it, the languages it cannot apply to, and
 a worked example lifted from the fixture that fires it.
@@ -169,8 +169,9 @@ a worked example lifted from the fixture that fires it.
 | **Coupling** | 7 | modules that know too much about each other, and dependencies pointing the wrong way |
 | **Flow** | 7 | control flow that says less than it looks like |
 | **Naming** | 7 | names that mislead or say nothing |
-| **Safety** | 9 | silent failure and swallowed errors |
+| **Safety** | 10 | silent failure and swallowed errors |
 | **Tests** | 4 | suites that pass without checking |
+| **Noise** | 5 | text that costs a reader and buys nothing |
 
 Those pages are generated from the catalogue by `rqx docs`, and a test fails if they
 drift from it — a hand-written table of sixty-odd rules is a table that goes stale, which
@@ -434,6 +435,125 @@ change — churn and how many modules import it. Effort comes from the refactori
 rule prescribes: deleting is one point, moving behaviour up or down a type tree is
 five. The selection is exact rather than greedy, because the cheapest two items are
 often worth more together than the dearest one.
+
+## Putting it on a codebase that already exists
+
+A ten-year-old service has four thousand findings. Turn the gate on and it fails on
+the first pull request, so it gets turned off on the second. Four things exist for
+exactly that afternoon.
+
+**Record the debt you already have.**
+
+```sh
+rqx baseline            # writes .rqx/baseline.json — commit it
+```
+
+```toml
+[gate]
+fail_on = "warning"
+baseline = ".rqx/baseline.json"
+ratchet  = true          # and it may not grow
+```
+
+```
+  Findings  0 errors · 8 warnings · 2 info
+  Baseline  7 findings known · 1 new
+```
+
+Eight warnings, still reported, still in the editor. Seven are debt the baseline
+recorded; one arrived with this change, and only that one fails the build. The health
+score still counts all of them — the score is a statement about the code, not about
+which debt has been agreed to. [More](docs/baseline.md).
+
+**Waive one finding, with a reason.**
+
+```ts
+// rqx-ignore long-function: the parser is generated, PLAT-812
+```
+
+Without the reason it waives nothing: the finding stands and
+`unjustified-suppression` reports the comment. `until 2027-01-01` puts a date on it,
+and past that date it lapses the same way. `rqx suppressions` lists every waiver with
+its reason and who wrote it. [More](docs/suppressions.md).
+
+**Write the rules your codebase needs.**
+
+```toml
+[[rule]]
+id = "no-legacy-client"
+languages = ["typescript"]
+query = "((call_expression function: (member_expression object: (identifier) @o)) @site (#eq? @o \"legacyClient\"))"
+message = "legacyClient is retired; call ApiClient"
+family = "coupling"
+severity = "error"
+```
+
+A tree-sitter query, and every grammar is already in the binary. It counts towards the
+score, shows in the editor, gets its own SARIF descriptor, and can be disabled or
+waived by name. `rqx query typescript '<query>' --captures` tries one before you
+commit to it, and a query that will not compile is a config error naming the rule and
+the row it failed at. [More](docs/custom-rules.md).
+
+**One standard across many repositories.**
+
+```toml
+policy = "../platform/rqx-policy.toml"
+```
+
+The policy sits *under* the project, so a service may still tighten what it likes.
+`[locked] keys` names what it may not change at all — not in its own config, not in an
+override, not with `--level`. [More](docs/policy.md).
+
+## Reading a codebase you did not write
+
+```sh
+rqx recommend      # which thresholds fit, which refactoring pays, what to read first
+rqx complexity     # the measurements, as a distribution rather than a tail
+rqx health --by rule
+rqx graph --cycles --format mermaid
+rqx slop           # which files read as written rather than read
+```
+
+`rqx complexity` is the one to run first on an unfamiliar tree:
+
+```
+  Complexity  37410 functions measured
+
+                        cplx  stmts  nest args  where
+    submit                53    102     5    3  …/challenges.service.ts:658
+    projectMarkdown       52     84     4    1  …/markdown-projection.ts:30
+
+    p50 0 · p90 2 · p99 9 · 137 of 37410 over the threshold of 15
+```
+
+That last line says whether the threshold is describing the exceptions or the norm.
+`rqx recommend` tells you to move it if it is the norm, and stays quiet if it is not.
+
+`rqx graph` prints the import graph as text, Graphviz, Mermaid or JSON, with the edges
+that close a cycle marked in each — and `circular-dependency` reports the ring as a
+walk you can follow rather than a count, anchored on the import that opens it.
+
+`rqx slop` scores how much of a file is text that costs a reader and buys nothing: a
+comment above every line restating it, a divider in a fifty-line file, `example.com`
+in a constant, a leftover *Here's the implementation you asked for!* Each is nothing
+alone; together and at density they describe code that was produced and never read
+back. It is labelled a heuristic everywhere it appears and gates nothing unless asked.
+
+## Changing a setting
+
+```sh
+rqx config                                   # the settings, and which file set each
+rqx config set thresholds.max_params 3       # write it, comments and layout intact
+rqx config set gate.fail_on warning --pick   # choose which file in the chain
+rqx config unset thresholds.max_params
+rqx config files                             # the chain, nearest last
+```
+
+A monorepo reads a user config, a policy and one `RQX.toml` per directory, so `set`
+writes to the file that already holds the key and `--pick` asks when you want a
+different one. Edits go through a format-preserving writer: the template is mostly
+prose explaining what each key is for, and a reserialise would throw all of it away on
+the first change. A key the policy locked is refused before the file is touched.
 
 ## Levels
 
