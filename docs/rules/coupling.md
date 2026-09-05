@@ -130,3 +130,45 @@ From `fixtures/typescript/intimacy.ts`, line 5:
 
 rqx says: move what they share into one of them, or behind an interface both use
 
+## `wide-fan-out`
+
+a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it
+
+| | |
+|---|---|
+| Measures | modules a single file imports |
+| Reported as | info, measured threshold |
+| Reads | the import graph across every file |
+| Fix | Extract Shared Module / Invert Dependency |
+| Tuned by | `thresholds.fan_out` |
+
+From `fixtures/typescript/index.ts`, line 1:
+
+```ts
+export { add, describe } from "./clean";
+export { tooManyParameters, deeplyNested, Overgrown } from "./bloat";
+```
+
+rqx says: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated
+
+## `wide-fan-in`
+
+every change here reaches this many places, so the module is load bearing whether or not anybody decided it should be
+
+| | |
+|---|---|
+| Measures | modules that import a single file |
+| Reported as | info, measured threshold |
+| Reads | the import graph across every file |
+| Fix | Extract Interface |
+| Tuned by | `thresholds.fan_in` |
+
+From `fixtures/typescript/clean.ts`, line 1:
+
+```ts
+export function add(first: number, second: number): number {
+  return first + second;
+```
+
+rqx says: split it along the seams its importers actually use, so a change reaches only the ones that asked for it
+

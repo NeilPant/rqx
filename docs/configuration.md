@@ -74,6 +74,8 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `commented_code_lines` | 2 | `commented-out-code` |
 | `magic_number_repeats` | 3 | `magic-number` |
 | `class_public_members` | 20 | `wide-surface` |
+| `fan_out` | 20 | `wide-fan-out` |
+| `fan_in` | 20 | `wide-fan-in` |
 | `max_exits` | 4 | `many-exits` |
 | `max_cases` | 12 | `wide-switch` |
 | `callback_depth` | 3 | `callback-nesting` |

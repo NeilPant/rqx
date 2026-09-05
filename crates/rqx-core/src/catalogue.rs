@@ -828,6 +828,28 @@ catalogue! {
     },
 
     // ---- Safety ---------------------------------------------------------------
+    WideFanOut {
+        slug: "wide-fan-out",
+        category: Coupling,
+        analysis: Modules,
+        metric: "modules a single file imports",
+        fixes: [ExtractSharedModule, InvertDependency],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a file that reaches into this many places cannot be read, moved or \
+              tested without most of the project coming with it",
+    },
+    WideFanIn {
+        slug: "wide-fan-in",
+        category: Coupling,
+        analysis: Modules,
+        metric: "modules that import a single file",
+        fixes: [ExtractInterface],
+        confidence: Heuristic,
+        severity: Info,
+        why: "every change here reaches this many places, so the module is load \
+              bearing whether or not anybody decided it should be",
+    },
     BannerComment {
         slug: "banner-comment",
         category: Noise,

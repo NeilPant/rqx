@@ -3,6 +3,8 @@
 # that read as opinion rather than defect are off.
 
 [thresholds]
+fan_out = 30
+fan_in = 30
 long_function_statements = 60
 cognitive_complexity = 25
 nesting_depth = 4

@@ -60,6 +60,10 @@ message_chain_depth = 3
 commented_code_lines = 2
 magic_number_repeats = 3
 class_public_members = 20
+# Modules one file may import before it cannot be read or moved on its own, and
+# modules that may import one file before every change to it reaches too far.
+fan_out = 20
+fan_in = 20
 # Ways out of one function body, past the guard clauses at the top.
 max_exits = 4
 # Arms in one switch before it stops being a table a reader scans.

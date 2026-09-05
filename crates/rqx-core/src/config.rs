@@ -474,6 +474,8 @@ pub struct Thresholds {
     pub commented_code_lines: u32,
     pub magic_number_repeats: u32,
     pub class_public_members: u32,
+    pub fan_out: u32,
+    pub fan_in: u32,
     pub max_exits: u32,
     pub max_cases: u32,
     pub callback_depth: u32,
@@ -496,7 +498,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 25] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 27] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -510,6 +512,8 @@ impl Thresholds {
         ("commented_code_lines", &[RuleId::CommentedOutCode]),
         ("magic_number_repeats", &[RuleId::MagicNumber]),
         ("class_public_members", &[RuleId::WideSurface]),
+        ("fan_out", &[RuleId::WideFanOut]),
+        ("fan_in", &[RuleId::WideFanIn]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),
         ("callback_depth", &[RuleId::CallbackNesting]),
@@ -558,6 +562,8 @@ impl Default for Thresholds {
             commented_code_lines: 2,
             magic_number_repeats: 3,
             class_public_members: 20,
+            fan_out: 20,
+            fan_in: 20,
             max_exits: 4,
             max_cases: 12,
             callback_depth: 3,
@@ -1035,6 +1041,8 @@ mod tests {
                     t.commented_code_lines,
                     t.magic_number_repeats,
                     t.class_public_members,
+                    t.fan_out,
+                    t.fan_in,
                     t.max_exits,
                     t.max_cases,
                     t.callback_depth,

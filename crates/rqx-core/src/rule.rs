@@ -242,7 +242,7 @@ impl RuleId {
     /// import graph, and three that are computed across files by the scan although
     /// they declare `Syntax` — clones, and the two churn rules. Listed by id because
     /// `analysis` alone would miss those three.
-    pub const PROJECT_SCOPED: [Self; 10] = [
+    pub const PROJECT_SCOPED: [Self; 12] = [
         Self::ParallelInheritance,
         Self::UnusedExport,
         Self::UnusedFile,
@@ -250,6 +250,8 @@ impl RuleId {
         Self::CircularDependency,
         Self::LayerViolation,
         Self::ForbiddenImport,
+        Self::WideFanOut,
+        Self::WideFanIn,
         Self::DuplicateCode,
         Self::DivergentChange,
         Self::ShotgunSurgery,

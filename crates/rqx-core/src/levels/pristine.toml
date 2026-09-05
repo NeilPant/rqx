@@ -3,6 +3,8 @@
 # codebase, or one where the standard is the point.
 
 [thresholds]
+fan_out = 10
+fan_in = 10
 long_function_statements = 20
 cognitive_complexity = 8
 nesting_depth = 2

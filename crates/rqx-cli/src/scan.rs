@@ -765,6 +765,50 @@ impl Collector {
         for (path, importers) in &report.importers {
             self.impact
                 .set_importers(Arc::from(at.relative(path)), *importers);
+            if *importers > config.thresholds.fan_in
+                && let Some(range) = at.range(path, WHOLE_FILE)
+            {
+                self.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::WideFanIn,
+                        range,
+                        Evidence::Breadth {
+                            counted: "modules import this one".to_owned(),
+                            found: *importers,
+                            limit: config.thresholds.fan_in,
+                        },
+                        "split it along the seams its importers actually use, so a \
+                         change reaches only the ones that asked for it"
+                            .to_owned(),
+                        Vec::new(),
+                    ),
+                );
+            }
+        }
+
+        for (importer, targets) in &report.edges {
+            let reaches = targets.len() as u32;
+            if reaches > config.thresholds.fan_out
+                && let Some(range) = at.range(importer, WHOLE_FILE)
+            {
+                self.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::WideFanOut,
+                        range,
+                        Evidence::Breadth {
+                            counted: "modules imported".to_owned(),
+                            found: reaches,
+                            limit: config.thresholds.fan_out,
+                        },
+                        "give it one collaborator that knows the rest, or move what it \
+                         is orchestrating to the things being orchestrated"
+                            .to_owned(),
+                        Vec::new(),
+                    ),
+                );
+            }
         }
 
         for dead in report.unimplemented {
