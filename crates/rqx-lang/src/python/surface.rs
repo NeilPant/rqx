@@ -141,6 +141,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                             // `import a.b` binds the whole module, so any name in it
                             // may be reached through the dotted path.
                             takes_everything: true,
+                            re_export: false,
                         });
                     }
                 }
@@ -155,6 +156,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                     names,
                     span: span_of(statement),
                     takes_everything: wildcard,
+                    re_export: false,
                 });
             }
             _ => {}

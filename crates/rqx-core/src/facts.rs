@@ -318,6 +318,12 @@ pub struct ImportRequest {
     /// A namespace import or `export *` uses every name the target offers, so the
     /// target's exports cannot be judged unused from the names list alone.
     pub takes_everything: bool,
+    /// `export … from "./x"`, which reads as an import to the graph and is not one
+    /// to a reader. A barrel re-exporting from one module across several lines is
+    /// doing that deliberately, and `export type` cannot be merged with `export`
+    /// at all.
+    #[serde(default)]
+    pub re_export: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

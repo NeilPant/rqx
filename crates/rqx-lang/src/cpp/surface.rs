@@ -96,6 +96,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                     names: Vec::new(),
                     span: span_of(node),
                     takes_everything: false,
+                    re_export: false,
                 });
             }
             "class_specifier" | "struct_specifier" => collect_class(node, source, &mut facts),

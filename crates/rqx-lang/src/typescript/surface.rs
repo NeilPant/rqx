@@ -54,6 +54,7 @@ fn collect_exports(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
                     .collect(),
                 span: span_of(statement),
                 takes_everything: false,
+                re_export: true,
             });
         }
         for specifier in specifiers {
@@ -81,6 +82,7 @@ fn collect_exports(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
                 names: Vec::new(),
                 span: span_of(statement),
                 takes_everything: true,
+                re_export: true,
             });
         }
         return;
@@ -153,6 +155,7 @@ fn collect_import(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
         names,
         span: span_of(statement),
         takes_everything,
+        re_export: false,
     });
 }
 

@@ -256,6 +256,53 @@ pub fn check_parameter(
 /// Straight-line mapping from a detected spot to a finding. Each arm names the rule,
 /// the evidence it carries and the specific instruction; the shared spec supplies the
 /// catalogue citation, so nothing here can invent one.
+/// What a file's import list says about itself. Read here rather than in a collector
+/// because the module facts are already assembled by the time rules run.
+pub fn check_imports(
+    module: &crate::facts::ModuleFacts,
+    builder: &FindingBuilder<'_>,
+    out: &mut Vec<Finding>,
+) {
+    let mut seen: std::collections::BTreeMap<&str, u32> = std::collections::BTreeMap::new();
+    for request in module.imports.iter().filter(|request| !request.re_export) {
+        *seen.entry(request.specifier.as_str()).or_default() += 1;
+    }
+    for request in module.imports.iter().filter(|request| !request.re_export) {
+        let count = seen
+            .get(request.specifier.as_str())
+            .copied()
+            .unwrap_or_default();
+        // Reported on the second and later statements, so the finding sits on the one
+        // to delete rather than on the one that was there first.
+        if count < 2 || request.span.start == first_of(module, &request.specifier) {
+            continue;
+        }
+        builder.emit(
+            out,
+            RuleId::DuplicateImport,
+            request.span,
+            Evidence::Name {
+                identifier: request.specifier.clone(),
+                reason: "imported more than once".to_owned(),
+            },
+            format!(
+                "fold these names into the first `{}` import",
+                request.specifier
+            ),
+        );
+    }
+}
+
+fn first_of(module: &crate::facts::ModuleFacts, specifier: &str) -> u32 {
+    module
+        .imports
+        .iter()
+        .filter(|request| !request.re_export && request.specifier == specifier)
+        .map(|request| request.span.start)
+        .min()
+        .unwrap_or_default()
+}
+
 pub fn check_hygiene(
     hygiene: &crate::facts::Hygiene,
     builder: &FindingBuilder<'_>,

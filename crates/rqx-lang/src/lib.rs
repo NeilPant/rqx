@@ -322,6 +322,7 @@ pub fn analyze_as(
     for parameter in &module.unused_parameters {
         rules::check_parameter(parameter, &builder, &mut findings);
     }
+    rules::check_imports(&module, &builder, &mut findings);
     rules::check_hygiene(&hygiene, &builder, &mut findings);
     custom::run(
         language,

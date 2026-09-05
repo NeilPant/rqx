@@ -1,4 +1,5 @@
 #include "hygiene.hpp"
+#include "hygiene.hpp"
 
 int pricing(const std::vector<int>& cart, bool apply_discount) {
     int never_read = static_cast<int>(cart.size());

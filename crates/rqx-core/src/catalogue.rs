@@ -828,6 +828,18 @@ catalogue! {
     },
 
     // ---- Safety ---------------------------------------------------------------
+    DuplicateImport {
+        slug: "duplicate-import",
+        category: Waste,
+        analysis: Semantics,
+        metric: "the same module imported by more than one statement in a file",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "two statements bringing in one module means a reader has to check both \
+              to know what this file takes from it, and a merge put at least one there \
+              without anybody looking",
+    },
     WideFanOut {
         slug: "wide-fan-out",
         category: Coupling,

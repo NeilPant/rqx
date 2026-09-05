@@ -45,6 +45,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                         names: Vec::new(),
                         span: span_of(spec),
                         takes_everything: false,
+                        re_export: false,
                     });
                 }
             }

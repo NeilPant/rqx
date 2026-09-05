@@ -81,6 +81,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                     // An import names one type, and that type is the whole of what
                     // the importing file takes.
                     takes_everything: false,
+                    re_export: false,
                 });
             }
             continue;
@@ -167,6 +168,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                 names,
                 span: rqx_core::span::Span::new(0, 0),
                 takes_everything: false,
+                re_export: false,
             });
         }
         for import in &mut facts.imports {

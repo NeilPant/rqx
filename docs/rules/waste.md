@@ -102,7 +102,7 @@ the value is computed and thrown away, which either wastes the work or hides the
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 4:
+From `fixtures/typescript/hygiene.ts`, line 5:
 
 ```ts
 export function pricing(cart: number[], applyDiscount: boolean): number {
@@ -147,7 +147,7 @@ this code cannot run, so whatever it was meant to do is not happening and has no
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 26:
+From `fixtures/typescript/hygiene.ts`, line 27:
 
 ```ts
   return value + seed;
@@ -170,7 +170,7 @@ nobody dares delete it because nobody knows if it matters, so it sits there rott
 | Fix | Remove Dead Code |
 | Tuned by | `thresholds.commented_code_lines` |
 
-From `fixtures/typescript/hygiene.ts`, line 7:
+From `fixtures/typescript/hygiene.ts`, line 8:
 
 ```ts
 
@@ -256,7 +256,7 @@ the failure is swallowed silently, so the first sign of it is wrong data somewhe
 | Fix | Remove Dead Code |
 | Not in Go | Go has no exceptions and so no catch clause; an ignored error is a different shape this rule does not measure |
 
-From `fixtures/typescript/hygiene.ts`, line 17:
+From `fixtures/typescript/hygiene.ts`, line 18:
 
 ```ts
     return total + 4999;
@@ -411,4 +411,25 @@ the same rule is written twice in two languages, so the day it changes it change
 | Reads | the syntax tree alone |
 | Fix | Extract Shared Module |
 | Default | off; name it under `[rules] enabled` |
+
+## `duplicate-import`
+
+two statements bringing in one module means a reader has to check both to know what this file takes from it, and a merge put at least one there without anybody looking
+
+| | |
+|---|---|
+| Measures | the same module imported by more than one statement in a file |
+| Reported as | info, verified |
+| Reads | resolved scopes and symbols |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/hygiene.ts`, line 2:
+
+```ts
+import { orbit } from "./cycle-a";
+import { spinAgain } from "./cycle-a";
+
+```
+
+rqx says: fold these names into the first `./cycle-a` import
 

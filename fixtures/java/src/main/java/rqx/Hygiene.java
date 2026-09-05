@@ -1,6 +1,7 @@
 package rqx;
 
 import java.util.List;
+import java.util.List;
 
 public class Hygiene {
     public int pricing(List<Integer> cart, boolean applyDiscount) {
