@@ -116,3 +116,8 @@ def two_armed(kind: str) -> int:
 
 def settled(balance: float) -> bool:
     return balance == 0.1
+
+
+def dropped(total: int, other: int) -> int:
+    total == other
+    return total

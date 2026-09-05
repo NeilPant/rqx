@@ -87,3 +87,8 @@ int two_armed(int kind) {
 bool settled(double balance) {
     return balance == 0.1;
 }
+
+int dropped(int total, int other) {
+    total == other;
+    return total;
+}

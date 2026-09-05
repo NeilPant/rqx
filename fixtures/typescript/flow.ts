@@ -127,3 +127,8 @@ export function twoArmed(kind: string): number {
 export function settled(balance: number): boolean {
   return balance === 0.1;
 }
+
+export function dropped(total: number, other: number): number {
+  total === other;
+  return total;
+}

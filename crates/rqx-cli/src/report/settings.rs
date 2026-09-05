@@ -397,6 +397,12 @@ fn threshold_rows(
             values.configuration_depth,
             defaults.configuration_depth,
         ),
+        (
+            "loop nesting",
+            "loop_nesting",
+            values.loop_nesting,
+            defaults.loop_nesting,
+        ),
     ]
 }
 

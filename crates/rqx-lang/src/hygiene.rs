@@ -624,6 +624,47 @@ impl<'a> Walker<'a> {
 
     /// A comparison that has already decided: an operand against itself, or against
     /// the literal it is being asked whether it equals.
+    /// A statement whose whole content is a value nobody keeps. Deliberately narrow:
+    /// a call may be there for its effect and a string may be a docstring or a
+    /// `"use strict"` directive, so only a number, a name, or a comparison counts.
+    fn note_discarded_expression(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        let mut cursor = node.walk();
+        let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
+        let [only] = children.as_slice() else {
+            return;
+        };
+        let kind = only.kind();
+        let discarded = profile.number_kinds.contains(&kind)
+            || profile.is_identifier(*only)
+            || (profile.binary_kinds.contains(&kind) && self.compares(*only));
+        if !discarded {
+            return;
+        }
+        self.out.discarded_expressions.push(Spot {
+            span: span_of(node),
+            detail: self.text(*only).trim().to_owned(),
+            count: 1,
+        });
+    }
+
+    /// Whether a binary node is an equality test. Python writes one as a run of
+    /// operands with the operator between them rather than as a left/right pair, so
+    /// the field is absent there and the operator is read positionally.
+    fn compares(&self, node: Node<'a>) -> bool {
+        node.child_by_field_name("operator")
+            .or_else(|| {
+                (0..node.child_count())
+                    .filter_map(|index| node.child(index))
+                    .find(|child| !child.is_named())
+            })
+            .is_some_and(|operator| {
+                self.profile
+                    .equality_operators
+                    .contains(&self.text(operator))
+            })
+    }
+
     fn note_comparison(&mut self, node: Node<'a>) {
         let profile = self.profile;
         // Python writes a comparison as a run of operands with the operators between
@@ -1445,6 +1486,9 @@ impl<'a> Walker<'a> {
         }
         if profile.binary_kinds.contains(&kind) {
             self.note_comparison(node);
+        }
+        if kind == "expression_statement" {
+            self.note_discarded_expression(node);
         }
         if profile.declarator_kinds.contains(&kind)
             || profile.local_declaring_kinds.contains(&kind)

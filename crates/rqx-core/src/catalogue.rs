@@ -864,6 +864,21 @@ catalogue! {
               work that succeeded, and the next reader cannot tell whether it is a stub \
               or a decision",
     },
+    DiscardedExpression {
+        slug: "discarded-expression",
+        category: Waste,
+        analysis: Syntax,
+        metric: "a statement that computes a value and does nothing with it",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Warning,
+        why: "either the line was meant to do something and does not, or it does \
+              nothing and should not be here, and a reader cannot tell which",
+        not_applicable: [
+            (Go, "the grammar allows only a call or a receive as a statement, so the compiler rejects this first"),
+            (Java, "the grammar allows only a call, an assignment or an increment as a statement"),
+        ],
+    },
     FloatEquality {
         slug: "float-equality",
         category: Safety,

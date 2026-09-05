@@ -184,15 +184,15 @@ the caller's value changes without the call site saying so, which is the hardest
 | Reads | resolved scopes and symbols |
 | Fix | Remove Assignments to Parameters / Separate Query from Modifier |
 
-From `fixtures/typescript/hygiene.ts`, line 28:
+From `fixtures/typescript/flow.ts`, line 112:
 
 ```ts
-  return value + seed;
-  value = 1;
-}
+  for (const item of items) {
+    total += item;
+    continue;
 ```
 
-rqx says: assign to a local instead of `value`, and return the result
+rqx says: assign to a local instead of `total`, and return the result
 
 ## `complex-condition`
 

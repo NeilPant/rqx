@@ -764,6 +764,17 @@ pub fn check_hygiene(
             "pick one verb for the idea and rename the rest to match".to_owned(),
         );
     }
+    for spot in &hygiene.discarded_expressions {
+        emit(
+            out,
+            RuleId::DiscardedExpression,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` is computed and dropped", spot.detail),
+            },
+            "use the value, or delete the line".to_owned(),
+        );
+    }
     for spot in &hygiene.float_equalities {
         emit(
             out,

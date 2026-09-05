@@ -433,6 +433,29 @@ From `fixtures/typescript/bloat.ts`, line 21:
 
 rqx says: give it a body, delete it, or make it explicit that doing nothing is the answer here
 
+## `discarded-expression`
+
+either the line was meant to do something and does not, or it does nothing and should not be here, and a reader cannot tell which
+
+| | |
+|---|---|
+| Measures | a statement that computes a value and does nothing with it |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+| Not in Go | the grammar allows only a call or a receive as a statement, so the compiler rejects this first |
+| Not in Java | the grammar allows only a call, an assignment or an increment as a statement |
+
+From `fixtures/typescript/flow.ts`, line 132:
+
+```ts
+export function dropped(total: number, other: number): number {
+  total === other;
+  return total;
+```
+
+rqx says: use the value, or delete the line
+
 ## `duplicate-import`
 
 two statements bringing in one module means a reader has to check both to know what this file takes from it, and a merge put at least one there without anybody looking
