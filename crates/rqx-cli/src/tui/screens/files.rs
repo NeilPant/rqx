@@ -162,12 +162,6 @@ impl Screen for Files {
                 };
                 return Nav::Inspect(file);
             }
-            KeyCode::Char('o') => {
-                let Some(file) = self.selected() else {
-                    return Nav::Stay;
-                };
-                return Nav::Open(file, 1);
-            }
             _ => return global(key).unwrap_or(Nav::Stay),
         }
         Nav::Redraw
@@ -177,7 +171,6 @@ impl Screen for Files {
         &[
             ("↑↓", "move"),
             ("enter", "its findings"),
-            ("o", "open"),
             ("n", "sort by name"),
             ("esc", "back"),
         ]

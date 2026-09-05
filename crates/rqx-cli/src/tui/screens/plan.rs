@@ -228,12 +228,6 @@ impl Screen for Plan {
             KeyCode::Up | KeyCode::Char('k') => self.step(-1),
             KeyCode::Char('+') | KeyCode::Char('=') => self.spend(STEP as i32, session),
             KeyCode::Char('-') | KeyCode::Char('_') => self.spend(-(STEP as i32), session),
-            KeyCode::Enter | KeyCode::Char('o') => {
-                let Some(item) = self.state.selected().and_then(|at| self.items.get(at)) else {
-                    return Nav::Stay;
-                };
-                return Nav::Open(item.file.clone(), item.line);
-            }
             _ => return global(key).unwrap_or(Nav::Stay),
         }
         Nav::Redraw
@@ -243,7 +237,6 @@ impl Screen for Plan {
         &[
             ("\u{2191}\u{2193}", "move"),
             ("+ -", "budget"),
-            ("enter", "open"),
             ("tab", "next view"),
             ("esc", "back"),
         ]

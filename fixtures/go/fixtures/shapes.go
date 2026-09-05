@@ -141,3 +141,21 @@ func Sweep(rows []int) int {
 	}
 	return n + len(seen)
 }
+
+func TrailingJump(items []int) int {
+	total := 0
+	for _, item := range items {
+		total += item
+		continue
+	}
+	return total
+}
+
+func TwoArmed(kind string) int {
+	switch kind {
+	case "one":
+		return 1
+	default:
+		return 0
+	}
+}

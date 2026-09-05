@@ -643,6 +643,30 @@ pub fn check_hygiene(
             "pick one verb for the idea and rename the rest to match".to_owned(),
         );
     }
+    for spot in &hygiene.redundant_jumps {
+        emit(
+            out,
+            RuleId::RedundantJump,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` is the last statement of the loop", spot.detail),
+            },
+            "delete it; control was going there anyway".to_owned(),
+        );
+    }
+    for spot in &hygiene.tiny_switches {
+        emit(
+            out,
+            RuleId::TinySwitch,
+            spot,
+            Evidence::Breadth {
+                counted: "arms".to_owned(),
+                found: spot.count,
+                limit: 0,
+            },
+            "write it as an if, or give the switch the arms that justify it".to_owned(),
+        );
+    }
     for spot in &hygiene.empty_methods {
         emit(
             out,

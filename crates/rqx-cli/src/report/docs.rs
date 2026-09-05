@@ -97,6 +97,7 @@ const fn measures(family: Category) -> &'static str {
         Category::Safety => "silent failure and swallowed errors",
         Category::Tests => "suites that pass without checking",
         Category::Noise => "text that costs a reader and buys nothing",
+        Category::Performance => "work done more often, or more expensively, than it needs to be",
     }
 }
 

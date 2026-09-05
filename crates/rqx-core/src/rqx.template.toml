@@ -68,6 +68,8 @@ fan_in = 20
 max_exits = 4
 # Arms in one switch before it stops being a table a reader scans.
 max_cases = 12
+# Arms below which a switch is an if spelled in more lines. Off by default.
+min_cases = 3
 # Function literals nested inside other function literals.
 callback_depth = 3
 feature_envy_ratio = 3
@@ -79,6 +81,7 @@ boundary_repeats = 3
 declaration_distance_lines = 20
 expression_operations = 6
 configuration_depth = 3
+loop_nesting = 2
 
 [ignore]
 # Globs of files rqx should not read at all. Tests are deliberately absent: an
@@ -132,6 +135,10 @@ prune_dirs = [
 # the code says so, and the finding drops to a confidence that keeps it out of the
 # score. lcov, a Go cover profile and coverage.py JSON are all recognised by content.
 coverage = []
+# CPU profiles to read. A performance finding in a function the profile never
+# sampled is shown but stops counting; one it sampled says how often. A V8
+# .cpuprofile, a Go pprof and collapsed stacks are all recognised by content.
+profile = []
 
 [gate]
 # What makes a run fail. `rqx check` always gates. `rqx scan` gates only when you
@@ -168,6 +175,13 @@ disabled = []
 # One fix can make the next one possible, so fixing repeats until a round finds
 # nothing or this many rounds have run.
 max_rounds = 3
+
+[performance]
+# Client and call names the I/O rules should recognise on top of the ones rqx
+# ships, for a project that names its own gateway. Added to the built-in
+# vocabulary, never replacing it. One segment per entry: no dots, no spaces.
+receivers = []
+methods = []
 
 [architecture]
 # The direction dependencies may point. `layers` is ordered inner to outer: a file

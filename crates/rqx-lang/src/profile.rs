@@ -300,6 +300,7 @@ mod tests {
                 ("identifier_kinds", profile.identifier_kinds),
                 ("member_access_kinds", profile.member_access_kinds),
                 ("call_kinds", profile.call_kinds),
+                ("loop_kinds", profile.loop_kinds),
             ] {
                 for name in kinds {
                     assert!(

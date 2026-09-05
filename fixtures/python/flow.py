@@ -97,3 +97,18 @@ def wide_match(kind):
         case _:
             return 0
 
+
+def trailing_jump(items: list) -> int:
+    total = 0
+    for item in items:
+        total += item
+        continue
+    return total
+
+
+def two_armed(kind: str) -> int:
+    match kind:
+        case "one":
+            return 1
+        case _:
+            return 0

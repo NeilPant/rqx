@@ -234,3 +234,547 @@ mod tests {
         assert!(contradicted(RuleId::LongFunction).is_none());
     }
 }
+
+/// How much of a run's samples landed in one function: its own frames, and every
+/// sample that had it anywhere on the stack. Parts per thousand, because a share is
+/// read as a percentage and a float would make two runs of the same profile differ.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Share {
+    pub own: u32,
+    pub total: u32,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct Weight {
+    own: u64,
+    total: u64,
+}
+
+impl Weight {
+    fn share(self, of: u64) -> Share {
+        let permille = |part: u64| {
+            if of == 0 {
+                0
+            } else {
+                (part * 1000 / of) as u32
+            }
+        };
+        Share {
+            own: permille(self.own),
+            total: permille(self.total),
+        }
+    }
+}
+
+/// What a CPU profile says ran. Static analysis names a shape that costs; a profile
+/// says whether anything reached it, which is the difference between a quadratic loop
+/// over three items and the one holding up a request.
+#[derive(Debug, Default)]
+pub struct Samples {
+    by_line: BTreeMap<String, BTreeMap<u32, Weight>>,
+    /// Frames a profile gives without a file: a JVM stack names `Class.method` and
+    /// nothing else, so those are matched against function names instead.
+    by_name: BTreeMap<String, Weight>,
+    total: u64,
+}
+
+impl Samples {
+    pub fn is_empty(&self) -> bool {
+        self.total == 0
+    }
+
+    pub fn total(&self) -> u64 {
+        self.total
+    }
+
+    /// The heaviest frame recorded inside a span. A profile records the line it
+    /// sampled, which is somewhere in the body rather than at the signature.
+    pub fn within(&self, file: &str, from: u32, to: u32) -> Option<Share> {
+        let lines = self.lines(file)?;
+        let mut found = Weight::default();
+        let mut any = false;
+        for (_, weight) in lines.range(from..=to.max(from)) {
+            found.own += weight.own;
+            found.total = found.total.max(weight.total);
+            any = true;
+        }
+        any.then(|| found.share(self.total))
+    }
+
+    /// A frame that named no file. Ambiguity is not resolved here: the caller knows
+    /// how many functions carry the name and drops the match when more than one does.
+    pub fn named(&self, name: &str) -> Option<Share> {
+        self.by_name
+            .get(name)
+            .map(|weight| weight.share(self.total))
+    }
+
+    /// Lines this profile recorded against files rqx never scanned, so a report can
+    /// say how much of the run it could not place.
+    pub fn frames(&self) -> usize {
+        self.by_line.values().map(BTreeMap::len).sum::<usize>() + self.by_name.len()
+    }
+
+    /// Two profiles of the same service, or one per process: samples add up.
+    #[must_use]
+    pub fn merged(mut self, other: Self) -> Self {
+        for (file, lines) in other.by_line {
+            let target = self.by_line.entry(file).or_default();
+            for (line, weight) in lines {
+                let slot = target.entry(line).or_default();
+                slot.own += weight.own;
+                slot.total += weight.total;
+            }
+        }
+        for (name, weight) in other.by_name {
+            let slot = self.by_name.entry(name).or_default();
+            slot.own += weight.own;
+            slot.total += weight.total;
+        }
+        self.total += other.total;
+        self
+    }
+
+    fn lines(&self, file: &str) -> Option<&BTreeMap<u32, Weight>> {
+        if let Some(lines) = self.by_line.get(file) {
+            return Some(lines);
+        }
+        self.by_line
+            .iter()
+            .find(|(recorded, _)| {
+                recorded.ends_with(&format!("/{file}")) || file.ends_with(&format!("/{recorded}"))
+            })
+            .map(|(_, lines)| lines)
+    }
+
+    fn record(&mut self, frame: &Frame, own: u64, total: u64) {
+        let slot = match (&frame.file, frame.line) {
+            (Some(file), Some(line)) => self
+                .by_line
+                .entry(normalise(file))
+                .or_default()
+                .entry(line)
+                .or_default(),
+            _ => self.by_name.entry(frame.name.clone()).or_default(),
+        };
+        slot.own += own;
+        slot.total += total;
+    }
+
+    /// The format is read from the file rather than declared, for the same reason
+    /// coverage is: a project naming its profile is not going to name its dialect too.
+    pub fn read(path: &Path) -> Result<Self, String> {
+        let bytes = std::fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
+        if bytes.starts_with(&[0x1f, 0x8b]) {
+            return pprof::read(&bytes).map_err(|error| format!("{}: {error}", path.display()));
+        }
+        let body = String::from_utf8(bytes)
+            .map_err(|_| format!("{}: neither a pprof nor text", path.display()))?;
+        if body.trim_start().starts_with('{') && body.contains("\"nodes\"") {
+            return read_cpuprofile(&body).map_err(|error| format!("{}: {error}", path.display()));
+        }
+        let stacks = read_collapsed(&body);
+        if stacks.is_empty() {
+            return Err(format!(
+                "{}: not a V8 .cpuprofile, a pprof, or collapsed stacks",
+                path.display()
+            ));
+        }
+        Ok(stacks)
+    }
+}
+
+/// One frame of a stack. A profile that names a file and a line can be placed
+/// exactly; one that names only a symbol has to be matched against function names.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct Frame {
+    name: String,
+    file: Option<String>,
+    line: Option<u32>,
+}
+
+impl Frame {
+    fn key(&self) -> (Option<&str>, Option<u32>, &str) {
+        (self.file.as_deref(), self.line, self.name.as_str())
+    }
+}
+
+/// Credit a stack, leaf first: the leaf spent the time, and everything on the stack
+/// was waiting for it. A frame repeated by recursion is credited once.
+fn credit(samples: &mut Samples, stack: &[Frame], weight: u64) {
+    if stack.is_empty() {
+        return;
+    }
+    samples.total += weight;
+    samples.record(&stack[0], weight, 0);
+    let mut seen: Vec<(Option<&str>, Option<u32>, &str)> = Vec::with_capacity(stack.len());
+    for frame in stack {
+        if seen.contains(&frame.key()) {
+            continue;
+        }
+        seen.push(frame.key());
+        samples.record(frame, 0, weight);
+    }
+}
+
+/// V8 and Chrome write a call tree plus the node each sample landed in. A sample
+/// weighs the time delta recorded beside it, so a slow frame sampled once still
+/// outweighs a fast one sampled twice.
+fn read_cpuprofile(body: &str) -> Result<Samples, String> {
+    let value: serde_json::Value = serde_json::from_str(body).map_err(|error| error.to_string())?;
+    let nodes = value
+        .get("nodes")
+        .and_then(serde_json::Value::as_array)
+        .ok_or("a .cpuprofile with no `nodes` array")?;
+
+    let mut frames: BTreeMap<u64, Frame> = BTreeMap::new();
+    let mut parents: BTreeMap<u64, u64> = BTreeMap::new();
+    for node in nodes {
+        let Some(id) = node.get("id").and_then(serde_json::Value::as_u64) else {
+            continue;
+        };
+        let call = node.get("callFrame");
+        let name = call
+            .and_then(|frame| frame.get("functionName"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let url = call
+            .and_then(|frame| frame.get("url"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        // V8 counts lines from zero, and reports the line a function was declared on.
+        let line = call
+            .and_then(|frame| frame.get("lineNumber"))
+            .and_then(serde_json::Value::as_i64)
+            .filter(|line| *line >= 0)
+            .map(|line| line as u32 + 1);
+        frames.insert(
+            id,
+            Frame {
+                name: name.to_owned(),
+                file: (!url.is_empty()).then(|| strip_scheme(url)),
+                line,
+            },
+        );
+        for child in node
+            .get("children")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(serde_json::Value::as_u64)
+        {
+            parents.insert(child, id);
+        }
+    }
+
+    let taken = value
+        .get("samples")
+        .and_then(serde_json::Value::as_array)
+        .ok_or("a .cpuprofile with no `samples` array")?;
+    let deltas = value
+        .get("timeDeltas")
+        .and_then(serde_json::Value::as_array);
+
+    let mut samples = Samples::default();
+    for (index, node) in taken
+        .iter()
+        .filter_map(serde_json::Value::as_u64)
+        .enumerate()
+    {
+        let weight = deltas
+            .and_then(|deltas| deltas.get(index))
+            .and_then(serde_json::Value::as_i64)
+            .map_or(1, |delta| delta.unsigned_abs())
+            .max(1);
+        let mut stack = Vec::new();
+        let mut current = Some(node);
+        while let Some(id) = current {
+            match frames.get(&id) {
+                Some(frame) if !is_engine_frame(frame) => stack.push(frame.clone()),
+                _ => {}
+            }
+            current = parents.get(&id).copied();
+        }
+        credit(&mut samples, &stack, weight);
+    }
+    Ok(samples)
+}
+
+/// `(root)`, `(program)`, `(idle)` and the collector are the engine's own frames.
+/// They are not a function anybody wrote, so they are not a match nobody made.
+fn is_engine_frame(frame: &Frame) -> bool {
+    frame.file.is_none() && frame.name.starts_with('(')
+}
+
+fn strip_scheme(url: &str) -> String {
+    url.trim_start_matches("file://")
+        .trim_start_matches("webpack:///")
+        .trim_start_matches("webpack://")
+        .to_owned()
+}
+
+/// `frame;frame;frame count`, one stack per line: what py-spy, async-profiler and
+/// perf all fold down to.
+fn read_collapsed(body: &str) -> Samples {
+    let mut samples = Samples::default();
+    for line in body.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((stack, count)) = line.rsplit_once(' ') else {
+            continue;
+        };
+        let Ok(weight) = count.trim().parse::<u64>() else {
+            continue;
+        };
+        if !stack.contains(';') && stack.is_empty() {
+            continue;
+        }
+        let frames: Vec<Frame> = stack.split(';').rev().map(parse_frame).collect();
+        credit(&mut samples, &frames, weight);
+    }
+    samples
+}
+
+/// `name (file:line)` from py-spy, `pkg/Class.method_[j]` from async-profiler,
+/// `symbol+0x1a` from perf.
+fn parse_frame(text: &str) -> Frame {
+    let text = text.trim();
+    if let Some((name, rest)) = text.split_once(" (")
+        && let Some(location) = rest.strip_suffix(')')
+        && let Some((file, line)) = location.rsplit_once(':')
+        && let Ok(line) = line.parse::<u32>()
+    {
+        return Frame {
+            name: name.trim().to_owned(),
+            file: Some(strip_scheme(file)),
+            line: Some(line),
+        };
+    }
+    let symbol = text
+        .split_once("+0x")
+        .map_or(text, |(head, _)| head)
+        .trim_end_matches("_[j]")
+        .trim_end_matches("_[i]")
+        .trim_end_matches("_[k]");
+    let dotted = symbol.rsplit('/').next().unwrap_or(symbol);
+    Frame {
+        name: dotted.to_owned(),
+        file: None,
+        line: None,
+    }
+}
+
+/// The five messages of `profile.proto` a CPU profile needs, read by hand. A
+/// generated decoder would pull in a code generator and a runtime for one file
+/// format read once per run.
+mod pprof {
+    use std::collections::BTreeMap;
+
+    use super::{Frame, Samples, credit};
+
+    #[derive(Default)]
+    struct Reader<'a> {
+        bytes: &'a [u8],
+        at: usize,
+    }
+
+    impl<'a> Reader<'a> {
+        fn new(bytes: &'a [u8]) -> Self {
+            Self { bytes, at: 0 }
+        }
+
+        fn done(&self) -> bool {
+            self.at >= self.bytes.len()
+        }
+
+        fn varint(&mut self) -> Result<u64, &'static str> {
+            let mut value = 0_u64;
+            for shift in (0..64).step_by(7) {
+                let byte = *self.bytes.get(self.at).ok_or("truncated varint")?;
+                self.at += 1;
+                value |= u64::from(byte & 0x7f) << shift;
+                if byte & 0x80 == 0 {
+                    return Ok(value);
+                }
+            }
+            Err("varint longer than 64 bits")
+        }
+
+        fn bytes(&mut self) -> Result<&'a [u8], &'static str> {
+            let length = self.varint()? as usize;
+            let end = self.at.checked_add(length).ok_or("length overflows")?;
+            let slice = self.bytes.get(self.at..end).ok_or("truncated field")?;
+            self.at = end;
+            Ok(slice)
+        }
+
+        /// Every field rqx does not read still has to be stepped over, and only its
+        /// wire type says how far.
+        fn skip(&mut self, wire: u64) -> Result<(), &'static str> {
+            match wire {
+                0 => {
+                    self.varint()?;
+                }
+                1 => self.at += 8,
+                2 => {
+                    self.bytes()?;
+                }
+                5 => self.at += 4,
+                _ => return Err("unknown wire type"),
+            }
+            Ok(())
+        }
+
+        fn field(&mut self) -> Result<(u64, u64), &'static str> {
+            let tag = self.varint()?;
+            Ok((tag >> 3, tag & 7))
+        }
+
+        fn packed(&mut self, wire: u64) -> Result<Vec<u64>, &'static str> {
+            if wire == 2 {
+                let mut inner = Reader::new(self.bytes()?);
+                let mut values = Vec::new();
+                while !inner.done() {
+                    values.push(inner.varint()?);
+                }
+                return Ok(values);
+            }
+            Ok(vec![self.varint()?])
+        }
+    }
+
+    #[derive(Default)]
+    struct Function {
+        name: u64,
+        filename: u64,
+    }
+
+    pub(super) fn read(gzipped: &[u8]) -> Result<Samples, String> {
+        let body = inflate(gzipped)?;
+        let mut strings: Vec<String> = Vec::new();
+        let mut functions: BTreeMap<u64, Function> = BTreeMap::new();
+        let mut locations: BTreeMap<u64, Vec<(u64, u32)>> = BTreeMap::new();
+        let mut stacks: Vec<(Vec<u64>, u64)> = Vec::new();
+
+        let mut reader = Reader::new(&body);
+        while !reader.done() {
+            let (field, wire) = reader.field()?;
+            match field {
+                2 => stacks.push(sample(reader.bytes()?)?),
+                4 => {
+                    let (id, lines) = location(reader.bytes()?)?;
+                    locations.insert(id, lines);
+                }
+                5 => {
+                    let (id, function) = function(reader.bytes()?)?;
+                    functions.insert(id, function);
+                }
+                6 => strings.push(String::from_utf8_lossy(reader.bytes()?).into_owned()),
+                _ => reader.skip(wire)?,
+            }
+        }
+
+        let text = |index: u64| strings.get(index as usize).cloned().unwrap_or_default();
+        let mut samples = Samples::default();
+        for (ids, weight) in stacks {
+            let frames: Vec<Frame> = ids
+                .iter()
+                .filter_map(|id| locations.get(id))
+                .flatten()
+                .map(|(function, line)| {
+                    let declared = functions.get(function);
+                    let file = declared.map(|f| text(f.filename)).filter(|f| !f.is_empty());
+                    Frame {
+                        name: declared.map(|f| text(f.name)).unwrap_or_default(),
+                        file,
+                        line: Some(*line),
+                    }
+                })
+                .collect();
+            credit(&mut samples, &frames, weight);
+        }
+        Ok(samples)
+    }
+
+    /// `Sample { 1: location_id, 2: value }`, leaf location first, and the first
+    /// value is the count a CPU profile was sampled with.
+    fn sample(bytes: &[u8]) -> Result<(Vec<u64>, u64), &'static str> {
+        let mut reader = Reader::new(bytes);
+        let mut ids = Vec::new();
+        let mut weight = 1;
+        while !reader.done() {
+            let (field, wire) = reader.field()?;
+            match field {
+                1 => ids = reader.packed(wire)?,
+                2 => weight = reader.packed(wire)?.first().copied().unwrap_or(1),
+                _ => reader.skip(wire)?,
+            }
+        }
+        Ok((ids, weight.max(1)))
+    }
+
+    /// `Location { 1: id, 4: line }` with `Line { 1: function_id, 2: line }`.
+    fn location(bytes: &[u8]) -> Result<(u64, Vec<(u64, u32)>), &'static str> {
+        let mut reader = Reader::new(bytes);
+        let mut id = 0;
+        let mut lines = Vec::new();
+        while !reader.done() {
+            let (field, wire) = reader.field()?;
+            match field {
+                1 => id = reader.varint()?,
+                4 => {
+                    let mut inner = Reader::new(reader.bytes()?);
+                    let mut function = 0;
+                    let mut number = 0;
+                    while !inner.done() {
+                        let (field, wire) = inner.field()?;
+                        match field {
+                            1 => function = inner.varint()?,
+                            2 => number = inner.varint()?,
+                            _ => inner.skip(wire)?,
+                        }
+                    }
+                    lines.push((function, number as u32));
+                }
+                _ => reader.skip(wire)?,
+            }
+        }
+        Ok((id, lines))
+    }
+
+    /// `Function { 1: id, 2: name, 4: filename }`, both names being string indices.
+    fn function(bytes: &[u8]) -> Result<(u64, Function), &'static str> {
+        let mut reader = Reader::new(bytes);
+        let mut id = 0;
+        let mut function = Function::default();
+        while !reader.done() {
+            let (field, wire) = reader.field()?;
+            match field {
+                1 => id = reader.varint()?,
+                2 => function.name = reader.varint()?,
+                4 => function.filename = reader.varint()?,
+                _ => reader.skip(wire)?,
+            }
+        }
+        Ok((id, function))
+    }
+
+    fn inflate(gzipped: &[u8]) -> Result<Vec<u8>, String> {
+        use std::io::Read;
+        let mut body = Vec::new();
+        flate2::read::GzDecoder::new(gzipped)
+            .read_to_end(&mut body)
+            .map_err(|error| format!("not a readable pprof: {error}"))?;
+        Ok(body)
+    }
+}
+
+/// The family a run can speak to, and what its findings drop to when the run never
+/// reached them. A profile says which code executed, which settles nothing about
+/// whether a name is honest or a class too large.
+pub fn unsampled(rule: RuleId) -> Option<crate::finding::Confidence> {
+    (rule.spec().category == crate::rule::Category::Performance)
+        .then_some(crate::finding::Confidence::Low)
+}

@@ -1783,9 +1783,12 @@ fn scan_watched(
     let total = count_files(root, config)?;
 
     let walker = build_walker(root, config)?;
-    let cache = config
-        .scan
-        .cache
+    // Never in a development build. The key covers the version, the settings and
+    // the catalogue, but not the analyser itself — so a collector fixed between two
+    // builds of the same version would go on serving the answer it gave before it
+    // was fixed. That is a confusing hour for a contributor and it has already cost
+    // two; a released binary carries a version that moves.
+    let cache = (config.scan.cache && !cfg!(debug_assertions))
         .then(|| crate::cache::Cache::open(root, settings));
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 

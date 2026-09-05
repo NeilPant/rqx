@@ -74,6 +74,8 @@ pub struct Hygiene {
     pub empty_catches: Vec<Spot>,
     pub suppressions: Vec<Spot>,
     pub empty_methods: Vec<Spot>,
+    pub redundant_jumps: Vec<Spot>,
+    pub tiny_switches: Vec<Spot>,
     pub banner_comments: Vec<Spot>,
     pub chat_residue: Vec<Spot>,
     pub apologies: Vec<Spot>,
@@ -118,6 +120,7 @@ pub struct Hygiene {
 pub struct Limits {
     pub max_exits: u32,
     pub max_cases: u32,
+    pub min_cases: u32,
     pub callback_depth: u32,
     pub condition_operands: u32,
     pub message_chain_depth: u32,

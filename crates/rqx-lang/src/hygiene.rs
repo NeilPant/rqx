@@ -689,6 +689,40 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// A `continue` or `break` that control was reaching anyway. The keyword makes a
+    /// reader stop and look for the condition that is not there.
+    fn note_redundant_jump(&mut self, loop_node: Node<'a>) {
+        let profile = self.profile;
+        let Some(body) = self.function_body(loop_node).or_else(|| {
+            loop_node
+                .named_children(&mut loop_node.walk())
+                .find(|child| profile.is_block(*child))
+        }) else {
+            return;
+        };
+        // Go puts a `statement_list` inside the `block` that is the loop's body, so
+        // the statements are one level further down than the body field suggests.
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let Some(last) = holder.named_children(&mut cursor).last() else {
+            return;
+        };
+        // `break` ends a loop early and `continue` skips the rest, and at the end of
+        // the body both do exactly what falling off the end does — unless they carry
+        // a label, which is a jump out of somewhere else entirely.
+        let bare = last.named_child_count() == 0;
+        if bare && last.kind() == "continue_statement" {
+            self.out.redundant_jumps.push(Spot {
+                span: span_of(last),
+                detail: "continue".to_owned(),
+                count: 1,
+            });
+        }
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -745,6 +779,13 @@ impl<'a> Walker<'a> {
             }
             let mut inner = current.walk();
             stack.extend(current.named_children(&mut inner));
+        }
+        if arms > 0 && arms < self.limits.min_cases {
+            self.out.tiny_switches.push(Spot {
+                span: span_of(node),
+                detail: arms.to_string(),
+                count: arms,
+            });
         }
         if arms > self.limits.max_cases {
             self.out.wide_switches.push(Spot {
@@ -943,6 +984,9 @@ impl<'a> Walker<'a> {
         }
         if profile.switch_kinds.contains(&kind) {
             self.note_switch_width(node);
+        }
+        if profile.loop_kinds.contains(&kind) {
+            self.note_redundant_jump(node);
         }
         if profile.is_function(node) {
             self.note_empty_method(node);

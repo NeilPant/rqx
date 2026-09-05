@@ -262,6 +262,7 @@ pub fn analyze_as(
                 Limits {
                     max_exits: thresholds.max_exits,
                     max_cases: thresholds.max_cases,
+                    min_cases: thresholds.min_cases,
                     callback_depth: thresholds.callback_depth,
                     condition_operands: thresholds.condition_operands,
                     message_chain_depth: thresholds.message_chain_depth,

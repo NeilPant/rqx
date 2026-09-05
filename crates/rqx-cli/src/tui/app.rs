@@ -26,9 +26,6 @@ pub enum Nav {
     To(Tab),
     Scan,
     Review(String),
-    /// Hand the terminal to `$EDITOR` at this place in the project, and take it back
-    /// when it exits.
-    Open(String, u32),
     /// Show one file's findings: the Files screen's answer to "what is wrong here".
     Inspect(String),
     Quit,

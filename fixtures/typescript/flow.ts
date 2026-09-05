@@ -105,3 +105,21 @@ export function deeplyNestedCallbacks(): void {
     }, 1);
   }, 1);
 }
+
+export function trailingJump(items: number[]): number {
+  let total = 0;
+  for (const item of items) {
+    total += item;
+    continue;
+  }
+  return total;
+}
+
+export function twoArmed(kind: string): number {
+  switch (kind) {
+    case "one":
+      return 1;
+    default:
+      return 0;
+  }
+}

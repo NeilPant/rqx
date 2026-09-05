@@ -317,6 +317,44 @@ pub enum Evidence {
         twin: String,
         shared: String,
     },
+    /// Work repeated on every pass of a loop. `sampled` is filled from a runtime
+    /// profile: `Some(0)` means the profile never reached this function.
+    InLoop {
+        subject: String,
+        depth: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sampled: Option<u32>,
+    },
+    LoopDepth {
+        depth: u32,
+        threshold: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sampled: Option<u32>,
+    },
+    Recursion {
+        calls: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sampled: Option<u32>,
+    },
+    BlockingCall {
+        call: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sampled: Option<u32>,
+    },
+}
+
+/// How much of a runtime profile's samples landed in the function a finding sits in.
+/// Nothing is said when no profile was read.
+fn sampled_note(sampled: Option<u32>) -> String {
+    match sampled {
+        None => String::new(),
+        Some(0) => " A profile never sampled this function.".to_owned(),
+        Some(permille) => format!(
+            " On the stack in {}.{}% of samples.",
+            permille / 10,
+            permille % 10
+        ),
+    }
 }
 
 impl fmt::Display for Evidence {
@@ -497,6 +535,45 @@ impl fmt::Display for Evidence {
                 write!(f, "`{directive}` turns off a check that covers this code.")
             }
             Self::Custom { message, .. } => f.write_str(message),
+            Self::InLoop {
+                subject,
+                depth,
+                sampled,
+            } => {
+                if *depth > 1 {
+                    write!(
+                        f,
+                        "`{subject}` runs on every pass of a loop nested {depth} deep.{}",
+                        sampled_note(*sampled)
+                    )
+                } else {
+                    write!(
+                        f,
+                        "`{subject}` runs on every pass of the loop.{}",
+                        sampled_note(*sampled)
+                    )
+                }
+            }
+            Self::LoopDepth {
+                depth,
+                threshold,
+                sampled,
+            } => write!(
+                f,
+                "Loops nest {depth} deep (threshold {threshold}), so the innermost body runs \
+                 O(n^{depth}) times.{}",
+                sampled_note(*sampled)
+            ),
+            Self::Recursion { calls, sampled } => write!(
+                f,
+                "Calls itself {calls} times per invocation with no memo in sight.{}",
+                sampled_note(*sampled)
+            ),
+            Self::BlockingCall { call, sampled } => write!(
+                f,
+                "`{call}` blocks the thread inside an `async` function.{}",
+                sampled_note(*sampled)
+            ),
             Self::Noise { marker } => match marker.as_str() {
                 "" => f.write_str("This comment says nothing about the code."),
                 marker => write!(f, "`{marker}` reads as something other than the code."),

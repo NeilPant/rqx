@@ -92,6 +92,7 @@ pub struct RqxConfig {
     pub gate: Gate,
     pub fix: Fix,
     pub architecture: Architecture,
+    pub performance: Performance,
     /// Rules this project wrote, as `[[rule]]` blocks. The grammars are already in
     /// the binary; this is what lets a team ask a question rqx will never ship.
     #[serde(rename = "rule")]
@@ -321,7 +322,7 @@ fn unknown_in<'a>(
 /// have to carry the prose anyway; the test below is what keeps it honest.
 pub const TEMPLATE: &str = include_str!("rqx.template.toml");
 
-pub const TABLES: [&str; 10] = [
+pub const TABLES: [&str; 11] = [
     "languages",
     "thresholds",
     "rules",
@@ -332,6 +333,7 @@ pub const TABLES: [&str; 10] = [
     "gate",
     "fix",
     "architecture",
+    "performance",
 ];
 
 /// Only these three, because every other table describes the run as a whole: the walker
@@ -478,6 +480,7 @@ pub struct Thresholds {
     pub fan_in: u32,
     pub max_exits: u32,
     pub max_cases: u32,
+    pub min_cases: u32,
     pub callback_depth: u32,
     pub feature_envy_ratio: u32,
     pub data_clump_size: u32,
@@ -492,13 +495,15 @@ pub struct Thresholds {
     pub expression_operations: u32,
     /// Block nesting at which a configuration literal counts as buried.
     pub configuration_depth: u32,
+    /// Loops inside loops before the body's cost is a power of the input.
+    pub loop_nesting: u32,
 }
 
 impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 27] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 29] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -516,6 +521,7 @@ impl Thresholds {
         ("fan_in", &[RuleId::WideFanIn]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),
+        ("min_cases", &[RuleId::TinySwitch]),
         ("callback_depth", &[RuleId::CallbackNesting]),
         ("feature_envy_ratio", &[RuleId::FeatureEnvy]),
         ("data_clump_size", &[RuleId::DataClump]),
@@ -526,6 +532,7 @@ impl Thresholds {
         ("declaration_distance_lines", &[RuleId::DistantDeclaration]),
         ("expression_operations", &[RuleId::ObscuredExpression]),
         ("configuration_depth", &[RuleId::BuriedConfiguration]),
+        ("loop_nesting", &[RuleId::DeepLoopNesting]),
     ];
 
     /// The key that tunes a rule, for the rule's own documentation.
@@ -566,6 +573,7 @@ impl Default for Thresholds {
             fan_in: 20,
             max_exits: 4,
             max_cases: 12,
+            min_cases: 3,
             callback_depth: 3,
             feature_envy_ratio: 3,
             data_clump_size: 3,
@@ -576,6 +584,7 @@ impl Default for Thresholds {
             declaration_distance_lines: 20,
             expression_operations: 6,
             configuration_depth: 3,
+            loop_nesting: 2,
         }
     }
 }
@@ -776,6 +785,32 @@ impl Default for Ignore {
     }
 }
 
+/// Client names and call names the I/O rules should recognise on top of the ones
+/// rqx ships. Added to the built-in vocabulary rather than replacing it, because a
+/// project that names its own gateway still has a `fetch` somewhere.
+#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[serde(default, deny_unknown_fields)]
+pub struct Performance {
+    pub receivers: Vec<String>,
+    pub methods: Vec<String>,
+}
+
+impl Performance {
+    /// A name with a dot in it can never match: the rules compare one segment of a
+    /// dotted callee at a time.
+    pub fn unusable(&self) -> Option<&str> {
+        self.receivers
+            .iter()
+            .chain(&self.methods)
+            .find(|name| {
+                name.trim().is_empty()
+                    || name.contains('.')
+                    || name.chars().any(char::is_whitespace)
+            })
+            .map(String::as_str)
+    }
+}
+
 /// `prune_dirs` exists separately from `Ignore::patterns` because a glob still
 /// requires descending into a directory to produce the paths it then rejects,
 /// which on a populated `node_modules` is the difference between skipping a
@@ -790,6 +825,9 @@ pub struct Scan {
     pub prune_dirs: Vec<String>,
     /// Coverage files to read, so a test run can contradict a dead-code finding.
     pub coverage: Vec<String>,
+    /// CPU profiles to read, so a run can say which performance findings are on a
+    /// path that executes.
+    pub profile: Vec<String>,
     /// Days of git history to read for churn; 0 turns the signal off.
     pub churn_days: u32,
     /// Reuse `.rqx/cache.json` for files whose contents have not changed. It was
@@ -810,6 +848,7 @@ impl Default for Scan {
             churn_days: 90,
             cache: true,
             coverage: Vec::new(),
+            profile: Vec::new(),
             // A glob still has to descend into a directory to produce the paths it
             // then rejects, which on a populated `node_modules` or `.venv` is the
             // difference between skipping a directory and walking every file in it.
@@ -1006,6 +1045,7 @@ mod tests {
         gate: Vec<String>,
         fix: Vec<String>,
         architecture: Vec<String>,
+        performance: Vec<String>,
     }
 
     impl Comparable {
@@ -1045,6 +1085,7 @@ mod tests {
                     t.fan_in,
                     t.max_exits,
                     t.max_cases,
+                    t.min_cases,
                     t.callback_depth,
                     t.feature_envy_ratio,
                     t.data_clump_size,
@@ -1055,6 +1096,7 @@ mod tests {
                     t.declaration_distance_lines,
                     t.expression_operations,
                     t.configuration_depth,
+                    t.loop_nesting,
                 ],
                 ignore: config.ignore.patterns.clone(),
                 entrypoints: config.entrypoints.paths.clone(),
@@ -1068,6 +1110,7 @@ mod tests {
                     config.scan.cache.to_string(),
                     config.scan.prune_dirs.join(","),
                     config.scan.coverage.join(","),
+                    config.scan.profile.join(","),
                 ],
                 gate: vec![
                     format!("{:?}", config.gate.fail_on),
@@ -1078,6 +1121,13 @@ mod tests {
                     config.gate.ratchet.to_string(),
                 ],
                 architecture: config.architecture.layers.clone(),
+                performance: config
+                    .performance
+                    .receivers
+                    .iter()
+                    .chain(&config.performance.methods)
+                    .cloned()
+                    .collect(),
                 fix: vec![
                     config
                         .fix

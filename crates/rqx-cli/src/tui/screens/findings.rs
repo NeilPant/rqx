@@ -677,12 +677,6 @@ impl Screen for Findings {
             }
             KeyCode::Char('a') => self.prove(session),
             KeyCode::Char('x') => self.composing = Composing::Reason(String::new()),
-            KeyCode::Enter | KeyCode::Char('o') => {
-                let Some(finding) = self.selected(session) else {
-                    return Nav::Stay;
-                };
-                return Nav::Open(finding.location.file.to_string(), finding.location.line);
-            }
             _ => return global(key).unwrap_or(Nav::Stay),
         }
         Nav::Redraw
@@ -695,7 +689,6 @@ impl Screen for Findings {
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("\u{2191}\u{2193}", "move"),
-            ("enter", "open"),
             ("/", "search"),
             ("f", "filter"),
             ("g", "group"),

@@ -1,6 +1,5 @@
 pub mod app;
 pub mod chrome;
-pub mod editor;
 pub mod motion;
 pub mod screens;
 pub mod sprite;
@@ -154,9 +153,6 @@ struct App {
     help: bool,
     dirty: bool,
     quit: bool,
-    /// Where to send `$EDITOR` next. Held rather than acted on, because the terminal
-    /// belongs to the loop and a screen has no way to hand it over.
-    open: Option<(PathBuf, u32)>,
 }
 
 /// Splits the borrow the way the compiler can see: the screen and the session are
@@ -288,9 +284,6 @@ impl App {
             Nav::Back => {
                 self.mode = Mode::Menu;
                 self.dirty = true;
-            }
-            Nav::Open(file, line) => {
-                self.open = Some((self.session.path.join(&file), line));
             }
             Nav::Inspect(file) => {
                 self.findings.only(&file);
@@ -451,7 +444,6 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         help: false,
         dirty: true,
         quit: false,
-        open: None,
     };
 
     while !app.quit {
@@ -471,15 +463,6 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
                 Event::Resize(..) => app.dirty = true,
                 _ => {}
             }
-        }
-        // The loop owns the terminal, so handing it to an editor happens here rather
-        // than inside the screen that asked for it.
-        if let Some((path, line)) = app.open.take() {
-            let failure = editor::open(terminal, &path, line);
-            if !failure.is_empty() {
-                app.session.failure = Some(failure);
-            }
-            app.dirty = true;
         }
         app.dirty |= app.tick() || app.animating().is_some();
     }

@@ -65,3 +65,21 @@ auto nested_callbacks() {
         };
     };
 }
+
+int trailing_jump(const std::vector<int>& items) {
+    int total = 0;
+    for (int item : items) {
+        total += item;
+        continue;
+    }
+    return total;
+}
+
+int two_armed(int kind) {
+    switch (kind) {
+        case 1:
+            return 1;
+        default:
+            return 0;
+    }
+}

@@ -73,6 +73,28 @@ impl fmt::Display for Identity {
 }
 
 impl Evidence {
+    /// What a runtime profile said about the function this evidence sits in, in parts
+    /// per thousand of the samples it took.
+    pub fn mark_sampled(&mut self, permille: u32) {
+        match self {
+            Self::InLoop { sampled, .. }
+            | Self::LoopDepth { sampled, .. }
+            | Self::Recursion { sampled, .. }
+            | Self::BlockingCall { sampled, .. } => *sampled = Some(permille),
+            _ => {}
+        }
+    }
+
+    pub fn sampled(&self) -> Option<u32> {
+        match self {
+            Self::InLoop { sampled, .. }
+            | Self::LoopDepth { sampled, .. }
+            | Self::Recursion { sampled, .. }
+            | Self::BlockingCall { sampled, .. } => *sampled,
+            _ => None,
+        }
+    }
+
     /// The named thing the evidence is about, when it carries one. Exhaustive so a
     /// new variant has to say whether it names something.
     pub fn subject(&self) -> Option<&str> {
@@ -117,6 +139,8 @@ impl Evidence {
                 Some(target)
             }
             Self::BranchShape { shape } => Some(shape),
+            Self::InLoop { subject, .. } => Some(subject),
+            Self::BlockingCall { call, .. } => Some(call),
             Self::BuriedConfiguration { kind, .. } => Some(kind),
             // A kind ("return", "TODO", "only") names a category of finding, not this
             // one, so the span's own text is the more faithful subject.
@@ -139,6 +163,8 @@ impl Evidence {
             | Self::ConditionOperands { .. }
             | Self::NegatedCondition
             | Self::Breadth { .. }
+            | Self::LoopDepth { .. }
+            | Self::Recursion { .. }
             | Self::ObscuredExpression { .. } => None,
         }
     }
@@ -172,6 +198,8 @@ impl Evidence {
             Self::DistantDeclaration { lines, .. } => Some(*lines),
             Self::ObscuredExpression { operations, .. } => Some(*operations),
             Self::Breadth { found, .. } => Some(*found),
+            Self::LoopDepth { depth, .. } | Self::InLoop { depth, .. } => Some(*depth),
+            Self::Recursion { calls, .. } => Some(*calls),
             Self::BuriedConfiguration { depth, .. } => Some(*depth),
             Self::AlternativeClasses { methods, .. } => Some(*methods),
             Self::Name { .. }
@@ -202,6 +230,7 @@ impl Evidence {
             | Self::LayerViolation { .. }
             | Self::ForbiddenImport { .. }
             | Self::BranchShape { .. }
+            | Self::BlockingCall { .. }
             | Self::ParallelHierarchy { .. } => None,
         }
     }

@@ -9,10 +9,11 @@ pub enum Group {
     Signatures,
     Hierarchy,
     Removal,
+    Performance,
 }
 
 impl Group {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Extraction,
         Self::Placement,
         Self::Data,
@@ -20,6 +21,7 @@ impl Group {
         Self::Signatures,
         Self::Hierarchy,
         Self::Removal,
+        Self::Performance,
     ];
 
     pub const fn title(self) -> &'static str {
@@ -31,6 +33,7 @@ impl Group {
             Self::Signatures => "Signatures",
             Self::Hierarchy => "Hierarchy",
             Self::Removal => "Removal",
+            Self::Performance => "Performance",
         }
     }
 
@@ -43,6 +46,7 @@ impl Group {
             Self::Signatures => "change what a caller has to know",
             Self::Hierarchy => "move behaviour up or down a type tree",
             Self::Removal => "delete what nothing reaches",
+            Self::Performance => "make the same result cost less",
         }
     }
 
@@ -52,7 +56,7 @@ impl Group {
     pub const fn effort(self) -> u8 {
         match self {
             Self::Removal => 1,
-            Self::Extraction | Self::Conditionals => 2,
+            Self::Extraction | Self::Conditionals | Self::Performance => 2,
             Self::Data | Self::Signatures => 3,
             Self::Placement => 4,
             Self::Hierarchy => 5,
@@ -140,6 +144,14 @@ techniques! {
 
     RemoveDeadCode { name: "Remove Dead Code", group: Removal },
     DeleteFile { name: "Delete File", group: Removal },
+
+    ReplaceLoopWithLookup { name: "Replace Loop with Lookup", group: Performance },
+    BatchTheWork { name: "Batch the Work", group: Performance },
+    AwaitConcurrently { name: "Await Concurrently", group: Performance },
+    HoistInvariant { name: "Hoist Invariant", group: Performance },
+    AccumulateInPlace { name: "Accumulate in Place", group: Performance },
+    Memoize { name: "Memoize", group: Performance },
+    ReplaceBlockingCall { name: "Replace Blocking Call", group: Performance },
 }
 
 impl fmt::Display for FixTechnique {

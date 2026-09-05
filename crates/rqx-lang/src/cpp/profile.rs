@@ -88,7 +88,7 @@ pub static CPP: LanguageProfile = LanguageProfile {
     boolean_literals: &["true", "false"],
     loop_kinds: &[
         "for_statement",
-        "range_based_for_statement",
+        "for_range_loop",
         "while_statement",
         "do_statement",
     ],

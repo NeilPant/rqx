@@ -5,7 +5,7 @@ fan_in = 1
 
 [rules]
 disabled = []
-enabled = ["meaningless-name","primitive-obsession","hungarian-notation","short-name-wide-scope","negative-conditional","divergent-change","misleading-pattern-name","inconsistent-vocabulary","alternative-classes","parallel-inheritance","emoji-in-source"]
+enabled = ["tiny-switch","meaningless-name","primitive-obsession","hungarian-notation","short-name-wide-scope","negative-conditional","divergent-change","misleading-pattern-name","inconsistent-vocabulary","alternative-classes","parallel-inheritance","emoji-in-source"]
 
 [patterns]
 enabled = ["memento", "interpreter"]

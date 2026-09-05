@@ -71,4 +71,22 @@ class Flow {
         }
         return 0;
     }
+
+    public int trailingJump(java.util.List<Integer> items) {
+        int total = 0;
+        for (int item : items) {
+            total += item;
+            continue;
+        }
+        return total;
+    }
+
+    public int twoArmed(String kind) {
+        switch (kind) {
+            case "one":
+                return 1;
+            default:
+                return 0;
+        }
+    }
 }
