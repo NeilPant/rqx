@@ -103,6 +103,9 @@ enum Command {
         /// Display cap; 0 shows every finding. Never affects the health score.
         #[arg(long)]
         max_findings: Option<usize>,
+        /// Scan again whenever a file changes, until interrupted
+        #[arg(long)]
+        watch: bool,
         #[arg(long, env = "RQX_THREADS")]
         threads: Option<usize>,
         #[arg(long)]
@@ -962,6 +965,35 @@ fn emit(
     Ok(())
 }
 
+/// Scan, print, and scan again whenever a file changes. Polling rather than an OS
+/// watcher: the scan already walks the tree to find its files, so the walk that
+/// answers "has anything changed" is one it knows how to do.
+fn watch_loop(
+    path: &Path,
+    settings: &config::Resolved,
+    run: impl Fn(&config::Resolved) -> Result<Exit>,
+) -> Result<Exit> {
+    const BETWEEN_WALKS: std::time::Duration = std::time::Duration::from_millis(400);
+
+    let mut seen = serve::project::stamps(path, settings)?;
+    loop {
+        // The screen is cleared before each run so the terminal holds one report
+        // rather than a scroll of them.
+        print!("\u{1b}[2J\u{1b}[H");
+        std::io::Write::flush(&mut std::io::stdout())?;
+        run(settings)?;
+        eprintln!("\n  watching {} \u{b7} ctrl-c to stop", path.display());
+        loop {
+            std::thread::sleep(BETWEEN_WALKS);
+            let now = serve::project::stamps(path, settings)?;
+            if now != seen {
+                seen = now;
+                break;
+            }
+        }
+    }
+}
+
 fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
     let filter = FindingFilter::new(
         view.severity.map(Severity::from),
@@ -1120,6 +1152,7 @@ fn run() -> Result<Exit> {
             coverage,
             profile,
             max_findings,
+            watch,
             threads,
             config,
         } => {
@@ -1152,24 +1185,31 @@ fn run() -> Result<Exit> {
 
             let sinks = sinks(&view)?;
             let filter = filter_of(&view, &path)?;
-            let outcome = scan::scan(&path, &settings)?;
+            let run = |settings: &config::Resolved| -> Result<Exit> {
+                let outcome = scan::scan(&path, settings)?;
 
-            // A bare `rqx scan` reports; it only gates when asked to, so adding a flag
-            // is the whole opt-in and no existing pipeline changes meaning.
-            let verdict = gate
-                .is_set()
-                .then(|| check::judge_scan(&outcome, &settings.config));
-            let report = Report::scan(&outcome, &filter);
-            let report = match &verdict {
-                Some(verdict) => report.judged(verdict),
-                None => report,
+                // A bare `rqx scan` reports; it only gates when asked to, so adding a
+                // flag is the whole opt-in and no existing pipeline changes meaning.
+                let verdict = gate
+                    .is_set()
+                    .then(|| check::judge_scan(&outcome, &settings.config));
+                let report = Report::scan(&outcome, &filter);
+                let report = match &verdict {
+                    Some(verdict) => report.judged(verdict),
+                    None => report,
+                };
+                emit(&report, &sinks, &view, palette, Some(settings))?;
+                if advice {
+                    let mut out = anstream::stdout().lock();
+                    report::advice(&outcome, palette, &mut out)?;
+                }
+                Ok(Exit::of(verdict.is_some_and(|verdict| !verdict.passed())))
             };
-            emit(&report, &sinks, &view, palette, Some(&settings))?;
-            if advice {
-                let mut out = anstream::stdout().lock();
-                report::advice(&outcome, palette, &mut out)?;
+
+            if watch {
+                return watch_loop(&path, &settings, run);
             }
-            Ok(Exit::of(verdict.is_some_and(|verdict| !verdict.passed())))
+            run(&settings)
         }
         Command::Fix {
             path,

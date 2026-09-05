@@ -103,7 +103,16 @@ impl Project {
     /// Every file the walker reaches, with what it would take to notice a change.
     /// The walk opens nothing: one `stat` per file is what makes polling affordable.
     pub fn walk(&self) -> Result<BTreeMap<PathBuf, Stamp>> {
-        let walker = scan::build_walker(&self.root, &self.settings.config)?;
+        stamps(&self.root, &self.settings)
+    }
+}
+
+/// Every file the scan would read, with enough of its metadata to tell a save from a
+/// re-read. Used by the dashboard's poll and by `scan --watch`, which want the same
+/// answer to the same question.
+pub fn stamps(root: &Path, settings: &Resolved) -> Result<BTreeMap<PathBuf, Stamp>> {
+    {
+        let walker = scan::build_walker(root, &settings.config)?;
         let found = std::sync::Mutex::new(BTreeMap::new());
         walker.run(|| {
             Box::new(|entry| {
@@ -124,7 +133,9 @@ impl Project {
         });
         Ok(found.into_inner().expect("the walk map"))
     }
+}
 
+impl Project {
     /// Re-analyse what changed, drop what is gone, and rebuild the cross-file answer.
     /// Returns what moved, or `None` when the walk found nothing new.
     pub fn refresh(&mut self, seen: &BTreeMap<PathBuf, Stamp>) -> Option<Vec<Change>> {

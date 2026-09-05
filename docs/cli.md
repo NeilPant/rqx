@@ -342,6 +342,7 @@ Analyze a project and report every finding
 | `--coverage` | A coverage file, so a test run can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are read by content |
 | `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--max-findings` | Display cap; 0 shows every finding. Never affects the health score |
+| `--watch` | Scan again whenever a file changes, until interrupted |
 | `--no-tui` | Print help instead of opening the interface when run with no arguments |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |

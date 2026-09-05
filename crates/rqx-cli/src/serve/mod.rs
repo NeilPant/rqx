@@ -1,4 +1,4 @@
-mod project;
+pub mod project;
 mod routes;
 pub mod theme;
 
