@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -11,7 +11,10 @@ use ratatui::widgets::{
 use rqx_core::rule::RuleId;
 
 use crate::brand::Ink;
-use crate::tui::app::{Nav, Screen, Session, global};
+use crate::tui::app::{Nav, Screen, Session, global, is_press, row_at, wheel};
+
+/// The list's own top border is the only line above the first row.
+const ABOVE: u16 = 1;
 
 /// The rule catalogue, browsable rather than printed. Nothing is written to stdout
 /// after the terminal is handed back, which is what used to leave the menu on screen
@@ -23,6 +26,7 @@ pub struct Rules {
     filter: String,
     typing: bool,
     ready: bool,
+    at: Rect,
 }
 
 impl Rules {
@@ -49,6 +53,13 @@ impl Rules {
         self.ready = true;
     }
 
+    /// Narrow to one rule and select it, which is what the palette's `explain` does.
+    pub fn only(&mut self, slug: &str) {
+        self.filter = slug.to_owned();
+        self.reorder();
+        self.state.select((!self.order.is_empty()).then_some(0));
+    }
+
     fn step(&mut self, delta: isize) {
         if self.order.is_empty() {
             return;
@@ -69,6 +80,7 @@ impl Screen for Rules {
         let [bar, body] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
         let [list, detail] =
             Layout::horizontal([Constraint::Percentage(42), Constraint::Min(20)]).areas(body);
+        self.at = list;
 
         let mut header = vec![Span::styled(
             format!("  {} of {} rules", self.order.len(), RuleId::ALL.len()),
@@ -216,6 +228,24 @@ impl Screen for Rules {
             KeyCode::Char('/') => self.typing = true,
             _ => return global(key).unwrap_or(Nav::Stay),
         }
+        Nav::Redraw
+    }
+
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        if let Some(rows) = wheel(event) {
+            self.step(rows);
+            return Nav::Redraw;
+        }
+        if !is_press(event) {
+            return Nav::Stay;
+        }
+        let Some(row) = row_at(self.at, ABOVE, self.state.offset(), event) else {
+            return Nav::Stay;
+        };
+        if row >= self.order.len() {
+            return Nav::Stay;
+        }
+        self.state.select(Some(row));
         Nav::Redraw
     }
 

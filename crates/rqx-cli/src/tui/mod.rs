@@ -1,6 +1,7 @@
 pub mod app;
 pub mod chrome;
 pub mod motion;
+pub mod palette;
 pub mod screens;
 pub mod sprite;
 
@@ -12,7 +13,12 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread::{self, JoinHandle};
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+    KeyModifiers, MouseEvent,
+};
+use crossterm::execute;
+use ratatui::layout::Rect;
 use ratatui::{DefaultTerminal, Frame};
 use rqx_core::config::RqxConfig;
 
@@ -23,8 +29,9 @@ use crate::project::Project;
 use crate::scan::{self, ScanOutcome, ScanProgress};
 
 use app::{Nav, Screen, Session, Tab};
-use chrome::Chrome;
+use chrome::{Chrome, Hits, Landing};
 use motion::Motion;
+use palette::{Choice, CommandPalette};
 use sprite::Sprite;
 
 const MASCOT: &str = include_str!("../../assets/mascot.txt");
@@ -143,6 +150,8 @@ enum Mode {
     Menu,
     Scanning,
     Browsing(Tab),
+    /// One of the analyses that answers with text rather than a table.
+    Reading,
 }
 
 struct App {
@@ -153,6 +162,10 @@ struct App {
     overview: screens::overview::Overview,
     findings: screens::findings::Findings,
     files: screens::files::Files,
+    complexity: screens::complexity::Complexity,
+    graph: screens::graph::Graph,
+    health: screens::health::Health,
+    reader: screens::reader::Reader,
     plan: screens::plan::Plan,
     rules: screens::catalogue::Rules,
     patterns: screens::patterns::Patterns,
@@ -168,6 +181,16 @@ struct App {
     /// The window once it is too small to lay out. Checked again on every resize
     /// rather than only before launch, because a split pane can shrink under it.
     cramped: Option<(u16, u16)>,
+    /// What the command line asked to see. Held rather than applied once, because a
+    /// rescan replaces every screen and the filter would go with it.
+    filters: Filters,
+    /// Where the last frame put the tab bar and the key hints, so a click can be
+    /// answered without any of them being asked to remember their own geometry.
+    hits: Hits,
+    /// Where the screen itself was drawn, so a click can be told apart from one on
+    /// the chrome without asking the screen.
+    body: Rect,
+    commands: Option<CommandPalette>,
     help: bool,
     dirty: bool,
     quit: bool,
@@ -184,10 +207,14 @@ macro_rules! parts {
             Mode::Browsing(Tab::Overview) => &mut app.overview,
             Mode::Browsing(Tab::Findings) => &mut app.findings,
             Mode::Browsing(Tab::Files) => &mut app.files,
+            Mode::Browsing(Tab::Complexity) => &mut app.complexity,
+            Mode::Browsing(Tab::Graph) => &mut app.graph,
+            Mode::Browsing(Tab::Health) => &mut app.health,
             Mode::Browsing(Tab::Plan) => &mut app.plan,
             Mode::Browsing(Tab::Patterns) => &mut app.patterns,
             Mode::Browsing(Tab::Rules) => &mut app.rules,
             Mode::Browsing(Tab::Config) => &mut app.settings,
+            Mode::Reading => &mut app.reader,
         };
         (screen, &app.session)
     }};
@@ -245,8 +272,11 @@ impl App {
     /// them rather than a refresh flag on each.
     fn reset_screens(&mut self) {
         self.overview = screens::overview::Overview::default();
-        self.findings = screens::findings::Findings::default();
+        self.findings = self.filters.clone().into_screen();
         self.files = screens::files::Files::default();
+        self.complexity = screens::complexity::Complexity::default();
+        self.graph = screens::graph::Graph::default();
+        self.health = screens::health::Health::default();
         self.plan = screens::plan::Plan::default();
     }
 
@@ -345,6 +375,70 @@ impl App {
         changed
     }
 
+    /// What the palette picked. Everything it can pick is something a key could
+    /// already do, so this routes rather than acts.
+    fn choose(&mut self, choice: Choice) {
+        match choice {
+            Choice::Go(tab) => self.apply(Nav::To(tab)),
+            Choice::Nav(nav) => self.apply(nav),
+            Choice::File(file) => self.apply(Nav::Inspect(file)),
+            Choice::Read(page) => {
+                self.reader.show(page, &self.session);
+                self.mode = Mode::Reading;
+                self.dirty = true;
+            }
+            Choice::Rule(slug) => {
+                self.rules.only(&slug);
+                self.mode = Mode::Browsing(Tab::Rules);
+                self.dirty = true;
+            }
+        }
+    }
+
+    fn mouse(&mut self, event: MouseEvent) {
+        if let Some(commands) = &mut self.commands {
+            if let Some(chosen) = commands.click(event) {
+                self.commands = None;
+                if let Some(choice) = chosen {
+                    self.choose(choice);
+                }
+            }
+            self.dirty = true;
+            return;
+        }
+        if self.help {
+            self.help = false;
+            self.dirty = true;
+            return;
+        }
+        if app::is_press(event)
+            && let Some(landing) = self.hits.at(event.column, event.row)
+        {
+            match landing {
+                Landing::Tab(tab) => self.apply(Nav::To(tab)),
+                // The hint names a key, so pressing it is exactly what clicking it
+                // means; nothing has to be wired twice.
+                Landing::Key(key) => {
+                    if let Some(key) = key_named(key) {
+                        self.handle(key);
+                    }
+                }
+            }
+            return;
+        }
+        // A wheel turn belongs to whatever is under the pointer, but a click outside
+        // the body is the chrome's and was answered above.
+        let inside = chrome::within(self.body, event.column, event.row);
+        if !inside && app::is_press(event) {
+            return;
+        }
+        let nav = {
+            let (screen, session) = parts!(self);
+            screen.click(event, session)
+        };
+        self.apply(nav);
+    }
+
     fn apply(&mut self, nav: Nav) {
         match nav {
             Nav::Stay => {}
@@ -377,6 +471,16 @@ impl App {
     }
 
     fn handle(&mut self, key: KeyEvent) {
+        if let Some(commands) = &mut self.commands {
+            if let Some(chosen) = commands.handle(key, &self.session) {
+                self.commands = None;
+                if let Some(choice) = chosen {
+                    self.choose(choice);
+                }
+            }
+            self.dirty = true;
+            return;
+        }
         if self.help {
             self.help = false;
             self.dirty = true;
@@ -384,6 +488,23 @@ impl App {
         }
         if key.code == KeyCode::Char('?') {
             self.help = true;
+            self.dirty = true;
+            return;
+        }
+
+        let capturing = {
+            let (screen, _) = parts!(self);
+            screen.capturing()
+        };
+        // `:` reaches the palette too, but only where a screen is not taking text —
+        // a colon belongs in a search box before it belongs to a command line.
+        let asked = (key.code == KeyCode::Char('p')
+            && key.modifiers.contains(KeyModifiers::CONTROL))
+            || (key.code == KeyCode::Char(':') && !capturing);
+        if asked {
+            let mut commands = CommandPalette::default();
+            commands.open(&self.session);
+            self.commands = Some(commands);
             self.dirty = true;
             return;
         }
@@ -419,7 +540,7 @@ impl App {
         };
         let palette = self.session.palette;
         let help = self.help;
-        let body = Chrome {
+        let (body, mut hits) = Chrome {
             session: &self.session,
             active,
         }
@@ -430,12 +551,18 @@ impl App {
             screen.render(frame, body, session);
             screen.keys()
         };
-        Chrome {
+        hits.keys = Chrome {
             session: &self.session,
             active,
         }
         .render_footer(frame, keys);
+        self.body = body;
+        self.hits = hits;
 
+        if let Some(commands) = &mut self.commands {
+            commands.render(frame, palette);
+            return;
+        }
         if help {
             chrome::help(frame, palette, keys);
         }
@@ -462,12 +589,43 @@ impl App {
     }
 }
 
+/// The key a footer hint names, so clicking the hint and pressing the key are the
+/// same event. Only the shapes the hints actually use; `↑↓` and the like are a
+/// label for a pair of keys rather than one, and clicking them means nothing.
+fn key_named(label: &str) -> Option<KeyEvent> {
+    let code = match label {
+        "enter" => KeyCode::Enter,
+        "esc" => KeyCode::Esc,
+        "tab" => KeyCode::Tab,
+        "space" => KeyCode::Char(' '),
+        "ctrl-p" => return Some(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL)),
+        _ => {
+            let mut characters = label.chars();
+            let only = characters.next()?;
+            if characters.next().is_some() || !only.is_ascii_alphanumeric() {
+                return None;
+            }
+            KeyCode::Char(only)
+        }
+    };
+    Some(KeyEvent::new(code, KeyModifiers::NONE))
+}
+
 /// `tab` cycles, digits jump. Every tab opens at any time: one that has nothing yet
 /// says what it will hold and how to fill it, which is more use than refusing to open.
 fn tab_key(key: KeyEvent, active: Tab) -> Option<Tab> {
-    let index = Tab::ALL.iter().position(|tab| *tab == active).unwrap_or(0) as isize;
     let count = Tab::ALL.len() as isize;
-    let step = |delta: isize| Some(Tab::ALL[(index + delta).rem_euclid(count) as usize]);
+    let on_strip = Tab::ALL.iter().position(|tab| *tab == active);
+    let index = on_strip.unwrap_or(0) as isize;
+    // A tab that is not on the strip — Config, reached from the menu or the palette —
+    // has no neighbour, so stepping from it re-enters the strip at its start rather
+    // than at whichever end `unwrap_or` happened to pick.
+    let step = |delta: isize| {
+        Some(match on_strip {
+            Some(_) => Tab::ALL[(index + delta).rem_euclid(count) as usize],
+            None => Tab::ALL[0],
+        })
+    };
     match key.code {
         KeyCode::Tab | KeyCode::Right => step(1),
         KeyCode::BackTab | KeyCode::Left => step(-1),
@@ -484,23 +642,81 @@ pub struct Launch<'a> {
     pub path: &'a Path,
     pub config: &'a Resolved,
     pub reduced_motion: bool,
+    pub mouse: bool,
+    /// `--rule`, `--category` and `--path` as the command line gave them, so a
+    /// filtered scan opens filtered.
+    pub filters: Filters,
+}
+
+/// The three list filters `rqx scan` accepts, comma-joined the way the interface's
+/// own filter form holds them.
+#[derive(Clone, Default)]
+pub struct Filters {
+    pub rules: String,
+    pub families: String,
+    pub paths: String,
+}
+
+impl Filters {
+    fn into_screen(self) -> screens::findings::Findings {
+        screens::findings::Findings::given(self.rules, self.families, self.paths)
+    }
+}
+
+/// Whether mouse capture is on, so the panic hook can undo exactly what setup did.
+/// `ratatui::restore` knows nothing about the mouse, and a process that panics with
+/// capture still on leaves the shell reading escape sequences as keystrokes.
+static MOUSE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn restore() {
+    if MOUSE.swap(false, std::sync::atomic::Ordering::SeqCst) {
+        let _ = execute!(std::io::stdout(), DisableMouseCapture);
+    }
+    ratatui::restore();
+}
+
+/// Raw mode, the alternate screen and mouse capture go on together and come off
+/// together. A guard rather than a pair of calls, because an early return, a normal
+/// exit and a panic all have to undo the same list and three copies of it drift.
+struct Screenful {
+    inner: DefaultTerminal,
+}
+
+impl Screenful {
+    fn open(mouse: bool) -> std::io::Result<Self> {
+        let inner = ratatui::try_init()?;
+        if mouse {
+            execute!(std::io::stdout(), EnableMouseCapture)?;
+            MOUSE.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        Ok(Self { inner })
+    }
+}
+
+impl Drop for Screenful {
+    fn drop(&mut self) {
+        restore();
+    }
 }
 
 /// One terminal, one panic hook, one restore. Everything the interface can do
 /// happens inside the loop, so nothing is ever printed over a screen it has just
 /// handed back.
 pub fn launch(options: Launch<'_>) -> Result<(), Decline> {
-    install_panic_hook();
+    // After `try_init`, not before: ratatui installs a hook of its own on every init
+    // and each wraps the last, so ours has to go on top to disable the mouse first.
     let mut terminal =
-        ratatui::try_init().map_err(|error| Decline::SetupFailed(error.to_string()))?;
-    let outcome = run(&mut terminal, &options);
-    ratatui::restore();
+        Screenful::open(options.mouse).map_err(|error| Decline::SetupFailed(error.to_string()))?;
+    install_panic_hook();
+    let outcome = run(&mut terminal.inner, &options);
+    drop(terminal);
     let farewell = outcome.map_err(|error| Decline::SetupFailed(error.to_string()))?;
     print!("{farewell}");
     Ok(())
 }
 
 fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
+    let filters = options.filters.clone();
     let mut app = App {
         session: Session {
             palette: Palette::detect(),
@@ -527,8 +743,12 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         menu: screens::menu::Menu::default(),
         scanning: screens::scanning::Scanning::default(),
         overview: screens::overview::Overview::default(),
-        findings: screens::findings::Findings::default(),
+        findings: filters.clone().into_screen(),
         files: screens::files::Files::default(),
+        complexity: screens::complexity::Complexity::default(),
+        graph: screens::graph::Graph::default(),
+        health: screens::health::Health::default(),
+        reader: screens::reader::Reader::default(),
         plan: screens::plan::Plan::default(),
         rules: screens::catalogue::Rules::default(),
         patterns: screens::patterns::Patterns::default(),
@@ -539,6 +759,10 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         refresher: None,
         polled_at: std::time::Instant::now(),
         cramped: None,
+        filters: filters.clone(),
+        hits: Hits::default(),
+        body: Rect::default(),
+        commands: None,
         help: false,
         dirty: true,
         quit: false,
@@ -558,6 +782,7 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         if ready {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => app.handle(key),
+                Event::Mouse(mouse) => app.mouse(mouse),
                 Event::Resize(width, height) => {
                     app.cramped =
                         (width < MIN_WIDTH || height < MIN_HEIGHT).then_some((width, height));
@@ -613,7 +838,7 @@ fn install_panic_hook() {
     ONCE.call_once(|| {
         let previous = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
-            ratatui::restore();
+            restore();
             eprintln!("\nrqx hit a bug and stopped.\n");
             previous(info);
             eprintln!(
@@ -654,7 +879,6 @@ mod tests {
     #[test]
     fn every_tab_opens_before_a_scan_has_run() {
         let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
-        assert_eq!(tab_key(key(KeyCode::Tab), Tab::Rules), Some(Tab::Config));
         assert_eq!(
             tab_key(key(KeyCode::Char('1')), Tab::Rules),
             Some(Tab::Overview)
@@ -673,11 +897,26 @@ mod tests {
     #[test]
     fn tabs_wrap_in_both_directions() {
         let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
+        let last = *Tab::ALL.last().expect("a strip");
+        assert_eq!(tab_key(key(KeyCode::Tab), last), Some(Tab::Overview));
+        assert_eq!(tab_key(key(KeyCode::BackTab), Tab::Overview), Some(last));
+    }
+
+    /// Config is reachable but not on the strip, so it has no neighbour to step to.
+    #[test]
+    fn a_tab_off_the_strip_steps_back_onto_its_start() {
+        let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
         assert_eq!(tab_key(key(KeyCode::Tab), Tab::Config), Some(Tab::Overview));
         assert_eq!(
-            tab_key(key(KeyCode::BackTab), Tab::Overview),
-            Some(Tab::Config)
+            tab_key(key(KeyCode::BackTab), Tab::Config),
+            Some(Tab::Overview)
         );
+    }
+
+    /// The digits reach the strip, so the strip has to fit in them.
+    #[test]
+    fn every_tab_on_the_strip_has_a_digit() {
+        assert!(Tab::ALL.len() <= 9, "{} tabs", Tab::ALL.len());
     }
 
     /// A filter that swallowed its own digits was the second half of the tab bug: the

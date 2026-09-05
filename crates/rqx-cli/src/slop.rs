@@ -9,16 +9,18 @@ use rqx_core::slop;
 use crate::brand::{Ink, Palette, paint};
 use crate::scan::ScanOutcome;
 
-struct Suspect {
-    file: String,
-    score: u32,
-    statements: u32,
+/// Shared with the interface's Health screen, where slop is the other half of the
+/// same question: what the score is made of, and what reads as unread.
+pub struct Suspect {
+    pub file: String,
+    pub score: u32,
+    pub statements: u32,
     /// Which rules put it here, worst first, so the score can be checked rather than
     /// taken on trust.
-    signals: Vec<(String, u32)>,
+    pub signals: Vec<(String, u32)>,
 }
 
-fn suspects(outcome: &ScanOutcome) -> Vec<Suspect> {
+pub fn suspects(outcome: &ScanOutcome) -> Vec<Suspect> {
     let mut weighted: BTreeMap<&str, BTreeMap<String, u32>> = BTreeMap::new();
     for finding in &outcome.findings {
         let weight = slop::weight(finding.rule);

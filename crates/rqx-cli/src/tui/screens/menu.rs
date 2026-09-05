@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -6,7 +6,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
 use crate::brand::Ink;
-use crate::tui::app::{Nav, Screen, Session, Tab, global};
+use crate::tui::app::{Nav, Screen, Session, Tab, global, is_press, row_at};
 
 const DEFAULT_BASE: &str = "origin/HEAD";
 
@@ -23,6 +23,7 @@ const CHOICES: [(&str, &str); 5] = [
 #[derive(Default)]
 pub struct Menu {
     cursor: usize,
+    at: Rect,
     /// Non-empty while the base revision is being typed, which is the one menu entry
     /// that needs an answer before it can run.
     base: Option<String>,
@@ -51,6 +52,7 @@ impl Screen for Menu {
             Constraint::Min(0),
         ])
         .areas(area);
+        self.at = list;
 
         let lines: Vec<Line<'static>> = CHOICES
             .iter()
@@ -96,6 +98,22 @@ impl Screen for Menu {
             ));
         }
         frame.render_widget(Paragraph::new(trailer), prompt);
+    }
+
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        // Nothing to scroll and nothing to type into: five entries, and a click on one
+        // is choosing it.
+        if !is_press(event) || self.base.is_some() {
+            return Nav::Stay;
+        }
+        let Some(row) = row_at(self.at, 0, 0, event) else {
+            return Nav::Stay;
+        };
+        if row >= CHOICES.len() {
+            return Nav::Stay;
+        }
+        self.cursor = row;
+        self.choose()
     }
 
     fn handle(&mut self, key: KeyEvent, _session: &Session) -> Nav {

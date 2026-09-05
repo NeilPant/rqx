@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -7,7 +7,7 @@ use ratatui::widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarStat
 use rqx_core::{Pattern, PatternFamily, Stance};
 
 use crate::brand::Ink;
-use crate::tui::app::{Nav, Screen, Session, Tab, global};
+use crate::tui::app::{Nav, Screen, Session, Tab, global, wheel};
 
 /// Recognised patterns collapse to a count because an inventory is a number; the two
 /// stances that ask something of the reader get a line each.
@@ -147,6 +147,14 @@ impl Screen for Patterns {
             KeyCode::PageUp => self.offset = self.offset.saturating_sub(12),
             _ => return global(key).unwrap_or(Nav::Stay),
         }
+        Nav::Redraw
+    }
+
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        let Some(rows) = wheel(event) else {
+            return Nav::Stay;
+        };
+        self.offset = self.offset.saturating_add_signed(rows);
         Nav::Redraw
     }
 

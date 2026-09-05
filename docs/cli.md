@@ -8,7 +8,8 @@ Finds dead weight in TypeScript, Python, Go, Java and C++ and says why it matter
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -23,7 +24,8 @@ Record the findings this project already has, so a gate can judge only what a ch
 | `--level` | relaxed, standard, strict or pristine |
 | `--update` | Take it again over the current findings. Refuses to record more than the last one did unless --force |
 | `--force` | Record a larger set than the last one held |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -34,7 +36,8 @@ Show what the analysis cache holds, or throw it away
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -70,7 +73,8 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--min-health` | Health score below which the run fails; 0 disables |
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -82,7 +86,8 @@ Print a shell completion script
 | Flag | What it does |
 | --- | --- |
 | `<shell>` | bash, zsh, fish, elvish or powershell |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -99,7 +104,8 @@ What the analyser measured, as a distribution rather than only its tail
 | `--min` | Skip anything below this, on whatever `--sort` measures |
 | `--histogram` | Draw the distribution as well as the worst of it |
 | `--json` | Emit one JSON object per row |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -111,7 +117,8 @@ Print the settings a run will use, and the file each one came from
 | Flag | What it does |
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -122,7 +129,8 @@ Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it, 
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -139,7 +147,8 @@ Apply the fixes a finding decides on its own, proving each one before it is writ
 | `--json` | Emit one JSON object per fixed file instead of the reader's preview |
 | `--plan` | Report the findings `fix` will not touch, with the span, the source, the metric and the named refactoring, for a person or an agent to act on |
 | `--markdown` | With --plan, emit markdown a person can paste rather than a report to read |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -154,7 +163,8 @@ Print the import graph — as text, Graphviz, Mermaid or data
 | `--cycles` | Only the edges that close a cycle |
 | `--focus` | Only what this file reaches, and what reaches it |
 | `--depth` | How far from `--focus` to follow |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help (see more with '--help') |
@@ -167,7 +177,8 @@ Where the health score comes from, and what removing each part would buy
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--json` | Emit one JSON object per bucket |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -184,7 +195,8 @@ Write a commented RQX.toml with every setting at its default
 | Flag | What it does |
 | --- | --- |
 | `--force` | Replace an RQX.toml that is already there |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -195,7 +207,8 @@ Print what each cleanliness level changes, as the settings it would take to writ
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -206,7 +219,8 @@ Run as a Language Server over stdio, for editor integration
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -218,7 +232,8 @@ Run as an MCP server, so an AI agent can ask what a project's problems are
 | Flag | What it does |
 | --- | --- |
 | `--http` | Serve Streamable HTTP on this address instead of speaking over stdio |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -232,7 +247,8 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--level` | relaxed, standard, strict or pristine |
 | `--coverage` | Print what rqx does about every pattern in the book, without scanning |
 | `--json` | Emit one JSON object per advisory instead of the reader's report |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -249,7 +265,8 @@ Where the work grows faster than the data, ranked by reach
 | `--min-depth` | Skip anything whose loops nest less deeply than this |
 | `--profile` | A CPU profile, so a finding nothing ran stops counting. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--json` | Emit one JSON object per row |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -265,7 +282,8 @@ Rank the work by what it buys against what it costs, and say what the health sco
 | `--limit` | How many items to rank when no budget is given |
 | `--simulate` | Also print what the plan does to the grade of every file |
 | `--json` | Emit one JSON object per item instead of the reader's plan |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -279,7 +297,8 @@ Run a tree-sitter query over a project, to try one out before writing it into a 
 | `<language>` | typescript, python, go, java or cpp |
 | `<query>` | The query, in tree-sitter's s-expression syntax |
 | `--captures` | Show every capture of every match, not just where it starts |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -292,7 +311,8 @@ What to do about this project, as distinct from what is wrong with it
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--only` | Just one section |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -305,7 +325,8 @@ List every rule Rqx can report, grouped by family
 | --- | --- |
 | `<category>` | Show only one family |
 | `--language` | Show only the rules that apply to one language |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -343,7 +364,8 @@ Analyze a project and report every finding
 | `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--max-findings` | Display cap; 0 shows every finding. Never affects the health score |
 | `--watch` | Scan again whenever a file changes, until interrupted |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -356,7 +378,8 @@ Print the configuration one editor needs to talk to rqx, or list them all
 | --- | --- |
 | `<editor>` | Which editor. Omit to list every one rqx knows |
 | `--write` | Append it to the editor's config, after showing what will be added |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -369,7 +392,8 @@ Which files read as written rather than read
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--min` | Skip anything scoring below this |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -383,7 +407,8 @@ List every finding a comment in the source waives, with the reason given
 | `--level` | relaxed, standard, strict or pristine |
 | `--expiring` | Show only the waivers that carry an `until` date |
 | `--json` | Emit one JSON object per waiver instead of the reader's report |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -394,18 +419,8 @@ List every refactoring Rqx prescribes, and which rules ask for it
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
-| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
-| `--motion` | Animation in the interactive interface |
-| `--help` | Print help |
-
-## `rqx tui`
-
-Open the interactive interface explicitly
-
-| Flag | What it does |
-| --- | --- |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
@@ -420,7 +435,8 @@ Compare the working tree against a base revision and say what happened to each f
 | `--base` | Revision to compare against |
 | `--expect` | Rules that must be resolved, as `rule` or `rule@file`. Repeatable |
 | `--json` | Emit one JSON object per change instead of the reader's report |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |

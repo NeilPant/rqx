@@ -2,12 +2,52 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Tabs};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
 use crate::brand::{Ink, Palette};
 
 use super::app::{Session, Tab};
 use super::{MIN_HEIGHT, MIN_WIDTH};
+
+/// Where the frame put the things a click can land on. Rects live for one frame, so
+/// what a screen drew has to be written down before the frame ends or there is
+/// nothing to test a click against.
+#[derive(Default)]
+pub struct Hits {
+    pub tabs: Vec<(Rect, Tab)>,
+    pub keys: Vec<(Rect, &'static str)>,
+}
+
+impl Hits {
+    pub fn at(&self, column: u16, row: u16) -> Option<Landing> {
+        for (area, tab) in &self.tabs {
+            if holds(*area, column, row) {
+                return Some(Landing::Tab(*tab));
+            }
+        }
+        for (area, key) in &self.keys {
+            if holds(*area, column, row) {
+                return Some(Landing::Key(key));
+            }
+        }
+        None
+    }
+}
+
+pub enum Landing {
+    Tab(Tab),
+    Key(&'static str),
+}
+
+/// Whether a point is inside a rect. Shared, because the app asks it of the body
+/// and the hit table asks it of everything else.
+pub const fn within(area: Rect, column: u16, row: u16) -> bool {
+    holds(area, column, row)
+}
+
+const fn holds(area: Rect, column: u16, row: u16) -> bool {
+    column >= area.x && column < area.x + area.width && row >= area.y && row < area.y + area.height
+}
 
 /// Facts about this run rather than a slogan. The line that used to say "every
 /// finding, a reason" said nothing about what the tool was about to do.
@@ -93,7 +133,7 @@ pub struct Chrome<'a> {
 }
 
 impl Chrome<'_> {
-    pub fn render(&self, frame: &mut Frame<'_>) -> Rect {
+    pub fn render(&self, frame: &mut Frame<'_>) -> (Rect, Hits) {
         let mascot = &self.session.mascot;
         let [head, tabs, body, _footer] = Layout::vertical([
             Constraint::Length(mascot.cell_height() + 1),
@@ -104,10 +144,11 @@ impl Chrome<'_> {
         .areas(frame.area());
 
         self.render_head(frame, head);
+        let mut hits = Hits::default();
         if let Some(active) = self.active {
-            self.render_tabs(frame, tabs, active);
+            hits.tabs = self.render_tabs(frame, tabs, active);
         }
-        body
+        (body, hits)
     }
 
     fn render_head(&self, frame: &mut Frame<'_>, area: Rect) {
@@ -130,35 +171,55 @@ impl Chrome<'_> {
         frame.render_widget(Paragraph::new(strip(session)), text);
     }
 
-    fn render_tabs(&self, frame: &mut Frame<'_>, area: Rect, active: Tab) {
+    /// Laid out by hand rather than with `Tabs`, because a click has to know which
+    /// title it landed on and only the code that placed them knows where they are.
+    fn render_tabs(&self, frame: &mut Frame<'_>, area: Rect, active: Tab) -> Vec<(Rect, Tab)> {
         let palette = self.session.palette;
-        let titles: Vec<Line<'static>> = Tab::ALL
-            .iter()
-            .enumerate()
-            .map(|(index, tab)| {
-                // Dim means "nothing scanned yet", not "cannot open": every tab opens.
-                let filled = !tab.needs_outcome() || self.session.outcome.is_some();
-                let ink = if filled { Ink::Text } else { Ink::Muted };
-                Line::from(vec![
-                    Span::styled(format!("{} ", index + 1), palette.dim()),
-                    Span::styled(tab.title(), Style::new().fg(palette.color(ink))),
-                ])
-            })
-            .collect();
-        frame.render_widget(
-            Tabs::new(titles)
-                .select(Tab::ALL.iter().position(|tab| *tab == active).unwrap_or(0))
-                .highlight_style(
-                    Style::new()
-                        .fg(palette.color(Ink::Accent))
-                        .add_modifier(Modifier::BOLD),
-                )
-                .divider(Span::styled("\u{2502}", palette.dim())),
-            area,
-        );
+        let mut spans = Vec::new();
+        let mut hits = Vec::new();
+        let mut x = area.x;
+        for (index, tab) in Tab::ALL.iter().enumerate() {
+            if index > 0 {
+                spans.push(Span::styled("\u{2502}", palette.dim()));
+                x += 1;
+            }
+            // Dim means "nothing scanned yet", not "cannot open": every tab opens.
+            let filled = !tab.needs_outcome() || self.session.outcome.is_some();
+            let style = if *tab == active {
+                Style::new()
+                    .fg(palette.color(Ink::Accent))
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::new().fg(palette.color(if filled { Ink::Text } else { Ink::Muted }))
+            };
+            let label = format!(" {} {} ", index + 1, tab.title());
+            let width = label.chars().count() as u16;
+            if x.saturating_add(width) > area.x.saturating_add(area.width) {
+                break;
+            }
+            hits.push((
+                Rect {
+                    x,
+                    y: area.y,
+                    width,
+                    height: 1,
+                },
+                *tab,
+            ));
+            x += width;
+            spans.push(Span::styled(label, style));
+        }
+        frame.render_widget(Paragraph::new(Line::from(spans)), area);
+        hits
     }
 
-    pub fn render_footer(&self, frame: &mut Frame<'_>, keys: &[(&'static str, &'static str)]) {
+    /// The hints are the shortest list of what this screen does, so they are also
+    /// the buttons: clicking one sends the key it names.
+    pub fn render_footer(
+        &self,
+        frame: &mut Frame<'_>,
+        keys: &[(&'static str, &'static str)],
+    ) -> Vec<(Rect, &'static str)> {
         let palette = self.session.palette;
         let area = Rect {
             y: frame.area().height.saturating_sub(1),
@@ -166,14 +227,29 @@ impl Chrome<'_> {
             ..frame.area()
         };
         let mut spans = Vec::new();
+        let mut hits = Vec::new();
+        let mut x = area.x;
         for (key, meaning) in keys {
+            let label = format!(" {key} ");
+            let width = (label.chars().count() + meaning.chars().count()) as u16;
+            hits.push((
+                Rect {
+                    x,
+                    y: area.y,
+                    width,
+                    height: 1,
+                },
+                *key,
+            ));
+            x = x.saturating_add(width);
             spans.push(Span::styled(
-                format!(" {key} "),
+                label,
                 Style::new().fg(palette.color(Ink::Accent)),
             ));
             spans.push(Span::styled(*meaning, palette.dim()));
         }
         frame.render_widget(Paragraph::new(Line::from(spans)), area);
+        hits
     }
 }
 
@@ -273,6 +349,10 @@ mod tests {
                 Chrome { session, active }.render(frame);
             })
             .unwrap();
+        buffer_text(&terminal)
+    }
+
+    fn buffer_text(terminal: &Terminal<TestBackend>) -> String {
         let buffer = terminal.backend().buffer();
         (0..buffer.area.height)
             .map(|y| {
@@ -321,5 +401,76 @@ mod tests {
     fn the_smallest_supported_terminal_still_renders_without_panicking() {
         let screen = draw(&session(), Some(Tab::Overview), 60, 20);
         assert!(screen.contains("rqx"), "{screen}");
+    }
+
+    /// A rect written down during a frame is the only thing a click has to aim at, so
+    /// what the tab bar reports has to be where the tab bar actually drew.
+    #[test]
+    fn a_click_lands_on_the_tab_it_is_over() {
+        let session = session();
+        let mut terminal = Terminal::new(TestBackend::new(120, 24)).unwrap();
+        let mut hits = Hits::default();
+        terminal
+            .draw(|frame| {
+                let (_, drawn) = Chrome {
+                    session: &session,
+                    active: Some(Tab::Overview),
+                }
+                .render(frame);
+                hits = drawn;
+            })
+            .unwrap();
+
+        assert_eq!(
+            hits.tabs.len(),
+            Tab::ALL.len(),
+            "not every tab is clickable"
+        );
+        let screen = buffer_text(&terminal);
+        for (area, tab) in &hits.tabs {
+            let row: String = (0..terminal.backend().buffer().area.width)
+                .map(|x| terminal.backend().buffer()[(x, area.y)].symbol())
+                .collect();
+            let under: String = row
+                .chars()
+                .skip(usize::from(area.x))
+                .take(usize::from(area.width))
+                .collect();
+            assert!(
+                under.contains(tab.title()),
+                "{tab:?} is reported at {area:?}, which holds {under:?}\n{screen}"
+            );
+            assert!(
+                matches!(hits.at(area.x, area.y), Some(Landing::Tab(hit)) if hit == *tab),
+                "a click at the start of {tab:?} does not reach it"
+            );
+        }
+    }
+
+    /// The hints are the buttons, so each one has to be found where it was drawn.
+    #[test]
+    fn a_click_on_a_key_hint_reaches_that_key() {
+        let session = session();
+        let mut terminal = Terminal::new(TestBackend::new(120, 24)).unwrap();
+        let keys: &[(&str, &str)] = &[("enter", "open"), ("r", "scan"), ("esc", "back")];
+        let mut hits = Vec::new();
+        terminal
+            .draw(|frame| {
+                hits = Chrome {
+                    session: &session,
+                    active: Some(Tab::Overview),
+                }
+                .render_footer(frame, keys);
+            })
+            .unwrap();
+
+        assert_eq!(hits.len(), keys.len());
+        for ((area, named), (key, _)) in hits.iter().zip(keys) {
+            assert_eq!(named, key);
+            let under: String = (0..area.width)
+                .map(|offset| terminal.backend().buffer()[(area.x + offset, area.y)].symbol())
+                .collect();
+            assert!(under.contains(key), "{key} is not at {area:?}: {under:?}");
+        }
     }
 }

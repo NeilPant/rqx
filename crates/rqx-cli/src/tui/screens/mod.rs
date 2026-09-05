@@ -27,11 +27,15 @@ pub fn nothing_yet(frame: &mut Frame<'_>, area: Rect, session: &Session, tab: Ta
 }
 
 pub mod catalogue;
+pub mod complexity;
 pub mod files;
 pub mod findings;
+pub mod graph;
+pub mod health;
 pub mod menu;
 pub mod overview;
 pub mod patterns;
 pub mod plan;
+pub mod reader;
 pub mod scanning;
 pub mod settings;

@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -9,7 +9,10 @@ use ratatui::widgets::{
 };
 
 use crate::brand::{Ink, severity_ink};
-use crate::tui::app::{Nav, Screen, Session, global};
+use crate::tui::app::{Nav, Screen, Session, global, is_press, row_at, wheel};
+
+/// The list's own top border is the only line above the first row.
+const ABOVE: u16 = 1;
 
 /// One ranked item, flattened out of the plan so the screen holds no borrow of the
 /// outcome between frames.
@@ -36,6 +39,7 @@ pub struct Plan {
     before: u32,
     after: u32,
     ready: bool,
+    at: Rect,
 }
 
 impl Default for Plan {
@@ -47,6 +51,7 @@ impl Default for Plan {
             before: 0,
             after: 0,
             ready: false,
+            at: Rect::default(),
         }
     }
 }
@@ -120,6 +125,7 @@ impl Screen for Plan {
         }
 
         let [bar, list] = Layout::vertical([Constraint::Length(2), Constraint::Min(4)]).areas(area);
+        self.at = list;
 
         let spent: u32 = self.items.iter().map(|item| u32::from(item.effort)).sum();
         let header = vec![
@@ -228,8 +234,35 @@ impl Screen for Plan {
             KeyCode::Up | KeyCode::Char('k') => self.step(-1),
             KeyCode::Char('+') | KeyCode::Char('=') => self.spend(STEP as i32, session),
             KeyCode::Char('-') | KeyCode::Char('_') => self.spend(-(STEP as i32), session),
+            KeyCode::Enter => {
+                let Some(item) = self.items.get(self.state.selected().unwrap_or(0)) else {
+                    return Nav::Stay;
+                };
+                return Nav::Inspect(item.file.clone());
+            }
             _ => return global(key).unwrap_or(Nav::Stay),
         }
+        Nav::Redraw
+    }
+
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        if let Some(rows) = wheel(event) {
+            self.step(rows);
+            return Nav::Redraw;
+        }
+        if !is_press(event) {
+            return Nav::Stay;
+        }
+        let Some(row) = row_at(self.at, ABOVE, self.state.offset(), event) else {
+            return Nav::Stay;
+        };
+        let Some(item) = self.items.get(row) else {
+            return Nav::Stay;
+        };
+        if self.state.selected() == Some(row) {
+            return Nav::Inspect(item.file.clone());
+        }
+        self.state.select(Some(row));
         Nav::Redraw
     }
 
@@ -237,7 +270,7 @@ impl Screen for Plan {
         &[
             ("\u{2191}\u{2193}", "move"),
             ("+ -", "budget"),
-            ("tab", "next view"),
+            ("enter", "its findings"),
             ("esc", "back"),
         ]
     }

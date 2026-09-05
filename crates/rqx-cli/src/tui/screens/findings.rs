@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -14,7 +14,10 @@ use rqx_core::finding::{Finding, Severity};
 use crate::brand::{Ink, severity_ink};
 use crate::preview::{self, Role};
 use crate::report::FindingFilter;
-use crate::tui::app::{Nav, Screen, Session, global};
+use crate::tui::app::{Nav, Screen, Session, global, is_press, row_at, wheel};
+
+/// The list's own top border is the only line above the first row.
+const ABOVE: u16 = 1;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Group {
@@ -154,6 +157,7 @@ pub struct Findings {
     source: Option<(String, String)>,
     pending: Option<Pending>,
     ready: bool,
+    at: Rect,
 }
 
 impl Default for Findings {
@@ -171,11 +175,27 @@ impl Default for Findings {
             source: None,
             pending: None,
             ready: false,
+            at: Rect::default(),
         }
     }
 }
 
 impl Findings {
+    /// The filters the command line asked for, applied at once and remembered so a
+    /// rescan does not quietly widen back to everything.
+    pub fn given(rules: String, families: String, paths: String) -> Self {
+        let given = Fields {
+            rules,
+            families,
+            paths,
+        };
+        Self {
+            fields: given.clone(),
+            applied: given,
+            ..Self::default()
+        }
+    }
+
     /// Narrows the screen to one file, for the Files view's "what is wrong here".
     pub fn only(&mut self, file: &str) {
         self.fields = Fields {
@@ -418,6 +438,7 @@ impl Screen for Findings {
             Constraint::Min(6),
         ])
         .areas(area);
+        self.at = list;
 
         let shown = self
             .rows
@@ -686,6 +707,31 @@ impl Screen for Findings {
         !matches!(self.composing, Composing::Nothing)
     }
 
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        // A form open means the screen is taking text, and a stray click should not
+        // move the list out from under what is being typed.
+        if matches!(self.composing, Composing::Form(_)) {
+            return Nav::Stay;
+        }
+        if let Some(rows) = wheel(event) {
+            self.step(rows);
+            return Nav::Redraw;
+        }
+        if !is_press(event) {
+            return Nav::Stay;
+        }
+        let Some(row) = row_at(self.at, ABOVE, self.state.offset(), event) else {
+            return Nav::Stay;
+        };
+        if !matches!(self.rows.get(row), Some(Line_::Item(_))) {
+            return Nav::Stay;
+        }
+        self.state.select(Some(row));
+        self.source = None;
+        self.pending = None;
+        Nav::Redraw
+    }
+
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("\u{2191}\u{2193}", "move"),
@@ -836,6 +882,58 @@ mod tests {
                 Line_::Item(_) => None,
             })
             .collect()
+    }
+
+    /// The screen writes down where it drew its list; a click is answered against
+    /// that and nothing else. Rendering first is the point — a click before any frame
+    /// has an empty rect to miss.
+    #[test]
+    fn a_click_selects_the_row_under_it_and_never_a_heading() {
+        use crossterm::event::{MouseButton, MouseEventKind};
+        use ratatui::Terminal;
+        use ratatui::backend::TestBackend;
+
+        let session = session(&[
+            (RuleId::LongFunction, "a.ts"),
+            (RuleId::MagicNumber, "b.ts"),
+        ]);
+        let mut screen = Findings {
+            group: Some(Group::File),
+            ..Findings::default()
+        };
+        let mut terminal = Terminal::new(TestBackend::new(120, 40)).expect("a terminal");
+        terminal
+            .draw(|frame| screen.render(frame, frame.area(), &session))
+            .expect("a frame");
+
+        let at = screen.at;
+        let click = |row: u16| crossterm::event::MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: at.x + 2,
+            row,
+            modifiers: crossterm::event::KeyModifiers::NONE,
+        };
+
+        // Row 0 of the list is a heading, and the border sits above it.
+        let heading = at.y + ABOVE;
+        let was = screen.state.selected();
+        assert_eq!(screen.click(click(heading), &session), Nav::Stay);
+        assert_eq!(screen.state.selected(), was, "a heading took the selection");
+
+        assert_eq!(screen.click(click(heading + 1), &session), Nav::Redraw);
+        assert!(
+            matches!(
+                screen.rows[screen.state.selected().expect("a row")],
+                Line_::Item(_)
+            ),
+            "the click did not land on a finding"
+        );
+
+        // Outside the list entirely: the chrome owns that, not the screen.
+        assert_eq!(
+            screen.click(click(at.y.saturating_sub(1)), &session),
+            Nav::Stay
+        );
     }
 
     /// Grouping used to be a sort with nothing to see: the rows moved and the reader

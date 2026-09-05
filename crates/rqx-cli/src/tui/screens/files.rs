@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::{Modifier, Style};
@@ -10,7 +10,10 @@ use ratatui::widgets::{
 use rqx_core::Cleanliness;
 
 use crate::brand::{Ink, grade_ink};
-use crate::tui::app::{Nav, Screen, Session, global};
+use crate::tui::app::{Nav, Screen, Session, global, is_press, row_at, wheel};
+
+/// The block's top border, then the header.
+const ABOVE: u16 = 2;
 
 /// One row per file, ordered worst-first, because the question this screen answers is
 /// which file to open.
@@ -20,6 +23,7 @@ pub struct Files {
     state: TableState,
     ready: bool,
     by_name: bool,
+    at: Rect,
 }
 
 impl Files {
@@ -76,6 +80,7 @@ impl Files {
 impl Screen for Files {
     fn render(&mut self, frame: &mut Frame<'_>, area: Rect, session: &Session) {
         let palette = session.palette;
+        self.at = area;
         if !self.ready {
             self.build(session);
         }
@@ -137,6 +142,30 @@ impl Screen for Files {
             area,
             &mut scrollbar,
         );
+    }
+
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        if let Some(rows) = wheel(event) {
+            let current = self.state.selected().unwrap_or(0) as isize;
+            let last = self.rows.len().saturating_sub(1) as isize;
+            self.state
+                .select(Some((current + rows).clamp(0, last.max(0)) as usize));
+            return Nav::Redraw;
+        }
+        if !is_press(event) {
+            return Nav::Stay;
+        }
+        let Some(row) = row_at(self.at, ABOVE, self.state.offset(), event) else {
+            return Nav::Stay;
+        };
+        if row >= self.rows.len() {
+            return Nav::Stay;
+        }
+        if self.state.selected() == Some(row) {
+            return self.selected().map_or(Nav::Stay, Nav::Inspect);
+        }
+        self.state.select(Some(row));
+        Nav::Redraw
     }
 
     fn handle(&mut self, key: KeyEvent, session: &Session) -> Nav {

@@ -219,8 +219,7 @@ fn prescribed() -> BTreeSet<FixTechnique> {
 
 /// Each level printed as the TOML it is, because a preset that changed twelve
 /// thresholds and nine rules invisibly would be the trap the config file avoids.
-pub fn levels(palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
+pub fn levels(palette: Palette, out: &mut dyn Write) -> Result<()> {
     let dim = palette.style(Ink::Muted);
 
     for level in rqx_core::config::Level::ALL {
@@ -273,8 +272,7 @@ pub fn levels(palette: Palette) -> Result<()> {
     Ok(())
 }
 
-pub fn techniques(palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
+pub fn techniques(palette: Palette, out: &mut dyn Write) -> Result<()> {
     let prescribed = prescribed();
     let dim = palette.style(Ink::Muted);
 

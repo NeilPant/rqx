@@ -37,16 +37,18 @@ pub struct View {
     pub histogram: bool,
 }
 
-struct Row {
-    name: String,
-    at: String,
-    complexity: u32,
-    statements: u32,
-    nesting: u32,
-    parameters: u32,
+/// Shared with the interface's Complexity screen, so the table there and the table
+/// `rqx complexity` prints are one table measured once.
+pub struct Row {
+    pub name: String,
+    pub at: String,
+    pub complexity: u32,
+    pub statements: u32,
+    pub nesting: u32,
+    pub parameters: u32,
     /// How many functions this row stands for: one, unless it is a file or a
     /// directory, where the numbers are the worst of what it holds.
-    counted: u32,
+    pub counted: u32,
 }
 
 impl Row {
@@ -174,7 +176,7 @@ fn trim(name: &str, width: usize) -> String {
     format!("{kept}\u{2026}")
 }
 
-fn functions(outcome: &ScanOutcome) -> Vec<Row> {
+pub fn functions(outcome: &ScanOutcome) -> Vec<Row> {
     let mut rows: Vec<Row> = outcome
         .shape_by_file
         .iter()
@@ -199,7 +201,7 @@ fn functions(outcome: &ScanOutcome) -> Vec<Row> {
     rows
 }
 
-fn group(functions: &[Row], view: &View) -> Vec<Row> {
+pub fn group(functions: &[Row], view: &View) -> Vec<Row> {
     let mut rows: Vec<Row> = match view.by {
         By::Function => functions
             .iter()
@@ -261,7 +263,7 @@ fn group(functions: &[Row], view: &View) -> Vec<Row> {
     rows
 }
 
-fn percentile(functions: &[Row], at: u32) -> u32 {
+pub fn percentile(functions: &[Row], at: u32) -> u32 {
     if functions.is_empty() {
         return 0;
     }

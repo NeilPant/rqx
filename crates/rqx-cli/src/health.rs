@@ -24,18 +24,19 @@ pub enum By {
     File,
 }
 
-struct Bucket {
-    name: String,
-    findings: u32,
+/// Shared with the interface's Health screen: the ledger is the same ledger.
+pub struct Bucket {
+    pub name: String,
+    pub findings: u32,
     /// The score the project would have if every finding in this bucket were gone.
     /// Not a share of the total: the curve is exponential, so shares do not add up
     /// and the only honest answer is to recompute.
-    without: u32,
+    pub without: u32,
     /// This bucket's weight in the score's own arithmetic, as a share of all of it.
     /// The score saturates — a project deep enough in the red stays at zero whichever
     /// bucket you remove — and then this is the only column that still discriminates.
-    share: u32,
-    worst: Vec<String>,
+    pub share: u32,
+    pub worst: Vec<String>,
 }
 
 pub fn render(outcome: &ScanOutcome, by: By, palette: Palette, out: &mut dyn Write) -> Result<()> {
@@ -135,7 +136,7 @@ fn label(finding: &Finding, by: By, root: &std::path::Path) -> String {
     }
 }
 
-fn buckets(outcome: &ScanOutcome, by: By, now: u32) -> Vec<Bucket> {
+pub fn buckets(outcome: &ScanOutcome, by: By, now: u32) -> Vec<Bucket> {
     let total = outcome.counts.weighted_total(&outcome.impact);
     let mut grouped: BTreeMap<String, Vec<&Finding>> = BTreeMap::new();
     for finding in &outcome.findings {

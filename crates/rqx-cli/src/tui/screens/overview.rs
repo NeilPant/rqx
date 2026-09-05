@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -12,18 +12,24 @@ use rqx_core::finding::Severity;
 
 use crate::brand::{Ink, Palette, grade_ink, score_ink};
 use crate::report::plural;
-use crate::tui::app::{Nav, Screen, Session, global};
+use crate::tui::app::{Nav, Screen, Session, global, is_press, row_at};
 
 const REVEAL: Duration = Duration::from_millis(600);
 
 pub struct Overview {
     since: Instant,
+    /// Where the last frame put "Start here" and what it listed, so clicking a name
+    /// opens it. The rest of the screen is numbers, which nothing can be done to.
+    start: Rect,
+    listed: Vec<String>,
 }
 
 impl Default for Overview {
     fn default() -> Self {
         Self {
             since: Instant::now(),
+            start: Rect::default(),
+            listed: Vec::new(),
         }
     }
 }
@@ -191,8 +197,10 @@ impl Screen for Overview {
                     .total_cmp(&outcome.impact.get(left.0).multiplier())
             })
         });
+        self.listed.clear();
         for (file, grade) in ranked.into_iter().take(4) {
             let impact = outcome.impact.get(file);
+            self.listed.push(file.to_owned());
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("    {:9} ", grade.label()),
@@ -209,7 +217,27 @@ impl Screen for Overview {
                 ),
             ]));
         }
+        // The heading sits at the top of `start`, so the names begin one line down.
+        self.start = Rect {
+            y: start
+                .y
+                .saturating_add(u16::try_from(lines.len() - self.listed.len()).unwrap_or(0)),
+            ..start
+        };
         frame.render_widget(Paragraph::new(lines), start);
+    }
+
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        if !is_press(event) {
+            return Nav::Stay;
+        }
+        let Some(row) = row_at(self.start, 0, 0, event) else {
+            return Nav::Stay;
+        };
+        self.listed
+            .get(row)
+            .cloned()
+            .map_or(Nav::Stay, Nav::Inspect)
     }
 
     fn handle(&mut self, key: KeyEvent, _session: &Session) -> Nav {

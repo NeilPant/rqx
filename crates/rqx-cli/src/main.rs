@@ -48,9 +48,13 @@ use report::{FindingFilter, Layout, Report, Reporter};
 pub struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
-    /// Print help instead of opening the interface when run with no arguments
+    /// Print the report instead of opening the interactive interface
     #[arg(long, global = true)]
     no_tui: bool,
+    /// Leave the mouse to the terminal. Capture takes drag-select away from it, and
+    /// not every emulator passes shift+drag through.
+    #[arg(long, global = true)]
+    no_mouse: bool,
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
     #[arg(long, value_enum, default_value_t = Color::Auto, global = true)]
     color: Color,
@@ -479,13 +483,6 @@ enum Command {
     },
     /// Run as a Language Server over stdio, for editor integration
     Lsp {
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        config: Option<PathBuf>,
-    },
-    /// Open the interactive interface explicitly
-    Tui {
         #[arg(default_value = ".")]
         path: PathBuf,
         #[arg(long)]
@@ -1000,7 +997,34 @@ fn decline_to_help(
     Ok(())
 }
 
-fn open_tui(path: &Path, config: Option<&Path>, motion: Motion) -> Result<Exit> {
+/// Whether `rqx scan` should open the interface rather than print. Every flag that
+/// shapes the output is a caller saying they want the text; a pipe and CI are refused
+/// by the gate itself.
+fn interface_wanted(no_tui: bool, view: &View, gate: &Gate, watch: bool) -> bool {
+    let shaped = view.quiet
+        || view.stats
+        || view.timings
+        || view.format.is_some()
+        || !view.reporters.is_empty()
+        || view.show_passed
+        || gate.is_set();
+    !no_tui && !shaped && !watch && tui::gate().is_ok()
+}
+
+/// How the interface was asked for, so `rqx`, `rqx scan` and a declined launch all
+/// read the same flags rather than each reaching into `Cli` for a different subset.
+#[derive(Copy, Clone)]
+struct Interface {
+    motion: Motion,
+    mouse: bool,
+}
+
+fn open_tui(
+    path: &Path,
+    config: Option<&Path>,
+    interface: Interface,
+    filters: tui::Filters,
+) -> Result<Exit> {
     if !path.exists() {
         bail!(
             "`{}` does not exist. Give rqx a directory to open, or run `rqx` on its own \
@@ -1014,7 +1038,9 @@ fn open_tui(path: &Path, config: Option<&Path>, motion: Motion) -> Result<Exit> 
     let options = tui::Launch {
         path,
         config: &settings,
-        reduced_motion: matches!(motion, Motion::Off),
+        reduced_motion: matches!(interface.motion, Motion::Off),
+        mouse: interface.mouse,
+        filters,
     };
     match tui::gate().and_then(|()| tui::launch(options)) {
         Err(reason) => decline_to_help(&reason, &root, &settings.config, source.as_deref())
@@ -1091,6 +1117,10 @@ fn run() -> Result<Exit> {
     cli.color.choice().write_global();
     progress::set_animated(!matches!(cli.motion, Motion::Off));
     let palette = Palette::detect();
+    let interface = Interface {
+        motion: cli.motion,
+        mouse: !cli.no_mouse,
+    };
 
     let Some(command) = cli.command else {
         return if cli.no_tui {
@@ -1102,7 +1132,7 @@ fn run() -> Result<Exit> {
             )
             .map(|()| Exit::Clean)
         } else {
-            open_tui(Path::new("."), None, cli.motion)
+            open_tui(Path::new("."), None, interface, tui::Filters::default())
         };
     };
 
@@ -1146,6 +1176,22 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             gate.apply(&mut settings.config);
+
+            // A scan in a terminal opens the interface: the report is thousands of
+            // lines and the interface is the same answer with somewhere to stand in
+            // it. Anything that shapes the output means the caller wants the text.
+            if interface_wanted(cli.no_tui, &view, &gate, watch) {
+                return open_tui(
+                    &path,
+                    config.as_deref(),
+                    interface,
+                    tui::Filters {
+                        rules: view.rules.join(","),
+                        families: view.categories.join(","),
+                        paths: view.paths.join(","),
+                    },
+                );
+            }
 
             let sinks = sinks(&view)?;
             let filter = filter_of(&view, &path)?;
@@ -1707,11 +1753,14 @@ fn run() -> Result<Exit> {
             lsp::serve(&path, settings).map_err(|error| anyhow::anyhow!("{error}"))?;
             Ok(Exit::Clean)
         }
-        Command::Tui { path, config } => open_tui(&path, config.as_deref(), cli.motion),
         Command::Rules { category, language } => {
             report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
         }
-        Command::Techniques => report::techniques(palette).map(|()| Exit::Clean),
-        Command::Levels => report::levels(palette).map(|()| Exit::Clean),
+        Command::Techniques => {
+            report::techniques(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
+        }
+        Command::Levels => {
+            report::levels(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
+        }
     }
 }

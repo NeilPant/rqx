@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Style;
@@ -9,7 +9,7 @@ use ratatui::widgets::{
 };
 
 use crate::brand::Ink;
-use crate::tui::app::{Nav, Screen, Session, global};
+use crate::tui::app::{Nav, Screen, Session, global, wheel};
 
 /// What this run will actually do, and where each answer came from. The rows are the
 /// ones `rqx config` prints, so the two surfaces cannot disagree about the settings.
@@ -108,6 +108,16 @@ impl Screen for Settings {
             KeyCode::PageUp => step(-12),
             _ => return global(key).unwrap_or(Nav::Stay),
         }
+        Nav::Redraw
+    }
+
+    fn click(&mut self, event: MouseEvent, _session: &Session) -> Nav {
+        let Some(rows) = wheel(event) else {
+            return Nav::Stay;
+        };
+        let current = self.state.selected().unwrap_or(0) as isize;
+        self.state
+            .select(Some(current.saturating_add(rows).max(0) as usize));
         Nav::Redraw
     }
 
