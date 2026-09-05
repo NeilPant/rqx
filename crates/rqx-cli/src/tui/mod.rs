@@ -1,5 +1,6 @@
 pub mod app;
 pub mod chrome;
+pub mod editor;
 pub mod motion;
 pub mod screens;
 pub mod sprite;
@@ -144,6 +145,7 @@ struct App {
     overview: screens::overview::Overview,
     findings: screens::findings::Findings,
     files: screens::files::Files,
+    plan: screens::plan::Plan,
     rules: screens::catalogue::Rules,
     patterns: screens::patterns::Patterns,
     settings: screens::settings::Settings,
@@ -152,6 +154,9 @@ struct App {
     help: bool,
     dirty: bool,
     quit: bool,
+    /// Where to send `$EDITOR` next. Held rather than acted on, because the terminal
+    /// belongs to the loop and a screen has no way to hand it over.
+    open: Option<(PathBuf, u32)>,
 }
 
 /// Splits the borrow the way the compiler can see: the screen and the session are
@@ -165,6 +170,7 @@ macro_rules! parts {
             Mode::Browsing(Tab::Overview) => &mut app.overview,
             Mode::Browsing(Tab::Findings) => &mut app.findings,
             Mode::Browsing(Tab::Files) => &mut app.files,
+            Mode::Browsing(Tab::Plan) => &mut app.plan,
             Mode::Browsing(Tab::Patterns) => &mut app.patterns,
             Mode::Browsing(Tab::Rules) => &mut app.rules,
             Mode::Browsing(Tab::Config) => &mut app.settings,
@@ -246,6 +252,7 @@ impl App {
                     self.overview = screens::overview::Overview::default();
                     self.findings = screens::findings::Findings::default();
                     self.files = screens::files::Files::default();
+                    self.plan = screens::plan::Plan::default();
                     self.mode = Mode::Browsing(Tab::Overview);
                 }
                 Ok(Err(error)) => {
@@ -280,6 +287,14 @@ impl App {
             // where leaving means leaving the program.
             Nav::Back => {
                 self.mode = Mode::Menu;
+                self.dirty = true;
+            }
+            Nav::Open(file, line) => {
+                self.open = Some((self.session.path.join(&file), line));
+            }
+            Nav::Inspect(file) => {
+                self.findings.only(&file);
+                self.mode = Mode::Browsing(Tab::Findings);
                 self.dirty = true;
             }
         }
@@ -427,6 +442,7 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         overview: screens::overview::Overview::default(),
         findings: screens::findings::Findings::default(),
         files: screens::files::Files::default(),
+        plan: screens::plan::Plan::default(),
         rules: screens::catalogue::Rules::default(),
         patterns: screens::patterns::Patterns::default(),
         settings: screens::settings::Settings::default(),
@@ -435,6 +451,7 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         help: false,
         dirty: true,
         quit: false,
+        open: None,
     };
 
     while !app.quit {
@@ -454,6 +471,15 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
                 Event::Resize(..) => app.dirty = true,
                 _ => {}
             }
+        }
+        // The loop owns the terminal, so handing it to an editor happens here rather
+        // than inside the screen that asked for it.
+        if let Some((path, line)) = app.open.take() {
+            let failure = editor::open(terminal, &path, line);
+            if !failure.is_empty() {
+                app.session.failure = Some(failure);
+            }
+            app.dirty = true;
         }
         app.dirty |= app.tick() || app.animating().is_some();
     }

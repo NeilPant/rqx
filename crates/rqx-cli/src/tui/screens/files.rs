@@ -23,6 +23,12 @@ pub struct Files {
 }
 
 impl Files {
+    fn selected(&self) -> Option<String> {
+        self.rows
+            .get(self.state.selected()?)
+            .map(|row| row.0.clone())
+    }
+
     fn build(&mut self, session: &Session) {
         let Some(outcome) = &session.outcome else {
             return;
@@ -150,6 +156,18 @@ impl Screen for Files {
                 self.by_name = !self.by_name;
                 self.build(session);
             }
+            KeyCode::Enter => {
+                let Some(file) = self.selected() else {
+                    return Nav::Stay;
+                };
+                return Nav::Inspect(file);
+            }
+            KeyCode::Char('o') => {
+                let Some(file) = self.selected() else {
+                    return Nav::Stay;
+                };
+                return Nav::Open(file, 1);
+            }
             _ => return global(key).unwrap_or(Nav::Stay),
         }
         Nav::Redraw
@@ -158,8 +176,9 @@ impl Screen for Files {
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("↑↓", "move"),
+            ("enter", "its findings"),
+            ("o", "open"),
             ("n", "sort by name"),
-            ("tab", "next view"),
             ("esc", "back"),
         ]
     }

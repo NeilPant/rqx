@@ -461,7 +461,7 @@
       "editor/context": [
         {
           "command": "rqx.suppressFinding",
-          "when": "editorTextFocus && resourceLangId in rqx.languages",
+          "when": "editorTextFocus && resourceLangId =~ /^(typescript|typescriptreact|python|go|java|cpp)$/",
           "group": "rqx@1"
         }
       ]

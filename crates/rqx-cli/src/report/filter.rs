@@ -95,9 +95,18 @@ impl FindingFilter {
         {
             return false;
         }
+        // The evidence is searched as well as the name, because "cognitive complexity
+        // 25" is what a reader remembers seeing rather than the slug that produced it.
+        // Only the interface's own search sets this; the command line filters by
+        // `--rule`, `--category` and `--path`, none of which read it.
         if !self.text.is_empty()
             && !finding.slug().contains(&self.text)
             && !finding.location.file.to_lowercase().contains(&self.text)
+            && !finding
+                .evidence
+                .to_string()
+                .to_lowercase()
+                .contains(&self.text)
         {
             return false;
         }
@@ -176,6 +185,24 @@ mod tests {
     fn a_path_glob_matches_by_suffix_and_directory() {
         let filter = FindingFilter::new(None, &[], &[], &["src/**".to_owned()]).unwrap();
         assert!(filter.matches(&finding(RuleId::LongFunction, Severity::Info, "src/a/b.ts")));
+        assert!(!filter.matches(&finding(RuleId::LongFunction, Severity::Info, "test/b.ts")));
+    }
+
+    /// The dashboard has always searched the evidence and the interface never did, so
+    /// the same query answered two different questions depending on where it was typed.
+    #[test]
+    fn text_search_covers_the_evidence_too() {
+        let filter = FindingFilter::default().with_text("99 statements");
+        assert!(filter.matches(&finding(RuleId::LongFunction, Severity::Info, "a.ts")));
+        let filter = FindingFilter::default().with_text("nothing like it");
+        assert!(!filter.matches(&finding(RuleId::LongFunction, Severity::Info, "a.ts")));
+    }
+
+    /// The command line never sets a text search — it filters by rule, family and
+    /// path — so widening what the text matches cannot change what `rqx scan` reports.
+    #[test]
+    fn the_named_filters_are_untouched_by_the_text_search() {
+        let filter = FindingFilter::new(None, &[], &[], &["src/**".to_owned()]).unwrap();
         assert!(!filter.matches(&finding(RuleId::LongFunction, Severity::Info, "test/b.ts")));
     }
 

@@ -4,6 +4,8 @@
 |---|---|
 | [configuration.md](configuration.md) | Every table in `RQX.toml`, how the layers merge, levels, and per-subtree overrides |
 | [baseline.md](baseline.md) | Recording the debt a project already has, so a gate can judge only what a change adds |
+| [health.md](health.md) | Where the score comes from, and what fixing each part would buy |
+| [complexity.md](complexity.md) | The measurements behind the thresholds, as a distribution rather than a tail |
 | [graph.md](graph.md) | Reading the import graph, exporting it, and finding the edge that closes a cycle |
 | [policy.md](policy.md) | One standard across many repositories, and the keys a project may not change |
 | [custom-rules.md](custom-rules.md) | Writing your own rules as tree-sitter queries, and trying one with `rqx query` |

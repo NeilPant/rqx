@@ -26,6 +26,11 @@ pub enum Nav {
     To(Tab),
     Scan,
     Review(String),
+    /// Hand the terminal to `$EDITOR` at this place in the project, and take it back
+    /// when it exits.
+    Open(String, u32),
+    /// Show one file's findings: the Files screen's answer to "what is wrong here".
+    Inspect(String),
     Quit,
 }
 
@@ -34,16 +39,18 @@ pub enum Tab {
     Overview,
     Findings,
     Files,
+    Plan,
     Patterns,
     Rules,
     Config,
 }
 
 impl Tab {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Overview,
         Self::Findings,
         Self::Files,
+        Self::Plan,
         Self::Patterns,
         Self::Rules,
         Self::Config,
@@ -54,6 +61,7 @@ impl Tab {
             Self::Overview => "Overview",
             Self::Findings => "Findings",
             Self::Files => "Files",
+            Self::Plan => "Plan",
             Self::Patterns => "Patterns",
             Self::Rules => "Rules",
             Self::Config => "Config",
@@ -65,7 +73,7 @@ impl Tab {
     pub const fn needs_outcome(self) -> bool {
         matches!(
             self,
-            Self::Overview | Self::Findings | Self::Files | Self::Patterns
+            Self::Overview | Self::Findings | Self::Files | Self::Plan | Self::Patterns
         )
     }
 
@@ -75,6 +83,7 @@ impl Tab {
             Self::Overview => "the health score, the severity split and where to start",
             Self::Findings => "every finding, with the code it is about",
             Self::Files => "one row per file, worst first",
+            Self::Plan => "the work ranked by what it buys against what it costs",
             Self::Patterns => "which design patterns are in use, broken, or would fit",
             Self::Rules => "the rule catalogue",
             Self::Config => "the settings this run will use",

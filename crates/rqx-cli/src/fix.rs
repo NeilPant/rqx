@@ -88,6 +88,36 @@ impl Outcome {
     }
 }
 
+/// The edits one file's findings prove, and the text they produce.
+///
+/// The same plan and the same verification `run` performs, without the project scan
+/// it starts with — so an editor or the interface can answer for one file in
+/// milliseconds and still offer nothing the command line would withhold.
+pub fn for_file(
+    display: &str,
+    source: &str,
+    language: Language,
+    findings: &[Finding],
+    config: &rqx_core::RqxConfig,
+) -> Option<(rqx_core::edit::Resolution, String)> {
+    let allowed: Vec<Finding> = findings
+        .iter()
+        .filter(|finding| config.fix.allows(finding.rule))
+        .cloned()
+        .collect();
+    if allowed.is_empty() {
+        return None;
+    }
+    let rewriter = Rewriter::new(language, source).ok()?;
+    let plan = rewriter.plan(&allowed, &config.fix);
+    if plan.is_empty() {
+        return None;
+    }
+    rewriter.verify(display, config, &allowed, &plan).ok()?;
+    let after = rqx_core::edit::apply(source, &plan)?;
+    Some((plan, after))
+}
+
 pub fn run(root: &Path, settings: &Resolved, options: Options) -> Result<Outcome> {
     // The display cap keeps the highest-ranked findings, which are the least
     // mechanical; a fixer that only saw those would miss most of its own work.

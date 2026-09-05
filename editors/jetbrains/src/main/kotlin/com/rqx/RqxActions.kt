@@ -13,21 +13,42 @@ import org.eclipse.lsp4j.Command
  * means, so this file states the names and nothing else — a command added there needs
  * one line here rather than an implementation.
  */
-abstract class RqxCommand(private val command: String, private val label: String) : AnAction() {
+abstract class RqxCommand(
+    private val command: String,
+    private val label: String,
+) : AnAction() {
+    /** What to send with the command. Most take nothing. */
+    open fun arguments(event: AnActionEvent): List<Any> = emptyList()
+
     override fun actionPerformed(event: AnActionEvent) {
         val project = event.project ?: return
         CommandExecutor.executeCommand(
-            LSPCommandContext(Command(label, command, emptyList()), project)
+            LSPCommandContext(Command(label, command, arguments(event)), project)
         )
     }
 }
 
 class ScanWorkspace : RqxCommand("rqx.scan", "Scan the workspace")
-class CheckDiff : RqxCommand("rqx.check", "Review the diff")
 class StartHere : RqxCommand("rqx.startHere", "Open what matters first")
 class ShowCatalogue : RqxCommand("rqx.catalogue", "Show the rule catalogue")
 class TogglePatterns : RqxCommand("rqx.togglePatterns", "Toggle pattern advice")
 class ToggleCodeLens : RqxCommand("rqx.toggleCodeLens", "Toggle the code lens")
+class TakeBaseline : RqxCommand("rqx.baseline", "Take or update the baseline") {
+    override fun arguments(event: AnActionEvent): List<Any> = listOf(true)
+}
+
+/** The base is a setting, and a review that ignored it compared against the wrong thing. */
+class CheckDiff : RqxCommand("rqx.check", "Review the diff") {
+    override fun arguments(event: AnActionEvent): List<Any> = listOf(RqxSettings.instance.base)
+}
+
+class VerifyRefactoring : RqxCommand("rqx.verify", "Verify the refactoring") {
+    override fun arguments(event: AnActionEvent): List<Any> = listOf(RqxSettings.instance.base)
+}
+
+class FixWorkspace : RqxCommand("rqx.fix", "Apply every proven fix") {
+    override fun arguments(event: AnActionEvent): List<Any> = listOf(true)
+}
 
 class RestartServer : AnAction() {
     override fun actionPerformed(event: AnActionEvent) {

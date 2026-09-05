@@ -12,10 +12,12 @@ mod baseline;
 mod brand;
 mod cache;
 mod check;
+mod complexity;
 mod config;
 mod edit_config;
 mod fix;
 mod graph;
+mod health;
 mod history;
 mod lsp;
 mod mcp;
@@ -246,6 +248,50 @@ enum Command {
         #[arg(long)]
         expiring: bool,
         /// Emit one JSON object per waiver instead of the reader's report
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// What the analyser measured, as a distribution rather than only its tail
+    Complexity {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// One row per function, per file, or per directory
+        #[arg(long, value_enum, default_value_t = complexity::By::Function)]
+        by: complexity::By,
+        #[arg(long, value_enum, default_value_t = complexity::Sort::Complexity)]
+        sort: complexity::Sort,
+        /// How many rows
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+        /// Skip anything below this, on whatever `--sort` measures
+        #[arg(long, default_value_t = 0)]
+        min: u32,
+        /// Draw the distribution as well as the worst of it
+        #[arg(long)]
+        histogram: bool,
+        /// Emit one JSON object per row
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Where the health score comes from, and what removing each part would buy
+    Health {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        #[arg(long, value_enum, default_value_t = health::By::Family)]
+        by: health::By,
+        /// Emit one JSON object per bucket
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -1213,6 +1259,59 @@ fn run() -> Result<Exit> {
                 return report::waivers_json(&path, &outcome, &mut out).map(|()| Exit::Clean);
             }
             report::waivers(&path, &outcome, expiring, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Complexity {
+            path,
+            standard,
+            by,
+            sort,
+            top,
+            min,
+            histogram,
+            json,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            let threshold = settings.config.thresholds.cognitive_complexity;
+            let outcome = scan::scan(&path, &settings)?;
+            let view = complexity::View {
+                by,
+                sort,
+                top,
+                min,
+                histogram,
+            };
+            let mut out = anstream::stdout().lock();
+            if json {
+                return complexity::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
+            }
+            complexity::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Health {
+            path,
+            standard,
+            by,
+            json,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            // Every finding, not the first five hundred: a bucket judged on a capped
+            // list would understate whichever rule fires most.
+            settings.config.scan.max_findings = 0;
+            let outcome = scan::scan(&path, &settings)?;
+            let mut out = anstream::stdout().lock();
+            if json {
+                return health::json(&outcome, by, &mut out).map(|()| Exit::Clean);
+            }
+            health::render(&outcome, by, palette, &mut out).map(|()| Exit::Clean)
         }
         Command::Graph {
             path,
