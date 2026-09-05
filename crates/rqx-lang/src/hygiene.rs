@@ -343,13 +343,34 @@ impl<'a> Walker<'a> {
     /// A framework that finds its cases by naming convention marks them with an
     /// annotation rather than a call, so both live outside `note_call`.
     fn note_declared_test(&mut self, function: Node<'a>) {
-        let vocabulary: &TestVocabulary = &self.profile.test;
+        let profile = self.profile;
+        let vocabulary: &TestVocabulary = &profile.test;
         let Some(name) = self.function_name(function) else {
             return;
         };
-        let label = self.text(name).to_owned();
+        let mut label = self.text(name).to_owned();
         if !vocabulary.names_a_case(&label) {
             return;
+        }
+        // A framework whose case is a macro puts the name in the arguments, so the
+        // declaration itself is called nothing but the macro.
+        if vocabulary.case_prefixes.contains(&label.as_str())
+            && let Some(list) = crate::tree::find_within(
+                function,
+                profile.parameter_list_kinds,
+                profile.block_kinds,
+            )
+            .into_iter()
+            .next_back()
+        {
+            // The last one is the case; whatever comes before it is the suite.
+            if let Some(spelled) = descendants(list)
+                .into_iter()
+                .filter(|node| profile.is_identifier(*node))
+                .next_back()
+            {
+                label = self.text(spelled).to_owned();
+            }
         }
         for annotation in self.annotations(function) {
             match vocabulary.annotation(&annotation) {
@@ -381,7 +402,7 @@ impl<'a> Walker<'a> {
                     count: 1,
                 });
             }
-            self.note_test_body(body, &label);
+            self.note_test_body(body, &label, true);
         }
     }
 
@@ -454,11 +475,14 @@ impl<'a> Walker<'a> {
                 let arguments = call.child_by_field_name("arguments");
                 let body = arguments.and_then(|list| list.named_child(1));
                 if let Some(body) = body {
-                    let label = arguments
+                    // A framework that takes the case's name as a string gives the
+                    // reader a name; one that takes a bare identifier gives the call.
+                    let written = arguments
                         .and_then(|list| list.named_child(0))
                         .filter(|node| self.profile.string_kinds.contains(&node.kind()))
-                        .map(|node| self.text(node).trim_matches(['"', '\'', '`']).to_owned())
-                        .unwrap_or_else(|| name.clone());
+                        .map(|node| self.text(node).trim_matches(['"', '\'', '`']).to_owned());
+                    let named = written.is_some();
+                    let label = written.unwrap_or_else(|| name.clone());
                     if !self.body_asserts(body) {
                         self.out.assertionless_tests.push(Spot {
                             span: span_of(call),
@@ -466,7 +490,7 @@ impl<'a> Walker<'a> {
                             count: 1,
                         });
                     }
-                    self.note_test_body(body, &label);
+                    self.note_test_body(body, &label, named);
                 }
             }
 
@@ -1673,7 +1697,7 @@ impl<'a> Walker<'a> {
     /// The four questions asked of one test body, wherever that body was found: a
     /// framework that registers a case with a callback and one that names a function
     /// give the same body two shapes and one meaning.
-    fn note_test_body(&mut self, body: Node<'a>, label: &str) {
+    fn note_test_body(&mut self, body: Node<'a>, label: &str, named: bool) {
         let profile = self.profile;
         let mut branches = 0_u32;
         let mut guarded = None;
@@ -1709,6 +1733,13 @@ impl<'a> Walker<'a> {
         let mut seen: HashMap<String, u32> = HashMap::new();
         for text in assertions.into_values() {
             *seen.entry(text).or_default() += 1;
+        }
+        if named && crate::vocabulary::says_nothing(label) {
+            self.out.unnamed_tests.push(Spot {
+                span: span_of(body),
+                detail: label.to_owned(),
+                count: 1,
+            });
         }
         // A test that reaches a database or the network is not testing this code.
         if let Some(reach) = descendants(body).into_iter().find(|node| {
@@ -2688,6 +2719,95 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// A return that hands back several things at once, and a signature that
+    /// declares it does.
+    fn note_many_results(&mut self, returns: Node<'a>) {
+        let profile = self.profile;
+        let Some(value) = returns.named_child(0).map(|node| self.see_through(node)) else {
+            return;
+        };
+        // A list of one is how some grammars spell every return; a list of several is
+        // the function answering with several things.
+        let several = profile.expression_list_kinds.contains(&value.kind())
+            || matches!(value.kind(), "expression_list" | "tuple")
+            || value.kind().contains("array");
+        // A list of records is a collection the caller walks; a run of plain values
+        // is several answers the caller has to know the order of.
+        let positional = value.named_children(&mut value.walk()).all(|element| {
+            let element = self.see_through(element);
+            profile.is_identifier(element)
+                || profile.is_call(element)
+                || profile.is_member_access(element)
+                || profile.number_kinds.contains(&element.kind())
+                || profile.string_kinds.contains(&element.kind())
+        });
+        let handed = if several && positional {
+            value.named_child_count() as u32
+        } else {
+            1
+        };
+        if handed > self.limits.max_results {
+            self.out.many_results.push(Spot {
+                span: span_of(returns),
+                detail: handed.to_string(),
+                count: handed,
+            });
+        }
+    }
+
+    /// A name that answers true or false without asking anything.
+    fn note_unquestioning_name(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(name) = self.function_name(function) else {
+            return;
+        };
+        let text = self.text(name);
+        if crate::vocabulary::asks_a_question(text) {
+            return;
+        }
+        // The answer's own type, not a parameter's: both are annotations under the
+        // function, and only the one after the parameter list says what comes back.
+        let Some(list) =
+            crate::tree::find_within(function, profile.parameter_list_kinds, profile.block_kinds)
+                .into_iter()
+                .next_back()
+        else {
+            return;
+        };
+        let body_at = self
+            .function_body(function)
+            .map_or(usize::MAX, |body| body.start_byte());
+        let declared = descendants(function)
+            .into_iter()
+            .filter(|node| node.start_byte() >= list.end_byte() && node.start_byte() < body_at)
+            .find(|node| {
+                profile.type_annotation_kinds.contains(&node.kind())
+                    || profile.is_identifier(*node)
+                    || profile.binding_identifier_kinds.contains(&node.kind())
+            })
+            .map(|node| self.text(node))
+            .or_else(|| {
+                // A language that writes the answer before the name has it nowhere
+                // after the parameters.
+                function
+                    .child_by_field_name("type")
+                    .map(|node| self.text(node))
+            })
+            .unwrap_or("");
+        let answers_boolean = profile
+            .boolean_type_names
+            .iter()
+            .any(|boolean| declared.split_whitespace().any(|word| word == *boolean));
+        if !answers_boolean {
+            return;
+        }
+        self.out.unquestioning_names.push(Spot {
+            span: span_of(name),
+            detail: text.to_owned(),
+            count: 1,
+        });
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -3345,6 +3465,7 @@ impl<'a> Walker<'a> {
         }
         if profile.is_function(node) {
             self.note_flag_parameters(node);
+            self.note_unquestioning_name(node);
             self.note_declared_test(node);
             if let Some(name) = self.function_name(node) {
                 let text = self.text(name).to_owned();
@@ -3546,6 +3667,9 @@ impl<'a> Walker<'a> {
                     count: self.block_depth,
                 });
             }
+        }
+        if kind == "return_statement" {
+            self.note_many_results(node);
         }
         if kind == "return_statement"
             && let Some(value) = node.named_child(0)

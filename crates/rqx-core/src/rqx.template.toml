@@ -77,6 +77,8 @@ explanation_ratio = 2
 guard_cascade = 3
 sole_author_commits = 6
 hotspot_commits = 12
+cyclomatic_complexity = 12
+max_results = 3
 # Ways out of one function body, past the guard clauses at the top.
 max_exits = 4
 # Arms in one switch before it stops being a table a reader scans.

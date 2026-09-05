@@ -68,3 +68,29 @@ class Crowding {
         }
     }
 }
+
+class Paths {
+    int manyPaths(String kind, java.util.List<Integer> rows) {
+        if (kind.equals("a")) return 1;
+        if (kind.equals("b")) return 2;
+        if (kind.equals("c")) return 3;
+        if (kind.equals("d")) return 4;
+        if (kind.equals("e")) return 5;
+        if (kind.equals("f")) return 6;
+        if (kind.equals("g")) return 7;
+        if (kind.equals("h")) return 8;
+        if (kind.equals("i")) return 9;
+        for (Integer row : rows) {
+            if (row > 0 && row < 10) return row;
+        }
+        while (!rows.isEmpty()) {
+            if (rows.get(0) == 0) break;
+            rows.remove(0);
+        }
+        return 0;
+    }
+
+    int loops(int rows) {
+        return this.loops(rows);
+    }
+}

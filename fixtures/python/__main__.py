@@ -1,4 +1,4 @@
-from .bloat import Catalogue, Formatting, Overgrown, SameAsOvergrown, crowded_scope, deeply_nested, too_many_parameters, widely_guarded
+from .bloat import Catalogue, Formatting, Overgrown, SameAsOvergrown, crowded_scope, deeply_nested, too_many_parameters, widely_guarded, loops, many_paths, spread_out
 from .clean import add, describe
 from .config import endpoint, score
 from .conventions import limits, query, window
@@ -125,6 +125,9 @@ def main():
         many_steps,
         process,
         Overgrown,
+        loops,
+        many_paths,
+        spread_out,
         Ledger,
         open_sessions,
         warm_the_cache,

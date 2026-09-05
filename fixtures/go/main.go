@@ -90,6 +90,9 @@ func main() {
 	_ = fixtures.NewShipment
 	_ = fixtures.Notify
 	_ = fixtures.Overgrown
+	_ = fixtures.ManyPaths
+	_ = fixtures.SpreadOut
+	_ = fixtures.Loops
 	_ = fixtures.StampedAt
 	_ = fixtures.GuardsTheGate
 	_ = fixtures.CrowdedScope

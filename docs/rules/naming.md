@@ -194,3 +194,23 @@ From `fixtures/typescript/names.ts`, line 9:
 
 rqx says: give it a name of this project's own
 
+## `boolean-not-a-question`
+
+a reader has to open it to learn which way round the answer runs, and a name that asks the question says it in one word
+
+| | |
+|---|---|
+| Measures | something answering true or false under a name that is not a question |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Rename Method |
+
+From `fixtures/typescript/flow.ts`, line 1:
+
+```ts
+export function restated(ready: boolean): boolean {
+  if (ready) {
+```
+
+rqx says: name it as the question it answers, so a condition reads as one
+

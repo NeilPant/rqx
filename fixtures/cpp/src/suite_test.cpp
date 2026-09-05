@@ -44,3 +44,7 @@ TEST(Pricing, ReadsTheStore) {
     auto rows = db.query("rows");
     EXPECT_EQ(1, rows);
 }
+
+TEST(Works, Works) {
+    EXPECT_EQ(2, add(1, 1));
+}

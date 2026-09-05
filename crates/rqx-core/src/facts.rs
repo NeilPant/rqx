@@ -16,6 +16,8 @@ pub struct FunctionMetrics {
     pub parameters: u32,
     pub statements: u32,
     pub cognitive_complexity: u32,
+    /// Paths through the body, counted flat: one plus every decision in it.
+    pub cyclomatic_complexity: u32,
     pub max_nesting: u32,
     /// Loops inside loops, counting a callback that runs per element and a
     /// comprehension's clauses. Separate from `max_nesting`, which counts a branch
@@ -134,6 +136,9 @@ pub struct Hygiene {
     pub sequential_awaits: Vec<Spot>,
     pub production_asserts: Vec<Spot>,
     pub real_world_tests: Vec<Spot>,
+    pub many_results: Vec<Spot>,
+    pub unquestioning_names: Vec<Spot>,
+    pub unnamed_tests: Vec<Spot>,
     pub float_equalities: Vec<Spot>,
     pub discarded_expressions: Vec<Spot>,
     pub tiny_switches: Vec<Spot>,
@@ -186,6 +191,7 @@ pub struct Hygiene {
 
 #[derive(Clone, Copy)]
 pub struct Limits {
+    pub max_results: u32,
     pub narrated_run: u32,
     pub explanation_ratio: u32,
     pub guard_cascade: u32,

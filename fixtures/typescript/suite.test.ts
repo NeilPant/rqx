@@ -41,3 +41,7 @@ it("reads the store", async () => {
   const rows = await db.query("rows");
   expect(rows).toBeDefined();
 });
+
+it("works", () => {
+  expect(add(1, 1)).toBe(2);
+});

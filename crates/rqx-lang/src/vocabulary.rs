@@ -414,6 +414,51 @@ fn snake_of(name: &str) -> String {
     out
 }
 
+/// Whether a name reads as a question. A value that answers true or false is read
+/// inside a condition, and a question is what a condition is.
+pub fn asks_a_question(name: &str) -> bool {
+    const OPENERS: [&str; 12] = [
+        "is", "are", "has", "have", "can", "should", "was", "were", "will", "does", "did", "must",
+    ];
+    let first = name
+        .split(['_', '-'])
+        .next()
+        .unwrap_or(name)
+        .trim_start_matches('_');
+    let head: String = first
+        .char_indices()
+        .take_while(|(at, c)| *at == 0 || c.is_lowercase())
+        .map(|(_, c)| c.to_ascii_lowercase())
+        .collect();
+    OPENERS.contains(&head.as_str())
+}
+
+/// A test name that names nothing. The run prints it and the reader is no wiser.
+pub fn says_nothing(label: &str) -> bool {
+    const EMPTY: [&str; 10] = [
+        "test",
+        "tests",
+        "it works",
+        "works",
+        "should work",
+        "case",
+        "todo",
+        "example",
+        "basic",
+        "simple",
+    ];
+    let flat = label.trim().to_lowercase().replace(['_', '-'], " ");
+    // The framework's own prefix is not part of what the author called the case.
+    let bare = flat
+        .trim_start_matches("test")
+        .trim_start_matches(' ')
+        .trim();
+    EMPTY.contains(&flat.as_str())
+        || EMPTY.contains(&bare)
+        || bare.is_empty()
+        || bare.chars().all(|c| c.is_ascii_digit())
+}
+
 /// An apology is a comment that knows the code is wrong and leaves it that way.
 pub fn apology(text: &str) -> Option<&'static str> {
     const REGRETS: [&str; 6] = [

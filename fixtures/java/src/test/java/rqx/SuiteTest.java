@@ -65,6 +65,12 @@ public class SuiteTest {
         }
     }
 
+
+    @Test
+    public void testWorks() {
+        assertEquals(2, new Clean().add(1, 1));
+    }
+
     static void assertEquals(int expected, int actual) {
     }
 }

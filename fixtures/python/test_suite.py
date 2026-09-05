@@ -44,3 +44,7 @@ def test_prints_while_it_runs():
 def test_reads_the_store():
     rows = db.query("rows")
     assert rows is not None
+
+
+def test_works():
+    assert add(1, 1) == 2

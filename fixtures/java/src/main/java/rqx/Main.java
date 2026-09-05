@@ -5,6 +5,8 @@ public class Main {
         new Clean().add(1, 2);
         new Bloat().deeplyNested(java.util.List.of());
         new Overgrown().m1();
+        new Paths().manyPaths("a", java.util.List.of());
+        new Paths().loops(1);
         new Names().guardsTheGate(1);
         new SameAsOvergrown();
         Formatting.pad("a");

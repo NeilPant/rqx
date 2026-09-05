@@ -160,6 +160,36 @@ pub fn check_function(
         );
     }
 
+    if metrics.cyclomatic_complexity > thresholds.cyclomatic_complexity {
+        builder.emit(
+            out,
+            RuleId::CyclomaticComplexity,
+            metrics.report,
+            Evidence::Breadth {
+                counted: "paths through the body".to_owned(),
+                found: metrics.cyclomatic_complexity,
+                limit: thresholds.cyclomatic_complexity,
+            },
+            format!(
+                "split {name} so each part has a number of paths somebody would write tests for"
+            ),
+        );
+    }
+
+    // One decision anywhere is enough to stop it; none at all cannot be.
+    if metrics.self_calls > 0 && metrics.cyclomatic_complexity == 1 {
+        builder.emit(
+            out,
+            RuleId::NoBaseCase,
+            metrics.report,
+            Evidence::Recursion {
+                calls: metrics.self_calls,
+                sampled: None,
+            },
+            format!("give {name} the case that answers without calling itself"),
+        );
+    }
+
     if metrics.self_calls >= 2 && !metrics.memo_guard {
         builder.emit(
             out,
@@ -858,6 +888,43 @@ pub fn check_hygiene(
                 reason: "reaches something outside the process".to_owned(),
             },
             "hand the test something standing in for it, and test the real one once".to_owned(),
+        );
+    }
+    for spot in &hygiene.many_results {
+        emit(
+            out,
+            RuleId::ManyResults,
+            spot,
+            Evidence::Breadth {
+                counted: "values handed back at once".to_owned(),
+                found: spot.count,
+                limit: limits.max_results,
+            },
+            "give them a name apiece by handing back one thing that holds them".to_owned(),
+        );
+    }
+    for spot in &hygiene.unquestioning_names {
+        emit(
+            out,
+            RuleId::BooleanNotAQuestion,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "answers true or false without asking anything".to_owned(),
+            },
+            "name it as the question it answers, so a condition reads as one".to_owned(),
+        );
+    }
+    for spot in &hygiene.unnamed_tests {
+        emit(
+            out,
+            RuleId::UnnamedTest,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "says nothing about what it checks".to_owned(),
+            },
+            "name the behaviour it holds to, so a failing run says what broke".to_owned(),
         );
     }
     for spot in &hygiene.branching_tests {

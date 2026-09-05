@@ -53,3 +53,27 @@ int widely_guarded(int seed) {
         return 0;
     }
 }
+
+int many_paths(int kind, int rows) {
+    if (kind == 1) return 1;
+    if (kind == 2) return 2;
+    if (kind == 3) return 3;
+    if (kind == 4) return 4;
+    if (kind == 5) return 5;
+    if (kind == 6) return 6;
+    if (kind == 7) return 7;
+    if (kind == 8) return 8;
+    if (kind == 9) return 9;
+    for (int at = 0; at < rows; at++) {
+        if (at > 0 && at < 10) return at;
+    }
+    while (rows > 0) {
+        if (rows == 3) break;
+        rows--;
+    }
+    return 0;
+}
+
+int loops(int rows) {
+    return loops(rows);
+}

@@ -47,3 +47,7 @@ func TestReadsTheStore(t *testing.T) {
 	rows := db.Query("rows")
 	require.NotNil(t, rows)
 }
+
+func TestWorks(t *testing.T) {
+	require.Equal(t, Add(1, 1), 2)
+}

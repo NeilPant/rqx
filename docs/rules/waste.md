@@ -563,12 +563,12 @@ it adds a name and a stack frame between a caller and the thing it wanted, and t
 | Reads | the syntax tree alone |
 | Fix | Inline Delegation |
 
-From `fixtures/typescript/gateway-a.ts`, line 3:
+From `fixtures/typescript/bloat.ts`, line 86:
 
 ```ts
 
-export function collectA(amount: number) {
-  return charge(amount);
+export function loops(rows: number[]): number {
+  return loops(rows);
 }
 
 ```

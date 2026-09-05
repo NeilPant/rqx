@@ -142,6 +142,29 @@ it("prints while it runs", () => {
 
 rqx says: assert what you were reading, or delete the line
 
+## `unnamed-test`
+
+a failing run names the test and nothing else, so the name is the whole of what the reader is given before they open the file
+
+| | |
+|---|---|
+| Measures | a test whose name says nothing about what it checks |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Rename Method |
+
+From `fixtures/typescript/suite.test.ts`, line 45:
+
+```ts
+
+it("works", () => {
+  expect(add(1, 1)).toBe(2);
+});
+
+```
+
+rqx says: name the behaviour it holds to, so a failing run says what broke
+
 ## `skipped-test`
 
 a skipped test is a question nobody answered; it reports green forever while the behaviour it named goes unchecked

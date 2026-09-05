@@ -85,6 +85,8 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `guard_cascade` | 3 | `guard-cascade` |
 | `sole_author_commits` | 6 | `single-author-file` |
 | `hotspot_commits` | 12 | `hotspot` |
+| `cyclomatic_complexity` | 12 | `cyclomatic-complexity` |
+| `max_results` | 3 | `many-results` |
 | `max_exits` | 4 | `many-exits` |
 | `max_cases` | 12 | `wide-switch` |
 | `min_cases` | 3 | `tiny-switch` |

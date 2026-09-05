@@ -16,6 +16,9 @@ struct FunctionFrame {
     parameters: u32,
     statements: u32,
     complexity: u32,
+    /// The same decisions, counted flat. Cognitive complexity weighs a nested
+    /// branch more heavily; this one asks only how many paths there are.
+    decisions: u32,
     nesting: u32,
     max_nesting: u32,
     loops: u32,
@@ -65,12 +68,14 @@ impl<'a> MetricsWalker<'a> {
     fn increment(&mut self) {
         if let Some(frame) = self.functions.last_mut() {
             frame.complexity += 1;
+            frame.decisions += 1;
         }
     }
 
     fn increment_with_nesting(&mut self) {
         if let Some(frame) = self.functions.last_mut() {
             frame.complexity += 1 + frame.nesting;
+            frame.decisions += 1;
         }
     }
 
@@ -112,6 +117,7 @@ impl<'a> MetricsWalker<'a> {
             parameters: self.parameter_count(node),
             statements: 0,
             complexity: 0,
+            decisions: 0,
             nesting: 0,
             max_nesting: 0,
             loops: inherited,
@@ -135,6 +141,7 @@ impl<'a> MetricsWalker<'a> {
                 parameters: frame.parameters,
                 statements: frame.statements,
                 cognitive_complexity: frame.complexity,
+                cyclomatic_complexity: frame.decisions + 1,
                 max_nesting: frame.max_nesting,
                 loop_depth: frame.max_loops,
                 self_calls: frame.self_calls,
@@ -168,18 +175,23 @@ impl<'a> MetricsWalker<'a> {
         if self.profile.call_tail(node, self.source) != Some(name) {
             return;
         }
-        let own = node
-            .child_by_field_name(self.profile.callee_field)
-            .is_some_and(|callee| {
-                self.profile.is_identifier(callee)
-                    || callee
-                        .child_by_field_name(self.profile.object_field)
-                        .is_some_and(|object| {
-                            self.profile
-                                .self_names
-                                .contains(&text_of(object, self.source))
-                        })
+        // The receiver decides it, not the shape of the callee: a grammar that keeps
+        // the method name in a field of its own leaves an identifier there whether or
+        // not the call has an object in front of it.
+        let receiver = node
+            .child_by_field_name(self.profile.object_field)
+            .or_else(|| {
+                node.child_by_field_name(self.profile.callee_field)
+                    .filter(|callee| self.profile.is_member_access(*callee))
+                    .and_then(|callee| callee.child_by_field_name(self.profile.object_field))
             });
+        let own = match receiver {
+            None => true,
+            Some(object) => self
+                .profile
+                .self_names
+                .contains(&text_of(object, self.source)),
+        };
         if own && let Some(frame) = self.functions.last_mut() {
             frame.self_calls += 1;
         }

@@ -1196,6 +1196,65 @@ catalogue! {
               written for",
         not_applicable: [(Go, "failure is a returned value, so no block is guarded")],
     },
+    CyclomaticComplexity {
+        slug: "cyclomatic-complexity",
+        category: Size,
+        analysis: Syntax,
+        metric: "paths through one function: one plus every decision in it",
+        fixes: [ExtractMethod, DecomposeConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "it is the number of tests it takes to cover the body, and past a point \
+              nobody writes them, so most of the paths have never run",
+    },
+    ManyResults {
+        slug: "many-results",
+        category: Size,
+        analysis: Syntax,
+        metric: "values handed back by one return",
+        fixes: [IntroduceParameterObject, ExtractClass],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the caller has to know the order to read them, and nothing at either \
+              end says what any of them is",
+        not_applicable: [
+            (Java, "a method answers with one value"),
+            (Cpp, "a function answers with one value"),
+        ],
+    },
+    NoBaseCase {
+        slug: "no-base-case",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a function that calls itself with no decision anywhere in the body",
+        fixes: [DecomposeConditional],
+        confidence: Verified,
+        severity: Error,
+        why: "there is nothing that can stop it, so the first call takes the stack \
+              down with it",
+    },
+    BooleanNotAQuestion {
+        slug: "boolean-not-a-question",
+        category: Naming,
+        analysis: Syntax,
+        metric: "something answering true or false under a name that is not a question",
+        fixes: [RenameMethod],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a reader has to open it to learn which way round the answer runs, and \
+              a name that asks the question says it in one word",
+    },
+    UnnamedTest {
+        slug: "unnamed-test",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a test whose name says nothing about what it checks",
+        fixes: [RenameMethod],
+        confidence: Verified,
+        severity: Info,
+        why: "a failing run names the test and nothing else, so the name is the whole \
+              of what the reader is given before they open the file",
+    },
     ManyLocals {
         slug: "many-locals",
         category: Size,

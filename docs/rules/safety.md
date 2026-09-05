@@ -168,12 +168,12 @@ the body has not started and the reader has read several decisions, none of whic
 | Fix | Introduce Assertion / Introduce Parameter Object |
 | Tuned by | `thresholds.guard_cascade` |
 
-From `fixtures/typescript/hygiene.ts`, line 133:
+From `fixtures/typescript/bloat.ts`, line 63:
 
 ```ts
 
-export function guardedAdd(a: number, b: number, c: number): number {
-  if (a < 0) return 0;
+export function manyPaths(kind: string, rows: number[]): number {
+  if (kind === "a") return 1;
 ```
 
 rqx says: take a type that cannot be wrong, or check once where the values enter
@@ -204,6 +204,27 @@ export function widelyGuarded(seed: number): number {
 ```
 
 rqx says: guard the line that can fail, and let the rest raise
+
+## `no-base-case`
+
+there is nothing that can stop it, so the first call takes the stack down with it
+
+| | |
+|---|---|
+| Measures | a function that calls itself with no decision anywhere in the body |
+| Reported as | error, verified |
+| Reads | the syntax tree alone |
+| Fix | Decompose Conditional |
+
+From `fixtures/typescript/bloat.ts`, line 86:
+
+```ts
+
+export function loops(rows: number[]): number {
+  return loops(rows);
+```
+
+rqx says: give `loops` the case that answers without calling itself
 
 ## `float-equality`
 

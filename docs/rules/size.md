@@ -35,15 +35,15 @@ every nested decision point multiplies the paths a reader has to trace, and untr
 | Fix | Decompose Conditional / Extract Method |
 | Tuned by | `thresholds.cognitive_complexity` |
 
-From `fixtures/typescript/flow.ts`, line 32:
+From `fixtures/typescript/bloat.ts`, line 63:
 
 ```ts
 
-export function buriedExits(a: number, b: number): number {
-  const scale = a * b;
+export function manyPaths(kind: string, rows: number[]): number {
+  if (kind === "a") return 1;
 ```
 
-rqx says: lift the conditions in `buriedExits` into named predicates, then extract the deepest block into its own function
+rqx says: lift the conditions in `manyPaths` into named predicates, then extract the deepest block into its own function
 
 ## `deep-nesting`
 
@@ -253,6 +253,52 @@ From `fixtures/typescript/flow.ts`, line 101:
 ```
 
 rqx says: name the inner steps and call them, so the order they run in is the order they read in
+
+## `cyclomatic-complexity`
+
+it is the number of tests it takes to cover the body, and past a point nobody writes them, so most of the paths have never run
+
+| | |
+|---|---|
+| Measures | paths through one function: one plus every decision in it |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Decompose Conditional |
+| Tuned by | `thresholds.cyclomatic_complexity` |
+
+From `fixtures/typescript/bloat.ts`, line 63:
+
+```ts
+
+export function manyPaths(kind: string, rows: number[]): number {
+  if (kind === "a") return 1;
+```
+
+rqx says: split `manyPaths` so each part has a number of paths somebody would write tests for
+
+## `many-results`
+
+the caller has to know the order to read them, and nothing at either end says what any of them is
+
+| | |
+|---|---|
+| Measures | values handed back by one return |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Parameter Object / Extract Class |
+| Tuned by | `thresholds.max_results` |
+| Not in Java | a method answers with one value |
+| Not in C++ | a function answers with one value |
+
+From `fixtures/typescript/bloat.ts`, line 83:
+
+```ts
+export function spreadOut(rows: number[]): [number, number, number, number] {
+  return [rows.length, rows.length, rows.length, rows.length];
+}
+```
+
+rqx says: give them a name apiece by handing back one thing that holds them
 
 ## `many-locals`
 

@@ -18,7 +18,7 @@ From `fixtures/typescript/index.ts`, line 1:
 
 ```ts
 export { add, describe } from "./clean";
-export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded } from "./bloat";
+export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
 ```
 
 rqx says: clean this one first: whatever is wrong here is paid for on every change

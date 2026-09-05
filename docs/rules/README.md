@@ -6,19 +6,19 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 
 | Family | Rules | |
 |---|---|---|
-| [Size](size.md) | 14 | `long-function` `cognitive-complexity` `deep-nesting` `long-parameter-list` `large-class` `data-clump` `primitive-obsession` `obscured-expression` `many-exits` `wide-switch` `callback-nesting` `many-locals` `wide-try` `oversized-module` |
+| [Size](size.md) | 16 | `long-function` `cognitive-complexity` `deep-nesting` `long-parameter-list` `large-class` `data-clump` `primitive-obsession` `obscured-expression` `many-exits` `wide-switch` `callback-nesting` `cyclomatic-complexity` `many-results` `many-locals` `wide-try` `oversized-module` |
 | [Abstraction](abstraction.md) | 12 | `type-code-switch` `temporary-field` `refused-bequest` `base-depends-on-derived` `inappropriate-static` `temporal-coupling` `alternative-classes` `wide-surface` `abstract-nothing` `empty-subclass` `static-only-class` `working-constructor` |
 | [Change](change.md) | 5 | `hotspot` `single-author-file` `shotgun-surgery` `divergent-change` `parallel-inheritance` |
 | [Waste](waste.md) | 28 | `duplicate-code` `unused-export` `unused-file` `unused-parameter` `unused-local` `unused-private-member` `unreachable-code` `commented-out-code` `lazy-class` `data-class` `speculative-generality` `empty-catch` `magic-number` `mixed-language-file` `distant-declaration` `buried-configuration` `journal-comment` `redundant-comment` `cross-language-duplicate` `return-of-fresh-local` `empty-method` `discarded-expression` `unused-import` `rethrow-only-catch` `placeholder-body` `passthrough-function` `debug-output` `duplicate-import` |
 | [Coupling](coupling.md) | 16 | `circular-dependency` `layer-violation` `forbidden-import` `message-chain` `feature-envy` `middle-man` `inappropriate-intimacy` `deep-relative-import` `mutable-module-state` `ambient-dependency` `self-built-collaborators` `import-time-work` `reaches-into-private` `wildcard-import` `wide-fan-out` `wide-fan-in` |
 | [Flow](flow.md) | 16 | `redundant-else` `collapsible-if` `boolean-from-branch` `literal-comparison` `self-comparison` `identical-branches` `empty-block` `duplicate-condition` `silent-fallthrough` `nested-ternary` `ambiguous-precedence` `negated-comparison` `no-default-branch` `loop-runs-once` `redundant-jump` `tiny-switch` |
-| [Naming](naming.md) | 9 | `mixed-conventions` `vague-function-name` `misleading-pattern-name` `inconsistent-vocabulary` `meaningless-name` `short-name-wide-scope` `hungarian-notation` `negated-name` `shadows-builtin` |
-| [Safety](safety.md) | 22 | `imprecise-type` `boundary-arithmetic` `query-with-side-effect` `assignment-in-condition` `closure-over-loop-variable` `mutated-while-iterated` `production-assert` `guard-cascade` `blanket-try` `float-equality` `mixed-return` `exit-from-finally` `catch-all-handler` `generic-throw` `library-exit` `boolean-literal-argument` `unjustified-suppression` `suppressed-diagnostic` `flag-argument` `output-parameter` `complex-condition` `negative-conditional` |
-| [Tests](tests.md) | 9 | `slow-test` `real-world-test` `branching-test` `duplicate-assertion` `hand-rolled-throws` `debug-output-in-test` `skipped-test` `focused-test` `assertionless-test` |
+| [Naming](naming.md) | 10 | `mixed-conventions` `vague-function-name` `misleading-pattern-name` `inconsistent-vocabulary` `meaningless-name` `short-name-wide-scope` `hungarian-notation` `negated-name` `shadows-builtin` `boolean-not-a-question` |
+| [Safety](safety.md) | 23 | `imprecise-type` `boundary-arithmetic` `query-with-side-effect` `assignment-in-condition` `closure-over-loop-variable` `mutated-while-iterated` `production-assert` `guard-cascade` `blanket-try` `no-base-case` `float-equality` `mixed-return` `exit-from-finally` `catch-all-handler` `generic-throw` `library-exit` `boolean-literal-argument` `unjustified-suppression` `suppressed-diagnostic` `flag-argument` `output-parameter` `complex-condition` `negative-conditional` |
+| [Tests](tests.md) | 10 | `slow-test` `real-world-test` `branching-test` `duplicate-assertion` `hand-rolled-throws` `debug-output-in-test` `unnamed-test` `skipped-test` `focused-test` `assertionless-test` |
 | [Noise](noise.md) | 8 | `comment-per-line` `explanation-longer-than-code` `docstring-restates-signature` `banner-comment` `chat-residue` `apology-comment` `emoji-in-source` `example-value` |
 | [Performance](performance.md) | 10 | `loop-concatenation` `sequential-await` `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` |
 
-149 rules in total. 16 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
+154 rules in total. 16 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
 
 - `primitive-obsession`
 - `divergent-change`
