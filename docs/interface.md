@@ -40,9 +40,11 @@ Everything in it is in the palette too, by name. The menu is for reading what th
 is; `ctrl-p` is for when you already know.
 
 **Set up writes to disk**, which is why it is a group of its own rather than three
-entries mixed in with the views. Each one says what it did, in green under the
-list, and refuses rather than overwriting: a baseline that already exists wants
-`rqx baseline --update`, and an `RQX.toml` that already exists is left alone.
+entries mixed in with the views. Each one says what it did on the footer line —
+which is on every screen, so running one from the palette answers where you are
+rather than where the menu is — and clears on the next key. None of them
+overwrites: a baseline that already exists wants `rqx baseline --update`, and an
+`RQX.toml` that already exists is left alone.
 
 ## The tabs
 

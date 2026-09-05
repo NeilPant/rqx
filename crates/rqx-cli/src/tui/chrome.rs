@@ -226,6 +226,19 @@ impl Chrome<'_> {
             height: 1,
             ..frame.area()
         };
+        // A command that wrote to disk says so here, on the one line that is on every
+        // screen, until the next key — a message anywhere else is one the reader has
+        // to already be looking at.
+        if let Some(notice) = &self.session.notice {
+            frame.render_widget(
+                Paragraph::new(Line::styled(
+                    format!(" {notice}"),
+                    Style::new().fg(palette.color(Ink::Good)),
+                )),
+                area,
+            );
+            return Vec::new();
+        }
         let mut spans = Vec::new();
         let mut hits = Vec::new();
         let mut x = area.x;

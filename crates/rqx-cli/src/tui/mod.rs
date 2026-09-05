@@ -515,6 +515,11 @@ impl App {
     }
 
     fn handle(&mut self, key: KeyEvent) {
+        // Any key clears it, so the answer to "what did that do" is on screen until
+        // the reader has moved on and never after.
+        if self.session.notice.take().is_some() {
+            self.dirty = true;
+        }
         if let Some(commands) = &mut self.commands {
             if let Some(chosen) = commands.handle(key, &self.session) {
                 self.commands = None;
