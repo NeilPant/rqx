@@ -765,9 +765,15 @@ not.
 
 **`ctrl-p` opens the palette.** Type a few letters of anything — a tab, a
 command, a file in the scan, a rule to explain — and it is the first row. It is
-how `complexity` gets found without reading a menu of twenty-eight subcommands.
-`recommend`, `suppressions`, `patterns`, `techniques` and `levels` open in a
-reading pane through the same functions the command line calls.
+how `complexity` gets found without reading a list of twenty-seven subcommands.
+`recommend`, `suppressions`, `techniques` and `levels` open in a reading pane
+through the same functions the command line calls.
+
+`esc` returns to the menu, which is the map: **Analyse**, **Browse**, **Report**,
+**Set up** and **Session**, with that group's entries beside it. `←`/`→` change
+group, `↑`/`↓` move within one, `enter` runs. Set up is the three commands that
+write a file — `RQX.toml`, a baseline, clearing the cache — kept in a group of
+their own and each saying what it did.
 
 `tab` cycles the nine tabs and `1`–`9` jump to one. `r` scans, `w` watches and
 re-analyses on every save, `/` searches, `f` filters by rule, family and path in

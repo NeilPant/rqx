@@ -8,8 +8,7 @@ use ratatui::widgets::{
 };
 
 use crate::brand::{ColorDepth, Ink, Palette};
-use crate::tui::app::{Nav, Screen, Session, global, wheel};
-use crate::tui::palette::Page;
+use crate::tui::app::{Nav, Page, Screen, Session, global, wheel};
 
 /// The analyses that answer with prose rather than with a table to move around in.
 /// They already render to a `Write`, so this asks them for their answer with colour
@@ -52,19 +51,14 @@ fn render(page: Page, session: &Session) -> anyhow::Result<String> {
     match page {
         Page::Techniques => crate::report::techniques(plain, &mut out)?,
         Page::Levels => crate::report::levels(plain, &mut out)?,
-        _ => {
+        Page::Recommend | Page::Suppressions => {
             let Some(outcome) = &session.outcome else {
                 return Ok("\n  nothing scanned yet \u{2014} press r\n".to_owned());
             };
-            match page {
-                Page::Recommend => {
-                    crate::recommend::render(outcome, &session.config, None, plain, &mut out)?;
-                }
-                Page::Suppressions => {
-                    crate::report::waivers(&session.path, outcome, false, plain, &mut out)?
-                }
-                Page::Patterns => crate::report::advice(outcome, plain, &mut out)?,
-                Page::Techniques | Page::Levels => unreachable!("answered above"),
+            if page == Page::Recommend {
+                crate::recommend::render(outcome, &session.config, None, plain, &mut out)?;
+            } else {
+                crate::report::waivers(&session.path, outcome, false, plain, &mut out)?;
             }
         }
     }

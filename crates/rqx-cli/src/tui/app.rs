@@ -33,7 +33,91 @@ pub enum Nav {
     Review(String),
     /// Show one file's findings: the Files screen's answer to "what is wrong here".
     Inspect(String),
+    /// Open one rule in the catalogue.
+    Explain(String),
+    /// Run an analysis whose answer is prose, and show what it printed.
+    Read(Page),
+    /// Write something to disk, and say what happened.
+    Do(Task),
     Quit,
+}
+
+/// The commands that change a file rather than answer a question. Kept apart from
+/// the rest because each one needs its result said out loud: a menu entry that
+/// silently wrote to disk would be the wrong kind of quiet.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Task {
+    Baseline,
+    WriteConfig,
+    ClearCache,
+}
+
+impl Task {
+    pub const fn title(self) -> &'static str {
+        match self {
+            Self::Baseline => "Record a baseline",
+            Self::WriteConfig => "Write RQX.toml",
+            Self::ClearCache => "Clear the cache",
+        }
+    }
+
+    pub const fn about(self) -> &'static str {
+        match self {
+            Self::Baseline => "the debt there is now, so a gate judges only what a change adds",
+            Self::WriteConfig => "every setting at its default, commented, for you to edit",
+            Self::ClearCache => "throw away what the last scans remembered",
+        }
+    }
+}
+
+/// An analysis whose answer is a page of text rather than a table to move around in.
+/// Every one of them already renders to a `Write`, so the interface asks for the same
+/// answer the command line prints rather than building a second one.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Page {
+    Recommend,
+    Suppressions,
+    Techniques,
+    Levels,
+}
+
+impl Page {
+    pub const ALL: [Self; 4] = [
+        Self::Recommend,
+        Self::Suppressions,
+        Self::Techniques,
+        Self::Levels,
+    ];
+
+    /// The command's own name, which is what the palette matches on.
+    pub const fn title(self) -> &'static str {
+        match self {
+            Self::Recommend => "recommend",
+            Self::Suppressions => "suppressions",
+            Self::Techniques => "techniques",
+            Self::Levels => "levels",
+        }
+    }
+
+    /// The menu reads as a list of things to do rather than as a list of commands,
+    /// so it capitalises them the way the tabs are capitalised.
+    pub const fn menu_title(self) -> &'static str {
+        match self {
+            Self::Recommend => "Recommend",
+            Self::Suppressions => "Waivers",
+            Self::Techniques => "Techniques",
+            Self::Levels => "Levels",
+        }
+    }
+
+    pub const fn about(self) -> &'static str {
+        match self {
+            Self::Recommend => "what to do about this project, not what is wrong with it",
+            Self::Suppressions => "every finding a comment waives, and why",
+            Self::Techniques => "every refactoring rqx prescribes",
+            Self::Levels => "what each cleanliness level changes",
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -126,6 +210,8 @@ pub struct Session {
     pub refreshing: bool,
     pub watching: bool,
     pub failure: Option<String>,
+    /// What the last thing that wrote to disk did. Shown until the next one runs.
+    pub notice: Option<String>,
     /// What the last scan was: a whole project, or a diff against a revision.
     pub base: Option<String>,
     /// The files a review covers. `None` means the run was a whole-project scan and
@@ -223,6 +309,7 @@ impl Session {
             refreshing: false,
             watching: false,
             failure: None,
+            notice: None,
             base: None,
             reviewed: None,
             verdict: None,

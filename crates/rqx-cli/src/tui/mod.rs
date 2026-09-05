@@ -31,7 +31,7 @@ use crate::scan::{self, ScanOutcome, ScanProgress};
 use app::{Nav, Screen, Session, Tab};
 use chrome::{Chrome, Hits, Landing};
 use motion::Motion;
-use palette::{Choice, CommandPalette};
+use palette::CommandPalette;
 use sprite::Sprite;
 
 const MASCOT: &str = include_str!("../../assets/mascot.txt");
@@ -375,23 +375,50 @@ impl App {
         changed
     }
 
-    /// What the palette picked. Everything it can pick is something a key could
-    /// already do, so this routes rather than acts.
-    fn choose(&mut self, choice: Choice) {
-        match choice {
-            Choice::Go(tab) => self.apply(Nav::To(tab)),
-            Choice::Nav(nav) => self.apply(nav),
-            Choice::File(file) => self.apply(Nav::Inspect(file)),
-            Choice::Read(page) => {
-                self.reader.show(page, &self.session);
-                self.mode = Mode::Reading;
-                self.dirty = true;
+    /// Each one writes and says what it wrote. None of them scan: the baseline
+    /// records the findings on screen, which is the set the reader just looked at
+    /// rather than a second one taken behind their back.
+    fn run_task(&mut self, task: app::Task) -> anyhow::Result<String> {
+        let root = &self.session.path;
+        match task {
+            app::Task::Baseline => {
+                let Some(outcome) = &self.session.outcome else {
+                    anyhow::bail!("nothing scanned yet \u{2014} press r first");
+                };
+                let path = crate::baseline::path_of(
+                    root,
+                    self.session.config.config.gate.baseline.as_deref(),
+                );
+                if path.exists() {
+                    anyhow::bail!(
+                        "{} already exists; `rqx baseline --update` takes it again",
+                        path.display()
+                    );
+                }
+                let taken = crate::baseline::Baseline::of(outcome);
+                let recorded = taken.len();
+                taken.write(&path)?;
+                Ok(format!(
+                    "recorded {recorded} findings in {}",
+                    path.display()
+                ))
             }
-            Choice::Rule(slug) => {
-                self.rules.only(&slug);
-                self.mode = Mode::Browsing(Tab::Rules);
-                self.dirty = true;
+            app::Task::WriteConfig => {
+                let path = root.join(rqx_core::config::CONFIG_FILE_NAME);
+                if path.exists() {
+                    anyhow::bail!("{} is already there", path.display());
+                }
+                std::fs::write(&path, rqx_core::config::TEMPLATE)?;
+                Ok(format!(
+                    "wrote {} \u{2014} every value is the default",
+                    path.display()
+                ))
             }
+            app::Task::ClearCache => Ok(if crate::cache::clear(root)? {
+                "the cache is gone; the next scan reads every file".to_owned()
+            } else {
+                "there was no cache to clear".to_owned()
+            }),
         }
     }
 
@@ -399,8 +426,8 @@ impl App {
         if let Some(commands) = &mut self.commands {
             if let Some(chosen) = commands.click(event) {
                 self.commands = None;
-                if let Some(choice) = chosen {
-                    self.choose(choice);
+                if let Some(nav) = chosen {
+                    self.apply(nav);
                 }
             }
             self.dirty = true;
@@ -467,6 +494,23 @@ impl App {
                 self.mode = Mode::Browsing(Tab::Findings);
                 self.dirty = true;
             }
+            Nav::Explain(slug) => {
+                self.rules.only(&slug);
+                self.mode = Mode::Browsing(Tab::Rules);
+                self.dirty = true;
+            }
+            Nav::Read(page) => {
+                self.reader.show(page, &self.session);
+                self.mode = Mode::Reading;
+                self.dirty = true;
+            }
+            Nav::Do(task) => {
+                self.session.notice = Some(match self.run_task(task) {
+                    Ok(said) => said,
+                    Err(error) => format!("{error:#}"),
+                });
+                self.dirty = true;
+            }
         }
     }
 
@@ -474,8 +518,8 @@ impl App {
         if let Some(commands) = &mut self.commands {
             if let Some(chosen) = commands.handle(key, &self.session) {
                 self.commands = None;
-                if let Some(choice) = chosen {
-                    self.choose(choice);
+                if let Some(nav) = chosen {
+                    self.apply(nav);
                 }
             }
             self.dirty = true;
@@ -733,6 +777,7 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
             refreshing: false,
             watching: false,
             failure: None,
+            notice: None,
             base: None,
             reviewed: None,
             verdict: None,

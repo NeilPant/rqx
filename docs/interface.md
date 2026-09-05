@@ -17,6 +17,33 @@ A filter given on the command line opens the interface already filtered, so
 
 `rqx check` never goes interactive. It exists for its exit code.
 
+## The menu
+
+`rqx` opens on it, and `esc` from anywhere returns to it. It is the map: five
+groups on the left, that group's entries on the right, and one line above them
+saying what the group is for.
+
+| Group | Holds |
+|---|---|
+| Analyse | Scan, Review a diff, Refresh, Watch |
+| Browse | the nine tabs |
+| Report | Recommend, Waivers, Techniques, Levels |
+| Set up | Write RQX.toml, Record a baseline, Clear the cache |
+| Session | Settings, Quit |
+
+`←`/`→` and `tab` move between groups, `1`–`5` jump to one, `↑`/`↓` move within it,
+`enter` runs. The digit picks the group rather than the entry, because a group's
+entries move with the session — watching toggles its own label — and a number that
+meant something different each run is no number.
+
+Everything in it is in the palette too, by name. The menu is for reading what there
+is; `ctrl-p` is for when you already know.
+
+**Set up writes to disk**, which is why it is a group of its own rather than three
+entries mixed in with the views. Each one says what it did, in green under the
+list, and refuses rather than overwriting: a baseline that already exists wants
+`rqx baseline --update`, and an `RQX.toml` that already exists is left alone.
+
 ## The tabs
 
 | # | Tab | Shows |
@@ -51,6 +78,7 @@ is where a thing looked at once belongs.
 | `x` | waive the selected finding, with a reason |
 | `enter` | open the finding in `$EDITOR`, or open a row's file |
 | `,` | the resolved settings |
+| `1`–`5` in the menu | jump to a group |
 | `?` | the keys of the screen you are on |
 | `esc` | step back |
 | `q` | leave, and print what the session found |
@@ -62,9 +90,10 @@ every file in the last scan and every rule in the catalogue, and narrows as you
 type: `cplx` reaches Complexity, `recomm` reaches the recommendations. `enter`
 runs the row, `esc` closes.
 
-`recommend`, `suppressions`, `patterns`, `techniques` and `levels` have no screen
-of their own and do not need one — the palette opens them in a reading pane,
-rendered by the same functions the command line calls, with colour off.
+`recommend`, `suppressions`, `techniques` and `levels` have no screen of their own
+and do not need one — the palette and the menu open them in a reading pane,
+rendered by the same functions the command line calls, with colour off. The three
+commands that write a file are in it too, under their own names.
 
 ## The mouse
 

@@ -32,6 +32,9 @@ Notable changes. Dates are when the change landed on `main`.
   capture off where drag-select matters more. [docs](docs/interface.md)
 - **A command palette** on `ctrl-p`: every tab, command, file and rule, narrowing
   as you type.
+- **A menu that holds every command**, in five groups — Analyse, Browse, Report,
+  Set up and Session — rather than the five flat entries it had. `RQX.toml`, a
+  baseline and clearing the cache can be run from it.
 - **Three new screens** — Complexity (and bottlenecks), Graph (the cycle rings and
   the imports) and Health (and slop) — from data the scan already produced.
 - **`rqx scan` opens the interface** when it has a terminal and nothing about the

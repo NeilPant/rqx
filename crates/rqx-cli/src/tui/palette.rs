@@ -13,58 +13,13 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragra
 
 use crate::brand::{Ink, Palette};
 
-use super::app::{Nav, Session, Tab, is_press, row_at, wheel};
+use super::app::{Nav, Page, Session, Tab, Task, is_press, row_at, wheel};
 use super::chrome::centred;
-
-/// What choosing a row does.
-#[derive(Clone, PartialEq, Eq)]
-pub enum Choice {
-    Go(Tab),
-    Nav(Nav),
-    /// Run an analysis that has no screen and show what it prints.
-    Read(Page),
-    /// Open one file's findings.
-    File(String),
-    /// Explain one rule, in the catalogue.
-    Rule(String),
-}
-
-/// An analysis whose answer is a page of text rather than a table to move around in.
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum Page {
-    Recommend,
-    Suppressions,
-    Patterns,
-    Techniques,
-    Levels,
-}
-
-impl Page {
-    pub const fn title(self) -> &'static str {
-        match self {
-            Self::Recommend => "recommend",
-            Self::Suppressions => "suppressions",
-            Self::Patterns => "patterns",
-            Self::Techniques => "techniques",
-            Self::Levels => "levels",
-        }
-    }
-
-    const fn about(self) -> &'static str {
-        match self {
-            Self::Recommend => "what to do about this project, not what is wrong with it",
-            Self::Suppressions => "every finding a comment waives, and why",
-            Self::Patterns => "which design patterns are half applied, and where one fits",
-            Self::Techniques => "every refactoring rqx prescribes",
-            Self::Levels => "what each cleanliness level changes",
-        }
-    }
-}
 
 struct Entry {
     label: String,
     about: String,
-    choice: Choice,
+    nav: Nav,
 }
 
 /// The lines above the first row inside the overlay: the top border, then the input,
@@ -97,19 +52,19 @@ impl CommandPalette {
             .map(|tab| Entry {
                 label: tab.title().to_owned(),
                 about: tab.promise().to_owned(),
-                choice: Choice::Go(*tab),
+                nav: Nav::To(*tab),
             })
             .collect();
 
         entries.push(Entry {
             label: "scan".to_owned(),
             about: "analyse the whole project again".to_owned(),
-            choice: Choice::Nav(Nav::Scan),
+            nav: Nav::Scan,
         });
         entries.push(Entry {
             label: "refresh".to_owned(),
             about: "re-analyse only what changed on disk".to_owned(),
-            choice: Choice::Nav(Nav::Refresh),
+            nav: Nav::Refresh,
         });
         entries.push(Entry {
             label: if session.watching {
@@ -118,25 +73,26 @@ impl CommandPalette {
                 "watch".to_owned()
             },
             about: "re-analyse on every save".to_owned(),
-            choice: Choice::Nav(Nav::Watch),
+            nav: Nav::Watch,
         });
         entries.push(Entry {
             label: "quit".to_owned(),
             about: "leave the interface".to_owned(),
-            choice: Choice::Nav(Nav::Quit),
+            nav: Nav::Quit,
         });
 
-        for page in [
-            Page::Recommend,
-            Page::Suppressions,
-            Page::Patterns,
-            Page::Techniques,
-            Page::Levels,
-        ] {
+        for page in Page::ALL {
             entries.push(Entry {
                 label: page.title().to_owned(),
                 about: page.about().to_owned(),
-                choice: Choice::Read(page),
+                nav: Nav::Read(page),
+            });
+        }
+        for task in [Task::WriteConfig, Task::Baseline, Task::ClearCache] {
+            entries.push(Entry {
+                label: task.title().to_lowercase(),
+                about: task.about().to_owned(),
+                nav: Nav::Do(task),
             });
         }
 
@@ -149,7 +105,7 @@ impl CommandPalette {
                 entries.push(Entry {
                     label: file.clone(),
                     about: "open this file's findings".to_owned(),
-                    choice: Choice::File(file.clone()),
+                    nav: Nav::Inspect(file.clone()),
                 });
             }
         }
@@ -158,7 +114,7 @@ impl CommandPalette {
             entries.push(Entry {
                 label: format!("explain {}", spec.slug),
                 about: spec.why.to_owned(),
-                choice: Choice::Rule(spec.slug.to_owned()),
+                nav: Nav::Explain(spec.slug.to_owned()),
             });
         }
         entries
@@ -187,13 +143,13 @@ impl CommandPalette {
         ));
     }
 
-    fn chosen(&self) -> Option<Choice> {
-        Some(self.shown.get(self.state.selected()?)?.choice.clone())
+    fn chosen(&self) -> Option<Nav> {
+        Some(self.shown.get(self.state.selected()?)?.nav.clone())
     }
 
     /// `None` means the palette stays open. `Some(None)` means it closes with nothing
     /// chosen; `Some(Some(choice))` means it closes and that happens.
-    pub fn handle(&mut self, key: KeyEvent, session: &Session) -> Option<Option<Choice>> {
+    pub fn handle(&mut self, key: KeyEvent, session: &Session) -> Option<Option<Nav>> {
         match key.code {
             KeyCode::Esc => Some(None),
             KeyCode::Enter => Some(self.chosen()),
@@ -227,7 +183,7 @@ impl CommandPalette {
         }
     }
 
-    pub fn click(&mut self, event: MouseEvent) -> Option<Option<Choice>> {
+    pub fn click(&mut self, event: MouseEvent) -> Option<Option<Nav>> {
         if let Some(rows) = wheel(event) {
             self.step(rows);
             return None;
