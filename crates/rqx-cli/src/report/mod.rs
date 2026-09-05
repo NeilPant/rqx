@@ -41,6 +41,47 @@ pub use patterns::{
 pub use ranked::{json as plan_json, render as plan};
 pub use waivers::{json as waivers_json, render as waivers};
 
+/// Where a scan spent its time. Printed above the report rather than inside it, so
+/// no reporter's format has to grow a field nothing else wants.
+pub fn timings(
+    outcome: &ScanOutcome,
+    palette: crate::brand::Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    use crate::brand::{Ink, paint};
+    let dim = palette.style(Ink::Muted);
+    let total: u128 = outcome.timings.iter().map(|(_, took)| took).sum();
+    let width = outcome
+        .timings
+        .iter()
+        .map(|(stage, _)| stage.len())
+        .max()
+        .unwrap_or(0)
+        .max("total".len());
+    writeln!(
+        out,
+        "\n  {}",
+        paint(palette.style(Ink::Text).bold(), "Timings")
+    )?;
+    for (stage, took) in &outcome.timings {
+        if *took == 0 {
+            continue;
+        }
+        let share = took
+            .checked_mul(100)
+            .and_then(|of| of.checked_div(total))
+            .unwrap_or(0);
+        writeln!(
+            out,
+            "    {stage:<width$} {:>6}ms  {}",
+            took,
+            paint(dim, "\u{2588}".repeat((share / 4).max(1) as usize))
+        )?;
+    }
+    writeln!(out, "    {:<width$} {total:>6}ms", "total")?;
+    Ok(())
+}
+
 /// A misspelling is the common case, and a list of sixty slugs is not an answer to
 /// one. Shared so every "no such thing" error in the tool reads the same way.
 pub fn unknown(kind: &str, named: &str, known: &[&str], hint: &str) -> anyhow::Error {
@@ -371,6 +412,7 @@ pub mod tests {
             shape_by_file: BTreeMap::new(),
             suppressed: Vec::new(),
             baseline_size: None,
+            timings: Vec::new(),
             omitted: 0,
             code_lines: 10_000,
             files_scanned,

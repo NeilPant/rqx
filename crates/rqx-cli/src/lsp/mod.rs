@@ -1,4 +1,5 @@
 mod commands;
+mod dashboard;
 mod diagnostics;
 mod protocol;
 mod worker;
@@ -23,7 +24,7 @@ use serde::Deserialize;
 use crate::config::Resolved;
 use diagnostics::Publisher;
 use protocol::{Encoding, path_from_uri};
-use worker::{Job, Refused, Worker};
+use worker::{Job, Refused, Task, Worker};
 
 /// Kept because an editor built against it before the server grew standard commands
 /// still sends it, and a request that stops being answered looks like a crash.
@@ -56,6 +57,7 @@ pub struct Server {
     scan_on_save: bool,
     publisher: Arc<Publisher>,
     worker: Worker,
+    dashboard: dashboard::Dashboard,
 }
 
 impl Server {
@@ -113,14 +115,38 @@ impl Server {
         );
     }
 
+    /// Answered by the dashboard once it knows its address, so the editor keeps
+    /// hovering and saving while the page's own first scan runs.
+    pub fn dashboard(&mut self, reply_to: RequestId) {
+        self.dashboard.request(
+            &self.root,
+            self.explicit_config.as_deref(),
+            &self.publisher,
+            reply_to,
+        );
+    }
+
     pub fn review(&self, base: &str, reply_to: Option<RequestId>) -> Option<Refused> {
+        self.run(
+            Task::Review {
+                base: base.to_owned(),
+            },
+            reply_to,
+        )
+    }
+
+    pub fn run(&self, task: Task, reply_to: Option<RequestId>) -> Option<Refused> {
         self.worker.request(Job {
             config: self.config.clone(),
             reply_to,
             patterns: self.patterns,
-            base: Some(base.to_owned()),
+            task,
             dirty: self.dirty(),
         })
+    }
+
+    pub fn last_outcome(&self) -> Option<Arc<crate::scan::ScanOutcome>> {
+        self.publisher.last_outcome()
     }
 
     /// Files the editor holds unsaved, so a background scan does not republish them
@@ -180,7 +206,8 @@ impl Server {
             },
         };
         let findings = self.analyze(&path, &source);
-        self.publisher.publish(&relative, &source, findings, &[]);
+        self.publisher
+            .publish(&relative, &source, findings, &[], &self.config);
     }
 
     /// Cross-file rules cannot be answered from one open file, so the workspace is
@@ -188,13 +215,7 @@ impl Server {
     /// client that does not know rqx's custom request sees every rule but the
     /// project-scoped eight and is told nothing about those.
     fn scan(&self, reply_to: Option<RequestId>) -> Option<Refused> {
-        self.worker.request(Job {
-            config: self.config.clone(),
-            reply_to,
-            patterns: self.patterns,
-            base: None,
-            dirty: self.dirty(),
-        })
+        self.run(Task::Scan, reply_to)
     }
 
     fn hover(&self, params: &HoverParams) -> Option<Hover> {
@@ -316,6 +337,7 @@ pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync +
         scan_on_save: options.scan_on_save.unwrap_or(true),
         worker: Worker::spawn(Arc::clone(&publisher)),
         publisher,
+        dashboard: dashboard::Dashboard::default(),
     };
 
     // `initialize_finish` returns only once the client has sent `initialized`, and it

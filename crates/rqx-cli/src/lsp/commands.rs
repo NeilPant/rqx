@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 
 use super::Server;
 use super::protocol::{range_at, uri_of};
+use super::worker::Task;
 use crate::report::projection;
 
 pub const SCAN: &str = "rqx.scan";
@@ -26,6 +27,16 @@ pub const DISABLE_CATEGORY: &str = "rqx.disableCategory";
 pub const TOGGLE_PATTERNS: &str = "rqx.togglePatterns";
 pub const TOGGLE_CODE_LENS: &str = "rqx.toggleCodeLens";
 pub const DASHBOARD: &str = "rqx.dashboard";
+pub const FIX: &str = "rqx.fix";
+pub const PLAN: &str = "rqx.plan";
+pub const VERIFY: &str = "rqx.verify";
+pub const BASELINE: &str = "rqx.baseline";
+pub const SUPPRESS: &str = "rqx.suppress";
+pub const CONFIG: &str = "rqx.config";
+pub const FINDINGS: &str = "rqx.findings";
+
+static FIX_ALL: std::sync::LazyLock<CodeActionKind> =
+    std::sync::LazyLock::new(|| CodeActionKind::new("source.fixAll.rqx"));
 
 pub fn names() -> Vec<String> {
     [
@@ -39,6 +50,13 @@ pub fn names() -> Vec<String> {
         TOGGLE_PATTERNS,
         TOGGLE_CODE_LENS,
         DASHBOARD,
+        FIX,
+        PLAN,
+        VERIFY,
+        BASELINE,
+        SUPPRESS,
+        CONFIG,
+        FINDINGS,
     ]
     .iter()
     .map(|name| (*name).to_owned())
@@ -98,53 +116,168 @@ pub fn execute(server: &mut Server, params: &ExecuteCommandParams, id: RequestId
         }
         // The dashboard is one page, served by one process, so every editor shows the
         // same thing rather than each carrying its own half of it.
-        DASHBOARD => match dashboard(server.root()) {
-            Ok(url) => Outcome::Answered(json!({ "url": url })),
-            Err(reason) => Outcome::Answered(json!({ "error": reason })),
-        },
+        DASHBOARD => {
+            server.dashboard(id);
+            Outcome::Deferred
+        }
+        FIX => deferred(server.run(
+            Task::Fix {
+                write: as_bool(first).unwrap_or(false),
+                only: strings(params.arguments.get(1)).into_iter().collect(),
+            },
+            Some(id),
+        )),
+        VERIFY => deferred(server.run(
+            Task::Verify {
+                base: as_str(first).unwrap_or("origin/HEAD").to_owned(),
+                expect: strings(params.arguments.get(1)),
+            },
+            Some(id),
+        )),
+        BASELINE => deferred(server.run(
+            Task::Baseline {
+                update: as_bool(first).unwrap_or(false),
+            },
+            Some(id),
+        )),
+        PLAN => Outcome::Answered(plan(server, first, params.arguments.get(1))),
+        SUPPRESS => Outcome::Answered(suppress(server, first)),
+        CONFIG => Outcome::Answered(projection::config(server.settings())),
+        FINDINGS => Outcome::Answered(findings(server, first)),
         _ => Outcome::Unknown,
     }
 }
 
-/// Starts `rqx serve` and reads back the address it bound. A failure comes back in
-/// the answer rather than as a protocol error, because the client asked for a URL and
-/// "why there isn't one" is the useful reply. The child outlives this
-/// request on purpose: the page is the point, and a server that died with the command
-/// that asked for it would close the tab it just opened.
-fn dashboard(root: &std::path::Path) -> Result<String, String> {
-    use std::io::{BufRead, BufReader};
-    use std::process::{Command as Process, Stdio};
+fn deferred(refused: Option<super::Refused>) -> Outcome {
+    match refused {
+        Some(refused) => Outcome::Refused(refused),
+        None => Outcome::Deferred,
+    }
+}
 
-    let binary = std::env::current_exe().map_err(|error| error.to_string())?;
-    let mut child = Process::new(binary)
-        .arg("serve")
-        .arg(root)
-        .args(["--addr", "127.0.0.1:0"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|error| format!("cannot start the dashboard: {error}"))?;
+fn as_bool(value: Option<&Value>) -> Option<bool> {
+    value.and_then(Value::as_bool)
+}
 
-    let stdout = child.stdout.take().ok_or("the dashboard said nothing")?;
-    let mut line = String::new();
-    BufReader::new(stdout)
-        .read_line(&mut line)
-        .map_err(|error| error.to_string())?;
-    line.split_whitespace()
-        .find(|word| word.starts_with("http://"))
-        .map(ToOwned::to_owned)
-        .ok_or_else(|| format!("the dashboard did not name an address: {}", line.trim()))
+fn strings(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn field<'a>(object: Option<&'a Value>, name: &str) -> Option<&'a Value> {
+    object.and_then(|object| object.get(name))
+}
+
+/// Answered from the last scan rather than by scanning: a plan is a ranking of what
+/// is already known, and asking for one should not cost a rescan.
+fn plan(server: &Server, budget: Option<&Value>, limit: Option<&Value>) -> Value {
+    let Some(outcome) = server.last_outcome() else {
+        return json!({ "error": "nothing scanned yet" });
+    };
+    let budget = budget.and_then(Value::as_u64).map(|value| value as u32);
+    let limit = limit
+        .and_then(Value::as_u64)
+        .map_or(20, |value| value as usize);
+    projection::plan(&outcome, budget, limit)
+}
+
+fn findings(server: &Server, query: Option<&Value>) -> Value {
+    let Some(outcome) = server.last_outcome() else {
+        return json!({ "error": "nothing scanned yet" });
+    };
+    // Serde already knows the lowercase labels the CLI and the report use.
+    let severity = field(query, "severity").and_then(|value| {
+        serde_json::from_value::<rqx_core::finding::Severity>(value.clone()).ok()
+    });
+    let mut paths = strings(field(query, "glob"));
+    if let Some(file) = as_str(field(query, "file")) {
+        paths.push(file.to_owned());
+    }
+    let filter = match crate::report::FindingFilter::new(
+        severity,
+        &strings(field(query, "rule")),
+        &strings(field(query, "category")),
+        &paths,
+    ) {
+        Ok(filter) => filter,
+        Err(error) => return json!({ "error": format!("{error:#}") }),
+    };
+    projection::findings(&outcome, &filter, server.settings())
+}
+
+/// A waiver is a comment in the source, so like disabling a rule it is an edit the
+/// client applies rather than a file this server writes behind the editor's back.
+fn suppress(server: &Server, request: Option<&Value>) -> Value {
+    let Some(file) = as_str(field(request, "file")) else {
+        return json!({ "error": "rqx.suppress needs a file" });
+    };
+    let Some(rule) = as_str(field(request, "rule")) else {
+        return json!({ "error": "rqx.suppress needs a rule" });
+    };
+    let Some(reason) = as_str(field(request, "reason")).filter(|reason| !reason.trim().is_empty())
+    else {
+        return json!({ "error": "a waiver needs a reason, or rqx will not honour it" });
+    };
+    let line = field(request, "line")
+        .and_then(Value::as_u64)
+        .map_or(1, |line| line as u32);
+    let whole_file = as_bool(field(request, "wholeFile")).unwrap_or(false);
+    let until = as_str(field(request, "until"));
+
+    let path = server.root().join(file);
+    let Some(language) = rqx_core::Language::of_path(&path) else {
+        return json!({ "error": format!("`{file}` is not a language rqx reads") });
+    };
+    let Some(source) = server.text_of(&path) else {
+        return json!({ "error": format!("cannot read `{file}`") });
+    };
+    let Some(waiver) =
+        rqx_core::suppress::waiver(&source, language, line, rule, reason, until, whole_file)
+    else {
+        return json!({ "error": "the waiver could not be written; check the date is YYYY-MM-DD" });
+    };
+    let Some(uri) = uri_of(&path) else {
+        return json!({ "error": format!("`{file}` has no URI") });
+    };
+    let edit = WorkspaceEdit {
+        changes: Some(
+            [(
+                uri,
+                vec![TextEdit {
+                    range: at(waiver.line - 1, 0),
+                    new_text: waiver.text,
+                }],
+            )]
+            .into_iter()
+            .collect(),
+        ),
+        ..WorkspaceEdit::default()
+    };
+    server.apply_edit(format!("rqx: waive `{rule}`"), edit);
+    json!({ "suppressed": rule, "file": file, "at": waiver.line })
 }
 
 fn as_str(value: Option<&Value>) -> Option<&str> {
     value.and_then(Value::as_str)
 }
 
+/// A rule or a pattern: an editor asking about the slug on a pattern hint gets the
+/// pattern's page rather than an error nobody sees.
 fn explain(argument: Option<&Value>) -> Value {
     let Some(slug) = as_str(argument) else {
         return json!({ "error": "rqx.explain needs a rule slug" });
     };
-    projection::rule(slug).unwrap_or_else(|| json!({ "error": format!("no rule called `{slug}`") }))
+    projection::rule(slug)
+        .or_else(|| projection::pattern(slug))
+        .unwrap_or_else(|| json!({ "error": format!("no rule or pattern called `{slug}`") }))
 }
 
 /// The command path has to ask the client to apply the edit itself. A code action can
@@ -174,7 +307,11 @@ fn disable(server: &Server, argument: Option<&Value>, family: bool) -> Value {
 fn config_edit(path: &PathBuf, name: &str) -> Option<WorkspaceEdit> {
     let uri = uri_of(path)?;
     let existing = std::fs::read_to_string(path).ok();
-    let edit = insertion(existing.as_deref().unwrap_or_default(), name)?;
+    let insertion = crate::config::disable_entry(existing.as_deref().unwrap_or_default(), name)?;
+    let edit = TextEdit {
+        range: at(insertion.line, insertion.column),
+        new_text: insertion.text,
+    };
 
     // `changes` cannot create a file, so a project with no RQX.toml — the default —
     // would silently apply nothing.
@@ -200,79 +337,6 @@ fn config_edit(path: &PathBuf, name: &str) -> Option<WorkspaceEdit> {
         document_changes: Some(DocumentChanges::Operations(operations)),
         ..WorkspaceEdit::default()
     })
-}
-
-/// Finds `disabled = [...]` under `[rules]` and inserts into it, adds the key under an
-/// existing `[rules]`, or appends the whole table — in that order, because a second
-/// `[rules]` header is a TOML error rather than a merge. A shape it cannot read safely
-/// yields nothing, since a wrong edit leaves the project with an `RQX.toml` that no
-/// longer parses.
-fn insertion(source: &str, name: &str) -> Option<TextEdit> {
-    let mut in_rules = false;
-    let mut rules_header: Option<u32> = None;
-    for (number, line) in source.lines().enumerate() {
-        let body = line.trim_start();
-        if body.starts_with('[') {
-            in_rules = body.trim_end().starts_with("[rules]");
-            if in_rules {
-                if rules_header.is_some() {
-                    return None;
-                }
-                rules_header = Some(number as u32);
-            }
-            continue;
-        }
-        if !in_rules {
-            continue;
-        }
-        let Some(rest) = body.strip_prefix("disabled") else {
-            continue;
-        };
-        let Some(open) = rest.find('[') else { continue };
-        // An array spread over several lines cannot be edited by looking at one of
-        // them, and falling through to the append branch would write a second
-        // `disabled` key — a duplicate key, which stops the whole file parsing.
-        let close = rest.find(']')?;
-
-        let entries = &rest[open + 1..close];
-        if entries
-            .split(',')
-            .any(|entry| entry.trim().trim_matches(['"', '\'']) == name)
-        {
-            return None;
-        }
-
-        let indent = line.len() - body.len();
-        let column = (indent + "disabled".len() + open + 1) as u32;
-        let text = if entries.trim().is_empty() {
-            format!("\"{name}\"")
-        } else {
-            format!("\"{name}\", ")
-        };
-        return Some(TextEdit {
-            range: at(number as u32, column),
-            new_text: text,
-        });
-    }
-
-    match rules_header {
-        Some(line) => Some(TextEdit {
-            range: at(line + 1, 0),
-            new_text: format!("disabled = [\"{name}\"]\n"),
-        }),
-        None => {
-            let lines = source.lines().count() as u32;
-            let separator = if source.is_empty() || source.ends_with('\n') {
-                ""
-            } else {
-                "\n"
-            };
-            Some(TextEdit {
-                range: at(lines, 0),
-                new_text: format!("{separator}\n[rules]\ndisabled = [\"{name}\"]\n"),
-            })
-        }
-    }
 }
 
 fn at(line: u32, character: u32) -> Range {
@@ -358,45 +422,78 @@ fn source_fixes(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrC
         .display()
         .to_string();
 
+    let edits_of = |plan: &rqx_core::edit::Resolution| -> Vec<TextEdit> {
+        plan.kept
+            .iter()
+            .map(|edit| TextEdit {
+                range: range_at(
+                    &index,
+                    server.encoding(),
+                    &span_range(&index, &fixable[0].location.file, edit.span),
+                ),
+                new_text: edit.replacement.clone(),
+            })
+            .collect()
+    };
+    let proven = |findings: &[rqx_core::finding::Finding]| -> Option<Vec<TextEdit>> {
+        let plan = rewriter.plan(findings, &settings.for_file(&path).fix);
+        if plan.is_empty()
+            || rewriter
+                .verify(&display, settings.for_file(&path), &fixable, &plan)
+                .is_err()
+        {
+            return None;
+        }
+        Some(edits_of(&plan))
+    };
+    let edit_for = |edits: Vec<TextEdit>| WorkspaceEdit {
+        changes: Some(
+            [(params.text_document.uri.clone(), edits)]
+                .into_iter()
+                .collect(),
+        ),
+        ..WorkspaceEdit::default()
+    };
+
+    // A fix-all request wants the whole file done in one round trip — the same
+    // per-file round `rqx fix` runs — not one action per finding for the client to
+    // apply first and re-request.
+    if wants_fix_all(params) {
+        return proven(&fixable)
+            .map(|edits| {
+                vec![source_action(
+                    "rqx: fix everything in this file".to_owned(),
+                    edit_for(edits),
+                )]
+            })
+            .unwrap_or_default();
+    }
+
     let mut actions = Vec::new();
     for finding in &fixable {
         let range = range_at(&index, server.encoding(), &finding.location);
         if range.end < requested.start || range.start > requested.end {
             continue;
         }
-        let plan = rewriter.plan(std::slice::from_ref(finding), &settings.for_file(&path).fix);
-        if plan.is_empty()
-            || rewriter
-                .verify(&display, settings.for_file(&path), &fixable, &plan)
-                .is_err()
-        {
+        let Some(edits) = proven(std::slice::from_ref(finding)) else {
             continue;
-        }
-        let edits: Vec<TextEdit> = plan
-            .kept
-            .iter()
-            .map(|edit| TextEdit {
-                range: range_at(
-                    &index,
-                    server.encoding(),
-                    &span_range(&index, &finding.location.file, edit.span),
-                ),
-                new_text: edit.replacement.clone(),
-            })
-            .collect();
+        };
         actions.push(source_action(
             format!("rqx: fix `{}`", finding.slug()),
-            WorkspaceEdit {
-                changes: Some(
-                    [(params.text_document.uri.clone(), edits)]
-                        .into_iter()
-                        .collect(),
-                ),
-                ..WorkspaceEdit::default()
-            },
+            edit_for(edits),
         ));
     }
     actions
+}
+
+/// A client asking with `only` set to a fix-all kind — on save, or from a "fix this
+/// file" command — is asking for the file, not for the cursor's line.
+fn wants_fix_all(params: &CodeActionParams) -> bool {
+    params.context.only.as_ref().is_some_and(|kinds| {
+        kinds
+            .iter()
+            .any(|kind| FIX_ALL.as_str().starts_with(kind.as_str()))
+    })
 }
 
 fn span_range(
@@ -425,12 +522,12 @@ fn action(title: String, edit: WorkspaceEdit) -> CodeActionOrCommand {
     })
 }
 
-/// Tagged `source.fixAll` as well as quick fix, so an editor can run every one of
-/// them on save without offering the config actions alongside.
+/// A child of `source.fixAll`, so `codeActionsOnSave` matches it under either name while
+/// a client asking for `source.fixAll.rqx` gets rqx's edits and nobody else's.
 fn source_action(title: String, edit: WorkspaceEdit) -> CodeActionOrCommand {
     CodeActionOrCommand::CodeAction(CodeAction {
         title,
-        kind: Some(CodeActionKind::SOURCE_FIX_ALL),
+        kind: Some(FIX_ALL.clone()),
         edit: Some(edit),
         ..CodeAction::default()
     })
@@ -440,95 +537,58 @@ fn source_action(title: String, edit: WorkspaceEdit) -> CodeActionOrCommand {
 mod tests {
     use super::*;
 
-    /// Applies the edit the way a client would, then parses the result — an edit that
-    /// produces a file `RQX.toml` cannot read is worse than no quick fix at all.
-    fn applied(source: &str, name: &str) -> String {
-        let edit = insertion(source, name).expect("an edit");
-        let mut lines: Vec<String> = source.lines().map(str::to_owned).collect();
-        let line = edit.range.start.line as usize;
-        while lines.len() <= line {
-            lines.push(String::new());
+    fn asking_for(kinds: &[&str]) -> CodeActionParams {
+        CodeActionParams {
+            text_document: lsp_types::TextDocumentIdentifier {
+                uri: "file:///tmp/a.ts".parse().expect("a uri"),
+            },
+            range: Range::default(),
+            context: lsp_types::CodeActionContext {
+                diagnostics: Vec::new(),
+                only: (!kinds.is_empty()).then(|| {
+                    kinds
+                        .iter()
+                        .map(|kind| CodeActionKind::from((*kind).to_owned()))
+                        .collect()
+                }),
+                trigger_kind: None,
+            },
+            work_done_progress_params: lsp_types::WorkDoneProgressParams::default(),
+            partial_result_params: lsp_types::PartialResultParams::default(),
         }
-        let column = (edit.range.start.character as usize).min(lines[line].len());
-        lines[line].insert_str(column, &edit.new_text);
-        let out = lines.join("\n");
-        out.parse::<toml::Table>()
-            .unwrap_or_else(|error| panic!("the edit broke the file: {error}\n{out}"));
-        out
     }
 
+    /// `source.fixAll` is the parent kind an editor asks for on save and
+    /// `source.fixAll.rqx` is what a "fix this file" command asks for. Both mean the
+    /// whole file; a request with no `only` is the cursor asking about its own line.
     #[test]
-    fn an_empty_array_gains_the_first_entry() {
-        let out = applied("[rules]\ndisabled = []\n", "magic-number");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
+    fn a_fix_all_request_is_recognised_under_either_name() {
+        assert!(wants_fix_all(&asking_for(&["source.fixAll"])));
+        assert!(wants_fix_all(&asking_for(&["source.fixAll.rqx"])));
+        assert!(wants_fix_all(&asking_for(&["source"])));
+        assert!(!wants_fix_all(&asking_for(&["quickfix"])));
+        assert!(!wants_fix_all(&asking_for(&[])));
     }
 
+    /// Answering another extension's fix-all with our edits would apply changes the
+    /// client never asked for.
     #[test]
-    fn a_populated_array_keeps_what_was_there() {
-        let out = applied("[rules]\ndisabled = [\"long-function\"]\n", "magic-number");
+    fn another_extensions_fix_all_is_not_ours() {
+        assert!(!wants_fix_all(&asking_for(&["source.fixAll.eslint"])));
+    }
+
+    /// Every command the server advertises has to be one `execute` can dispatch, or
+    /// a client binds a key to a method-not-found.
+    #[test]
+    fn every_advertised_command_is_namespaced() {
+        let names = names();
         assert!(
-            out.contains("disabled = [\"magic-number\", \"long-function\"]"),
-            "{out}"
+            names.iter().all(|name| name.starts_with("rqx.")),
+            "{names:?}"
         );
-    }
-
-    /// The template writes a line of prose above every key, so an edit that dropped
-    /// comments would silently delete the explanation of the setting being changed.
-    #[test]
-    fn comments_survive_the_edit() {
-        let source = "# why this table exists\n[rules]\n# slugs or families\ndisabled = []\n";
-        let out = applied(source, "magic-number");
-        assert!(out.contains("# why this table exists"), "{out}");
-        assert!(out.contains("# slugs or families"), "{out}");
-    }
-
-    #[test]
-    fn a_file_without_the_table_gains_one() {
-        let out = applied("[scan]\nthreads = 4\n", "magic-number");
-        assert!(out.contains("[rules]"), "{out}");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
-    }
-
-    #[test]
-    fn a_rule_already_disabled_is_not_added_twice() {
-        assert!(insertion("[rules]\ndisabled = [\"magic-number\"]\n", "magic-number").is_none());
-    }
-
-    /// The name appearing anywhere in the file used to count as already-disabled, so a
-    /// commented-out example silently swallowed the quick fix.
-    #[test]
-    fn a_name_mentioned_elsewhere_does_not_count_as_disabled() {
-        let source = "# e.g. disabled = [\"magic-number\"]\n[rules]\ndisabled = []\n";
-        let out = applied(source, "magic-number");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
-    }
-
-    /// A multi-line array cannot be edited from one line, and falling through to the
-    /// append branch wrote a second `disabled` key — a duplicate that stops `RQX.toml`
-    /// parsing at all.
-    #[test]
-    fn a_multi_line_array_is_left_alone_rather_than_duplicated() {
-        let source = "[rules]\ndisabled = [\n  \"long-function\",\n]\n";
-        assert!(insertion(source, "magic-number").is_none());
-    }
-
-    /// The insert column came from a two-sided trim, so a trailing space moved it past
-    /// the closing bracket and produced `disabled = []\"magic-number\"`.
-    #[test]
-    fn trailing_whitespace_does_not_move_the_insert_point() {
-        let out = applied("[rules]\n  disabled = []   \n", "magic-number");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
-    }
-
-    #[test]
-    fn a_second_rules_table_is_refused_rather_than_guessed_at() {
-        assert!(insertion("[rules]\nenabled = []\n[a]\nx = 1\n[rules]\n", "x").is_none());
-    }
-
-    #[test]
-    fn a_file_with_no_trailing_newline_keeps_its_last_line() {
-        let out = applied("[scan]\nthreads = 4", "magic-number");
-        assert!(out.contains("threads = 4"), "{out}");
-        assert!(out.contains("[rules]"), "{out}");
+        let mut sorted = names.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), names.len(), "a command is advertised twice");
     }
 }

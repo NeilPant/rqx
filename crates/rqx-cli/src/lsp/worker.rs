@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver as Ticks, SyncSender};
@@ -17,26 +17,50 @@ use crate::scan::{self, ScanOutcome, ScanProgress};
 
 use super::diagnostics::{FileFacts, Publisher};
 
+#[derive(Clone)]
 pub struct Job {
     pub config: Resolved,
     /// Set when a client asked for the scan and is waiting on a reply; unset for the
     /// scans the server runs on its own after startup and after a save.
     pub reply_to: Option<RequestId>,
     pub patterns: bool,
-    /// Set to review a diff instead of the whole project. The scan is the same either
-    /// way — narrowing it would invent dead-export findings the full graph disproves —
-    /// only the slice that gets published and judged changes.
-    pub base: Option<String>,
+    pub task: Task,
     /// Files the editor holds unsaved. Their diagnostics belong to the buffer the user
     /// can see, so a scan reading them back off disk would republish findings at the
     /// wrong lines.
     pub dirty: Vec<String>,
 }
 
-impl Job {
-    const fn is_review(&self) -> bool {
-        self.base.is_some()
+/// What the worker is asked to do. A review is a scan that narrows what it reports
+/// on — narrowing the scan itself would invent dead-export findings the full graph
+/// disproves — and the rest are the CLI's other commands, run off the message loop
+/// because each one scans.
+#[derive(Clone)]
+pub enum Task {
+    Scan,
+    Review { base: String },
+    Fix { write: bool, only: BTreeSet<String> },
+    Verify { base: String, expect: Vec<String> },
+    Baseline { update: bool },
+}
+
+impl Task {
+    /// Which waiting slot this task competes for: two scans answer one question, two
+    /// reviews another, and the actions a person asked for by name a third.
+    const fn slot(&self) -> Slot {
+        match self {
+            Self::Scan => Slot::Scan,
+            Self::Review { .. } => Slot::Review,
+            Self::Fix { .. } | Self::Verify { .. } | Self::Baseline { .. } => Slot::Action,
+        }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Slot {
+    Scan,
+    Review,
+    Action,
 }
 
 /// Scanning happens off the message loop because a full scan of a large repository
@@ -58,6 +82,17 @@ pub enum Refused {
 struct Pending {
     scan: Option<Job>,
     review: Option<Job>,
+    action: Option<Job>,
+}
+
+impl Pending {
+    fn slot(&mut self, slot: Slot) -> &mut Option<Job> {
+        match slot {
+            Slot::Scan => &mut self.scan,
+            Slot::Review => &mut self.review,
+            Slot::Action => &mut self.action,
+        }
+    }
 }
 
 pub struct Worker {
@@ -80,9 +115,14 @@ impl Worker {
                     // channel is already full, and a job left behind would wait for a
                     // wake that never comes.
                     while let Some(job) = take(&pending) {
-                        match job.base.clone() {
-                            Some(base) => run_check(&publisher, &job, &base),
-                            None => run(&publisher, &job),
+                        match job.task.clone() {
+                            Task::Scan => run(&publisher, &job),
+                            Task::Review { base } => run_check(&publisher, &job, &base),
+                            Task::Fix { write, only } => run_fix(&publisher, &job, write, only),
+                            Task::Verify { base, expect } => {
+                                run_verify(&publisher, &job, &base, &expect);
+                            }
+                            Task::Baseline { update } => run_baseline(&publisher, &job, update),
                         }
                     }
                 }
@@ -108,14 +148,9 @@ impl Worker {
                 .pending
                 .lock()
                 .expect("the pending slots are only swapped");
-            let slot = if job.is_review() {
-                &mut pending.review
-            } else {
-                &mut pending.scan
-            };
             // A waiting job of this kind would answer the same question against older
             // state, so the newer request takes its place.
-            slot.replace(job)
+            pending.slot(job.task.slot()).replace(job)
         };
         // A full wake channel means the worker has one queued already and will look at
         // `pending` again before sleeping, so a dropped wake loses nothing.
@@ -128,11 +163,82 @@ impl Worker {
     }
 }
 
-/// Reviews before scans: a review is always something a person just asked for, while a
-/// scan is usually the one that follows a save.
+/// Actions and reviews before scans: those are always something a person just asked
+/// for, while a scan is usually the one that follows a save.
 fn take(pending: &Mutex<Pending>) -> Option<Job> {
     let mut pending = pending.lock().expect("the pending slots are only swapped");
-    pending.review.take().or_else(|| pending.scan.take())
+    pending
+        .action
+        .take()
+        .or_else(|| pending.review.take())
+        .or_else(|| pending.scan.take())
+}
+
+fn reply(publisher: &Publisher, job: &Job, value: serde_json::Value) {
+    if let Some(id) = job.reply_to.clone() {
+        publisher.send(Message::Response(Response::new_ok(id, value)));
+    }
+}
+
+/// A preview answers with the edits and the text either side; a write puts them on
+/// disk and then runs the ordinary scan, so the diagnostics and the report catch up
+/// the same way they would after a save.
+fn run_fix(publisher: &Arc<Publisher>, job: &Job, write: bool, only: BTreeSet<String>) {
+    let options = crate::fix::Options {
+        write,
+        max_rounds: if write { 3 } else { 1 },
+        only,
+    };
+    match crate::fix::run(publisher.root(), &job.config, options) {
+        Ok(outcome) => {
+            reply(publisher, job, projection::fixes(&outcome, !write));
+            if write {
+                run(
+                    publisher,
+                    &Job {
+                        reply_to: None,
+                        ..job.clone()
+                    },
+                );
+            }
+        }
+        Err(error) => reply(publisher, job, json!({ "error": format!("{error:#}") })),
+    }
+}
+
+fn run_verify(publisher: &Arc<Publisher>, job: &Job, base: &str, expect: &[String]) {
+    match crate::verify::verify(publisher.root(), &job.config, base, expect) {
+        Ok(verified) => reply(publisher, job, projection::verified(&verified)),
+        Err(error) => reply(publisher, job, json!({ "error": format!("{error:#}") })),
+    }
+}
+
+/// Followed by a scan, because every finding just became `known` and the squiggles
+/// and the panel should say so.
+fn run_baseline(publisher: &Arc<Publisher>, job: &Job, update: bool) {
+    match crate::baseline::take(publisher.root(), &job.config, update, false) {
+        Ok(taken) => {
+            reply(
+                publisher,
+                job,
+                json!({
+                    "path": taken.path,
+                    "recorded": taken.recorded,
+                    "findings": taken.findings,
+                    "replaced": taken.replaced,
+                    "configured": taken.configured,
+                }),
+            );
+            run(
+                publisher,
+                &Job {
+                    reply_to: None,
+                    ..job.clone()
+                },
+            );
+        }
+        Err(error) => reply(publisher, job, json!({ "error": format!("{error:#}") })),
+    }
 }
 
 impl Drop for Worker {
@@ -166,12 +272,7 @@ fn run(publisher: &Arc<Publisher>, job: &Job) {
     );
 
     let Some(outcome) = outcome else {
-        if let Some(id) = job.reply_to.clone() {
-            publisher.send(Message::Response(Response::new_ok(
-                id,
-                json!({ "error": "scan failed" }),
-            )));
-        }
+        reply(publisher, job, json!({ "error": "scan failed" }));
         return;
     };
 
@@ -183,27 +284,26 @@ fn run(publisher: &Arc<Publisher>, job: &Job) {
         Clear::Stale,
     );
 
+    let outcome = Arc::new(outcome);
     let report = Report::everything(&outcome);
     publisher.set_facts(facts_of(&report, &outcome));
     let health = projection::health(&report, &outcome);
     publisher.notify("rqx/health", health.clone());
     publisher.notify("rqx/report", projection::scan(&report, &outcome));
+    publisher.remember(outcome);
     publisher.refresh_lenses();
-    if let Some(id) = job.reply_to.clone() {
-        publisher.send(Message::Response(Response::new_ok(id, health)));
-    }
+    reply(publisher, job, health);
 }
 
 /// A review scans the whole project and narrows only what it reports on, because an
 /// export looks dead until the file that imports it is parsed.
 fn run_check(publisher: &Arc<Publisher>, job: &Job, base: &str) {
-    let reply = |value: serde_json::Value| {
-        if let Some(id) = job.reply_to.clone() {
-            publisher.send(Message::Response(Response::new_ok(id, value)));
-        }
-    };
     let Ok(review) = check::review(publisher.root(), &job.config, base) else {
-        reply(json!({ "error": format!("could not review against `{base}`") }));
+        reply(
+            publisher,
+            job,
+            json!({ "error": format!("could not review against `{base}`") }),
+        );
         return;
     };
     let verdict = check::judge(&review, &job.config.config);
@@ -234,15 +334,15 @@ fn run_check(publisher: &Arc<Publisher>, job: &Job, base: &str) {
             "elapsedMs": review.outcome.elapsed_ms,
         }),
     );
-    reply(json!({
-        "base": base,
-        "reviewedFiles": review.reviewed.len(),
-        "reviewedFindings": review.findings().count(),
-        "countedAgainstGate": verdict.counted,
-        "passed": verdict.passed(),
-        "failures": verdict.failures,
-        "health": report.health(),
-    }));
+    let judgement = projection::review(&review, &verdict);
+    // The review scanned the whole project to answer its narrower question, so the
+    // panel gets a fresh report rather than going stale until the next save.
+    let everything = Report::everything(&review.outcome);
+    let mut fresh = projection::scan(&everything, &review.outcome);
+    fresh["review"] = judgement.clone();
+    publisher.notify("rqx/report", fresh);
+    publisher.remember(Arc::new(review.outcome));
+    reply(publisher, job, judgement);
 }
 
 fn scan_reporting(
@@ -341,6 +441,7 @@ fn republish<'a>(
             &source,
             by_file.remove(*file).unwrap_or_default(),
             &advice_by_file.remove(*file).unwrap_or_default(),
+            &job.config,
         );
     }
 

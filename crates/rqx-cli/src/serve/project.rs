@@ -25,7 +25,7 @@ struct Cached {
     message: ScanMessage,
 }
 
-#[derive(Clone, Copy, serde::Serialize)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct Tick {
     pub at: u64,
     pub health: u32,
@@ -71,7 +71,7 @@ impl Project {
             history,
             read_history_at: Instant::now(),
             outcome,
-            trend: VecDeque::new(),
+            trend: trend::read(root),
         };
         let seen = project.walk()?;
         project.analyse(&seen);
@@ -81,6 +81,19 @@ impl Project {
 
     pub fn outcome(&self) -> Arc<ScanOutcome> {
         Arc::clone(&self.outcome)
+    }
+
+    /// New settings mean every file's findings may have moved — a threshold is part
+    /// of the analysis — so everything is analysed again, not only what changed.
+    pub fn reload(&mut self, settings: Resolved) {
+        self.settings = settings;
+        let all: BTreeMap<PathBuf, Stamp> = self
+            .files
+            .iter()
+            .map(|(path, cached)| (path.clone(), cached.stamp))
+            .collect();
+        self.analyse(&all);
+        self.rebuild();
     }
 
     pub fn trend(&self) -> Vec<Tick> {
@@ -228,16 +241,67 @@ impl Project {
         let findings = outcome.counts.total;
         self.outcome = Arc::new(outcome);
 
-        if self.trend.len() == TREND_POINTS {
-            self.trend.pop_front();
-        }
-        self.trend.push_back(Tick {
+        let tick = Tick {
             at: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .map_or(0, |since| since.as_secs()),
             health,
             findings,
-        });
+        };
+        if self.trend.len() == TREND_POINTS {
+            self.trend.pop_front();
+        }
+        self.trend.push_back(tick);
+        trend::append(&self.root, tick);
+    }
+}
+
+/// The session's trend, kept beside the cache so the sparkline still has yesterday
+/// in it after the server restarts. Best effort: a project that cannot be written
+/// to still gets its in-memory trend.
+mod trend {
+    use std::collections::VecDeque;
+    use std::io::Write;
+    use std::path::{Path, PathBuf};
+
+    use super::{TREND_POINTS, Tick};
+
+    const FILE: &str = "trend.jsonl";
+
+    fn path(root: &Path) -> PathBuf {
+        root.join(crate::cache::CACHE_DIRECTORY).join(FILE)
+    }
+
+    pub fn read(root: &Path) -> VecDeque<Tick> {
+        let Ok(text) = std::fs::read_to_string(path(root)) else {
+            return VecDeque::new();
+        };
+        let ticks: Vec<Tick> = text
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+        ticks.into_iter().rev().take(TREND_POINTS).rev().collect()
+    }
+
+    pub fn append(root: &Path, tick: Tick) {
+        let path = path(root);
+        let Some(directory) = path.parent() else {
+            return;
+        };
+        if std::fs::create_dir_all(directory).is_err() {
+            return;
+        }
+        let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        else {
+            return;
+        };
+        let Ok(line) = serde_json::to_string(&tick) else {
+            return;
+        };
+        let _ = writeln!(file, "{line}");
     }
 }
 

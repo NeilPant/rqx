@@ -476,6 +476,70 @@ section + section {
   grid-template-columns: 26px 1fr 152px 64px 56px;
 }
 
+.row-rules {
+  grid-template-columns: 8px 186px 1fr 44px auto;
+}
+
+.row-waivers {
+  grid-template-columns: 8px 160px 1fr 108px 132px;
+}
+
+.row-config {
+  grid-template-columns: 200px 1fr 150px;
+}
+
+.row-config[data-default="true"] {
+  color: var(--muted-foreground);
+}
+
+/* A virtualised list computes its window from this height, so it has to be exactly
+   what the row draws — padding included. */
+.rows-virtual .row {
+  height: 40px;
+  padding-block: 0;
+}
+
+/* ── groups ────────────────────────────────────────────────────────────── */
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.group-head {
+  display: grid;
+  grid-template-columns: 18px 1fr 48px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.group-head:hover {
+  background: var(--muted);
+}
+
+.group-caret {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.group .rows {
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
+}
+
 .path {
   font-size: 12.5px;
   overflow: hidden;
@@ -598,8 +662,101 @@ section + section {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 18%, transparent);
 }
 
+.select {
+  padding: 5px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--input);
+  background: var(--card);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--ring);
+}
+
+.chip.small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.link {
+  color: var(--primary);
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
 input[type="range"] {
   accent-color: var(--primary);
+}
+
+/* ── what a write came back with ──────────────────────────────────────── */
+
+.notice {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 12.5px;
+}
+
+.notice.good {
+  border-color: color-mix(in srgb, var(--ink-good) 45%, var(--border));
+}
+
+.notice.bad {
+  border-color: color-mix(in srgb, var(--ink-danger) 45%, var(--border));
+}
+
+.toast {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 40;
+  max-width: 420px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 14px 40px rgb(0 0 0 / 34%);
+  font-size: 12.5px;
+}
+
+.toast.good {
+  border-color: color-mix(in srgb, var(--ink-good) 55%, var(--border));
+}
+
+.toast.bad {
+  border-color: color-mix(in srgb, var(--ink-danger) 55%, var(--border));
+}
+
+/* ── graph ─────────────────────────────────────────────────────────────── */
+
+.graph {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.graph svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.graph .node {
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.graph .node:hover {
+  opacity: 0.72;
 }
 
 /* ── treemap ───────────────────────────────────────────────────────────── */

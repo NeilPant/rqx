@@ -13,6 +13,7 @@ mod brand;
 mod cache;
 mod check;
 mod config;
+mod edit_config;
 mod fix;
 mod history;
 mod lsp;
@@ -170,6 +171,13 @@ enum Command {
         /// Open the dashboard in your browser
         #[arg(long)]
         open: bool,
+        /// Where "open in editor" links go. `{path}`, `{line}` and `{column}` are
+        /// filled in; the default opens VS Code.
+        #[arg(long, default_value = "vscode://file/{path}:{line}:{column}")]
+        editor_url: String,
+        /// Serve the page without its fix, waive, disable and baseline buttons
+        #[arg(long)]
+        read_only: bool,
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -243,6 +251,11 @@ enum Command {
         threads: Option<usize>,
         #[arg(long)]
         config: Option<PathBuf>,
+    },
+    /// Show what the analysis cache holds, or throw it away
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
     },
     /// Run a tree-sitter query over a project, to try one out before writing it into
     /// a `[[rule]]`
@@ -329,6 +342,8 @@ enum Command {
         standard: Standard,
         #[arg(long)]
         config: Option<PathBuf>,
+        #[command(subcommand)]
+        action: Option<ConfigAction>,
     },
     /// Run as an MCP server, so an AI agent can ask what a project's problems are
     Mcp {
@@ -411,6 +426,9 @@ struct View {
     /// Print the summary without the findings
     #[arg(short, long)]
     quiet: bool,
+    /// Print how long each stage of the scan took
+    #[arg(long)]
+    timings: bool,
     /// Lines of code shown either side of a finding
     #[arg(long, default_value_t = 2)]
     context: u32,
@@ -424,6 +442,49 @@ struct View {
 /// Overrides for `[gate]` in `RQX.toml`. The same repository often wants a strict
 /// gate on its default branch and a lenient one everywhere else, which a committed
 /// config file cannot express.
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// Write one setting, keeping the file's comments and layout
+    Set {
+        /// The setting, as `table.key` — `thresholds.max_params`, `gate.fail_on`
+        key: String,
+        value: String,
+        /// Which file to write. Without it, the file that already holds the setting,
+        /// else the nearest `RQX.toml`.
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Choose the file from the ones this project reads
+        #[arg(long, conflicts_with = "file")]
+        pick: bool,
+    },
+    /// Remove one setting, so it falls back to the level or the default
+    Unset {
+        key: String,
+        #[arg(long)]
+        file: Option<PathBuf>,
+        #[arg(long, conflicts_with = "file")]
+        pick: bool,
+    },
+    /// List the files this project's settings come from, nearest last
+    Files,
+}
+
+#[derive(Subcommand)]
+enum CacheAction {
+    /// What the cache holds, and whether the next scan can use it
+    Status {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Throw the cache away, leaving everything else under `.rqx` alone
+    Clear {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+}
+
 #[derive(Args)]
 struct Gate {
     /// Lowest severity that fails the run
@@ -630,7 +691,30 @@ fn sinks(view: &View) -> Result<Vec<Sink>> {
     Ok(sinks)
 }
 
+impl From<ConfigAction> for edit_config::Change {
+    fn from(action: ConfigAction) -> Self {
+        match action {
+            ConfigAction::Set {
+                key,
+                value,
+                file,
+                pick,
+            } => Self::Set {
+                key,
+                value,
+                file,
+                pick,
+            },
+            ConfigAction::Unset { key, file, pick } => Self::Unset { key, file, pick },
+            ConfigAction::Files => Self::Files,
+        }
+    }
+}
+
 fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
+    if view.timings {
+        report::timings(report.outcome, palette, &mut anstream::stdout().lock())?;
+    }
     for sink in sinks {
         let plain = Layout {
             palette: Palette::with_depth(ColorDepth::Monochrome),
@@ -950,6 +1034,8 @@ fn run() -> Result<Exit> {
             addr,
             interval,
             open,
+            editor_url,
+            read_only,
             config,
         } => {
             if !path.exists() {
@@ -962,7 +1048,15 @@ fn run() -> Result<Exit> {
             // The page filters in the browser, so a cap here would hide findings the
             // reader is about to filter for.
             settings.config.scan.max_findings = 0;
-            serve::serve(&path, settings, addr, interval, open).map(|()| Exit::Clean)
+            let options = serve::Options {
+                address: addr,
+                interval,
+                open,
+                editor_url,
+                read_only,
+                explicit_config: config,
+            };
+            serve::serve(&path, settings, options).map(|()| Exit::Clean)
         }
         Command::Plan {
             path,
@@ -1054,51 +1148,20 @@ fn run() -> Result<Exit> {
             config,
         } => {
             let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            let file = baseline::path_of(&path, settings.config.gate.baseline.as_deref());
-            let previous = file
-                .exists()
-                .then(|| baseline::Baseline::read(&file))
-                .transpose()?;
-            if previous.is_some() && !update {
-                bail!(
-                    "{} already exists. Run `rqx baseline --update` to take it again.",
-                    file.display()
-                );
-            }
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            // The cap drops findings before they can be recorded, and a baseline that
-            // holds the first five hundred is worse than none.
-            settings.config.scan.max_findings = 0;
-            // Recording against an existing baseline would tag everything `known`,
-            // which changes nothing here but makes the counts confusing to read.
-            settings.baseline = None;
-            let outcome = scan::scan(&path, &settings)?;
-            let taken = baseline::Baseline::of(&outcome);
-            if let Some(previous) = &previous
-                && taken.len() > previous.len()
-                && !force
-            {
-                bail!(
-                    "this would record {} findings against the {} already recorded. \
-                     Fix them, or pass --force to accept the larger set.",
-                    taken.len(),
-                    previous.len()
-                );
-            }
-            taken.write(&file)?;
-            let was = previous.map(|previous| previous.len());
+            let taken = baseline::take(&path, &settings, update, force)?;
             println!(
                 "  recorded {} findings in {}{}",
-                taken.len(),
-                file.display(),
-                match was {
-                    Some(was) if was != taken.len() => format!(" ({was} before)"),
+                taken.recorded,
+                taken.path.display(),
+                match taken.replaced {
+                    Some(was) if was != taken.recorded => format!(" ({was} before)"),
                     _ => String::new(),
                 }
             );
-            if settings.config.gate.baseline.is_none() {
+            if !taken.configured {
                 println!(
                     "  set `[gate] baseline = \"{}\"` in RQX.toml to gate on new findings only",
                     baseline::DEFAULT_PATH
@@ -1128,6 +1191,36 @@ fn run() -> Result<Exit> {
             }
             report::waivers(&path, &outcome, expiring, palette, &mut out).map(|()| Exit::Clean)
         }
+        Command::Cache { action } => {
+            match action {
+                CacheAction::Status { path, config } => {
+                    let settings = config::resolve(&path, config.as_deref(), None)?;
+                    match cache::stored(&path, &settings) {
+                        Some(stored) => {
+                            println!("  {} files", stored.entries);
+                            println!("  {} KB in {}", stored.bytes / 1024, stored.path.display());
+                            if !stored.current {
+                                println!(
+                                    "  written under different settings, so the next scan rebuilds it"
+                                );
+                            }
+                        }
+                        None => println!("  nothing cached yet"),
+                    }
+                    if !settings.config.scan.cache {
+                        println!("  the cache is off; `[scan] cache = true` turns it on");
+                    }
+                }
+                CacheAction::Clear { path } => {
+                    if cache::clear(&path)? {
+                        println!("  cleared");
+                    } else {
+                        println!("  nothing to clear");
+                    }
+                }
+            }
+            Ok(Exit::Clean)
+        }
         Command::Query {
             language,
             query,
@@ -1149,9 +1242,29 @@ fn run() -> Result<Exit> {
             path,
             standard,
             config,
+            action,
         } => {
-            let settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            report::config(&settings, palette).map(|()| Exit::Clean)
+            let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
+            match action {
+                None => report::config(&settings?, palette).map(|()| Exit::Clean),
+                Some(action) => {
+                    let change = edit_config::Change::from(action);
+                    let mut out = anstream::stdout().lock();
+                    // A config that breaks its own policy will not resolve, and the
+                    // command that removes the offending key is the way out of that —
+                    // so a removal naming its file does not need the config to load.
+                    match settings {
+                        Ok(settings) => {
+                            edit_config::run(&path, &settings, change, palette, &mut out)?;
+                        }
+                        Err(refused) => {
+                            edit_config::force(&path, change, palette, &mut out)
+                                .map_err(|_| refused)?;
+                        }
+                    }
+                    Ok(Exit::Clean)
+                }
+            }
         }
         Command::Check {
             path,

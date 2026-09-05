@@ -786,11 +786,11 @@ pub struct Scan {
     pub coverage: Vec<String>,
     /// Days of git history to read for churn; 0 turns the signal off.
     pub churn_days: u32,
-    /// Reuse `.rqx/cache.json` for files whose contents have not changed. Off by
-    /// default because it does not currently pay: on a 12k-file repository a cold
-    /// run costs 1.54s with the cache against 0.72s without, and a fully warm run
-    /// still costs 0.73s — parsing a file is faster than serde deserializing its
-    /// cached findings. Worth revisiting if a slower analysis stage lands.
+    /// Reuse `.rqx/cache.json` for files whose contents have not changed. It was
+    /// off because a warm run was no faster than a cold one, but that was measured
+    /// while the collector joined the git thread before draining the channel: the
+    /// wait, not the parsing, was what a cache could not beat. With that gone a
+    /// warm scan of 3,440 files costs 298ms against 2,023ms cold.
     pub cache: bool,
 }
 
@@ -802,7 +802,7 @@ impl Default for Scan {
             max_filesize: 1 << 20,
             max_findings: 500,
             churn_days: 90,
-            cache: false,
+            cache: true,
             coverage: Vec::new(),
             // A glob still has to descend into a directory to produce the paths it
             // then rejects, which on a populated `node_modules` or `.venv` is the

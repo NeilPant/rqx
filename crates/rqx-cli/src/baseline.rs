@@ -9,6 +9,7 @@ use rqx_core::finding::Finding;
 use rqx_core::identity::Identity;
 use serde::{Deserialize, Serialize};
 
+use crate::config::Resolved;
 use crate::scan::ScanOutcome;
 
 pub const DEFAULT_PATH: &str = ".rqx/baseline.json";
@@ -108,6 +109,59 @@ impl Baseline {
             .map(Identity::from_raw)
             .collect()
     }
+}
+
+/// What taking a baseline produced, for whichever surface asked.
+pub struct Taken {
+    pub path: PathBuf,
+    pub recorded: usize,
+    pub findings: u32,
+    /// How many entries the previous baseline held, when one was replaced.
+    pub replaced: Option<usize>,
+    /// Whether the gate already names this file, so the caller can say what to set.
+    pub configured: bool,
+}
+
+/// Records every finding the project has now. Refuses to overwrite an existing
+/// baseline unless `update`, and to grow one unless `force`, because a baseline that
+/// silently absorbs new debt is the opposite of what one is for.
+pub fn take(root: &Path, settings: &Resolved, update: bool, force: bool) -> Result<Taken> {
+    let file = path_of(root, settings.config.gate.baseline.as_deref());
+    let previous = file.exists().then(|| Baseline::read(&file)).transpose()?;
+    if previous.is_some() && !update {
+        anyhow::bail!(
+            "{} already exists. Run `rqx baseline --update` to take it again.",
+            file.display()
+        );
+    }
+    let mut settings = settings.clone();
+    // The cap drops findings before they can be recorded, and a baseline that holds
+    // the first five hundred is worse than none.
+    settings.config.scan.max_findings = 0;
+    // Recording against an existing baseline would tag everything `known`, which
+    // changes nothing here but makes the counts confusing to read.
+    settings.baseline = None;
+    let outcome = crate::scan::scan(root, &settings)?;
+    let taken = Baseline::of(&outcome);
+    if let Some(previous) = &previous
+        && taken.len() > previous.len()
+        && !force
+    {
+        anyhow::bail!(
+            "this would record {} findings against the {} already recorded. \
+             Fix them, or pass --force to accept the larger set.",
+            taken.len(),
+            previous.len()
+        );
+    }
+    taken.write(&file)?;
+    Ok(Taken {
+        path: file,
+        recorded: taken.len(),
+        findings: taken.findings(),
+        replaced: previous.map(|previous| previous.len()),
+        configured: settings.config.gate.baseline.is_some(),
+    })
 }
 
 /// Where the baseline lives: what the gate names, or the conventional path.

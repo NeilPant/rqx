@@ -165,6 +165,17 @@ impl Resolved {
     /// read, so a value that came from a layer rqx merged still names a real file.
     /// The file that wrote one setting, which is not always the last file to touch
     /// its table.
+    /// The file that wrote `table.key`, addressed as one string. `set` needs this
+    /// to default to the file already holding the setting.
+    pub fn source_of_key_public(&self, key: &str) -> Option<&Path> {
+        self.key_sources.get(key).map(PathBuf::as_path)
+    }
+
+    /// Every locked key, so a writer can refuse before it touches the file.
+    pub fn locked_keys(&self) -> impl Iterator<Item = &str> {
+        self.locked.iter().map(String::as_str)
+    }
+
     pub fn source_of_key(&self, table: &str, key: &str) -> Option<&Path> {
         self.key_sources
             .get(&format!("{table}.{key}"))
@@ -1043,5 +1054,199 @@ mod tests {
         let scope = scope(Path::new("RQX.toml"), entry, &base, Level::Standard).unwrap();
         assert_eq!(scope.config.thresholds.max_params, 2);
         assert_eq!(scope.config.thresholds.nesting_depth, 7);
+    }
+}
+
+/// A change to `RQX.toml` as a position and the text to put there, so the editor can
+/// apply it as an edit and the dashboard can apply it to the file.
+pub struct Insertion {
+    /// Zero-based.
+    pub line: u32,
+    pub column: u32,
+    pub text: String,
+}
+
+/// Applies an insertion the way an editor would, padding with empty lines when it
+/// lands past the end of the file.
+pub fn apply(source: &str, insertion: &Insertion) -> String {
+    let mut lines: Vec<String> = source.lines().map(str::to_owned).collect();
+    let line = insertion.line as usize;
+    while lines.len() <= line {
+        lines.push(String::new());
+    }
+    let column = (insertion.column as usize).min(lines[line].len());
+    lines[line].insert_str(column, &insertion.text);
+    let mut out = lines.join("\n");
+    if source.ends_with('\n') || source.is_empty() {
+        out.push('\n');
+    }
+    out
+}
+
+/// Finds `disabled = [...]` under `[rules]` and inserts into it, adds the key under an
+/// existing `[rules]`, or appends the whole table — in that order, because a second
+/// `[rules]` header is a TOML error rather than a merge. A shape it cannot read safely
+/// yields nothing, since a wrong edit leaves the project with an `RQX.toml` that no
+/// longer parses.
+pub fn disable_entry(source: &str, name: &str) -> Option<Insertion> {
+    let mut in_rules = false;
+    let mut rules_header: Option<u32> = None;
+    for (number, line) in source.lines().enumerate() {
+        let body = line.trim_start();
+        if body.starts_with('[') {
+            in_rules = body.trim_end().starts_with("[rules]");
+            if in_rules {
+                if rules_header.is_some() {
+                    return None;
+                }
+                rules_header = Some(number as u32);
+            }
+            continue;
+        }
+        if !in_rules {
+            continue;
+        }
+        let Some(rest) = body.strip_prefix("disabled") else {
+            continue;
+        };
+        let Some(open) = rest.find('[') else { continue };
+        // An array spread over several lines cannot be edited by looking at one of
+        // them, and falling through to the append branch would write a second
+        // `disabled` key — a duplicate key, which stops the whole file parsing.
+        let close = rest.find(']')?;
+
+        let entries = &rest[open + 1..close];
+        if entries
+            .split(',')
+            .any(|entry| entry.trim().trim_matches(['"', '\'']) == name)
+        {
+            return None;
+        }
+
+        let indent = line.len() - body.len();
+        let column = (indent + "disabled".len() + open + 1) as u32;
+        let text = if entries.trim().is_empty() {
+            format!("\"{name}\"")
+        } else {
+            format!("\"{name}\", ")
+        };
+        return Some(Insertion {
+            line: number as u32,
+            column,
+            text,
+        });
+    }
+
+    match rules_header {
+        Some(line) => Some(Insertion {
+            line: line + 1,
+            column: 0,
+            text: format!("disabled = [\"{name}\"]\n"),
+        }),
+        None => {
+            let lines = source.lines().count() as u32;
+            let separator = if source.is_empty() || source.ends_with('\n') {
+                ""
+            } else {
+                "\n"
+            };
+            Some(Insertion {
+                line: lines,
+                column: 0,
+                text: format!("{separator}\n[rules]\ndisabled = [\"{name}\"]\n"),
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+mod disable_tests {
+    use super::*;
+
+    /// Applies the edit the way a client would, then parses the result — an edit that
+    /// produces a file `RQX.toml` cannot read is worse than no quick fix at all.
+    fn applied(source: &str, name: &str) -> String {
+        let insertion = disable_entry(source, name).expect("an edit");
+        let out = apply(source, &insertion);
+        out.parse::<toml::Table>()
+            .unwrap_or_else(|error| panic!("the edit broke the file: {error}\n{out}"));
+        out
+    }
+
+    #[test]
+    fn an_empty_array_gains_the_first_entry() {
+        let out = applied("[rules]\ndisabled = []\n", "magic-number");
+        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
+    }
+
+    #[test]
+    fn a_populated_array_keeps_what_was_there() {
+        let out = applied("[rules]\ndisabled = [\"long-function\"]\n", "magic-number");
+        assert!(
+            out.contains("disabled = [\"magic-number\", \"long-function\"]"),
+            "{out}"
+        );
+    }
+
+    /// The template writes a line of prose above every key, so an edit that dropped
+    /// comments would silently delete the explanation of the setting being changed.
+    #[test]
+    fn comments_survive_the_edit() {
+        let source = "# why this table exists\n[rules]\n# slugs or families\ndisabled = []\n";
+        let out = applied(source, "magic-number");
+        assert!(out.contains("# why this table exists"), "{out}");
+        assert!(out.contains("# slugs or families"), "{out}");
+    }
+
+    #[test]
+    fn a_file_without_the_table_gains_one() {
+        let out = applied("[scan]\nthreads = 4\n", "magic-number");
+        assert!(out.contains("[rules]"), "{out}");
+        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
+    }
+
+    #[test]
+    fn a_rule_already_disabled_is_not_added_twice() {
+        assert!(
+            disable_entry("[rules]\ndisabled = [\"magic-number\"]\n", "magic-number").is_none()
+        );
+    }
+
+    /// The name appearing anywhere in the file used to count as already-disabled, so a
+    /// commented-out example silently swallowed the quick fix.
+    #[test]
+    fn a_name_mentioned_elsewhere_does_not_count_as_disabled() {
+        let source = "# e.g. disabled = [\"magic-number\"]\n[rules]\ndisabled = []\n";
+        let out = applied(source, "magic-number");
+        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
+    }
+
+    /// A multi-line array cannot be edited from one line, and falling through to the
+    /// append branch wrote a second `disabled` key — a duplicate that stops `RQX.toml`
+    /// parsing at all.
+    #[test]
+    fn a_multi_line_array_is_left_alone_rather_than_duplicated() {
+        let source = "[rules]\ndisabled = [\n  \"long-function\",\n]\n";
+        assert!(disable_entry(source, "magic-number").is_none());
+    }
+
+    /// The insert column came from a two-sided trim, so a trailing space moved it past
+    /// the closing bracket and produced `disabled = []\"magic-number\"`.
+    #[test]
+    fn trailing_whitespace_does_not_move_the_insert_point() {
+        let out = applied("[rules]\n  disabled = []   \n", "magic-number");
+        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
+    }
+
+    #[test]
+    fn a_second_rules_table_is_refused_rather_than_guessed_at() {
+        assert!(disable_entry("[rules]\nenabled = []\n[a]\nx = 1\n[rules]\n", "x").is_none());
+    }
+
+    #[test]
+    fn a_file_with_no_trailing_newline_keeps_its_last_line() {
+        let out = applied("[scan]\nthreads = 4", "magic-number");
+        assert!(out.contains("threads = 4"), "{out}");
+        assert!(out.contains("[rules]"), "{out}");
     }
 }

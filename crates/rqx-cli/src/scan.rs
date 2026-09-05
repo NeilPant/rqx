@@ -100,6 +100,9 @@ pub struct ScanOutcome {
     /// How many findings the baseline recorded, when there is one. The ratchet
     /// compares the total against it.
     pub baseline_size: Option<u32>,
+    /// Wall time per stage, so `--timings` can say where a slow scan went rather
+    /// than leaving a reader to guess.
+    pub timings: Vec<(&'static str, u128)>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -111,7 +114,7 @@ struct Ranked(Finding);
 
 impl PartialEq for Ranked {
     fn eq(&self, other: &Self) -> bool {
-        self.0.rank() == other.0.rank()
+        self.cmp(other) == Ordering::Equal
     }
 }
 
@@ -124,8 +127,19 @@ impl PartialOrd for Ranked {
 }
 
 impl Ord for Ranked {
+    /// The same total key the findings are finally sorted by, and total for the same
+    /// reason: this order decides which findings the display cap keeps, so anything
+    /// that leaves two findings equal lets the order the workers happened to finish
+    /// in choose between them.
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.rank().cmp(&other.0.rank())
+        let (mine, theirs) = (&self.0, &other.0);
+        mine.rank()
+            .cmp(&theirs.rank())
+            .then_with(|| theirs.location.file.cmp(&mine.location.file))
+            .then(theirs.location.line.cmp(&mine.location.line))
+            .then(theirs.location.start.cmp(&mine.location.start))
+            .then(theirs.location.end.cmp(&mine.location.end))
+            .then_with(|| theirs.fix_hint.cmp(&mine.fix_hint))
     }
 }
 
@@ -173,6 +187,9 @@ struct Collector {
     root: PathBuf,
     suppressed: Vec<rqx_core::suppress::Suppressed>,
     today: String,
+    phase: crate::progress::Phase,
+    phase_began: std::time::Instant,
+    timings: Vec<(&'static str, u128)>,
     shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
     advice: Vec<rqx_core::Advice>,
     clone_groups: HashMap<u64, CloneGroup>,
@@ -219,6 +236,9 @@ impl Collector {
             root: PathBuf::new(),
             suppressed: Vec::new(),
             today: rqx_core::suppress::today(),
+            phase: crate::progress::Phase::Scanning,
+            phase_began: std::time::Instant::now(),
+            timings: Vec::new(),
             shape_by_file: std::collections::BTreeMap::new(),
             advice: Vec::new(),
             clone_groups: HashMap::new(),
@@ -371,7 +391,16 @@ impl Collector {
 
     /// The phases after the walk used to run with the line already wiped, so a large
     /// repository ended every scan with a silent pause that looked like a hang.
+    /// Each phase closes the one before it, so the walk is timed by the first call
+    /// and every later stage by its own.
     fn report_phase(&mut self, phase: crate::progress::Phase) {
+        let now = std::time::Instant::now();
+        self.timings.push((
+            self.phase.label(),
+            now.duration_since(self.phase_began).as_millis(),
+        ));
+        self.phase = phase;
+        self.phase_began = now;
         self.bar
             .update(phase, self.files_scanned, None, self.counts.total, "");
     }
@@ -1065,6 +1094,9 @@ impl Collector {
                 .then(a.at.start.cmp(&b.at.start))
         });
         self.skipped.sort();
+        // The last stage has no successor to close it, so it is closed here.
+        self.timings
+            .push((self.phase.label(), self.phase_began.elapsed().as_millis()));
         ScanOutcome {
             root: root.to_path_buf(),
             omitted: self.counts.total.saturating_sub(retained),
@@ -1079,6 +1111,7 @@ impl Collector {
             shape_by_file: self.shape_by_file,
             suppressed: self.suppressed,
             baseline_size: self.baseline_findings,
+            timings: self.timings,
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -1721,6 +1754,48 @@ fn scan_watched(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn ranked(file: &str, line: u32) -> Ranked {
+        Ranked(Finding {
+            rule: RuleId::ImpreciseType,
+            location: SourceRange {
+                file: Arc::from(file),
+                start: line * 10,
+                end: line * 10 + 4,
+                line,
+                column: 1,
+                end_line: line,
+            },
+            severity: rqx_core::finding::Severity::Warning,
+            confidence: rqx_core::finding::Confidence::Verified,
+            evidence: rqx_core::finding::Evidence::ImpreciseType {
+                construct: "as".to_owned(),
+            },
+            fix_hint: String::new(),
+            related: Vec::new(),
+            known: false,
+        })
+    }
+
+    /// This order decides which findings survive the display cap, so two findings it
+    /// calls equal are two findings the arrival order chooses between — and arrival
+    /// order is thread scheduling. A repository with more findings than the cap would
+    /// show a different set on every run.
+    #[test]
+    fn the_display_cap_never_has_to_choose_between_two_equal_findings() {
+        let (first, second) = (ranked("a.ts", 1), ranked("b.ts", 1));
+        assert_ne!(first.cmp(&second), Ordering::Equal, "same rule, same line");
+        assert_ne!(
+            ranked("a.ts", 1).cmp(&ranked("a.ts", 2)),
+            Ordering::Equal,
+            "same rule, same file"
+        );
+        assert_eq!(ranked("a.ts", 1).cmp(&ranked("a.ts", 1)), Ordering::Equal);
+        // The heap keeps the greatest, and the report reads best-first, so the
+        // earlier file has to sort as the greater of two equally severe findings.
+        assert_eq!(first.cmp(&second), Ordering::Greater);
+    }
     use super::generated_by;
 
     #[test]

@@ -280,9 +280,15 @@ fn a_mechanical_finding_offers_the_edit_and_not_only_a_way_to_silence_it() {
     let answer = session.wait_for(|message| message["id"] == json!(id));
     let actions = answer["result"].as_array().expect("actions");
 
+    // A client matches code action kinds by prefix, so `source.fixAll.rqx` answers a
+    // request for `source.fixAll` while letting one client ask for rqx's edits alone.
     let fix = actions
         .iter()
-        .find(|action| action["kind"] == "source.fixAll")
+        .find(|action| {
+            action["kind"]
+                .as_str()
+                .is_some_and(|kind| kind.starts_with("source.fixAll"))
+        })
         .unwrap_or_else(|| panic!("no source edit offered: {actions:#?}"));
     assert!(
         fix["title"].as_str().unwrap().contains("unreachable-code"),

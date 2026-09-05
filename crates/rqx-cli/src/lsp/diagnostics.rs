@@ -17,6 +17,8 @@ use rqx_core::rule::RuleId;
 use rqx_core::{Cleanliness, LineIndex};
 
 use super::protocol::{Encoding, range_at, uri_for};
+use crate::config::Resolved;
+use crate::scan::ScanOutcome;
 
 pub const SOURCE: &str = "rqx";
 pub const PATTERN_SOURCE: &str = "rqx-patterns";
@@ -29,6 +31,9 @@ const REFERENCE: &str = "https://github.com/jadhamwi21/rqx/blob/main/docs/rules"
 pub struct Published {
     pub range: Range,
     pub finding: Finding,
+    /// Decided by the project's `[fix]` config at publish time, so the answer matches
+    /// what `rqx fix` would do rather than what the rule could do in principle.
+    pub autofixable: bool,
 }
 
 /// What a scan learned about a file that is not a finding: its grade, and how much the
@@ -89,6 +94,7 @@ fn of_finding(
     index: &LineIndex<'_>,
     encoding: Encoding,
     finding: &Finding,
+    autofixable: bool,
 ) -> Diagnostic {
     let spec = finding.rule.spec();
     let related: Vec<DiagnosticRelatedInformation> = finding
@@ -129,9 +135,17 @@ fn of_finding(
         message: message_for(finding),
         related_information: (!related.is_empty()).then_some(related),
         tags: unnecessary.then(|| vec![DiagnosticTag::UNNECESSARY]),
+        // The declared severity travels here as well as on the diagnostic, because a
+        // client that caps how loudly it renders still needs to know what rqx said.
         data: Some(serde_json::json!({
             "rule": finding.slug(),
             "category": finding.category().slug(),
+            "severity": finding.severity.label(),
+            "evidence": finding.evidence.to_string(),
+            "confidence": finding.confidence.label(),
+            "autofixable": autofixable,
+            "known": finding.known,
+            "technique": spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>(),
         })),
     }
 }
@@ -188,7 +202,7 @@ enum Outgoing {
     Publish {
         relative: String,
         source: String,
-        findings: Vec<Finding>,
+        findings: Vec<(Finding, bool)>,
         advice: Vec<Advice>,
     },
     /// Clear every file published but not named here. Evaluated against the map at the
@@ -203,6 +217,9 @@ pub struct Publisher {
     root: PathBuf,
     published: Arc<Mutex<HashMap<String, Vec<Published>>>>,
     facts: Mutex<HashMap<String, FileFacts>>,
+    /// The last whole-project scan, kept so a plan or a filtered listing can be answered
+    /// from it without scanning again.
+    last: Mutex<Option<Arc<ScanOutcome>>>,
     next_request: AtomicU64,
     thread: Option<JoinHandle<()>>,
 }
@@ -227,6 +244,7 @@ impl Publisher {
             root,
             published,
             facts: Mutex::new(HashMap::new()),
+            last: Mutex::new(None),
             next_request: AtomicU64::new(0),
             thread: Some(thread),
         }
@@ -271,13 +289,36 @@ impl Publisher {
         self.queue(Outgoing::Send(message));
     }
 
-    pub fn publish(&self, relative: &str, source: &str, findings: Vec<Finding>, advice: &[Advice]) {
+    pub fn publish(
+        &self,
+        relative: &str,
+        source: &str,
+        findings: Vec<Finding>,
+        advice: &[Advice],
+        settings: &Resolved,
+    ) {
+        let fix = &settings.for_file(&self.root.join(relative)).fix;
+        let findings = findings
+            .into_iter()
+            .map(|finding| {
+                let autofixable = fix.allows(finding.rule);
+                (finding, autofixable)
+            })
+            .collect();
         self.queue(Outgoing::Publish {
             relative: relative.to_owned(),
             source: source.to_owned(),
             findings,
             advice: advice.to_vec(),
         });
+    }
+
+    pub fn remember(&self, outcome: Arc<ScanOutcome>) {
+        *expect_lock(self.last.lock()) = Some(outcome);
+    }
+
+    pub fn last_outcome(&self) -> Option<Arc<ScanOutcome>> {
+        expect_lock(self.last.lock()).clone()
     }
 
     /// A file that had findings and now has none still needs an empty publish, or the
@@ -372,14 +413,15 @@ fn deliver(
                 let index = LineIndex::new(&source);
                 let held: Vec<Published> = findings
                     .into_iter()
-                    .map(|finding| Published {
+                    .map(|(finding, autofixable)| Published {
                         range: range_at(&index, encoding, &finding.location),
                         finding,
+                        autofixable,
                     })
                     .collect();
                 let mut diagnostics: Vec<Diagnostic> = held
                     .iter()
-                    .map(|held| of_finding(root, &index, encoding, &held.finding))
+                    .map(|held| of_finding(root, &index, encoding, &held.finding, held.autofixable))
                     .collect();
                 diagnostics.extend(
                     advice
@@ -499,12 +541,31 @@ mod tests {
         let (sender, _drain) = crossbeam_channel::unbounded();
         let publisher = Publisher::new(sender, PathBuf::from("/tmp/rqx"), Encoding::Utf16);
 
-        publisher.publish("old.ts", "const a = 1;\n", vec![finding("old.ts")], &[]);
-        publisher.publish("gone.ts", "const c = 3;\n", vec![finding("gone.ts")], &[]);
+        let settings = Resolved::default();
+        publisher.publish(
+            "old.ts",
+            "const a = 1;\n",
+            vec![finding("old.ts")],
+            &[],
+            &settings,
+        );
+        publisher.publish(
+            "gone.ts",
+            "const c = 3;\n",
+            vec![finding("gone.ts")],
+            &[],
+            &settings,
+        );
         // The sweep is queued naming only `old.ts`, exactly as a scan would, and a save
         // lands behind it — the case that used to wipe the file the user just saved.
         publisher.retain(HashSet::from(["old.ts".to_owned()]));
-        publisher.publish("saved.ts", "const b = 2;\n", vec![finding("saved.ts")], &[]);
+        publisher.publish(
+            "saved.ts",
+            "const b = 2;\n",
+            vec![finding("saved.ts")],
+            &[],
+            &settings,
+        );
 
         let files = drained(&publisher);
         assert_eq!(

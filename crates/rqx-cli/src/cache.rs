@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Resolved;
 
-const CACHE_DIRECTORY: &str = ".rqx";
+pub(crate) const CACHE_DIRECTORY: &str = ".rqx";
 const CACHE_FILE: &str = "cache.json";
 
 #[derive(Deserialize, Serialize)]
@@ -41,6 +41,37 @@ fn analysis_version(settings: &Resolved) -> u64 {
     env!("CARGO_PKG_VERSION").hash(&mut hasher);
     settings.signature().hash(&mut hasher);
     hasher.finish()
+}
+
+/// What the cache holds and what it cost, for `rqx cache status`.
+pub struct Stored {
+    pub path: PathBuf,
+    pub entries: usize,
+    pub bytes: u64,
+    pub current: bool,
+}
+
+pub fn stored(root: &Path, settings: &Resolved) -> Option<Stored> {
+    let path = root.join(CACHE_DIRECTORY).join(CACHE_FILE);
+    let text = std::fs::read_to_string(&path).ok()?;
+    let contents: Contents = serde_json::from_str(&text).ok()?;
+    Some(Stored {
+        bytes: text.len() as u64,
+        entries: contents.entries.len(),
+        current: contents.version == analysis_version(settings),
+        path,
+    })
+}
+
+/// Removing the file rather than the directory: `.rqx` also holds the baseline, and
+/// clearing a cache should not throw that away.
+pub fn clear(root: &Path) -> std::io::Result<bool> {
+    let path = root.join(CACHE_DIRECTORY).join(CACHE_FILE);
+    match std::fs::remove_file(&path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 fn fingerprint(source: &str) -> u64 {

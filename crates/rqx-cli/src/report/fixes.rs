@@ -3,7 +3,6 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::LineIndex;
 use rqx_core::edit::Edit;
-use rqx_core::span::Span;
 
 use crate::brand::{Ink, Palette, paint, score_ink, severity_ink};
 use crate::fix::{FileFix, Outcome};
@@ -263,19 +262,7 @@ pub fn json(outcome: &Outcome, out: &mut dyn Write) -> Result<()> {
         let edits: Vec<serde_json::Value> = fix
             .applied
             .iter()
-            .map(|edit| {
-                let (line, column) = index.locate(edit.span.start);
-                serde_json::json!({
-                    "rule": edit.rule.slug(),
-                    "kind": edit.rule.spec().autofix.slug(),
-                    "line": line,
-                    "column": column,
-                    "start": edit.span.start,
-                    "end": edit.span.end,
-                    "removed": Span::new(edit.span.start, edit.span.end).text(&fix.before),
-                    "replacement": edit.replacement,
-                })
-            })
+            .map(|edit| super::projection::edit(edit, &fix.before, &index))
             .collect();
         writeln!(
             out,

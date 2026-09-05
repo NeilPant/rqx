@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::finding::{Finding, SourceRange};
+use crate::language::Language;
 use crate::span::Span;
 
 const LINE_MARKER: &str = "rqx-ignore";
@@ -106,6 +107,59 @@ impl Suppression {
                 .iter()
                 .any(|named| named == finding.slug() || named == finding.category().slug())
     }
+}
+
+/// A waiver to write above a finding: where it goes and the text to put there. The
+/// grammar is the one `parse` reads, so a client never has to know the marker.
+pub struct Waiver {
+    /// One-based line the text is inserted before; the finding's own line, or the
+    /// first line for a whole-file waiver.
+    pub line: u32,
+    /// The whole line to insert, indentation and newline included.
+    pub text: String,
+}
+
+/// `reason` is required because a waiver without one is refused as
+/// `unjustified-suppression`, and offering to write one would offer a comment that
+/// silences nothing.
+pub fn waiver(
+    source: &str,
+    language: Language,
+    line: u32,
+    rule: &str,
+    reason: &str,
+    until: Option<&str>,
+    whole_file: bool,
+) -> Option<Waiver> {
+    let reason = reason.trim();
+    if reason.is_empty() || rule.trim().is_empty() {
+        return None;
+    }
+    if until.is_some_and(|date| !is_date(date)) {
+        return None;
+    }
+    let leader = match language {
+        Language::Python => "#",
+        Language::TypeScript | Language::Go | Language::Java | Language::Cpp => "//",
+    };
+    let (line, indent) = if whole_file {
+        (1, "")
+    } else {
+        let target = source
+            .lines()
+            .nth(line.saturating_sub(1) as usize)
+            .unwrap_or_default();
+        let indent = &target[..target.len() - target.trim_start().len()];
+        (line.max(1), indent)
+    };
+    let marker = if whole_file { FILE_MARKER } else { LINE_MARKER };
+    let until = until
+        .map(|date| format!(" until {date}"))
+        .unwrap_or_default();
+    Some(Waiver {
+        line,
+        text: format!("{indent}{leader} {marker} {rule}{until}: {reason}\n"),
+    })
 }
 
 /// Today as `YYYY-MM-DD`, so an `until` date can be compared as text. Written out
@@ -225,6 +279,72 @@ mod tests {
         let file = parsed("// rqx-ignore-file circular-dependency: the graph is being untangled");
         assert!(file.whole_file);
         assert_eq!(file.rules, ["circular-dependency"]);
+    }
+
+    /// The writer and the reader share one grammar, so a waiver written here has to
+    /// come back out of `parse` naming the same rule, reason and date.
+    #[test]
+    fn a_written_waiver_reads_back_the_same() {
+        let source = "def f():\n    return 1\n";
+        let written = waiver(
+            source,
+            Language::Python,
+            2,
+            "magic-number",
+            "the port is fixed by the vendor",
+            Some("2027-01-01"),
+            false,
+        )
+        .expect("a waiver");
+        assert_eq!(written.line, 2);
+        assert_eq!(
+            written.text,
+            "    # rqx-ignore magic-number until 2027-01-01: the port is fixed by the vendor\n"
+        );
+        let parsed = parsed(written.text.trim());
+        assert_eq!(parsed.rules, ["magic-number"]);
+        assert_eq!(
+            parsed.reason.as_deref(),
+            Some("the port is fixed by the vendor")
+        );
+        assert_eq!(parsed.until.as_deref(), Some("2027-01-01"));
+        assert!(parsed.is_honoured("2026-09-05"));
+    }
+
+    #[test]
+    fn a_waiver_without_a_reason_is_not_written() {
+        assert!(waiver("x\n", Language::Go, 1, "magic-number", "  ", None, false).is_none());
+        assert!(
+            waiver(
+                "x\n",
+                Language::Go,
+                1,
+                "magic-number",
+                "why",
+                Some("soon"),
+                false
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn a_file_waiver_goes_at_the_top_without_indent() {
+        let written = waiver(
+            "  x\n",
+            Language::TypeScript,
+            1,
+            "long-file",
+            "split next sprint",
+            None,
+            true,
+        )
+        .expect("a waiver");
+        assert_eq!(written.line, 1);
+        assert_eq!(
+            written.text,
+            "// rqx-ignore-file long-file: split next sprint\n"
+        );
     }
 
     /// The epoch and a leap day, so an off-by-one in the civil conversion shows up.
