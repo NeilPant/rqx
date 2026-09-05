@@ -10,3 +10,8 @@ int process(const std::vector<int>& rows) {
     int temp2 = static_cast<int>(data.size());
     return temp2;
 }
+
+int guards_the_gate(int rows) {
+    int abs = rows;
+    return abs;
+}

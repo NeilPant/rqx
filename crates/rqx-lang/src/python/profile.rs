@@ -111,6 +111,11 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
 
     self_names: &["self", "cls"],
     ignored_prefixes: &["_"],
+    builtin_names: &[
+        "list", "dict", "set", "str", "int", "float", "bytes", "type", "id", "input", "filter",
+        "map", "object", "next", "hash", "min", "max", "sum", "all", "any", "format", "range",
+        "len", "dir", "vars", "iter",
+    ],
 
     scope_kinds: &[
         "function_definition",
@@ -176,6 +181,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
         "False", "lambda", "yield", "raise", "with", "pass",
     ],
     empty_body_kinds: &["pass_statement", "comment", "ellipsis"],
+    assertion_statement_kinds: &["assert_statement"],
     throw_kinds: &["raise_statement"],
     constructor_names: &["__init__", "__new__"],
     modifier_container_kinds: &[],

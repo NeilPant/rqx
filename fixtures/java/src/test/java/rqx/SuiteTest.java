@@ -21,6 +21,35 @@ public class SuiteTest {
         int value = new Clean().add(1, 1);
     }
 
+
+    @Test
+    public void testBranchesOnTheInput() {
+        if (new Clean().add(1, 1) == 2) {
+            assertEquals(2, new Clean().add(1, 1));
+        }
+    }
+
+    @Test
+    public void testAssertsTheSameThingTwice() {
+        assertEquals(2, new Clean().add(1, 1));
+        assertEquals(2, new Clean().add(1, 1));
+    }
+
+    @Test
+    public void testCatchesTheFailureItself() {
+        try {
+            new Clean().add(1, 1);
+        } catch (IllegalStateException error) {
+            assertEquals(1, 1);
+        }
+    }
+
+    @Test
+    public void testPrintsWhileItRuns() {
+        System.out.println("here");
+        assertEquals(2, new Clean().add(1, 1));
+    }
+
     static void assertEquals(int expected, int actual) {
     }
 }

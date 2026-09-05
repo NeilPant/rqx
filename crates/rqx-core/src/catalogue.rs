@@ -922,6 +922,73 @@ catalogue! {
               work that succeeded, and the next reader cannot tell whether it is a stub \
               or a decision",
     },
+    BranchingTest {
+        slug: "branching-test",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a decision inside a test body",
+        fixes: [ExtractMethod, DecomposeConditional],
+        confidence: Verified,
+        severity: Warning,
+        why: "a test that decides has paths of its own, and nothing says which one \
+              ran, so a green result no longer means the case was checked",
+    },
+    DuplicateAssertion {
+        slug: "duplicate-assertion",
+        category: Tests,
+        analysis: Syntax,
+        metric: "the same assertion written twice in one test",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "the second one can never fail while the first passes, so it costs a \
+              reader a check they have already read",
+    },
+    HandRolledThrows {
+        slug: "hand-rolled-throws",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a test asserting a failure with a handler of its own",
+        fixes: [IntroduceAssertion],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "when the call stops failing the handler never runs and the test still \
+              passes, which is the one outcome it was written to catch",
+        not_applicable: [(Go, "failure is a returned value the test compares directly")],
+    },
+    DebugOutputInTest {
+        slug: "debug-output-in-test",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a write to the terminal from inside a test",
+        fixes: [RemoveDeadCode],
+        confidence: Verified,
+        severity: Info,
+        why: "it was how somebody watched this test once, and it now prints on every \
+              run for people who are not watching",
+    },
+    NegatedName {
+        slug: "negated-name",
+        category: Naming,
+        analysis: Syntax,
+        metric: "a name that states what a thing is not",
+        fixes: [RenameVariable],
+        confidence: Heuristic,
+        severity: Info,
+        why: "every test of it that is itself negated has to be undone twice in the \
+              reader's head before the condition means anything",
+    },
+    ShadowsBuiltin {
+        slug: "shadows-builtin",
+        category: Naming,
+        analysis: Syntax,
+        metric: "a declared name the language or its standard library already owns",
+        fixes: [RenameVariable],
+        confidence: Verified,
+        severity: Warning,
+        why: "the original is unreachable for the rest of the scope, and the next line \
+              that wanted it fails somewhere that names neither",
+    },
     ManyLocals {
         slug: "many-locals",
         category: Size,

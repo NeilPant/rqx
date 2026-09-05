@@ -1,8 +1,11 @@
 package fixtures
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDiscounts(t *testing.T) {
@@ -22,4 +25,20 @@ func TestShips(t *testing.T) {
 func TestChecksNothing(t *testing.T) {
 	value := Add(1, 1)
 	_ = value
+}
+
+func TestAssertsTheSameThingTwice(t *testing.T) {
+	require.Equal(t, Add(1, 1), 2)
+	require.Equal(t, Add(1, 1), 2)
+}
+
+func TestPrintsWhileItRuns(t *testing.T) {
+	fmt.Println("here")
+	require.Equal(t, Add(1, 1), 2)
+}
+
+func TestCatchesTheFailureItself(t *testing.T) {
+	if err := MayFail(); err != nil {
+		require.Error(t, err)
+	}
 }

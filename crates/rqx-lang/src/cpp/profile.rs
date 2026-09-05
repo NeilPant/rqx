@@ -105,6 +105,9 @@ pub static CPP: LanguageProfile = LanguageProfile {
 
     self_names: &["this"],
     ignored_prefixes: &["_"],
+    builtin_names: &[
+        "size_t", "malloc", "free", "abs", "swap", "move", "distance",
+    ],
 
     scope_kinds: &[
         "function_definition",
@@ -194,6 +197,7 @@ pub static CPP: LanguageProfile = LanguageProfile {
         "extern",
     ],
     empty_body_kinds: &["comment"],
+    assertion_statement_kinds: &[],
     throw_kinds: &["throw_statement"],
     modifier_container_kinds: &[],
     // `class` hides its members until a label says otherwise; `struct` does not, and

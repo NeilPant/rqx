@@ -24,6 +24,102 @@ it("waits on the clock", async () => {
 
 rqx says: wait on the thing itself rather than on the clock, or fake the timer
 
+## `branching-test`
+
+a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked
+
+| | |
+|---|---|
+| Measures | a decision inside a test body |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Decompose Conditional |
+
+From `fixtures/typescript/suite.test.ts`, line 16:
+
+```ts
+
+it("branches on the input", () => {
+  if (add(1, 1) === 2) {
+    expect(add(1, 1)).toBe(2);
+  }
+});
+
+```
+
+rqx says: write one test per path, so a green run says which case held
+
+## `duplicate-assertion`
+
+the second one can never fail while the first passes, so it costs a reader a check they have already read
+
+| | |
+|---|---|
+| Measures | the same assertion written twice in one test |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/suite.test.ts`, line 22:
+
+```ts
+
+it("asserts the same thing twice", () => {
+  expect(add(1, 1)).toBe(2);
+  expect(add(1, 1)).toBe(2);
+});
+
+```
+
+rqx says: delete the repeat, or assert the thing the second one meant to
+
+## `hand-rolled-throws`
+
+when the call stops failing the handler never runs and the test still passes, which is the one outcome it was written to catch
+
+| | |
+|---|---|
+| Measures | a test asserting a failure with a handler of its own |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+| Not in Go | failure is a returned value the test compares directly |
+
+From `fixtures/typescript/suite.test.ts`, line 28:
+
+```ts
+it("catches the failure itself", () => {
+  try {
+    add(1, 1);
+  } catch (error) {
+    expect(error).toBeDefined();
+  }
+});
+```
+
+rqx says: use whatever this framework spells as "expect it to fail", so a call that stops failing fails the test
+
+## `debug-output-in-test`
+
+it was how somebody watched this test once, and it now prints on every run for people who are not watching
+
+| | |
+|---|---|
+| Measures | a write to the terminal from inside a test |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/suite.test.ts`, line 36:
+
+```ts
+it("prints while it runs", () => {
+  console.log("here");
+  expect(add(1, 1)).toBe(2);
+```
+
+rqx says: assert what you were reading, or delete the line
+
 ## `skipped-test`
 
 a skipped test is a question nobody answered; it reports green forever while the behaviour it named goes unchecked

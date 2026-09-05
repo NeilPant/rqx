@@ -107,6 +107,10 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
 
     self_names: &["this"],
     ignored_prefixes: &["_"],
+    builtin_names: &[
+        "Array", "Object", "String", "Number", "Boolean", "Map", "Set", "Promise", "Date", "Error",
+        "JSON", "Math", "RegExp", "Symbol",
+    ],
 
     scope_kinds: &[
         "statement_block",
@@ -200,6 +204,7 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
         "return",
     ],
     empty_body_kinds: &["empty_statement", "comment"],
+    assertion_statement_kinds: &[],
     throw_kinds: &["throw_statement"],
     constructor_names: &["constructor"],
     modifier_container_kinds: &[],

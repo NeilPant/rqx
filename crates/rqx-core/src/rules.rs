@@ -797,6 +797,80 @@ pub fn check_hygiene(
             "delete it; control was going there anyway".to_owned(),
         );
     }
+    for spot in &hygiene.branching_tests {
+        emit(
+            out,
+            RuleId::BranchingTest,
+            spot,
+            Evidence::Breadth {
+                counted: "decisions inside the test".to_owned(),
+                found: spot.count,
+                limit: 0,
+            },
+            "write one test per path, so a green run says which case held".to_owned(),
+        );
+    }
+    for spot in &hygiene.duplicate_assertions {
+        emit(
+            out,
+            RuleId::DuplicateAssertion,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: format!("asserted {} times in one test", spot.count),
+            },
+            "delete the repeat, or assert the thing the second one meant to".to_owned(),
+        );
+    }
+    for spot in &hygiene.hand_rolled_throws {
+        emit(
+            out,
+            RuleId::HandRolledThrows,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` catches the failure itself", spot.detail),
+            },
+            "use whatever this framework spells as \"expect it to fail\", so a call \
+             that stops failing fails the test"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.test_debug_output {
+        emit(
+            out,
+            RuleId::DebugOutputInTest,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "prints on every run".to_owned(),
+            },
+            "assert what you were reading, or delete the line".to_owned(),
+        );
+    }
+    for spot in &hygiene.negated_names {
+        emit(
+            out,
+            RuleId::NegatedName,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "says what the thing is not".to_owned(),
+            },
+            "name the positive and let the call sites negate it".to_owned(),
+        );
+    }
+    for spot in &hygiene.shadowed_builtins {
+        emit(
+            out,
+            RuleId::ShadowsBuiltin,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is already the language's".to_owned(),
+            },
+            "give it a name of this project's own".to_owned(),
+        );
+    }
     for spot in &hygiene.crowded_functions {
         emit(
             out,

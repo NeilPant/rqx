@@ -19,4 +19,10 @@ public class Names {
         return value;
         value = 1;
     }
+
+    public int guardsTheGate(int rows) {
+        boolean notReady = rows == 0;
+        int Integer = rows;
+        return notReady ? 0 : Integer;
+    }
 }

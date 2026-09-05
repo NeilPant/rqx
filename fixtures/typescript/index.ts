@@ -2,7 +2,7 @@ export { add, describe } from "./clean";
 export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded } from "./bloat";
 export { manySteps } from "./long";
 export { Reconciler } from "./reconcile";
-export { process } from "./names";
+export { process, guardsTheGate } from "./names";
 export { orbit } from "./cycle-a";
 export { reachable } from "./dead-export";
 export { withDeadTail, withDeadMiddle, respectsUnderscore, twoDeadOnOneLine } from "./params";

@@ -95,6 +95,10 @@ pub static GO: LanguageProfile = LanguageProfile {
     // declaration, and this list is only the fallback.
     self_names: &[],
     ignored_prefixes: &["_"],
+    builtin_names: &[
+        "len", "cap", "new", "make", "copy", "append", "delete", "close", "panic", "recover",
+        "print", "println", "error", "string", "byte", "rune", "complex", "real", "imag",
+    ],
 
     scope_kinds: &[
         "function_declaration",
@@ -177,6 +181,7 @@ pub static GO: LanguageProfile = LanguageProfile {
         "false",
     ],
     empty_body_kinds: &["comment"],
+    assertion_statement_kinds: &[],
     // Go has no inheritance, so nothing can refuse what it inherited; the rule that
     // reads this is declared inapplicable rather than approximated with `panic`.
     throw_kinds: &[],

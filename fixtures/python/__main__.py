@@ -10,7 +10,7 @@ from .hygiene import catches_everything, closes_out, forward_orbit, maybe_count,
 from .intimacy import Cart, Checkout, CsvWriter, JsonEmitter
 from .lifecycle import ReportFactory, Session
 from .long import many_steps
-from .names import process
+from .names import process, guards_the_gate
 from .params import respects_underscore, two_dead_on_one_line, with_dead_middle, with_dead_tail
 from .gateway_a import collect_a
 from .gateway_b import collect_b
@@ -116,6 +116,7 @@ def main():
         many_steps,
         process,
         Overgrown,
+        guards_the_gate,
         deeply_nested,
         Catalogue,
         Formatting,

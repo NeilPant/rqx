@@ -127,6 +127,9 @@ pub struct LanguageProfile {
     /// A parameter or field spelled with this prefix is the author saying they
     /// already know it is unused.
     pub ignored_prefixes: &'static [&'static str],
+    /// Names the language or its standard library already owns, which a local of the
+    /// same name hides for the rest of its scope.
+    pub builtin_names: &'static [&'static str],
 
     /// Nodes that open a scope: a name declared inside one is invisible outside it.
     pub scope_kinds: &'static [&'static str],
@@ -223,6 +226,9 @@ pub struct LanguageProfile {
     pub declaration_keywords: &'static [&'static str],
     /// Statements that mean "do nothing", so a body made only of them is empty.
     pub empty_body_kinds: &'static [&'static str],
+    /// A check written as a statement rather than as a call, where the language has
+    /// one.
+    pub assertion_statement_kinds: &'static [&'static str],
     /// Raising an error. A body that only does this is refusing what it inherited.
     pub throw_kinds: &'static [&'static str],
     /// What this language calls the member that runs on construction.

@@ -16,3 +16,12 @@ func Process(rows []int) int {
 func Shout(name string) string {
 	return ToUpper(name)
 }
+
+func GuardsTheGate(rows []int) int {
+	notReady := len(rows) == 0
+	cap := len(rows)
+	if notReady {
+		return 0
+	}
+	return cap
+}

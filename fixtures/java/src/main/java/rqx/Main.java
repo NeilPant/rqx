@@ -5,6 +5,7 @@ public class Main {
         new Clean().add(1, 2);
         new Bloat().deeplyNested(java.util.List.of());
         new Overgrown().m1();
+        new Names().guardsTheGate(1);
         new SameAsOvergrown();
         Formatting.pad("a");
         Formatting.trim("a");

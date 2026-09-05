@@ -87,10 +87,13 @@ impl<'a> Walker<'a> {
 
     fn called_name(&self, call: Node<'a>) -> Option<String> {
         // A grammar that splits the receiver from the method name leaves the call
-        // node itself as the only thing spelling the whole dotted name.
+        // node itself as the only thing spelling the whole dotted name — but the same
+        // node kind is used for a call with no receiver at all, which spells nothing.
         let callee = call.child_by_field_name(self.profile.callee_field)?;
-        if self.profile.is_member_access(call) {
-            return self.callee_name(call);
+        if self.profile.is_member_access(call)
+            && let Some(dotted) = self.callee_name(call)
+        {
+            return Some(dotted);
         }
         self.callee_name(callee)
     }
@@ -143,13 +146,23 @@ impl<'a> Walker<'a> {
     /// Looks for an assertion anywhere in the test's body rather than tracking a
     /// stack, because a helper called from the test is still the test asserting.
     fn body_asserts(&self, body: Node<'a>) -> bool {
-        descendants(body)
-            .into_iter()
-            .filter(|node| self.profile.is_call(*node))
-            .any(|call| {
-                self.called_name(call)
-                    .is_some_and(|name| self.profile.test.is_assertion(&name))
-            })
+        descendants(body).into_iter().any(|node| self.asserts(node))
+    }
+
+    /// One node that checks something, whether the language spells a check as a call
+    /// or as a statement of its own.
+    fn asserts(&self, node: Node<'a>) -> bool {
+        if self
+            .profile
+            .assertion_statement_kinds
+            .contains(&node.kind())
+        {
+            return true;
+        }
+        self.profile.is_call(node)
+            && self
+                .called_name(node)
+                .is_some_and(|name| self.profile.test.is_assertion(&name))
     }
 
     /// A query that writes is only interesting when the write outlives the call, so
@@ -357,14 +370,15 @@ impl<'a> Walker<'a> {
         if marked {
             return;
         }
-        if let Some(body) = self.function_body(function)
-            && !self.body_asserts(body)
-        {
-            self.out.assertionless_tests.push(Spot {
-                span: span_of(name),
-                detail: label,
-                count: 1,
-            });
+        if let Some(body) = self.function_body(function) {
+            if !self.body_asserts(body) {
+                self.out.assertionless_tests.push(Spot {
+                    span: span_of(name),
+                    detail: label.clone(),
+                    count: 1,
+                });
+            }
+            self.note_test_body(body, &label);
         }
     }
 
@@ -400,18 +414,22 @@ impl<'a> Walker<'a> {
     fn note_call(&mut self, call: Node<'a>) {
         let vocabulary: &TestVocabulary = &self.profile.test;
         if let Some(name) = self.called_name(call) {
-            if self.test_depth == 0
-                && let Some(writer) = self
-                    .profile
-                    .debug_writers
-                    .iter()
-                    .find(|writer| **writer == name)
+            if let Some(writer) = self
+                .profile
+                .debug_writers
+                .iter()
+                .find(|writer| **writer == name)
             {
-                self.out.debug_output.push(Spot {
+                let spot = Spot {
                     span: span_of(call),
                     detail: (*writer).to_owned(),
                     count: 1,
-                });
+                };
+                if self.test_depth == 0 {
+                    self.out.debug_output.push(spot);
+                } else {
+                    self.out.test_debug_output.push(spot);
+                }
             }
             match vocabulary.directive(&name) {
                 Some(("skipped", directive)) => self.out.skipped_tests.push(Spot {
@@ -432,19 +450,20 @@ impl<'a> Walker<'a> {
             if vocabulary.is_case(&name) && vocabulary.directive(&name).is_none() {
                 let arguments = call.child_by_field_name("arguments");
                 let body = arguments.and_then(|list| list.named_child(1));
-                if let Some(body) = body
-                    && !self.body_asserts(body)
-                {
+                if let Some(body) = body {
                     let label = arguments
                         .and_then(|list| list.named_child(0))
                         .filter(|node| self.profile.string_kinds.contains(&node.kind()))
                         .map(|node| self.text(node).trim_matches(['"', '\'', '`']).to_owned())
                         .unwrap_or_else(|| name.clone());
-                    self.out.assertionless_tests.push(Spot {
-                        span: span_of(call),
-                        detail: label,
-                        count: 1,
-                    });
+                    if !self.body_asserts(body) {
+                        self.out.assertionless_tests.push(Spot {
+                            span: span_of(call),
+                            detail: label.clone(),
+                            count: 1,
+                        });
+                    }
+                    self.note_test_body(body, &label);
                 }
             }
 
@@ -1638,6 +1657,125 @@ impl<'a> Walker<'a> {
         });
     }
 
+    /// The four questions asked of one test body, wherever that body was found: a
+    /// framework that registers a case with a callback and one that names a function
+    /// give the same body two shapes and one meaning.
+    fn note_test_body(&mut self, body: Node<'a>, label: &str) {
+        let profile = self.profile;
+        let mut branches = 0_u32;
+        let mut guarded = None;
+        // Keyed by where the statement starts, so two assertion calls chained into one
+        // statement are the one assertion a reader sees.
+        let mut assertions: HashMap<u32, String> = HashMap::new();
+        for node in descendants(body) {
+            // A decision inside a callback belongs to whatever the callback stands in
+            // for — a mock, a render, a comparator — not to the test's own path.
+            if Self::under_function_within(node, body, profile) {
+                continue;
+            }
+            let kind = node.kind();
+            // Deliberately not every branch kind: a ternary is an expression the test
+            // evaluates, not a path the test can take.
+            if kind == profile.if_kind
+                || profile.loop_kinds.contains(&kind)
+                || profile.switch_kinds.contains(&kind)
+            {
+                branches += 1;
+            }
+            if kind == "try_statement" && !descendants(node).is_empty() {
+                guarded = Some(node);
+            }
+            if self.asserts(node)
+                && let Some(statement) = self.enclosing_statement(node, body)
+            {
+                assertions
+                    .entry(statement.start_byte() as u32)
+                    .or_insert_with(|| squashed(self.text(statement)));
+            }
+        }
+        let mut seen: HashMap<String, u32> = HashMap::new();
+        for text in assertions.into_values() {
+            *seen.entry(text).or_default() += 1;
+        }
+        if branches > 0 {
+            self.out.branching_tests.push(Spot {
+                span: span_of(body),
+                detail: label.to_owned(),
+                count: branches,
+            });
+        }
+        if let Some(node) = guarded
+            && descendants(node)
+                .into_iter()
+                .any(|child| profile.catch_kinds.contains(&child.kind()))
+        {
+            self.out.hand_rolled_throws.push(Spot {
+                span: span_of(node),
+                detail: label.to_owned(),
+                count: 1,
+            });
+        }
+        let mut repeated: Vec<(String, u32)> =
+            seen.into_iter().filter(|(_, times)| *times > 1).collect();
+        repeated.sort();
+        if let Some((text, seen)) = repeated.into_iter().next() {
+            self.out.duplicate_assertions.push(Spot {
+                span: span_of(body),
+                detail: text,
+                count: seen,
+            });
+        }
+    }
+
+    fn enclosing_statement(&self, node: Node<'a>, stop: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let mut current = node;
+        loop {
+            if profile.is_statement(current) {
+                return Some(current);
+            }
+            let parent = current.parent()?;
+            if parent.id() == stop.id() {
+                return Some(current);
+            }
+            current = parent;
+        }
+    }
+
+    /// A name that says what a thing is not, and a name the language already owns.
+    fn note_declared_name(&mut self, node: Node<'a>) {
+        let profile = self.profile;
+        // The empty parameter list is deliberate: "any identifier under a parameter
+        // node" would count the type beside the name, and a type is not a name this
+        // file chose.
+        if !profile.is_identifier(node)
+            || !crate::tree::is_binding_position(
+                node,
+                &[],
+                profile.borrowed_name_kinds,
+                profile.local_declaring_kinds,
+                profile.expression_list_kinds,
+            )
+        {
+            return;
+        }
+        let name = self.text(node);
+        if profile.builtin_names.contains(&name) {
+            self.out.shadowed_builtins.push(Spot {
+                span: span_of(node),
+                detail: name.to_owned(),
+                count: 1,
+            });
+        }
+        if let Some(marker) = crate::vocabulary::negated_name(name) {
+            self.out.negated_names.push(Spot {
+                span: span_of(node),
+                detail: format!("{name} ({marker})"),
+                count: 1,
+            });
+        }
+    }
+
     fn note_exits(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let Some(body) = self.function_body(function) else {
@@ -2368,6 +2506,7 @@ impl<'a> Walker<'a> {
         if profile.is_class(node) {
             self.note_class_shape(node);
         }
+        self.note_declared_name(node);
         if profile.is_function(node) {
             self.note_empty_method(node);
             self.note_many_locals(node);

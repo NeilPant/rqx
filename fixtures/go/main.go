@@ -81,6 +81,7 @@ func main() {
 	_ = fixtures.NewShipment
 	_ = fixtures.Notify
 	_ = fixtures.Overgrown
+	_ = fixtures.GuardsTheGate
 	_ = fixtures.CrowdedScope
 	_ = fixtures.PriceOf
 	_ = fixtures.Reconciler

@@ -152,3 +152,45 @@ export interface IShipment { strLabel: string; }
 
 rqx says: drop the prefix; the declaration already states the type and the compiler checks it
 
+## `negated-name`
+
+every test of it that is itself negated has to be undone twice in the reader's head before the condition means anything
+
+| | |
+|---|---|
+| Measures | a name that states what a thing is not |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Rename Variable |
+
+From `fixtures/typescript/names.ts`, line 8:
+
+```ts
+export function guardsTheGate(rows: number[]): number {
+  const notReady = rows.length === 0;
+  const Promise = rows.length;
+```
+
+rqx says: name the positive and let the call sites negate it
+
+## `shadows-builtin`
+
+the original is unreachable for the rest of the scope, and the next line that wanted it fails somewhere that names neither
+
+| | |
+|---|---|
+| Measures | a declared name the language or its standard library already owns |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Rename Variable |
+
+From `fixtures/typescript/names.ts`, line 9:
+
+```ts
+  const notReady = rows.length === 0;
+  const Promise = rows.length;
+  return notReady ? 0 : Promise;
+```
+
+rqx says: give it a name of this project's own
+

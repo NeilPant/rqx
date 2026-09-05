@@ -121,6 +121,22 @@ pub static JAVA: LanguageProfile = LanguageProfile {
 
     self_names: &["this"],
     ignored_prefixes: &["_"],
+    builtin_names: &[
+        "String",
+        "Integer",
+        "Long",
+        "Double",
+        "Boolean",
+        "Object",
+        "List",
+        "Map",
+        "Set",
+        "System",
+        "Math",
+        "Thread",
+        "Class",
+        "Exception",
+    ],
 
     scope_kinds: &[
         "method_declaration",
@@ -220,6 +236,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         "var",
     ],
     empty_body_kinds: &["line_comment", "block_comment"],
+    assertion_statement_kinds: &["assert_statement"],
     throw_kinds: &["throw_statement"],
     modifier_container_kinds: &["modifiers"],
     access_section_kinds: &[],
@@ -254,7 +271,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         ("m_", "member"),
     ],
     binding_identifier_kinds: &["identifier", "type_identifier"],
-    borrowed_name_kinds: &[],
+    borrowed_name_kinds: &["scoped_identifier"],
     hof_loops: &[
         "forEach",
         "map",

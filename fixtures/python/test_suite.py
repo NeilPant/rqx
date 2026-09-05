@@ -17,3 +17,25 @@ def test_ships():
 
 def test_checks_nothing():
     value = add(1, 1)
+
+
+def test_branches_on_the_input():
+    if add(1, 1) == 2:
+        assert add(1, 1) == 2
+
+
+def test_asserts_the_same_thing_twice():
+    assert add(1, 1) == 2
+    assert add(1, 1) == 2
+
+
+def test_catches_the_failure_itself():
+    try:
+        add(1, 1)
+    except ValueError as error:
+        assert error is not None
+
+
+def test_prints_while_it_runs():
+    print("here")
+    assert add(1, 1) == 2

@@ -390,6 +390,30 @@ pub fn unfinished_marker(text: &str) -> Option<&'static str> {
     MARKERS.into_iter().find(|marker| body.contains(marker))
 }
 
+/// A name that states what a thing is not. Reading it inside a condition means
+/// undoing the negation twice, once for the name and once for the test.
+pub fn negated_name(name: &str) -> Option<&'static str> {
+    const NEGATIONS: [&str; 7] = ["not_", "is_not", "no_", "non_", "cannot", "isnt", "dont"];
+    // Split on the case boundary before folding it away, or `notReady` becomes one
+    // word and the marker is gone.
+    let spaced = snake_of(&name.replace('-', "_")).to_lowercase();
+    NEGATIONS
+        .into_iter()
+        .find(|marker| spaced.starts_with(marker) || spaced.contains(&format!("_{marker}")))
+}
+
+/// One name in a single spelling, so `isNotReady` and `is_not_ready` compare equal.
+fn snake_of(name: &str) -> String {
+    let mut out = String::new();
+    for (at, character) in name.char_indices() {
+        if character.is_uppercase() && at > 0 {
+            out.push('_');
+        }
+        out.push(character.to_ascii_lowercase());
+    }
+    out
+}
+
 /// An apology is a comment that knows the code is wrong and leaves it that way.
 pub fn apology(text: &str) -> Option<&'static str> {
     const REGRETS: [&str; 6] = [
