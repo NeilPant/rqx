@@ -1557,7 +1557,10 @@ pub(crate) fn files_of(
                 && entry.file_type().is_some_and(|kind| kind.is_file())
                 && rqx_core::Language::of_path(entry.path()) == Some(language)
             {
-                found.lock().expect("the walk holds no lock").push(entry.into_path());
+                found
+                    .lock()
+                    .expect("the walk holds no lock")
+                    .push(entry.into_path());
             }
             ignore::WalkState::Continue
         })

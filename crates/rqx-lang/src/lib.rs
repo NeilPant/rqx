@@ -4,9 +4,9 @@
 
 pub mod classes;
 pub mod cpp;
+pub mod custom;
 pub mod go;
 pub mod hierarchy;
-pub mod custom;
 pub mod hygiene;
 pub mod java;
 pub mod metrics;

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -10,6 +10,7 @@ use rqx_core::config::{
 use toml::Value;
 
 pub const CONFIG_ENV: &str = "RQX_CONFIG";
+pub const POLICY_ENV: &str = "RQX_POLICY";
 
 struct Scope {
     matcher: Override,
@@ -28,6 +29,13 @@ pub struct Resolved {
     pub config: RqxConfig,
     pub sources: Vec<PathBuf>,
     pub provenance: BTreeMap<&'static str, PathBuf>,
+    /// Which file wrote each individual `table.key`. The per-table map cannot answer
+    /// that once two layers both touch `[thresholds]`, and a locked key has to be
+    /// able to name the file that set it.
+    key_sources: BTreeMap<String, PathBuf>,
+    /// The keys the policy will not let a project change.
+    locked: BTreeSet<String>,
+    pub policy: Option<PathBuf>,
     /// What the project actually wrote, before the level's layer went under it, so
     /// the `from` column can tell a value a file set from one a level moved.
     written: Value,
@@ -46,6 +54,9 @@ impl Clone for Resolved {
             config: self.config.clone(),
             sources: self.sources.clone(),
             provenance: self.provenance.clone(),
+            key_sources: self.key_sources.clone(),
+            locked: self.locked.clone(),
+            policy: self.policy.clone(),
             written: self.written.clone(),
             scopes: self
                 .scopes
@@ -79,6 +90,9 @@ impl Resolved {
             config,
             sources: Vec::new(),
             provenance: BTreeMap::new(),
+            key_sources: BTreeMap::new(),
+            locked: BTreeSet::new(),
+            policy: None,
             written: Value::Table(toml::Table::new()),
             scopes: Vec::new(),
             baseline: None,
@@ -149,6 +163,19 @@ impl Resolved {
 
     /// The file that set a table, for the `from` column. Falls back to the last file
     /// read, so a value that came from a layer rqx merged still names a real file.
+    /// The file that wrote one setting, which is not always the last file to touch
+    /// its table.
+    pub fn source_of_key(&self, table: &str, key: &str) -> Option<&Path> {
+        self.key_sources
+            .get(&format!("{table}.{key}"))
+            .map(PathBuf::as_path)
+    }
+
+    /// Whether a policy forbids this project changing one setting.
+    pub fn is_locked(&self, table: &str, key: &str) -> bool {
+        self.locked.contains(&format!("{table}.{key}"))
+    }
+
     pub fn source_of(&self, table: &str) -> Option<&Path> {
         self.provenance
             .get(table)
@@ -201,6 +228,9 @@ impl Resolved {
             config: self.config.clone(),
             sources: self.sources.clone(),
             provenance: self.provenance.clone(),
+            key_sources: self.key_sources.clone(),
+            locked: self.locked.clone(),
+            policy: self.policy.clone(),
             written: self.written.clone(),
             scopes,
             baseline: self.baseline.clone(),
@@ -214,9 +244,15 @@ impl Resolved {
 /// user saying which file they mean, so it is the only one whose absence is an error.
 pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Result<Resolved> {
     let anchor = anchor_of(root);
+    let project = project_configs(&anchor);
     let mut layers: Vec<PathBuf> = Vec::new();
     layers.extend(user_config());
-    layers.extend(project_configs(&anchor));
+    // Under the project rather than over it: a repository may tighten anything the
+    // policy did not lock, and a policy that sat on top would make every project
+    // identical rather than every project compliant.
+    let policy = policy_of(&project)?;
+    layers.extend(policy.clone());
+    layers.extend(project);
     if let Some(path) = std::env::var_os(CONFIG_ENV).map(PathBuf::from) {
         if !path.exists() {
             bail!(
@@ -242,12 +278,18 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
     let mut provenance = BTreeMap::new();
     let mut raw_overrides: Vec<(PathBuf, Value)> = Vec::new();
     let mut sources = Vec::new();
+    let mut locked: Vec<String> = Vec::new();
+    let mut key_sources: BTreeMap<String, PathBuf> = BTreeMap::new();
+    let mut written: Vec<(PathBuf, Vec<(String, Value)>)> = Vec::new();
 
     for path in layers {
         let mut value = read(&path)?;
         for entry in take_overrides(&mut value, &path)? {
             raw_overrides.push((path.clone(), entry));
         }
+        let is_policy = policy.as_deref() == Some(path.as_path());
+        locked.extend(take_locked(&mut value, &path, is_policy)?);
+        take_policy(&mut value);
         if let Some(table) = value.as_table() {
             for key in table.keys() {
                 if let Some(known) = TABLES.iter().find(|table| *table == key) {
@@ -255,8 +297,18 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
                 }
             }
         }
+        let mut leaves = Vec::new();
+        flatten("", &value, &mut leaves);
+        for (key, _) in &leaves {
+            key_sources.insert(key.clone(), path.clone());
+        }
+        written.push((path.clone(), leaves));
         merge(&mut merged, value);
         sources.push(path);
+    }
+
+    if let Some(policy) = &policy {
+        enforce_locks(&locked, policy, &written, &raw_overrides, level)?;
     }
 
     // The level's settings go under everything written by hand, so naming a level
@@ -309,6 +361,9 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         config,
         sources,
         provenance,
+        key_sources,
+        locked: locked.into_iter().collect(),
+        policy,
         written: merged,
         scopes,
         modules,
@@ -428,6 +483,168 @@ fn project_configs(anchor: &Path) -> Vec<PathBuf> {
 
 /// Removes `[[override]]` before the rest is deserialized, because `RqxConfig` denies
 /// unknown fields and an override is not one of its tables.
+/// The policy a project points at, if any. Read from the nearest config that names
+/// one so a monorepo can put the pointer at its root, and overridden by the
+/// environment for a CI job that has to impose one.
+fn policy_of(project: &[PathBuf]) -> Result<Option<PathBuf>> {
+    if let Some(named) = std::env::var_os(POLICY_ENV).map(PathBuf::from) {
+        if !named.exists() {
+            bail!(
+                "{POLICY_ENV} points at `{}`, which does not exist.",
+                named.display()
+            );
+        }
+        return Ok(Some(named));
+    }
+    // Nearest wins, the way every other setting does, so the innermost config that
+    // names a policy is the one that chose it.
+    for config in project.iter().rev() {
+        let Some(named) = read(config)?
+            .get("policy")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+        else {
+            continue;
+        };
+        let resolved = config
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(&named);
+        if !resolved.exists() {
+            bail!(
+                "{} names the policy `{named}`, which does not exist at {}.",
+                config.display(),
+                resolved.display()
+            );
+        }
+        return Ok(Some(resolved));
+    }
+    Ok(None)
+}
+
+/// `policy` is a pointer, not a setting, so it never reaches `RqxConfig` — which
+/// denies unknown fields and would refuse it.
+fn take_policy(value: &mut Value) {
+    if let Some(table) = value.as_table_mut() {
+        table.remove("policy");
+    }
+}
+
+fn take_locked(value: &mut Value, path: &Path, is_policy: bool) -> Result<Vec<String>> {
+    let Some(table) = value.as_table_mut() else {
+        return Ok(Vec::new());
+    };
+    let Some(entry) = table.remove("locked") else {
+        return Ok(Vec::new());
+    };
+    if !is_policy {
+        bail!(
+            "`[locked]` in {} does nothing: only the policy a project points at can \
+             lock a key.",
+            path.display()
+        );
+    }
+    let keys = entry
+        .get("keys")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("`[locked] keys` in {} must be a list", path.display()))?;
+    keys.iter()
+        .map(|key| {
+            key.as_str().map(str::to_owned).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "`[locked] keys` in {} holds something that is not a name",
+                    path.display()
+                )
+            })
+        })
+        .collect()
+}
+
+/// Every leaf of a config document as `table.key`, so "which file wrote this one
+/// setting" is answerable. Arrays are leaves: a list is one value, not several.
+fn flatten(prefix: &str, value: &Value, out: &mut Vec<(String, Value)>) {
+    match value {
+        Value::Table(table) => {
+            for (key, value) in table {
+                let path = if prefix.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{prefix}.{key}")
+                };
+                flatten(&path, value, out);
+            }
+        }
+        other => out.push((prefix.to_owned(), other.clone())),
+    }
+}
+
+/// A locked key may not be given a different value by anything above the policy.
+/// Not "may not be loosened": `rules.disabled` has no direction, so the only rule
+/// that holds for every key is that the policy's value is the value.
+fn enforce_locks(
+    locked: &[String],
+    policy: &Path,
+    written: &[(PathBuf, Vec<(String, Value)>)],
+    overrides: &[(PathBuf, Value)],
+    level: Option<Level>,
+) -> Result<()> {
+    let from_policy: &[(String, Value)] = written
+        .iter()
+        .find(|(path, _)| path == policy)
+        .map_or(&[], |(_, leaves)| leaves.as_slice());
+    let above = written
+        .iter()
+        .skip_while(|(path, _)| path != policy)
+        .skip(1);
+
+    for key in locked {
+        let want = from_policy.iter().find(|(named, _)| named == key);
+        let Some((_, want)) = want else {
+            bail!(
+                "{} locks `{key}`, which it does not set. Give it a value or drop it \
+                 from `[locked] keys`.",
+                policy.display()
+            );
+        };
+        for (path, leaves) in above.clone() {
+            if let Some((_, got)) = leaves.iter().find(|(named, _)| named == key)
+                && got != want
+            {
+                bail!(
+                    "`{key}` is locked to {want} by {}; {} sets {got}.",
+                    policy.display(),
+                    path.display()
+                );
+            }
+        }
+        // An override is merged after every layer, so a lock it contradicts would win.
+        if let Some((table, field)) = key.split_once('.') {
+            for (path, entry) in overrides {
+                if let Some(got) = entry.get(table).and_then(|values| values.get(field))
+                    && got != want
+                {
+                    bail!(
+                        "`{key}` is locked to {want} by {}; an `[[override]]` in {} sets {got}.",
+                        policy.display(),
+                        path.display()
+                    );
+                }
+            }
+        }
+        if key == "level"
+            && let Some(level) = level
+            && Some(level) != want.as_str().and_then(Level::parse)
+        {
+            bail!(
+                "`level` is locked to {want} by {}; --level asks for `{}`.",
+                policy.display(),
+                level.slug()
+            );
+        }
+    }
+    Ok(())
+}
+
 fn take_overrides(value: &mut Value, path: &Path) -> Result<Vec<Value>> {
     let Some(table) = value.as_table_mut() else {
         bail!("{} must be a table of settings", path.display());
@@ -605,6 +822,131 @@ fn merge(base: &mut Value, layer: Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A directory of its own per test, so two running at once cannot read each
+    /// other's policy.
+    fn workspace(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "rqx-policy-{name}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        root
+    }
+
+    fn write(at: &Path, body: &str) {
+        std::fs::create_dir_all(at.parent().expect("a directory")).expect("mkdir");
+        std::fs::write(at, body).expect("write");
+    }
+
+    /// A policy that cannot be enforced is a suggestion, and the whole point of the
+    /// table is that a repository cannot quietly opt out of it.
+    #[test]
+    fn a_project_that_moves_a_locked_key_is_refused_naming_the_key_and_both_files() {
+        let root = workspace("locked-moved");
+        write(
+            &root.join("platform/policy.toml"),
+            "[thresholds]\ncognitive_complexity = 12\n\n[locked]\nkeys = [\"thresholds.cognitive_complexity\"]\n",
+        );
+        write(
+            &root.join("service/RQX.toml"),
+            "policy = \"../platform/policy.toml\"\n\n[thresholds]\ncognitive_complexity = 25\n",
+        );
+
+        let Err(error) = resolve(&root.join("service"), None, None) else {
+            panic!("a locked key was moved");
+        };
+        let error = error.to_string();
+        assert!(error.contains("thresholds.cognitive_complexity"), "{error}");
+        assert!(error.contains("policy.toml"), "{error}");
+        assert!(error.contains("RQX.toml"), "{error}");
+        assert!(error.contains("25"), "{error}");
+    }
+
+    #[test]
+    fn a_policy_sets_what_the_project_leaves_alone_and_yields_where_it_is_not_locked() {
+        let root = workspace("policy-yields");
+        write(
+            &root.join("platform/policy.toml"),
+            "[thresholds]\ncognitive_complexity = 12\nmax_params = 6\n\n[locked]\nkeys = [\"thresholds.cognitive_complexity\"]\n",
+        );
+        write(
+            &root.join("service/RQX.toml"),
+            "policy = \"../platform/policy.toml\"\n\n[thresholds]\nmax_params = 2\n",
+        );
+
+        let settings = resolve(&root.join("service"), None, None).expect("resolves");
+        assert_eq!(settings.config.thresholds.cognitive_complexity, 12);
+        assert_eq!(
+            settings.config.thresholds.max_params, 2,
+            "unlocked, so the project wins"
+        );
+        assert!(settings.is_locked("thresholds", "cognitive_complexity"));
+        assert!(!settings.is_locked("thresholds", "max_params"));
+        // The per-table map cannot tell these apart; the per-key one has to.
+        assert!(
+            settings
+                .source_of_key("thresholds", "cognitive_complexity")
+                .is_some_and(|path| path.ends_with("policy.toml"))
+        );
+        assert!(
+            settings
+                .source_of_key("thresholds", "max_params")
+                .is_some_and(|path| path.ends_with("RQX.toml"))
+        );
+    }
+
+    /// Repeating the policy's own value is not a change, and refusing it would make a
+    /// project unable to state the standard it is holding itself to.
+    #[test]
+    fn a_project_may_restate_a_locked_value() {
+        let root = workspace("restate");
+        write(
+            &root.join("platform/policy.toml"),
+            "[gate]\nfail_on = \"warning\"\n\n[locked]\nkeys = [\"gate.fail_on\"]\n",
+        );
+        write(
+            &root.join("service/RQX.toml"),
+            "policy = \"../platform/policy.toml\"\n\n[gate]\nfail_on = \"warning\"\n",
+        );
+        assert!(resolve(&root.join("service"), None, None).is_ok());
+    }
+
+    /// An override is merged after every layer, so a lock it contradicts would win.
+    #[test]
+    fn an_override_cannot_move_a_locked_key_either() {
+        let root = workspace("override-lock");
+        write(
+            &root.join("platform/policy.toml"),
+            "[thresholds]\nmax_params = 3\n\n[locked]\nkeys = [\"thresholds.max_params\"]\n",
+        );
+        write(
+            &root.join("service/RQX.toml"),
+            "policy = \"../platform/policy.toml\"\n\n[[override]]\npaths = [\"legacy/**\"]\n\n[override.thresholds]\nmax_params = 9\n",
+        );
+        let Err(error) = resolve(&root.join("service"), None, None) else {
+            panic!("an override moved a locked key");
+        };
+        let error = error.to_string();
+        assert!(error.contains("override"), "{error}");
+    }
+
+    /// `[locked]` outside the policy would let a project lock itself against the
+    /// platform, which is the wrong way round.
+    #[test]
+    fn only_the_policy_may_lock_anything() {
+        let root = workspace("project-lock");
+        write(
+            &root.join("service/RQX.toml"),
+            "[thresholds]\nmax_params = 3\n\n[locked]\nkeys = [\"thresholds.max_params\"]\n",
+        );
+        let Err(error) = resolve(&root.join("service"), None, None) else {
+            panic!("a project tried to lock a key");
+        };
+        let error = error.to_string();
+        assert!(error.contains("only the policy"), "{error}");
+    }
 
     fn failure(outcome: Result<Scope>) -> String {
         match outcome {

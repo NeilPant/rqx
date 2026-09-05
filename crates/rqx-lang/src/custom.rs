@@ -6,12 +6,12 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use rqx_core::Language;
 use rqx_core::config::CustomRule;
 use rqx_core::finding::{Evidence, Finding};
 use rqx_core::rule::RuleId;
 use rqx_core::rules::FindingBuilder;
 use rqx_core::span::Span;
-use rqx_core::Language;
 use tree_sitter::StreamingIterator;
 use tree_sitter::{Node, Query, QueryCursor};
 
@@ -35,7 +35,10 @@ pub fn validate(rules: &[CustomRule]) -> Result<(), String> {
             return Err("a `[[rule]]` has no `id`".to_owned());
         }
         if seen.contains(&rule.id.as_str()) {
-            return Err(format!("two `[[rule]]` blocks are both called `{}`", rule.id));
+            return Err(format!(
+                "two `[[rule]]` blocks are both called `{}`",
+                rule.id
+            ));
         }
         seen.push(&rule.id);
         if rqx_core::rule::RuleId::ALL

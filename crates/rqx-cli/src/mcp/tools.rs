@@ -410,7 +410,7 @@ impl Rqx {
                 digest,
                 "  {:11} {} \u{b7} {}",
                 change.outcome.slug(),
-                &change.slug,
+                change.slug,
                 change.subject
             );
         }

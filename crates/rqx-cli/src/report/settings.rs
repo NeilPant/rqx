@@ -14,6 +14,9 @@ pub struct Row {
     pub name: &'static str,
     pub value: String,
     pub table: &'static str,
+    /// The key inside the table, where the row is one. Two files can both write
+    /// `[thresholds]` and only this says which of them wrote this line.
+    pub key: Option<&'static str>,
     pub is_default: bool,
     /// Moved by the level rather than written down, so the `from` column names the
     /// level instead of sending a reader to a line that is not in the file.
@@ -28,13 +31,22 @@ impl Row {
         if let Some(level) = self.from_level {
             return format!("level:{level}");
         }
-        settings
-            .source_of(self.table)
-            .and_then(|path| path.file_name())
+        let named = self
+            .key
+            .and_then(|key| settings.source_of_key(self.table, key))
+            .or_else(|| settings.source_of(self.table))
+            .and_then(std::path::Path::file_name)
             .map_or_else(
                 || "flag".to_owned(),
                 |name| name.to_string_lossy().into_owned(),
-            )
+            );
+        if self
+            .key
+            .is_some_and(|key| settings.is_locked(self.table, key))
+        {
+            return format!("{named} \u{b7} locked");
+        }
+        named
     }
 }
 
@@ -43,6 +55,7 @@ fn row(name: &'static str, table: &'static str, value: String, is_default: bool)
         name,
         value,
         table,
+        key: None,
         is_default,
         from_level: None,
     }
@@ -216,6 +229,7 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
 
     for (name, key, value, fallback) in threshold_rows(thresholds, &defaults) {
         let mut entry = row(name, "thresholds", value.to_string(), value == fallback);
+        entry.key = Some(key);
         // A threshold the level moved is not one this project chose, and naming a file
         // would send a reader to a line that is not in it.
         if value != fallback && !settings.was_written("thresholds", key) {
