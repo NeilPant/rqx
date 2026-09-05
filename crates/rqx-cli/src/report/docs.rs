@@ -49,6 +49,71 @@ pub fn pages(fixtures: &Path) -> Vec<(PathBuf, String)> {
     pages
 }
 
+/// The README's catalogue table, kept between markers so `rqx docs` can rewrite it.
+/// It had gone stale three ways at once — nine families where there were ten, and
+/// "eighty-one rules" one paragraph above "prints all 75".
+const OPENS: &str = "<!-- rqx:catalogue -->";
+const CLOSES: &str = "<!-- /rqx:catalogue -->";
+
+pub fn catalogue_table() -> String {
+    let mut table = format!("{OPENS}\n");
+    let total: usize = Category::ALL
+        .iter()
+        .map(|family| family.rules().count())
+        .sum();
+    let _ = writeln!(
+        table,
+        "{total} rules across {} families. Every rule names the metric that decides it \
+         and the refactoring that answers it, and neither is optional.\n",
+        Category::ALL.len()
+    );
+    let _ = writeln!(table, "| Family | Rules | What it measures |");
+    let _ = writeln!(table, "|---|---|---|");
+    for family in Category::ALL {
+        let _ = writeln!(
+            table,
+            "| **{}** | {} | {} |",
+            family.title(),
+            family.rules().count(),
+            measures(family)
+        );
+    }
+    let _ = write!(table, "{CLOSES}");
+    table
+}
+
+/// One line per family, in the same voice as the rules themselves.
+const fn measures(family: Category) -> &'static str {
+    match family {
+        Category::Size => "units that outgrew what a reader can hold",
+        Category::Abstraction => "types that model the problem wrong",
+        Category::Change => "shapes that make an edit expensive",
+        Category::Waste => "code and comments nothing reaches",
+        Category::Coupling => {
+            "modules that know too much about each other, and dependencies pointing the wrong way"
+        }
+        Category::Flow => "control flow that says less than it looks like",
+        Category::Naming => "names that mislead or say nothing",
+        Category::Safety => "silent failure and swallowed errors",
+        Category::Tests => "suites that pass without checking",
+        Category::Noise => "text that costs a reader and buys nothing",
+    }
+}
+
+/// Rewrites the block between the markers, leaving the rest of the file alone.
+/// Returns `None` when the file has no markers, so a README that never opted in is
+/// not silently changed.
+pub fn with_catalogue(readme: &str) -> Option<String> {
+    let opens = readme.find(OPENS)?;
+    let closes = readme.find(CLOSES)? + CLOSES.len();
+    Some(format!(
+        "{}{}{}",
+        &readme[..opens],
+        catalogue_table(),
+        &readme[closes..]
+    ))
+}
+
 pub fn write(out: &Path, fixtures: &Path) -> Result<()> {
     let pages = pages(fixtures);
     for (relative, body) in &pages {
@@ -58,6 +123,15 @@ pub fn write(out: &Path, fixtures: &Path) -> Result<()> {
                 .with_context(|| format!("creating {}", parent.display()))?;
         }
         std::fs::write(&path, body).with_context(|| format!("writing {}", path.display()))?;
+    }
+    // The README lives beside `docs/`, not inside it.
+    let readme = out.join("..").join("README.md");
+    if let Ok(existing) = std::fs::read_to_string(&readme)
+        && let Some(fresh) = with_catalogue(&existing)
+        && fresh != existing
+    {
+        std::fs::write(&readme, fresh).with_context(|| format!("writing {}", readme.display()))?;
+        println!("\n  updated the catalogue table in {}", readme.display());
     }
     println!("\n  wrote {} pages under {}\n", pages.len(), out.display());
     Ok(())
@@ -513,5 +587,30 @@ impl Defaults {
 
     fn get(&self, key: &str) -> Option<String> {
         self.0.get(key).map(ToString::to_string)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The table said nine families where there were ten, and "eighty-one rules" one
+    /// paragraph above "prints all 75". Generating it fixed that once; this is what
+    /// stops it happening again the next time a rule lands.
+    #[test]
+    fn the_readme_counts_what_the_catalogue_holds() {
+        let path = format!("{}/../../README.md", env!("CARGO_MANIFEST_DIR"));
+        let readme = std::fs::read_to_string(&path).expect("the README");
+        let fresh = with_catalogue(&readme).expect("the markers are still in the README");
+        assert_eq!(
+            fresh, readme,
+            "run `rqx docs` — the README's catalogue table has drifted"
+        );
+    }
+
+    /// A README without the markers must be left alone rather than half-rewritten.
+    #[test]
+    fn a_readme_that_never_opted_in_is_not_touched() {
+        assert!(with_catalogue("# Something else\n").is_none());
     }
 }

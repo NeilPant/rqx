@@ -146,19 +146,8 @@ does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Eighty-one rules across ten families. Every rule names the metric that decides it and
-the refactoring that answers it, and neither is optional.
-
-That traceability is enforced by the compiler. The catalogue is one declarative
-table (`crates/rqx-core/src/catalogue.rs`) in which every field is mandatory, so a
-rule that omits its metric or its fix does not build. A second test asserts that
-**every rule in the catalogue actually fires on a fixture** — a rule nothing can
-trigger is a documentation entry pretending to be a check.
-
-`rqx rules` prints all 81 grouped by family, and `rqx explain <rule>` prints one in
-full. [`docs/rules/`](docs/rules/README.md) is the same catalogue as a reference: what
-each rule measures, the threshold that tunes it, the languages it cannot apply to, and
-a worked example lifted from the fixture that fires it.
+<!-- rqx:catalogue -->
+83 rules across 10 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
 
 | Family | Rules | What it measures |
 |---|---|---|
@@ -166,12 +155,13 @@ a worked example lifted from the fixture that fires it.
 | **Abstraction** | 8 | types that model the problem wrong |
 | **Change** | 3 | shapes that make an edit expensive |
 | **Waste** | 19 | code and comments nothing reaches |
-| **Coupling** | 7 | modules that know too much about each other, and dependencies pointing the wrong way |
+| **Coupling** | 9 | modules that know too much about each other, and dependencies pointing the wrong way |
 | **Flow** | 7 | control flow that says less than it looks like |
 | **Naming** | 7 | names that mislead or say nothing |
 | **Safety** | 10 | silent failure and swallowed errors |
 | **Tests** | 4 | suites that pass without checking |
 | **Noise** | 5 | text that costs a reader and buys nothing |
+<!-- /rqx:catalogue -->
 
 Those pages are generated from the catalogue by `rqx docs`, and a test fails if they
 drift from it — a hand-written table of sixty-odd rules is a table that goes stale, which
