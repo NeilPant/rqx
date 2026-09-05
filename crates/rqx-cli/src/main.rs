@@ -25,6 +25,7 @@ mod plan;
 mod preview;
 mod progress;
 mod query;
+mod recommend;
 mod report;
 mod scan;
 mod serve;
@@ -277,6 +278,22 @@ enum Command {
         #[arg(long)]
         histogram: bool,
         /// Emit one JSON object per row
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// What to do about this project, as distinct from what is wrong with it
+    Recommend {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Just one section
+        #[arg(long, value_enum)]
+        only: Option<recommend::Only>,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -1309,6 +1326,26 @@ fn run() -> Result<Exit> {
                 return complexity::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
             }
             complexity::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Recommend {
+            path,
+            standard,
+            only,
+            json,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            settings.config.scan.max_findings = 0;
+            let outcome = scan::scan(&path, &settings)?;
+            let mut out = anstream::stdout().lock();
+            if json {
+                return recommend::json(&outcome, &settings, only, &mut out).map(|()| Exit::Clean);
+            }
+            recommend::render(&outcome, &settings, only, palette, &mut out).map(|()| Exit::Clean)
         }
         Command::Slop {
             path,
