@@ -37,3 +37,8 @@ int mutates_parameter(int value) {  // NOLINT
 std::string ship(const Order& order) {
     return order.customer().address().city().label();
 }
+
+// ---------------- helpers ----------------
+// Here's the helper you asked for! 🎉
+// Sorry, this one is ugly.
+

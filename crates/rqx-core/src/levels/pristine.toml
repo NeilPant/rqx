@@ -28,6 +28,7 @@ enabled = [
   "hungarian-notation",
   "negative-conditional",
   "cross-language-duplicate",
+  "emoji-in-source",
 ]
 
 [gate]

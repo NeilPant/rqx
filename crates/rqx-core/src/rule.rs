@@ -20,10 +20,12 @@ pub enum Category {
     Naming,
     Safety,
     Tests,
+    /// Text that costs a reader and buys nothing.
+    Noise,
 }
 
 impl Category {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Size,
         Self::Abstraction,
         Self::Change,
@@ -33,6 +35,7 @@ impl Category {
         Self::Naming,
         Self::Safety,
         Self::Tests,
+        Self::Noise,
     ];
 
     pub const fn slug(self) -> &'static str {
@@ -46,6 +49,7 @@ impl Category {
             Self::Naming => "naming",
             Self::Safety => "safety",
             Self::Tests => "tests",
+            Self::Noise => "noise",
         }
     }
 
@@ -60,6 +64,7 @@ impl Category {
             Self::Naming => "Naming",
             Self::Safety => "Safety",
             Self::Tests => "Tests",
+            Self::Noise => "Noise",
         }
     }
 

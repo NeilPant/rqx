@@ -969,6 +969,13 @@ impl<'a> Walker<'a> {
                     count: 1,
                 });
             }
+            if let Some(standin) = crate::vocabulary::placeholder_value(text) {
+                self.out.example_values.push(Spot {
+                    span: span_of(node),
+                    detail: standin.to_owned(),
+                    count: 1,
+                });
+            }
             if self.block_depth >= self.limits.configuration_depth
                 && let Some(configuration) = configuration_literal(text)
             {
@@ -1156,6 +1163,20 @@ fn scan_comments(
     {
         let span = span_of(comment);
         let text = text_of(comment, source);
+        if crate::vocabulary::emoji(text) {
+            out.emoji.push(Spot {
+                span,
+                detail: String::new(),
+                count: 1,
+            });
+        }
+        if let Some(standin) = crate::vocabulary::placeholder_value(text) {
+            out.example_values.push(Spot {
+                span,
+                detail: standin.to_owned(),
+                count: 1,
+            });
+        }
         // Checked before the suppression-directive branch: rqx's own waiver is not
         // one of the diagnostics `suppressed-diagnostic` is meant to report.
         if let Some(waiver) = rqx_core::suppress::Suppression::parse(text, span) {
@@ -1168,6 +1189,24 @@ fn scan_comments(
             out.suppressions.push(Spot {
                 span,
                 detail: (*directive).to_owned(),
+                count: 1,
+            });
+        } else if let Some(opening) = crate::vocabulary::chat_residue(text) {
+            out.chat_residue.push(Spot {
+                span,
+                detail: opening.to_owned(),
+                count: 1,
+            });
+        } else if let Some(regret) = crate::vocabulary::apology(text) {
+            out.apologies.push(Spot {
+                span,
+                detail: regret.to_owned(),
+                count: 1,
+            });
+        } else if crate::vocabulary::banner(text) {
+            out.banner_comments.push(Spot {
+                span,
+                detail: String::new(),
                 count: 1,
             });
         } else if let Some(marker) = journal_marker(text) {

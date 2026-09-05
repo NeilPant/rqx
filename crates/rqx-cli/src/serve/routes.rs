@@ -332,7 +332,9 @@ async fn fix(State(live): State<Arc<Live>>, body: Bytes) -> Response {
     let root = live.root.clone();
     let options = crate::fix::Options {
         write: request.write,
-        max_rounds: 1,
+        // A write runs the rounds `rqx fix` runs, because deleting the last use of a
+        // binding is what makes the binding unused and that is the next round's edit.
+        max_rounds: if request.write { 3 } else { 1 },
         only: std::iter::once(request.file).collect(),
     };
     blocking(move || {

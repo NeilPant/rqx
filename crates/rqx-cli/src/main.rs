@@ -29,6 +29,7 @@ mod report;
 mod scan;
 mod serve;
 mod setup;
+mod slop;
 mod tui;
 mod verify;
 
@@ -276,6 +277,24 @@ enum Command {
         #[arg(long)]
         histogram: bool,
         /// Emit one JSON object per row
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Which files read as written rather than read
+    Slop {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+        /// Skip anything scoring below this
+        #[arg(long, default_value_t = 1)]
+        min: u32,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -1290,6 +1309,32 @@ fn run() -> Result<Exit> {
                 return complexity::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
             }
             complexity::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Slop {
+            path,
+            standard,
+            top,
+            min,
+            json,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            settings.config.scan.max_findings = 0;
+            // The signals are Info rules and several ship off by default, so the
+            // command turns its own family on rather than reporting nothing.
+            for (rule, _) in rqx_core::slop::SIGNALS {
+                settings.config.rules.enabled.insert(rule.slug().to_owned());
+            }
+            let outcome = scan::scan(&path, &settings)?;
+            let mut out = anstream::stdout().lock();
+            if json {
+                return slop::json(&outcome, top, min, &mut out).map(|()| Exit::Clean);
+            }
+            slop::render(&outcome, top, min, palette, &mut out).map(|()| Exit::Clean)
         }
         Command::Health {
             path,

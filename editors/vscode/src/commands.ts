@@ -96,8 +96,6 @@ export function register(surfaces: Surfaces): Disposable[] {
   );
 }
 
-/* ── moving around ─────────────────────────────────────────────────────── */
-
 async function openFinding(finding: Finding): Promise<void> {
   const document = await workspace.openTextDocument(finding.uri);
   const editor = await window.showTextDocument(document, { preserveFocus: false });
@@ -131,8 +129,6 @@ function filterToRule(filters: Filters, target: Finding | string): Thenable<void
     commands.executeCommand("rqx.findings.focus"),
   );
 }
-
-/* ── explaining ────────────────────────────────────────────────────────── */
 
 /// `rqx explain` already renders the whole catalogue entry, so the editor opens that
 /// markdown rather than paraphrasing it into a second, thinner description.
@@ -190,8 +186,6 @@ async function toggle(server: LanguageServer, command: string, setting: string):
     window.showInformationMessage(`Rqx: ${setting} ${on ? "on" : "off"}.`);
   }
 }
-
-/* ── fixing ────────────────────────────────────────────────────────────── */
 
 /// The server answers a whole-document fix-all request with one action carrying every
 /// proven edit in the file, so `apply: "first"` applies the file rather than a line.
@@ -322,8 +316,6 @@ function findingAtCursor(index: FindingsIndex): Finding | undefined {
     .find((finding) => finding.range.start.line <= line && line <= finding.range.end.line);
 }
 
-/* ── the other three commands ──────────────────────────────────────────── */
-
 async function plan(surfaces: Surfaces): Promise<void> {
   type Item = {
     rule: string;
@@ -451,8 +443,6 @@ async function review(
   );
 }
 
-/* ── configuration ─────────────────────────────────────────────────────── */
-
 async function showConfig(server: LanguageServer): Promise<void> {
   type Row = { table: string; name: string; value: string; isDefault: boolean; source: string };
   const answer = await server.send<{ level?: string; sources?: string[]; settings?: Row[] }>(
@@ -517,8 +507,6 @@ async function setLevel(): Promise<void> {
   await workspace.fs.writeFile(uri, Buffer.from(written, "utf8"));
   await window.showTextDocument(await workspace.openTextDocument(uri));
 }
-
-/* ── exporting ─────────────────────────────────────────────────────────── */
 
 const REPORTERS: Record<string, string> = {
   json: "json",

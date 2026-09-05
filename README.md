@@ -146,7 +146,7 @@ does not declare its metric and fix does not build.
 
 ## The catalogue
 
-Seventy-five rules across nine families. Every rule names the metric that decides it and
+Eighty-one rules across nine families. Every rule names the metric that decides it and
 the refactoring that answers it, and neither is optional.
 
 That traceability is enforced by the compiler. The catalogue is one declarative
@@ -374,22 +374,36 @@ change within one poll interval.
 
 | Page | Shows |
 |---|---|
-| Overview | health, the trend for the session, the grade distribution, what to open first, and what the project would score under each level |
+| Overview | health, the trend, the grade distribution, what to open first, and what the project would score under each level |
 | Map | every file as a tile, sized by lines and coloured by grade — the shape of the codebase in one screen |
-| Findings | every finding, filtered by severity, family, rule, path or whether `rqx fix` can answer it; click one for the code, the metric, the reason and the named refactoring |
-| Files | one row per file, worst grade first, with blast radius |
+| Graph | what imports what, coloured by grade, with every cycle drawn in red |
+| Findings | every finding, sorted and grouped how you like, filtered by severity, family, rule, path glob, grade, confidence, fixability or whether the baseline already knew |
+| Files | one row per file, searchable and sortable, worst grade first |
 | Plan | the ranked plan with a budget slider, re-ranked as you drag it |
+| Patterns | which design patterns are half applied, and where |
+| Check | review the diff against any base and see the gate's verdict |
 | Rules | the catalogue, with how often each rule fired here |
+| Waivers | every `rqx-ignore`, its reason and its date |
+| Config | the effective settings and which file set each one |
 | Activity | every save as it lands, with what it resolved and introduced |
+
+**It can act, not only look.** Open a finding and the drawer offers the proven fix —
+shown as the edits it would make before it makes any of them — a waiver with a reason,
+and switching the rule off. Every write goes back through the same functions `rqx fix`
+and `rqx suppress` use, so nothing happens here that the command line would refuse.
+`--read-only` serves the page without them.
 
 It is the terminal's own theme: the palette comes from `brand.rs` rather than being
 restated, so retuning a colour moves both, and the owl carries the verdict the way it
 does in `rqx` — a failing repository is a red owl, not a brown one with a red mark on
 it. Dark, warm and readable from a phone to a wide monitor.
 
-`⌘K` jumps to a page or a file. The page is served from the binary — no Node, no
-network, no build step — and binds loopback only, refusing any other address: it
-renders your source and has no way to authenticate a browser.
+`⌘K` jumps to a page, a file or a rule, and the whole view — page, filters, sort and
+grouping — lives in the address, so a filtered list can be reloaded or sent to somebody.
+The page is served from the binary — no Node, no network, no build step — and binds
+loopback only, refusing any other address: it renders your source and has no way to
+authenticate a browser. A write additionally has to carry the nonce the page was served
+with, which a form on another site cannot read.
 
 ## Which five do I fix on Monday
 
@@ -542,31 +556,33 @@ rqx setup neovim     # the config it needs
 rqx setup neovim -w  # appended for you, after showing what will be added
 ```
 
-| | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Dashboard |
-|---|---|---|---|---|---|---|---|
-| **VS Code**, Cursor, Windsurf, VSCodium | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | panel |
-| **Zed** | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
-| **JetBrains** IDEA, WebStorm, PyCharm, GoLand, CLion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | tool window |
-| **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
-| **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
-| **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
-| **Emacs** eglot, lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | browser |
-| **Vim** coc.nvim, vim-lsp | ✓ | ✓ | ✓ | ✓ | — | coc only | browser |
-| **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | browser |
+| | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Views | Dashboard |
+|---|---|---|---|---|---|---|---|---|
+| **VS Code**, Cursor, Windsurf, VSCodium | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | editor tab |
+| **Zed** | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | browser |
+| **JetBrains** IDEA, WebStorm, PyCharm, GoLand, CLion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | tool window |
+| **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
+| **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
+| **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
+| **Emacs** eglot, lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
+| **Vim** coc.nvim, vim-lsp | ✓ | ✓ | ✓ | ✓ | — | coc only | — | browser |
+| **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | — | browser |
 
-VS Code and Zed ship extensions that fetch the matching binary themselves; the
-JetBrains plugin runs on Community editions and shows the dashboard in a tool window. Everything
-else runs `rqx lsp`, so a capability added to the server appears in every editor in the
-same commit — which is why these clients stay small enough to survive being
-unmaintained.
+VS Code and Zed ship extensions that fetch the matching binary themselves; the JetBrains
+plugin runs on Community editions and shows the dashboard in a tool window. **Views** are
+the sidebar's own findings, files and rules trees, which only VS Code has a place for —
+everywhere else the dashboard is that view. Everything else runs `rqx lsp`, so a
+capability added to the server appears in every editor in the same commit — which is why
+these clients stay small enough to survive being unmaintained.
 
 **Quick fixes are the real edits**, verified exactly as `rqx fix` verifies them, tagged
 `source.fixAll` so an editor can apply every one of them on save. The rules whose fix is
 a decision offer to explain themselves or turn the rule off instead.
 
 **The dashboard is one page.** `rqx.dashboard` starts `rqx serve` and answers with its
-URL, so VS Code shows it in a panel and every other editor opens it beside the window —
-the same page, not a second half-built one per client.
+URL, so VS Code shows it in an editor tab, JetBrains in a tool window, and every other
+editor opens it beside the window — the same page, not a second half-built one per
+client. Asking twice answers with the same URL rather than starting a second server.
 
 Cross-file findings arrive without being asked for: the server scans the workspace on
 its own and republishes every file, so ten of the seventy-five rules do not go silently
@@ -614,15 +630,21 @@ from the menu and every screen returns to it, so nothing is a dead end:
 | Tab | Shows |
 |---|---|
 | Overview | health, severity and grade distributions, what to open first |
-| Findings | every finding with the offending code marked, filter, group, severity floor |
+| Findings | every finding with the offending code marked, and the keys to filter, group, open, fix or waive it |
 | Files | one row per file, worst grade first, with churn and blast radius |
+| Plan | the work ranked by what it buys against what it costs, with a budget |
 | Patterns | which design patterns are in use, which are half applied, and where one would fit |
 | Rules | the catalogue, searchable, with each rule's family, metric, fix and why |
 | Config | the effective settings and where each one came from |
 
-`tab` cycles all six, `1`–`6` jump, `r` runs a scan, `/` filters, `?` lists the keys
-of the screen you are on, `esc` steps back, `q` leaves and prints what the session
-found. A tab opened before a scan says what it will hold rather than refusing to
+`tab` cycles all seven, `1`–`7` jump, `r` runs a scan, `/` searches, `f` filters by rule,
+family and path in the same spelling the flags take, `g` groups, `?` lists the keys of the
+screen you are on, `esc` steps back, `q` leaves and prints what the session found.
+
+`enter` on a finding opens it in `$EDITOR` at its line and comes back when you leave;
+`enter` on a file shows that file's findings. `a` proves the fixes for a file and shows
+what they would change, `y` writes them, and `x` waives the selected finding once you
+give a reason. A tab opened before a scan says what it will hold rather than refusing to
 open, and nothing but `q` returns you to the shell. It animates only while something is moving — a
 still screen blocks on input and costs nothing to leave open. `--motion off` turns
 the movement off without losing anything the screen says.

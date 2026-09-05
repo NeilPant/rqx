@@ -80,6 +80,8 @@ impl Evidence {
             // A query names whatever it matched; the span's own text is the subject,
             // and `resolved` supplies it.
             Self::Custom { .. } => None,
+            // The comment itself is the subject, and its text is the span's text.
+            Self::Noise { .. } => None,
             Self::Name { identifier, .. } => Some(identifier),
             Self::UnusedExport { symbol, .. } => Some(symbol),
             Self::UnusedParameter { name, .. }
@@ -146,6 +148,7 @@ impl Evidence {
         match self {
             // A query either matched or did not; there is no number to shrink.
             Self::Custom { .. } => None,
+            Self::Noise { .. } => None,
             Self::CognitiveComplexity { score, .. } => Some(*score),
             Self::StatementCount { count, .. } | Self::ParameterCount { count, .. } => Some(*count),
             Self::NestingDepth { depth, .. } | Self::MessageChain { depth, .. } => Some(*depth),

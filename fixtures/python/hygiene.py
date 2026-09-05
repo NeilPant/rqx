@@ -32,3 +32,8 @@ suppressed = 1
 
 def ship(order) -> str:
     return order.customer.address.city.strip().upper()
+
+# ---------------- helpers ----------------
+# Here's the helper you asked for! 🎉
+# Sorry, this one is ugly.
+

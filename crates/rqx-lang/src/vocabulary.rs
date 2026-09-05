@@ -148,6 +148,97 @@ pub fn looks_like_code(text: &str, endings: &[&str], markers: &[&str], operators
 
 /// Markers that record who wrote something and when. Version control answers both
 /// questions, and unlike the comment it is not left behind by the next edit.
+/// A comment written to a person rather than about the code — the residue of a
+/// conversation that ended before the commit. Matched case-insensitively at the start
+/// of the comment's own text, because "Note that this" is chat and "note that this"
+/// buried mid-sentence in a real explanation is not.
+pub fn chat_residue(text: &str) -> Option<&'static str> {
+    const OPENINGS: [&str; 14] = [
+        "here's",
+        "here is the",
+        "let me",
+        "i've added",
+        "i have added",
+        "i'll",
+        "as requested",
+        "feel free",
+        "hope this helps",
+        "note that this",
+        "in this implementation",
+        "this implementation",
+        "certainly",
+        "sure,",
+    ];
+    let body = text
+        .trim_start_matches(['/', '#', '*', '!', '-', ' ', '\t'])
+        .to_lowercase();
+    OPENINGS
+        .into_iter()
+        .find(|opening| body.starts_with(opening))
+}
+
+/// A comment that is a divider or a one-word heading rather than a sentence. Both are
+/// a table of contents for a file short enough not to need one.
+pub fn banner(text: &str) -> bool {
+    let body = text.trim_start_matches(['/', '#', '!']).trim();
+    if body.chars().count() < 4 {
+        return false;
+    }
+    let punctuation = body
+        .chars()
+        .filter(|character| !character.is_alphanumeric() && !character.is_whitespace())
+        .count();
+    // Mostly rule: `======`, `------`, `~~~~~~`.
+    if punctuation * 5 >= body.chars().count() * 3 {
+        return true;
+    }
+    // Or a single word fenced by them: `--- helpers ---`, `=== STATE ===`.
+    let fenced = body.trim_matches(|c: char| !c.is_alphanumeric());
+    punctuation >= 4 && fenced.split_whitespace().count() <= 2 && !fenced.is_empty()
+}
+
+/// A placeholder that reads as real. Harmless in a test and a bug report waiting to
+/// happen anywhere else.
+pub fn placeholder_value(text: &str) -> Option<&'static str> {
+    const STANDINS: [&str; 10] = [
+        "example.com",
+        "example.org",
+        "lorem ipsum",
+        "john doe",
+        "jane doe",
+        "test@test",
+        "your_api_key",
+        "your-api-key",
+        "changeme",
+        "foo@bar",
+    ];
+    let body = text.to_lowercase();
+    STANDINS.into_iter().find(|standin| body.contains(standin))
+}
+
+/// An apology is a comment that knows the code is wrong and leaves it that way.
+pub fn apology(text: &str) -> Option<&'static str> {
+    const REGRETS: [&str; 6] = [
+        "sorry",
+        "this is ugly",
+        "this is a hack",
+        "i know this is bad",
+        "forgive",
+        "apologies",
+    ];
+    let body = text.to_lowercase();
+    REGRETS.into_iter().find(|regret| body.contains(regret))
+}
+
+/// An emoji anywhere outside a test. Not a defect on its own, which is why it is
+/// `Info` — it is a signal about who wrote the line and how carefully.
+pub fn emoji(text: &str) -> bool {
+    text.chars().any(|character| {
+        matches!(character as u32,
+            0x1F300..=0x1FAFF | 0x2600..=0x27BF | 0x1F000..=0x1F0FF | 0xFE0F | 0x2B00..=0x2BFF)
+    })
+}
+
 pub fn journal_marker(text: &str) -> Option<&'static str> {
     [
         "@author",

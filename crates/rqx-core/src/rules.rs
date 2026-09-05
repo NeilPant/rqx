@@ -596,6 +596,41 @@ pub fn check_hygiene(
             "pick one verb for the idea and rename the rest to match".to_owned(),
         );
     }
+    for (spots, rule, hint) in [
+        (
+            &hygiene.banner_comments,
+            RuleId::BannerComment,
+            "delete it; if the file needs sections, it needs splitting",
+        ),
+        (
+            &hygiene.chat_residue,
+            RuleId::ChatResidue,
+            "say what the code does that its name does not, or delete the comment",
+        ),
+        (
+            &hygiene.apologies,
+            RuleId::ApologyComment,
+            "fix it, or record why it stays and what would let it go",
+        ),
+        (&hygiene.emoji, RuleId::EmojiInSource, "write it in words"),
+        (
+            &hygiene.example_values,
+            RuleId::ExampleValue,
+            "name it as configuration, or move it to a test where a stand-in belongs",
+        ),
+    ] {
+        for spot in spots {
+            emit(
+                out,
+                rule,
+                spot,
+                Evidence::Noise {
+                    marker: spot.detail.clone(),
+                },
+                hint.to_owned(),
+            );
+        }
+    }
     for waiver in &hygiene.waivers {
         let Some(refusal) = waiver.refusal(&crate::suppress::today()) else {
             continue;

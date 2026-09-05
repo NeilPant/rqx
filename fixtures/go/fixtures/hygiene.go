@@ -46,3 +46,8 @@ func newOrder(c customer) order { return order{Customer: c} }
 func Ship(target order) string {
 	return target.Customer.Address.City.Label()
 }
+
+// ---------------- helpers ----------------
+// Here's the helper you asked for! 🎉
+// Sorry, this one is ugly.
+

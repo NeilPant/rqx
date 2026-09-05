@@ -15,8 +15,9 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 | [Naming](naming.md) | 7 | `mixed-conventions` `vague-function-name` `misleading-pattern-name` `inconsistent-vocabulary` `meaningless-name` `short-name-wide-scope` `hungarian-notation` |
 | [Safety](safety.md) | 10 | `imprecise-type` `boundary-arithmetic` `query-with-side-effect` `assignment-in-condition` `unjustified-suppression` `suppressed-diagnostic` `flag-argument` `output-parameter` `complex-condition` `negative-conditional` |
 | [Tests](tests.md) | 4 | `slow-test` `skipped-test` `focused-test` `assertionless-test` |
+| [Noise](noise.md) | 5 | `banner-comment` `chat-residue` `apology-comment` `emoji-in-source` `example-value` |
 
-76 rules in total. 11 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
+81 rules in total. 12 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
 
 - `primitive-obsession`
 - `divergent-change`
@@ -28,4 +29,5 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 - `meaningless-name`
 - `short-name-wide-scope`
 - `hungarian-notation`
+- `emoji-in-source`
 - `negative-conditional`

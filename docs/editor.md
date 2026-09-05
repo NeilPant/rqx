@@ -8,29 +8,46 @@ named refactoring that fixes it.
 It also scans the whole project on its own: once after the handshake, and again after
 every save. The eight cross-file rules — unused exports, unused files, import cycles,
 duplication, and the two co-change rules — cannot be answered from one open file, so
-without that a client would silently see 65 of the 75 rules. Diagnostics for files you
-never opened are published the same way as the ones for files you did.
+without that a client would silently miss every rule that needs more than one file open.
+Diagnostics for files you never opened are published the same way as the ones for files
+you did.
 
 ## Commands
 
 Every command is a standard `workspace/executeCommand`, so any client that can invoke one
 can bind it. Nothing here is a VS Code extension talking to itself.
 
-| Command | Does |
-|---|---|
-| `rqx.scan` | Rescan the workspace |
-| `rqx.check` | Review the diff against a base (default `origin/HEAD`) and report the gate |
-| `rqx.explain` | The catalogue entry for a rule slug, as markdown |
-| `rqx.startHere` | What to open first, ranked by grade then blast radius |
-| `rqx.catalogue` | Every rule as data |
-| `rqx.disableRule` / `rqx.disableCategory` | A `WorkspaceEdit` that switches one off in `RQX.toml` |
-| `rqx.togglePatterns` | Half-applied design patterns on or off, as hints |
-| `rqx.dashboard` | Starts the live dashboard and answers with its URL |
-| `rqx.toggleCodeLens` | The per-file grade lens on or off |
+| Command | Arguments | Does |
+|---|---|---|
+| `rqx.scan` | | Rescan the workspace |
+| `rqx.check` | `[base]` | Review the diff against a base (default `origin/HEAD`) and report the gate |
+| `rqx.explain` | `[slug]` | The catalogue entry for a rule *or* a pattern, as markdown |
+| `rqx.startHere` | | What to open first, ranked by grade then blast radius |
+| `rqx.catalogue` | | Every rule as data |
+| `rqx.findings` | `[{severity, rule, category, glob, file}]` | The last scan's findings, filtered as `--severity`, `--rule`, `--category` and `--path` filter them |
+| `rqx.plan` | `[budget, limit]` | The work ranked by what it buys against what it costs |
+| `rqx.fix` | `[write, files]` | The proven edits; with `write` it applies them and rescans |
+| `rqx.verify` | `[base, expect]` | Whether the refactoring named actually happened |
+| `rqx.baseline` | `[update]` | Record every finding now, so the gate judges only what a change adds |
+| `rqx.suppress` | `[{file, line, rule, reason, until}]` | A `WorkspaceEdit` writing an `rqx-ignore` comment. The reason is required, because rqx does not honour a waiver without one |
+| `rqx.config` | | The effective settings and where each one came from |
+| `rqx.disableRule` / `rqx.disableCategory` | `[name]` | A `WorkspaceEdit` that switches one off in `RQX.toml` |
+| `rqx.togglePatterns` | | Half-applied design patterns on or off, as hints |
+| `rqx.dashboard` | | Starts the live dashboard and answers with its URL |
+| `rqx.toggleCodeLens` | | The per-file grade lens on or off |
+
+`rqx.scan`, `rqx.check`, `rqx.fix`, `rqx.verify` and `rqx.baseline` scan, so they answer
+when the scan finishes rather than immediately. A second request of the same kind
+replaces the first and answers it with `{ "coalesced": true }`.
+
+**One dashboard.** `rqx.dashboard` starts `rqx serve` and answers with its URL; asking
+again while it is alive answers with the same URL rather than starting a second one on a
+second port. It stops when the editor disconnects.
 
 The same shortcuts are suggested everywhere: a leader chord, then `s` scan, `c` check,
-`e` explain, `h` start here, `d` disable, `p` patterns, `l` lens, `o` panel. One key is
-claimed rather than eight, and the second key is the same in every editor.
+`e` explain, `h` start here, `d` disable, `p` patterns, `l` lens, `o` panel, `w`
+dashboard, `f` fix the file, `x` waive, `v` verify. One key is claimed rather than
+twelve, and the second key is the same in every editor.
 
 ## Notifications
 
@@ -40,6 +57,22 @@ writes — grades, counts, impact, the start-here ranking and pattern advice —
 and CI cannot disagree about what the scan found. A client that does not know them
 ignores them.
 
+A review sends both as well, with the verdict under `review`, because the review scanned
+the whole project to answer its narrower question and a panel left on the old numbers
+would be stale until the next save.
+
+Every diagnostic carries the rest on `data`:
+
+```json
+{ "rule": "long-function", "category": "size", "severity": "warning",
+  "evidence": "99 statements (threshold 40)", "confidence": "measured threshold",
+  "autofixable": false, "known": false, "technique": ["Extract Method"] }
+```
+
+`severity` is there as well as on the diagnostic because a client may cap how loudly it
+renders findings, and `autofixable` is the project's own `[fix]` answer rather than the
+rule's — the two differ when a config narrows what may be rewritten.
+
 ## Settings
 
 Pass these as `initializationOptions`; no client-side plugin is needed for any of them.
@@ -48,6 +81,7 @@ Pass these as `initializationOptions`; no client-side plugin is needed for any o
 |---|---|---|
 | `configFile` | *(unset)* | An `RQX.toml` to use instead of the one rqx finds itself |
 | `scanOnStartup` | `true` | Scan the workspace after the handshake |
+| `scanOnSave` | `true` | Rescan the workspace after every save. The cross-file rules can only change when some *other* file does |
 | `codeLens` | `false` | A grade, blast radius and churn lens above the first line |
 | `patterns` | `false` | Publish half-applied design patterns as hints |
 
@@ -60,6 +94,33 @@ it in place when the file changes — send `workspace/didChangeWatchedFiles` for
 [`editors/vscode`](../editors/vscode/README.md) — install it from the Marketplace or Open
 VSX and the matching server comes with it; nothing else to set up. The leader chord is
 `cmd+alt+r` on macOS and `ctrl+alt+r` elsewhere.
+
+The sidebar has four views: **Health** (the score, the severity and grade splits, what to
+open first), **Findings** (every finding, grouped by file, rule, severity or directory and
+filtered by any combination of severity, rule, family, path, fixability and baseline
+status), **Files** (one row per file, worst grade first, expanding to that file's
+findings) and **Rules** (the catalogue, with how often each fired here).
+
+**Rqx: Open the Dashboard** puts the live page in an editor tab beside your code, or in
+your browser — `rqx.dashboard.openIn` picks which.
+
+Fixes are `source.fixAll.rqx`, so this applies every proven edit on save:
+
+```json
+{ "editor.codeActionsOnSave": { "source.fixAll.rqx": "explicit" } }
+```
+
+## JetBrains
+
+[`editors/jetbrains`](../editors/jetbrains/README.md) — IDEA, WebStorm, PyCharm, GoLand
+and CLion, Community editions included. It needs
+[LSP4IJ](https://plugins.jetbrains.com/plugin/23257-lsp4ij), which installs with it, and
+an `rqx` on your `PATH`.
+
+Settings are under **Settings → Tools → rqx**: the binary, the revision a review compares
+against, and the four the server reads. The actions are under **Tools → rqx** and on the
+same leader chord as everywhere else. The dashboard is a tool window on the right, showing
+the page the language server started rather than one of its own.
 
 ## Neovim
 

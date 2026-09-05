@@ -45,3 +45,8 @@ public class Hygiene {
         return order.getCustomer().getAddress().getCity().trim();
     }
 }
+
+// ---------------- helpers ----------------
+// Here's the helper you asked for! 🎉
+// Sorry, this one is ugly.
+

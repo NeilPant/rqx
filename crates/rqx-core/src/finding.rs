@@ -177,6 +177,11 @@ pub enum Evidence {
     Suppression {
         directive: String,
     },
+    /// Text that costs a reader and buys nothing. `marker` is the words that gave it
+    /// away, empty where the shape alone did.
+    Noise {
+        marker: String,
+    },
     /// A rule the project wrote. Its identity and its family travel with the finding
     /// because no `RuleSpec` was compiled for it.
     Custom {
@@ -492,6 +497,10 @@ impl fmt::Display for Evidence {
                 write!(f, "`{directive}` turns off a check that covers this code.")
             }
             Self::Custom { message, .. } => f.write_str(message),
+            Self::Noise { marker } => match marker.as_str() {
+                "" => f.write_str("This comment says nothing about the code."),
+                marker => write!(f, "`{marker}` reads as something other than the code."),
+            },
             Self::BooleanParameter { name, position } => write!(
                 f,
                 "Boolean parameter `{name}` ({position} in the list) selects between behaviours."

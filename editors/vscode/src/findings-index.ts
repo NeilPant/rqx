@@ -95,6 +95,7 @@ export class FindingsIndex {
   private latest: Report | undefined;
   private catalogue: Rule[] = [];
   private readonly changed = new EventEmitter<void>();
+  private pending: NodeJS.Timeout | undefined;
 
   public readonly onDidChange: Event<void> = this.changed.event;
 
@@ -127,6 +128,18 @@ export class FindingsIndex {
     return counts;
   }
 
+  /// A whole-project scan publishes every file it touched, one notification each, so
+  /// firing per file would rebuild every view a thousand times for one scan.
+  private announce(): void {
+    if (this.pending) {
+      return;
+    }
+    this.pending = setTimeout(() => {
+      this.pending = undefined;
+      this.changed.fire();
+    }, 50);
+  }
+
   public absorb(uri: Uri, diagnostics: readonly Diagnostic[]): void {
     const file = relative(uri);
     const findings = diagnostics
@@ -139,17 +152,17 @@ export class FindingsIndex {
     } else {
       this.byFile.set(file, findings);
     }
-    this.changed.fire();
+    this.announce();
   }
 
   public setReport(report: Report): void {
     this.latest = report;
-    this.changed.fire();
+    this.announce();
   }
 
   public setCatalogue(catalogue: Rule[]): void {
     this.catalogue = catalogue;
-    this.changed.fire();
+    this.announce();
   }
 
   private read(uri: Uri, file: string, diagnostic: Diagnostic): Finding | undefined {

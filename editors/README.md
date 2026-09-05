@@ -26,13 +26,17 @@ exports, unused files, import cycles, duplication and the two co-change rules. T
 scans the whole project after startup and after every save and publishes for files the
 client never opened, so no editor has to know a custom request to get them.
 
-**Commands** are `rqx.scan`, `rqx.check`, `rqx.explain`, `rqx.startHere`, `rqx.catalogue`,
-`rqx.disableRule`, `rqx.disableCategory`, `rqx.togglePatterns` and `rqx.toggleCodeLens` —
-all plain `workspace/executeCommand`. Zed cannot bind them because its extension API
-covers language servers, themes, MCP servers and debuggers and nothing else.
+**Commands** are all plain `workspace/executeCommand`: `rqx.scan`, `rqx.check`,
+`rqx.explain`, `rqx.startHere`, `rqx.catalogue`, `rqx.findings`, `rqx.plan`, `rqx.fix`,
+`rqx.verify`, `rqx.baseline`, `rqx.suppress`, `rqx.config`, `rqx.dashboard`,
+`rqx.disableRule`, `rqx.disableCategory`, `rqx.togglePatterns` and `rqx.toggleCodeLens`.
+[docs/editor.md](../docs/editor.md) has what each takes and answers. Zed cannot bind them
+because its extension API covers language servers, themes, MCP servers and debuggers and
+nothing else.
 
-**Quick fixes** only ever edit `RQX.toml` or open a document. None of them rewrites your
-source: every fix rqx names is a refactoring rather than an edit it could apply for you.
+**Quick fixes** are the real edits, verified exactly as `rqx fix` verifies them and tagged
+`source.fixAll.rqx`, so an editor can apply every one of them on save. The rules whose fix
+is a decision offer to explain themselves or turn the rule off instead.
 
 The editor's **AI assistant** is a separate route: `rqx mcp` serves the same analysis over
 MCP, so an agent in any of these editors can ask what a project's problems are rather than
@@ -47,13 +51,17 @@ same second key everywhere.
 | | Leader |
 |---|---|
 | VS Code | `⌘⌥R` / `Ctrl+Alt+R` |
+| JetBrains | `⌘⌥R` / `Ctrl+Alt+R` |
 | Neovim, coc.nvim | `<leader>r` |
 | Helix | `space r` |
 | Sublime | `Ctrl+Alt+R` |
 | Emacs | `C-c r` |
 
 `s` scan · `c` check · `e` explain · `h` start here · `d` disable · `p` patterns ·
-`l` lens · `o` panel.
+`l` lens · `o` panel · `w` dashboard · `f` fix the file · `x` waive · `v` verify.
+
+Not every client binds every letter: the chord is what each editor's own setup snippet
+writes, and a client with no command surface — Zed — binds none of them.
 
 ## The clients
 

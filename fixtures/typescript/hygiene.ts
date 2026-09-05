@@ -32,3 +32,8 @@ export const suppressed = 1;
 export function ship(order: { customer: { address: { city: string } } }) {
   return order.customer.address.city.trim().toUpperCase();
 }
+
+// ---------------- helpers ----------------
+// Here's the helper you asked for! 🎉
+// Sorry, this one is ugly.
+

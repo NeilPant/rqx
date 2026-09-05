@@ -15,6 +15,7 @@ pub mod rules;
 pub mod runtime;
 pub mod score;
 pub mod signature;
+pub mod slop;
 pub mod span;
 pub mod suppress;
 pub mod technique;

@@ -94,3 +94,21 @@ jobs:
         with:
           name: rqx-vsix
           path: editors/vscode/rqx.vsix
+
+  jetbrains:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The plugin was only ever built on a tag, so a change that stopped it
+      # compiling reached a release before it reached anybody's review.
+      - name: Build the JetBrains plugin
+        working-directory: editors/jetbrains
+        run: gradle buildPlugin verifyPlugin

@@ -32,7 +32,7 @@ the universal package does.
 ## Shortcuts
 
 Everything is behind one chord — `cmd+alt+r` on macOS, `ctrl+alt+r` elsewhere — then a
-letter. One key is claimed rather than eight, and the same second key means the same
+letter. One key is claimed rather than a dozen, and the same second key means the same
 thing in every editor rqx supports.
 
 | Keys | Does |
@@ -45,9 +45,30 @@ thing in every editor rqx supports.
 | `⌘⌥R` `P` | Toggle design-pattern advice |
 | `⌘⌥R` `L` | Toggle the code lens |
 | `⌘⌥R` `O` | Open the panel |
+| `⌘⌥R` `W` | Open the dashboard |
+| `⌘⌥R` `F` | Fix this file — every proven edit in it, in one go |
+| `⌘⌥R` `X` | Waive the finding under the cursor, with a reason |
+| `⌘⌥R` `/` | Filter the Findings view |
+| `⌘⌥R` `G` | Group the Findings view |
+| `⌘⌥R` `V` | Verify that the refactoring landed |
+| `⌘⌥R` `B` | Rank the work under a budget |
 
 Every one is also in the command palette under **Rqx**, and rebindable in
-**Keyboard Shortcuts**.
+**Keyboard Shortcuts**. The palette has the rest: fixing the whole workspace, taking a
+baseline, exporting the report as JSON, SARIF, Markdown or JUnit, opening `RQX.toml`,
+showing the effective settings, and setting the level.
+
+## Fix on save
+
+Fixes are tagged `source.fixAll.rqx`, so this applies every proven edit when you save:
+
+```json
+{ "editor.codeActionsOnSave": { "source.fixAll.rqx": "explicit" } }
+```
+
+Each one is verified the same way `rqx fix` verifies it — the file is re-parsed and
+re-analysed before the edit is offered — so accepting one here is no less proven than
+accepting one on the command line.
 
 ## What it does
 
@@ -58,12 +79,20 @@ Every one is also in the command palette under **Rqx**, and rebindable in
   for files you never opened.
 - **Hover** any flagged line for the measured fact, why it matters, and the named
   refactoring that fixes it. The rule code links to the reference.
-- **Quick fixes** that switch a rule or a whole family off in `RQX.toml`. None of them
-  rewrites your code: every fix rqx names is a refactoring, not an edit it could apply
-  for you.
-- **The panel** — health, the severity and grade distributions, a ranked list of what to
-  open, and the searchable catalogue of all 60 rules with what each measures and where it
-  comes from.
+- **Quick fixes** that are the real edits, verified exactly as `rqx fix` verifies them
+  and tagged `source.fixAll.rqx` so they can run on save. The rules whose fix is a
+  decision offer to explain themselves or turn the rule off instead.
+- **Four sidebar views** — Health (the score, the severity and grade splits, what to open
+  first), Findings, Files and Rules.
+- **Findings**, grouped by file, rule, severity or directory, and narrowed by any
+  combination of severity, rule, family, path glob, fixability and baseline status. Fix,
+  waive, explain or disable any of them from its context menu.
+- **Files**, worst grade first, each expanding to its own findings, with blast radius and
+  churn.
+- **Rules** — the whole catalogue by family, with how often each one fired here.
+- **The dashboard** in an editor tab: the treemap, the import graph with its cycles, the
+  ranked plan, the trend and the activity feed. The same page `rqx serve` opens in a
+  browser, started by the language server so there is only ever one.
 - **Status bar** health score. Click it to open the panel.
 - **Code lens** (off by default) putting each file's grade, blast radius and churn above
   its first line.
@@ -78,6 +107,9 @@ without restarting anything.
 | `rqx.path` | `rqx` | Path to the binary; empty to always use the managed one |
 | `rqx.scanOnStartup` | `true` | Scan the workspace when the extension activates |
 | `rqx.configFile` | *(empty)* | An `RQX.toml` to use instead of the one rqx finds itself |
+| `rqx.dashboard.openIn` | `editor` | Whether the dashboard opens in an editor tab or your browser |
+| `rqx.findings.groupBy` | `file` | How the Findings view groups what it shows |
+| `rqx.findings.hideKnown` | `false` | Leave findings the baseline already recorded out of the Findings view |
 | `rqx.codeLens` | `false` | Show the per-file grade lens |
 | `rqx.patterns` | `false` | Report half-applied design patterns as hints |
 

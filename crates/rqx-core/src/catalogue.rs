@@ -828,6 +828,64 @@ catalogue! {
     },
 
     // ---- Safety ---------------------------------------------------------------
+    BannerComment {
+        slug: "banner-comment",
+        category: Noise,
+        analysis: Semantics,
+        metric: "a comment that is a divider or a one-word heading",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a table of contents for a file short enough not to need one, and it goes \
+              stale the moment a section moves",
+        autofix: Deletion,
+    },
+    ChatResidue {
+        slug: "chat-residue",
+        category: Noise,
+        analysis: Semantics,
+        metric: "a comment addressed to a person rather than about the code",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it is the residue of a conversation that ended before the commit, and it \
+              tells the next reader nothing about the code it sits on",
+        autofix: Deletion,
+    },
+    ApologyComment {
+        slug: "apology-comment",
+        category: Noise,
+        analysis: Semantics,
+        metric: "a comment apologising for the code under it",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "somebody already knew this was wrong and left it, so the comment records \
+              the decision without the reason or the ticket that would let it be undone",
+    },
+    EmojiInSource {
+        slug: "emoji-in-source",
+        category: Noise,
+        analysis: Semantics,
+        metric: "an emoji in a comment outside a test",
+        fixes: [RemoveDeadCode],
+        confidence: Heuristic,
+        severity: Info,
+        why: "it survives grep, diffs and terminals badly, and it is decoration in a \
+              place where everything else has to earn its width",
+        off_by_default: true,
+    },
+    ExampleValue {
+        slug: "example-value",
+        category: Noise,
+        analysis: Semantics,
+        metric: "a placeholder like example.com or YOUR_API_KEY outside a test",
+        fixes: [ReplaceMagicNumberWithConstant],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "a stand-in that reads as real is the kind of value that ships, and the \
+              first person to notice is whoever it was sent to",
+    },
     UnjustifiedSuppression {
         slug: "unjustified-suppression",
         category: Safety,
