@@ -81,6 +81,10 @@ from .shapes import (
 )
 from .vocabulary import fetch_order, getOrder, load_order, save_order
 from .performance import (
+    both_waits,
+    guards,
+    prunes,
+    schedules,
     count_digits,
     fibonacci,
     join_by_copy,
@@ -244,6 +248,10 @@ def main():
         settings_of,
         sum_cube,
         admits,
+        both_waits,
+        guards,
+        prunes,
+        schedules,
         Settled,
         asks_twice,
         fresh_total,

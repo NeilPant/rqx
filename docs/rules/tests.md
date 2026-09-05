@@ -24,6 +24,28 @@ it("waits on the clock", async () => {
 
 rqx says: wait on the thing itself rather than on the clock, or fake the timer
 
+## `real-world-test`
+
+it fails for reasons that have nothing to do with the code, and it is slow enough that somebody eventually stops running it
+
+| | |
+|---|---|
+| Measures | a test reaching a database, a network or a disk |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Invert Dependency |
+| Default | off; name it under `[rules] enabled` |
+
+From `fixtures/typescript/suite.test.ts`, line 41:
+
+```ts
+it("reads the store", async () => {
+  const rows = await db.query("rows");
+  expect(rows).toBeDefined();
+```
+
+rqx says: hand the test something standing in for it, and test the real one once
+
 ## `branching-test`
 
 a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked

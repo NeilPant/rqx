@@ -36,3 +36,8 @@ it("prints while it runs", () => {
   console.log("here");
   expect(add(1, 1)).toBe(2);
 });
+
+it("reads the store", async () => {
+  const rows = await db.query("rows");
+  expect(rows).toBeDefined();
+});

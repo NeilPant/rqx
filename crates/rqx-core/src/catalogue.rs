@@ -986,6 +986,69 @@ catalogue! {
               work that succeeded, and the next reader cannot tell whether it is a stub \
               or a decision",
     },
+    ClosureOverLoopVariable {
+        slug: "closure-over-loop-variable",
+        category: Safety,
+        analysis: Syntax,
+        metric: "a function written inside a loop that reads the name the loop moves",
+        fixes: [ExtractMethod, IntroduceParameterObject],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "whatever runs it later reads whichever value the loop stopped on, so \
+              every one of them sees the last element and none sees its own",
+        not_applicable: [(Java, "a captured local must already be effectively final")],
+    },
+    MutatedWhileIterated {
+        slug: "mutated-while-iterated",
+        category: Safety,
+        analysis: Syntax,
+        metric: "changing the collection a loop is walking, from inside the walk",
+        fixes: [ReplaceAlgorithm],
+        confidence: Verified,
+        severity: Error,
+        why: "the walk and the change disagree about what is left, so elements are \
+              skipped or seen twice depending on where the change landed",
+    },
+    SequentialAwait {
+        slug: "sequential-await",
+        category: Performance,
+        analysis: Syntax,
+        metric: "two waits in a row where the second does not read the first's answer",
+        fixes: [ReplaceAlgorithm],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "nothing makes them an order, so the call takes the sum of two waits \
+              where it could have taken the longer one",
+        not_applicable: [
+            (Go, "waiting is a channel receive, which the language does not mark"),
+            (Java, "waiting is a call like any other"),
+            (Cpp, "waiting is a call like any other"),
+        ],
+    },
+    ProductionAssert {
+        slug: "production-assert",
+        category: Safety,
+        analysis: Syntax,
+        metric: "an assertion outside a test",
+        fixes: [IntroduceAssertion],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the language is free to compile it away, so the check a reader is \
+              relying on may not be running where it matters most",
+        not_applicable: [(Go, "there is no assert; a failure is a value that is returned")],
+    },
+    RealWorldTest {
+        slug: "real-world-test",
+        category: Tests,
+        analysis: Syntax,
+        metric: "a test reaching a database, a network or a disk",
+        fixes: [InvertDependency],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "it fails for reasons that have nothing to do with the code, and it is \
+              slow enough that somebody eventually stops running it",
+        off_by_default: true,
+    },
     BranchingTest {
         slug: "branching-test",
         category: Tests,

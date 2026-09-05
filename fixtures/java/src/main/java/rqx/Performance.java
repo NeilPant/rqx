@@ -75,4 +75,18 @@ public class Performance {
         }
         return fibonacci(step - 1) + fibonacci(step - 2);
     }
+
+    public int prunes(java.util.List<Integer> rows) {
+        for (Integer row : rows) {
+            if (row < 0) {
+                rows.remove(row);
+            }
+        }
+        return rows.size();
+    }
+
+    public int guards(int value) {
+        assert value > 0;
+        return value;
+    }
 }

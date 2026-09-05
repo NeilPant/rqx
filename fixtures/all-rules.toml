@@ -6,7 +6,7 @@ module_statements = 45
 
 [rules]
 disabled = []
-enabled = ["tiny-switch","meaningless-name","primitive-obsession","hungarian-notation","short-name-wide-scope","negative-conditional","divergent-change","misleading-pattern-name","inconsistent-vocabulary","alternative-classes","parallel-inheritance","emoji-in-source","debug-output","reaches-into-private"]
+enabled = ["tiny-switch","meaningless-name","primitive-obsession","hungarian-notation","short-name-wide-scope","negative-conditional","divergent-change","misleading-pattern-name","inconsistent-vocabulary","alternative-classes","parallel-inheritance","emoji-in-source","debug-output","reaches-into-private","real-world-test"]
 
 [patterns]
 enabled = ["memento", "interpreter"]

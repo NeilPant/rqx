@@ -80,3 +80,22 @@ func Fibonacci(step int) int {
 	}
 	return Fibonacci(step-1) + Fibonacci(step-2)
 }
+
+func Schedules(rows []int) []func() int {
+	out := []func() int{}
+	for at := 0; at < len(rows); at++ {
+		out = append(out, func() int {
+			return at
+		})
+	}
+	return out
+}
+
+func Prunes(rows []int) int {
+	for _, row := range rows {
+		if row < 0 {
+			rows = append(rows[:0], rows[1:]...)
+		}
+	}
+	return len(rows)
+}

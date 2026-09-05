@@ -50,6 +50,21 @@ public class SuiteTest {
         assertEquals(2, new Clean().add(1, 1));
     }
 
+
+    @Test
+    public void testReadsTheStore() {
+        Object rows = db.query("rows");
+        assertEquals(1, rows == null ? 0 : 1);
+    }
+
+    static Db db = new Db();
+
+    static class Db {
+        Object query(String sql) {
+            return null;
+        }
+    }
+
     static void assertEquals(int expected, int actual) {
     }
 }

@@ -13,12 +13,12 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 | [Coupling](coupling.md) | 16 | `circular-dependency` `layer-violation` `forbidden-import` `message-chain` `feature-envy` `middle-man` `inappropriate-intimacy` `deep-relative-import` `mutable-module-state` `ambient-dependency` `self-built-collaborators` `import-time-work` `reaches-into-private` `wildcard-import` `wide-fan-out` `wide-fan-in` |
 | [Flow](flow.md) | 16 | `redundant-else` `collapsible-if` `boolean-from-branch` `literal-comparison` `self-comparison` `identical-branches` `empty-block` `duplicate-condition` `silent-fallthrough` `nested-ternary` `ambiguous-precedence` `negated-comparison` `no-default-branch` `loop-runs-once` `redundant-jump` `tiny-switch` |
 | [Naming](naming.md) | 9 | `mixed-conventions` `vague-function-name` `misleading-pattern-name` `inconsistent-vocabulary` `meaningless-name` `short-name-wide-scope` `hungarian-notation` `negated-name` `shadows-builtin` |
-| [Safety](safety.md) | 19 | `imprecise-type` `boundary-arithmetic` `query-with-side-effect` `assignment-in-condition` `guard-cascade` `blanket-try` `float-equality` `mixed-return` `exit-from-finally` `catch-all-handler` `generic-throw` `library-exit` `boolean-literal-argument` `unjustified-suppression` `suppressed-diagnostic` `flag-argument` `output-parameter` `complex-condition` `negative-conditional` |
-| [Tests](tests.md) | 8 | `slow-test` `branching-test` `duplicate-assertion` `hand-rolled-throws` `debug-output-in-test` `skipped-test` `focused-test` `assertionless-test` |
+| [Safety](safety.md) | 22 | `imprecise-type` `boundary-arithmetic` `query-with-side-effect` `assignment-in-condition` `closure-over-loop-variable` `mutated-while-iterated` `production-assert` `guard-cascade` `blanket-try` `float-equality` `mixed-return` `exit-from-finally` `catch-all-handler` `generic-throw` `library-exit` `boolean-literal-argument` `unjustified-suppression` `suppressed-diagnostic` `flag-argument` `output-parameter` `complex-condition` `negative-conditional` |
+| [Tests](tests.md) | 9 | `slow-test` `real-world-test` `branching-test` `duplicate-assertion` `hand-rolled-throws` `debug-output-in-test` `skipped-test` `focused-test` `assertionless-test` |
 | [Noise](noise.md) | 8 | `comment-per-line` `explanation-longer-than-code` `docstring-restates-signature` `banner-comment` `chat-residue` `apology-comment` `emoji-in-source` `example-value` |
-| [Performance](performance.md) | 9 | `loop-concatenation` `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` |
+| [Performance](performance.md) | 10 | `loop-concatenation` `sequential-await` `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` |
 
-142 rules in total. 15 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
+147 rules in total. 16 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
 
 - `primitive-obsession`
 - `divergent-change`
@@ -31,6 +31,7 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 - `short-name-wide-scope`
 - `hungarian-notation`
 - `tiny-switch`
+- `real-world-test`
 - `reaches-into-private`
 - `debug-output`
 - `emoji-in-source`

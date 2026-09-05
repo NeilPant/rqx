@@ -1710,6 +1710,25 @@ impl<'a> Walker<'a> {
         for text in assertions.into_values() {
             *seen.entry(text).or_default() += 1;
         }
+        // A test that reaches a database or the network is not testing this code.
+        if let Some(reach) = descendants(body).into_iter().find(|node| {
+            profile.is_call(*node)
+                && self.called_name(*node).is_some_and(|dotted| {
+                    let mut parts = dotted.rsplitn(2, '.');
+                    let tail = parts.next().unwrap_or_default().to_owned();
+                    let receiver = parts.next().unwrap_or_default().to_owned();
+                    (crate::vocabulary::reaches_outside(&receiver, &self.extra.receivers)
+                        && crate::vocabulary::asks_for_data(&tail, &self.extra.methods))
+                        || (receiver.is_empty()
+                            && IO_BARE.contains(&tail.to_ascii_lowercase().as_str()))
+                })
+        }) {
+            self.out.real_world_tests.push(Spot {
+                span: span_of(reach),
+                detail: label.to_owned(),
+                count: 1,
+            });
+        }
         if branches > 0 {
             self.out.branching_tests.push(Spot {
                 span: span_of(body),
@@ -2405,6 +2424,268 @@ impl<'a> Walker<'a> {
             node.kind(),
             "break_statement" | "return_statement" | "continue_statement" | "goto_statement"
         ) || profile.throw_kinds.contains(&node.kind())
+    }
+
+    /// A function literal written inside a loop and reading the name the loop moves.
+    /// Whatever runs it later sees whichever value the loop stopped on.
+    fn note_loop_capture(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        let Some(loop_node) = self.enclosing_loop(function) else {
+            return;
+        };
+        // A callback the loop itself calls, once per element, closes over nothing it
+        // will outlive.
+        if profile.is_loop_callback(function, self.source) {
+            return;
+        }
+        let moved: Vec<String> = self.loop_names(loop_node);
+        if moved.is_empty() {
+            return;
+        }
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let Some(captured) = descendants(body)
+            .into_iter()
+            .filter(|node| profile.is_identifier(*node))
+            .map(|node| self.text(node))
+            .find(|name| moved.iter().any(|moved| moved == name))
+        else {
+            return;
+        };
+        self.out.loop_variable_captures.push(Spot {
+            span: span_of(function),
+            detail: captured.to_owned(),
+            count: 1,
+        });
+    }
+
+    fn enclosing_loop(&self, node: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if profile.loop_kinds.contains(&current.kind()) {
+                return Some(current);
+            }
+            if profile.is_function(current) {
+                return None;
+            }
+            parent = current.parent();
+        }
+        None
+    }
+
+    /// The names a loop moves from one pass to the next.
+    fn loop_names(&self, loop_node: Node<'a>) -> Vec<String> {
+        let profile = self.profile;
+        let Some(body) = self.loop_statements(loop_node) else {
+            return Vec::new();
+        };
+        // A `for … in` names what it moves in a field of its own; a counted loop
+        // declares it in the header like any other local.
+        let named = ["left", "name", "index"]
+            .into_iter()
+            .find_map(|field| self.loop_header(loop_node, field));
+        if let Some(header) = named {
+            return descendants(header)
+                .into_iter()
+                .chain(std::iter::once(header))
+                .filter(|node| profile.is_identifier(*node))
+                .map(|node| self.text(node).to_owned())
+                .collect();
+        }
+        descendants(loop_node)
+            .into_iter()
+            .filter(|node| node.start_byte() < body.start_byte())
+            .filter(|node| {
+                profile.is_identifier(*node)
+                    && crate::tree::is_binding_position(
+                        *node,
+                        profile.parameter_kinds,
+                        profile.borrowed_name_kinds,
+                        profile.local_declaring_kinds,
+                        profile.expression_list_kinds,
+                    )
+            })
+            .map(|node| self.text(node).to_owned())
+            .collect()
+    }
+
+    /// A field of the loop's header, looking inside a range clause where the grammar
+    /// puts one between the loop and its parts.
+    fn loop_header(&self, loop_node: Node<'a>, field: &str) -> Option<Node<'a>> {
+        loop_node.child_by_field_name(field).or_else(|| {
+            loop_node
+                .named_children(&mut loop_node.walk())
+                .find(|child| child.kind() == "range_clause")
+                .and_then(|clause| clause.child_by_field_name(field))
+        })
+    }
+
+    /// Growing or shrinking the very collection a loop is walking.
+    fn note_mutation_while_iterating(&mut self, loop_node: Node<'a>) {
+        const CHANGERS: [&str; 16] = [
+            "push",
+            "pop",
+            "shift",
+            "unshift",
+            "splice",
+            "append",
+            "remove",
+            "add",
+            "insert",
+            "delete",
+            "push_back",
+            "pop_back",
+            "emplace_back",
+            "erase",
+            "clear",
+            "removeIf",
+        ];
+        let profile = self.profile;
+        let Some(walked) = self.iterated_name(loop_node) else {
+            return;
+        };
+        let Some(body) = self.loop_statements(loop_node) else {
+            return;
+        };
+        let Some(changed) = descendants(body).into_iter().find(|node| {
+            let calls_a_changer = profile.is_call(*node)
+                && self.called_name(*node).is_some_and(|dotted| {
+                    let mut parts = dotted.rsplitn(2, '.');
+                    let tail = parts.next().unwrap_or_default();
+                    let receiver = parts.next().unwrap_or_default();
+                    receiver == walked && CHANGERS.contains(&tail)
+                });
+            // A language whose collections are values rewrites the name instead of
+            // calling a method on it.
+            let rewrites = (profile.assignment_kinds.contains(&node.kind())
+                || profile.local_declaring_kinds.contains(&node.kind()))
+                && node
+                    .child_by_field_name("left")
+                    .is_some_and(|target| self.text(target) == walked);
+            calls_a_changer || rewrites
+        }) else {
+            return;
+        };
+        self.out.mutated_while_iterated.push(Spot {
+            span: span_of(changed),
+            detail: walked,
+            count: 1,
+        });
+    }
+
+    /// What a loop is walking, where the loop names it.
+    fn iterated_name(&self, loop_node: Node<'a>) -> Option<String> {
+        let over = self
+            .loop_header(loop_node, "right")
+            .or_else(|| self.loop_header(loop_node, "value"))?;
+        let over = self.see_through(over);
+        self.profile
+            .is_identifier(over)
+            .then(|| self.text(over).to_owned())
+    }
+
+    /// Two waits in a row on calls that do not read each other's answers. They could
+    /// have run together and the reader is paying for both in series.
+    fn note_sequential_await(&mut self, function: Node<'a>) {
+        let profile = self.profile;
+        // A test waits in order on purpose: each wait is the step it is checking.
+        if !profile.is_async(function) || self.test_depth > 0 {
+            return;
+        }
+        let Some(body) = self.function_body(function) else {
+            return;
+        };
+        let holder = body
+            .named_children(&mut body.walk())
+            .find(|child| profile.is_block(*child))
+            .unwrap_or(body);
+        let mut cursor = holder.walk();
+        let statements: Vec<Node<'a>> = holder.named_children(&mut cursor).collect();
+        for pair in statements.windows(2) {
+            let [first, second] = pair else { continue };
+            // Both have to be taking an answer: two awaited calls written for their
+            // effects are in that order because the author put them there.
+            if !self.waits(*first) || !self.waits(*second) {
+                continue;
+            }
+            if !self.takes_an_answer(*first) || !self.takes_an_answer(*second) {
+                continue;
+            }
+            // The second reading a name the first introduced is the reason they are
+            // in series.
+            let introduced: Vec<&str> = descendants(*first)
+                .into_iter()
+                .filter(|node| {
+                    profile.is_identifier(*node)
+                        && crate::tree::is_binding_position(
+                            *node,
+                            &[],
+                            profile.borrowed_name_kinds,
+                            profile.local_declaring_kinds,
+                            profile.expression_list_kinds,
+                        )
+                })
+                .map(|node| self.text(node))
+                .collect();
+            let depends = descendants(*second)
+                .into_iter()
+                .any(|node| profile.is_identifier(node) && introduced.contains(&self.text(node)));
+            if depends {
+                continue;
+            }
+            self.out.sequential_awaits.push(Spot {
+                span: span_of(*second),
+                detail: self.snippet(*second),
+                count: 2,
+            });
+            return;
+        }
+    }
+
+    /// Whether a statement keeps what it waited for, rather than waiting for the
+    /// effect alone.
+    fn takes_an_answer(&self, statement: Node<'a>) -> bool {
+        let profile = self.profile;
+        descendants(statement).into_iter().any(|node| {
+            profile.is_identifier(node)
+                && crate::tree::is_binding_position(
+                    node,
+                    &[],
+                    profile.borrowed_name_kinds,
+                    profile.local_declaring_kinds,
+                    profile.expression_list_kinds,
+                )
+        })
+    }
+
+    fn waits(&self, statement: Node<'a>) -> bool {
+        descendants(statement)
+            .into_iter()
+            .any(|node| self.profile.await_kinds.contains(&node.kind()))
+    }
+
+    /// A check that the language is free to compile away, standing where a real one
+    /// was meant to be.
+    fn note_production_assert(&mut self, node: Node<'a>) {
+        if self.test_depth > 0 {
+            return;
+        }
+        let profile = self.profile;
+        let is_assert = profile.assertion_statement_kinds.contains(&node.kind())
+            || (profile.is_call(node)
+                && self
+                    .called_name(node)
+                    .is_some_and(|name| name == "assert" || name.ends_with(".assert")));
+        if !is_assert {
+            return;
+        }
+        self.out.production_asserts.push(Spot {
+            span: span_of(node),
+            detail: self.snippet(node),
+            count: 1,
+        });
     }
 
     fn note_exits(&mut self, function: Node<'a>) {
@@ -3131,7 +3412,9 @@ impl<'a> Walker<'a> {
         }
         if profile.loop_kinds.contains(&kind) {
             self.note_single_pass_loop(node);
+            self.note_mutation_while_iterating(node);
         }
+        self.note_production_assert(node);
         if profile.ternary_kinds.contains(&kind) {
             self.note_nested_ternary(node);
         }
@@ -3149,6 +3432,8 @@ impl<'a> Walker<'a> {
         }
         if profile.is_function(node) {
             self.note_empty_method(node);
+            self.note_loop_capture(node);
+            self.note_sequential_await(node);
             self.note_guard_cascade(node);
             self.note_fresh_local_return(node);
             self.note_many_locals(node);

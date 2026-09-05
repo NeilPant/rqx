@@ -797,6 +797,69 @@ pub fn check_hygiene(
             "delete it; control was going there anyway".to_owned(),
         );
     }
+    for spot in &hygiene.loop_variable_captures {
+        emit(
+            out,
+            RuleId::ClosureOverLoopVariable,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is the name the loop moves".to_owned(),
+            },
+            "pass the value in, so each function keeps the one it was made with".to_owned(),
+        );
+    }
+    for spot in &hygiene.mutated_while_iterated {
+        emit(
+            out,
+            RuleId::MutatedWhileIterated,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "is changed while it is being walked".to_owned(),
+            },
+            "collect what to change, and change it after the walk".to_owned(),
+        );
+    }
+    for spot in &hygiene.sequential_awaits {
+        emit(
+            out,
+            RuleId::SequentialAwait,
+            spot,
+            Evidence::BranchShape {
+                shape: format!(
+                    "`{}` waits again for nothing the first answered",
+                    spot.detail
+                ),
+            },
+            "start both and wait for the pair".to_owned(),
+        );
+    }
+    for spot in &hygiene.production_asserts {
+        emit(
+            out,
+            RuleId::ProductionAssert,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` outside a test", spot.detail),
+            },
+            "raise the failure this is checking for, so it is checked wherever it \
+             runs"
+                .to_owned(),
+        );
+    }
+    for spot in &hygiene.real_world_tests {
+        emit(
+            out,
+            RuleId::RealWorldTest,
+            spot,
+            Evidence::Name {
+                identifier: spot.detail.clone(),
+                reason: "reaches something outside the process".to_owned(),
+            },
+            "hand the test something standing in for it, and test the real one once".to_owned(),
+        );
+    }
     for spot in &hygiene.branching_tests {
         emit(
             out,

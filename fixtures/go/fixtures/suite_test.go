@@ -42,3 +42,8 @@ func TestCatchesTheFailureItself(t *testing.T) {
 		require.Error(t, err)
 	}
 }
+
+func TestReadsTheStore(t *testing.T) {
+	rows := db.Query("rows")
+	require.NotNil(t, rows)
+}

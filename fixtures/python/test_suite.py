@@ -39,3 +39,8 @@ def test_catches_the_failure_itself():
 def test_prints_while_it_runs():
     print("here")
     assert add(1, 1) == 2
+
+
+def test_reads_the_store():
+    rows = db.query("rows")
+    assert rows is not None

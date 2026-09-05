@@ -39,3 +39,8 @@ TEST(Pricing, PrintsWhileItRuns) {
     printf("here\n");
     EXPECT_EQ(2, add(1, 1));
 }
+
+TEST(Pricing, ReadsTheStore) {
+    auto rows = db.query("rows");
+    EXPECT_EQ(1, rows);
+}

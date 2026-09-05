@@ -7,6 +7,8 @@ import (
 
 func main() {
 	_ = fixtures.Add
+	_ = fixtures.Schedules
+	_ = fixtures.Prunes
 	_ = FreshTotal
 	_ = AsksTwice
 	_ = Joined

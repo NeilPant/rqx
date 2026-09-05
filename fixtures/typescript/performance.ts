@@ -68,3 +68,41 @@ export function fibonacci(step: number): number {
 export async function settingsOf(path: string): Promise<string> {
   return readFileSync(path, "utf8");
 }
+
+export function schedules(rows: number[]): Array<() => number> {
+  const out: Array<() => number> = [];
+  for (let at = 0; at < rows.length; at++) {
+    out.push(function later(): number {
+      return at;
+    });
+  }
+  return out;
+}
+
+export function prunes(rows: number[]): number {
+  for (const row of rows) {
+    if (row < 0) {
+      rows.splice(0, 1);
+    }
+  }
+  return rows.length;
+}
+
+export async function bothWaits(): Promise<number> {
+  const first = await loadOne();
+  const second = await loadTwo();
+  return first + second;
+}
+
+export function guards(value: number): number {
+  globalThis.console.assert(value > 0);
+  return value;
+}
+
+async function loadOne(): Promise<number> {
+  return 1;
+}
+
+async function loadTwo(): Promise<number> {
+  return 2;
+}

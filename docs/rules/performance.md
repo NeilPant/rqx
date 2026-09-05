@@ -23,6 +23,30 @@ From `fixtures/typescript/flow.ts`, line 186:
 
 rqx says: collect the pieces and join them once
 
+## `sequential-await`
+
+nothing makes them an order, so the call takes the sum of two waits where it could have taken the longer one
+
+| | |
+|---|---|
+| Measures | two waits in a row where the second does not read the first's answer |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Replace Algorithm |
+| Not in Go | waiting is a channel receive, which the language does not mark |
+| Not in Java | waiting is a call like any other |
+| Not in C++ | waiting is a call like any other |
+
+From `fixtures/typescript/performance.ts`, line 93:
+
+```ts
+  const first = await loadOne();
+  const second = await loadTwo();
+  return first + second;
+```
+
+rqx says: start both and wait for the pair
+
 ## `scan-in-loop`
 
 the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that was fine at a hundred items stalls at ten thousand

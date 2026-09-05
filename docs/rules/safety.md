@@ -89,6 +89,73 @@ From `fixtures/typescript/flow.ts`, line 58:
 
 rqx says: assign above the branch, or compare if that is what was meant
 
+## `closure-over-loop-variable`
+
+whatever runs it later reads whichever value the loop stopped on, so every one of them sees the last element and none sees its own
+
+| | |
+|---|---|
+| Measures | a function written inside a loop that reads the name the loop moves |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Extract Method / Introduce Parameter Object |
+| Not in Java | a captured local must already be effectively final |
+
+From `fixtures/typescript/performance.ts`, line 75:
+
+```ts
+  for (let at = 0; at < rows.length; at++) {
+    out.push(function later(): number {
+      return at;
+    });
+  }
+```
+
+rqx says: pass the value in, so each function keeps the one it was made with
+
+## `mutated-while-iterated`
+
+the walk and the change disagree about what is left, so elements are skipped or seen twice depending on where the change landed
+
+| | |
+|---|---|
+| Measures | changing the collection a loop is walking, from inside the walk |
+| Reported as | error, verified |
+| Reads | the syntax tree alone |
+| Fix | Replace Algorithm |
+
+From `fixtures/typescript/performance.ts`, line 85:
+
+```ts
+    if (row < 0) {
+      rows.splice(0, 1);
+    }
+```
+
+rqx says: collect what to change, and change it after the walk
+
+## `production-assert`
+
+the language is free to compile it away, so the check a reader is relying on may not be running where it matters most
+
+| | |
+|---|---|
+| Measures | an assertion outside a test |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+| Not in Go | there is no assert; a failure is a value that is returned |
+
+From `fixtures/typescript/performance.ts`, line 98:
+
+```ts
+export function guards(value: number): number {
+  globalThis.console.assert(value > 0);
+  return value;
+```
+
+rqx says: raise the failure this is checking for, so it is checked wherever it runs
+
 ## `guard-cascade`
 
 the body has not started and the reader has read several decisions, none of which says anything about what the function is for

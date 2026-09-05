@@ -68,3 +68,25 @@ int fibonacci(int step) {
   }
   return fibonacci(step - 1) + fibonacci(step - 2);
 }
+
+std::vector<std::function<int()>> schedules(const std::vector<int>& rows) {
+    std::vector<std::function<int()>> out;
+    for (int at = 0; at < static_cast<int>(rows.size()); at++) {
+        out.push_back([&]() { return at; });
+    }
+    return out;
+}
+
+int prunes(std::vector<int>& rows) {
+    for (int row : rows) {
+        if (row < 0) {
+            rows.pop_back();
+        }
+    }
+    return static_cast<int>(rows.size());
+}
+
+int guards(int value) {
+    assert(value > 0);
+    return value;
+}

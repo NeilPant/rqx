@@ -41,6 +41,7 @@ enabled = [
   "tiny-switch",
   "debug-output",
   "reaches-into-private",
+  "real-world-test",
 ]
 
 [gate]

@@ -58,3 +58,38 @@ def fibonacci(step):
 async def settings_of(path):
     time.sleep(1)
     return path
+
+
+def schedules(rows):
+    out = []
+    for at in range(len(rows)):
+        def later():
+            return at
+        out.append(later)
+    return out
+
+
+def prunes(rows):
+    for row in rows:
+        if row < 0:
+            rows.remove(row)
+    return len(rows)
+
+
+async def both_waits():
+    first = await _load_one()
+    second = await _load_two()
+    return first + second
+
+
+def guards(value):
+    assert value > 0
+    return value
+
+
+async def _load_one():
+    return 1
+
+
+async def _load_two():
+    return 2
