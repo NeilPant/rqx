@@ -1,4 +1,5 @@
 #include "hygiene.hpp"
+#include "../../../shared/far.hpp"
 #include "hygiene.hpp"
 
 int pricing(const std::vector<int>& cart, bool apply_discount) {

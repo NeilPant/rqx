@@ -143,6 +143,36 @@ pub fn check_function(
         );
     }
 
+    if metrics.loop_depth > thresholds.loop_nesting {
+        builder.emit(
+            out,
+            RuleId::DeepLoopNesting,
+            metrics.report,
+            Evidence::LoopDepth {
+                depth: metrics.loop_depth,
+                threshold: thresholds.loop_nesting,
+                sampled: None,
+            },
+            format!(
+                "index what the inner loops search, so {name} walks the data once instead \
+                 of once per pass"
+            ),
+        );
+    }
+
+    if metrics.self_calls >= 2 && !metrics.memo_guard {
+        builder.emit(
+            out,
+            RuleId::BranchingRecursion,
+            metrics.report,
+            Evidence::Recursion {
+                calls: metrics.self_calls,
+                sampled: None,
+            },
+            format!("keep what {name} has already answered, or rewrite it as a loop over a table"),
+        );
+    }
+
     if metrics.parameters > thresholds.max_params {
         builder.emit(
             out,
@@ -267,6 +297,26 @@ pub fn check_imports(
     for request in module.imports.iter().filter(|request| !request.re_export) {
         *seen.entry(request.specifier.as_str()).or_default() += 1;
     }
+    for request in &module.imports {
+        let climbed = climb(&request.specifier);
+        if climbed > builder.config.thresholds.relative_climb {
+            builder.emit(
+                out,
+                RuleId::DeepRelativeImport,
+                request.span,
+                Evidence::Breadth {
+                    counted: "levels up".to_owned(),
+                    found: climbed,
+                    limit: builder.config.thresholds.relative_climb,
+                },
+                format!(
+                    "move what `{}` reaches for somewhere both ends can import, or turn \
+                     the path into one the project resolves by name",
+                    request.specifier
+                ),
+            );
+        }
+    }
     for request in module.imports.iter().filter(|request| !request.re_export) {
         let count = seen
             .get(request.specifier.as_str())
@@ -291,6 +341,21 @@ pub fn check_imports(
             ),
         );
     }
+}
+
+/// How far a relative specifier climbs before it descends. `../../shared/log` is
+/// two, and so is Python's `...shared.log` — one leading dot is the current package,
+/// and every dot after it is a level. `./sibling` and a bare package name are none.
+fn climb(specifier: &str) -> u32 {
+    let dots = specifier.chars().take_while(|c| *c == '.').count();
+    if dots > 1 && !specifier[dots..].starts_with(['/', '\\']) {
+        return dots as u32 - 1;
+    }
+    specifier
+        .split(['/', '\\'])
+        .take_while(|segment| *segment == ".." || *segment == ".")
+        .filter(|segment| *segment == "..")
+        .count() as u32
 }
 
 fn first_of(module: &crate::facts::ModuleFacts, specifier: &str) -> u32 {
@@ -440,6 +505,62 @@ pub fn check_hygiene(
                 shape: format!("`{}` assigns where a condition is expected.", spot.detail),
             },
             "assign above the branch, or compare if that is what was meant".to_owned(),
+        );
+    }
+    for (spots, rule, hint) in [
+        (
+            &hygiene.scans_in_loops,
+            RuleId::ScanInLoop,
+            "build a set or a map of what the scan looks for once, above the loop",
+        ),
+        (
+            &hygiene.queries_in_loops,
+            RuleId::QueryInLoop,
+            "gather the keys first and ask for all of them in one call",
+        ),
+        (
+            &hygiene.awaits_in_loops,
+            RuleId::AwaitInLoop,
+            "start every call before waiting on any of them",
+        ),
+        (
+            &hygiene.invariants_in_loops,
+            RuleId::InvariantInLoop,
+            "compile it once above the loop and reuse it",
+        ),
+        (
+            &hygiene.copied_accumulators,
+            RuleId::AccumulateByCopy,
+            "add to the accumulator in place instead of rebuilding it",
+        ),
+    ] {
+        for spot in spots {
+            emit(
+                out,
+                rule,
+                spot,
+                Evidence::InLoop {
+                    subject: spot.detail.clone(),
+                    depth: spot.count,
+                    sampled: None,
+                },
+                hint.to_owned(),
+            );
+        }
+    }
+    for spot in &hygiene.blocking_in_async {
+        emit(
+            out,
+            RuleId::BlockingCallInAsync,
+            spot,
+            Evidence::BlockingCall {
+                call: spot.detail.clone(),
+                sampled: None,
+            },
+            format!(
+                "call the asynchronous form of `{}`, or move the work off this thread",
+                spot.detail
+            ),
         );
     }
     for (spots, rule, hint) in [
@@ -1175,5 +1296,32 @@ pub fn check_patterns(
                 code.name
             ),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::climb;
+
+    /// Two spellings of the same thing. A path climbs with `..` segments, and Python
+    /// climbs with dots where the first one only means "this package".
+    #[test]
+    fn a_relative_import_climbs_the_same_amount_in_either_spelling() {
+        assert_eq!(climb("../../shared/log"), 2);
+        assert_eq!(climb("...shared.log"), 2);
+        assert_eq!(climb("../../../shared/log.hpp"), 3);
+        assert_eq!(climb("....shared.log"), 3);
+    }
+
+    /// A sibling, the current package and a package name all reach across nothing.
+    #[test]
+    fn nothing_that_stays_put_counts_as_a_climb() {
+        assert_eq!(climb("./sibling"), 0);
+        assert_eq!(climb(".sibling"), 0);
+        assert_eq!(climb("lodash"), 0);
+        assert_eq!(climb("@scope/package"), 0);
+        assert_eq!(climb("github.com/stripe/stripe-go"), 0);
+        // A file whose name begins with a dot is not a climb either.
+        assert_eq!(climb("./.eslintrc"), 0);
     }
 }

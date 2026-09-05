@@ -10,10 +10,21 @@ use crate::span::Span;
 pub struct FunctionMetrics {
     pub name: Option<String>,
     pub report: Span,
+    /// The whole declaration, not the header `report` points at, so a profile's
+    /// sample line and a finding's byte offset can both be placed in a function.
+    pub extent: Span,
     pub parameters: u32,
     pub statements: u32,
     pub cognitive_complexity: u32,
     pub max_nesting: u32,
+    /// Loops inside loops, counting a callback that runs per element and a
+    /// comprehension's clauses. Separate from `max_nesting`, which counts a branch
+    /// and a loop alike where only one of the two multiplies the work.
+    pub loop_depth: u32,
+    pub self_calls: u32,
+    /// A name in the body suggesting the answers are kept, which is what separates
+    /// exponential recursion from the same shape written with a table.
+    pub memo_guard: bool,
 }
 
 #[derive(Debug)]
@@ -114,6 +125,13 @@ pub struct Hygiene {
     pub wide_switches: Vec<Spot>,
     pub callback_nesting: Vec<Spot>,
     pub assignments_in_conditions: Vec<Spot>,
+    /// `count` on each of these is the loop depth the work sits at.
+    pub scans_in_loops: Vec<Spot>,
+    pub queries_in_loops: Vec<Spot>,
+    pub awaits_in_loops: Vec<Spot>,
+    pub invariants_in_loops: Vec<Spot>,
+    pub copied_accumulators: Vec<Spot>,
+    pub blocking_in_async: Vec<Spot>,
 }
 
 #[derive(Clone, Copy)]

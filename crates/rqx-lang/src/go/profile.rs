@@ -1,7 +1,7 @@
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
-use crate::vocabulary::TestVocabulary;
+use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
 pub static GO: LanguageProfile = LanguageProfile {
     language: Language::Go,
@@ -203,6 +203,29 @@ pub static GO: LanguageProfile = LanguageProfile {
     ],
     binding_identifier_kinds: &["identifier", "type_identifier", "field_identifier"],
     borrowed_name_kinds: &[],
+    hof_loops: &[],
+    comprehension_kinds: &[],
+    await_kinds: &[],
+    async_marker: None,
+    constructor_field: None,
+    perf: PerfVocabulary {
+        scans: &[],
+        scan_calls: &[
+            "slices.Contains",
+            "slices.Index",
+            "slices.IndexFunc",
+            "slices.ContainsFunc",
+            "sort.Slice",
+            "sort.SliceStable",
+            "sort.Strings",
+            "sort.Ints",
+        ],
+        regex_constructors: &["regexp.MustCompile", "regexp.Compile"],
+        regex_types: &[],
+        blocking: &[],
+        blocking_receivers: &[],
+        string_types: &["string"],
+    },
     test: TestVocabulary {
         suite_roots: &[],
         case_roots: &[],

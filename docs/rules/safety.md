@@ -100,7 +100,7 @@ the waiver is refused and the finding still stands, because a waiver nobody has 
 | Reads | the syntax tree alone |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 24:
+From `fixtures/typescript/hygiene.ts`, line 25:
 
 ```ts
 export function unreachable(value: number) {
@@ -122,7 +122,7 @@ a check that would have caught the next mistake here has been turned off, and th
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 30:
+From `fixtures/typescript/hygiene.ts`, line 31:
 
 ```ts
 
@@ -163,7 +163,7 @@ the caller's value changes without the call site saying so, which is the hardest
 | Reads | resolved scopes and symbols |
 | Fix | Remove Assignments to Parameters / Separate Query from Modifier |
 
-From `fixtures/typescript/hygiene.ts`, line 27:
+From `fixtures/typescript/hygiene.ts`, line 28:
 
 ```ts
   return value + seed;
@@ -185,7 +185,7 @@ nobody can hold this many clauses at once, so the reader takes the branch on tru
 | Fix | Consolidate Conditional / Extract Variable |
 | Tuned by | `thresholds.condition_operands` |
 
-From `fixtures/typescript/hygiene.ts`, line 11:
+From `fixtures/typescript/hygiene.ts`, line 12:
 
 ```ts
 

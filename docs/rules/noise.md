@@ -14,7 +14,7 @@ a table of contents for a file short enough not to need one, and it goes stale t
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 37:
+From `fixtures/typescript/hygiene.ts`, line 38:
 
 ```ts
 
@@ -36,7 +36,7 @@ it is the residue of a conversation that ended before the commit, and it tells t
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 38:
+From `fixtures/typescript/hygiene.ts`, line 39:
 
 ```ts
 // ---------------- helpers ----------------
@@ -57,7 +57,7 @@ somebody already knew this was wrong and left it, so the comment records the dec
 | Reads | resolved scopes and symbols |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 39:
+From `fixtures/typescript/hygiene.ts`, line 40:
 
 ```ts
 // Here's the helper you asked for! 🎉
@@ -79,7 +79,7 @@ it survives grep, diffs and terminals badly, and it is decoration in a place whe
 | Fix | Remove Dead Code |
 | Default | off; name it under `[rules] enabled` |
 
-From `fixtures/typescript/hygiene.ts`, line 38:
+From `fixtures/typescript/hygiene.ts`, line 39:
 
 ```ts
 // ---------------- helpers ----------------

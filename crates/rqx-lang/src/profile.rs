@@ -1,7 +1,7 @@
 use rqx_core::Language;
 use tree_sitter::Node;
 
-use crate::vocabulary::TestVocabulary;
+use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
 /// Everything about a language that is a list of node kinds. What a table cannot
 /// express — what counts as a declaration, what "public" means, how a name becomes
@@ -83,6 +83,20 @@ pub struct LanguageProfile {
     /// Repetition, for the rules about a body that decides nothing.
     pub loop_kinds: &'static [&'static str],
     pub call_kinds: &'static [&'static str],
+    /// Methods that run their callback once per element, so a function literal
+    /// passed to one is a loop body however it is spelled.
+    pub hof_loops: &'static [&'static str],
+    /// Nodes that loop once per `for` clause they hold.
+    pub comprehension_kinds: &'static [&'static str],
+    pub await_kinds: &'static [&'static str],
+    /// The token marking a function async, where the language has one. Anonymous in
+    /// every grammar that has it, so it is found among a node's children rather than
+    /// under a field.
+    pub async_marker: Option<&'static str>,
+    /// The field naming what a `new` builds, where construction is a call kind.
+    pub constructor_field: Option<&'static str>,
+    /// The names the performance rules recognise in this language.
+    pub perf: PerfVocabulary,
     /// The field naming what a call calls. Some grammars hold the whole callee in one
     /// field; others put the receiver and the method name in separate ones, in which
     /// case the call node is itself the thing to measure a chain from.
@@ -272,6 +286,54 @@ impl LanguageProfile {
         self.call_kinds.contains(&node.kind())
     }
 
+    /// The last segment of what a call calls: `db.user.find` answers `find`. It is
+    /// the half a vocabulary can match, and the receiver is read separately.
+    pub fn call_tail<'s>(&self, call: Node<'_>, source: &'s str) -> Option<&'s str> {
+        let callee = call
+            .child_by_field_name(self.callee_field)
+            .or_else(|| {
+                self.constructor_field
+                    .and_then(|field| call.child_by_field_name(field))
+            })
+            .or_else(|| call.child_by_field_name("name"))?;
+        let named = if self.is_member_access(callee) {
+            callee.child_by_field_name(self.property_field)?
+        } else {
+            callee
+        };
+        let text = crate::tree::text_of(named, source);
+        Some(text.rsplit("::").next().unwrap_or(text))
+    }
+
+    /// Whether this function is marked async. The marker is an anonymous token in
+    /// every grammar that has one, so the children are read rather than a field.
+    pub fn is_async(&self, function: Node<'_>) -> bool {
+        let Some(marker) = self.async_marker else {
+            return false;
+        };
+        let mut cursor = function.walk();
+        function
+            .children(&mut cursor)
+            .any(|child| child.kind() == marker)
+    }
+
+    /// A function literal handed to `forEach` or `map` runs once per element, so its
+    /// body sits inside the caller's loop even though no loop node encloses it.
+    pub fn is_loop_callback(&self, function: Node<'_>, source: &str) -> bool {
+        let Some(list) = function.parent() else {
+            return false;
+        };
+        if !self.argument_list_kinds.contains(&list.kind()) {
+            return false;
+        }
+        list.parent().is_some_and(|call| {
+            self.is_call(call)
+                && self
+                    .call_tail(call, source)
+                    .is_some_and(|tail| self.hof_loops.contains(&tail))
+        })
+    }
+
     pub fn is_ignored_name(&self, name: &str) -> bool {
         self.ignored_prefixes
             .iter()
@@ -301,6 +363,8 @@ mod tests {
                 ("member_access_kinds", profile.member_access_kinds),
                 ("call_kinds", profile.call_kinds),
                 ("loop_kinds", profile.loop_kinds),
+                ("comprehension_kinds", profile.comprehension_kinds),
+                ("await_kinds", profile.await_kinds),
             ] {
                 for name in kinds {
                     assert!(

@@ -8,20 +8,38 @@ use crate::profile::LanguageProfile;
 use crate::scope::{Binding, BindingKind, Scopes};
 use crate::tree::{descendants, find_within, operands_of, operator_of, span_of, text_of};
 use crate::vocabulary::{
-    CONVENTIONAL, TestVocabulary, configuration_literal, convention_of, foreign_language,
-    journal_marker, looks_like_code, query_prefix, redundant_subject, same_family, vague_verb,
+    CONVENTIONAL, HASHED_HINTS, IO_BARE, KEYED_CONSTRUCTIONS, TestVocabulary, asks_for_data,
+    configuration_literal, convention_of, foreign_language, journal_marker, looks_like_code,
+    mentions_any, query_prefix, reaches_outside, redundant_subject, same_family, vague_verb,
     verb_and_object,
 };
+
+/// One function literal's view of the loops around it. A callback handed to
+/// `forEach` runs per element, so it inherits the loops of its caller; anything else
+/// starts clear of them.
+#[derive(Default)]
+struct PerfFrame {
+    is_async: bool,
+    loops: u32,
+    /// Loops written as loops. A callback is repetition the caller chose, and
+    /// awaiting inside one is how concurrency is spelled rather than a mistake.
+    statement_loops: u32,
+}
 
 struct Walker<'a> {
     profile: &'static LanguageProfile,
     source: &'a str,
     limits: Limits,
+    extra: &'a rqx_core::config::Performance,
     out: Hygiene,
     numbers: HashMap<String, Vec<Span>>,
     boundaries: HashMap<String, Vec<Span>>,
     conventions: Vec<(String, Span)>,
     verbs: Vec<(String, String, Span)>,
+    /// What each local name was introduced as, so a rule can ask whether a value is a
+    /// list, a string, or something already keyed.
+    declared: HashMap<String, String>,
+    frames: Vec<PerfFrame>,
     test_depth: u32,
     block_depth: u32,
 }
@@ -928,6 +946,391 @@ impl<'a> Walker<'a> {
             .then_some(matches!(text, "true" | "True"))
     }
 
+    fn loop_depth(&self) -> u32 {
+        self.frames.last().map_or(0, |frame| frame.loops)
+    }
+
+    fn in_statement_loop(&self) -> bool {
+        self.frames
+            .last()
+            .is_some_and(|frame| frame.statement_loops > 0)
+    }
+
+    fn in_async(&self) -> bool {
+        self.frames.last().is_some_and(|frame| frame.is_async)
+    }
+
+    fn push_loop(&mut self, counts_as_written: bool) {
+        if let Some(frame) = self.frames.last_mut() {
+            frame.loops += 1;
+            if counts_as_written {
+                frame.statement_loops += 1;
+            }
+        }
+    }
+
+    fn pop_loop(&mut self, counted_as_written: bool) {
+        if let Some(frame) = self.frames.last_mut() {
+            frame.loops = frame.loops.saturating_sub(1);
+            if counted_as_written {
+                frame.statement_loops = frame.statement_loops.saturating_sub(1);
+            }
+        }
+    }
+
+    fn note(&mut self, into: fn(&mut Hygiene) -> &mut Vec<Spot>, span: Span, detail: String) {
+        let count = self.loop_depth().max(1);
+        into(&mut self.out).push(Spot {
+            span,
+            detail,
+            count,
+        });
+    }
+
+    /// What a call is written on: `orders.items.includes` answers `orders.items`.
+    /// Go writes both sides of an assignment as a list even when it assigns one
+    /// thing, so the single element is what the rules are about.
+    fn unwrapped(&self, node: Node<'a>) -> Node<'a> {
+        let node = self.see_through(node);
+        if self.profile.expression_list_kinds.contains(&node.kind()) {
+            return node.named_child(0).unwrap_or(node);
+        }
+        node
+    }
+
+    fn receiver_of<'d>(&self, dotted: &'d str) -> Option<&'d str> {
+        dotted.rsplit_once('.').map(|(head, _)| head)
+    }
+
+    /// A vocabulary entry spelling a receiver has to match one; an entry that is a
+    /// bare name matches any call whose last segment is it.
+    fn answers_to(&self, dotted: &str, entry: &str) -> bool {
+        if entry.contains('.') {
+            return dotted == entry || dotted.ends_with(&format!(".{entry}"));
+        }
+        dotted.rsplit('.').next() == Some(entry)
+    }
+
+    fn matches_any(&self, dotted: &str, entries: &[&str]) -> bool {
+        entries.iter().any(|entry| self.answers_to(dotted, entry))
+    }
+
+    /// Everything known about how a name was introduced: its declared type and the
+    /// head of whatever it was first set to.
+    fn declaration_of(&self, name: &str) -> &str {
+        self.declared.get(name).map_or("", String::as_str)
+    }
+
+    /// A value that already answers by key. Searching one costs nothing, so a scan
+    /// over it is not the shape this rule is about.
+    fn already_keyed(&self, receiver: &str) -> bool {
+        let last = receiver.rsplit('.').next().unwrap_or(receiver);
+        mentions_any(last, &HASHED_HINTS)
+            || mentions_any(self.declaration_of(last), &KEYED_CONSTRUCTIONS)
+            || mentions_any(self.declaration_of(receiver), &KEYED_CONSTRUCTIONS)
+    }
+
+    /// Searching a string is not searching a collection: `line.indexOf(":")` walks a
+    /// handful of characters and answers a parsing question.
+    fn holds_text(&self, receiver: &str) -> bool {
+        let last = receiver.rsplit('.').next().unwrap_or(receiver);
+        let declaration = self.declaration_of(last);
+        declaration.starts_with('"')
+            || declaration.starts_with('\'')
+            || declaration.starts_with('`')
+            || self
+                .profile
+                .perf
+                .string_types
+                .iter()
+                .any(|kind| declaration.split_whitespace().any(|word| word == *kind))
+    }
+
+    /// A name in capitals is a fixed table somebody wrote out, and a literal list is
+    /// as long as the source says it is. Neither grows with the input.
+    fn fixed_size(&self, receiver: &str) -> bool {
+        let last = receiver.rsplit('.').next().unwrap_or(receiver);
+        let capitals = last.chars().any(|c| c.is_ascii_uppercase())
+            && !last.chars().any(|c| c.is_ascii_lowercase());
+        capitals || self.declaration_of(last).starts_with('[')
+    }
+
+    fn worth_scanning(&self, receiver: &str) -> bool {
+        !receiver.is_empty()
+            && !self.already_keyed(receiver)
+            && !self.holds_text(receiver)
+            && !self.fixed_size(receiver)
+    }
+
+    fn arguments(&self, call: Node<'a>) -> Vec<Node<'a>> {
+        let Some(list) = (0..call.named_child_count())
+            .filter_map(|index| call.named_child(index))
+            .find(|child| self.profile.argument_list_kinds.contains(&child.kind()))
+        else {
+            return Vec::new();
+        };
+        let mut cursor = list.walk();
+        list.named_children(&mut cursor).collect()
+    }
+
+    fn is_literal(&self, node: Node<'a>) -> bool {
+        let kind = node.kind();
+        self.profile.string_kinds.contains(&kind)
+            || self.profile.number_kinds.contains(&kind)
+            || kind == "regex"
+    }
+
+    /// The collection a free-function scan is given, which is its first argument
+    /// however many iterators it was spelled with.
+    fn scanned_argument(&self, call: Node<'a>) -> Option<String> {
+        let first = self.arguments(call).into_iter().next()?;
+        let named = self.callee_name(first).or_else(|| {
+            self.profile
+                .is_call(first)
+                .then(|| self.called_name(first))
+                .flatten()
+        })?;
+        Some(
+            named
+                .rsplit_once('.')
+                .map_or(named.clone(), |(head, _)| head.to_owned()),
+        )
+    }
+
+    /// `new RegExp(…)` names what it builds in a field of its own, which the callee
+    /// walk has no reason to look in.
+    fn constructed_name(&self, call: Node<'a>) -> Option<String> {
+        let field = self.profile.constructor_field?;
+        self.callee_name(call.child_by_field_name(field)?)
+    }
+
+    /// Rules 1, 3, 5 and 8 all ask what a call is: one walk of the vocabulary rather
+    /// than four.
+    fn note_perf_call(&mut self, node: Node<'a>) {
+        let Some(dotted) = self
+            .called_name(node)
+            .or_else(|| self.constructed_name(node))
+        else {
+            return;
+        };
+        let perf = &self.profile.perf;
+        let tail = dotted.rsplit('.').next().unwrap_or(&dotted).to_owned();
+        let receiver = self.receiver_of(&dotted).unwrap_or("").to_owned();
+        let span = span_of(node);
+        let inside_loop = self.loop_depth() > 0;
+
+        if inside_loop
+            && self.matches_any(&dotted, perf.regex_constructors)
+            && !self.arguments(node).is_empty()
+            && self
+                .arguments(node)
+                .iter()
+                .all(|argument| self.is_literal(*argument))
+        {
+            self.note(|out| &mut out.invariants_in_loops, span, dotted.clone());
+            return;
+        }
+
+        if inside_loop {
+            let scanned = if perf.scans.contains(&tail.as_str()) && !receiver.is_empty() {
+                Some(receiver.clone())
+            } else if self.matches_any(&dotted, perf.scan_calls) {
+                self.scanned_argument(node)
+            } else {
+                None
+            };
+            if let Some(collection) = scanned
+                && self.worth_scanning(&collection)
+                && !self
+                    .arguments(node)
+                    .first()
+                    .is_some_and(|first| self.profile.string_kinds.contains(&first.kind()))
+            {
+                self.note(|out| &mut out.scans_in_loops, span, dotted.clone());
+                return;
+            }
+        }
+
+        if inside_loop
+            && !self.already_keyed(&receiver)
+            && ((reaches_outside(&receiver, &self.extra.receivers)
+                && asks_for_data(&tail, &self.extra.methods))
+                || (receiver.is_empty() && IO_BARE.contains(&tail.to_ascii_lowercase().as_str())))
+        {
+            self.note(|out| &mut out.queries_in_loops, span, dotted.clone());
+            return;
+        }
+
+        if self.in_async()
+            && perf.blocking.iter().any(|entry| {
+                if entry.contains('.') {
+                    self.answers_to(&dotted, entry)
+                } else {
+                    tail == *entry
+                        && (receiver.is_empty()
+                            || perf
+                                .blocking_receivers
+                                .contains(&receiver.rsplit('.').next().unwrap_or(&receiver)))
+                }
+            })
+        {
+            self.out.blocking_in_async.push(Spot {
+                span,
+                detail: dotted,
+                count: 1,
+            });
+        }
+    }
+
+    /// Awaiting inside a loop makes the passes wait for each other. Awaiting inside a
+    /// callback is how the same work is started together, so only written loops count.
+    fn note_await(&mut self, node: Node<'a>) {
+        if !self.in_statement_loop() {
+            return;
+        }
+        let subject = node
+            .named_child(0)
+            .and_then(|inner| self.called_name(inner).or_else(|| self.callee_name(inner)))
+            .unwrap_or_else(|| "await".to_owned());
+        self.note(|out| &mut out.awaits_in_loops, span_of(node), subject);
+    }
+
+    /// `std::regex digits("…")` is a declaration rather than a call, so the call walk
+    /// never sees the construction C++ spells this way.
+    fn note_regex_declaration(&mut self, node: Node<'a>) {
+        if self.loop_depth() == 0 {
+            return;
+        }
+        let Some(kind) = node.child_by_field_name("type") else {
+            return;
+        };
+        let named = self.text(kind).replace("::", ".");
+        if !self
+            .profile
+            .perf
+            .regex_types
+            .iter()
+            .any(|entry| named.split('.').next_back() == entry.split('.').next_back())
+        {
+            return;
+        }
+        let built = descendants(node).into_iter().any(|child| {
+            self.profile.argument_list_kinds.contains(&child.kind())
+                && child
+                    .named_child(0)
+                    .is_some_and(|first| self.is_literal(first))
+        });
+        if built {
+            self.note(|out| &mut out.invariants_in_loops, span_of(node), named);
+        }
+    }
+
+    /// `if row.id in wanted` is a walk of `wanted` where a set would answer at once,
+    /// but only when `wanted` is a list: membership in a dict is already a lookup.
+    fn note_membership_scan(&mut self, node: Node<'a>) {
+        if self.loop_depth() == 0 || !self.text(node).contains(" in ") {
+            return;
+        }
+        let Some(right) = node.named_child(node.named_child_count().saturating_sub(1)) else {
+            return;
+        };
+        let Some(named) = self.callee_name(right) else {
+            return;
+        };
+        let declaration = self.declaration_of(named.rsplit('.').next().unwrap_or(&named));
+        if declaration.starts_with('[') || declaration.starts_with("list(") {
+            self.note(|out| &mut out.scans_in_loops, span_of(node), named);
+        }
+    }
+
+    /// An accumulator rebuilt from itself: every pass copies what the passes before
+    /// it built.
+    fn note_copy_accumulation(&mut self, node: Node<'a>) {
+        if self.loop_depth() == 0 {
+            return;
+        }
+        let Some(target) = node.child_by_field_name("left") else {
+            return;
+        };
+        let target = self.unwrapped(target);
+        if !self.profile.is_identifier(target) {
+            return;
+        }
+        let name = self.text(target);
+        let Some(value) = node.child_by_field_name("right") else {
+            return;
+        };
+        let value = self.unwrapped(value);
+        let text = self.text(value);
+        let head = text.trim_start();
+        let rebuilt = head.starts_with(&format!("[...{name}"))
+            || head.starts_with(&format!("{{...{name}"))
+            || head.starts_with(&format!("[*{name}"))
+            || head.starts_with(&format!("{name}.concat("))
+            || head.starts_with(&format!("{name} + "))
+            || (self.text(node).contains("+=") && self.grows_by_copy(name, value));
+        if rebuilt && self.grows_by_copy(name, value) {
+            self.note(
+                |out| &mut out.copied_accumulators,
+                span_of(node),
+                name.to_owned(),
+            );
+        }
+    }
+
+    /// Adding to a string or a list is a copy; adding to a number is not.
+    fn grows_by_copy(&self, name: &str, value: Node<'a>) -> bool {
+        let text = self.text(value).trim_start();
+        self.holds_text(name)
+            || self.declaration_of(name).starts_with('[')
+            || text.starts_with('[')
+            || text.starts_with('{')
+            || descendants(value)
+                .into_iter()
+                .any(|child| self.profile.string_kinds.contains(&child.kind()))
+    }
+
+    /// What a name was introduced as. The first declaration wins: a later assignment
+    /// is the name being used, and `total = total + part` would otherwise erase the
+    /// `""` that says what `total` is.
+    fn note_declaration(&mut self, node: Node<'a>) {
+        let named = node
+            .child_by_field_name("name")
+            .or_else(|| node.child_by_field_name("declarator"))
+            .or_else(|| node.child_by_field_name("left"));
+        let Some(named) = named else { return };
+        let named = self.see_through(named);
+        let name = if self.profile.is_identifier(named) {
+            self.text(named).to_owned()
+        } else {
+            let Some(inner) = descendants(named)
+                .into_iter()
+                .find(|child| self.profile.is_identifier(*child))
+            else {
+                return;
+            };
+            self.text(inner).to_owned()
+        };
+        let declared = node
+            .child_by_field_name("type")
+            .or_else(|| {
+                node.parent()
+                    .and_then(|parent| parent.child_by_field_name("type"))
+            })
+            .map(|kind| self.text(kind).to_owned())
+            .or_else(|| self.declared_type(node).map(str::to_owned))
+            .unwrap_or_default();
+        let value = node
+            .child_by_field_name("value")
+            .or_else(|| node.child_by_field_name("right"))
+            .map(|value| self.text(value))
+            .unwrap_or_default();
+        let head: String = value.chars().take(40).collect();
+        self.declared
+            .entry(name)
+            .or_insert_with(|| format!("{declared} {head}").trim().to_owned());
+    }
+
     fn walk(&mut self, node: Node<'a>) {
         let kind = node.kind();
         let profile = self.profile;
@@ -944,6 +1347,35 @@ impl<'a> Walker<'a> {
         }
         if nests {
             self.block_depth += 1;
+        }
+        let entered_frame = profile.is_function(node);
+        if entered_frame {
+            let inherited = if profile.is_loop_callback(node, self.source) {
+                self.loop_depth() + 1
+            } else {
+                0
+            };
+            self.frames.push(PerfFrame {
+                is_async: profile.is_async(node),
+                loops: inherited,
+                statement_loops: 0,
+            });
+        }
+        let repeats = profile.loop_kinds.contains(&kind);
+        if repeats {
+            self.push_loop(true);
+        }
+        let clauses = if profile.comprehension_kinds.contains(&kind) {
+            let mut cursor = node.walk();
+            node.named_children(&mut cursor)
+                .filter(|child| child.kind() == "for_in_clause")
+                .count()
+                .max(1) as u32
+        } else {
+            0
+        };
+        for _ in 0..clauses {
+            self.push_loop(true);
         }
         if kind == "program"
             || kind == "module"
@@ -1001,7 +1433,25 @@ impl<'a> Walker<'a> {
         if profile.binary_kinds.contains(&kind) {
             self.note_comparison(node);
         }
+        if profile.declarator_kinds.contains(&kind) || profile.local_declaring_kinds.contains(&kind)
+        {
+            self.note_declaration(node);
+        }
+        if profile.await_kinds.contains(&kind) {
+            self.note_await(node);
+        }
+        if kind == "comparison_operator" {
+            self.note_membership_scan(node);
+        }
+        if kind == "declaration" {
+            self.note_declaration(node);
+            self.note_regex_declaration(node);
+        }
+        if profile.assignment_kinds.contains(&kind) {
+            self.note_copy_accumulation(node);
+        }
         if profile.is_call(node) {
+            self.note_perf_call(node);
             self.note_call(node);
             if self
                 .called_name(node)
@@ -1122,6 +1572,15 @@ impl<'a> Walker<'a> {
             self.walk(child);
         }
 
+        for _ in 0..clauses {
+            self.pop_loop(true);
+        }
+        if repeats {
+            self.pop_loop(true);
+        }
+        if entered_frame {
+            self.frames.pop();
+        }
         if entered_test {
             self.test_depth -= 1;
         }
@@ -1344,16 +1803,20 @@ pub fn collect(
     root: Node<'_>,
     scopes: &Scopes,
     limits: Limits,
+    extra: &rqx_core::config::Performance,
 ) -> Hygiene {
     let mut walker = Walker {
         profile,
         source,
         limits,
+        extra,
         out: Hygiene::default(),
         numbers: HashMap::new(),
         boundaries: HashMap::new(),
         conventions: Vec::new(),
         verbs: Vec::new(),
+        declared: HashMap::new(),
+        frames: vec![PerfFrame::default()],
         test_depth: 0,
         block_depth: 0,
     };

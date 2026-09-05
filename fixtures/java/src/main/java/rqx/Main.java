@@ -26,6 +26,13 @@ public class Main {
         Door door = new Door();
         door.open();
         door.lock(1);
+        Performance performance = new Performance();
+        performance.keepWanted(java.util.List.of(), java.util.List.of());
+        performance.sumCube(new int[0][0][0]);
+        performance.queryEach(java.util.Map.of(), java.util.List.of());
+        performance.countDigits(java.util.List.of());
+        performance.joinByCopy(java.util.List.of());
+        performance.fibonacci(1);
         new Router().route("", "", "");
         new GatewayA().collect(1);
         new GatewayB().collect(1);

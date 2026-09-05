@@ -1,0 +1,70 @@
+declare function readFileSync(path: string, encoding: string): string;
+
+type Client = { get(id: number): string };
+type Reader = { read(path: string): Promise<string> };
+
+export function keepWanted(rows: number[], wanted: number[]): number[] {
+  const kept: number[] = [];
+  for (const row of rows) {
+    if (wanted.indexOf(row) >= 0) {
+      kept.push(row);
+    }
+  }
+  return kept;
+}
+
+export function sumCube(grid: number[][][]): number {
+  let total = 0;
+  for (const plane of grid) {
+    for (const line of plane) {
+      for (const cell of line) {
+        total += cell;
+      }
+    }
+  }
+  return total;
+}
+
+export function queryEach(client: Client, ids: number[]): string[] {
+  const rows: string[] = [];
+  for (const id of ids) {
+    rows.push(client.get(id));
+  }
+  return rows;
+}
+
+export async function readEach(reader: Reader, paths: string[]): Promise<string[]> {
+  const texts: string[] = [];
+  for (const path of paths) {
+    texts.push(await reader.read(path));
+  }
+  return texts;
+}
+
+export function countDigits(lines: string[]): number {
+  let hits = 0;
+  for (const line of lines) {
+    const digits = new RegExp("^[0-9]+$");
+    hits += digits.test(line) ? 1 : 0;
+  }
+  return hits;
+}
+
+export function flattenByCopy(groups: number[][]): number[] {
+  let flat: number[] = [];
+  for (const group of groups) {
+    flat = [...flat, ...group];
+  }
+  return flat;
+}
+
+export function fibonacci(step: number): number {
+  if (step < 2) {
+    return step;
+  }
+  return fibonacci(step - 1) + fibonacci(step - 2);
+}
+
+export async function settingsOf(path: string): Promise<string> {
+  return readFileSync(path, "utf8");
+}

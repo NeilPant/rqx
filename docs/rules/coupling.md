@@ -56,7 +56,7 @@ this line depends on the shape of every object along the chain, so a change to a
 | Fix | Encapsulate Delegation / Extract Method |
 | Tuned by | `thresholds.message_chain_depth` |
 
-From `fixtures/typescript/hygiene.ts`, line 34:
+From `fixtures/typescript/hygiene.ts`, line 35:
 
 ```ts
 export function ship(order: { customer: { address: { city: string } } }) {
@@ -129,6 +129,30 @@ From `fixtures/typescript/intimacy.ts`, line 5:
 ```
 
 rqx says: move what they share into one of them, or behind an interface both use
+
+## `deep-relative-import`
+
+a path that climbs this far is reaching across the shape of the project rather than through it, and it breaks the moment either end is moved
+
+| | |
+|---|---|
+| Measures | levels a relative import climbs before it descends |
+| Reported as | info, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Extract Shared Module / Invert Dependency |
+| Tuned by | `thresholds.relative_climb` |
+| Not in Go | an import is a module path, so there is nothing relative to climb |
+| Not in Java | an import is a package name, and packages do not nest by path |
+
+From `fixtures/typescript/hygiene.ts`, line 2:
+
+```ts
+import { orbit } from "./cycle-a";
+import type { Far } from "../../../shared/far";
+import { spinAgain } from "./cycle-a";
+```
+
+rqx says: move what `../../../shared/far` reaches for somewhere both ends can import, or turn the path into one the project resolves by name
 
 ## `wide-fan-out`
 

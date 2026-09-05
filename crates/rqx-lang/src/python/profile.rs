@@ -1,7 +1,7 @@
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
-use crate::vocabulary::TestVocabulary;
+use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
 pub static PYTHON: LanguageProfile = LanguageProfile {
     language: Language::Python,
@@ -202,6 +202,39 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
     ],
     binding_identifier_kinds: &["identifier"],
     borrowed_name_kinds: &["dotted_name"],
+    hof_loops: &[],
+    comprehension_kinds: &[
+        "list_comprehension",
+        "set_comprehension",
+        "dictionary_comprehension",
+        "generator_expression",
+    ],
+    await_kinds: &["await"],
+    async_marker: Some("async"),
+    constructor_field: None,
+    perf: PerfVocabulary {
+        scans: &["index", "count"],
+        scan_calls: &["sorted", "list"],
+        regex_constructors: &["re.compile"],
+        regex_types: &[],
+        blocking: &[
+            "time.sleep",
+            "requests.get",
+            "requests.post",
+            "requests.put",
+            "requests.delete",
+            "requests.request",
+            "urllib.request.urlopen",
+            "subprocess.run",
+            "subprocess.call",
+            "subprocess.check_output",
+            "subprocess.check_call",
+            "subprocess.Popen",
+            "open",
+        ],
+        blocking_receivers: &["time", "requests", "urllib", "subprocess", "socket"],
+        string_types: &["str"],
+    },
     test: TestVocabulary {
         suite_roots: &["describe"],
         case_roots: &["test"],

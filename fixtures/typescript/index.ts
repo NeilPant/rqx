@@ -32,3 +32,4 @@ export { Button, FlatButton, Panel, FlatPanel, Kit, DarkKit, LightKit } from "./
 export { Shape, RedCircle, RedSquare, BlueCircle, BlueSquare } from "./families";
 export { Expression, Literal, Sum, Product, Printer } from "./families";
 export { restated, compared, sameEitherWay, decidedNothing, buriedExits, assigns, wideSwitch, deeplyNestedCallbacks, trailingJump, twoArmed } from "./flow";
+export { keepWanted, sumCube, queryEach, readEach, countDigits, flattenByCopy, fibonacci, settingsOf } from "./performance";

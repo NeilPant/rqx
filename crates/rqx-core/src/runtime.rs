@@ -182,6 +182,184 @@ pub fn contradicted(rule: RuleId) -> Option<crate::finding::Confidence> {
 mod tests {
     use super::*;
 
+    /// A profile says what ran. Letting it speak to a rule about naming or size
+    /// would be reading a fact about time as a fact about design.
+    #[test]
+    fn only_performance_findings_answer_to_a_profile() {
+        for rule in RuleId::ALL.iter().copied() {
+            assert_eq!(
+                unsampled(rule).is_some(),
+                rule.spec().category == crate::rule::Category::Performance,
+                "{rule}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_cpuprofile_weights_a_sample_by_its_delta_and_credits_the_stack() {
+        let body = r#"{
+            "nodes": [
+                {"id": 1, "callFrame": {"functionName": "(root)", "url": "", "lineNumber": -1}, "children": [2]},
+                {"id": 2, "callFrame": {"functionName": "outer", "url": "file:///w/a.ts", "lineNumber": 9}, "children": [3]},
+                {"id": 3, "callFrame": {"functionName": "inner", "url": "file:///w/a.ts", "lineNumber": 19}}
+            ],
+            "samples": [3, 3, 2],
+            "timeDeltas": [10, 10, 10]
+        }"#;
+        let samples = read_cpuprofile(body).expect("a cpuprofile");
+        assert_eq!(samples.total(), 30);
+        assert_eq!(
+            samples.within("/w/a.ts", 20, 20),
+            Some(Share {
+                own: 666,
+                total: 666
+            }),
+            "the leaf spent two of three samples"
+        );
+        assert_eq!(
+            samples.within("/w/a.ts", 10, 10),
+            Some(Share {
+                own: 333,
+                total: 1000
+            }),
+            "the caller was on the stack for all of them"
+        );
+    }
+
+    #[test]
+    fn collapsed_stacks_credit_a_repeated_frame_once() {
+        let samples = read_collapsed("main;f;g 5\nmain;f 3\nmain;f;f 2\n");
+        assert_eq!(samples.total(), 10);
+        assert_eq!(
+            samples.named("f").map(|share| share.total),
+            Some(1000),
+            "recursion must not credit `f` twice for one stack"
+        );
+        assert_eq!(samples.named("g").map(|share| share.own), Some(500));
+    }
+
+    #[test]
+    fn a_py_spy_frame_carries_its_file_and_line() {
+        let samples = read_collapsed("run (app/main.py:4);load (app/db.py:12) 7\n");
+        assert_eq!(
+            samples.within("app/db.py", 12, 12).map(|s| s.own),
+            Some(1000)
+        );
+        assert_eq!(
+            samples.within("app/main.py", 4, 4).map(|s| s.total),
+            Some(1000)
+        );
+    }
+
+    #[test]
+    fn a_pprof_reads_the_names_and_lines_it_was_written_with() {
+        let profile = {
+            let mut out = Encoder::default();
+            for text in ["", "sumCube", "app/hot.go"] {
+                out.text(6, text);
+            }
+            out.message(
+                5,
+                &Encoder::of(|f| {
+                    f.varint(1, 7);
+                    f.varint(2, 1);
+                    f.varint(4, 2);
+                }),
+            );
+            out.message(
+                4,
+                &Encoder::of(|f| {
+                    f.varint(1, 3);
+                    f.message(
+                        4,
+                        &Encoder::of(|line| {
+                            line.varint(1, 7);
+                            line.varint(2, 42);
+                        }),
+                    );
+                }),
+            );
+            out.message(
+                2,
+                &Encoder::of(|f| {
+                    f.varint(1, 3);
+                    f.varint(2, 9);
+                }),
+            );
+            gzip(&out.bytes)
+        };
+        let samples = pprof::read(&profile).expect("a pprof");
+        assert_eq!(samples.total(), 9);
+        assert_eq!(
+            samples.within("app/hot.go", 40, 45).map(|share| share.own),
+            Some(1000)
+        );
+    }
+
+    #[test]
+    fn a_profile_of_no_known_shape_names_what_it_looked_for() {
+        let path = std::env::temp_dir().join("rqx-not-a-profile.txt");
+        std::fs::write(&path, "<xml/>").expect("write");
+        let error = Samples::read(&path).expect_err("no format matches");
+        assert!(error.contains(".cpuprofile"), "{error}");
+        std::fs::remove_file(&path).ok();
+    }
+
+    /// Only the four wire pieces the reader parses, so a fixture profile can be
+    /// written in the test rather than checked in as bytes nobody can read.
+    #[derive(Default)]
+    struct Encoder {
+        bytes: Vec<u8>,
+    }
+
+    impl Encoder {
+        fn of(fill: impl FnOnce(&mut Self)) -> Self {
+            let mut out = Self::default();
+            fill(&mut out);
+            out
+        }
+
+        fn tag(&mut self, field: u64, wire: u64) {
+            self.raw((field << 3) | wire);
+        }
+
+        fn raw(&mut self, mut value: u64) {
+            loop {
+                let byte = (value & 0x7f) as u8;
+                value >>= 7;
+                if value == 0 {
+                    self.bytes.push(byte);
+                    return;
+                }
+                self.bytes.push(byte | 0x80);
+            }
+        }
+
+        fn varint(&mut self, field: u64, value: u64) {
+            self.tag(field, 0);
+            self.raw(value);
+        }
+
+        fn message(&mut self, field: u64, inner: &Self) {
+            self.tag(field, 2);
+            self.raw(inner.bytes.len() as u64);
+            self.bytes.extend_from_slice(&inner.bytes);
+        }
+
+        fn text(&mut self, field: u64, value: &str) {
+            self.tag(field, 2);
+            self.raw(value.len() as u64);
+            self.bytes.extend_from_slice(value.as_bytes());
+        }
+    }
+
+    fn gzip(body: &[u8]) -> Vec<u8> {
+        use std::io::Write;
+        let mut out = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        out.write_all(body).expect("gzip");
+        out.finish().expect("gzip")
+    }
+
     #[test]
     fn lcov_records_only_the_lines_that_ran() {
         let hits = {

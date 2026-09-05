@@ -95,5 +95,11 @@ func main() {
 	_ = fixtures.Vehicle
 	_ = fixtures.Window
 	_ = fixtures.WithDeadMiddle
+	_ = fixtures.KeepWanted
+	_ = fixtures.SumCube
+	_ = fixtures.QueryEach
+	_ = fixtures.CountDigits
+	_ = fixtures.JoinByCopy
+	_ = fixtures.Fibonacci
 	_ = cyclea.Orbit
 }

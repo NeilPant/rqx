@@ -478,6 +478,7 @@ pub struct Thresholds {
     pub class_public_members: u32,
     pub fan_out: u32,
     pub fan_in: u32,
+    pub relative_climb: u32,
     pub max_exits: u32,
     pub max_cases: u32,
     pub min_cases: u32,
@@ -503,7 +504,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 29] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 30] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -519,6 +520,7 @@ impl Thresholds {
         ("class_public_members", &[RuleId::WideSurface]),
         ("fan_out", &[RuleId::WideFanOut]),
         ("fan_in", &[RuleId::WideFanIn]),
+        ("relative_climb", &[RuleId::DeepRelativeImport]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),
         ("min_cases", &[RuleId::TinySwitch]),
@@ -571,6 +573,7 @@ impl Default for Thresholds {
             class_public_members: 20,
             fan_out: 20,
             fan_in: 20,
+            relative_climb: 2,
             max_exits: 4,
             max_cases: 12,
             min_cases: 3,
@@ -1083,6 +1086,7 @@ mod tests {
                     t.class_public_members,
                     t.fan_out,
                     t.fan_in,
+                    t.relative_climb,
                     t.max_exits,
                     t.max_cases,
                     t.min_cases,

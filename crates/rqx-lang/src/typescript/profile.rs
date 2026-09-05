@@ -1,7 +1,7 @@
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
-use crate::vocabulary::TestVocabulary;
+use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
 pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     language: Language::TypeScript,
@@ -218,6 +218,64 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
     ],
     binding_identifier_kinds: &["identifier", "type_identifier"],
     borrowed_name_kinds: &["export_specifier"],
+    hof_loops: &[
+        "forEach",
+        "map",
+        "filter",
+        "reduce",
+        "reduceRight",
+        "flatMap",
+        "some",
+        "every",
+        "find",
+        "findIndex",
+        "findLast",
+    ],
+    comprehension_kinds: &[],
+    await_kinds: &["await_expression"],
+    async_marker: Some("async"),
+    constructor_field: Some("constructor"),
+    perf: PerfVocabulary {
+        scans: &[
+            "indexOf",
+            "lastIndexOf",
+            "includes",
+            "find",
+            "findIndex",
+            "findLast",
+            "findLastIndex",
+            "some",
+            "every",
+            "filter",
+            "sort",
+            "toSorted",
+            "concat",
+            "flat",
+        ],
+        scan_calls: &[],
+        regex_constructors: &["RegExp"],
+        regex_types: &[],
+        blocking: &[
+            "readFileSync",
+            "writeFileSync",
+            "appendFileSync",
+            "existsSync",
+            "readdirSync",
+            "statSync",
+            "lstatSync",
+            "mkdirSync",
+            "unlinkSync",
+            "rmSync",
+            "copyFileSync",
+            "accessSync",
+            "realpathSync",
+            "execSync",
+            "execFileSync",
+            "spawnSync",
+        ],
+        blocking_receivers: &["fs", "fsSync", "childProcess", "child_process", "cp"],
+        string_types: &["string", "String"],
+    },
     test: TestVocabulary {
         suite_roots: &["describe"],
         case_roots: &["it", "test"],

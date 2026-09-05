@@ -80,6 +80,16 @@ from .shapes import (
     sweep,
 )
 from .vocabulary import fetch_order, getOrder, load_order, save_order
+from .performance import (
+    count_digits,
+    fibonacci,
+    join_by_copy,
+    keep_wanted,
+    query_each,
+    read_each,
+    settings_of,
+    sum_cube,
+)
 from .flow import buried_exits, compared, decided_nothing, nested_callbacks, restated, same_either_way, shadows_outer, wide_match
 
 
@@ -200,4 +210,12 @@ def main():
         collect_a,
         collect_b,
         collect_c,
+        count_digits,
+        fibonacci,
+        join_by_copy,
+        keep_wanted,
+        query_each,
+        read_each,
+        settings_of,
+        sum_cube,
     ]

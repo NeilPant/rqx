@@ -1,4 +1,5 @@
 import { orbit } from "./cycle-a";
+import type { Far } from "../../../shared/far";
 import { spinAgain } from "./cycle-a";
 
 export function pricing(cart: number[], applyDiscount: boolean): number {

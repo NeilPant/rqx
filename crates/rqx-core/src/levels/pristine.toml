@@ -3,6 +3,7 @@
 # codebase, or one where the standard is the point.
 
 [thresholds]
+relative_climb = 1
 fan_out = 10
 fan_in = 10
 long_function_statements = 20

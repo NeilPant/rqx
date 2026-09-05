@@ -7,15 +7,21 @@ use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
 use crate::tree::{find_within, is_binding_position, operator_of, span_of, text_of};
+use crate::vocabulary::MEMO_HINTS;
 
 struct FunctionFrame {
     name: Option<String>,
     report: Span,
+    extent: Span,
     parameters: u32,
     statements: u32,
     complexity: u32,
     nesting: u32,
     max_nesting: u32,
+    loops: u32,
+    max_loops: u32,
+    self_calls: u32,
+    memo_guard: bool,
 }
 
 struct ClassFrame {
@@ -92,27 +98,90 @@ impl<'a> MetricsWalker<'a> {
             Some((name, span)) => (Some(name), span),
             None => (None, header_span(self.source, span_of(node))),
         };
+        // A callback handed to `forEach` runs once per element, so its body is already
+        // inside every loop its caller sits in.
+        let inherited = if self.profile.is_loop_callback(node, self.source) {
+            self.functions.last().map_or(0, |frame| frame.loops) + 1
+        } else {
+            0
+        };
         self.functions.push(FunctionFrame {
             name,
             report,
+            extent: span_of(node),
             parameters: self.parameter_count(node),
             statements: 0,
             complexity: 0,
             nesting: 0,
             max_nesting: 0,
+            loops: inherited,
+            max_loops: inherited,
+            self_calls: 0,
+            memo_guard: false,
         });
     }
 
     fn pop_function(&mut self) {
         if let Some(frame) = self.functions.pop() {
+            if frame.loops > 0
+                && let Some(caller) = self.functions.last_mut()
+            {
+                caller.max_loops = caller.max_loops.max(frame.max_loops);
+            }
             self.out.functions.push(FunctionMetrics {
                 name: frame.name,
                 report: frame.report,
+                extent: frame.extent,
                 parameters: frame.parameters,
                 statements: frame.statements,
                 cognitive_complexity: frame.complexity,
                 max_nesting: frame.max_nesting,
+                loop_depth: frame.max_loops,
+                self_calls: frame.self_calls,
+                memo_guard: frame.memo_guard,
             });
+        }
+    }
+
+    fn push_loop(&mut self) {
+        if let Some(frame) = self.functions.last_mut() {
+            frame.loops += 1;
+            frame.max_loops = frame.max_loops.max(frame.loops);
+        }
+    }
+
+    fn pop_loop(&mut self) {
+        if let Some(frame) = self.functions.last_mut() {
+            frame.loops = frame.loops.saturating_sub(1);
+        }
+    }
+
+    /// A call to the function it is written in. Recursion through a receiver other
+    /// than the object itself is a different call, and is not counted.
+    fn note_self_call(&mut self, node: Node<'a>) {
+        let Some(frame) = self.functions.last() else {
+            return;
+        };
+        let Some(name) = frame.name.as_deref() else {
+            return;
+        };
+        if self.profile.call_tail(node, self.source) != Some(name) {
+            return;
+        }
+        let own = node
+            .child_by_field_name(self.profile.callee_field)
+            .is_some_and(|callee| {
+                self.profile.is_identifier(callee)
+                    || callee
+                        .child_by_field_name(self.profile.object_field)
+                        .is_some_and(|object| {
+                            self.profile
+                                .self_names
+                                .contains(&text_of(object, self.source))
+                        })
+            });
+        if own && let Some(frame) = self.functions.last_mut() {
+            frame.self_calls += 1;
         }
     }
 
@@ -499,6 +568,7 @@ impl<'a> MetricsWalker<'a> {
             return;
         }
         if profile.is_call(node) {
+            self.note_self_call(node);
             let outer = self.logical_chain.take();
             self.walk_inner(node);
             self.logical_chain = outer;
@@ -592,10 +662,28 @@ impl<'a> MetricsWalker<'a> {
             self.pop_block();
             return;
         }
+        if profile.comprehension_kinds.contains(&kind) {
+            let clauses = clause_count(node).max(1);
+            for _ in 0..clauses {
+                self.push_loop();
+            }
+            self.walk_children(node);
+            for _ in 0..clauses {
+                self.pop_loop();
+            }
+            return;
+        }
         if profile.branch_kinds.contains(&kind) {
+            let repeats = profile.loop_kinds.contains(&kind);
             self.increment_with_nesting();
             self.push_nesting();
+            if repeats {
+                self.push_loop();
+            }
             self.walk_children(node);
+            if repeats {
+                self.pop_loop();
+            }
             self.pop_nesting();
             return;
         }
@@ -605,8 +693,25 @@ impl<'a> MetricsWalker<'a> {
         if self.is_binding(node) {
             self.note_name(node);
         }
+        if profile.is_identifier(node)
+            && let Some(frame) = self.functions.last()
+            && !frame.memo_guard
+            && crate::vocabulary::mentions_any(text_of(node, self.source), &MEMO_HINTS)
+            && let Some(frame) = self.functions.last_mut()
+        {
+            frame.memo_guard = true;
+        }
         self.walk_children(node);
     }
+}
+
+/// A comprehension loops once per `for` clause it holds, so `[a for x in xs for y in ys]`
+/// is two loops however it is spelled.
+fn clause_count(node: Node<'_>) -> u32 {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .filter(|child| child.kind() == "for_in_clause")
+        .count() as u32
 }
 
 fn header_span(source: &str, span: Span) -> Span {

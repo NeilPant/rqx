@@ -102,7 +102,7 @@ the value is computed and thrown away, which either wastes the work or hides the
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 5:
+From `fixtures/typescript/hygiene.ts`, line 6:
 
 ```ts
 export function pricing(cart: number[], applyDiscount: boolean): number {
@@ -147,7 +147,7 @@ this code cannot run, so whatever it was meant to do is not happening and has no
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 27:
+From `fixtures/typescript/hygiene.ts`, line 28:
 
 ```ts
   return value + seed;
@@ -170,7 +170,7 @@ nobody dares delete it because nobody knows if it matters, so it sits there rott
 | Fix | Remove Dead Code |
 | Tuned by | `thresholds.commented_code_lines` |
 
-From `fixtures/typescript/hygiene.ts`, line 8:
+From `fixtures/typescript/hygiene.ts`, line 9:
 
 ```ts
 
@@ -256,7 +256,7 @@ the failure is swallowed silently, so the first sign of it is wrong data somewhe
 | Fix | Remove Dead Code |
 | Not in Go | Go has no exceptions and so no catch clause; an ignored error is a different shape this rule does not measure |
 
-From `fixtures/typescript/hygiene.ts`, line 18:
+From `fixtures/typescript/hygiene.ts`, line 19:
 
 ```ts
     return total + 4999;
@@ -444,10 +444,10 @@ two statements bringing in one module means a reader has to check both to know w
 | Reads | resolved scopes and symbols |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/hygiene.ts`, line 2:
+From `fixtures/typescript/hygiene.ts`, line 3:
 
 ```ts
-import { orbit } from "./cycle-a";
+import type { Far } from "../../../shared/far";
 import { spinAgain } from "./cycle-a";
 
 ```

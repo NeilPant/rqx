@@ -76,6 +76,7 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `class_public_members` | 20 | `wide-surface` |
 | `fan_out` | 20 | `wide-fan-out` |
 | `fan_in` | 20 | `wide-fan-in` |
+| `relative_climb` | 2 | `deep-relative-import` |
 | `max_exits` | 4 | `many-exits` |
 | `max_cases` | 12 | `wide-switch` |
 | `min_cases` | 3 | `tiny-switch` |

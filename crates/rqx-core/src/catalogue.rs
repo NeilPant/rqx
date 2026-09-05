@@ -864,6 +864,21 @@ catalogue! {
               work that succeeded, and the next reader cannot tell whether it is a stub \
               or a decision",
     },
+    DeepRelativeImport {
+        slug: "deep-relative-import",
+        category: Coupling,
+        analysis: Semantics,
+        metric: "levels a relative import climbs before it descends",
+        fixes: [ExtractSharedModule, InvertDependency],
+        confidence: Heuristic,
+        severity: Info,
+        why: "a path that climbs this far is reaching across the shape of the project \
+              rather than through it, and it breaks the moment either end is moved",
+        not_applicable: [
+            (Go, "an import is a module path, so there is nothing relative to climb"),
+            (Java, "an import is a package name, and packages do not nest by path"),
+        ],
+    },
     DuplicateImport {
         slug: "duplicate-import",
         category: Waste,

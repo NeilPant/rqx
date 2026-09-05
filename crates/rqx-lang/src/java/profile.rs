@@ -1,7 +1,7 @@
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
-use crate::vocabulary::TestVocabulary;
+use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
 pub static JAVA: LanguageProfile = LanguageProfile {
     language: Language::Java,
@@ -240,6 +240,29 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     ],
     binding_identifier_kinds: &["identifier", "type_identifier"],
     borrowed_name_kinds: &[],
+    hof_loops: &[
+        "forEach",
+        "map",
+        "filter",
+        "flatMap",
+        "anyMatch",
+        "allMatch",
+        "noneMatch",
+        "reduce",
+    ],
+    comprehension_kinds: &[],
+    await_kinds: &[],
+    async_marker: None,
+    constructor_field: Some("type"),
+    perf: PerfVocabulary {
+        scans: &["contains", "indexOf", "containsAll", "sort"],
+        scan_calls: &["Collections.sort", "Arrays.sort", "Arrays.asList"],
+        regex_constructors: &["Pattern.compile"],
+        regex_types: &[],
+        blocking: &[],
+        blocking_receivers: &[],
+        string_types: &["String", "CharSequence", "StringBuilder"],
+    },
     test: TestVocabulary {
         suite_roots: &[],
         case_roots: &[],

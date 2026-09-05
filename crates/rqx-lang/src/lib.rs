@@ -42,10 +42,20 @@ use crate::profile::LanguageProfile;
 pub struct FunctionShape {
     pub name: Option<String>,
     pub range: SourceRange,
+    /// Where the declaration ends, so a finding's offset and a profile's sample line
+    /// can both be placed in the function they belong to.
+    #[serde(default)]
+    pub end: u32,
+    #[serde(default)]
+    pub last_line: u32,
     pub parameters: u32,
     pub statements: u32,
     pub cognitive_complexity: u32,
     pub max_nesting: u32,
+    #[serde(default)]
+    pub loop_depth: u32,
+    #[serde(default)]
+    pub self_calls: u32,
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
@@ -275,6 +285,7 @@ pub fn analyze_as(
                     expression_operations: thresholds.expression_operations,
                     configuration_depth: thresholds.configuration_depth,
                 },
+                &config.performance,
             );
             (module, hygiene)
         }
@@ -388,10 +399,14 @@ pub fn analyze_as(
             .map(|function| FunctionShape {
                 name: function.name,
                 range: builder.range(function.report),
+                end: function.extent.end,
+                last_line: index.locate(function.extent.end).0,
                 parameters: function.parameters,
                 statements: function.statements,
                 cognitive_complexity: function.cognitive_complexity,
                 max_nesting: function.max_nesting,
+                loop_depth: function.loop_depth,
+                self_calls: function.self_calls,
             })
             .collect(),
         classes: measured

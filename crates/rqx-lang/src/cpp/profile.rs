@@ -1,7 +1,7 @@
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
-use crate::vocabulary::TestVocabulary;
+use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
 pub static CPP: LanguageProfile = LanguageProfile {
     language: Language::Cpp,
@@ -222,6 +222,30 @@ pub static CPP: LanguageProfile = LanguageProfile {
     ],
     binding_identifier_kinds: &["identifier", "type_identifier", "field_identifier"],
     borrowed_name_kinds: &[],
+    hof_loops: &["for_each", "transform"],
+    comprehension_kinds: &[],
+    await_kinds: &["co_await_expression"],
+    async_marker: None,
+    constructor_field: None,
+    perf: PerfVocabulary {
+        scans: &[],
+        scan_calls: &[
+            "std.find",
+            "std.find_if",
+            "std.count",
+            "std.count_if",
+            "std.any_of",
+            "std.all_of",
+            "std.none_of",
+            "std.sort",
+            "std.stable_sort",
+        ],
+        regex_constructors: &["std.regex", "regex"],
+        regex_types: &["regex"],
+        blocking: &[],
+        blocking_receivers: &[],
+        string_types: &["string", "std::string"],
+    },
     test: TestVocabulary {
         suite_roots: &["TEST", "TEST_F", "TEST_P"],
         case_roots: &["TEST", "TEST_F", "TEST_P"],

@@ -6,6 +6,165 @@
 /// real magic numbers would be buried under every loop bound in the codebase.
 pub const CONVENTIONAL: [f64; 7] = [0.0, 1.0, 2.0, -1.0, 10.0, 100.0, 1000.0];
 
+/// What the performance rules recognise by name in one language. Names are the
+/// weakest evidence in the tool, which is why every rule reading this list reports
+/// at heuristic confidence and every list is exact rather than a prefix.
+pub struct PerfVocabulary {
+    /// Methods that walk a whole collection to answer one question.
+    pub scans: &'static [&'static str],
+    /// The same, written as a free function taking the collection as an argument.
+    pub scan_calls: &'static [&'static str],
+    pub regex_constructors: &'static [&'static str],
+    /// Type names whose declaration builds a regex, where construction is not a call.
+    pub regex_types: &'static [&'static str],
+    /// Calls that hold the thread until the work is done.
+    pub blocking: &'static [&'static str],
+    /// Receivers a blocking call is written on, so `time.sleep` is told from a
+    /// project's own `sleep` helper.
+    pub blocking_receivers: &'static [&'static str],
+    /// How this language spells its string type, for the accumulator that is a
+    /// string rather than a list.
+    pub string_types: &'static [&'static str],
+}
+
+/// Clients that talk to something outside the process. Shared, because a service
+/// names its database the same way in every language it is written in.
+pub const IO_RECEIVERS: [&str; 32] = [
+    "db",
+    "prisma",
+    "knex",
+    "sequelize",
+    "mongoose",
+    "model",
+    "repo",
+    "repository",
+    "em",
+    "orm",
+    "session",
+    "cursor",
+    "conn",
+    "connection",
+    "client",
+    "http",
+    "axios",
+    "requests",
+    "httpx",
+    "urllib",
+    "sql",
+    "jdbctemplate",
+    "entitymanager",
+    "resttemplate",
+    "webclient",
+    "redis",
+    "s3",
+    "bucket",
+    "queue",
+    "producer",
+    "pool",
+    "collection",
+];
+
+/// What such a client is asked to do. Matched whole rather than by prefix, so a
+/// `getName` on a value named `client` is not a round trip.
+pub const IO_METHODS: [&str; 27] = [
+    "get",
+    "post",
+    "put",
+    "patch",
+    "delete",
+    "query",
+    "execute",
+    "exec",
+    "select",
+    "insert",
+    "update",
+    "upsert",
+    "save",
+    "load",
+    "fetch",
+    "send",
+    "publish",
+    "read",
+    "write",
+    "call",
+    "invoke",
+    "request",
+    "exchange",
+    "retrieve",
+    "getforobject",
+    "getforentity",
+    "postforobject",
+];
+
+/// Calls that reach the network with no receiver to give them away.
+pub const IO_BARE: [&str; 5] = [
+    "fetch",
+    "sqlite3_exec",
+    "curl_easy_perform",
+    "mysql_query",
+    "pqexec",
+];
+
+/// Names suggesting a value is already keyed, where a scan is a lookup and costs
+/// nothing.
+pub const HASHED_HINTS: [&str; 11] = [
+    "set", "map", "index", "lookup", "cache", "byid", "by_id", "dict", "hash", "seen", "visited",
+];
+
+/// Names suggesting an answer is kept between calls, which is what makes a
+/// two-branch recursion linear instead of exponential.
+pub const MEMO_HINTS: [&str; 6] = ["memo", "cache", "seen", "dp", "table", "visited"];
+
+/// Constructions that key their contents, so searching one is not a scan.
+pub const KEYED_CONSTRUCTIONS: [&str; 16] = [
+    "new set",
+    "new map",
+    "new weakmap",
+    "new weakset",
+    "set(",
+    "dict(",
+    "make(map",
+    "map[",
+    "map<",
+    "set<",
+    "dict[",
+    "hashmap",
+    "hashset",
+    "unordered_",
+    "std::set",
+    "std::map",
+];
+
+/// Whether a dotted name has a segment naming a client. Any segment, because an ORM
+/// spells the model between the client and the call: `prisma.user.findMany`.
+pub fn reaches_outside(receiver: &str, extra: &[String]) -> bool {
+    receiver.split('.').any(|segment| {
+        let segment = segment.to_ascii_lowercase();
+        IO_RECEIVERS.contains(&segment.as_str())
+            || extra.iter().any(|name| name.eq_ignore_ascii_case(&segment))
+    })
+}
+
+pub fn asks_for_data(method: &str, extra: &[String]) -> bool {
+    let lower = method.to_ascii_lowercase();
+    IO_METHODS.contains(&lower.as_str())
+        || lower.starts_with("find")
+        || extra.iter().any(|name| name.eq_ignore_ascii_case(method))
+}
+
+/// Case-insensitive substring test that does not allocate, because it runs against
+/// every identifier in every file.
+pub fn mentions_any(name: &str, words: &[&str]) -> bool {
+    let name = name.as_bytes();
+    words.iter().any(|word| {
+        let word = word.as_bytes();
+        word.len() <= name.len()
+            && name
+                .windows(word.len())
+                .any(|window| window.eq_ignore_ascii_case(word))
+    })
+}
+
 /// What a test framework calls its suites, its cases and its assertions, and how it
 /// spells "skip this one" and "run only this one".
 pub struct TestVocabulary {
