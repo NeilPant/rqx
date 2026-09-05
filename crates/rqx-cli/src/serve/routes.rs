@@ -139,51 +139,11 @@ async fn report(State(live): State<Arc<Live>>) -> Response {
     let outcome = live.outcome();
     let settings = live.settings();
     let report = Report::everything(&outcome);
-    let mut body = projection::scan(&report, &outcome);
-    body["mascot"] = json!(crate::brand::mascot_ink(Some(report.health())).slug());
-    body["findings"] = json!(
-        outcome
-            .findings
-            .iter()
-            .map(|finding| {
-                let spec = finding.rule.spec();
-                json!({
-                    "rule": spec.slug,
-                    "family": spec.category.slug(),
-                    "file": finding.location.file,
-                    "line": finding.location.line,
-                    "column": finding.location.column,
-                    "endLine": finding.location.end_line,
-                    "start": finding.location.start,
-                    "end": finding.location.end,
-                    "severity": finding.severity.label(),
-                    "confidence": finding.confidence.label(),
-                    "evidence": finding.evidence.to_string(),
-                    "why": spec.why,
-                    "metric": spec.metric,
-                    "hint": finding.fix_hint,
-                    "technique": spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>(),
-                    "autofixable": settings
-                        .for_file(&outcome.root.join(&*finding.location.file))
-                        .fix
-                        .allows(finding.rule),
-                    "known": finding.known,
-                })
-            })
-            .collect::<Vec<_>>()
+    let name = live.root.file_name().map_or_else(
+        || "rqx".to_owned(),
+        |name| name.to_string_lossy().into_owned(),
     );
-    // The map sizes a file by how much of the project it is, which the scan knows and
-    // the shared projection has no reason to carry.
-    body["lines"] = json!(
-        outcome
-            .lines_by_file
-            .iter()
-            .map(|(file, lines)| (file.to_string(), *lines))
-            .collect::<std::collections::BTreeMap<_, _>>()
-    );
-    body["project"] = json!(live.root.file_name().map(|name| name.to_string_lossy()));
-    body["level"] = json!(settings.level().slug());
-    body["suppressed"] = json!(outcome.suppressed.len());
+    let mut body = projection::dashboard(&report, &outcome, &settings, &name);
     body["editorUrl"] = json!(live.editor_url);
     body["readOnly"] = json!(live.read_only);
     body["root"] = json!(live.root);
@@ -225,34 +185,8 @@ async fn suppressions(State(live): State<Arc<Live>>) -> Response {
 /// and a threshold decides whether a finding fires, so this is an estimate and says
 /// so in the page.
 async fn levels(State(live): State<Arc<Live>>) -> Response {
-    use rqx_core::config::Level;
     let outcome = live.outcome();
-    ok(json!(
-        Level::ALL
-            .iter()
-            .map(|level| {
-                let config: rqx_core::RqxConfig = toml::from_str(level.layer()).unwrap_or_default();
-                let kept: Vec<&rqx_core::Finding> = outcome
-                    .findings
-                    .iter()
-                    .filter(|finding| config.rules.enabled(finding.rule))
-                    .collect();
-                let counts = outcome.counts.without(
-                    outcome
-                        .findings
-                        .iter()
-                        .filter(|finding| !config.rules.enabled(finding.rule)),
-                );
-                json!({
-                    "level": level.slug(),
-                    "summary": level.summary(),
-                    "findings": kept.len(),
-                    "health": counts.weighted_health_score(outcome.code_lines, &outcome.impact),
-                    "current": *level == live.settings().level(),
-                })
-            })
-            .collect::<Vec<_>>()
-    ))
+    ok(projection::levels(&outcome, live.settings().level()))
 }
 
 async fn trend(State(live): State<Arc<Live>>) -> Response {
@@ -264,21 +198,7 @@ async fn trend(State(live): State<Arc<Live>>) -> Response {
 async fn graph(State(live): State<Arc<Live>>) -> Response {
     let outcome = live.outcome();
     let report = Report::everything(&outcome);
-    ok(json!({
-        "nodes": report
-            .files
-            .iter()
-            .map(|file| json!({
-                "file": file,
-                "grade": report.grade_of(file).label(),
-                "findings": outcome.findings_by_file.get(file.as_str()).copied().unwrap_or(0),
-                "lines": outcome.lines_by_file.get(file.as_str()).copied().unwrap_or(0),
-                "importers": outcome.impact.get(file).importers,
-            }))
-            .collect::<Vec<_>>(),
-        "edges": outcome.import_edges,
-        "cycles": outcome.cycles,
-    }))
+    ok(projection::graph(&report, &outcome))
 }
 
 /// One file's source, for the code view. Contained to the project root, so a page

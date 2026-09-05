@@ -914,7 +914,13 @@ impl From<ConfigAction> for edit_config::Change {
     }
 }
 
-fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
+fn emit(
+    report: &Report<'_>,
+    sinks: &[Sink],
+    view: &View,
+    palette: Palette,
+    settings: Option<&config::Resolved>,
+) -> Result<()> {
     if view.timings {
         report::timings(report.outcome, palette, &mut anstream::stdout().lock())?;
     }
@@ -934,7 +940,12 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
             Some(path) => {
                 let mut file = std::fs::File::create(path)
                     .with_context(|| format!("writing {}", path.display()))?;
-                report::emit(report, sink.reporter, &plain, &mut file)?;
+                match settings {
+                    Some(settings) if sink.reporter == Reporter::Html => {
+                        report::emit_html(report, settings, &mut file)?;
+                    }
+                    _ => report::emit(report, sink.reporter, &plain, &mut file)?,
+                }
                 file.flush()?;
             }
             None if sink.reporter.is_coloured() => {
@@ -1153,7 +1164,7 @@ fn run() -> Result<Exit> {
                 Some(verdict) => report.judged(verdict),
                 None => report,
             };
-            emit(&report, &sinks, &view, palette)?;
+            emit(&report, &sinks, &view, palette, Some(&settings))?;
             if advice {
                 let mut out = anstream::stdout().lock();
                 report::advice(&outcome, palette, &mut out)?;
@@ -1709,7 +1720,7 @@ fn run() -> Result<Exit> {
             }
             let verdict = check::judge(&review, &settings.config);
             let report = Report::review(&review, &verdict, &filter);
-            emit(&report, &sinks, &view, palette)?;
+            emit(&report, &sinks, &view, palette, Some(&settings))?;
             Ok(Exit::of(!verdict.passed()))
         }
         Command::Mcp { path, http, config } => {

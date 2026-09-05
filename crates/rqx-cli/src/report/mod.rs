@@ -7,6 +7,7 @@ mod fixes;
 mod github;
 mod gitlab;
 mod graded;
+mod html;
 mod json;
 mod junit;
 mod markdown;
@@ -104,10 +105,11 @@ pub enum Reporter {
     Gitlab,
     Github,
     Markdown,
+    Html,
 }
 
 impl Reporter {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Terminal,
         Self::Json,
         Self::Sarif,
@@ -115,6 +117,7 @@ impl Reporter {
         Self::Gitlab,
         Self::Github,
         Self::Markdown,
+        Self::Html,
     ];
 
     /// Only the console report is written for a person to read; anything else is a
@@ -139,6 +142,7 @@ impl Reporter {
             Self::Gitlab => "gitlab",
             Self::Github => "github",
             Self::Markdown => "markdown",
+            Self::Html => "html",
         }
     }
 }
@@ -312,6 +316,16 @@ impl<'a> Report<'a> {
     }
 }
 
+/// The one reporter that needs more than the findings: the page it writes is the
+/// dashboard, and the dashboard shows the settings the run used.
+pub fn emit_html(
+    report: &Report<'_>,
+    settings: &crate::config::Resolved,
+    out: &mut dyn Write,
+) -> Result<()> {
+    html::render(report, settings, out)
+}
+
 pub fn emit(
     report: &Report<'_>,
     reporter: Reporter,
@@ -326,6 +340,9 @@ pub fn emit(
         Reporter::Gitlab => gitlab::render(report, out),
         Reporter::Github => github::render(report, out),
         Reporter::Markdown => markdown::render(report, out),
+        // Only `emit_with_settings` can render it, because the page carries the
+        // configuration the dashboard shows.
+        Reporter::Html => Ok(()),
     }
 }
 

@@ -1,6 +1,6 @@
 mod project;
 mod routes;
-mod theme;
+pub mod theme;
 
 use std::collections::BTreeMap;
 use std::net::SocketAddr;

@@ -14,6 +14,119 @@ use crate::scan::ScanOutcome;
 /// The same projection the JSON reporter writes, so a panel rendering this, an agent
 /// reading it over MCP and a CI job parsing `--reporter json` cannot disagree about
 /// what the scan found.
+/// What the same project would score under each level. Answered from the findings
+/// already in hand rather than by re-analysing four times: a level moves thresholds,
+/// and a threshold decides whether a finding fires, so this is an estimate and the
+/// page says so.
+pub fn levels(outcome: &ScanOutcome, current: rqx_core::config::Level) -> Value {
+    use rqx_core::config::Level;
+
+    json!(
+        Level::ALL
+            .iter()
+            .map(|level| {
+                let config: rqx_core::RqxConfig = toml::from_str(level.layer()).unwrap_or_default();
+                let kept = outcome
+                    .findings
+                    .iter()
+                    .filter(|finding| config.rules.enabled(finding.rule))
+                    .count();
+                let counts = outcome.counts.without(
+                    outcome
+                        .findings
+                        .iter()
+                        .filter(|finding| !config.rules.enabled(finding.rule)),
+                );
+                json!({
+                    "level": level.slug(),
+                    "summary": level.summary(),
+                    "findings": kept,
+                    "health": counts.weighted_health_score(outcome.code_lines, &outcome.impact),
+                    "current": *level == current,
+                })
+            })
+            .collect::<Vec<_>>()
+    )
+}
+
+/// The import graph, with each file's grade, so a page can draw what depends on what
+/// and colour it by how healthy it is.
+pub fn graph(report: &Report<'_>, outcome: &ScanOutcome) -> Value {
+    json!({
+        "nodes": report
+            .files
+            .iter()
+            .map(|file| json!({
+                "file": file,
+                "grade": report.grade_of(file).label(),
+                "findings": outcome.findings_by_file.get(file.as_str()).copied().unwrap_or(0),
+                "lines": outcome.lines_by_file.get(file.as_str()).copied().unwrap_or(0),
+                "importers": outcome.impact.get(file).importers,
+            }))
+            .collect::<Vec<_>>(),
+        "edges": outcome.import_edges,
+        "cycles": outcome.cycles,
+    })
+}
+
+/// Everything the dashboard's first page needs, from a scan alone. The server adds
+/// the three fields only a running process can answer — where the editor is, whether
+/// writes are allowed, and which process handed the page out — and the static report
+/// adds none of them.
+pub fn dashboard(
+    report: &Report<'_>,
+    outcome: &ScanOutcome,
+    settings: &crate::config::Resolved,
+    project: &str,
+) -> Value {
+    let mut body = scan(report, outcome);
+    body["mascot"] = json!(crate::brand::mascot_ink(Some(report.health())).slug());
+    body["findings"] = json!(
+        outcome
+            .findings
+            .iter()
+            .map(|finding| {
+                let spec = finding.rule.spec();
+                json!({
+                    "rule": finding.slug(),
+                    "family": finding.category().slug(),
+                    "file": finding.location.file,
+                    "line": finding.location.line,
+                    "column": finding.location.column,
+                    "endLine": finding.location.end_line,
+                    "start": finding.location.start,
+                    "end": finding.location.end,
+                    "severity": finding.severity.label(),
+                    "confidence": finding.confidence.label(),
+                    "evidence": finding.evidence.to_string(),
+                    "why": spec.why,
+                    "metric": spec.metric,
+                    "hint": finding.fix_hint,
+                    "technique": spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>(),
+                    "autofixable": settings
+                        .for_file(&outcome.root.join(&*finding.location.file))
+                        .fix
+                        .allows(finding.rule),
+                    "known": finding.known,
+                })
+            })
+            .collect::<Vec<_>>()
+    );
+    // The map sizes a file by how much of the project it is, which the scan knows and
+    // the shared projection has no reason to carry.
+    body["lines"] = json!(
+        outcome
+            .lines_by_file
+            .iter()
+            .map(|(file, lines)| (file.to_string(), *lines))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    );
+    body["project"] = json!(project);
+    body["level"] = json!(settings.level().slug());
+    body["suppressed"] = json!(outcome.suppressed.len());
+    body
+}
+
 pub fn scan(report: &Report<'_>, outcome: &ScanOutcome) -> Value {
     json!({
         "health": report.health(),
