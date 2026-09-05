@@ -86,6 +86,7 @@ pub struct Hygiene {
     pub suppressions: Vec<Spot>,
     pub empty_methods: Vec<Spot>,
     pub redundant_jumps: Vec<Spot>,
+    pub float_equalities: Vec<Spot>,
     pub tiny_switches: Vec<Spot>,
     pub banner_comments: Vec<Spot>,
     pub chat_residue: Vec<Spot>,

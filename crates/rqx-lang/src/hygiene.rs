@@ -660,6 +660,19 @@ impl<'a> Walker<'a> {
             });
             return;
         }
+        // A literal with a fractional part: `0.1`, `1.5e3`. An integer literal
+        // compares exactly whatever the variable's type is, so only the decimal point
+        // makes this certain without knowing the types.
+        for side in [left_text, right_text] {
+            if is_fractional(side) {
+                self.out.float_equalities.push(Spot {
+                    span: span_of(node),
+                    detail: side.to_owned(),
+                    count: 1,
+                });
+                return;
+            }
+        }
         for side in [left_text, right_text] {
             if profile.boolean_literals.contains(&side) {
                 self.out.literal_comparisons.push(Spot {
@@ -1685,6 +1698,22 @@ pub fn waivers(
             rqx_core::suppress::Suppression::parse(text_of(comment, source), span_of(comment))
         })
         .collect()
+}
+
+/// A numeric literal a reader would call a decimal. Exponent form counts, because
+/// `1e-3` is stored the same way `0.001` is; an integer does not, because comparing
+/// one is exact whatever it is compared against.
+fn is_fractional(text: &str) -> bool {
+    let body = text.trim_start_matches(['-', '+']);
+    if body.is_empty() || !body.starts_with(|c: char| c.is_ascii_digit() || c == '.') {
+        return false;
+    }
+    // A hex or binary literal has no fraction, and its `e` is a digit.
+    if body.starts_with("0x") || body.starts_with("0X") || body.starts_with("0b") {
+        return false;
+    }
+    let digits = body.trim_end_matches(['f', 'F', 'd', 'D', 'l', 'L']);
+    digits.contains('.') || digits.contains(['e', 'E'])
 }
 
 fn scan_comments(

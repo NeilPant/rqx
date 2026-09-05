@@ -83,3 +83,7 @@ int two_armed(int kind) {
             return 0;
     }
 }
+
+bool settled(double balance) {
+    return balance == 0.1;
+}

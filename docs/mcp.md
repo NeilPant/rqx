@@ -29,6 +29,7 @@ finding names is a refactoring for a person to make rather than an edit rqx coul
 | `config` | The settings this server will use, and which file each value came from |
 | `complexity` | Every function's cognitive complexity, statements, nesting and parameters, with the project's own percentiles |
 | `health` | Where the score comes from, by family: findings, share of the weighted debt, and the score without each |
+| `perf` | Every function that grows faster than its input, ranked by cost against reach, with the loop order, the round trips inside its loops and the named fix |
 | `graph` | Every import edge, and the cycles as rings you can follow; each edge says whether it closes one |
 | `recommend` | Whether the thresholds fit, which refactoring answers the most, and what to read first |
 

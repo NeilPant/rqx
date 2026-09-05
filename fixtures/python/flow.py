@@ -112,3 +112,7 @@ def two_armed(kind: str) -> int:
             return 1
         case _:
             return 0
+
+
+def settled(balance: float) -> bool:
+    return balance == 0.1

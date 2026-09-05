@@ -7,6 +7,7 @@
 | [recommend.md](recommend.md) | Which thresholds fit, which refactoring pays, and what to read first |
 | [slop.md](slop.md) | The `noise` family, and which files read as written rather than read |
 | [health.md](health.md) | Where the score comes from, and what fixing each part would buy |
+| [perf.md](perf.md) | Which functions grow faster than their input, and what a CPU profile says actually ran |
 | [complexity.md](complexity.md) | The measurements behind the thresholds, as a distribution rather than a tail |
 | [graph.md](graph.md) | Reading the import graph, exporting it, and finding the edge that closes a cycle |
 | [policy.md](policy.md) | One standard across many repositories, and the keys a project may not change |
@@ -15,7 +16,7 @@
 | [rules/](rules/README.md) | Every rule, by family: what each measures, its threshold, and a worked example |
 | [patterns/](patterns/README.md) | The design-pattern catalogue: what rqx recognises, what it calls half applied, and where one would fit |
 | [editor.md](editor.md) | `rqx lsp` as a product, and a paste-in config for every editor |
-| [mcp.md](mcp.md) | The fourteen MCP tools, their payloads, paging, and HTTP with a token |
+| [mcp.md](mcp.md) | The fifteen MCP tools, their payloads, paging, and HTTP with a token |
 | [ci.md](ci.md) | The exit-code contract, every reporter, and a snippet per CI system |
 
 `docs/rules/`, `docs/patterns/` and the levels section of `configuration.md` are

@@ -89,6 +89,27 @@ From `fixtures/typescript/flow.ts`, line 58:
 
 rqx says: assign above the branch, or compare if that is what was meant
 
+## `float-equality`
+
+a binary float almost never lands on the decimal a person wrote, so the branch that depends on it is decided by rounding rather than by the value
+
+| | |
+|---|---|
+| Measures | an equality test against a literal with a fractional part |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Introduce Assertion |
+
+From `fixtures/typescript/flow.ts`, line 128:
+
+```ts
+export function settled(balance: number): boolean {
+  return balance === 0.1;
+}
+```
+
+rqx says: compare the difference against a tolerance the domain decides
+
 ## `unjustified-suppression`
 
 the waiver is refused and the finding still stands, because a waiver nobody has to justify is how a rule gets switched off one line at a time

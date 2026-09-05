@@ -140,14 +140,12 @@ fn configuration(outcome: &ScanOutcome, settings: &Resolved) -> Vec<Note> {
     notes
 }
 
-/// One technique answering forty findings is a week's work with a shape. Forty
-/// findings answered by forty different techniques is just a list.
 fn refactoring(outcome: &ScanOutcome, _settings: &Resolved) -> Vec<Note> {
     techniques_of(outcome.findings.iter())
 }
 
-/// Which single move answers the most at once, and where those findings cluster. One
-/// technique answering hundreds in one directory is a week's work with a shape to it.
+/// One technique answering forty findings is a week's work with a shape. Forty
+/// findings answered by forty different techniques is just a list.
 fn techniques_of<'a>(findings: impl Iterator<Item = &'a rqx_core::finding::Finding>) -> Vec<Note> {
     let mut by_technique: BTreeMap<&'static str, (u32, BTreeMap<String, u32>)> = BTreeMap::new();
     for finding in findings {
@@ -186,6 +184,61 @@ fn techniques_of<'a>(findings: impl Iterator<Item = &'a rqx_core::finding::Findi
             because: format!("{most} of them are under `{where_most}`"),
         })
         .collect()
+}
+
+/// The same question asked of one family, plus the client this project queries inside
+/// a loop most often — the one round trip worth batching before any of the others.
+fn bottlenecks(outcome: &ScanOutcome, _settings: &Resolved) -> Vec<Note> {
+    use rqx_core::rule::Category;
+
+    let performance = || {
+        outcome
+            .findings
+            .iter()
+            .filter(|finding| finding.rule.spec().category == Category::Performance)
+    };
+    let mut notes = techniques_of(performance());
+
+    let mut by_receiver: BTreeMap<String, (u32, BTreeMap<String, u32>)> = BTreeMap::new();
+    for finding in performance().filter(|finding| finding.rule.slug() == "query-in-loop") {
+        let Some(subject) = finding.evidence.subject() else {
+            continue;
+        };
+        let receiver = subject.split('.').next().unwrap_or(subject);
+        let entry = by_receiver.entry(receiver.to_owned()).or_default();
+        entry.0 += 1;
+        let directory = finding
+            .location
+            .file
+            .rsplit_once('/')
+            .map_or(".", |(at, _)| at)
+            .to_owned();
+        *entry.1.entry(directory).or_default() += 1;
+    }
+    let mut ranked: Vec<(String, u32, String)> = by_receiver
+        .into_iter()
+        .map(|(receiver, (sites, places))| {
+            let (where_most, _) = places
+                .into_iter()
+                .max_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0)))
+                .unwrap_or_default();
+            (receiver, sites, where_most)
+        })
+        .filter(|(_, sites, _)| *sites > 1)
+        .collect();
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    notes.extend(
+        ranked
+            .into_iter()
+            .take(3)
+            .map(|(receiver, sites, place)| Note {
+                headline: format!("`{receiver}` is queried inside a loop at {sites} sites"),
+                because: format!(
+                    "most of them under `{place}`, so one batched call answers them all"
+                ),
+            }),
+    );
+    notes
 }
 
 /// Reach times churn times trouble. A file nobody imports and nobody changes is not
@@ -235,9 +288,10 @@ pub fn json(
     only: Option<Only>,
     out: &mut dyn Write,
 ) -> Result<()> {
-    let sections: [Section; 3] = [
+    let sections: [Section; 4] = [
         (Only::Config, "config", configuration),
         (Only::Refactor, "refactor", refactoring),
+        (Only::Perf, "perf", bottlenecks),
         (Only::Reading, "reading", reading),
     ];
     for (which, name, gather) in sections {

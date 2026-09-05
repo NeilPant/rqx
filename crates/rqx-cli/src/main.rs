@@ -96,6 +96,10 @@ enum Command {
         /// lcov, a Go cover profile and coverage.py JSON are read by content.
         #[arg(long)]
         coverage: Vec<PathBuf>,
+        /// A CPU profile, so a run can contradict a performance finding. A V8
+        /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
+        #[arg(long)]
+        profile: Vec<PathBuf>,
         /// Display cap; 0 shows every finding. Never affects the health score.
         #[arg(long)]
         max_findings: Option<usize>,
@@ -1028,6 +1032,7 @@ fn run() -> Result<Exit> {
             gate,
             advice,
             coverage,
+            profile,
             max_findings,
             threads,
             config,
@@ -1044,6 +1049,12 @@ fn run() -> Result<Exit> {
             }
             if !coverage.is_empty() {
                 settings.config.scan.coverage = coverage
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect();
+            }
+            if !profile.is_empty() {
+                settings.config.scan.profile = profile
                     .iter()
                     .map(|path| path.display().to_string())
                     .collect();

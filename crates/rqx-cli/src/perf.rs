@@ -435,3 +435,179 @@ pub fn json(outcome: &ScanOutcome, view: &View, out: &mut dyn Write) -> Result<(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use rqx_core::finding::{Confidence, Evidence, SourceRange};
+    use rqx_core::rule::RuleId;
+
+    use super::*;
+
+    fn at(file: &str, start: u32, line: u32) -> SourceRange {
+        SourceRange {
+            file: std::sync::Arc::from(file),
+            start,
+            end: start + 1,
+            line,
+            column: 1,
+            end_line: line,
+        }
+    }
+
+    /// `(file, name, start, end, loop_depth, self_calls)`.
+    fn measured(functions: &[(&str, &str, u32, u32, u32, u32)]) -> ScanOutcome {
+        let mut outcome = crate::report::tests::outcome_with(&[], 0);
+        for (file, name, start, end, loops, calls) in functions {
+            let shape = outcome
+                .shape_by_file
+                .entry(std::sync::Arc::from(*file))
+                .or_default();
+            shape.functions.push(rqx_lang::FunctionShape {
+                name: Some((*name).to_owned()),
+                range: at(file, *start, 1),
+                end: *end,
+                last_line: 40,
+                parameters: 1,
+                statements: 4,
+                cognitive_complexity: 1,
+                max_nesting: 1,
+                loop_depth: *loops,
+                self_calls: *calls,
+            });
+        }
+        outcome
+    }
+
+    fn carrying(outcome: &mut ScanOutcome, rule: RuleId, file: &str, start: u32) {
+        outcome.findings.push(Finding {
+            rule,
+            location: at(file, start, 2),
+            severity: rule.spec().severity,
+            confidence: rule.spec().confidence,
+            evidence: Evidence::InLoop {
+                subject: "client.get".to_owned(),
+                depth: 1,
+                sampled: None,
+            },
+            fix_hint: String::new(),
+            related: Vec::new(),
+            known: false,
+        });
+    }
+
+    fn view(by: By, sort: Sort) -> View {
+        View {
+            by,
+            sort,
+            top: 10,
+            min_depth: 0,
+        }
+    }
+
+    fn rows_of(outcome: &ScanOutcome, view: &View) -> Vec<serde_json::Value> {
+        let mut out = Vec::new();
+        json(outcome, view, &mut out).expect("json");
+        String::from_utf8(out)
+            .expect("utf-8")
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("a row"))
+            .collect()
+    }
+
+    #[test]
+    fn a_function_with_no_finding_is_not_a_bottleneck() {
+        let outcome = measured(&[("a.ts", "quiet", 0, 100, 3, 0)]);
+        assert!(rows_of(&outcome, &view(By::Function, Sort::Weight)).is_empty());
+    }
+
+    #[test]
+    fn the_heaviest_function_is_first() {
+        let mut outcome = measured(&[
+            ("a.ts", "light", 0, 50, 1, 0),
+            ("a.ts", "heavy", 60, 120, 3, 0),
+        ]);
+        carrying(&mut outcome, RuleId::ScanInLoop, "a.ts", 10);
+        carrying(&mut outcome, RuleId::QueryInLoop, "a.ts", 70);
+        carrying(&mut outcome, RuleId::AwaitInLoop, "a.ts", 80);
+        let rows = rows_of(&outcome, &view(By::Function, Sort::Weight));
+        assert_eq!(rows[0]["name"], "heavy");
+        assert_eq!(rows[0]["order"], "O(n\u{b3}+)");
+    }
+
+    /// A round trip is the cost a reader feels as latency, so it is counted apart
+    /// from the shapes that only cost processor time.
+    #[test]
+    fn io_counts_the_round_trips_and_not_the_scans() {
+        let mut outcome = measured(&[("a.ts", "mixed", 0, 100, 1, 0)]);
+        carrying(&mut outcome, RuleId::ScanInLoop, "a.ts", 10);
+        carrying(&mut outcome, RuleId::QueryInLoop, "a.ts", 20);
+        carrying(&mut outcome, RuleId::AwaitInLoop, "a.ts", 30);
+        let rows = rows_of(&outcome, &view(By::Function, Sort::Weight));
+        assert_eq!(rows[0]["io"], 2);
+        assert_eq!(rows[0]["findings"].as_array().expect("findings").len(), 3);
+    }
+
+    /// The innermost function is where the work is: a callback inside a method is
+    /// what runs per element, not the method around it.
+    #[test]
+    fn a_finding_lands_in_the_innermost_function_that_holds_it() {
+        let mut outcome = measured(&[
+            ("a.ts", "outer", 0, 200, 1, 0),
+            ("a.ts", "callback", 40, 80, 2, 0),
+        ]);
+        carrying(&mut outcome, RuleId::QueryInLoop, "a.ts", 50);
+        let rows = rows_of(&outcome, &view(By::Function, Sort::Weight));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["name"], "callback");
+    }
+
+    #[test]
+    fn a_finding_the_profile_contradicts_weighs_nothing() {
+        let mut outcome = measured(&[("a.ts", "cold", 0, 100, 1, 0)]);
+        carrying(&mut outcome, RuleId::QueryInLoop, "a.ts", 10);
+        outcome.findings[0].confidence = Confidence::Low;
+        let rows = rows_of(&outcome, &view(By::Function, Sort::Weight));
+        assert_eq!(rows[0]["weight"], 1.0, "a low finding adds nothing to it");
+    }
+
+    #[test]
+    fn min_depth_drops_the_shallow_rows() {
+        let mut outcome = measured(&[
+            ("a.ts", "flat", 0, 50, 1, 0),
+            ("a.ts", "nested", 60, 120, 3, 0),
+        ]);
+        carrying(&mut outcome, RuleId::QueryInLoop, "a.ts", 10);
+        carrying(&mut outcome, RuleId::QueryInLoop, "a.ts", 70);
+        let mut asked = view(By::Function, Sort::Weight);
+        asked.min_depth = 2;
+        let rows = rows_of(&outcome, &asked);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["name"], "nested");
+    }
+
+    /// A directory reports the worst of what it holds and the sum of its round
+    /// trips: an average hides one terrible function behind twenty ordinary ones.
+    #[test]
+    fn a_directory_reports_the_worst_it_holds() {
+        let mut outcome = measured(&[
+            ("src/a.ts", "one", 0, 50, 1, 0),
+            ("src/b.ts", "two", 0, 50, 3, 0),
+        ]);
+        carrying(&mut outcome, RuleId::QueryInLoop, "src/a.ts", 10);
+        carrying(&mut outcome, RuleId::QueryInLoop, "src/b.ts", 10);
+        let rows = rows_of(&outcome, &view(By::Dir, Sort::Weight));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["loops"], 3);
+        assert_eq!(rows[0]["io"], 2);
+        assert_eq!(rows[0]["functions"], 2);
+    }
+
+    #[test]
+    fn the_order_label_reads_the_loops_and_the_recursion() {
+        assert_eq!(order(0, 0), "O(1)");
+        assert_eq!(order(1, 0), "O(n)");
+        assert_eq!(order(2, 0), "O(n\u{b2})");
+        assert_eq!(order(5, 0), "O(n\u{b3}+)");
+        assert_eq!(order(1, 2), "exp", "recursion outranks the loop count");
+    }
+}

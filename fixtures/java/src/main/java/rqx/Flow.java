@@ -89,4 +89,8 @@ class Flow {
                 return 0;
         }
     }
+
+    public boolean settled(double balance) {
+        return balance == 0.1;
+    }
 }

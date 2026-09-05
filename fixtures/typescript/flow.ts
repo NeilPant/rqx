@@ -123,3 +123,7 @@ export function twoArmed(kind: string): number {
       return 0;
   }
 }
+
+export function settled(balance: number): boolean {
+  return balance === 0.1;
+}

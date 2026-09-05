@@ -764,6 +764,17 @@ pub fn check_hygiene(
             "pick one verb for the idea and rename the rest to match".to_owned(),
         );
     }
+    for spot in &hygiene.float_equalities {
+        emit(
+            out,
+            RuleId::FloatEquality,
+            spot,
+            Evidence::BranchShape {
+                shape: format!("`{}` is compared for exact equality", spot.detail),
+            },
+            "compare the difference against a tolerance the domain decides".to_owned(),
+        );
+    }
     for spot in &hygiene.redundant_jumps {
         emit(
             out,

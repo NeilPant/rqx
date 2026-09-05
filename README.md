@@ -28,6 +28,7 @@ rqx                             # the interface: scan, then browse everything
 rqx scan ./src                  # report everything
 rqx fix --write                 # apply the fixes with one right answer, proven first
 rqx plan --budget 20            # rank the work, and say what the score will be after
+rqx perf --profile cpu.pprof    # what grows faster than its input, and what ran
 rqx verify --base main          # did the refactoring you named actually happen
 rqx serve --open                # a live dashboard, updated as you save
 rqx check --base main           # review only what changed, fail CI on the gate
@@ -147,7 +148,7 @@ does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-96 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
+97 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
 
 | Family | Rules | What it measures |
 |---|---|---|
@@ -158,7 +159,7 @@ does not declare its metric and fix does not build.
 | **Coupling** | 10 | modules that know too much about each other, and dependencies pointing the wrong way |
 | **Flow** | 9 | control flow that says less than it looks like |
 | **Naming** | 7 | names that mislead or say nothing |
-| **Safety** | 10 | silent failure and swallowed errors |
+| **Safety** | 11 | silent failure and swallowed errors |
 | **Tests** | 4 | suites that pass without checking |
 | **Noise** | 5 | text that costs a reader and buys nothing |
 | **Performance** | 8 | work done more often, or more expensively, than it needs to be |
@@ -372,6 +373,7 @@ change within one poll interval.
 | Findings | every finding, sorted and grouped how you like, filtered by severity, family, rule, path glob, grade, confidence, fixability or whether the baseline already knew |
 | Files | one row per file, searchable and sortable, worst grade first |
 | Plan | the ranked plan with a budget slider, re-ranked as you drag it |
+| Bottlenecks | every function that grows faster than its input, with its loop order and what a profile saw |
 | Patterns | which design patterns are half applied, and where |
 | Check | review the diff against any base and see the gate's verdict |
 | Rules | the catalogue, with how often each rule fired here |
@@ -629,6 +631,42 @@ rule, so a group has to span languages, clear eight statements and forty nodes, 
 share a constant before it is reported — ported code keeps its constants even when
 its syntax changes completely.
 
+## Where the time goes
+
+Most of what a profiler eventually points at is a shape a reader could have named
+from the source: a query inside a loop, a linear search inside a loop, an await per
+item, a pattern recompiled on every pass. Eight rules read those shapes, and
+`rqx perf` ranks the functions carrying them by what they cost against how much of
+the project leans on the file they are in.
+
+```
+$ rqx perf --top 2
+
+  Bottlenecks  8 functions worth a look
+
+                   order  loops   io  reach   sampled  where
+    reconcileBatch  O(n²)      2    1   ×3.4    41.2%  orders/reconcile.ts:88
+                  `db.order.findMany` runs on every pass of the loop. On the stack in
+                  41.2% of samples.  · Fix: Batch the Work
+    fibonacci         exp      0    0   ×1.1        –  math/series.ts:12
+                  Calls itself 2 times per invocation with no memo in sight. A profile
+                  never sampled this function.  · Fix: Memoize
+
+    p50 0 · p90 1 · p99 2 loop depth · 14 over 2 · 9 with a round trip inside a loop
+```
+
+`order` is loop order, not a proof — three nested loops over three items are three
+passes of nothing. Which is why a CPU profile can settle it. `--profile cpu.pprof`
+reads a V8 `.cpuprofile`, a Go pprof or collapsed stacks by content, and a
+performance finding in a function the run never put on the stack keeps its finding
+and stops counting, exactly as a covered symbol stops counting as dead code.
+
+Names are the weakest evidence here, so the rules leaning on one are `heuristic` and
+never `error`, and a receiver that is already keyed — a `Set`, a `Map`, anything
+named `index` or `cache` — is a lookup rather than a round trip and is not reported.
+[docs/perf.md](docs/perf.md) has the columns, the formats and the vocabulary a
+project can extend.
+
 ## What the tests actually ran
 
 Dead code is decided from the import graph, and a graph cannot see a dynamic import,
@@ -725,9 +763,10 @@ in a context window, and a tool that returned one would leave nothing to fix it 
 | `plan` | The findings `rqx fix` will not touch, each with its source, metric and named refactoring |
 | `verify` | What a diff did to every finding: resolved, improved, relocated, introduced |
 | `analyze` | An unsaved buffer, without touching the disk |
+| `perf` | Where the work grows faster than the data, ranked by cost against reach |
 | `patterns` · `explain` · `rules` · `config` | The catalogues, and the settings in force |
 
-All ten are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
+All fifteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
 the brief and the agent does the writing. `--http` serves
 the same tools over Streamable HTTP for clients that cannot spawn a process, and refuses
 a public address without `RQX_MCP_TOKEN` rather than handing your source to the network.

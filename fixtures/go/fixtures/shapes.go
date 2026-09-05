@@ -159,3 +159,7 @@ func TwoArmed(kind string) int {
 		return 0
 	}
 }
+
+func Settled(balance float64) bool {
+	return balance == 0.1
+}

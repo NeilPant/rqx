@@ -864,6 +864,17 @@ catalogue! {
               work that succeeded, and the next reader cannot tell whether it is a stub \
               or a decision",
     },
+    FloatEquality {
+        slug: "float-equality",
+        category: Safety,
+        analysis: Syntax,
+        metric: "an equality test against a literal with a fractional part",
+        fixes: [IntroduceAssertion],
+        confidence: Verified,
+        severity: Warning,
+        why: "a binary float almost never lands on the decimal a person wrote, so the \
+              branch that depends on it is decided by rounding rather than by the value",
+    },
     DeepRelativeImport {
         slug: "deep-relative-import",
         category: Coupling,
