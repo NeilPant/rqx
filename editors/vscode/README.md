@@ -45,7 +45,6 @@ thing in every editor rqx supports.
 | `⌘⌥R` `P` | Toggle design-pattern advice |
 | `⌘⌥R` `L` | Toggle the code lens |
 | `⌘⌥R` `O` | Open the panel |
-| `⌘⌥R` `W` | Open the dashboard |
 | `⌘⌥R` `F` | Fix this file — every proven edit in it, in one go |
 | `⌘⌥R` `X` | Waive the finding under the cursor, with a reason |
 | `⌘⌥R` `/` | Filter the Findings view |
@@ -90,9 +89,6 @@ accepting one on the command line.
 - **Files**, worst grade first, each expanding to its own findings, with blast radius and
   churn.
 - **Rules** — the whole catalogue by family, with how often each one fired here.
-- **The dashboard** in an editor tab: the treemap, the import graph with its cycles, the
-  ranked plan, the trend and the activity feed. The same page `rqx serve` opens in a
-  browser, started by the language server so there is only ever one.
 - **Status bar** health score. Click it to open the panel.
 - **Code lens** (off by default) putting each file's grade, blast radius and churn above
   its first line.
@@ -107,7 +103,6 @@ without restarting anything.
 | `rqx.path` | `rqx` | Path to the binary; empty to always use the managed one |
 | `rqx.scanOnStartup` | `true` | Scan the workspace when the extension activates |
 | `rqx.configFile` | *(empty)* | An `RQX.toml` to use instead of the one rqx finds itself |
-| `rqx.dashboard.openIn` | `editor` | Whether the dashboard opens in an editor tab or your browser |
 | `rqx.findings.groupBy` | `file` | How the Findings view groups what it shows |
 | `rqx.findings.hideKnown` | `false` | Leave findings the baseline already recorded out of the Findings view |
 | `rqx.codeLens` | `false` | Show the per-file grade lens |

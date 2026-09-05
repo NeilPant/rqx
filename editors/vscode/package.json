@@ -79,18 +79,6 @@
         "category": "Rqx"
       },
       {
-        "command": "rqx.openDashboard",
-        "title": "Open the Dashboard",
-        "category": "Rqx",
-        "icon": "$(dashboard)"
-      },
-      {
-        "command": "rqx.openDashboardExternal",
-        "title": "Open the Dashboard in a Browser",
-        "category": "Rqx",
-        "icon": "$(link-external)"
-      },
-      {
         "command": "rqx.fixFile",
         "title": "Fix This File",
         "category": "Rqx",
@@ -246,11 +234,6 @@
         "mac": "cmd+alt+r o"
       },
       {
-        "command": "rqx.openDashboard",
-        "key": "ctrl+alt+r w",
-        "mac": "cmd+alt+r w"
-      },
-      {
         "command": "rqx.fixFile",
         "key": "ctrl+alt+r f",
         "mac": "cmd+alt+r f",
@@ -359,11 +342,6 @@
           "command": "rqx.filesSort",
           "when": "view == rqx.files",
           "group": "navigation@1"
-        },
-        {
-          "command": "rqx.openDashboard",
-          "when": "view == rqx.files",
-          "group": "navigation@2"
         },
         {
           "command": "rqx.rulesShowFired",
@@ -561,19 +539,6 @@
           ],
           "default": "off",
           "description": "Log the traffic between VS Code and the rqx language server."
-        },
-        "rqx.dashboard.openIn": {
-          "type": "string",
-          "enum": [
-            "editor",
-            "browser"
-          ],
-          "enumDescriptions": [
-            "In a Simple Browser tab beside your code.",
-            "In your default browser."
-          ],
-          "default": "editor",
-          "markdownDescription": "Where **Rqx: Open the Dashboard** puts the live page. It is the same page either way — one process, served by the language server."
         },
         "rqx.findings.groupBy": {
           "type": "string",

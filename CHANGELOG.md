@@ -25,6 +25,15 @@ Notable changes. Dates are when the change landed on `main`.
 - `--stats` for counts without findings, `--timings` for where a scan spent itself.
 - Four more MCP tools: `complexity`, `health`, `graph`, `recommend`.
 
+### Removed
+
+- **The browser dashboard.** `rqx serve`, the `html` reporter, the `rqx.dashboard`
+  LSP command and the editor buttons that opened it are all gone. A second surface
+  cost more to keep honest than it returned, and every table it drew is a table the
+  terminal interface draws. `rqx` on its own is the interface now.
+- `rqx tui` — the interface opens on `rqx` and on `rqx scan` in a terminal; nothing
+  is left for the subcommand to name.
+
 ### Changed
 
 - **The cache is on by default.** It was off because a warm run was no faster than a

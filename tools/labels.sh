@@ -25,6 +25,6 @@ for language in typescript python go java cpp; do
   label "language:$language" "785d3f" "Specific to $language"
 done
 
-for surface in editor dashboard mcp lsp ci config; do
+for surface in editor tui mcp lsp ci config; do
   label "area:$surface" "9e8f7c" "The $surface surface"
 done

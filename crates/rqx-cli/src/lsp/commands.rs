@@ -26,7 +26,6 @@ pub const DISABLE_RULE: &str = "rqx.disableRule";
 pub const DISABLE_CATEGORY: &str = "rqx.disableCategory";
 pub const TOGGLE_PATTERNS: &str = "rqx.togglePatterns";
 pub const TOGGLE_CODE_LENS: &str = "rqx.toggleCodeLens";
-pub const DASHBOARD: &str = "rqx.dashboard";
 pub const FIX: &str = "rqx.fix";
 pub const PLAN: &str = "rqx.plan";
 pub const VERIFY: &str = "rqx.verify";
@@ -49,7 +48,6 @@ pub fn names() -> Vec<String> {
         DISABLE_CATEGORY,
         TOGGLE_PATTERNS,
         TOGGLE_CODE_LENS,
-        DASHBOARD,
         FIX,
         PLAN,
         VERIFY,
@@ -113,12 +111,6 @@ pub fn execute(server: &mut Server, params: &ExecuteCommandParams, id: RequestId
         TOGGLE_CODE_LENS => {
             let on = server.toggle_code_lens();
             Outcome::Answered(json!({ "codeLens": on }))
-        }
-        // The dashboard is one page, served by one process, so every editor shows the
-        // same thing rather than each carrying its own half of it.
-        DASHBOARD => {
-            server.dashboard(id);
-            Outcome::Deferred
         }
         FIX => deferred(server.run(
             Task::Fix {

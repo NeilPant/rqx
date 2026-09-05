@@ -72,42 +72,6 @@ impl Ink {
         }
     }
 
-    /// The same colour as CSS. The dashboard reads this rather than restating the
-    /// palette, so the page and the terminal cannot drift apart.
-    pub fn hex(self) -> String {
-        let (r, g, b) = self.rgb();
-        format!("#{r:02x}{g:02x}{b:02x}")
-    }
-
-    pub const fn slug(self) -> &'static str {
-        match self {
-            Self::Accent => "accent",
-            Self::Danger => "danger",
-            Self::Warn => "warn",
-            Self::Good => "good",
-            Self::Text => "text",
-            Self::Muted => "muted",
-            Self::Line => "line",
-            Self::Ground => "ground",
-            Self::Signal => "signal",
-            Self::Shade => "shade",
-        }
-    }
-
-    /// Every ink, for a consumer that has to build a stylesheet from them.
-    pub const EVERY: [Self; 10] = [
-        Self::Accent,
-        Self::Danger,
-        Self::Warn,
-        Self::Good,
-        Self::Text,
-        Self::Muted,
-        Self::Line,
-        Self::Ground,
-        Self::Signal,
-        Self::Shade,
-    ];
-
     const fn ansi256(self) -> u8 {
         match self {
             Self::Accent | Self::Signal => 179,

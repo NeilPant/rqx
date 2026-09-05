@@ -1791,7 +1791,6 @@ dependencies = [
  "serde_json",
  "smallvec",
  "tokio",
- "tokio-stream",
  "toml",
  "toml_edit",
  "unicode-width",
@@ -2324,7 +2323,6 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]

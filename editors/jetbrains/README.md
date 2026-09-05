@@ -30,11 +30,4 @@ the one you are on, and the release assets are already named by target for the o
 editors. It looks in `rqx.path`, then `PATH`, then `target/release/rqx` for anyone
 working on rqx itself.
 
-## The dashboard
-
-The tool window is `rqx serve` in an embedded browser rather than a panel rebuilt in
-Swing — the IDE and the browser show the same page, and a panel written twice is a
-panel that disagrees with itself by the second release. An IDE without JCEF says so
-and points at `rqx serve --open`.
-
 [lsp4ij]: https://github.com/redhat-developer/lsp4ij

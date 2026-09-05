@@ -37,10 +37,6 @@
                                  id="com.rqx.settings"
                                  displayName="rqx"
                                  instance="com.rqx.RqxConfigurable"/>
-        <toolWindow id="rqx"
-                    anchor="right"
-                    factoryClass="com.rqx.RqxDashboard"
-                    icon="AllIcons.Actions.Preview"/>
     </extensions>
 
     <!--

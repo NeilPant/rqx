@@ -1,6 +1,5 @@
 import { ExtensionContext, OutputChannel, commands, window, workspace } from "vscode";
 
-import { Dashboard } from "./dashboard";
 import { Filters } from "./filters";
 import { FindingsIndex, Report } from "./findings-index";
 import { Health, LanguageServer } from "./language-server";
@@ -35,10 +34,6 @@ export async function activate(context: ExtensionContext): Promise<void> {
   });
   server = connection;
 
-  const dashboard = new Dashboard((command) =>
-    connection.send<{ url?: string; error?: string }>(command),
-  );
-
   context.subscriptions.push(
     status.disposable,
     log,
@@ -51,7 +46,6 @@ export async function activate(context: ExtensionContext): Promise<void> {
       index,
       filters,
       panel,
-      dashboard,
       findings,
       files,
       rules,

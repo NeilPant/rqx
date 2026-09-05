@@ -1067,8 +1067,10 @@ pub struct Insertion {
 }
 
 /// Applies an insertion the way an editor would, padding with empty lines when it
-/// lands past the end of the file.
-pub fn apply(source: &str, insertion: &Insertion) -> String {
+/// lands past the end of the file. Only the tests apply one: a real client is the
+/// editor, and it applies the edit itself.
+#[cfg(test)]
+fn apply(source: &str, insertion: &Insertion) -> String {
     let mut lines: Vec<String> = source.lines().map(str::to_owned).collect();
     let line = insertion.line as usize;
     while lines.len() <= line {

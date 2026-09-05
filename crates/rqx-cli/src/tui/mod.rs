@@ -19,6 +19,7 @@ use rqx_core::config::RqxConfig;
 use crate::brand::Palette;
 use crate::check;
 use crate::config::Resolved;
+use crate::project::Project;
 use crate::scan::{self, ScanOutcome, ScanProgress};
 
 use app::{Nav, Screen, Session, Tab};
@@ -130,6 +131,14 @@ enum Work {
 
 type Worker = JoinHandle<anyhow::Result<Work>>;
 
+/// Hands the project back with whether anything moved, because the project has to
+/// live on the thread that re-analyses it and come home again afterwards.
+type Refresher = JoinHandle<anyhow::Result<(Box<Project>, bool)>>;
+
+/// Long enough not to `stat` the tree continuously, short enough that a save shows
+/// up before you have looked away from it.
+const BETWEEN_POLLS: std::time::Duration = std::time::Duration::from_millis(400);
+
 enum Mode {
     Menu,
     Scanning,
@@ -150,6 +159,15 @@ struct App {
     settings: screens::settings::Settings,
     updates: Option<Receiver<ScanProgress>>,
     worker: Option<Worker>,
+    /// The project as last analysed, so a save costs one file rather than all of them.
+    /// Built on the first refresh rather than at startup, because the first scan
+    /// streams its progress and this one cannot.
+    project: Option<Box<Project>>,
+    refresher: Option<Refresher>,
+    polled_at: std::time::Instant,
+    /// The window once it is too small to lay out. Checked again on every resize
+    /// rather than only before launch, because a split pane can shrink under it.
+    cramped: Option<(u16, u16)>,
     help: bool,
     dirty: bool,
     quit: bool,
@@ -189,18 +207,47 @@ impl App {
     /// A review runs in the interface rather than handing the terminal back, so one
     /// menu choice is not the end of the session.
     fn start_review(&mut self, base: String) {
-        let (_, updates) = mpsc::sync_channel(1);
+        let (sender, updates) = mpsc::sync_channel(1);
         let (path, config) = (self.session.path.clone(), self.session.config.clone());
         let against = base.clone();
         self.begin(
             updates,
             thread::spawn(move || {
-                let review = check::review(&path, &config, &against)?;
+                let review = check::review_watched(&path, &config, &against, Some(sender))?;
                 let verdict = check::judge(&review, &config.config);
                 Ok(Work::Review(review, verdict))
             }),
         );
         self.session.base = Some(base);
+    }
+
+    /// Re-analyses what changed and leaves the current report on screen while it
+    /// runs, which is what makes it usable after every save rather than only on demand.
+    fn start_refresh(&mut self) {
+        if self.refresher.is_some() || self.session.scanning {
+            return;
+        }
+        let taken = self.project.take();
+        let (path, config) = (self.session.path.clone(), self.session.config.clone());
+        self.session.refreshing = true;
+        self.refresher = Some(thread::spawn(move || {
+            let mut project = match taken {
+                Some(project) => project,
+                None => Box::new(Project::read(&path, config)?),
+            };
+            let seen = project.walk()?;
+            let moved = project.refresh(&seen);
+            Ok((project, moved))
+        }));
+    }
+
+    /// Screens hold derived views of the outcome, so a new answer means a new set of
+    /// them rather than a refresh flag on each.
+    fn reset_screens(&mut self) {
+        self.overview = screens::overview::Overview::default();
+        self.findings = screens::findings::Findings::default();
+        self.files = screens::files::Files::default();
+        self.plan = screens::plan::Plan::default();
     }
 
     fn begin(&mut self, updates: Receiver<ScanProgress>, worker: Worker) {
@@ -214,6 +261,9 @@ impl App {
         self.session.verdict = None;
         self.scanning = screens::scanning::Scanning::default();
         self.mode = Mode::Scanning;
+        // A scan re-reads every file, so the map the refresh path keeps is stale the
+        // moment one starts; rebuilding it lazily is cheaper than keeping it in step.
+        self.project = None;
     }
 
     /// Drains progress and adopts the finished scan. Returns whether anything visible
@@ -243,12 +293,7 @@ impl App {
                             self.session.outcome = Some(Arc::new(review.outcome));
                         }
                     }
-                    // Screens hold derived views of the outcome, so a new scan means a
-                    // new set of them rather than a refresh flag on each.
-                    self.overview = screens::overview::Overview::default();
-                    self.findings = screens::findings::Findings::default();
-                    self.files = screens::files::Files::default();
-                    self.plan = screens::plan::Plan::default();
+                    self.reset_screens();
                     self.mode = Mode::Browsing(Tab::Overview);
                 }
                 Ok(Err(error)) => {
@@ -262,6 +307,38 @@ impl App {
             }
             changed = true;
         }
+        if self.refresher.as_ref().is_some_and(JoinHandle::is_finished)
+            && let Some(refresher) = self.refresher.take()
+        {
+            self.session.refreshing = false;
+            match refresher.join() {
+                Ok(Ok((project, moved))) => {
+                    if moved || self.session.outcome.is_none() {
+                        self.session.outcome = Some(project.outcome());
+                        self.reset_screens();
+                        if matches!(self.mode, Mode::Menu | Mode::Scanning) {
+                            self.mode = Mode::Browsing(Tab::Overview);
+                        }
+                    }
+                    self.project = Some(project);
+                }
+                Ok(Err(error)) => self.session.failure = Some(format!("{error:#}")),
+                Err(_) => {
+                    self.session.failure =
+                        Some("the refresh thread stopped unexpectedly".to_owned());
+                }
+            }
+            changed = true;
+        }
+        if self.session.watching
+            && self.refresher.is_none()
+            && !self.session.scanning
+            && self.polled_at.elapsed() >= BETWEEN_POLLS
+        {
+            self.polled_at = std::time::Instant::now();
+            self.start_refresh();
+        }
+
         // Last, so a scan that has just landed is repainted on the frame it lands rather
         // than on the one after it.
         changed |= self.session.repaint_if_verdict_changed();
@@ -274,6 +351,12 @@ impl App {
             Nav::Redraw => self.dirty = true,
             Nav::Quit => self.quit = true,
             Nav::Scan => self.start_scan(),
+            Nav::Refresh => self.start_refresh(),
+            Nav::Watch => {
+                self.session.watching = !self.session.watching;
+                self.polled_at = std::time::Instant::now();
+                self.dirty = true;
+            }
             Nav::Review(base) => self.start_review(base),
             Nav::To(tab) => {
                 self.mode = Mode::Browsing(tab);
@@ -326,6 +409,10 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame<'_>) {
+        if let Some((width, height)) = self.cramped {
+            chrome::cramped(frame, self.session.palette, width, height);
+            return;
+        }
         let active = match self.mode {
             Mode::Browsing(tab) => Some(tab),
             _ => None,
@@ -357,6 +444,11 @@ impl App {
     fn animating(&self) -> Option<std::time::Duration> {
         if self.session.scanning || self.session.repainting() {
             return Some(motion::FRAME);
+        }
+        // A refresh runs off-thread with the old report still on screen, and watching
+        // has to wake to poll even with nothing on screen moving.
+        if self.session.refreshing || self.session.watching {
+            return Some(motion::IDLE);
         }
         let screen = match self.mode {
             Mode::Menu => self.menu.animating(&self.session),
@@ -422,6 +514,8 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
             outcome: None,
             progress: ScanProgress::default(),
             scanning: false,
+            refreshing: false,
+            watching: false,
             failure: None,
             base: None,
             reviewed: None,
@@ -441,6 +535,10 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         settings: screens::settings::Settings::default(),
         updates: None,
         worker: None,
+        project: None,
+        refresher: None,
+        polled_at: std::time::Instant::now(),
+        cramped: None,
         help: false,
         dirty: true,
         quit: false,
@@ -460,7 +558,11 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         if ready {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => app.handle(key),
-                Event::Resize(..) => app.dirty = true,
+                Event::Resize(width, height) => {
+                    app.cramped =
+                        (width < MIN_WIDTH || height < MIN_HEIGHT).then_some((width, height));
+                    app.dirty = true;
+                }
                 _ => {}
             }
         }

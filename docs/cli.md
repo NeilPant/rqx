@@ -348,23 +348,6 @@ Analyze a project and report every finding
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
 
-## `rqx serve`
-
-Serve a live dashboard for this project in a browser
-
-| Flag | What it does |
-| --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
-| `--addr` | Address to bind. Loopback only, and port 0 lets the OS pick one |
-| `--interval` | Milliseconds between checks for a changed file |
-| `--open` | Open the dashboard in your browser |
-| `--editor-url` | Where "open in editor" links go. `{path}`, `{line}` and `{column}` are filled in; the default opens VS Code |
-| `--read-only` | Serve the page without its fix, waive, disable and baseline buttons |
-| `--no-tui` | Print help instead of opening the interface when run with no arguments |
-| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
-| `--motion` | Animation in the interactive interface |
-| `--help` | Print help |
-
 ## `rqx setup`
 
 Print the configuration one editor needs to talk to rqx, or list them all

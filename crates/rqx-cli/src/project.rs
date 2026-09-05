@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::channel;
@@ -25,23 +25,6 @@ struct Cached {
     message: ScanMessage,
 }
 
-#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
-pub struct Tick {
-    pub at: u64,
-    pub health: u32,
-    pub findings: u32,
-}
-
-/// One file's turn through the analyser, for the activity feed.
-#[derive(Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Change {
-    pub file: String,
-    pub resolved: u32,
-    pub introduced: u32,
-    pub findings: u32,
-}
-
 /// The project as it currently stands, held in memory so a save re-analyses one file
 /// rather than twelve thousand. The cross-file stage still runs over everything,
 /// because a deleted import changes what the whole graph says.
@@ -52,52 +35,30 @@ pub struct Project {
     history: Arc<History>,
     read_history_at: Instant,
     outcome: Arc<ScanOutcome>,
-    trend: VecDeque<Tick>,
 }
 
 /// Long enough that a poll does not shell out to git every second, short enough that
 /// a commit shows up in the impact weighting while you are still looking at it.
 const HISTORY_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
-const TREND_POINTS: usize = 500;
 
 impl Project {
     pub fn read(root: &Path, settings: Resolved) -> Result<Self> {
         let history = Arc::new(History::read(root, settings.config.scan.churn_days));
-        let outcome = Arc::new(scan::scan(root, &settings)?);
-        let mut project = Self {
+        let mut files = HashMap::new();
+        analyse_into(&mut files, root, &settings, &stamps(root, &settings)?);
+        let outcome = Arc::new(rebuild_from(root, &settings, &history, &files));
+        Ok(Self {
             root: root.to_path_buf(),
             settings,
-            files: HashMap::new(),
+            files,
             history,
             read_history_at: Instant::now(),
             outcome,
-            trend: trend::read(root),
-        };
-        let seen = project.walk()?;
-        project.analyse(&seen);
-        project.rebuild();
-        Ok(project)
+        })
     }
 
     pub fn outcome(&self) -> Arc<ScanOutcome> {
         Arc::clone(&self.outcome)
-    }
-
-    /// New settings mean every file's findings may have moved — a threshold is part
-    /// of the analysis — so everything is analysed again, not only what changed.
-    pub fn reload(&mut self, settings: Resolved) {
-        self.settings = settings;
-        let all: BTreeMap<PathBuf, Stamp> = self
-            .files
-            .iter()
-            .map(|(path, cached)| (path.clone(), cached.stamp))
-            .collect();
-        self.analyse(&all);
-        self.rebuild();
-    }
-
-    pub fn trend(&self) -> Vec<Tick> {
-        self.trend.iter().copied().collect()
     }
 
     /// Every file the walker reaches, with what it would take to notice a change.
@@ -108,7 +69,7 @@ impl Project {
 }
 
 /// Every file the scan would read, with enough of its metadata to tell a save from a
-/// re-read. Used by the dashboard's poll and by `scan --watch`, which want the same
+/// re-read. Used by the interface's poll and by `scan --watch`, which want the same
 /// answer to the same question.
 pub fn stamps(root: &Path, settings: &Resolved) -> Result<BTreeMap<PathBuf, Stamp>> {
     {
@@ -137,8 +98,9 @@ pub fn stamps(root: &Path, settings: &Resolved) -> Result<BTreeMap<PathBuf, Stam
 
 impl Project {
     /// Re-analyse what changed, drop what is gone, and rebuild the cross-file answer.
-    /// Returns what moved, or `None` when the walk found nothing new.
-    pub fn refresh(&mut self, seen: &BTreeMap<PathBuf, Stamp>) -> Option<Vec<Change>> {
+    /// Says whether anything moved, so a caller can skip a repaint that would show
+    /// the same thing.
+    pub fn refresh(&mut self, seen: &BTreeMap<PathBuf, Stamp>) -> bool {
         let changed: Vec<PathBuf> = seen
             .iter()
             .filter(|(path, stamp)| {
@@ -155,10 +117,9 @@ impl Project {
             .cloned()
             .collect();
         if changed.is_empty() && removed.is_empty() {
-            return None;
+            return false;
         }
 
-        let before = self.per_file_counts();
         for path in &removed {
             self.files.remove(path);
         }
@@ -176,144 +137,60 @@ impl Project {
             self.read_history_at = Instant::now();
         }
         self.rebuild();
-
-        let after = self.per_file_counts();
-        let mut moved: Vec<Change> = changed
-            .iter()
-            .map(|path| {
-                let file = scan::relative_to(&self.root, path);
-                let was = before.get(&file).copied().unwrap_or(0);
-                let is = after.get(&file).copied().unwrap_or(0);
-                Change {
-                    file,
-                    resolved: was.saturating_sub(is),
-                    introduced: is.saturating_sub(was),
-                    findings: is,
-                }
-            })
-            .collect();
-        moved.extend(removed.iter().map(|path| {
-            Change {
-                file: scan::relative_to(&self.root, path),
-                resolved: before
-                    .get(&scan::relative_to(&self.root, path))
-                    .copied()
-                    .unwrap_or(0),
-                introduced: 0,
-                findings: 0,
-            }
-        }));
-        Some(moved)
-    }
-
-    fn per_file_counts(&self) -> BTreeMap<String, u32> {
-        self.outcome
-            .findings_by_file
-            .iter()
-            .map(|(file, count)| (file.to_string(), *count))
-            .collect()
+        true
     }
 
     fn analyse(&mut self, files: &BTreeMap<PathBuf, Stamp>) {
-        for (path, stamp) in files {
-            let message =
-                scan::analyze_file(path, &self.root, Some(stamp.size), &self.settings, None);
-            self.files.insert(
-                path.clone(),
-                Cached {
-                    stamp: *stamp,
-                    message,
-                },
-            );
-        }
+        analyse_into(&mut self.files, &self.root, &self.settings, files);
     }
 
     /// The same collector the command line runs, fed from the map instead of from a
-    /// walk. Feeding it everything each time is what keeps a served report identical
+    /// walk. Feeding it everything each time is what keeps a refreshed report identical
     /// to a scanned one: the graph, the clone index and the churn rules all read the
     /// whole project or they read it wrong.
     fn rebuild(&mut self) {
-        let (sender, receiver) = channel();
-        for cached in self.files.values() {
-            let _ = sender.send(cached.message.clone());
-        }
-        drop(sender);
-
-        let outcome = scan::collect(
-            receiver,
+        self.outcome = Arc::new(rebuild_from(
             &self.root,
             &self.settings,
-            Bar::hidden(),
-            None,
-            None,
-            || Arc::clone(&self.history),
-        );
-        let health = crate::report::Report::everything(&outcome).health();
-        let findings = outcome.counts.total;
-        self.outcome = Arc::new(outcome);
-
-        let tick = Tick {
-            at: SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map_or(0, |since| since.as_secs()),
-            health,
-            findings,
-        };
-        if self.trend.len() == TREND_POINTS {
-            self.trend.pop_front();
-        }
-        self.trend.push_back(tick);
-        trend::append(&self.root, tick);
+            &self.history,
+            &self.files,
+        ));
     }
 }
 
-/// The session's trend, kept beside the cache so the sparkline still has yesterday
-/// in it after the server restarts. Best effort: a project that cannot be written
-/// to still gets its in-memory trend.
-mod trend {
-    use std::collections::VecDeque;
-    use std::io::Write;
-    use std::path::{Path, PathBuf};
-
-    use super::{TREND_POINTS, Tick};
-
-    const FILE: &str = "trend.jsonl";
-
-    fn path(root: &Path) -> PathBuf {
-        root.join(crate::cache::CACHE_DIRECTORY).join(FILE)
+fn analyse_into(
+    into: &mut HashMap<PathBuf, Cached>,
+    root: &Path,
+    settings: &Resolved,
+    files: &BTreeMap<PathBuf, Stamp>,
+) {
+    for (path, stamp) in files {
+        let message = scan::analyze_file(path, root, Some(stamp.size), settings, None);
+        into.insert(
+            path.clone(),
+            Cached {
+                stamp: *stamp,
+                message,
+            },
+        );
     }
+}
 
-    pub fn read(root: &Path) -> VecDeque<Tick> {
-        let Ok(text) = std::fs::read_to_string(path(root)) else {
-            return VecDeque::new();
-        };
-        let ticks: Vec<Tick> = text
-            .lines()
-            .filter_map(|line| serde_json::from_str(line).ok())
-            .collect();
-        ticks.into_iter().rev().take(TREND_POINTS).rev().collect()
+fn rebuild_from(
+    root: &Path,
+    settings: &Resolved,
+    history: &Arc<History>,
+    files: &HashMap<PathBuf, Cached>,
+) -> ScanOutcome {
+    let (sender, receiver) = channel();
+    for cached in files.values() {
+        let _ = sender.send(cached.message.clone());
     }
+    drop(sender);
 
-    pub fn append(root: &Path, tick: Tick) {
-        let path = path(root);
-        let Some(directory) = path.parent() else {
-            return;
-        };
-        if std::fs::create_dir_all(directory).is_err() {
-            return;
-        }
-        let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-        else {
-            return;
-        };
-        let Ok(line) = serde_json::to_string(&tick) else {
-            return;
-        };
-        let _ = writeln!(file, "{line}");
-    }
+    scan::collect(receiver, root, settings, Bar::hidden(), None, None, || {
+        Arc::clone(history)
+    })
 }
 
 #[cfg(test)]
@@ -321,7 +198,7 @@ mod tests {
     use super::*;
 
     fn fixture(name: &str, files: &[(&str, &str)]) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("rqx-serve-{name}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("rqx-project-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("a temp project");
         for (path, text) in files {
@@ -340,8 +217,8 @@ mod tests {
         found
     }
 
-    /// A served report and a scanned one have to be the same report, or the dashboard
-    /// is showing something the command line would not agree with.
+    /// A refreshed report and a scanned one have to be the same report, or the
+    /// interface is showing something the command line would not agree with.
     #[test]
     fn refreshing_one_file_answers_what_a_whole_scan_would() {
         let root = fixture(
@@ -364,12 +241,7 @@ mod tests {
         .expect("the edit");
 
         let seen = project.walk().expect("a walk");
-        let moved = project.refresh(&seen).expect("the edit was noticed");
-        assert!(
-            moved.iter().any(|change| change.file == "a.ts"),
-            "{:?}",
-            moved.iter().map(|c| &c.file).collect::<Vec<_>>()
-        );
+        assert!(project.refresh(&seen), "the edit was noticed");
 
         let fresh = scan::scan(&root, &settings).expect("a scan");
         assert_eq!(slugs(&project.outcome()), slugs(&fresh));
@@ -383,7 +255,7 @@ mod tests {
         let settings = crate::config::resolve(&root, None, None).expect("settings");
         let mut project = Project::read(&root, settings).expect("a project");
         let seen = project.walk().expect("a walk");
-        assert!(project.refresh(&seen).is_none());
+        assert!(!project.refresh(&seen));
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -404,7 +276,7 @@ mod tests {
         std::fs::remove_file(root.join("gone.ts")).expect("removed");
 
         let seen = project.walk().expect("a walk");
-        project.refresh(&seen).expect("the deletion was noticed");
+        assert!(project.refresh(&seen), "the deletion was noticed");
         assert!(
             !project
                 .outcome()

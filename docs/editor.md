@@ -33,21 +33,16 @@ can bind it. Nothing here is a VS Code extension talking to itself.
 | `rqx.config` | | The effective settings and where each one came from |
 | `rqx.disableRule` / `rqx.disableCategory` | `[name]` | A `WorkspaceEdit` that switches one off in `RQX.toml` |
 | `rqx.togglePatterns` | | Half-applied design patterns on or off, as hints |
-| `rqx.dashboard` | | Starts the live dashboard and answers with its URL |
 | `rqx.toggleCodeLens` | | The per-file grade lens on or off |
 
 `rqx.scan`, `rqx.check`, `rqx.fix`, `rqx.verify` and `rqx.baseline` scan, so they answer
 when the scan finishes rather than immediately. A second request of the same kind
 replaces the first and answers it with `{ "coalesced": true }`.
 
-**One dashboard.** `rqx.dashboard` starts `rqx serve` and answers with its URL; asking
-again while it is alive answers with the same URL rather than starting a second one on a
-second port. It stops when the editor disconnects.
-
 The same shortcuts are suggested everywhere: a leader chord, then `s` scan, `c` check,
-`e` explain, `h` start here, `d` disable, `p` patterns, `l` lens, `o` panel, `w`
-dashboard, `f` fix the file, `x` waive, `v` verify. One key is claimed rather than
-twelve, and the second key is the same in every editor.
+`e` explain, `h` start here, `d` disable, `p` patterns, `l` lens, `o` panel, `i` the
+interface in a terminal split, `f` fix the file, `x` waive, `v` verify. One key is
+claimed rather than twelve, and the second key is the same in every editor.
 
 ## Notifications
 
@@ -101,9 +96,6 @@ filtered by any combination of severity, rule, family, path, fixability and base
 status), **Files** (one row per file, worst grade first, expanding to that file's
 findings) and **Rules** (the catalogue, with how often each fired here).
 
-**Rqx: Open the Dashboard** puts the live page in an editor tab beside your code, or in
-your browser — `rqx.dashboard.openIn` picks which.
-
 Fixes are `source.fixAll.rqx`, so this applies every proven edit on save:
 
 ```json
@@ -119,8 +111,7 @@ an `rqx` on your `PATH`.
 
 Settings are under **Settings → Tools → rqx**: the binary, the revision a review compares
 against, and the four the server reads. The actions are under **Tools → rqx** and on the
-same leader chord as everywhere else. The dashboard is a tool window on the right, showing
-the page the language server started rather than one of its own.
+same leader chord as everywhere else.
 
 ## Neovim
 

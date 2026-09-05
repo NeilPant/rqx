@@ -55,25 +55,9 @@ rqx scan . \
 | `gitlab` | GitLab Code Quality — inline merge-request annotations |
 | `github` | GitHub Actions annotations on the diff |
 | `markdown` | job summaries, MR comments, chat |
-| `html` | the dashboard as one file, for anyone who will not run a server |
 
 `terminal` and `github` can share stdout; anything else is a document and has to
 have the stream, or a file, to itself.
-
-### The dashboard as a build artefact
-
-`--reporter html=<path>` writes the page `rqx serve` hands out, with everything it
-would have fetched written into the document and the fonts and Preact inlined. It
-opens from disk with no network and no server:
-
-```sh
-rqx scan . --reporter html=rqx-report.html
-```
-
-Every page the dashboard has is in it — Overview, Findings, Files, Map, Graph, Plan,
-Bottlenecks, Patterns, Rules, Waivers, Config. What needs a running process is not:
-there is no editor to open, no fix to apply, and no trend, because a trend is a
-record of runs and a file is one run.
 
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.

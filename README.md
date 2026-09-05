@@ -30,7 +30,6 @@ rqx fix --write                 # apply the fixes with one right answer, proven 
 rqx plan --budget 20            # rank the work, and say what the score will be after
 rqx perf --profile cpu.pprof    # what grows faster than its input, and what ran
 rqx verify --base main          # did the refactoring you named actually happen
-rqx serve --open                # a live dashboard, updated as you save
 rqx check --base main           # review only what changed, fail CI on the gate
 rqx mcp                         # serve the analysis to an agent over MCP
 ```
@@ -355,53 +354,6 @@ never by line, so moving code around does not read as fixing it.
 particular finding was resolved. It is a `verify` MCP tool too, so an agent can
 propose, be graded, and try again.
 
-## Watch it while you work
-
-```
-rqx serve --open
-```
-
-A dashboard on `127.0.0.1`, updated as you save. It re-analyses the file you touched
-and nothing else — a save costs about 6 ms on a small project, and the page shows the
-change within one poll interval.
-
-![The dashboard's overview: a health score, the grade distribution, what each level would score, and what to open first](assets/dashboard.png)
-
-
-| Page | Shows |
-|---|---|
-| Overview | health, the trend, the grade distribution, what to open first, and what the project would score under each level |
-| Map | every file as a tile, sized by lines and coloured by grade — the shape of the codebase in one screen |
-| Graph | what imports what, coloured by grade, with every cycle drawn in red |
-| Findings | every finding, sorted and grouped how you like, filtered by severity, family, rule, path glob, grade, confidence, fixability or whether the baseline already knew |
-| Files | one row per file, searchable and sortable, worst grade first |
-| Plan | the ranked plan with a budget slider, re-ranked as you drag it |
-| Bottlenecks | every function that grows faster than its input, with its loop order and what a profile saw |
-| Patterns | which design patterns are half applied, and where |
-| Check | review the diff against any base and see the gate's verdict |
-| Rules | the catalogue, with how often each rule fired here |
-| Waivers | every `rqx-ignore`, its reason and its date |
-| Config | the effective settings and which file set each one |
-| Activity | every save as it lands, with what it resolved and introduced |
-
-**It can act, not only look.** Open a finding and the drawer offers the proven fix —
-shown as the edits it would make before it makes any of them — a waiver with a reason,
-and switching the rule off. Every write goes back through the same functions `rqx fix`
-and `rqx suppress` use, so nothing happens here that the command line would refuse.
-`--read-only` serves the page without them.
-
-It is the terminal's own theme: the palette comes from `brand.rs` rather than being
-restated, so retuning a colour moves both, and the owl carries the verdict the way it
-does in `rqx` — a failing repository is a red owl, not a brown one with a red mark on
-it. Dark, warm and readable from a phone to a wide monitor.
-
-`⌘K` jumps to a page, a file or a rule, and the whole view — page, filters, sort and
-grouping — lives in the address, so a filtered list can be reloaded or sent to somebody.
-The page is served from the binary — no Node, no network, no build step — and binds
-loopback only, refusing any other address: it renders your source and has no way to
-authenticate a browser. A write additionally has to carry the nonce the page was served
-with, which a form on another site cannot read.
-
 ## Which five do I fix on Monday
 
 A list of three hundred findings ranked by severity is what every tool prints, and it
@@ -708,33 +660,28 @@ rqx setup neovim     # the config it needs
 rqx setup neovim -w  # appended for you, after showing what will be added
 ```
 
-| | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Views | Dashboard |
-|---|---|---|---|---|---|---|---|---|
-| **VS Code**, Cursor, Windsurf, VSCodium | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | editor tab |
-| **Zed** | ✓ | ✓ | ✓ | ✓ | ✓ | — | — | browser |
-| **JetBrains** IDEA, WebStorm, PyCharm, GoLand, CLion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | tool window |
-| **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
-| **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
-| **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
-| **Emacs** eglot, lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | browser |
-| **Vim** coc.nvim, vim-lsp | ✓ | ✓ | ✓ | ✓ | — | coc only | — | browser |
-| **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | — | browser |
+| | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Views |
+|---|---|---|---|---|---|---|---|
+| **VS Code**, Cursor, Windsurf, VSCodium | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Zed** | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
+| **JetBrains** IDEA, WebStorm, PyCharm, GoLand, CLion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Emacs** eglot, lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Vim** coc.nvim, vim-lsp | ✓ | ✓ | ✓ | ✓ | — | coc only | — |
+| **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | — |
 
 VS Code and Zed ship extensions that fetch the matching binary themselves; the JetBrains
-plugin runs on Community editions and shows the dashboard in a tool window. **Views** are
-the sidebar's own findings, files and rules trees, which only VS Code has a place for —
-everywhere else the dashboard is that view. Everything else runs `rqx lsp`, so a
-capability added to the server appears in every editor in the same commit — which is why
-these clients stay small enough to survive being unmaintained.
+plugin runs on Community editions. **Views** are the sidebar's own findings, files and
+rules trees, which only VS Code has a place for; everywhere else `rqx` in a terminal
+split is that view. Everything else runs `rqx lsp`, so a capability added to the server
+appears in every editor in the same commit — which is why these clients stay small
+enough to survive being unmaintained.
 
 **Quick fixes are the real edits**, verified exactly as `rqx fix` verifies them, tagged
 `source.fixAll` so an editor can apply every one of them on save. The rules whose fix is
 a decision offer to explain themselves or turn the rule off instead.
-
-**The dashboard is one page.** `rqx.dashboard` starts `rqx serve` and answers with its
-URL, so VS Code shows it in an editor tab, JetBrains in a tool window, and every other
-editor opens it beside the window — the same page, not a second half-built one per
-client. Asking twice answers with the same URL rather than starting a second server.
 
 Cross-file findings arrive without being asked for: the server scans the workspace on
 its own and republishes every file, so ten of the seventy-five rules do not go silently
@@ -828,15 +775,9 @@ rqx scan . \
   --fail-on error
 ```
 
-`terminal`, `json`, `sarif`, `junit`, `gitlab`, `github`, `markdown` and `html` —
-between JUnit XML and GitLab Code Quality that covers GitHub, GitLab, Jenkins,
-CircleCI, Azure Pipelines, Bitbucket and Buildkite natively. `html` writes the whole
-dashboard as one file for anyone who will not run a server:
-
-```sh
-rqx scan . --reporter html=rqx-report.html
-```
- Copy-paste snippets for each
+`terminal`, `json`, `sarif`, `junit`, `gitlab`, `github` and `markdown` — between
+JUnit XML and GitLab Code Quality that covers GitHub, GitLab, Jenkins, CircleCI, Azure
+Pipelines, Bitbucket and Buildkite natively. Copy-paste snippets for each
 are in [docs/ci.md](docs/ci.md); `action.yml` wires up GitHub Actions in five
 lines.
 

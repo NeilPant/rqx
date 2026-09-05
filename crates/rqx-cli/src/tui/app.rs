@@ -25,6 +25,11 @@ pub enum Nav {
     Back,
     To(Tab),
     Scan,
+    /// Re-analyse only what changed on disk. What a fix, a waiver or a save asks for:
+    /// the answer is the same as a scan's, and reaching it costs one file.
+    Refresh,
+    /// Start or stop re-analysing whenever a file changes.
+    Watch,
     Review(String),
     /// Show one file's findings: the Files screen's answer to "what is wrong here".
     Inspect(String),
@@ -104,6 +109,10 @@ pub struct Session {
     pub outcome: Option<Arc<ScanOutcome>>,
     pub progress: ScanProgress,
     pub scanning: bool,
+    /// A refresh keeps the last report on screen while it runs, so this is separate
+    /// from `scanning`, which replaces it.
+    pub refreshing: bool,
+    pub watching: bool,
     pub failure: Option<String>,
     /// What the last scan was: a whole project, or a diff against a revision.
     pub base: Option<String>,
@@ -199,6 +208,8 @@ impl Session {
             outcome: None,
             progress: ScanProgress::default(),
             scanning: false,
+            refreshing: false,
+            watching: false,
             failure: None,
             base: None,
             reviewed: None,
@@ -233,6 +244,7 @@ pub fn global(key: KeyEvent) -> Option<Nav> {
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Nav::Quit),
         KeyCode::Char('q') => Some(Nav::Quit),
         KeyCode::Char('r') => Some(Nav::Scan),
+        KeyCode::Char('w') => Some(Nav::Watch),
         KeyCode::Esc => Some(Nav::Back),
         _ => None,
     }

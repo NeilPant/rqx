@@ -7,6 +7,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Tabs};
 use crate::brand::{Ink, Palette};
 
 use super::app::{Session, Tab};
+use super::{MIN_HEIGHT, MIN_WIDTH};
 
 /// Facts about this run rather than a slogan. The line that used to say "every
 /// finding, a reason" said nothing about what the tool was about to do.
@@ -174,6 +175,25 @@ impl Chrome<'_> {
         }
         frame.render_widget(Paragraph::new(Line::from(spans)), area);
     }
+}
+
+/// What is drawn instead of the interface once the window is too small for it. A
+/// layout squeezed past its minimum reads as a bug in the tool rather than as a
+/// window that needs widening.
+pub fn cramped(frame: &mut Frame<'_>, palette: Palette, width: u16, height: u16) {
+    let lines = vec![
+        Line::default(),
+        Line::from(Span::styled(
+            format!("  the interface needs {MIN_WIDTH}x{MIN_HEIGHT}"),
+            Style::new().fg(palette.color(Ink::Text)),
+        )),
+        Line::from(Span::styled(
+            format!("  this window is {width}x{height}"),
+            palette.dim(),
+        )),
+    ];
+    frame.render_widget(Clear, frame.area());
+    frame.render_widget(Paragraph::new(lines), frame.area());
 }
 
 /// Built from the screens' own key tables, so a binding cannot exist without being

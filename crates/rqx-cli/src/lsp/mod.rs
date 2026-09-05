@@ -1,5 +1,4 @@
 mod commands;
-mod dashboard;
 mod diagnostics;
 mod protocol;
 mod worker;
@@ -57,7 +56,6 @@ pub struct Server {
     scan_on_save: bool,
     publisher: Arc<Publisher>,
     worker: Worker,
-    dashboard: dashboard::Dashboard,
 }
 
 impl Server {
@@ -112,17 +110,6 @@ impl Server {
         self.publisher.request(
             "workspace/applyEdit",
             serde_json::json!({ "label": label, "edit": edit }),
-        );
-    }
-
-    /// Answered by the dashboard once it knows its address, so the editor keeps
-    /// hovering and saving while the page's own first scan runs.
-    pub fn dashboard(&mut self, reply_to: RequestId) {
-        self.dashboard.request(
-            &self.root,
-            self.explicit_config.as_deref(),
-            &self.publisher,
-            reply_to,
         );
     }
 
@@ -337,7 +324,6 @@ pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync +
         scan_on_save: options.scan_on_save.unwrap_or(true),
         worker: Worker::spawn(Arc::clone(&publisher)),
         publisher,
-        dashboard: dashboard::Dashboard::default(),
     };
 
     // `initialize_finish` returns only once the client has sent `initialized`, and it

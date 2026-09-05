@@ -13,7 +13,6 @@ import {
 } from "vscode";
 import { execFile } from "node:child_process";
 
-import { Dashboard, opensInEditor } from "./dashboard";
 import { Filters } from "./filters";
 import { Finding, FindingsIndex, absolute } from "./findings-index";
 import { LanguageServer } from "./language-server";
@@ -29,7 +28,6 @@ export interface Surfaces {
   readonly index: FindingsIndex;
   readonly filters: Filters;
   readonly panel: Panel;
-  readonly dashboard: Dashboard;
   readonly findings: FindingsTree;
   readonly files: FilesTree;
   readonly rules: RulesTree;
@@ -39,7 +37,7 @@ export interface Surfaces {
 }
 
 export function register(surfaces: Surfaces): Disposable[] {
-  const { server, index, filters, panel, dashboard, files, rules } = surfaces;
+  const { server, index, filters, panel, files, rules } = surfaces;
 
   const busy = async <T>(message: string, work: () => Promise<T>): Promise<T> => {
     surfaces.scanning(message);
@@ -63,8 +61,6 @@ export function register(surfaces: Surfaces): Disposable[] {
     ["rqx.restart", () => busy("reloading", () => server.restart("asked to restart"))],
     ["rqx.showOutput", () => surfaces.showLog()],
 
-    ["rqx.openDashboard", () => dashboard.open(opensInEditor())],
-    ["rqx.openDashboardExternal", () => dashboard.open(false)],
 
     ["rqx.openFinding", (finding: Finding) => openFinding(finding)],
     ["rqx.copyFinding", (finding: Finding) => copyFinding(finding)],

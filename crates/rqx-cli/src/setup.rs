@@ -17,8 +17,6 @@ pub enum Home {
 pub struct Client {
     pub slug: &'static str,
     pub name: &'static str,
-    /// Whether this editor shows the dashboard in a panel of its own.
-    pub panel: bool,
     pub home: Home,
     pub snippet: &'static str,
 }
@@ -28,7 +26,6 @@ impl Client {
         Client {
             slug: "vscode",
             name: "VS Code, Cursor, Windsurf, VSCodium",
-            panel: true,
             home: Home::Extension(
                 "Search the marketplace for `rqx`, or `code --install-extension rqx`.",
             ),
@@ -37,14 +34,12 @@ impl Client {
         Client {
             slug: "zed",
             name: "Zed",
-            panel: false,
             home: Home::Extension("Zed: Extensions, then search for `rqx`."),
             snippet: ZED,
         },
         Client {
             slug: "jetbrains",
             name: "IntelliJ, WebStorm, PyCharm, GoLand, CLion",
-            panel: true,
             home: Home::Extension(
                 "Settings, Plugins, search for `rqx`. It needs LSP4IJ, which the \
                  Marketplace installs with it.",
@@ -54,42 +49,36 @@ impl Client {
         Client {
             slug: "neovim",
             name: "Neovim",
-            panel: false,
             home: Home::Append("~/.config/nvim/init.lua"),
             snippet: NEOVIM,
         },
         Client {
             slug: "helix",
             name: "Helix",
-            panel: false,
             home: Home::Merge("~/.config/helix/languages.toml"),
             snippet: HELIX,
         },
         Client {
             slug: "sublime",
             name: "Sublime Text",
-            panel: false,
             home: Home::Merge("Packages/User/LSP.sublime-settings"),
             snippet: SUBLIME,
         },
         Client {
             slug: "emacs",
             name: "Emacs, with eglot",
-            panel: false,
             home: Home::Append("~/.emacs.d/init.el"),
             snippet: EMACS,
         },
         Client {
             slug: "vim",
             name: "Vim, with coc.nvim",
-            panel: false,
             home: Home::Merge("~/.vim/coc-settings.json"),
             snippet: VIM,
         },
         Client {
             slug: "kate",
             name: "Kate",
-            panel: false,
             home: Home::Merge("~/.config/kate/lspclient/settings.json"),
             snippet: KATE,
         },
@@ -146,9 +135,7 @@ const JETBRAINS: &str = r#"# The plugin needs no configuration. These are the sw
 #   scanOnSave          rescan on save
 #   codeLens / patterns off by default
 #
-# The dashboard is the rqx tool window on the right, which is `rqx serve` in the
-# IDE's embedded browser. LSP4IJ rather than the platform's own LSP API, because
-# that one is Ultimate only."#;
+# LSP4IJ rather than the platform's own LSP API, because that one is Ultimate only."#;
 
 const NEOVIM: &str = r#"-- rqx
 local configs = require("lspconfig.configs")
@@ -179,9 +166,9 @@ lspconfig.rqx.setup({
     map("c", run("rqx.check"), "rqx: review the diff")
     map("p", run("rqx.togglePatterns"), "rqx: toggle pattern advice")
     map("l", run("rqx.toggleCodeLens"), "rqx: toggle code lens")
-    map("d", function()
-      vim.fn.jobstart({ "rqx", "serve", "--open" }, { detach = true })
-    end, "rqx: open the dashboard")
+    map("i", function()
+      vim.cmd("botright split | terminal rqx")
+    end, "rqx: open the interface")
   end,
 })
 
@@ -231,9 +218,9 @@ const EMACS: &str = r#";; rqx
   (defun rqx-scan ()
     (interactive)
     (eglot-execute-command (eglot-current-server) "rqx.scan" []))
-  (defun rqx-dashboard ()
+  (defun rqx-interface ()
     (interactive)
-    (start-process "rqx-serve" nil "rqx" "serve" "--open")))"#;
+    (async-shell-command "rqx")))"#;
 
 const VIM: &str = r#"// coc-settings.json
 {

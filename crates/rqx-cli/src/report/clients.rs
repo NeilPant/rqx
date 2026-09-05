@@ -12,9 +12,8 @@ pub fn render(client: &Client, palette: Palette, out: &mut dyn Write) -> Result<
 
     writeln!(
         out,
-        "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), client.name),
-        paint(dim, if client.panel { "\u{b7} panel" } else { "" })
+        "\n  {}",
+        paint(palette.style(Ink::Text).bold(), client.name)
     )?;
 
     match client.home {

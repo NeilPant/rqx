@@ -25,11 +25,11 @@ mod perf;
 mod plan;
 mod preview;
 mod progress;
+mod project;
 mod query;
 mod recommend;
 mod report;
 mod scan;
-mod serve;
 mod setup;
 mod slop;
 mod tui;
@@ -168,31 +168,6 @@ enum Command {
         /// Append it to the editor's config, after showing what will be added
         #[arg(long, short)]
         write: bool,
-    },
-    /// Serve a live dashboard for this project in a browser
-    Serve {
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
-        /// Address to bind. Loopback only, and port 0 lets the OS pick one.
-        #[arg(long, default_value = "127.0.0.1:0")]
-        addr: std::net::SocketAddr,
-        /// Milliseconds between checks for a changed file
-        #[arg(long, default_value_t = 500)]
-        interval: u64,
-        /// Open the dashboard in your browser
-        #[arg(long)]
-        open: bool,
-        /// Where "open in editor" links go. `{path}`, `{line}` and `{column}` are
-        /// filled in; the default opens VS Code.
-        #[arg(long, default_value = "vscode://file/{path}:{line}:{column}")]
-        editor_url: String,
-        /// Serve the page without its fix, waive, disable and baseline buttons
-        #[arg(long)]
-        read_only: bool,
-        #[arg(long)]
-        config: Option<PathBuf>,
     },
     /// Rank the work by what it buys against what it costs, and say what the health
     /// score would be after it
@@ -917,13 +892,7 @@ impl From<ConfigAction> for edit_config::Change {
     }
 }
 
-fn emit(
-    report: &Report<'_>,
-    sinks: &[Sink],
-    view: &View,
-    palette: Palette,
-    settings: Option<&config::Resolved>,
-) -> Result<()> {
+fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
     if view.timings {
         report::timings(report.outcome, palette, &mut anstream::stdout().lock())?;
     }
@@ -943,12 +912,7 @@ fn emit(
             Some(path) => {
                 let mut file = std::fs::File::create(path)
                     .with_context(|| format!("writing {}", path.display()))?;
-                match settings {
-                    Some(settings) if sink.reporter == Reporter::Html => {
-                        report::emit_html(report, settings, &mut file)?;
-                    }
-                    _ => report::emit(report, sink.reporter, &plain, &mut file)?,
-                }
+                report::emit(report, sink.reporter, &plain, &mut file)?;
                 file.flush()?;
             }
             None if sink.reporter.is_coloured() => {
@@ -975,7 +939,7 @@ fn watch_loop(
 ) -> Result<Exit> {
     const BETWEEN_WALKS: std::time::Duration = std::time::Duration::from_millis(400);
 
-    let mut seen = serve::project::stamps(path, settings)?;
+    let mut seen = project::stamps(path, settings)?;
     loop {
         // The screen is cleared before each run so the terminal holds one report
         // rather than a scroll of them.
@@ -985,7 +949,7 @@ fn watch_loop(
         eprintln!("\n  watching {} \u{b7} ctrl-c to stop", path.display());
         loop {
             std::thread::sleep(BETWEEN_WALKS);
-            let now = serve::project::stamps(path, settings)?;
+            let now = project::stamps(path, settings)?;
             if now != seen {
                 seen = now;
                 break;
@@ -1184,11 +1148,6 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;
-            // The page is the whole report, so the display cap has no business in it:
-            // a file the reader scrolls is not a terminal they are protecting.
-            if sinks.iter().any(|sink| sink.reporter == Reporter::Html) {
-                settings.config.scan.max_findings = 0;
-            }
             let filter = filter_of(&view, &path)?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
                 let outcome = scan::scan(&path, settings)?;
@@ -1203,7 +1162,7 @@ fn run() -> Result<Exit> {
                     Some(verdict) => report.judged(verdict),
                     None => report,
                 };
-                emit(&report, &sinks, &view, palette, Some(settings))?;
+                emit(&report, &sinks, &view, palette)?;
                 if advice {
                     let mut out = anstream::stdout().lock();
                     report::advice(&outcome, palette, &mut out)?;
@@ -1313,36 +1272,6 @@ fn run() -> Result<Exit> {
                 report::write_editor(client, palette, &mut out)?;
             }
             Ok(Exit::Clean)
-        }
-        Command::Serve {
-            path,
-            standard,
-            addr,
-            interval,
-            open,
-            editor_url,
-            read_only,
-            config,
-        } => {
-            if !path.exists() {
-                bail!(
-                    "`{}` does not exist. rqx serves a directory; try `rqx serve .`",
-                    path.display()
-                );
-            }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            // The page filters in the browser, so a cap here would hide findings the
-            // reader is about to filter for.
-            settings.config.scan.max_findings = 0;
-            let options = serve::Options {
-                address: addr,
-                interval,
-                open,
-                editor_url,
-                read_only,
-                explicit_config: config,
-            };
-            serve::serve(&path, settings, options).map(|()| Exit::Clean)
         }
         Command::Plan {
             path,
@@ -1765,7 +1694,7 @@ fn run() -> Result<Exit> {
             }
             let verdict = check::judge(&review, &settings.config);
             let report = Report::review(&review, &verdict, &filter);
-            emit(&report, &sinks, &view, palette, Some(&settings))?;
+            emit(&report, &sinks, &view, palette)?;
             Ok(Exit::of(!verdict.passed()))
         }
         Command::Mcp { path, http, config } => {

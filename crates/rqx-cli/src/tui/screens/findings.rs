@@ -346,7 +346,7 @@ impl Findings {
             // A rescan rather than a local edit to the list: a fix changes what every
             // cross-file rule says, and a screen that patched its own rows would
             // disagree with the next scan.
-            Ok(()) => Nav::Scan,
+            Ok(()) => Nav::Refresh,
             Err(error) => {
                 self.refusal = Some(format!("{error:#}"));
                 Nav::Redraw
@@ -382,7 +382,7 @@ impl Findings {
         let at = (waiver.line as usize - 1).min(lines.len());
         lines.insert(at, &waiver.text);
         match crate::fix::write_atomically(&path, &lines.concat()) {
-            Ok(()) => Nav::Scan,
+            Ok(()) => Nav::Refresh,
             Err(error) => {
                 self.refusal = Some(format!("{error:#}"));
                 Nav::Redraw
@@ -847,8 +847,10 @@ mod tests {
             (RuleId::MagicNumber, "a.ts"),
             (RuleId::LongFunction, "a.ts"),
         ]);
-        let mut screen = Findings::default();
-        screen.group = Some(Group::File);
+        let mut screen = Findings {
+            group: Some(Group::File),
+            ..Findings::default()
+        };
         screen.reorder(&session);
         assert_eq!(headings(&screen), ["a.ts", "b.ts"]);
         assert_eq!(screen.rows.len(), 5, "two headings and three findings");
@@ -870,8 +872,10 @@ mod tests {
             (RuleId::LongFunction, "a.ts"),
             (RuleId::MagicNumber, "b.ts"),
         ]);
-        let mut screen = Findings::default();
-        screen.group = Some(Group::File);
+        let mut screen = Findings {
+            group: Some(Group::File),
+            ..Findings::default()
+        };
         screen.reorder(&session);
 
         let is_item = |screen: &Findings| {
@@ -896,10 +900,12 @@ mod tests {
     #[test]
     fn an_unknown_rule_in_the_form_is_reported_rather_than_applied() {
         let session = session(&[(RuleId::LongFunction, "a.ts")]);
-        let mut screen = Findings::default();
-        screen.applied = Fields {
-            rules: "no-such-rule".to_owned(),
-            ..Fields::default()
+        let mut screen = Findings {
+            applied: Fields {
+                rules: "no-such-rule".to_owned(),
+                ..Fields::default()
+            },
+            ..Findings::default()
         };
         screen.reorder(&session);
         assert!(screen.refusal.is_some(), "the typo was silently accepted");
