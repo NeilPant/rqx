@@ -471,6 +471,40 @@ fn an_import_cycle_names_every_module_in_it() {
     assert!(cycles[0].contains("\"modules\":3"));
     assert!(cycles[0].contains("cycle-a.ts"));
     assert!(cycles[0].contains("cycle-b.ts") && cycles[0].contains("cycle-c.ts"));
+
+    // The ring is the way round, so it closes and it names one more module than the
+    // cycle has. A set of names would satisfy the assertions above and still leave a
+    // reader guessing which import to delete.
+    let ring: Vec<String> =
+        serde_json::from_str::<serde_json::Value>(&cycles[0]).expect("json")["evidence"]["ring"]
+            .as_array()
+            .expect("a ring")
+            .iter()
+            .map(|member| member.as_str().expect("a path").to_owned())
+            .collect();
+    assert_eq!(ring.len(), 4, "{ring:?}");
+    assert_eq!(ring.first(), ring.last(), "{ring:?}");
+    assert_eq!(
+        ring.iter().collect::<std::collections::BTreeSet<_>>().len(),
+        3,
+        "each module appears once until it closes: {ring:?}"
+    );
+
+    // And it underlines the import that opens the ring rather than the whole file,
+    // which is the difference between naming the edge to delete and naming a file.
+    let at = &serde_json::from_str::<serde_json::Value>(&cycles[0]).expect("json")["location"];
+    let (start, end) = (
+        at["start"].as_u64().expect("start"),
+        at["end"].as_u64().expect("end"),
+    );
+    assert!(end > start, "an empty span is the whole-file anchor: {at}");
+    let source = std::fs::read_to_string(format!("{}/cycle-a.ts", language_dir("typescript")))
+        .expect("the fixture");
+    assert!(
+        source[start as usize..end as usize].starts_with("import"),
+        "underlined `{}`",
+        &source[start as usize..end as usize]
+    );
 }
 
 /// A trailing parameter can just be deleted; one with parameters after it cannot,

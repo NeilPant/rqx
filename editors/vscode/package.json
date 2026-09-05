@@ -30,35 +30,35 @@
         "icon": "$(sync)"
       },
       {
-        "command": "rqx.reviewDiff",
+        "command": "rqx.check",
         "title": "Review the Diff",
         "category": "Rqx",
         "icon": "$(git-compare)"
       },
       {
-        "command": "rqx.explainRule",
+        "command": "rqx.explain",
         "title": "Explain the Rule at the Cursor",
         "category": "Rqx",
         "icon": "$(book)"
       },
       {
-        "command": "rqx.openStartHere",
+        "command": "rqx.startHere",
         "title": "Open What Matters First",
         "category": "Rqx",
         "icon": "$(target)"
       },
       {
-        "command": "rqx.disableRuleHere",
+        "command": "rqx.disableRule",
         "title": "Disable the Rule at the Cursor",
         "category": "Rqx"
       },
       {
-        "command": "rqx.togglePatternAdvice",
+        "command": "rqx.togglePatterns",
         "title": "Toggle Design Pattern Advice",
         "category": "Rqx"
       },
       {
-        "command": "rqx.toggleLens",
+        "command": "rqx.toggleCodeLens",
         "title": "Toggle Code Lens",
         "category": "Rqx"
       },
@@ -77,6 +77,129 @@
         "command": "rqx.showOutput",
         "title": "Show Server Log",
         "category": "Rqx"
+      },
+      {
+        "command": "rqx.openDashboard",
+        "title": "Open the Dashboard",
+        "category": "Rqx",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "rqx.openDashboardExternal",
+        "title": "Open the Dashboard in a Browser",
+        "category": "Rqx",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "rqx.fixFile",
+        "title": "Fix This File",
+        "category": "Rqx",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "rqx.fixWorkspace",
+        "title": "Fix the Workspace...",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.suppressFinding",
+        "title": "Waive the Finding...",
+        "category": "Rqx",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "rqx.plan",
+        "title": "Show the Plan...",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.verify",
+        "title": "Verify the Refactoring",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.baseline",
+        "title": "Take or Update the Baseline",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.filterFindings",
+        "title": "Filter Findings...",
+        "category": "Rqx",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "rqx.groupFindings",
+        "title": "Group Findings By...",
+        "category": "Rqx",
+        "icon": "$(group-by-ref-type)"
+      },
+      {
+        "command": "rqx.clearFilters",
+        "title": "Clear Every Filter",
+        "category": "Rqx",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "rqx.exportReport",
+        "title": "Export the Report...",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.openConfig",
+        "title": "Open RQX.toml",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.showConfig",
+        "title": "Show the Effective Config",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.setLevel",
+        "title": "Set the Level...",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.openFinding",
+        "title": "Open the Finding",
+        "category": "Rqx"
+      },
+      {
+        "command": "rqx.copyFinding",
+        "title": "Copy the Finding",
+        "category": "Rqx",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "rqx.fixFinding",
+        "title": "Fix This Finding",
+        "category": "Rqx",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "rqx.explainRule",
+        "title": "Explain the Rule",
+        "category": "Rqx",
+        "icon": "$(book)"
+      },
+      {
+        "command": "rqx.filterToRule",
+        "title": "Show Only This Rule",
+        "category": "Rqx",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "rqx.filesSort",
+        "title": "Order the Files By...",
+        "category": "Rqx",
+        "icon": "$(sort-precedence)"
+      },
+      {
+        "command": "rqx.rulesShowFired",
+        "title": "Show Only Rules That Fired",
+        "category": "Rqx",
+        "icon": "$(filter)"
       }
     ],
     "keybindings": [
@@ -86,34 +209,34 @@
         "mac": "cmd+alt+r s"
       },
       {
-        "command": "rqx.reviewDiff",
+        "command": "rqx.check",
         "key": "ctrl+alt+r c",
         "mac": "cmd+alt+r c"
       },
       {
-        "command": "rqx.explainRule",
+        "command": "rqx.explain",
         "key": "ctrl+alt+r e",
         "mac": "cmd+alt+r e",
         "when": "editorTextFocus"
       },
       {
-        "command": "rqx.openStartHere",
+        "command": "rqx.startHere",
         "key": "ctrl+alt+r h",
         "mac": "cmd+alt+r h"
       },
       {
-        "command": "rqx.disableRuleHere",
+        "command": "rqx.disableRule",
         "key": "ctrl+alt+r d",
         "mac": "cmd+alt+r d",
         "when": "editorTextFocus"
       },
       {
-        "command": "rqx.togglePatternAdvice",
+        "command": "rqx.togglePatterns",
         "key": "ctrl+alt+r p",
         "mac": "cmd+alt+r p"
       },
       {
-        "command": "rqx.toggleLens",
+        "command": "rqx.toggleCodeLens",
         "key": "ctrl+alt+r l",
         "mac": "cmd+alt+r l"
       },
@@ -121,6 +244,43 @@
         "command": "rqx.openPanel",
         "key": "ctrl+alt+r o",
         "mac": "cmd+alt+r o"
+      },
+      {
+        "command": "rqx.openDashboard",
+        "key": "ctrl+alt+r w",
+        "mac": "cmd+alt+r w"
+      },
+      {
+        "command": "rqx.fixFile",
+        "key": "ctrl+alt+r f",
+        "mac": "cmd+alt+r f",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "rqx.suppressFinding",
+        "key": "ctrl+alt+r x",
+        "mac": "cmd+alt+r x",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "rqx.filterFindings",
+        "key": "ctrl+alt+r /",
+        "mac": "cmd+alt+r /"
+      },
+      {
+        "command": "rqx.groupFindings",
+        "key": "ctrl+alt+r g",
+        "mac": "cmd+alt+r g"
+      },
+      {
+        "command": "rqx.verify",
+        "key": "ctrl+alt+r v",
+        "mac": "cmd+alt+r v"
+      },
+      {
+        "command": "rqx.plan",
+        "key": "ctrl+alt+r b",
+        "mac": "cmd+alt+r b"
       }
     ],
     "icons": {
@@ -147,6 +307,19 @@
           "id": "rqx.panel",
           "name": "Health",
           "type": "webview"
+        },
+        {
+          "id": "rqx.findings",
+          "name": "Findings"
+        },
+        {
+          "id": "rqx.files",
+          "name": "Files"
+        },
+        {
+          "id": "rqx.rules",
+          "name": "Rules",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -158,9 +331,138 @@
           "group": "navigation@1"
         },
         {
-          "command": "rqx.reviewDiff",
+          "command": "rqx.check",
           "when": "view == rqx.panel",
           "group": "navigation@2"
+        },
+        {
+          "command": "rqx.filterFindings",
+          "when": "view == rqx.findings",
+          "group": "navigation@1"
+        },
+        {
+          "command": "rqx.groupFindings",
+          "when": "view == rqx.findings",
+          "group": "navigation@2"
+        },
+        {
+          "command": "rqx.clearFilters",
+          "when": "view == rqx.findings && rqx.filtered",
+          "group": "navigation@3"
+        },
+        {
+          "command": "rqx.scanWorkspace",
+          "when": "view == rqx.findings",
+          "group": "navigation@4"
+        },
+        {
+          "command": "rqx.filesSort",
+          "when": "view == rqx.files",
+          "group": "navigation@1"
+        },
+        {
+          "command": "rqx.openDashboard",
+          "when": "view == rqx.files",
+          "group": "navigation@2"
+        },
+        {
+          "command": "rqx.rulesShowFired",
+          "when": "view == rqx.rules",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "rqx.fixFinding",
+          "when": "viewItem == rqx-finding-fixable",
+          "group": "inline@1"
+        },
+        {
+          "command": "rqx.suppressFinding",
+          "when": "viewItem =~ /^rqx-finding/",
+          "group": "inline@2"
+        },
+        {
+          "command": "rqx.openFinding",
+          "when": "viewItem =~ /^rqx-finding/",
+          "group": "rqx@1"
+        },
+        {
+          "command": "rqx.explainRule",
+          "when": "viewItem =~ /^rqx-finding/",
+          "group": "rqx@2"
+        },
+        {
+          "command": "rqx.filterToRule",
+          "when": "viewItem =~ /^rqx-finding/",
+          "group": "rqx@3"
+        },
+        {
+          "command": "rqx.disableRule",
+          "when": "viewItem =~ /^rqx-finding/",
+          "group": "rqx@4"
+        },
+        {
+          "command": "rqx.copyFinding",
+          "when": "viewItem =~ /^rqx-finding/",
+          "group": "rqx@5"
+        },
+        {
+          "command": "rqx.fixFile",
+          "when": "viewItem == rqx-file",
+          "group": "inline@1"
+        },
+        {
+          "command": "rqx.explainRule",
+          "when": "viewItem == rqx-rule",
+          "group": "rqx@1"
+        },
+        {
+          "command": "rqx.filterToRule",
+          "when": "viewItem == rqx-rule",
+          "group": "rqx@2"
+        },
+        {
+          "command": "rqx.disableRule",
+          "when": "viewItem == rqx-rule",
+          "group": "rqx@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "rqx.openFinding",
+          "when": "false"
+        },
+        {
+          "command": "rqx.copyFinding",
+          "when": "false"
+        },
+        {
+          "command": "rqx.fixFinding",
+          "when": "false"
+        },
+        {
+          "command": "rqx.explainRule",
+          "when": "false"
+        },
+        {
+          "command": "rqx.filterToRule",
+          "when": "false"
+        },
+        {
+          "command": "rqx.filesSort",
+          "when": "false"
+        },
+        {
+          "command": "rqx.rulesShowFired",
+          "when": "false"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "rqx.suppressFinding",
+          "when": "editorTextFocus && resourceLangId in rqx.languages",
+          "group": "rqx@1"
         }
       ]
     },
@@ -198,7 +500,7 @@
         "rqx.scanOnSave": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Rescan the workspace after each save. The cross-file rules \u2014 unused exports, unused files, import cycles \u2014 can only change when some *other* file does, so without this they go stale until the next manual scan. Turn it off on a very large repository."
+          "markdownDescription": "Rescan the workspace after each save. The cross-file rules — unused exports, unused files, import cycles — can only change when some *other* file does, so without this they go stale until the next manual scan. Turn it off on a very large repository."
         },
         "rqx.check.base": {
           "type": "string",
@@ -232,7 +534,7 @@
             "Use the severity each rule declares.",
             "Show every finding as a warning.",
             "Show every finding as information.",
-            "Show every finding as a hint \u2014 greyed out, and kept out of the Problems count."
+            "Show every finding as a hint — greyed out, and kept out of the Problems count."
           ],
           "default": "asReported",
           "markdownDescription": "Cap how loudly findings are reported. rqx is a second opinion alongside your language server, and on an existing codebase its first run can be long; lowering this keeps the Problems panel usable while you work through it."
@@ -259,9 +561,45 @@
           ],
           "default": "off",
           "description": "Log the traffic between VS Code and the rqx language server."
+        },
+        "rqx.dashboard.openIn": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "browser"
+          ],
+          "enumDescriptions": [
+            "In a Simple Browser tab beside your code.",
+            "In your default browser."
+          ],
+          "default": "editor",
+          "markdownDescription": "Where **Rqx: Open the Dashboard** puts the live page. It is the same page either way — one process, served by the language server."
+        },
+        "rqx.findings.groupBy": {
+          "type": "string",
+          "enum": [
+            "file",
+            "rule",
+            "severity",
+            "directory"
+          ],
+          "default": "file",
+          "markdownDescription": "How the **Findings** view groups what it shows."
+        },
+        "rqx.findings.hideKnown": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Leave findings a baseline already recorded out of the **Findings** view, so it shows what this change added rather than what it inherited."
         }
       }
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "rqx.findings",
+        "contents": "Nothing has been scanned yet.\n[Scan the workspace](command:rqx.scanWorkspace)",
+        "when": "!rqx.scanned"
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc -p ./",

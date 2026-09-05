@@ -152,7 +152,7 @@ impl Evidence {
             Self::ClassSize { statements, .. } => Some(*statements),
             Self::ClonedBlock { occurrences, .. } => Some(*occurrences),
             Self::UnusedFile { exports, .. } => Some(*exports),
-            Self::ImportCycle { modules } => Some(*modules),
+            Self::ImportCycle { modules, .. } => Some(*modules),
             Self::CommentedCode { lines } => Some(*lines),
             Self::MagicNumber { occurrences, .. } => Some(*occurrences),
             Self::ClassShape { trivial, .. } => Some(*trivial),

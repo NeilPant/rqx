@@ -133,6 +133,10 @@ pub enum Evidence {
     },
     ImportCycle {
         modules: u32,
+        /// The way round, as a closed walk. Additive, so a consumer reading the old
+        /// shape still finds `modules` where it was.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        ring: Vec<String>,
     },
     UnusedBinding {
         name: String,
@@ -423,9 +427,10 @@ impl fmt::Display for Evidence {
                 "Parameter `{name}` ({position} of {of}) is never read, but {} follow it.",
                 of - position
             ),
-            Self::ImportCycle { modules } => {
-                write!(f, "{modules} modules import each other in a cycle.")
-            }
+            Self::ImportCycle { modules, ring } => match ring.as_slice() {
+                [] => write!(f, "{modules} modules import each other in a cycle."),
+                ring => write!(f, "{}.", ring.join(" \u{2192} ")),
+            },
             Self::UnusedBinding { name, kind } => {
                 write!(f, "The {kind} `{name}` is declared and never read.")
             }

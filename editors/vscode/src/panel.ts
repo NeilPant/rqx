@@ -12,22 +12,8 @@ import {
 import { randomBytes } from "node:crypto";
 import { workspace as config } from "vscode";
 
-export interface Report {
-  health: number;
-  elapsedMs: number;
-  counts: { total: number; by_severity: Record<string, number> };
-  grades: Record<string, string>;
-  startHere: { file: string; grade: string; findings?: number; importers?: number; commits?: number }[];
-}
+import { Report } from "./findings-index";
 
-interface Rule {
-  slug: string;
-  family: string;
-  metric: string;
-  why: string;
-  citation: string;
-  fixes: string[];
-}
 
 type Incoming = { type: "ready" } | { type: "open"; file: string } | { type: "scan" };
 
@@ -36,7 +22,6 @@ export class Panel implements WebviewViewProvider {
 
   private view: WebviewView | undefined;
   private report: Report | undefined;
-  private catalogue: Rule[] = [];
 
   constructor(private readonly extension: Uri) {}
 
@@ -49,11 +34,6 @@ export class Panel implements WebviewViewProvider {
   private trimmed(report: Report): Report {
     const limit = config.getConfiguration("rqx").get<number>("startHereLimit", 10);
     return { ...report, startHere: (report.startHere ?? []).slice(0, limit) };
-  }
-
-  public setCatalogue(catalogue: Rule[]): void {
-    this.catalogue = catalogue;
-    this.view?.webview.postMessage({ type: "catalogue", catalogue });
   }
 
   public reveal(): void {
@@ -85,9 +65,6 @@ export class Panel implements WebviewViewProvider {
   private replay(): void {
     if (this.report) {
       this.view?.webview.postMessage({ type: "report", report: this.trimmed(this.report) });
-    }
-    if (this.catalogue.length > 0) {
-      this.view?.webview.postMessage({ type: "catalogue", catalogue: this.catalogue });
     }
   }
 

@@ -5,12 +5,8 @@
   const owl = document.body.dataset.owl || "";
   const SEVERITIES = ["error", "warning", "info"];
   const GRADES = ["critical", "poor", "fair", "clean", "pristine"];
-  const PANES = ["overview", "files", "rules"];
 
-  let state = Object.assign(
-    { report: null, catalogue: [], query: "", pane: "overview" },
-    vscode.getState() || {},
-  );
+  let state = Object.assign({ report: null }, vscode.getState() || {});
 
   const save = () => vscode.setState(state);
 
@@ -51,7 +47,7 @@
     return `<h2>${escape(label)}</h2><div class="bar">${bar}</div><div class="legend">${legend}</div>`;
   }
 
-  function overview(report) {
+  function distributions(report) {
     const grades = {};
     for (const grade of Object.values(report.grades || {})) {
       grades[grade] = (grades[grade] || 0) + 1;
@@ -64,7 +60,7 @@
     return severity + spread;
   }
 
-  function files(report) {
+  function startHere(report) {
     const ranked = report.startHere || [];
     if (ranked.length === 0) {
       return `<p class="none">Nothing stands out. Every file is holding up.</p>`;
@@ -81,35 +77,6 @@
       })
       .join("");
     return `<h2>Start here</h2><ol>${rows}</ol>`;
-  }
-
-  function rules(catalogue, query) {
-    const needle = query.trim().toLowerCase();
-    const matching = catalogue.filter(
-      (rule) =>
-        needle === "" ||
-        rule.slug.includes(needle) ||
-        (rule.family || "").toLowerCase().includes(needle) ||
-        (rule.why || "").toLowerCase().includes(needle),
-    );
-    const list =
-      matching.length === 0
-        ? `<p class="none">No rule matches “${escape(query)}”.</p>`
-        : matching
-            .map(
-              (rule) => `<details class="rule">
-            <summary>${escape(rule.slug)}<span class="family">${escape(rule.family || "")}</span></summary>
-            <p>${escape(rule.why || "")}</p>
-            <dl>
-              <dt>Measures</dt><dd>${escape(rule.metric || "")}</dd>
-              <dt>Fix</dt><dd>${escape((rule.fixes || []).join(" / "))}</dd>
-              <dt>From</dt><dd>${escape(rule.citation || "")}</dd>
-            </dl>
-          </details>`,
-            )
-            .join("");
-    return `<div class="search"><input type="search" id="filter" placeholder="Filter ${catalogue.length} rules"
-      value="${escape(query)}" spellcheck="false" /></div>${list}`;
   }
 
   function draw() {
@@ -138,18 +105,9 @@
         <span class="verdict">${escape(verdict(health, findings))}</span>
         <span class="facts">${findings} findings · ${scanned} files · ${number(report.elapsedMs)}ms</span>
       </header>
-      <nav class="segments" role="tablist">
-        ${PANES.map(
-          (name) =>
-            `<button role="tab" data-pane="${name}" aria-selected="${state.pane === name}">
-              ${name[0].toUpperCase()}${name.slice(1)}
-            </button>`,
-        ).join("")}
-      </nav>
       <main>
-        <section class="pane" id="overview" ${state.pane === "overview" ? "" : "hidden"}>${overview(report)}</section>
-        <section class="pane" id="files" ${state.pane === "files" ? "" : "hidden"}>${files(report)}</section>
-        <section class="pane" id="rules" ${state.pane === "rules" ? "" : "hidden"}>${rules(state.catalogue, state.query)}</section>
+        <section class="pane">${distributions(report)}</section>
+        <section class="pane">${startHere(report)}</section>
       </main>`;
 
     countTo(health);
@@ -173,47 +131,12 @@
     requestAnimationFrame(step);
   }
 
-  function show(pane) {
-    state.pane = pane;
-    save();
-    for (const section of root.querySelectorAll(".pane")) {
-      section.hidden = section.id !== pane;
-    }
-    for (const tab of root.querySelectorAll(".segments button")) {
-      tab.setAttribute("aria-selected", String(tab.dataset.pane === pane));
-    }
-    root.querySelector(`#${pane}`)?.getAnimations?.().forEach((a) => a.cancel());
-  }
-
   function wire() {
-    for (const tab of root.querySelectorAll(".segments button")) {
-      tab.addEventListener("click", () => show(tab.dataset.pane));
-    }
     for (const button of root.querySelectorAll("button.row")) {
       button.addEventListener("click", () =>
         vscode.postMessage({ type: "open", file: button.dataset.file }),
       );
     }
-    attachFilter();
-  }
-
-  /// The rule list is replaced in place on every keystroke, which destroys the input
-  /// the user is typing into — so the listener is re-attached to the new one and the
-  /// caret put back where it was.
-  function attachFilter() {
-    const filter = root.querySelector("#filter");
-    if (!filter) return;
-    filter.addEventListener("input", (event) => {
-      state.query = event.target.value;
-      save();
-      const caret = event.target.selectionStart ?? state.query.length;
-      const pane = root.querySelector("#rules");
-      pane.innerHTML = rules(state.catalogue, state.query);
-      const again = pane.querySelector("#filter");
-      again.focus();
-      again.setSelectionRange(caret, caret);
-      attachFilter();
-    });
   }
 
   function render() {
@@ -231,7 +154,6 @@
   window.addEventListener("message", (event) => {
     const message = event.data;
     if (message.type === "report") state.report = message.report;
-    else if (message.type === "catalogue") state.catalogue = message.catalogue;
     save();
     render();
   });

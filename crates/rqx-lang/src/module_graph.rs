@@ -55,6 +55,10 @@ pub struct External {
 #[derive(Debug)]
 pub struct Cycle {
     pub members: Vec<PathBuf>,
+    /// One way round, as a closed walk that starts and ends at the same module.
+    /// Tarjan gives the set, not the ring: it pops in depth-first order, so
+    /// `a→b, a→c, c→a, b→a` yields `[a, b, c]` with no edge from `b` to `c`.
+    pub ring: Vec<PathBuf>,
 }
 
 #[derive(Debug, Default)]
@@ -238,6 +242,61 @@ fn resolve_edges(
 /// Tarjan's strongly connected components: every component of more than one module
 /// is an import cycle, and reporting components rather than individual back-edges
 /// means one finding per cycle instead of one per edge in it.
+/// One way round a cycle, as real edges. Breadth-first from the lowest-named member
+/// so the answer is the same on every run, and shortest so a component with a chord
+/// reports the short loop rather than the scenic route.
+fn ring_through(members: &[PathBuf], out: &HashMap<PathBuf, BTreeSet<PathBuf>>) -> Vec<PathBuf> {
+    let inside: BTreeSet<&PathBuf> = members.iter().collect();
+    let Some(start) = members.iter().min() else {
+        return Vec::new();
+    };
+    let step = |from: &PathBuf| -> Vec<&PathBuf> {
+        out.get(from)
+            .into_iter()
+            .flatten()
+            .filter(|target| inside.contains(target))
+            .collect()
+    };
+
+    let mut came_from: HashMap<&PathBuf, &PathBuf> = HashMap::new();
+    let mut queue: std::collections::VecDeque<&PathBuf> = std::collections::VecDeque::new();
+    queue.push_back(start);
+    let mut closes: Option<&PathBuf> = None;
+
+    while let Some(here) = queue.pop_front() {
+        for next in step(here) {
+            if next == start {
+                // The first edge back is on a shortest path, because the queue is
+                // drained in distance order.
+                if closes.is_none() {
+                    closes = Some(here);
+                }
+                continue;
+            }
+            if !came_from.contains_key(next) {
+                came_from.insert(next, here);
+                queue.push_back(next);
+            }
+        }
+        if closes.is_some() {
+            break;
+        }
+    }
+
+    let Some(last) = closes else {
+        return Vec::new();
+    };
+    let mut ring = vec![last.clone()];
+    let mut at = last;
+    while let Some(previous) = came_from.get(at) {
+        ring.push((*previous).clone());
+        at = previous;
+    }
+    ring.reverse();
+    ring.push(start.clone());
+    ring
+}
+
 fn strongly_connected(
     nodes: &[PathBuf],
     out: &HashMap<PathBuf, BTreeSet<PathBuf>>,
@@ -421,7 +480,10 @@ pub fn analyze(
     let nodes: Vec<PathBuf> = modules.into_iter().map(|module| module.path).collect();
     report.cycles = strongly_connected(&nodes, &edges.out)
         .into_iter()
-        .map(|members| Cycle { members })
+        .map(|members| Cycle {
+            ring: ring_through(&members, &edges.out),
+            members,
+        })
         .collect();
     // Moved rather than deep-copied: this used to clone every path and every target set
     // in the graph, and then drop the originals unread.
@@ -433,4 +495,68 @@ pub fn analyze(
         .sort_by(|a, b| a.path.cmp(&b.path).then(a.span.start.cmp(&b.span.start)));
     report.dead_files.sort_by(|a, b| a.path.cmp(&b.path));
     report
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn graph(edges: &[(&str, &str)]) -> HashMap<PathBuf, BTreeSet<PathBuf>> {
+        let mut out: HashMap<PathBuf, BTreeSet<PathBuf>> = HashMap::new();
+        for (from, to) in edges {
+            out.entry(PathBuf::from(from))
+                .or_default()
+                .insert(PathBuf::from(to));
+        }
+        out
+    }
+
+    fn members(names: &[&str]) -> Vec<PathBuf> {
+        names.iter().map(PathBuf::from).collect()
+    }
+
+    /// Tarjan hands back the set of modules in a cycle in the order it popped them,
+    /// which is a depth-first order and not a way round: `a→b, a→c, c→a, b→a` pops
+    /// `[a, b, c]` though nothing goes from `b` to `c`. Printing that as a path tells
+    /// a reader the graph has an edge it does not have.
+    #[test]
+    fn a_ring_is_a_closed_walk_over_edges_that_exist() {
+        let out = graph(&[("a", "b"), ("a", "c"), ("c", "a"), ("b", "a")]);
+        let ring = ring_through(&members(&["a", "b", "c"]), &out);
+
+        assert_eq!(ring.first(), ring.last(), "a ring closes: {ring:?}");
+        assert!(ring.len() >= 3, "{ring:?}");
+        for pair in ring.windows(2) {
+            assert!(
+                out.get(&pair[0])
+                    .is_some_and(|targets| targets.contains(&pair[1])),
+                "{:?} -> {:?} is not an edge",
+                pair[0],
+                pair[1]
+            );
+        }
+    }
+
+    /// A component with a chord has more than one way round it, and the short one is
+    /// the one worth printing.
+    #[test]
+    fn a_chord_does_not_send_the_ring_the_long_way() {
+        let out = graph(&[("a", "b"), ("b", "c"), ("c", "a"), ("a", "c")]);
+        assert_eq!(
+            ring_through(&members(&["a", "b", "c"]), &out),
+            members(&["a", "c", "a"])
+        );
+    }
+
+    /// The same tree scanned twice has to say the same thing, and a hash map's
+    /// iteration order is the usual way that stops being true.
+    #[test]
+    fn the_ring_starts_at_the_same_module_every_time() {
+        let out = graph(&[("b", "c"), ("c", "a"), ("a", "b")]);
+        let ring = ring_through(&members(&["a", "b", "c"]), &out);
+        assert_eq!(ring.first(), Some(&PathBuf::from("a")));
+        for _ in 0..8 {
+            assert_eq!(ring_through(&members(&["a", "b", "c"]), &out), ring);
+        }
+    }
 }

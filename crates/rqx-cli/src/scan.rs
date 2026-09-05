@@ -79,6 +79,9 @@ pub struct ScanOutcome {
     pub impact: ImpactMap,
     /// importer -> imported, as display paths, so a diff can find dependents.
     pub import_edges: std::collections::BTreeMap<String, Vec<String>>,
+    /// The rings, as display paths. Kept beside the findings because a graph view
+    /// wants every cycle whether or not the rule that reports them is switched on.
+    pub cycles: Vec<Vec<String>>,
     pub findings: Vec<Finding>,
     /// What the pattern catalogue makes of the same files. Kept apart from `findings`
     /// because nothing here is a defect: `counts` never sees it, so no advisory can
@@ -180,6 +183,7 @@ struct Collector {
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     suppressions: HashMap<Arc<str>, Vec<rqx_core::suppress::Suppression>>,
+    cycles: Vec<Vec<String>>,
     baseline: Option<Arc<std::collections::HashSet<rqx_core::Identity>>>,
     baseline_findings: Option<u32>,
     /// Only the files a project-scoped finding names, read once each.
@@ -230,6 +234,7 @@ impl Collector {
             findings_by_file: std::collections::BTreeMap::new(),
             lines_by_file: std::collections::BTreeMap::new(),
             suppressions: HashMap::new(),
+            cycles: Vec::new(),
             baseline: None,
             baseline_findings: None,
             texts: HashMap::new(),
@@ -788,15 +793,48 @@ impl Collector {
             let Some(anchor) = cycle.members.first() else {
                 continue;
             };
-            let Some(range) = at.range(anchor, WHOLE_FILE) else {
+            // Anchored on the import that starts the ring rather than on byte zero of
+            // whichever member sorts first: the edge is the thing to delete, and a
+            // reader sent to the top of a file has to find it themselves.
+            let opening = cycle
+                .ring
+                .windows(2)
+                .next()
+                .and_then(|edge| report.edge_spans.get(&(edge[0].clone(), edge[1].clone())));
+            let Some(range) = at
+                .range(
+                    cycle.ring.first().unwrap_or(anchor),
+                    opening.copied().unwrap_or(WHOLE_FILE),
+                )
+                .or_else(|| at.range(anchor, WHOLE_FILE))
+            else {
                 continue;
             };
-            let related: Vec<SourceRange> = cycle
-                .members
-                .iter()
+            // Every other edge of the ring, in order, so following the related list
+            // walks the cycle rather than listing its members alphabetically.
+            let mut related: Vec<SourceRange> = cycle
+                .ring
+                .windows(2)
                 .skip(1)
-                .filter_map(|member| at.range(member, WHOLE_FILE))
+                .filter_map(|edge| {
+                    let span = report.edge_spans.get(&(edge[0].clone(), edge[1].clone()))?;
+                    at.range(&edge[0], *span)
+                })
                 .collect();
+            if related.is_empty() {
+                related = cycle
+                    .members
+                    .iter()
+                    .skip(1)
+                    .filter_map(|member| at.range(member, WHOLE_FILE))
+                    .collect();
+            }
+            let ring: Vec<String> = cycle
+                .ring
+                .iter()
+                .map(|member| at.relative(member))
+                .collect();
+            self.cycles.push(ring.clone());
             // Two modules importing each other is a cycle, which the rule above
             // reports; three or more is a group no member can be read apart from,
             // which is a different thing to say about the same fact.
@@ -831,6 +869,7 @@ impl Collector {
                     range,
                     Evidence::ImportCycle {
                         modules: cycle.members.len() as u32,
+                        ring,
                     },
                     "break the cycle by moving what they share into a module both can import, \
                  or invert the weaker of the two dependencies behind an interface"
@@ -1104,6 +1143,7 @@ impl Collector {
             analyzed: self.analyzed,
             impact: self.impact,
             import_edges: self.import_edges,
+            cycles: self.cycles,
             findings,
             advice: self.advice,
             findings_by_file: self.findings_by_file,

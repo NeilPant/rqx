@@ -405,6 +405,7 @@ pub mod tests {
             analyzed: BTreeSet::new(),
             impact: Default::default(),
             import_edges: BTreeMap::new(),
+            cycles: Vec::new(),
             findings: Vec::new(),
             advice: Vec::new(),
             findings_by_file: BTreeMap::new(),

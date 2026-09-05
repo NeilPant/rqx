@@ -15,6 +15,7 @@ mod check;
 mod config;
 mod edit_config;
 mod fix;
+mod graph;
 mod history;
 mod lsp;
 mod mcp;
@@ -247,6 +248,28 @@ enum Command {
         /// Emit one JSON object per waiver instead of the reader's report
         #[arg(long)]
         json: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// Print the import graph — as text, Graphviz, Mermaid or data
+    Graph {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        #[arg(long, value_enum, default_value_t = graph::Shape::Text)]
+        format: graph::Shape,
+        /// Only the edges that close a cycle
+        #[arg(long)]
+        cycles: bool,
+        /// Only what this file reaches, and what reaches it
+        #[arg(long, value_name = "FILE")]
+        focus: Option<String>,
+        /// How far from `--focus` to follow
+        #[arg(long, default_value_t = 2)]
+        depth: u32,
         #[arg(long)]
         threads: Option<usize>,
         #[arg(long)]
@@ -1190,6 +1213,30 @@ fn run() -> Result<Exit> {
                 return report::waivers_json(&path, &outcome, &mut out).map(|()| Exit::Clean);
             }
             report::waivers(&path, &outcome, expiring, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Graph {
+            path,
+            standard,
+            format,
+            cycles,
+            focus,
+            depth,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            let outcome = scan::scan(&path, &settings)?;
+            let view = graph::View {
+                shape: format,
+                cycles_only: cycles,
+                focus: focus.as_deref(),
+                depth,
+            };
+            let mut out = anstream::stdout().lock();
+            graph::render(&outcome, &view, palette, &mut out).map(|()| Exit::Clean)
         }
         Command::Cache { action } => {
             match action {
