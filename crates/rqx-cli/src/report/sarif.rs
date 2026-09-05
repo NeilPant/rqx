@@ -176,6 +176,7 @@ mod tests {
             },
             fix_hint: "split it".to_owned(),
             related: Vec::new(),
+            known: false,
         }
     }
 

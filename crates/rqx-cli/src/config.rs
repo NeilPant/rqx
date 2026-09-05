@@ -1,5 +1,6 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 use ignore::overrides::{Override, OverrideBuilder};
@@ -32,6 +33,11 @@ pub struct Resolved {
     written: Value,
     scopes: Vec<Scope>,
     modules: bool,
+    /// The debt already recorded, when the gate names a baseline. Shared rather than
+    /// copied because every worker reads it and none of them writes it.
+    pub baseline: Option<Arc<HashSet<rqx_core::identity::Identity>>>,
+    /// How many findings the baseline was taken over, for the ratchet.
+    pub baseline_findings: Option<u32>,
 }
 
 impl Clone for Resolved {
@@ -52,6 +58,8 @@ impl Clone for Resolved {
                 })
                 .collect(),
             modules: self.modules,
+            baseline: self.baseline.clone(),
+            baseline_findings: self.baseline_findings,
         }
     }
 }
@@ -73,6 +81,8 @@ impl Resolved {
             provenance: BTreeMap::new(),
             written: Value::Table(toml::Table::new()),
             scopes: Vec::new(),
+            baseline: None,
+            baseline_findings: None,
             modules,
         }
     }
@@ -193,6 +203,8 @@ impl Resolved {
             provenance: self.provenance.clone(),
             written: self.written.clone(),
             scopes,
+            baseline: self.baseline.clone(),
+            baseline_findings: self.baseline_findings,
             modules: self.modules,
         })
     }
@@ -272,6 +284,23 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
 
     let modules = config.needs_modules() || scopes.iter().any(|scope| scope.config.needs_modules());
 
+    // Read once here rather than at each of the commands that scan, so no command can
+    // forget it and quietly gate on the whole backlog.
+    let recorded = match &config.gate.baseline {
+        Some(named) => {
+            let file = crate::baseline::path_of(&anchor, Some(named));
+            if !file.exists() {
+                bail!(
+                    "`[gate] baseline` names {}, which does not exist. \
+                     Run `rqx baseline` to record what this project already has.",
+                    file.display()
+                );
+            }
+            Some(crate::baseline::Baseline::read(&file)?)
+        }
+        None => None,
+    };
+
     Ok(Resolved {
         config,
         sources,
@@ -279,6 +308,8 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         written: merged,
         scopes,
         modules,
+        baseline_findings: recorded.as_ref().map(crate::baseline::Baseline::findings),
+        baseline: recorded.map(|recorded| Arc::new(recorded.recorded())),
     })
 }
 

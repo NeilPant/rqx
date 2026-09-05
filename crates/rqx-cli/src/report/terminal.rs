@@ -367,6 +367,27 @@ fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
     ];
     // Only when there are any: a project that waives nothing should not have to read
     // a row saying so.
+    if let Some(verdict) = report.verdict
+        && report.outcome.baseline_size.is_some()
+    {
+        let at = rows.len() - 2;
+        rows.insert(
+            at,
+            Row {
+                label: "Baseline",
+                value: format!(
+                    "{} known \u{b7} {} new",
+                    plural(verdict.known, "finding", "findings"),
+                    verdict.counted
+                ),
+                ink: Some(if verdict.counted == 0 {
+                    Ink::Good
+                } else {
+                    Ink::Warn
+                }),
+            },
+        );
+    }
     let waived = report.outcome.suppressed.len();
     if waived > 0 {
         let at = rows.len() - 2;

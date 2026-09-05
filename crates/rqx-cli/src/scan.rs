@@ -97,6 +97,9 @@ pub struct ScanOutcome {
     /// Findings a waiver in the source asked rqx to leave out of the count. Kept so
     /// every waiver can be audited in one place rather than only being obeyed.
     pub suppressed: Vec<rqx_core::suppress::Suppressed>,
+    /// How many findings the baseline recorded, when there is one. The ratchet
+    /// compares the total against it.
+    pub baseline_size: Option<u32>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -163,6 +166,11 @@ struct Collector {
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     suppressions: HashMap<Arc<str>, Vec<rqx_core::suppress::Suppression>>,
+    baseline: Option<Arc<std::collections::HashSet<rqx_core::Identity>>>,
+    baseline_findings: Option<u32>,
+    /// Only the files a project-scoped finding names, read once each.
+    texts: HashMap<Arc<str>, String>,
+    root: PathBuf,
     suppressed: Vec<rqx_core::suppress::Suppressed>,
     today: String,
     shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
@@ -205,6 +213,10 @@ impl Collector {
             findings_by_file: std::collections::BTreeMap::new(),
             lines_by_file: std::collections::BTreeMap::new(),
             suppressions: HashMap::new(),
+            baseline: None,
+            baseline_findings: None,
+            texts: HashMap::new(),
+            root: PathBuf::new(),
             suppressed: Vec::new(),
             today: rqx_core::suppress::today(),
             shape_by_file: std::collections::BTreeMap::new(),
@@ -260,7 +272,22 @@ impl Collector {
             .find(|waiver| waiver.covers(finding, &self.today))
     }
 
-    fn accept(&mut self, finding: Finding) {
+    fn accept(&mut self, mut finding: Finding) {
+        // A cycle or a dead export is built after the walk drained, so no worker saw
+        // it and nothing has tagged it yet. There are a handful of these against a
+        // file per worker, so reading their text here costs almost nothing.
+        if let Some(baseline) = &self.baseline
+            && finding.rule.is_project_scoped()
+        {
+            let text = self
+                .texts
+                .entry(Arc::clone(&finding.location.file))
+                .or_insert_with(|| {
+                    std::fs::read_to_string(self.root.join(&*finding.location.file))
+                        .unwrap_or_default()
+                });
+            finding.known = baseline.contains(&rqx_core::Identity::resolved(&finding, text));
+        }
         // Every finding arrives here — the per-file ones off the channel and the
         // graph, clone and history ones built after it drained — so this is the one
         // place a waiver can reach all of them.
@@ -401,6 +428,7 @@ impl Collector {
                         named.join(" and ")
                     ),
                     related: group.sites.iter().skip(1).cloned().collect(),
+                    known: false,
                 },
             );
         }
@@ -461,6 +489,7 @@ impl Collector {
                     )
                 },
                 related: others,
+                known: false,
             });
         }
     }
@@ -1049,6 +1078,7 @@ impl Collector {
             lines_by_file: self.lines_by_file,
             shape_by_file: self.shape_by_file,
             suppressed: self.suppressed,
+            baseline_size: self.baseline_findings,
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -1170,6 +1200,7 @@ fn build(
         evidence,
         fix_hint,
         related,
+        known: false,
     }
 }
 
@@ -1301,6 +1332,9 @@ pub(crate) fn collect(
         total,
     );
     collector.coverage = read_coverage(root, &settings.config.scan.coverage);
+    collector.baseline = settings.baseline.clone();
+    collector.baseline_findings = settings.baseline_findings;
+    collector.root = root.to_path_buf();
     for message in receiver {
         match message {
             ScanMessage::File(file) => {
@@ -1420,20 +1454,31 @@ pub(crate) fn analyze_file(
                 }),
             };
             match analysed {
-                Ok(analysis) => ScanMessage::File(Box::new(Analyzed {
-                    canonical: settings
-                        .needs_modules()
-                        .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
-                    display,
-                    language: analysis.language,
-                    findings: analysis.findings,
-                    advice: analysis.advice,
-                    clones: analysis.clones,
-                    module: analysis.module,
-                    code_lines: analysis.code_lines,
-                    shape: analysis.shape,
-                    suppressions: analysis.suppressions,
-                })),
+                Ok(mut analysis) => {
+                    // Tagged here rather than on the collector: resolving an identity
+                    // needs the file's text, and this is the one thread that already
+                    // has it.
+                    if let Some(baseline) = &settings.baseline {
+                        for finding in &mut analysis.findings {
+                            finding.known =
+                                baseline.contains(&rqx_core::Identity::resolved(finding, &source));
+                        }
+                    }
+                    ScanMessage::File(Box::new(Analyzed {
+                        canonical: settings
+                            .needs_modules()
+                            .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
+                        display,
+                        language: analysis.language,
+                        findings: analysis.findings,
+                        advice: analysis.advice,
+                        clones: analysis.clones,
+                        module: analysis.module,
+                        code_lines: analysis.code_lines,
+                        shape: analysis.shape,
+                        suppressions: analysis.suppressions,
+                    }))
+                }
                 Err(error) => ScanMessage::Skipped {
                     path: path.to_owned(),
                     reason: error.to_string(),

@@ -8,6 +8,7 @@ use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 use rqx_core::rule::RuleId;
 
+mod baseline;
 mod brand;
 mod cache;
 mod check;
@@ -205,6 +206,25 @@ enum Command {
         /// Show only the rules that apply to one language
         #[arg(long)]
         language: Option<String>,
+    },
+    /// Record the findings this project already has, so a gate can judge only what a
+    /// change adds
+    Baseline {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Take it again over the current findings. Refuses to record more than the
+        /// last one did unless --force.
+        #[arg(long)]
+        update: bool,
+        /// Record a larger set than the last one held
+        #[arg(long)]
+        force: bool,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long)]
+        config: Option<PathBuf>,
     },
     /// List every finding a comment in the source waives, with the reason given
     Suppressions {
@@ -1008,6 +1028,67 @@ fn run() -> Result<Exit> {
                 return report::advice_json(&outcome, &mut out).map(|()| Exit::Clean);
             }
             report::advice(&outcome, palette, &mut out).map(|()| Exit::Clean)
+        }
+        Command::Baseline {
+            path,
+            standard,
+            update,
+            force,
+            threads,
+            config,
+        } => {
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            let file = baseline::path_of(&path, settings.config.gate.baseline.as_deref());
+            let previous = file
+                .exists()
+                .then(|| baseline::Baseline::read(&file))
+                .transpose()?;
+            if previous.is_some() && !update {
+                bail!(
+                    "{} already exists. Run `rqx baseline --update` to take it again.",
+                    file.display()
+                );
+            }
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            // The cap drops findings before they can be recorded, and a baseline that
+            // holds the first five hundred is worse than none.
+            settings.config.scan.max_findings = 0;
+            // Recording against an existing baseline would tag everything `known`,
+            // which changes nothing here but makes the counts confusing to read.
+            settings.baseline = None;
+            let outcome = scan::scan(&path, &settings)?;
+            let taken = baseline::Baseline::of(&outcome);
+            if let Some(previous) = &previous
+                && taken.len() > previous.len()
+                && !force
+            {
+                bail!(
+                    "this would record {} findings against the {} already recorded. \
+                     Fix them, or pass --force to accept the larger set.",
+                    taken.len(),
+                    previous.len()
+                );
+            }
+            taken.write(&file)?;
+            let was = previous.map(|previous| previous.len());
+            println!(
+                "  recorded {} findings in {}{}",
+                taken.len(),
+                file.display(),
+                match was {
+                    Some(was) if was != taken.len() => format!(" ({was} before)"),
+                    _ => String::new(),
+                }
+            );
+            if settings.config.gate.baseline.is_none() {
+                println!(
+                    "  set `[gate] baseline = \"{}\"` in RQX.toml to gate on new findings only",
+                    baseline::DEFAULT_PATH
+                );
+            }
+            Ok(Exit::Clean)
         }
         Command::Suppressions {
             path,

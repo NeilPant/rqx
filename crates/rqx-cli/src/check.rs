@@ -5,7 +5,7 @@ use anyhow::{Result, bail};
 use rqx_core::config::{GateSeverity, RqxConfig};
 
 use crate::config::Resolved;
-use rqx_core::finding::Severity;
+use rqx_core::finding::{Finding, Severity};
 
 use crate::history;
 use crate::scan::ScanOutcome;
@@ -72,6 +72,9 @@ pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
 pub struct Verdict {
     pub failures: Vec<String>,
     pub counted: u32,
+    /// Findings a baseline already recorded. Reported rather than counted, so a
+    /// reader can see the debt is still there while the gate judges only what is new.
+    pub known: u32,
 }
 
 impl Verdict {
@@ -85,17 +88,23 @@ pub fn judge(review: &Review, config: &RqxConfig) -> Verdict {
         return Verdict {
             failures: Vec::new(),
             counted: 0,
+            known: 0,
         };
     };
-    let counted = review
+    let reviewed: Vec<&Finding> = review
         .findings()
         .filter(|finding| finding.severity >= threshold)
-        .count() as u32;
+        .collect();
+    let known = reviewed.iter().filter(|finding| finding.known).count() as u32;
+    // With a baseline, the gate is about what this change added; without one, every
+    // finding is new by definition, because nothing recorded otherwise.
+    let counted = reviewed.len() as u32 - known;
     let health = review
         .outcome
         .counts
         .weighted_health_score(review.outcome.code_lines, &review.outcome.impact);
     let mut judgement = verdict(counted, health, config);
+    judgement.known = known;
     judgement
         .failures
         .extend(grade_failures(&review.outcome, &review.reviewed, config));
@@ -108,27 +117,52 @@ pub fn judge_scan(outcome: &ScanOutcome, config: &RqxConfig) -> Verdict {
     let Some(threshold) = threshold(config) else {
         let mut failures = grade_failures(outcome, &outcome.analyzed, config);
         failures.extend(half_applied(outcome, config));
+        failures.extend(ratchet(outcome, config));
         return Verdict {
             failures,
             counted: 0,
+            known: 0,
         };
     };
-    let counted = outcome
-        .counts
-        .by_severity
-        .iter()
-        .filter(|(severity, _)| **severity >= threshold)
-        .map(|(_, count)| *count)
-        .sum();
+    let at_or_above = |counts: &std::collections::BTreeMap<Severity, u32>| -> u32 {
+        counts
+            .iter()
+            .filter(|(severity, _)| **severity >= threshold)
+            .map(|(_, count)| *count)
+            .sum()
+    };
+    let total = at_or_above(&outcome.counts.by_severity);
+    let counted = at_or_above(&outcome.counts.new_by_severity);
+    let known = total - counted;
     let health = outcome
         .counts
         .weighted_health_score(outcome.code_lines, &outcome.impact);
     let mut judgement = verdict(counted, health, config);
+    judgement.known = known;
     judgement
         .failures
         .extend(grade_failures(outcome, &outcome.analyzed, config));
     judgement.failures.extend(half_applied(outcome, config));
+    judgement.failures.extend(ratchet(outcome, config));
     judgement
+}
+
+/// A baseline says which debt is tolerated. The ratchet says it may not grow, which
+/// is the difference between recording debt and accepting it.
+fn ratchet(outcome: &ScanOutcome, config: &RqxConfig) -> Option<String> {
+    let recorded = config
+        .gate
+        .ratchet
+        .then_some(outcome.baseline_size)
+        .flatten()?;
+    let total = outcome.counts.total;
+    (total > recorded).then(|| {
+        format!(
+            "{total} findings against the {recorded} the baseline recorded; \
+             remove {} or run `rqx baseline --update`",
+            total - recorded
+        )
+    })
 }
 
 /// The one route from advice to an exit code, and only for the stance that names
@@ -234,5 +268,9 @@ fn verdict(counted: u32, health: u32, config: &RqxConfig) -> Verdict {
         ));
     }
 
-    Verdict { failures, counted }
+    Verdict {
+        failures,
+        counted,
+        known: 0,
+    }
 }

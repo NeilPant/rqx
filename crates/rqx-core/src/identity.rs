@@ -26,6 +26,12 @@ impl Identity {
         ]))
     }
 
+    /// A value read back from a file rqx wrote. Only a baseline does this, and only
+    /// with a number it wrote itself.
+    pub const fn from_raw(raw: u64) -> Self {
+        Self(raw)
+    }
+
     /// `of`, with the span's own text standing in for findings whose evidence
     /// carries no name. Trimmed, so reindenting the line a finding sits on does
     /// not rename it.
@@ -234,6 +240,7 @@ mod tests {
             evidence,
             fix_hint: String::new(),
             related: Vec::new(),
+            known: false,
         }
     }
 

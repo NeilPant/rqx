@@ -350,6 +350,14 @@ pub struct Gate {
     /// and turning this on for everyone would change what every existing pipeline
     /// returns.
     pub fail_on_incomplete: bool,
+    /// Where the recorded debt lives. When it is set, only findings the baseline
+    /// does not already hold count against `fail_on` and `max_findings` — which is
+    /// what lets a codebase with ten years of history turn the gate on at all.
+    /// `min_health` and `min_grade` still see everything.
+    pub baseline: Option<String>,
+    /// Fail when the total number of findings is above what the baseline recorded.
+    /// A baseline says which debt is tolerated; this says it may not grow.
+    pub ratchet: bool,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
@@ -404,6 +412,8 @@ impl Default for Gate {
             min_health: 0,
             min_grade: GateGrade::Never,
             fail_on_incomplete: false,
+            baseline: None,
+            ratchet: false,
         }
     }
 }
@@ -1011,6 +1021,8 @@ mod tests {
                     config.gate.max_findings.to_string(),
                     config.gate.min_health.to_string(),
                     format!("{:?}", config.gate.min_grade),
+                    config.gate.baseline.clone().unwrap_or_default(),
+                    config.gate.ratchet.to_string(),
                 ],
                 architecture: config.architecture.layers.clone(),
                 fix: vec![

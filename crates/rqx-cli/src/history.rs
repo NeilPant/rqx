@@ -190,6 +190,22 @@ pub fn changed_since(root: &Path, base: &str) -> Option<Vec<String>> {
     )
 }
 
+/// The commit a baseline was taken at, recorded so whoever opens the file can tell
+/// how old it is.
+pub fn head(root: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        .filter(|sha| !sha.is_empty())
+}
+
 /// Who wrote one line, and when. One `git blame` per line asked about rather than
 /// per file, because the only caller wants a handful of lines out of a repository
 /// and blaming a whole file to read one of them is the slower way round.

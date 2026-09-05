@@ -343,6 +343,7 @@ pub mod tests {
                 },
                 fix_hint: "fix".to_owned(),
                 related: Vec::new(),
+                known: false,
             };
             outcome.counts.record(&finding);
             *outcome
@@ -369,6 +370,7 @@ pub mod tests {
             lines_by_file: BTreeMap::new(),
             shape_by_file: BTreeMap::new(),
             suppressed: Vec::new(),
+            baseline_size: None,
             omitted: 0,
             code_lines: 10_000,
             files_scanned,
@@ -394,6 +396,7 @@ pub mod tests {
                 },
                 fix_hint: "extract".to_owned(),
                 related: Vec::new(),
+                known: false,
             };
             outcome.counts.record(&finding);
             *outcome

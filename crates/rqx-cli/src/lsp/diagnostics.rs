@@ -459,6 +459,7 @@ mod tests {
             },
             fix_hint: "delete it".to_owned(),
             related: Vec::new(),
+            known: false,
         }
     }
 

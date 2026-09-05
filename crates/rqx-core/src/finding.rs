@@ -647,6 +647,11 @@ pub struct Finding {
     /// rule cannot ship a finding whose rationale drifted from its taxonomy entry.
     pub fix_hint: String,
     pub related: Vec<SourceRange>,
+    /// Whether a baseline already recorded this exact problem. Kept on the finding
+    /// rather than in a set beside it because a reporter is handed findings and
+    /// nothing else, and the display cap means the set and the list disagree.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub known: bool,
 }
 
 impl Finding {

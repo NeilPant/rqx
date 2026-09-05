@@ -3,6 +3,8 @@
 | Page | What it covers |
 |---|---|
 | [configuration.md](configuration.md) | Every table in `RQX.toml`, how the layers merge, levels, and per-subtree overrides |
+| [baseline.md](baseline.md) | Recording the debt a project already has, so a gate can judge only what a change adds |
+| [suppressions.md](suppressions.md) | Waiving one finding with a reason, and what happens when the reason is missing |
 | [rules/](rules/README.md) | Every rule, by family: what each measures, its threshold, and a worked example |
 | [patterns/](patterns/README.md) | The design-pattern catalogue: what rqx recognises, what it calls half applied, and where one would fit |
 | [editor.md](editor.md) | `rqx lsp` as a product, and a paste-in config for every editor |

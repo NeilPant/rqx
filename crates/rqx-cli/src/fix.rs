@@ -242,13 +242,13 @@ fn new_project_scoped(before: &ScanOutcome, after: &ScanOutcome) -> Vec<Finding>
 
 /// A crash between the two steps leaves the original in place, and the rename is
 /// atomic on every filesystem that matters.
-fn write_atomically(path: &Path, contents: &str) -> Result<()> {
+pub(crate) fn write_atomically(path: &Path, contents: &str) -> Result<()> {
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("file");
-    let temporary = directory.join(format!(".{name}.rqx-fix"));
+    let temporary = directory.join(format!(".{name}.rqx-tmp"));
     std::fs::write(&temporary, contents)
         .with_context(|| format!("writing {}", temporary.display()))?;
     if let Ok(metadata) = std::fs::metadata(path) {

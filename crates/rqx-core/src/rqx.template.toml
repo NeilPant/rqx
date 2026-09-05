@@ -142,6 +142,13 @@ min_health = 0
 # Lowest grade any single file may carry, which catches a file rotting on its own
 # that a project-wide average hides: pristine, clean, fair, poor, critical, never.
 min_grade = "never"
+# Where `rqx baseline` recorded the debt this project already had. With it set, only
+# findings the baseline does not hold count against fail_on and max_findings, so a
+# codebase with years of history can gate on what a change adds. min_health and
+# min_grade still count everything. Unset means every finding counts.
+# baseline = ".rqx/baseline.json"
+# Refuse to let the total grow past what the baseline recorded.
+ratchet = false
 # Fail when a design pattern is half applied — a decorator that cannot substitute for
 # what it wraps, a subscribe with no unsubscribe. The only way pattern advice reaches
 # an exit code; nothing else in [patterns] can.

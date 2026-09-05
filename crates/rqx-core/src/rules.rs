@@ -61,6 +61,7 @@ impl FindingBuilder<'_> {
             evidence,
             fix_hint,
             related: Vec::new(),
+            known: false,
         });
     }
 }

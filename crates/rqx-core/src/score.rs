@@ -22,6 +22,9 @@ const SMOOTHING_LINES: f64 = 500.0;
 pub struct FindingCounts {
     pub by_rule: BTreeMap<RuleId, u32>,
     pub by_severity: BTreeMap<Severity, u32>,
+    /// The same tally over findings a baseline has not already recorded. A gate on a
+    /// codebase with history counts these; everything else counts `by_severity`.
+    pub new_by_severity: BTreeMap<Severity, u32>,
     pub total: u32,
     /// Accumulated per file rather than per finding, so applying impact weighting at
     /// the end costs one entry per file instead of retaining every finding.
@@ -33,6 +36,9 @@ impl FindingCounts {
     pub fn record(&mut self, finding: &Finding) {
         *self.by_rule.entry(finding.rule).or_default() += 1;
         *self.by_severity.entry(finding.severity).or_default() += 1;
+        if !finding.known {
+            *self.new_by_severity.entry(finding.severity).or_default() += 1;
+        }
         self.total += 1;
         if finding.confidence != Confidence::Low {
             *self
@@ -70,6 +76,7 @@ impl FindingCounts {
         let mut counts = Self {
             by_rule: self.by_rule.clone(),
             by_severity: self.by_severity.clone(),
+            new_by_severity: self.new_by_severity.clone(),
             total: self.total,
             weighted_by_file: self.weighted_by_file.clone(),
         };
@@ -78,6 +85,11 @@ impl FindingCounts {
                 *count = count.saturating_sub(1);
             }
             if let Some(count) = counts.by_severity.get_mut(&finding.severity) {
+                *count = count.saturating_sub(1);
+            }
+            if !finding.known
+                && let Some(count) = counts.new_by_severity.get_mut(&finding.severity)
+            {
                 *count = count.saturating_sub(1);
             }
             counts.total = counts.total.saturating_sub(1);
@@ -89,6 +101,7 @@ impl FindingCounts {
         }
         counts.by_rule.retain(|_, count| *count > 0);
         counts.by_severity.retain(|_, count| *count > 0);
+        counts.new_by_severity.retain(|_, count| *count > 0);
         counts
     }
 
@@ -195,6 +208,7 @@ mod tests {
             },
             fix_hint: String::new(),
             related: Vec::new(),
+            known: false,
         }
     }
 
