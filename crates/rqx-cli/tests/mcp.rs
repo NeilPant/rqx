@@ -174,8 +174,20 @@ fn the_handshake_advertises_every_tool_with_a_schema() {
     assert_eq!(
         names,
         [
-            "analyze", "check", "config", "explain", "findings", "patterns", "plan", "rules",
-            "scan", "verify"
+            "analyze",
+            "check",
+            "complexity",
+            "config",
+            "explain",
+            "findings",
+            "graph",
+            "health",
+            "patterns",
+            "plan",
+            "recommend",
+            "rules",
+            "scan",
+            "verify"
         ]
     );
 
@@ -472,4 +484,39 @@ fn a_public_bind_without_a_token_is_refused() {
     assert_eq!(refused.status.code(), Some(2));
     let complaint = String::from_utf8_lossy(&refused.stderr);
     assert!(complaint.contains("RQX_MCP_TOKEN"), "{complaint}");
+}
+
+/// An advertised tool that errors when called is worse than one that does not exist:
+/// the agent has already told the user it can answer.
+#[test]
+fn the_analysers_answer_over_mcp_as_well_as_on_the_command_line() {
+    let root = workspace("analysers");
+    let mut session = Session::start(&root);
+
+    let complexity = session.structured("complexity", json!({}));
+    let functions = complexity["functions"].as_array().expect("functions");
+    assert!(!functions.is_empty(), "{complexity}");
+    for field in ["name", "at"] {
+        assert!(functions[0][field].is_string(), "{}", functions[0]);
+    }
+    assert!(functions[0]["complexity"].is_number());
+
+    let health = session.structured("health", json!({}));
+    let buckets = health["buckets"].as_array().expect("buckets");
+    assert!(!buckets.is_empty(), "{health}");
+    assert!(buckets[0]["bucket"].is_string());
+    assert!(buckets[0]["debtShare"].is_number());
+
+    let graph = session.structured("graph", json!({}));
+    assert!(graph["edges"].as_array().is_some(), "{graph}");
+    assert!(graph["cycles"].as_array().is_some(), "{graph}");
+
+    // Recommend is allowed to have nothing to say; it is not allowed to fail.
+    let recommend = session.structured("recommend", json!({}));
+    assert!(
+        recommend["recommendations"].as_array().is_some(),
+        "{recommend}"
+    );
+
+    session.shutdown();
 }

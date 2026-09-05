@@ -15,7 +15,7 @@
 | [rules/](rules/README.md) | Every rule, by family: what each measures, its threshold, and a worked example |
 | [patterns/](patterns/README.md) | The design-pattern catalogue: what rqx recognises, what it calls half applied, and where one would fit |
 | [editor.md](editor.md) | `rqx lsp` as a product, and a paste-in config for every editor |
-| [mcp.md](mcp.md) | The ten MCP tools, their payloads, paging, and HTTP with a token |
+| [mcp.md](mcp.md) | The fourteen MCP tools, their payloads, paging, and HTTP with a token |
 | [ci.md](ci.md) | The exit-code contract, every reporter, and a snippet per CI system |
 
 `docs/rules/`, `docs/patterns/` and the levels section of `configuration.md` are

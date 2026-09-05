@@ -25,8 +25,12 @@ finding names is a refactoring for a person to make rather than an edit rqx coul
 | `analyze` | Analyse source held in memory — an unsaved buffer — without touching the disk |
 | `patterns` | Design patterns in use, half applied, or that would fit |
 | `explain` | What one rule measures, why, and the refactoring it names. Also answers for a pattern |
-| `rules` | Search the 60-rule catalogue by family, language or text |
+| `rules` | Search the 81-rule catalogue by family, language or text |
 | `config` | The settings this server will use, and which file each value came from |
+| `complexity` | Every function's cognitive complexity, statements, nesting and parameters, with the project's own percentiles |
+| `health` | Where the score comes from, by family: findings, share of the weighted debt, and the score without each |
+| `graph` | Every import edge, and the cycles as rings you can follow; each edge says whether it closes one |
+| `recommend` | Whether the thresholds fit, which refactoring answers the most, and what to read first |
 
 `scan` runs a fresh scan. Every other project tool reads that scan, running one first if
 nothing has been scanned yet — so a drill-down costs nothing and a cursor keeps pointing

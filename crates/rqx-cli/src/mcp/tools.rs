@@ -211,6 +211,185 @@ impl Rqx {
     }
 
     #[tool(
+        name = "complexity",
+        description = "What the analyser measured for every function \u{2014} cognitive \
+                       complexity, statements, nesting and parameters \u{2014} with the \
+                       project's own percentiles. Answers whether a threshold is \
+                       describing the exceptions or the norm, which the findings alone \
+                       cannot.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn complexity(
+        &self,
+        Parameters(page): Parameters<Where>,
+    ) -> Result<CallToolResult, McpError> {
+        let scanned = within(&self.root, page.path.as_deref()).map_err(refused)?;
+        let snapshot = self.snapshot(Some(scanned)).await?;
+        let view = crate::complexity::View {
+            by: crate::complexity::By::Function,
+            sort: crate::complexity::Sort::Complexity,
+            top: 20,
+            min: 0,
+            histogram: false,
+        };
+        let mut rows = Vec::new();
+        crate::complexity::json(&snapshot.outcome, &view, &mut rows)
+            .map_err(|error| refused(format!("{error:#}")))?;
+        let rows: Vec<Value> = String::from_utf8_lossy(&rows)
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+        let digest = rows
+            .iter()
+            .map(|row| {
+                format!(
+                    "- {} ({}) complexity {} statements {}",
+                    row["name"].as_str().unwrap_or_default(),
+                    row["at"].as_str().unwrap_or_default(),
+                    row["complexity"],
+                    row["statements"]
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        Ok(answer(
+            format!("The twenty most complex functions.\n\n{digest}"),
+            json!({ "functions": rows }),
+        ))
+    }
+
+    #[tool(
+        name = "health",
+        description = "Where the health score comes from, by family: how many findings \
+                       each carries, what share of the weighted debt, and the score \
+                       without it. For deciding what to fix first rather than what is \
+                       wrong.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn health(
+        &self,
+        Parameters(page): Parameters<Where>,
+    ) -> Result<CallToolResult, McpError> {
+        let scanned = within(&self.root, page.path.as_deref()).map_err(refused)?;
+        let snapshot = self.snapshot(Some(scanned)).await?;
+        let mut rows = Vec::new();
+        crate::health::json(&snapshot.outcome, crate::health::By::Family, &mut rows)
+            .map_err(|error| refused(format!("{error:#}")))?;
+        let rows: Vec<Value> = String::from_utf8_lossy(&rows)
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+        let digest = rows
+            .iter()
+            .map(|row| {
+                format!(
+                    "- {}: {} findings, {}% of the debt",
+                    row["bucket"].as_str().unwrap_or_default(),
+                    row["findings"],
+                    row["debtShare"]
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        Ok(answer(digest, json!({ "buckets": rows })))
+    }
+
+    #[tool(
+        name = "recommend",
+        description = "What to do about this project rather than what is wrong with it: \
+                       whether its thresholds fit the codebase, which single refactoring \
+                       answers the most findings and where, and which files to read \
+                       first. Every line carries the evidence that produced it.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn recommend(
+        &self,
+        Parameters(page): Parameters<Where>,
+    ) -> Result<CallToolResult, McpError> {
+        let scanned = within(&self.root, page.path.as_deref()).map_err(refused)?;
+        let snapshot = self.snapshot(Some(scanned)).await?;
+        let mut rows = Vec::new();
+        crate::recommend::json(&snapshot.outcome, &self.settings, None, &mut rows)
+            .map_err(|error| refused(format!("{error:#}")))?;
+        let rows: Vec<Value> = String::from_utf8_lossy(&rows)
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+        let digest = rows
+            .iter()
+            .map(|row| {
+                format!(
+                    "- [{}] {}\n  {}",
+                    row["section"].as_str().unwrap_or_default(),
+                    row["recommendation"].as_str().unwrap_or_default(),
+                    row["because"].as_str().unwrap_or_default()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        Ok(answer(digest, json!({ "recommendations": rows })))
+    }
+
+    #[tool(
+        name = "graph",
+        description = "The import graph: every edge, and the cycles as rings you can \
+                       follow rather than sets of names. Each edge says whether it \
+                       closes a cycle.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn graph(&self, Parameters(page): Parameters<Where>) -> Result<CallToolResult, McpError> {
+        let scanned = within(&self.root, page.path.as_deref()).map_err(refused)?;
+        let snapshot = self.snapshot(Some(scanned)).await?;
+        let view = crate::graph::View {
+            shape: crate::graph::Shape::Json,
+            cycles_only: false,
+            focus: None,
+            depth: 2,
+        };
+        let mut rendered = Vec::new();
+        crate::graph::render(
+            &snapshot.outcome,
+            &view,
+            Palette::with_depth(ColorDepth::Monochrome),
+            &mut rendered,
+        )
+        .map_err(|error| refused(format!("{error:#}")))?;
+        let structured: Value = serde_json::from_slice(&rendered)
+            .map_err(|error| refused(format!("the graph would not serialise: {error}")))?;
+        let cycles = snapshot
+            .outcome
+            .cycles
+            .iter()
+            .map(|ring| format!("- {}", ring.join(" \u{2192} ")))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Ok(answer(
+            if cycles.is_empty() {
+                "No import cycles.".to_owned()
+            } else {
+                format!("Import cycles:\n\n{cycles}")
+            },
+            structured,
+        ))
+    }
+
+    #[tool(
         name = "plan",
         description = "The findings `rqx fix` will not touch, each with the source text \
                        of its span, what decided it and the named refactoring that \
