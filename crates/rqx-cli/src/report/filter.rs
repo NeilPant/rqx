@@ -11,6 +11,9 @@ pub struct FindingFilter {
     rules: Vec<RuleId>,
     categories: Vec<Category>,
     paths: Option<Gitignore>,
+    /// The files a revision says changed. `None` when the run was not narrowed to a
+    /// revision at all, which is not the same as a revision that changed nothing.
+    touched: Option<std::collections::HashSet<String>>,
     text: String,
 }
 
@@ -69,8 +72,16 @@ impl FindingFilter {
             rules,
             categories,
             paths,
+            touched: None,
             text: String::new(),
         })
+    }
+
+    /// Narrow to the files a revision changed. Unlike `check --base`, nothing that
+    /// imports them is pulled in: this is a view of the diff, not a review of it.
+    pub fn touching(mut self, files: impl IntoIterator<Item = String>) -> Self {
+        self.touched = Some(files.into_iter().collect());
+        self
     }
 
     pub fn with_text(mut self, text: &str) -> Self {
@@ -86,6 +97,11 @@ impl FindingFilter {
             return false;
         }
         if !self.categories.is_empty() && !self.categories.contains(&finding.category()) {
+            return false;
+        }
+        if let Some(touched) = &self.touched
+            && !touched.contains(finding.location.file.as_ref())
+        {
             return false;
         }
         if let Some(paths) = &self.paths

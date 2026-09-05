@@ -13,10 +13,36 @@ use crate::scan::ScanOutcome;
 
 /// How much of the report a person asked for. Only the console report reads it;
 /// a machine format has no notion of a line it may skip.
+/// What the listing is a list of. A reader looking for the worst file and one
+/// looking for the rule that fires most are asking different questions of the same
+/// findings.
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
+pub enum Grouping {
+    #[default]
+    File,
+    Rule,
+    Family,
+    Severity,
+}
+
+/// What decides the order inside a group.
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
+pub enum Order {
+    /// Where it is in the file, which is how a reader walks one.
+    #[default]
+    Line,
+    Severity,
+    File,
+}
+
 pub struct Layout {
     pub palette: Palette,
     pub show_passed: bool,
     pub quiet: bool,
+    pub grouping: Grouping,
+    pub order: Order,
+    /// How many groups to list. The rest are counted, not shown.
+    pub top: Option<usize>,
     /// Counts only: which rules and families fired, and how often. For deciding
     /// where to look before reading a single finding.
     pub stats: bool,
@@ -103,6 +129,9 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
     if layout.stats {
         return stats(report, layout, out);
     }
+    if layout.grouping != Grouping::File {
+        return grouped(report, layout, out);
+    }
     let shown = report.shown_by_file();
     let totals = report.totals_by_file();
     let prefix = report.path_prefix();
@@ -116,15 +145,29 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
         )?;
     }
 
-    for (file, findings) in &shown {
+    let mut listed: Vec<(&&str, &Vec<&Finding>)> = shown.iter().collect();
+    if layout.top.is_some() {
+        // Most findings first, so a cut list is the part worth reading.
+        listed.sort_by(|left, right| {
+            right
+                .1
+                .len()
+                .cmp(&left.1.len())
+                .then_with(|| left.0.cmp(right.0))
+        });
+        listed.truncate(layout.top.unwrap_or(listed.len()));
+    }
+    for (file, findings) in listed {
+        let mut findings: Vec<&Finding> = findings.clone();
+        sort_findings(&mut findings, layout.order);
         write_file(
             out,
             layout,
             report,
             &prefix,
             file,
-            findings,
-            totals.get(file).copied(),
+            &findings,
+            totals.get(*file).copied(),
         )?;
     }
 
@@ -162,6 +205,95 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
     write_hotspots(out, layout, report, &prefix)?;
     write_skipped(out, layout, report.outcome)?;
     write_gate(out, layout, report)
+}
+
+/// The same findings under a heading that is not a file. The file listing shows a
+/// grade and an excerpt per file; these headings have neither, so they are a count
+/// and the findings under it.
+fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
+    let mut groups: std::collections::BTreeMap<String, Vec<&Finding>> =
+        std::collections::BTreeMap::new();
+    for finding in &report.findings {
+        let key = match layout.grouping {
+            Grouping::Rule => finding.slug().to_owned(),
+            Grouping::Family => finding.category().slug().to_owned(),
+            Grouping::Severity => finding.severity.label().to_owned(),
+            Grouping::File => finding.location.file.to_string(),
+        };
+        groups.entry(key).or_default().push(finding);
+    }
+    let mut listed: Vec<(String, Vec<&Finding>)> = groups.into_iter().collect();
+    listed.sort_by(|left, right| {
+        right
+            .1
+            .len()
+            .cmp(&left.1.len())
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    let held = listed.len();
+    if let Some(top) = layout.top {
+        listed.truncate(top);
+    }
+
+    let prefix = report.path_prefix();
+    for (name, findings) in &mut listed {
+        sort_findings(findings, layout.order);
+        writeln!(
+            out,
+            "\n  {}  {}",
+            paint(layout.palette.style(Ink::Text).bold(), name.as_str()),
+            paint(
+                layout.palette.style(Ink::Muted),
+                plural(findings.len() as u32, "finding", "findings")
+            )
+        )?;
+        if layout.quiet {
+            continue;
+        }
+        for finding in findings {
+            writeln!(
+                out,
+                "     {}",
+                paint(
+                    layout.palette.style(Ink::Muted),
+                    format!(
+                        "{prefix}{}:{}",
+                        finding.location.file, finding.location.line
+                    )
+                )
+            )?;
+            write_finding(out, layout, finding, None, None)?;
+        }
+    }
+    let unlisted = held - listed.len();
+    if unlisted > 0 {
+        writeln!(
+            out,
+            "\n  {}",
+            paint(
+                layout.palette.style(Ink::Muted),
+                format!("{unlisted} more not shown")
+            )
+        )?;
+    }
+    Ok(())
+}
+
+fn sort_findings(findings: &mut [&Finding], order: Order) {
+    match order {
+        Order::Line => findings.sort_by_key(|finding| finding.location.start),
+        Order::File => findings.sort_by(|left, right| {
+            left.location
+                .file
+                .cmp(&right.location.file)
+                .then(left.location.start.cmp(&right.location.start))
+        }),
+        Order::Severity => findings.sort_by(|left, right| {
+            left.severity
+                .cmp(&right.severity)
+                .then(left.location.start.cmp(&right.location.start))
+        }),
+    }
 }
 
 fn write_file(
@@ -650,6 +782,9 @@ mod tests {
 
     fn layout() -> Layout {
         Layout {
+            grouping: Grouping::File,
+            order: Order::Line,
+            top: None,
             palette: Palette::with_depth(ColorDepth::Monochrome),
             show_passed: false,
             quiet: false,

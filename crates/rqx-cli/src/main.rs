@@ -45,7 +45,7 @@ use report::{FindingFilter, Layout, Report, Reporter};
     about = "Finds dead weight in TypeScript, Python, Go, Java and C++ and says why it matters",
     after_help = AFTER_HELP,
 )]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
     /// Print help instead of opening the interface when run with no arguments
@@ -550,6 +550,44 @@ impl Standard {
     }
 }
 
+#[derive(Copy, Clone, Default, ValueEnum)]
+enum GroupArg {
+    #[default]
+    File,
+    Rule,
+    Family,
+    Severity,
+}
+
+impl From<GroupArg> for report::Grouping {
+    fn from(chosen: GroupArg) -> Self {
+        match chosen {
+            GroupArg::File => Self::File,
+            GroupArg::Rule => Self::Rule,
+            GroupArg::Family => Self::Family,
+            GroupArg::Severity => Self::Severity,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Default, ValueEnum)]
+enum OrderArg {
+    #[default]
+    Line,
+    Severity,
+    File,
+}
+
+impl From<OrderArg> for report::Order {
+    fn from(chosen: OrderArg) -> Self {
+        match chosen {
+            OrderArg::Line => Self::Line,
+            OrderArg::Severity => Self::Severity,
+            OrderArg::File => Self::File,
+        }
+    }
+}
+
 #[derive(Args, Default)]
 struct View {
     /// Show only findings at or above this severity
@@ -576,6 +614,21 @@ struct View {
     /// Counts only: which rules and families fired, and how often
     #[arg(long)]
     stats: bool,
+    /// What the listing is a list of
+    #[arg(long = "group-by", value_enum, default_value_t = GroupArg::File)]
+    grouping: GroupArg,
+    /// What decides the order inside each group
+    #[arg(long = "sort", value_enum, default_value_t = OrderArg::Line)]
+    order: OrderArg,
+    /// List only this many groups; the rest are counted
+    #[arg(long, value_name = "N")]
+    top: Option<usize>,
+    /// Show only findings in files this revision changed
+    #[arg(long, value_name = "REF")]
+    since: Option<String>,
+    /// Show only findings in files not yet committed
+    #[arg(long)]
+    changed: bool,
     /// Lines of code shown either side of a finding
     #[arg(long, default_value_t = 2)]
     context: u32,
@@ -864,6 +917,9 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     }
     for sink in sinks {
         let plain = Layout {
+            grouping: view.grouping.into(),
+            order: view.order.into(),
+            top: view.top,
             palette: Palette::with_depth(ColorDepth::Monochrome),
             show_passed: view.show_passed,
             stats: view.stats,
@@ -891,13 +947,28 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     Ok(())
 }
 
-fn filter_of(view: &View) -> Result<FindingFilter> {
-    FindingFilter::new(
+fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
+    let filter = FindingFilter::new(
         view.severity.map(Severity::from),
         &view.rules,
         &view.categories,
         &view.paths,
-    )
+    )?;
+    let mut touched: Option<Vec<String>> = None;
+    if let Some(base) = &view.since {
+        touched = Some(history::changed_since(root, base).ok_or_else(|| {
+            anyhow::anyhow!("`{base}` is not a revision this repository knows about")
+        })?);
+    }
+    if view.changed {
+        touched
+            .get_or_insert_with(Vec::new)
+            .extend(history::uncommitted(root));
+    }
+    Ok(match touched {
+        Some(files) => filter.touching(files),
+        None => filter,
+    })
 }
 
 /// Falls back to help rather than an error: the user asked for the interface and
@@ -1065,7 +1136,7 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;
-            let filter = filter_of(&view)?;
+            let filter = filter_of(&view, &path)?;
             let outcome = scan::scan(&path, &settings)?;
 
             // A bare `rqx scan` reports; it only gates when asked to, so adding a flag
@@ -1610,7 +1681,7 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;
-            let filter = filter_of(&view)?;
+            let filter = filter_of(&view, &path)?;
             let mut review = check::review(&path, &settings, &base)?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
