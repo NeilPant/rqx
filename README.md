@@ -68,7 +68,6 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
 - [Five languages, one rule set](#five-languages-one-rule-set)
 - [It applies the fixes that have one right answer](#it-applies-the-fixes-that-have-one-right-answer)
 - [Did the refactoring actually happen](#did-the-refactoring-actually-happen)
-- [Watch it while you work](#watch-it-while-you-work)
 - [Which five do I fix on Monday](#which-five-do-i-fix-on-monday)
 - [Levels](#levels)
 - [Configuration](#configuration)
@@ -95,9 +94,11 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
        │                 ^^^^^^^^^^^^^^
      Cognitive complexity 25 (threshold 15), max nesting depth 6.
      Why:  every nested decision point multiplies the paths a reader has to trace
-     Cost: changed 23 times in the last 90 days, 14 modules import it
      Fix:  Decompose Conditional / Extract Method — lift the conditions into
            named predicates, then extract the deepest block
+
+  Cycles
+    orders/reconcile.ts → orders/ledger.ts → orders/reconcile.ts
 
   Files     7 with findings · 35 clean · 42 scanned
   Findings  3 errors · 31 warnings · 8 info
@@ -106,9 +107,19 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
   Duration  0.84s
 ```
 
-Every finding shows the code it is about: the whole span, context either side, and
-the offending columns marked in the severity's colour with a caret ruler underneath
-for terminals that drop backgrounds. `--context <n>` changes the window.
+Every finding shows the code it is about, with the offending columns marked in the
+severity's colour and a caret ruler underneath for terminals that drop backgrounds.
+
+A rule's `Why:` reads the same on every finding it produces, and a file's churn reads
+the same on every finding in it, so each is printed once — the reason on that rule's
+first finding, the cost in the file's header. `--detail full` repeats both on every
+finding and shows two lines of context either side; `--detail terse` is one line per
+finding. `--context <n>` sets the window at any level.
+
+Import cycles, and the contracts a file breaks where an `[architecture]` is declared,
+get sections of their own above the summary. Both are ordinary findings as well —
+anchored on one member of the ring — but a ring read as a ring is the thing you were
+looking for.
 
 Each file carries a grade — `pristine`, `clean`, `fair`, `poor`, `critical` — from
 the same curve as the health score applied to that file's own lines. It is what
@@ -116,9 +127,12 @@ the same curve as the health score applied to that file's own lines. It is what
 where a project-wide average would not.
 
 Clean files are counted, not listed — `--show-passed` lists them. Narrow the view
-with `--severity`, `--rule`, `--category` and `--path`; none of them move the health
-score or the gate, because a CI result that depended on how it was printed would be
-worthless.
+with `--severity`, `--rule`, `--category` and `--path`, or by subtraction with
+`--not-rule`, `--not-category` and `--not-path`. `--confidence` keeps only what rqx is
+certain of or only what it is guessing at, `--fixable` keeps what `rqx fix` could act
+on, and `--search` matches the rule, the file or the evidence. None of them move the
+health score or the gate, because a CI result that depended on how it was printed
+would be worthless.
 
 ## What makes a finding
 
@@ -684,8 +698,8 @@ enough to survive being unmaintained.
 a decision offer to explain themselves or turn the rule off instead.
 
 Cross-file findings arrive without being asked for: the server scans the workspace on
-its own and republishes every file, so ten of the seventy-five rules do not go silently
-missing in an editor that has one file open.
+its own and republishes every file, so the rules that need the whole import graph do
+not go silently missing in an editor that has one file open.
 
 [docs/editor.md](docs/editor.md) has the commands, the custom notifications and a
 paste-in block per editor.
@@ -724,30 +738,58 @@ a public address without `RQX_MCP_TOKEN` rather than handing your source to the 
 
 ## The interface
 
-`rqx` with no arguments opens a full-screen interface. Every screen is reachable
-from the menu and every screen returns to it, so nothing is a dead end:
+`rqx`, or `rqx scan .`, opens a full-screen interface when it has a terminal to
+open it in. Piped, redirected, given `--format json`, given a gate flag, or run
+under CI, it prints the report instead — `--no-tui` says so explicitly.
 
 | Tab | Shows |
 |---|---|
 | Overview | health, severity and grade distributions, what to open first |
 | Findings | every finding with the offending code marked, and the keys to filter, group, open, fix or waive it |
 | Files | one row per file, worst grade first, with churn and blast radius |
+| Complexity | every function it measured — `p` flips the same table to the bottlenecks |
+| Graph | the cycles as rings, then what imports what; `c` for cycles only |
+| Health | which family the score is losing to and what removing it would buy; `s` flips to slop |
 | Plan | the work ranked by what it buys against what it costs, with a budget |
 | Patterns | which design patterns are in use, which are half applied, and where one would fit |
 | Rules | the catalogue, searchable, with each rule's family, metric, fix and why |
-| Config | the effective settings and where each one came from |
 
-`tab` cycles all seven, `1`–`7` jump, `r` runs a scan, `/` searches, `f` filters by rule,
-family and path in the same spelling the flags take, `g` groups, `?` lists the keys of the
-screen you are on, `esc` steps back, `q` leaves and prints what the session found.
+**The mouse works.** The wheel scrolls, a click selects a row, a second click on
+it opens it, and the tab bar and the key hints along the bottom are buttons — a
+hint sends the key it names, so there is nothing to learn twice.
 
-`enter` on a finding opens it in `$EDITOR` at its line and comes back when you leave;
-`enter` on a file shows that file's findings. `a` proves the fixes for a file and shows
-what they would change, `y` writes them, and `x` waives the selected finding once you
-give a reason. A tab opened before a scan says what it will hold rather than refusing to
-open, and nothing but `q` returns you to the shell. It animates only while something is moving — a
-still screen blocks on input and costs nothing to leave open. `--motion off` turns
-the movement off without losing anything the screen says.
+Capture is the cost: while it is on, dragging selects nothing, because the
+terminal is handing the drag to rqx. Most emulators pass `shift`+drag through to
+their own selection. `--no-mouse` turns capture off for a session if yours does
+not.
+
+**`ctrl-p` opens the palette.** Type a few letters of anything — a tab, a
+command, a file in the scan, a rule to explain — and it is the first row. It is
+how `complexity` gets found without reading a menu of twenty-eight subcommands.
+`recommend`, `suppressions`, `patterns`, `techniques` and `levels` open in a
+reading pane through the same functions the command line calls.
+
+`tab` cycles the nine tabs and `1`–`9` jump to one. `r` scans, `w` watches and
+re-analyses on every save, `/` searches, `f` filters by rule, family and path in
+the same spelling the flags take, `g` groups, `?` lists the keys of the screen
+you are on, `esc` steps back, `,` opens the settings, `q` leaves and prints what
+the session found.
+
+`enter` on a finding opens it in `$EDITOR` at its line and comes back when you
+leave; `enter` on a file, a function, a ranked item or a module shows that file's
+findings. `a` proves the fixes for a file and shows what they would change, `y`
+writes them, and `x` waives the selected finding once you give a reason. After
+either, only the file that changed is re-analysed — the cross-file stage still
+runs over everything, so the answer is the one a full scan would give.
+
+A tab opened before a scan says what it will hold rather than refusing to open.
+It animates only while something is moving — a still screen blocks on input and
+costs nothing to leave open; `--motion off` stops the movement without losing
+anything the screen says. Raw mode, the alternate screen and mouse capture come
+off on a normal exit, an error, and a panic.
+
+[docs/interface.md](docs/interface.md) has every key, every tab and the rules for
+when it opens.
 
 ## CI
 

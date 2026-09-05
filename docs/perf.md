@@ -108,5 +108,5 @@ in the footer rather than attributed to a guess:
 `--json` gives one object per row — `name`, `at`, `order`, `loops`, `io`, `reach`,
 `weight`, `sampled` and the `findings` under it, each with its rule, its evidence and
 the technique that answers it. `functions` counts the rows a grouped view stands for.
-The numbers are the ones `rqx scan` gates on, so a dashboard built on this and a gate
+The numbers are the ones `rqx scan` gates on, so a chart built on this and a gate
 built on `loop_nesting` cannot disagree.

@@ -25,6 +25,22 @@ Notable changes. Dates are when the change landed on `main`.
 - `--stats` for counts without findings, `--timings` for where a scan spent itself.
 - Four more MCP tools: `complexity`, `health`, `graph`, `recommend`.
 
+### Added
+
+- **The interface takes a mouse.** The wheel scrolls, a click selects, a second
+  click opens, and the tab bar and key hints are buttons. `--no-mouse` turns
+  capture off where drag-select matters more. [docs](docs/interface.md)
+- **A command palette** on `ctrl-p`: every tab, command, file and rule, narrowing
+  as you type.
+- **Three new screens** — Complexity (and bottlenecks), Graph (the cycle rings and
+  the imports) and Health (and slop) — from data the scan already produced.
+- **`rqx scan` opens the interface** when it has a terminal and nothing about the
+  invocation says otherwise. `--no-tui` prints the report instead.
+- **Filters that subtract**: `--not-rule`, `--not-category`, `--not-path`, plus
+  `--confidence`, `--fixable` and `--search`.
+- **`--detail terse|normal|full`** and a Cycles section in the report.
+- `rqx rules --slugs`, for a script or a shell completion.
+
 ### Removed
 
 - **The browser dashboard.** `rqx serve`, the `html` reporter, the `rqx.dashboard`

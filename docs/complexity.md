@@ -80,5 +80,5 @@ worth looking at a single character.
 
 `--json` gives one object per row — `name`, `at`, `complexity`, `statements`,
 `nesting`, `parameters`, and `functions` for a file or directory row. The numbers are
-the same ones the rules compare against, so a dashboard built on this and a gate built
+the same ones the rules compare against, so a chart built on this and a gate built
 on `cognitive_complexity` cannot disagree.

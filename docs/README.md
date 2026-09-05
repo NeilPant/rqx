@@ -3,6 +3,7 @@
 | Page | What it covers |
 |---|---|
 | [cli.md](cli.md) | Every command and every flag, read off the parser |
+| [interface.md](interface.md) | The full-screen interface: when it opens, its nine tabs, the palette, and the mouse |
 | [configuration.md](configuration.md) | Every table in `RQX.toml`, how the layers merge, levels, and per-subtree overrides |
 | [baseline.md](baseline.md) | Recording the debt a project already has, so a gate can judge only what a change adds |
 | [recommend.md](recommend.md) | Which thresholds fit, which refactoring pays, and what to read first |
