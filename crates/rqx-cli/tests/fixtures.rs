@@ -684,6 +684,11 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
         ),
     ];
 
+    // Measured against the repository the fixtures happen to live in rather than
+    // against the fixtures, so their counts move with rqx's own commit history.
+    // `history_rules_fire_on_a_repository_with_a_shared_decision` covers them.
+    let from_the_repository = ["hotspot", "single-author-file", "shotgun-surgery"];
+
     let mut wrong = Vec::new();
     for (language, table) in expected {
         let counts = counts_by_rule(&scan_language(language, &[]));
@@ -694,7 +699,9 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
             }
         }
         for rule in counts.keys() {
-            if !table.iter().any(|(known, _)| known == rule) {
+            if !table.iter().any(|(known, _)| known == rule)
+                && !from_the_repository.contains(&rule.as_str())
+            {
                 wrong.push(format!("{language} {rule}: fired but is not in the table"));
             }
         }
@@ -1296,6 +1303,8 @@ fn every_applicable_rule_fires_on_every_language() {
     // `history_rules_fire_on_a_repository_with_a_shared_decision` and by
     // `tests/architecture.rs`.
     let history_backed: BTreeSet<String> = [
+        "hotspot",
+        "single-author-file",
         "shotgun-surgery",
         "divergent-change",
         "layer-violation",
@@ -1416,10 +1425,12 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
 
     // Every commit edits both files: the router learns a case and the table learns
     // its label. That is one decision living in two places.
-    for step in 0..8 {
+    for step in 0..14 {
         fs::write(
             root.join("src/router.ts"),
-            format!("export function route(kind: string) {{ return {step}; }}\n"),
+            format!(
+                "export function route(kind: string) {{\n  const answer = {step};\n  return answer;\n}}\n"
+            ),
         )
         .unwrap();
         fs::write(
@@ -1444,6 +1455,19 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
         .output()
         .expect("failed to run rqx");
     let report = String::from_utf8(output.stdout).unwrap();
+
+    // Eight commits by one person, on a file that still has something wrong with it.
+    let sole = findings_for(&report, "single-author-file");
+    assert!(
+        !sole.is_empty(),
+        "a file only one person has ever edited should be reported\n{report}"
+    );
+
+    let hot = findings_for(&report, "hotspot");
+    assert!(
+        !hot.is_empty(),
+        "a file edited fourteen times that is still not clean should be reported\n{report}"
+    );
 
     let shotgun = findings_for(&report, "shotgun-surgery");
     assert!(

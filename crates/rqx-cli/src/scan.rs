@@ -1021,7 +1021,12 @@ impl Collector {
         }
     }
 
-    fn finish_history(&mut self, config: &RqxConfig, history: &crate::history::History) {
+    fn finish_history(
+        &mut self,
+        config: &RqxConfig,
+        at: &mut Positions,
+        history: &crate::history::History,
+    ) {
         if config.scan.churn_days == 0 {
             return;
         }
@@ -1031,6 +1036,68 @@ impl Collector {
                 continue;
             };
             self.impact.set_commits(Arc::from(relative), commits);
+        }
+
+        // Collected first: accepting a finding borrows the collector, and the counts
+        // it reads live on it.
+        let mut churned: Vec<(String, u32, u32, String)> = history
+            .authors_per_file()
+            .into_iter()
+            .filter_map(|(repo_path, (authors, commits))| {
+                let relative = repo_path.strip_prefix(prefix)?;
+                self.analyzed.contains(relative).then(|| {
+                    let findings = self.findings_by_file.get(relative).copied().unwrap_or(0);
+                    let sole = (authors.len() == 1)
+                        .then(|| authors.iter().next().copied().unwrap_or_default())
+                        .unwrap_or_default()
+                        .to_owned();
+                    (relative.to_owned(), commits, findings, sole)
+                })
+            })
+            .collect();
+        churned.sort();
+        for (file, commits, findings, sole) in churned {
+            let path = self.root.join(&file);
+            if commits >= config.thresholds.hotspot_commits
+                && findings > 0
+                && let Some(range) = at.range(&path, WHOLE_FILE)
+            {
+                self.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::Hotspot,
+                        range,
+                        Evidence::Breadth {
+                            counted: format!("commits, with {findings} findings still in it"),
+                            found: commits,
+                            limit: config.thresholds.hotspot_commits,
+                        },
+                        "clean this one first: whatever is wrong here is paid for on \
+                         every change"
+                            .to_owned(),
+                        Vec::new(),
+                    ),
+                );
+            }
+            if !sole.is_empty()
+                && commits >= config.thresholds.sole_author_commits
+                && let Some(range) = at.range(&path, WHOLE_FILE)
+            {
+                self.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::SingleAuthorFile,
+                        range,
+                        Evidence::Breadth {
+                            counted: "commits, all by one person".to_owned(),
+                            found: commits,
+                            limit: config.thresholds.sole_author_commits,
+                        },
+                        "get a second reader onto it before the first one moves on".to_owned(),
+                        Vec::new(),
+                    ),
+                );
+            }
         }
     }
 
@@ -1176,7 +1243,7 @@ impl Collector {
         self.finish_size(config, &mut at);
         self.report_phase(Phase::History);
         let history = history();
-        self.finish_history(config, &history);
+        self.finish_history(config, &mut at, &history);
         self.report_phase(Phase::CoChange);
         self.finish_cochange(root, config, &mut at, &history);
         self.bar.clear();

@@ -12,6 +12,9 @@ use std::process::Command;
 #[derive(Default)]
 pub struct History {
     commits: Vec<Vec<String>>,
+    /// Who wrote each commit, in step with `commits`. Kept beside rather than inside
+    /// so every existing reader of the file lists is unchanged.
+    authors: Vec<String>,
     prefix: String,
 }
 
@@ -23,6 +26,7 @@ impl History {
         if days == 0 {
             return Self {
                 commits: Vec::new(),
+                authors: Vec::new(),
                 prefix,
             };
         }
@@ -31,34 +35,51 @@ impl History {
         let Ok(output) = Command::new("git")
             .arg("-C")
             .arg(root)
-            .args(["log", "--name-only", "--pretty=format:%x00", "--no-merges"])
+            .args([
+                "log",
+                "--name-only",
+                "--pretty=format:%x00%an",
+                "--no-merges",
+            ])
             .arg(format!("--since={days} days ago"))
             .output()
         else {
             return Self {
                 commits: Vec::new(),
+                authors: Vec::new(),
                 prefix,
             };
         };
         if !output.status.success() {
             return Self {
                 commits: Vec::new(),
+                authors: Vec::new(),
                 prefix,
             };
         }
-        let commits = String::from_utf8_lossy(&output.stdout)
-            .split('\0')
-            .map(|commit| {
-                commit
-                    .lines()
-                    .map(str::trim)
-                    .filter(|line| !line.is_empty())
-                    .map(str::to_owned)
-                    .collect::<Vec<String>>()
-            })
-            .filter(|files| !files.is_empty())
-            .collect();
-        Self { commits, prefix }
+        let text = String::from_utf8_lossy(&output.stdout);
+        let mut commits = Vec::new();
+        let mut authors = Vec::new();
+        for record in text.split('\0') {
+            let mut lines = record
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty());
+            let Some(author) = lines.next() else {
+                continue;
+            };
+            let files: Vec<String> = lines.map(str::to_owned).collect();
+            if files.is_empty() {
+                continue;
+            }
+            authors.push(author.to_owned());
+            commits.push(files);
+        }
+        Self {
+            commits,
+            authors,
+            prefix,
+        }
     }
 
     pub fn prefix(&self) -> &str {
@@ -75,6 +96,20 @@ impl History {
 
     /// A commit touching half the tree is a rename or a format run, and says nothing
     /// about which files share a responsibility.
+    /// Who has touched each file, so a file only one person has ever edited can be
+    /// told from one the team shares.
+    pub fn authors_per_file(&self) -> HashMap<&str, (std::collections::BTreeSet<&str>, u32)> {
+        let mut seen: HashMap<&str, (std::collections::BTreeSet<&str>, u32)> = HashMap::new();
+        for (author, files) in self.authors.iter().zip(&self.commits) {
+            for file in files {
+                let entry = seen.entry(file.as_str()).or_default();
+                entry.0.insert(author.as_str());
+                entry.1 += 1;
+            }
+        }
+        seen
+    }
+
     pub fn co_changes(&self) -> impl Iterator<Item = &Vec<String>> {
         self.commits
             .iter()

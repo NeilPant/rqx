@@ -148,13 +148,13 @@ does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-147 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
+149 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
 
 | Family | Rules | What it measures |
 |---|---|---|
 | **Size** | 14 | units that outgrew what a reader can hold |
 | **Abstraction** | 12 | types that model the problem wrong |
-| **Change** | 3 | shapes that make an edit expensive |
+| **Change** | 5 | shapes that make an edit expensive |
 | **Waste** | 28 | code and comments nothing reaches |
 | **Coupling** | 16 | modules that know too much about each other, and dependencies pointing the wrong way |
 | **Flow** | 16 | control flow that says less than it looks like |

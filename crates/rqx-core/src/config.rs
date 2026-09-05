@@ -485,6 +485,8 @@ pub struct Thresholds {
     pub narrated_run: u32,
     pub explanation_ratio: u32,
     pub guard_cascade: u32,
+    pub sole_author_commits: u32,
+    pub hotspot_commits: u32,
     pub max_exits: u32,
     pub max_cases: u32,
     pub min_cases: u32,
@@ -510,7 +512,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 36] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 38] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -533,6 +535,8 @@ impl Thresholds {
         ("narrated_run", &[RuleId::CommentPerLine]),
         ("explanation_ratio", &[RuleId::ExplanationLongerThanCode]),
         ("guard_cascade", &[RuleId::GuardCascade]),
+        ("sole_author_commits", &[RuleId::SingleAuthorFile]),
+        ("hotspot_commits", &[RuleId::Hotspot]),
         ("max_exits", &[RuleId::ManyExits]),
         ("max_cases", &[RuleId::WideSwitch]),
         ("min_cases", &[RuleId::TinySwitch]),
@@ -592,6 +596,8 @@ impl Default for Thresholds {
             narrated_run: 4,
             explanation_ratio: 2,
             guard_cascade: 3,
+            sole_author_commits: 6,
+            hotspot_commits: 12,
             max_exits: 4,
             max_cases: 12,
             min_cases: 3,
@@ -1111,6 +1117,8 @@ mod tests {
                     t.narrated_run,
                     t.explanation_ratio,
                     t.guard_cascade,
+                    t.sole_author_commits,
+                    t.hotspot_commits,
                     t.max_exits,
                     t.max_cases,
                     t.min_cases,

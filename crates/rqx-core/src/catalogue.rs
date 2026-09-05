@@ -158,6 +158,28 @@ catalogue! {
     },
 
     // ---- Change ----------------------------------------------------
+    Hotspot {
+        slug: "hotspot",
+        category: Change,
+        analysis: Syntax,
+        metric: "a file that is edited often and is not clean",
+        fixes: [ExtractClass, ExtractMethod],
+        confidence: Verified,
+        severity: Warning,
+        why: "the cost of what is wrong here is paid on every change, and this file \
+              changes more than any other, so it is where cleaning up buys the most",
+    },
+    SingleAuthorFile {
+        slug: "single-author-file",
+        category: Change,
+        analysis: Syntax,
+        metric: "a file with a history of its own and only one name in it",
+        fixes: [ExtractMethod],
+        confidence: Verified,
+        severity: Info,
+        why: "nobody else has read it closely enough to change it, so whatever it \
+              knows leaves with the person who wrote it",
+    },
     ShotgunSurgery {
         slug: "shotgun-surgery",
         category: Change,

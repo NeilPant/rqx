@@ -247,7 +247,7 @@ impl RuleId {
     /// import graph, and three that are computed across files by the scan although
     /// they declare `Syntax` — clones, and the two churn rules. Listed by id because
     /// `analysis` alone would miss those three.
-    pub const PROJECT_SCOPED: [Self; 12] = [
+    pub const PROJECT_SCOPED: [Self; 14] = [
         Self::ParallelInheritance,
         Self::UnusedExport,
         Self::UnusedFile,
@@ -260,6 +260,8 @@ impl RuleId {
         Self::DuplicateCode,
         Self::DivergentChange,
         Self::ShotgunSurgery,
+        Self::Hotspot,
+        Self::SingleAuthorFile,
     ];
 
     pub fn is_project_scoped(self) -> bool {
@@ -355,12 +357,18 @@ mod tests {
     }
 
     #[test]
-    fn project_scoped_names_every_modules_rule_and_only_the_three_collector_rules_besides() {
+    fn project_scoped_names_every_modules_rule_and_only_the_collector_rules_besides() {
         for rule in RuleId::ALL.iter().copied() {
             let modules = rule.spec().analysis == Analysis::Modules;
+            // Declared `Syntax` because no per-file pass can answer them: three read
+            // git history and one compares every file against every other.
             let collector = matches!(
                 rule,
-                RuleId::DuplicateCode | RuleId::DivergentChange | RuleId::ShotgunSurgery
+                RuleId::DuplicateCode
+                    | RuleId::DivergentChange
+                    | RuleId::ShotgunSurgery
+                    | RuleId::Hotspot
+                    | RuleId::SingleAuthorFile
             );
             assert_eq!(rule.is_project_scoped(), modules || collector, "{rule}");
         }
