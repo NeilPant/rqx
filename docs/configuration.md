@@ -78,6 +78,7 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `fan_in` | 20 | `wide-fan-in` |
 | `max_exits` | 4 | `many-exits` |
 | `max_cases` | 12 | `wide-switch` |
+| `min_cases` | 3 | `tiny-switch` |
 | `callback_depth` | 3 | `callback-nesting` |
 | `feature_envy_ratio` | 3 | `feature-envy` |
 | `data_clump_size` | 3 | `data-clump` |
@@ -88,3 +89,4 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `declaration_distance_lines` | 20 | `distant-declaration` |
 | `expression_operations` | 6 | `obscured-expression` |
 | `configuration_depth` | 3 | `buried-configuration` |
+| `loop_nesting` | 2 | `deep-loop-nesting` |

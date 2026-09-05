@@ -313,20 +313,23 @@ the cases are spelled out in several places, so a new one is found by searching 
 | Reads | resolved scopes and symbols |
 | Fix | Replace Conditional with Polymorphism / Replace Type Code with Polymorphic State |
 
-From `fixtures/typescript/shapes.ts`, line 26:
+From `fixtures/typescript/flow.ts`, line 65:
 
 ```ts
-export function routeOf(kind: string) {
+export function wideSwitch(kind: string): number {
   switch (kind) {
-    case "email": return 1;
-    case "sms": return 2;
-    case "push": return 3;
-    default: return 0;
+    case "a":
+      return 1;
+    case "b":
+      return 2;
+    case "c":
+    default:
+      return 0;
   }
 }
 ```
 
-rqx says: give `kind` a type per case behind one interface, so adding a case is one new class rather than 3 edits
+rqx says: give `kind` a type per case behind one interface, so adding a case is one new class rather than 2 edits
 
 ## Template Method
 

@@ -13,23 +13,23 @@ the same set of cases is now spelled out in several places, so adding a case mea
 | Reads | resolved scopes and symbols |
 | Fix | Replace Conditional with Polymorphism / Replace Type Code with Subclasses / Replace Type Code with Polymorphic State |
 
-From `fixtures/typescript/patterns.ts`, line 5:
+From `fixtures/typescript/flow.ts`, line 65:
 
 ```ts
-  open() {
-    switch (this.state) {
-      case "closed":
-        this.state = "open";
-        return true;
-      case "open":
-        return false;
-      default:
-        return false;
-    }
+export function wideSwitch(kind: string): number {
+  switch (kind) {
+    case "a":
+      return 1;
+    case "b":
+      return 2;
+    case "c":
+    default:
+      return 0;
   }
+}
 ```
 
-rqx says: give `this.state` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 3 edits
+rqx says: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 2 edits
 
 ## `temporary-field`
 

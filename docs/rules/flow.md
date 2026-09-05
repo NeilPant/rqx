@@ -165,3 +165,53 @@ export function decidedNothing(count: number): void {
 
 rqx says: write what should happen, or delete the branch
 
+## `redundant-jump`
+
+control was going there anyway, so the keyword makes a reader stop and look for the condition that is not there
+
+| | |
+|---|---|
+| Measures | a continue or break as the last statement of a loop body |
+| Reported as | info, verified |
+| Reads | the syntax tree alone |
+| Auto-fixable | `rqx fix` (deletion) |
+| Fix | Remove Dead Code |
+
+From `fixtures/typescript/flow.ts`, line 113:
+
+```ts
+    total += item;
+    continue;
+  }
+```
+
+rqx says: delete it; control was going there anyway
+
+## `tiny-switch`
+
+a switch is a table a reader scans, and one with two arms is an if spelled in four more lines
+
+| | |
+|---|---|
+| Measures | arms in a switch, below the count that earns the shape |
+| Reported as | info, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Consolidate Conditional |
+| Tuned by | `thresholds.min_cases` |
+| Default | off; name it under `[rules] enabled` |
+
+From `fixtures/typescript/flow.ts`, line 119:
+
+```ts
+export function twoArmed(kind: string): number {
+  switch (kind) {
+    case "one":
+      return 1;
+    default:
+      return 0;
+  }
+}
+```
+
+rqx says: write it as an if, or give the switch the arms that justify it
+
