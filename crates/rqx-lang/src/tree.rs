@@ -107,6 +107,26 @@ pub fn is_binding_position(
     let Some(parent) = node.parent() else {
         return false;
     };
+    is_binding_position_under(
+        parent,
+        node,
+        parameter_kinds,
+        borrowed,
+        declaring_assignments,
+        lists,
+    )
+}
+
+/// The same answer for a caller that already holds the parent, like `field_name_under`
+/// beside `field_name` and for the same reason.
+pub fn is_binding_position_under<'tree>(
+    parent: Node<'tree>,
+    node: Node<'tree>,
+    parameter_kinds: &[&str],
+    borrowed: &[&str],
+    declaring_assignments: &[&str],
+    lists: &[&str],
+) -> bool {
     if declares_through_list_under(parent, node, declaring_assignments, lists) {
         return true;
     }
@@ -148,6 +168,42 @@ pub fn find_within<'tree>(
     }
     found.sort_by_key(|node| node.start_byte());
     found
+}
+
+/// Every named descendant in source order, without entering what a barrier owns.
+/// The barrier is yielded and its contents are not: a callback is a node the caller
+/// can see, but what it holds belongs to whatever the callback stands in for rather
+/// than to the code around it.
+///
+/// This is the shape that replaced asking each descendant "is there a function
+/// between me and here", which climbed with `Node::parent` — and `parent` walks down
+/// from the root of the tree, so the question cost more than the walk that raised it.
+pub fn descendants_outside<'tree>(
+    node: Node<'tree>,
+    barrier: impl Fn(Node<'tree>) -> bool,
+) -> Vec<Node<'tree>> {
+    let mut found = Vec::new();
+    let mut cursor = node.walk();
+    let mut recursing = true;
+    loop {
+        if recursing {
+            let here = cursor.node();
+            if here.is_named() {
+                found.push(here);
+            }
+            if (here == node || !barrier(here)) && cursor.goto_first_child() {
+                continue;
+            }
+        }
+        if cursor.goto_next_sibling() {
+            recursing = true;
+            continue;
+        }
+        if !cursor.goto_parent() || cursor.node() == node {
+            return found;
+        }
+        recursing = false;
+    }
 }
 
 /// Every named descendant, in source order.

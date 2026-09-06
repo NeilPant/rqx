@@ -1312,15 +1312,13 @@ impl<'a> Walker<'a> {
     /// block was leaving with, including a failure nobody will ever see.
     fn note_exit_from_finally(&mut self, clause: Node<'a>) {
         let profile = self.profile;
-        for node in descendants(clause) {
+        // A `return` inside a callback leaves the callback, not the clause.
+        for node in crate::tree::descendants_outside(clause, |node| profile.is_function(node)) {
             let leaves = matches!(
                 node.kind(),
                 "return_statement" | "break_statement" | "continue_statement"
             ) || profile.throw_kinds.contains(&node.kind());
             if !leaves {
-                continue;
-            }
-            if Self::under_function_within(node, clause, profile) {
                 continue;
             }
             self.out.exits_from_finally.push(Spot {
@@ -1330,20 +1328,6 @@ impl<'a> Walker<'a> {
             });
             return;
         }
-    }
-
-    fn under_function_within(node: Node<'a>, outer: Node<'a>, profile: &LanguageProfile) -> bool {
-        let mut parent = node.parent();
-        while let Some(current) = parent {
-            if current.id() == outer.id() {
-                return false;
-            }
-            if profile.is_function(current) {
-                return true;
-            }
-            parent = current.parent();
-        }
-        false
     }
 
     /// A handler that names the root of the error hierarchy, or names nothing, takes
@@ -1721,12 +1705,9 @@ impl<'a> Walker<'a> {
         // Keyed by where the statement starts, so two assertion calls chained into one
         // statement are the one assertion a reader sees.
         let mut assertions: HashMap<u32, String> = HashMap::new();
-        for node in descendants(body) {
-            // A decision inside a callback belongs to whatever the callback stands in
-            // for — a mock, a render, a comparator — not to the test's own path.
-            if Self::under_function_within(node, body, profile) {
-                continue;
-            }
+        // A decision inside a callback belongs to whatever the callback stands in
+        // for — a mock, a render, a comparator — not to the test's own path.
+        for node in crate::tree::descendants_outside(body, |node| profile.is_function(node)) {
             let kind = node.kind();
             // Deliberately not every branch kind: a ternary is an expression the test
             // evaluates, not a path the test can take.
@@ -3576,25 +3557,29 @@ impl<'a> Walker<'a> {
             if !names_something {
                 continue;
             }
-            let declares = crate::tree::is_binding_position(
-                node,
-                &[],
-                profile.borrowed_name_kinds,
-                profile.local_declaring_kinds,
-                profile.expression_list_kinds,
-            );
+            // Asked once and passed along: `Node::parent` walks down from the root
+            // of the tree to find it, and this loop wanted it five times per node.
+            let above = node.parent();
+            let declares = above.is_some_and(|parent| {
+                crate::tree::is_binding_position_under(
+                    parent,
+                    node,
+                    &[],
+                    profile.borrowed_name_kinds,
+                    profile.local_declaring_kinds,
+                    profile.expression_list_kinds,
+                )
+            });
             // The left of an assignment is a write even where it declares nothing —
             // and `+=` is a read as well, which is what stops it looking like a
             // second write over a value nobody looked at.
             // A language that writes `a, b = x, y` puts the target inside a list even
             // when there is only one of them.
-            let holder = node.parent().filter(|parent| {
+            let holder = above.filter(|parent| {
                 profile.expression_list_kinds.contains(&parent.kind())
                     && parent.named_child_count() == 1
             });
-            let statement = holder
-                .and_then(|list| list.parent())
-                .or_else(|| node.parent());
+            let statement = holder.and_then(|list| list.parent()).or(above);
             let target = |kinds: &[&str]| {
                 statement.is_some_and(|parent| {
                     kinds.contains(&parent.kind())
@@ -3605,14 +3590,14 @@ impl<'a> Walker<'a> {
             };
             // A method's name sits in the same field a declaration's does in some
             // grammars, so `rows.add(x)` would read as a write to `add`.
-            let reaching = node.parent().is_some_and(|parent| {
+            let reaching = above.is_some_and(|parent| {
                 profile.is_call(parent)
                     || profile.is_member_access(parent)
                     || profile.markup_kinds.contains(&parent.kind())
             });
             let assigns = target(profile.assignment_kinds);
             let updates = target(profile.compound_assignment_kinds)
-                && operator_of(node.parent().unwrap_or(node), self.source)
+                && operator_of(above.unwrap_or(node), self.source)
                     .is_some_and(|operator| operator.len() > 1 && operator.ends_with('='));
             let wrote = (declares || assigns || updates) && !reaching;
             // A write lands after everything the right-hand side read, even though
@@ -3623,7 +3608,7 @@ impl<'a> Walker<'a> {
                 node.start_byte()
             };
             let mut block = body.id();
-            let mut parent = node.parent();
+            let mut parent = above;
             while let Some(current) = parent {
                 if current.id() == body.id() {
                     break;
