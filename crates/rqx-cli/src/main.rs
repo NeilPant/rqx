@@ -1227,7 +1227,9 @@ fn update_notice(view: &View, sinks: &[Sink], palette: Palette, enabled: bool) {
         return;
     }
     if let Some(newer) = update::known() {
-        eprintln!(
+        // Through anstream so a redirected stderr gets the words without the escape
+        // sequences, which is the whole reason `paint` exists.
+        anstream::eprintln!(
             "\n  {}",
             brand::paint(palette.style(brand::Ink::Muted), newer.line())
         );
@@ -2207,40 +2209,40 @@ fn run() -> Result<Exit> {
             // environment's opinion about CI does not apply.
             let found = update::fetch()?;
             let Some(newer) = found else {
-                println!(
+                anstream::println!(
                     "\n  rqx {} is the newest release.\n",
                     env!("CARGO_PKG_VERSION")
                 );
                 return Ok(Exit::Clean);
             };
 
-            println!(
+            anstream::println!(
                 "\n  {}",
                 brand::paint(
                     palette.bold(brand::Ink::Accent),
                     format!("rqx {} is out", newer.version)
                 )
             );
-            println!(
+            anstream::println!(
                 "  {}\n",
                 brand::paint(dim, format!("running {}", env!("CARGO_PKG_VERSION")))
             );
             if notes || check {
                 for line in newer.notes.lines() {
-                    println!("  {line}");
+                    anstream::println!("  {line}");
                 }
-                println!();
+                anstream::println!();
             }
             if check || notes {
                 return Ok(Exit::Clean);
             }
 
-            println!(
+            anstream::println!(
                 "  {}\n",
                 brand::paint(dim, "building it with cargo; this takes a minute")
             );
             update::install(&newer.version)?;
-            println!(
+            anstream::println!(
                 "\n  {}\n",
                 brand::paint(
                     palette.bold(brand::Ink::Good),

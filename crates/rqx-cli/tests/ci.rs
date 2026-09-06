@@ -711,3 +711,45 @@ fn the_slug_listing_writes_through_a_handle_rather_than_println() {
         "the slug listing should write through a handle so the error can propagate"
     );
 }
+
+/// The update notice paints colour, so it has to go through the stream that strips
+/// it — the same reason the reporters do. Escape sequences in a redirected log are
+/// the defect this project already fixed once.
+#[test]
+fn the_update_notice_never_writes_escape_sequences_to_a_file() {
+    let cache = std::env::temp_dir().join(format!("rqx-notice-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&cache);
+    std::fs::create_dir_all(cache.join("rqx")).expect("a cache directory");
+    std::fs::write(
+        cache.join("rqx").join("update.json"),
+        format!(
+            r#"{{"checked_at": {}, "version": "9.9.9", "notes": "- something"}}"#,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("a clock")
+                .as_secs()
+        ),
+    )
+    .expect("a cached answer");
+
+    let project = project("notice", &[("a.ts", CLEAN)]);
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .arg("scan")
+        .arg(&project)
+        .args(["--no-tui"])
+        .env("XDG_CACHE_HOME", &cache)
+        .env_remove("CI")
+        .env_remove("RQX_NO_UPDATE_CHECK")
+        .output()
+        .expect("failed to run rqx");
+
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(said.contains("9.9.9 is out"), "no notice at all: {said}");
+    assert!(
+        !said.contains('\u{1b}'),
+        "the notice wrote escape sequences into a pipe"
+    );
+
+    let _ = std::fs::remove_dir_all(&cache);
+    let _ = std::fs::remove_dir_all(&project);
+}
