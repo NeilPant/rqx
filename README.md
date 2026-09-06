@@ -37,33 +37,35 @@ rqx mcp                         # serve the analysis to an agent over MCP
 
 ## Contents
 
-**Start here** — [Install](#install) · [The commands](#the-commands) ·
-[The report](#the-report) · [Anatomy of a finding](#anatomy-of-a-finding)
-
-**What it finds** — [The catalogue](#the-catalogue) ·
-[Design patterns](#design-patterns) ·
-[Architectural constraints](#architectural-constraints) ·
-[Language support](#language-support) ·
-[Cross-language duplication](#cross-language-duplication) ·
-[Performance rules](#performance-rules) ·
-[Confidence levels](#confidence-levels)
-
-**Acting on it** — [Automatic fixes](#automatic-fixes) ·
-[Verifying a refactoring](#verifying-a-refactoring) ·
-[Prioritising the work](#prioritising-the-work) ·
-[Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase) ·
-[Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
-
-**Configuring it** — [Levels](#levels) · [Configuration](#configuration) ·
-[Editing configuration](#editing-configuration) ·
-[Enabling and disabling rules](#enabling-and-disabling-rules) ·
-[Coverage as evidence](#coverage-as-evidence)
-
-**Running it** — [Editors](#editors) · [Agents](#agents) ·
-[The interface](#the-interface) · [CI](#ci) · [Performance](#performance)
-
-**The project** — [Contributing](#contributing) · [References](#references) ·
-[License](#license)
+1. [Install](#install)
+2. [The commands](#the-commands)
+3. [The report](#the-report)
+4. [Anatomy of a finding](#anatomy-of-a-finding)
+5. [The catalogue](#the-catalogue)
+6. [Design patterns](#design-patterns)
+7. [Architectural constraints](#architectural-constraints)
+8. [Language support](#language-support)
+9. [Automatic fixes](#automatic-fixes)
+10. [Verifying a refactoring](#verifying-a-refactoring)
+11. [Prioritising the work](#prioritising-the-work)
+12. [Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase)
+13. [Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
+14. [Editing configuration](#editing-configuration)
+15. [Levels](#levels)
+16. [Configuration](#configuration)
+17. [Enabling and disabling rules](#enabling-and-disabling-rules)
+18. [Cross-language duplication](#cross-language-duplication)
+19. [Performance rules](#performance-rules)
+20. [Coverage as evidence](#coverage-as-evidence)
+21. [Confidence levels](#confidence-levels)
+22. [Editors](#editors)
+23. [Agents](#agents)
+24. [The interface](#the-interface)
+25. [CI](#ci)
+26. [Contributing](#contributing)
+27. [Performance](#performance)
+28. [References](#references)
+29. [License](#license)
 
 Every page under [`docs/`](docs/README.md) goes further than its section here; the
 rule reference in [`docs/rules/`](docs/rules) and the pattern reference in
@@ -76,7 +78,8 @@ cargo install --git https://github.com/jadhamwi21/rqx --locked rqx
 ```
 
 That is the whole installation, and it is meant to be the only one: rqx keeps itself
-up to date afterwards.
+up to date afterwards. It compiles from source and takes about a minute on a modern
+laptop — 185 crates and five tree-sitter grammars, most of them in parallel.
 
 ```bash
 rqx update            # build and install the newest tagged version

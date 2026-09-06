@@ -10,6 +10,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Changed
+
+- **A clean install takes 68 seconds rather than 228.** `codegen-units = 1` compiled
+  the binary crate as one unit no core could share — 183 of those 228 seconds, all
+  of it serialised at the end. Sixteen units cost 2.4% of scan time and 4MB of
+  binary, measured on a 3,456-file corpus, with findings byte-identical.
+
 ## 0.1.1 — 2026-09-06
 
 ### Added
