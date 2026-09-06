@@ -196,6 +196,10 @@ pub fn holds_markup(display: &str) -> bool {
     display.ends_with(".tsx") || display.ends_with(".jsx")
 }
 
+/// Long enough that no file anybody maintains reaches it, short enough that one
+/// pathological file costs a scan seconds rather than the whole run.
+const PARSE_BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
+
 fn parse(
     language: Language,
     profile: &'static LanguageProfile,
@@ -217,9 +221,25 @@ fn parse(
                 entry.insert(parser)
             }
         };
+        // A grammar can go quadratic on input no human wrote — a minified bundle, a
+        // generated blob that slipped the marker check — and a worker stuck in one
+        // takes the whole scan with it. A deadline rather than a size limit, because
+        // size does not predict which files do it.
+        let deadline = std::time::Instant::now() + PARSE_BUDGET;
+        let mut spent = |_: &tree_sitter::ParseState| std::time::Instant::now() > deadline;
+        let bytes = source.as_bytes();
         parser
-            .parse(source, None)
-            .ok_or_else(|| AnalysisError::Parse("unrecoverable syntax error".to_owned()))
+            .parse_with_options(
+                &mut |at, _| bytes.get(at..).unwrap_or_default(),
+                None,
+                Some(tree_sitter::ParseOptions::new().progress_callback(&mut spent)),
+            )
+            .ok_or_else(|| {
+                AnalysisError::Parse(format!(
+                    "gave up after {}s; the grammar was still working",
+                    PARSE_BUDGET.as_secs()
+                ))
+            })
     })
 }
 
