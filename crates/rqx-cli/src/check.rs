@@ -41,7 +41,7 @@ pub fn review_watched(
     root: &Path,
     settings: &Resolved,
     base: &str,
-    watcher: Option<std::sync::mpsc::SyncSender<crate::scan::ScanProgress>>,
+    watch: Option<crate::scan::Watch>,
 ) -> Result<Review> {
     let Some(mut changed) = history::changed_since(root, base) else {
         bail!(
@@ -57,8 +57,8 @@ pub fn review_watched(
         .filter_map(|path| path.strip_prefix(&prefix).map(str::to_owned))
         .collect();
 
-    let outcome = match watcher {
-        Some(watcher) => crate::scan::scan_with_progress(root, settings, watcher)?,
+    let outcome = match watch {
+        Some(watch) => crate::scan::scan_with_progress(root, settings, watch)?,
         None => crate::scan::scan(root, settings)?,
     };
 

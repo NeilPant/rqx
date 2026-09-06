@@ -252,9 +252,7 @@ impl Screen for Scanning {
 
     fn handle(&mut self, key: KeyEvent, _session: &Session) -> Nav {
         match key.code {
-            // Cancelling a scan means going back to what was on screen, not leaving
-            // the program.
-            KeyCode::Esc => Nav::Back,
+            KeyCode::Esc => Nav::Cancel,
             _ => global(key).unwrap_or(Nav::Stay),
         }
     }
@@ -264,6 +262,6 @@ impl Screen for Scanning {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("esc", "leave it running"), ("q", "quit")]
+        &[("esc", "stop the scan"), ("q", "quit")]
     }
 }

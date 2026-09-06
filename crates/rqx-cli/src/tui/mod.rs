@@ -171,6 +171,8 @@ struct App {
     settings: screens::settings::Settings,
     updates: Option<Receiver<ScanProgress>>,
     worker: Option<Worker>,
+    /// The switch the running worker watches, kept so `esc` can throw it.
+    cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
     /// The project as last analysed, so a save costs one file rather than all of them.
     /// Built on the first refresh rather than at startup, because the first scan
     /// streams its progress and this one cannot.
@@ -221,25 +223,43 @@ macro_rules! parts {
 
 impl App {
     fn start_scan(&mut self) {
+        if self.worker.is_some() {
+            return;
+        }
         let (sender, updates) = mpsc::sync_channel(1);
         let (path, config) = (self.session.path.clone(), self.session.config.clone());
+        let watch = scan::Watch::new(sender);
+        self.cancel = Some(Arc::clone(&watch.cancel));
         self.begin(
             updates,
-            thread::spawn(move || scan::scan_with_progress(&path, &config, sender).map(Work::Scan)),
+            thread::spawn(move || scan::scan_with_progress(&path, &config, watch).map(Work::Scan)),
         );
         self.session.base = None;
+    }
+
+    /// Stops the running scan and throws away what it had, because a health score
+    /// computed from half a project describes no project.
+    fn cancel_scan(&mut self) {
+        if let Some(cancel) = &self.cancel {
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     }
 
     /// A review runs in the interface rather than handing the terminal back, so one
     /// menu choice is not the end of the session.
     fn start_review(&mut self, base: String) {
+        if self.worker.is_some() {
+            return;
+        }
         let (sender, updates) = mpsc::sync_channel(1);
         let (path, config) = (self.session.path.clone(), self.session.config.clone());
         let against = base.clone();
+        let watch = scan::Watch::new(sender);
+        self.cancel = Some(Arc::clone(&watch.cancel));
         self.begin(
             updates,
             thread::spawn(move || {
-                let review = check::review_watched(&path, &config, &against, Some(sender))?;
+                let review = check::review_watched(&path, &config, &against, Some(watch))?;
                 let verdict = check::judge(&review, &config.config);
                 Ok(Work::Review(review, verdict))
             }),
@@ -312,7 +332,13 @@ impl App {
             && let Some(worker) = self.worker.take()
         {
             self.session.scanning = false;
+            let stopped = self.cancel.take().is_some_and(|cancel| {
+                cancel.load(std::sync::atomic::Ordering::Relaxed)
+            });
             match worker.join() {
+                // A cancelled scan is not an answer and not a failure: what was on
+                // screen before it started stays there.
+                _ if stopped => {}
                 Ok(Ok(work)) => {
                     match work {
                         Work::Scan(outcome) => self.session.outcome = Some(Arc::new(outcome)),
@@ -323,7 +349,12 @@ impl App {
                         }
                     }
                     self.reset_screens();
-                    self.mode = Mode::Browsing(Tab::Overview);
+                    // Only when the scan is still what is on screen. Leaving the
+                    // scanning screen to read something else and being yanked back
+                    // when the scan lands loses wherever you had got to.
+                    if matches!(self.mode, Mode::Scanning) {
+                        self.mode = Mode::Browsing(Tab::Overview);
+                    }
                 }
                 // Stays on the scanning screen, which has always known how to draw a
                 // failure and never had the chance: the mode used to change in the
@@ -485,6 +516,11 @@ impl App {
             Nav::Redraw => self.dirty = true,
             Nav::Quit => self.quit = true,
             Nav::Scan => self.start_scan(),
+            Nav::Cancel => {
+                self.cancel_scan();
+                self.mode = Mode::Browsing(Tab::Overview);
+                self.dirty = true;
+            }
             // Answered by the palette, which asks for the revision before handing it
             // back as a review. Nothing else can act on it.
             Nav::Ask => {}
@@ -814,6 +850,7 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         settings: screens::settings::Settings::default(),
         updates: None,
         worker: None,
+        cancel: None,
         project: None,
         refresher: None,
         polled_at: std::time::Instant::now(),

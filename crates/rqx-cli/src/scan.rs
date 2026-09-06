@@ -2,6 +2,7 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::thread;
 use std::time::Instant;
@@ -1365,26 +1366,32 @@ impl Collector {
         }
     }
 
+    /// `stopped` skips every cross-file phase rather than the assembly after them:
+    /// what a cancelled scan returns is thrown away, and the phases are the seconds
+    /// worth not spending.
     fn into_outcome(
         mut self,
         root: &Path,
         settings: &Resolved,
         history: impl FnOnce() -> Arc<crate::history::History>,
+        stopped: bool,
     ) -> ScanOutcome {
         use crate::progress::Phase;
         let config = &settings.config;
-        self.report_phase(Phase::Duplicates);
-        self.finish_clones(root, settings);
-        self.finish_ported(root, settings);
-        let mut at = Positions::new(root);
-        self.report_phase(Phase::Imports);
-        self.finish_modules(root, config, &mut at);
-        self.finish_size(config, &mut at);
-        self.report_phase(Phase::History);
-        let history = history();
-        self.finish_history(config, &mut at, &history);
-        self.report_phase(Phase::CoChange);
-        self.finish_cochange(root, config, &mut at, &history);
+        if !stopped {
+            self.report_phase(Phase::Duplicates);
+            self.finish_clones(root, settings);
+            self.finish_ported(root, settings);
+            let mut at = Positions::new(root);
+            self.report_phase(Phase::Imports);
+            self.finish_modules(root, config, &mut at);
+            self.finish_size(config, &mut at);
+            self.report_phase(Phase::History);
+            let history = history();
+            self.finish_history(config, &mut at, &history);
+            self.report_phase(Phase::CoChange);
+            self.finish_cochange(root, config, &mut at, &history);
+        }
         self.bar.clear();
         let retained = self.retained.len() as u32;
         let mut findings: Vec<Finding> = self
@@ -1767,7 +1774,7 @@ pub(crate) fn collect(
     settings: &Resolved,
     bar: crate::progress::Bar,
     total: Option<u32>,
-    watcher: Option<&SyncSender<ScanProgress>>,
+    watch: Option<&Watch>,
     // A thunk rather than the history itself: reading git is the one part of a scan
     // that does not depend on the walk, and waiting for it before draining the
     // channel stalls every worker behind it once the buffer fills.
@@ -1781,7 +1788,7 @@ pub(crate) fn collect(
         bar,
         total,
     );
-    collector.watcher = watcher.cloned();
+    collector.watcher = watch.map(|watch| watch.updates.clone());
     collector.coverage = read_coverage(root, &settings.config.scan.coverage);
     collector.profile = read_profile(root, &settings.config.scan.profile);
     collector.baseline = settings.baseline.clone();
@@ -1843,7 +1850,7 @@ pub(crate) fn collect(
             ScanMessage::Skipped { path, reason } => collector.skipped.push((path, reason)),
         }
     }
-    collector.into_outcome(root, settings, history)
+    collector.into_outcome(root, settings, history, watch.is_some_and(Watch::stopped))
 }
 
 /// Oversized files are rejected here rather than by the walker's own
@@ -2059,24 +2066,54 @@ pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::Wa
     Ok(builder.build_parallel())
 }
 
+/// A caller following a scan, and the switch it stops one with. The two travel
+/// together because anything drawing progress is also the only thing in a position
+/// to decide the answer is no longer wanted.
+#[derive(Clone)]
+pub struct Watch {
+    pub updates: SyncSender<ScanProgress>,
+    pub cancel: Arc<AtomicBool>,
+}
+
+impl Watch {
+    pub fn new(updates: SyncSender<ScanProgress>) -> Self {
+        Self {
+            updates,
+            cancel: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    fn stopped(&self) -> bool {
+        self.cancel.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+/// A scan the caller asked to stop. Distinct from a failure: nothing went wrong, so
+/// nothing is reported and the partial answer is thrown away rather than shown as if
+/// it described the project.
+pub const CANCELLED: &str = "the scan was cancelled";
+
 pub fn scan(root: &Path, settings: &Resolved) -> Result<ScanOutcome> {
     scan_watched(root, settings, None)
 }
 
-pub fn scan_with_progress(
-    root: &Path,
-    settings: &Resolved,
-    watcher: SyncSender<ScanProgress>,
-) -> Result<ScanOutcome> {
-    scan_watched(root, settings, Some(watcher))
+pub fn scan_with_progress(root: &Path, settings: &Resolved, watch: Watch) -> Result<ScanOutcome> {
+    scan_watched(root, settings, Some(watch))
 }
 
 /// The same walker the scan uses, so the total it reports cannot disagree with what is
 /// then scanned. Only directory entries are touched: nothing is opened or parsed.
-fn count_files(root: &Path, config: &rqx_core::config::RqxConfig) -> Result<Option<u32>> {
+fn count_files(
+    root: &Path,
+    config: &rqx_core::config::RqxConfig,
+    watch: Option<&Watch>,
+) -> Result<Option<u32>> {
     let counted = std::sync::atomic::AtomicU32::new(0);
     build_walker(root, config)?.run(|| {
         Box::new(|entry| {
+            if watch.is_some_and(Watch::stopped) {
+                return ignore::WalkState::Quit;
+            }
             if entry.is_ok_and(|entry| entry.file_type().is_some_and(|kind| kind.is_file())) {
                 counted.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
@@ -2089,12 +2126,12 @@ fn count_files(root: &Path, config: &rqx_core::config::RqxConfig) -> Result<Opti
 fn scan_watched(
     root: &Path,
     settings: &Resolved,
-    watcher: Option<SyncSender<ScanProgress>>,
+    watch: Option<Watch>,
 ) -> Result<ScanOutcome> {
     let config = &settings.config;
     // A caller watching the channel is drawing its own progress on this terminal,
     // and a second writer scribbling over it corrupts both.
-    let drawing = watcher.is_none();
+    let drawing = watch.is_none();
     // Git depends on nothing the walk produces, so it reads while the files are being
     // parsed rather than after — four processes on the critical path became one, off it.
     let history = {
@@ -2131,13 +2168,13 @@ fn scan_watched(
     // seconds — and a bar that claims a percentage it cannot know is worse than none.
     bar.update(crate::progress::Phase::Counting, 0, None, 0, "");
     // The interface hears it too, or it opens on zero files with no word of why.
-    if let Some(watcher) = &watcher {
-        let _ = watcher.try_send(ScanProgress {
+    if let Some(watch) = &watch {
+        let _ = watch.updates.try_send(ScanProgress {
             phase: crate::progress::Phase::Counting,
             ..ScanProgress::default()
         });
     }
-    let total = count_files(root, config)?;
+    let total = count_files(root, config, watch.as_ref())?;
 
     let walker = build_walker(root, config)?;
     let cache = cache.and_then(|loading| loading.join().ok());
@@ -2145,7 +2182,7 @@ fn scan_watched(
 
     let collector = thread::scope(|scope| {
         let settings_ref = &*settings;
-        let watcher = watcher.as_ref();
+        let watch = watch.as_ref();
         let root_ref = root;
         let handle = scope.spawn(move || {
             collect(
@@ -2154,7 +2191,7 @@ fn scan_watched(
                 settings_ref,
                 bar,
                 total,
-                watcher,
+                watch,
                 || Arc::new(history.join().unwrap_or_default()),
             )
         });
@@ -2163,6 +2200,9 @@ fn scan_watched(
             let sender = sender.clone();
             let settings = &*settings;
             Box::new(move |entry| {
+                if watch.is_some_and(Watch::stopped) {
+                    return WalkState::Quit;
+                }
                 match entry {
                     Ok(entry) if entry.file_type().is_some_and(|kind| kind.is_file()) => {
                         let size = entry.metadata().ok().map(|meta| meta.len());
@@ -2183,6 +2223,10 @@ fn scan_watched(
         handle.join()
     });
 
+    if watch.is_some_and(|watch| watch.stopped()) {
+        anyhow::bail!(CANCELLED);
+    }
+
     if let Some(cache) = cache {
         cache.save();
     }
@@ -2193,6 +2237,23 @@ fn scan_watched(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cancelled_scan_reports_no_answer_at_all() {
+        let (updates, _drain) = mpsc::sync_channel(1);
+        let watch = Watch::new(updates);
+        watch.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("fixtures");
+        let settings = Resolved::of(rqx_core::config::RqxConfig::default());
+        let Err(failed) = scan_with_progress(&root, &settings, watch) else {
+            panic!("a cancelled scan answered anyway");
+        };
+
+        assert!(failed.to_string().contains(CANCELLED), "{failed:#}");
+    }
 
     fn ranked(file: &str, line: u32) -> Ranked {
         Ranked(Finding {

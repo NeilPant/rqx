@@ -25,6 +25,8 @@ pub enum Nav {
     Back,
     To(Tab),
     Scan,
+    /// Stop the running scan and discard what it had.
+    Cancel,
     /// Re-analyse only what changed on disk. What a fix, a waiver or a save asks for:
     /// the answer is the same as a scan's, and reaching it costs one file.
     Refresh,
