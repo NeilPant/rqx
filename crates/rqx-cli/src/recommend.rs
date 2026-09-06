@@ -53,7 +53,7 @@ pub fn render(
             continue;
         }
         let notes = gather(outcome, settings);
-        writeln!(out, "\n  {}", paint(palette.style(Ink::Text).bold(), title))?;
+        writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), title))?;
         if notes.is_empty() {
             writeln!(
                 out,

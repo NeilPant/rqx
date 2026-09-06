@@ -74,7 +74,7 @@ pub fn render(
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), "Needs a decision"),
+        paint(palette.bold(Ink::Text), "Needs a decision"),
         paint(dim, plural(items.len() as u32, "finding", "findings"))
     )?;
     writeln!(

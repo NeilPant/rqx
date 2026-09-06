@@ -76,7 +76,7 @@ pub fn render(
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), title(view.by)),
+        paint(palette.bold(Ink::Text), title(view.by)),
         paint(
             dim,
             format!(

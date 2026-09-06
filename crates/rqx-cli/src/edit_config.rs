@@ -194,7 +194,7 @@ pub fn run(
             writeln!(
                 out,
                 "\n  {}  {}",
-                paint(palette.style(Ink::Text).bold(), "Settings come from"),
+                paint(palette.bold(Ink::Text), "Settings come from"),
                 paint(dim, "nearest last")
             )?;
             for path in &settings.sources {

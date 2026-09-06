@@ -22,11 +22,7 @@ pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
         ..
     } = rule.spec();
     let dim = palette.style(Ink::Muted);
-    writeln!(
-        out,
-        "\n  {}\n",
-        paint(palette.style(Ink::Accent).bold(), slug)
-    )?;
+    writeln!(out, "\n  {}\n", paint(palette.bold(Ink::Accent), slug))?;
     writeln!(
         out,
         "  {} {}",
@@ -118,7 +114,7 @@ pub fn rules(only: Option<&str>, language: Option<&str>, palette: Palette) -> Re
         writeln!(
             out,
             "\n  {}  {}",
-            paint(palette.style(Ink::Text).bold(), category.title()),
+            paint(palette.bold(Ink::Text), category.title()),
             paint(dim, category.slug())
         )?;
         for rule in category.rules() {
@@ -204,7 +200,7 @@ pub fn write_tally(
     writeln!(
         out,
         "  {}  {}",
-        paint(palette.style(Ink::Text).bold(), format!("{label:34}")),
+        paint(palette.bold(Ink::Text), format!("{label:34}")),
         paint(palette.style(Ink::Muted), counted)
     )?;
     Ok(())
@@ -232,7 +228,7 @@ pub fn levels(palette: Palette, out: &mut dyn Write) -> Result<()> {
         writeln!(
             out,
             "\n  {}  {}",
-            paint(palette.style(Ink::Accent).bold(), level.slug()),
+            paint(palette.bold(Ink::Accent), level.slug()),
             paint(dim, level.summary())
         )?;
         writeln!(
@@ -280,7 +276,7 @@ pub fn techniques(palette: Palette, out: &mut dyn Write) -> Result<()> {
         writeln!(
             out,
             "\n  {}  {}",
-            paint(palette.style(Ink::Text).bold(), group.title()),
+            paint(palette.bold(Ink::Text), group.title()),
             paint(dim, group.summary())
         )?;
         for technique in group.techniques() {

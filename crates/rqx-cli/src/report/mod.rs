@@ -58,11 +58,7 @@ pub fn timings(
         .max()
         .unwrap_or(0)
         .max("total".len());
-    writeln!(
-        out,
-        "\n  {}",
-        paint(palette.style(Ink::Text).bold(), "Timings")
-    )?;
+    writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), "Timings"))?;
     for (stage, took) in &outcome.timings {
         if *took == 0 {
             continue;
@@ -480,5 +476,123 @@ pub mod tests {
             outcome.analyzed.insert(format!("clean{index}.ts"));
         }
         outcome
+    }
+}
+
+/// A monochrome palette exists so a writer that is not a terminal gets text and
+/// nothing else — a file, a ratatui buffer, a string an agent will read. It used to
+/// leak anyway: `style(ink)` is empty under `Monochrome`, but bold is an effect
+/// rather than a colour, so `style(ink).bold()` still rendered `\x1b[1m` and its
+/// reset. `--reporter terminal=<path>` wrote 29 of them into the file and the
+/// interface's reading pane drew them as the literal text `[1m`.
+#[cfg(test)]
+mod plainness {
+    use crate::brand::{ColorDepth, Ink, Palette};
+
+    use super::tests::{outcome_of, outcome_with};
+    use super::*;
+
+    fn plain() -> Palette {
+        Palette::with_depth(ColorDepth::Monochrome)
+    }
+
+    fn rendered(what: &str, render: impl FnOnce(&mut dyn Write)) {
+        let mut out: Vec<u8> = Vec::new();
+        render(&mut out);
+        let text = String::from_utf8_lossy(&out);
+        let escapes = text.matches('\u{1b}').count();
+        assert_eq!(
+            escapes, 0,
+            "{what} emitted {escapes} escape sequences:\n{text}"
+        );
+    }
+
+    #[test]
+    fn no_reporter_emits_an_escape_at_monochrome() {
+        let outcome = outcome_of(&[
+            (rqx_core::rule::RuleId::LongFunction, "a.ts"),
+            (rqx_core::rule::RuleId::MagicNumber, "b.ts"),
+        ]);
+        let filter = FindingFilter::default();
+        let report = Report::scan(&outcome, &filter);
+        let layout = Layout {
+            detail: Detail::Full,
+            palette: plain(),
+            show_passed: true,
+            quiet: false,
+            grouping: Grouping::File,
+            show_suppressed: true,
+            order: Order::Line,
+            top: None,
+            stats: false,
+            context: 2,
+        };
+        for reporter in Reporter::ALL {
+            rendered(reporter.name(), |out| {
+                emit(&report, reporter, &layout, out).expect("a report");
+            });
+        }
+        // The counts-only view takes a different path through the same reporter.
+        let stats = Layout {
+            stats: true,
+            ..layout
+        };
+        rendered("terminal --stats", |out| {
+            emit(&report, Reporter::Terminal, &stats, out).expect("a report");
+        });
+        rendered("timings", |out| {
+            timings(&outcome, plain(), out).expect("timings");
+        });
+    }
+
+    /// The reading pane calls these four, and they were the ones the user saw.
+    #[test]
+    fn no_reference_page_emits_an_escape_at_monochrome() {
+        rendered("techniques", |out| {
+            techniques(plain(), out).expect("techniques");
+        });
+        rendered("levels", |out| {
+            levels(plain(), out).expect("levels");
+        });
+
+        let outcome = outcome_with(&[("a.ts", rqx_core::finding::Severity::Error)], 1);
+        rendered("waivers", |out| {
+            waivers(std::path::Path::new("."), &outcome, false, plain(), out).expect("waivers");
+        });
+        rendered("advice", |out| {
+            advice(&outcome, plain(), out).expect("advice");
+        });
+        let ranked = crate::plan::rank(&outcome, None, 20);
+        rendered("plan", |out| {
+            plan(&outcome, &ranked, None, true, plain(), out).expect("plan");
+        });
+    }
+
+    /// Every style a palette hands out, not only the ones a reporter happens to use
+    /// today: the leak was in `bold`, `mark` and `badge`, none of which the earlier
+    /// test touched because it only compared `style(ink)` against an empty style.
+    #[test]
+    fn every_style_a_monochrome_palette_hands_out_is_empty() {
+        let palette = plain();
+        for ink in [
+            Ink::Accent,
+            Ink::Danger,
+            Ink::Warn,
+            Ink::Good,
+            Ink::Text,
+            Ink::Muted,
+            Ink::Line,
+            Ink::Ground,
+        ] {
+            for (name, style) in [
+                ("style", palette.style(ink)),
+                ("bold", palette.bold(ink)),
+                ("mark", palette.mark(ink)),
+                ("badge", palette.badge(ink)),
+            ] {
+                let painted = crate::brand::paint(style, "x");
+                assert_eq!(painted, "x", "{name}({ink:?}) painted {painted:?}");
+            }
+        }
     }
 }

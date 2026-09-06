@@ -114,7 +114,7 @@ fn text(
         writeln!(
             out,
             "\n  {}  {}",
-            paint(palette.style(Ink::Text).bold(), "Cycles"),
+            paint(palette.bold(Ink::Text), "Cycles"),
             paint(
                 dim,
                 crate::report::plural(outcome.cycles.len() as u32, "ring", "rings")
@@ -136,7 +136,7 @@ fn text(
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), "Imports"),
+        paint(palette.bold(Ink::Text), "Imports"),
         paint(
             dim,
             format!(

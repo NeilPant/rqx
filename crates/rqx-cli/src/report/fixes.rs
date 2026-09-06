@@ -198,7 +198,7 @@ fn write_summary(
 
     let delta = i64::from(outcome.health_after) - i64::from(outcome.health_before);
     let arrow = paint(
-        palette.style(score_ink(outcome.health_after)).bold(),
+        palette.bold(score_ink(outcome.health_after)),
         format!(
             "{} \u{2192} {}",
             outcome.health_before, outcome.health_after

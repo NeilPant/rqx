@@ -24,7 +24,7 @@ pub fn render(
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), "The plan"),
+        paint(palette.bold(Ink::Text), "The plan"),
         paint(
             dim,
             match budget {
@@ -94,7 +94,7 @@ pub fn render(
         "  {}{}  {}",
         paint(dim, format!("{:LABEL_WIDTH$}", "Health")),
         paint(
-            palette.style(score_ink(after)).bold(),
+            palette.bold(score_ink(after)),
             format!("{before} \u{2192} {after}")
         ),
         paint(dim, format!("(+{})", after.saturating_sub(before)))

@@ -295,6 +295,18 @@ impl Palette {
         }
     }
 
+    /// The same, in bold. Its own method rather than `.bold()` on the caller's side
+    /// because bold is an *effect*, not a colour: anstyle renders effects before it
+    /// looks at colour at all, so `style(ink).bold()` emits `\x1b[1m` even from a
+    /// palette that is meant to emit nothing. That is how escape sequences reached
+    /// a file and a ratatui buffer, both of which drew them as text.
+    pub fn bold(self, ink: Ink) -> anstyle::Style {
+        match self.plain_color(ink) {
+            Some(color) => anstyle::Style::new().fg_color(Some(color)).bold(),
+            None => anstyle::Style::new(),
+        }
+    }
+
     /// Marks a span inside a line of code. Reversed rather than tinted, because code
     /// on screen usually already carries the terminal's own colours.
     pub fn mark(self, ink: Ink) -> anstyle::Style {
@@ -302,7 +314,7 @@ impl Palette {
             Some(color) => anstyle::Style::new()
                 .bg_color(Some(color))
                 .fg_color(self.plain_color(Ink::Ground)),
-            None => anstyle::Style::new().underline(),
+            None => anstyle::Style::new(),
         }
     }
 
@@ -314,7 +326,7 @@ impl Palette {
                 .bg_color(Some(color))
                 .fg_color(self.plain_color(Ink::Ground))
                 .bold(),
-            None => anstyle::Style::new().bold(),
+            None => anstyle::Style::new(),
         }
     }
 }

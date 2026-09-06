@@ -26,7 +26,7 @@ pub fn render(
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), "Waivers"),
+        paint(palette.bold(Ink::Text), "Waivers"),
         paint(dim, plural(waived.len() as u32, "finding", "findings"))
     )?;
 

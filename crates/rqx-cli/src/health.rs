@@ -47,7 +47,7 @@ pub fn render(outcome: &ScanOutcome, by: By, palette: Palette, out: &mut dyn Wri
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), "Health"),
+        paint(palette.bold(Ink::Text), "Health"),
         paint(palette.style(score_ink(now)), format!("{now}/100"))
     )?;
 

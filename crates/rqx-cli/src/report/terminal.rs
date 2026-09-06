@@ -117,7 +117,7 @@ fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), "By family"),
+        paint(palette.bold(Ink::Text), "By family"),
         paint(dim, plural(total, "finding", "findings"))
     )?;
     for (family, count) in &families {
@@ -130,11 +130,7 @@ fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()
         )?;
     }
 
-    writeln!(
-        out,
-        "\n  {}",
-        paint(palette.style(Ink::Text).bold(), "By rule")
-    )?;
+    writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), "By rule"))?;
     let width = rules
         .iter()
         .map(|(rule, _)| rule.chars().count())
@@ -183,7 +179,7 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
         writeln!(
             out,
             "\n  {} against {}",
-            paint(layout.palette.style(Ink::Text).bold(), "Reviewing changes"),
+            paint(layout.palette.bold(Ink::Text), "Reviewing changes"),
             paint(layout.palette.style(Ink::Accent), base)
         )?;
     } else {
@@ -194,7 +190,7 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
             out,
             "\n  {}  {}",
             paint(
-                layout.palette.style(Ink::Text).bold(),
+                layout.palette.bold(Ink::Text),
                 outcome.root.display().to_string()
             ),
             paint(
@@ -311,7 +307,7 @@ fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<
         writeln!(
             out,
             "\n  {}  {}",
-            paint(layout.palette.style(Ink::Text).bold(), name.as_str()),
+            paint(layout.palette.bold(Ink::Text), name.as_str()),
             paint(
                 layout.palette.style(Ink::Muted),
                 plural(findings.len() as u32, "finding", "findings")
@@ -384,7 +380,7 @@ fn write_waived(
         out,
         "\n  {}",
         paint(
-            layout.palette.style(Ink::Text).bold(),
+            layout.palette.bold(Ink::Text),
             plural(waived.len() as u32, "waived finding", "waived findings")
         )
     )?;
@@ -782,7 +778,7 @@ fn write_summary(
     writeln!(out)?;
     for row in summary_rows(report, totals.len()) {
         let value = match row.ink {
-            Some(ink) => paint(layout.palette.style(ink).bold(), row.value),
+            Some(ink) => paint(layout.palette.bold(ink), row.value),
             None => row.value,
         };
         writeln!(
@@ -835,7 +831,7 @@ fn write_cycles(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Re
     writeln!(
         out,
         "\n  {}",
-        paint(layout.palette.style(Ink::Text).bold(), "Cycles")
+        paint(layout.palette.bold(Ink::Text), "Cycles")
     )?;
     for ring in cycles {
         writeln!(
@@ -875,7 +871,7 @@ fn write_architecture(
     writeln!(
         out,
         "\n  {}",
-        paint(layout.palette.style(Ink::Text).bold(), "Architecture")
+        paint(layout.palette.bold(Ink::Text), "Architecture")
     )?;
     for finding in broken {
         writeln!(
@@ -913,7 +909,7 @@ fn write_hotspots(
     writeln!(
         out,
         "\n  {}",
-        paint(layout.palette.style(Ink::Text).bold(), "Start here")
+        paint(layout.palette.bold(Ink::Text), "Start here")
     )?;
     for (file, grade) in ranked.into_iter().take(HOTSPOTS) {
         let impact = report.outcome.impact.get(file);

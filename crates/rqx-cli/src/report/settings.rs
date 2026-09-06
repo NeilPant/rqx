@@ -428,7 +428,7 @@ pub fn render(settings: &Resolved, palette: Palette) -> Result<()> {
         writeln!(
             out,
             "  {}",
-            paint(palette.style(Ink::Accent).bold(), "read, in order")
+            paint(palette.bold(Ink::Accent), "read, in order")
         )?;
         for path in &settings.sources {
             writeln!(out, "    {}", path.display())?;

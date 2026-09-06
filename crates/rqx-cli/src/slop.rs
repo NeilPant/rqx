@@ -79,7 +79,7 @@ pub fn render(
     writeln!(
         out,
         "\n  {}  {}",
-        paint(palette.style(Ink::Text).bold(), "Reads as unread"),
+        paint(palette.bold(Ink::Text), "Reads as unread"),
         paint(
             dim,
             format!(

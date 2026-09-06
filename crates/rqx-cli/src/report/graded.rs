@@ -38,7 +38,7 @@ pub fn render(verified: &Verified, palette: Palette, out: &mut dyn Write) -> Res
     writeln!(
         out,
         "\n  {} against {}",
-        paint(palette.style(Ink::Text).bold(), "Verifying the refactoring"),
+        paint(palette.bold(Ink::Text), "Verifying the refactoring"),
         paint(palette.style(Ink::Accent), &verified.base)
     )?;
     writeln!(
@@ -110,7 +110,7 @@ pub fn render(verified: &Verified, palette: Palette, out: &mut dyn Write) -> Res
 
     let row = |out: &mut dyn Write, label: &str, value: String, ink: Option<Ink>| -> Result<()> {
         let painted = match ink {
-            Some(ink) => paint(palette.style(ink).bold(), value),
+            Some(ink) => paint(palette.bold(ink), value),
             None => value,
         };
         writeln!(
@@ -159,7 +159,7 @@ pub fn render(verified: &Verified, palette: Palette, out: &mut dyn Write) -> Res
         "  {}{}  {}",
         paint(dim, format!("{:LABEL_WIDTH$}", "Health")),
         paint(
-            palette.style(score_ink(verified.health_after)).bold(),
+            palette.bold(score_ink(verified.health_after)),
             format!(
                 "{} \u{2192} {}",
                 verified.health_before, verified.health_after

@@ -54,7 +54,7 @@ pub fn render(outcome: &ScanOutcome, palette: Palette, out: &mut dyn Write) -> R
         writeln!(
             out,
             "\n  {}\n",
-            paint(palette.style(Ink::Accent).bold(), family.title())
+            paint(palette.bold(Ink::Accent), family.title())
         )?;
         for pattern in patterns {
             let found = &by_pattern[&pattern];
@@ -73,7 +73,7 @@ pub fn render(outcome: &ScanOutcome, palette: Palette, out: &mut dyn Write) -> R
         out,
         "\n  {}  {}\n",
         paint(
-            palette.style(Ink::Text).bold(),
+            palette.bold(Ink::Text),
             format!("{:NAME_WIDTH$}", "Patterns")
         ),
         paint(
@@ -99,7 +99,7 @@ fn write_pattern(
         out,
         "  {}  {}",
         paint(
-            palette.style(Ink::Text).bold(),
+            palette.bold(Ink::Text),
             format!("{:NAME_WIDTH$}", pattern.name())
         ),
         paint(palette.style(Ink::Muted), pattern.intent())
@@ -183,7 +183,7 @@ pub fn explain(pattern: Pattern, palette: Palette) -> Result<()> {
     writeln!(
         out,
         "\n  {}\n",
-        paint(palette.style(Ink::Accent).bold(), pattern.slug())
+        paint(palette.bold(Ink::Accent), pattern.slug())
     )?;
     for (label, value) in [
         ("Pattern", pattern.name().to_owned()),
@@ -262,7 +262,7 @@ pub fn coverage(palette: Palette) -> Result<()> {
     writeln!(
         out,
         "\n  {}\n",
-        paint(palette.style(Ink::Accent).bold(), "Design patterns")
+        paint(palette.bold(Ink::Accent), "Design patterns")
     )?;
     write_tally(&mut out, palette, "Gang of Four patterns", Pattern::tally())?;
 
@@ -270,7 +270,7 @@ pub fn coverage(palette: Palette) -> Result<()> {
         writeln!(
             out,
             "\n  {}",
-            paint(palette.style(Ink::Text).bold(), family.title())
+            paint(palette.bold(Ink::Text), family.title())
         )?;
         for pattern in family.patterns() {
             write_entry(

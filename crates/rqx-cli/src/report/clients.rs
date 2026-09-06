@@ -10,11 +10,7 @@ use crate::setup::{Client, Home};
 pub fn render(client: &Client, palette: Palette, out: &mut dyn Write) -> Result<()> {
     let dim = palette.style(Ink::Muted);
 
-    writeln!(
-        out,
-        "\n  {}",
-        paint(palette.style(Ink::Text).bold(), client.name)
-    )?;
+    writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), client.name))?;
 
     match client.home {
         Home::Extension(how) => {
@@ -58,11 +54,7 @@ pub fn render(client: &Client, palette: Palette, out: &mut dyn Write) -> Result<
 /// Every editor rqx knows how to set up, and what each one gets.
 pub fn matrix(palette: Palette, out: &mut dyn Write) -> Result<()> {
     let dim = palette.style(Ink::Muted);
-    writeln!(
-        out,
-        "\n  {}\n",
-        paint(palette.style(Ink::Text).bold(), "Editors")
-    )?;
+    writeln!(out, "\n  {}\n", paint(palette.bold(Ink::Text), "Editors"))?;
     for client in Client::ALL {
         writeln!(
             out,
