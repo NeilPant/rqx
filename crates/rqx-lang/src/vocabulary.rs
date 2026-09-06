@@ -188,6 +188,11 @@ pub struct TestVocabulary {
     pub annotations: &'static [(&'static str, &'static str)],
     /// How this framework names a test by convention, when it names one at all.
     pub case_prefixes: &'static [&'static str],
+    /// Whether the framework also fixes the parameter list of a case it finds by
+    /// name. Go's runner will not call `func TestX()` at all, so its `*testing.T` is
+    /// required whether the body reads it or not; a pytest case takes the fixtures it
+    /// asks for, so an unused one there is still the author's to delete.
+    pub case_signature_is_fixed: bool,
     /// Calls made from inside a test that skip or focus the run, matched on their
     /// last segment because the receiver is named by whoever wrote the test.
     pub control_calls: &'static [(&'static str, &'static str)],
@@ -236,6 +241,12 @@ impl TestVocabulary {
         self.case_prefixes
             .iter()
             .any(|prefix| name.starts_with(prefix))
+    }
+
+    /// Whether this function's parameters belong to the framework rather than to
+    /// whoever wrote it, so shortening the list is not an edit anyone can make.
+    pub fn owns_the_signature_of(&self, name: &str) -> bool {
+        self.case_signature_is_fixed && self.names_a_case(name)
     }
 
     pub fn annotation(&self, name: &str) -> Option<&'static str> {

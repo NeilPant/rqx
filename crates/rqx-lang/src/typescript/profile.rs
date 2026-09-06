@@ -341,6 +341,7 @@ pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
         delay_calls: &["sleep", "delay", "wait", "setTimeout", "setInterval"],
         annotations: &[],
         case_prefixes: &[],
+        case_signature_is_fixed: false,
         control_calls: &[],
     },
     markup_runtimes: &["React", "h", "jsx", "Fragment"],

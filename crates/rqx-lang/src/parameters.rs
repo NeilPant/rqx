@@ -120,6 +120,17 @@ impl<'a> Grader<'a> {
             .map(|node| text_of(node, self.source).to_owned())
             .or_else(|| self.enclosing.last().cloned().flatten());
 
+        // Go's runner finds a case by name and calls it with a `*testing.T`. Delete
+        // the parameter and the function is no longer a test the runner will call —
+        // it stops running, silently, which `rqx fix --write` did to this project's
+        // own Go fixtures.
+        if name
+            .as_deref()
+            .is_some_and(|name| self.profile.test.owns_the_signature_of(name))
+        {
+            return;
+        }
+
         let mut unused = Vec::new();
         for (index, parameter) in parameters.iter().enumerate() {
             if self.declares_a_field(*parameter) {

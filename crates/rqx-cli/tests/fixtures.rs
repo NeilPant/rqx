@@ -501,7 +501,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("unused-file", 1),
                 ("unused-fixture", 1),
                 ("unused-local", 2),
-                ("unused-parameter", 30),
+                ("unused-parameter", 28),
                 ("vague-function-name", 2),
                 ("wide-fan-out", 1),
                 ("wide-surface", 1),

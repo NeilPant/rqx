@@ -279,3 +279,64 @@ fn a_fix_that_enables_another_is_taken_in_a_later_round() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// Go's runner finds a case by name and calls it with a `*testing.T`. Deleting the
+/// parameter leaves a function the runner will not call, so the test stops running
+/// and nothing says so — which is what `rqx fix --write` did to this project's own
+/// Go fixtures before the signature was recognised as the framework's.
+#[test]
+fn a_go_test_keeps_the_parameter_its_runner_requires() {
+    let root = std::env::temp_dir().join(format!("rqx-gotest-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a temp project");
+    std::fs::write(root.join("go.mod"), "module example.com/t\n\ngo 1.22\n").expect("go.mod");
+    std::fs::write(
+        root.join("thing.go"),
+        "package thing\n\nfunc Add(a int, b int) int { return a + b }\n",
+    )
+    .expect("thing.go");
+    let test_file = root.join("thing_test.go");
+    let source = "package thing\n\nimport \"testing\"\n\n\
+         func TestAdd(t *testing.T) {\n\tif Add(1, 2) != 3 {\n\t\tpanic(\"no\")\n\t}\n}\n\n\
+         func BenchmarkAdd(b *testing.B) {\n\tAdd(1, 2)\n}\n\n\
+         func helper(unused int) {\n}\n";
+    std::fs::write(&test_file, source).expect("thing_test.go");
+
+    let reported = String::from_utf8_lossy(
+        &std::process::Command::new(env!("CARGO_BIN_EXE_rqx"))
+            .args(["scan"])
+            .arg(&root)
+            .args(["--reporter", "json", "--max-findings", "0"])
+            .env("RQX_NO_CACHE", "1")
+            .output()
+            .expect("failed to run rqx")
+            .stdout,
+    )
+    .into_owned();
+    let named = |parameter: &str| {
+        reported.lines().any(|line| {
+            line.contains("\"unused-parameter\"") && line.contains(&format!("\"{parameter}\""))
+        })
+    };
+    assert!(!named("t"), "reported the `*testing.T` a Go test must take");
+    assert!(
+        !named("b"),
+        "reported the `*testing.B` a benchmark must take"
+    );
+    // The rule still works in the same file: only the framework's own signature is
+    // exempt, not every parameter that happens to sit beside one.
+    assert!(named("unused"), "the rule stopped working:\n{reported}");
+
+    std::process::Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["fix"])
+        .arg(&root)
+        .args(["--write", "--no-tui"])
+        .env("RQX_NO_CACHE", "1")
+        .output()
+        .expect("failed to run rqx");
+    let after = std::fs::read_to_string(&test_file).expect("reading back");
+    assert!(after.contains("func TestAdd(t *testing.T)"), "{after}");
+    assert!(after.contains("func BenchmarkAdd(b *testing.B)"), "{after}");
+
+    let _ = std::fs::remove_dir_all(&root);
+}

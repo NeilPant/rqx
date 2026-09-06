@@ -300,6 +300,7 @@ pub static CPP: LanguageProfile = LanguageProfile {
         delay_calls: &["sleep_for", "sleep", "usleep"],
         annotations: &[],
         case_prefixes: &["TEST"],
+        case_signature_is_fixed: false,
         control_calls: &[("GTEST_SKIP", "skipped")],
     },
     markup_runtimes: &[],

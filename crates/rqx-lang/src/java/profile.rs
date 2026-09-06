@@ -338,6 +338,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         // JUnit finds its cases by annotation rather than by name, so the test is
         // recognised from `@Test` rather than from what it is called.
         case_prefixes: &["test", "Test"],
+        case_signature_is_fixed: false,
         control_calls: &[],
     },
     markup_runtimes: &[],

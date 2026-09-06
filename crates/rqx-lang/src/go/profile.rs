@@ -272,6 +272,7 @@ pub static GO: LanguageProfile = LanguageProfile {
         delay_calls: &["Sleep", "sleep"],
         annotations: &[],
         case_prefixes: &["Test", "Benchmark", "Fuzz"],
+        case_signature_is_fixed: true,
         control_calls: &[
             ("Skip", "skipped"),
             ("SkipNow", "skipped"),

@@ -306,6 +306,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
             ("unittest.skipIf", "skipped"),
         ],
         case_prefixes: &["test_"],
+        case_signature_is_fixed: false,
         control_calls: &[],
     },
     markup_runtimes: &[],
