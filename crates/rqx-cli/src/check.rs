@@ -44,9 +44,19 @@ pub fn review_watched(
     watch: Option<crate::scan::Watch>,
 ) -> Result<Review> {
     let Some(mut changed) = history::changed_since(root, base) else {
+        // The commonest cause by far in CI, and the one nothing in the message used
+        // to point at: `base...HEAD` needs the commit the two share, and a clone one
+        // commit deep has none.
+        let shallow = if history::is_shallow(root) {
+            " This clone is shallow, so it may hold no commit in common with `{base}` \
+             \u{2014} fetch more history (`fetch-depth: 0`, `GIT_DEPTH: 0`)."
+        } else {
+            ""
+        };
         bail!(
             "cannot diff against `{base}`. A review needs a git repository and a revision \
-             that exists; try `--base HEAD~1`, or `rqx scan` to look at every file instead."
+             that exists; try `--base HEAD~1`, or `rqx scan` to look at every file instead.{}",
+            shallow.replace("{base}", base)
         );
     };
     changed.extend(history::uncommitted(root));

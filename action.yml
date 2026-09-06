@@ -98,8 +98,20 @@ runs:
         args+=(--reporter "sarif=$RQX_SARIF" --reporter "markdown=$summary")
 
         if [ -n "$RQX_BASE" ]; then
-          # `check` needs the base branch present; a shallow clone has only one commit.
-          git fetch --no-tags --depth=1 origin "$RQX_BASE" 2>/dev/null || true
+          # A review diffs `base...HEAD`, which needs the commit the two branches
+          # share. `actions/checkout` clones one commit deep by default, so fetching
+          # the base one commit deep leaves two histories with no ancestor between
+          # them and the diff fails. Deepen until there is one, or say why not.
+          git fetch --no-tags origin "$RQX_BASE" 2>/dev/null || true
+          if ! git merge-base HEAD FETCH_HEAD >/dev/null 2>&1; then
+            git fetch --no-tags --deepen=200 origin "$RQX_BASE" 2>/dev/null || true
+          fi
+          if ! git merge-base HEAD FETCH_HEAD >/dev/null 2>&1; then
+            git fetch --no-tags --unshallow origin "$RQX_BASE" 2>/dev/null || true
+          fi
+          if ! git merge-base HEAD FETCH_HEAD >/dev/null 2>&1; then
+            echo "::warning::no commit shared with $RQX_BASE; add fetch-depth: 0 to actions/checkout"
+          fi
           rqx check "${args[@]}" --base "$RQX_BASE"
         else
           rqx scan "${args[@]}"

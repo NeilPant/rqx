@@ -528,3 +528,69 @@ fn a_first_run_is_told_what_it_has_no_way_to_know() {
     assert!(!said.contains("No RQX.toml"), "{said}");
     assert!(!said.contains("Not a git repository"), "{said}");
 }
+
+/// The commonest CI failure there is: a runner clones one commit deep, a review
+/// diffs `base...HEAD`, and the two histories share nothing. The message has to name
+/// that, because nothing else about it looks like a clone-depth problem.
+#[test]
+fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
+    let origin = project("origin", &[("a.ts", CLEAN)]);
+    let git = |root: &Path, args: &[&str]| {
+        Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(args)
+            .output()
+            .expect("git")
+    };
+    git(&origin, &["init", "-q"]);
+    git(&origin, &["add", "-A"]);
+    git(
+        &origin,
+        &[
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-qm",
+            "one",
+        ],
+    );
+    std::fs::write(origin.join("b.ts"), DIRTY).expect("a file");
+    git(&origin, &["add", "-A"]);
+    git(
+        &origin,
+        &[
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-qm",
+            "two",
+        ],
+    );
+
+    let shallow = origin.with_extension("clone");
+    let _ = std::fs::remove_dir_all(&shallow);
+    assert!(
+        Command::new("git")
+            .args(["clone", "-q", "--depth", "1"])
+            .arg(format!("file://{}", origin.display()))
+            .arg(&shallow)
+            .output()
+            .expect("git clone")
+            .status
+            .success()
+    );
+
+    let output = rqx(&shallow, &["check", "--base", "HEAD~1"]);
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert_eq!(code(&output), 2, "{said}");
+    assert!(said.contains("shallow"), "{said}");
+    assert!(said.contains("fetch-depth: 0"), "{said}");
+
+    let _ = std::fs::remove_dir_all(&origin);
+    let _ = std::fs::remove_dir_all(&shallow);
+}

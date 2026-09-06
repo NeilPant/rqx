@@ -96,7 +96,7 @@ Post the review onto the merge request it is reviewing, and grade the commit
 | Flag | What it does |
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
-| `--base` | Review against this revision, so the comment is about the change |
+| `--base` | Review against this revision. Defaults to the merge request's own base, which the pipeline already knows |
 | `--dry-run` | Print the comment and where it would go, and post nothing |
 | `--marker` | Which comment to keep. Two jobs on one merge request each keep their own |
 | `--no-status` | Comment, but leave the commit ungraded |

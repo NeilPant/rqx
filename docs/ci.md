@@ -208,12 +208,22 @@ edited on every re-run rather than repeated, and a commit status carrying the gr
 so the branch shows it without anyone opening a log.
 
 ```sh
-rqx comment --base "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --fail-on error
+rqx comment --fail-on error
 ```
 
 It reads the pipeline's own variables to find the merge request — GitLab's
 `CI_MERGE_REQUEST_IID` and `CI_PROJECT_ID`, GitHub's `GITHUB_REPOSITORY` and event
 payload — and exits 2 with an explanation when it is not running on one.
+
+**`--base` defaults to the merge request's own base**, which the pipeline already
+knows: GitLab's `CI_MERGE_REQUEST_DIFF_BASE_SHA`, GitHub's
+`pull_request.base.sha`. Both are commits that exist in the clone, unlike
+`origin/HEAD`, which a CI clone leaves pointing at nothing. Pass `--base` to
+override it.
+
+The commit the grade lands on is the head of the branch, not the merge commit the
+runner built: on a `pull_request` event `GITHUB_SHA` names a commit that belongs to
+no branch, so a status posted there would show on nothing.
 
 | Flag | Does |
 |---|---|
@@ -230,17 +240,23 @@ limitation and not something rqx can work around. GitHub needs
 Requests go through `curl`. rqx already requires `git`; every CI image has `curl`,
 and the alternative is a TLS stack in a binary whose claim is that it has no runtime
 dependencies. Certificates and proxies stay the system's, which on a self-hosted
-GitLab is where they belong. Alpine images need `apk add curl`.
+GitLab is where they belong. Alpine images need `apk add curl`. Any curl will do —
+the token and the payload go through a `0600` config file rather than the command
+line, where `ps` would show the token to every other job on the runner, and the
+status code comes back through `--write-out` rather than through an option that
+only exists from 7.76.
 
 ### GitLab
 
 ```yaml
 rqx:
   image: alpine
+  variables:
+    GIT_DEPTH: 0
   before_script:
     - apk add --no-cache curl git
   script:
-    - rqx comment --base "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --fail-on error
+    - rqx comment --fail-on error
     - rqx scan . --reporter gitlab=gl-code-quality-report.json
   artifacts:
     reports:
@@ -248,6 +264,11 @@ rqx:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 ```
+
+`GIT_DEPTH: 0` matters for the same reason `fetch-depth: 0` does below: a review
+diffs `base...HEAD`, and GitLab's default shallow clone may hold no commit the two
+branches share. rqx says so by name when it happens rather than reporting a missing
+revision.
 
 The `gitlab` reporter is the other half: GitLab reads it as a Code Quality report and
 draws each finding inline on the diff, where the comment is the summary above it.
@@ -266,7 +287,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - run: rqx comment --base "origin/${{ github.base_ref }}" --fail-on error
+      - run: rqx comment --fail-on error
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```

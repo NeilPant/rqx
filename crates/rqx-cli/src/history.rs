@@ -240,6 +240,17 @@ pub fn changed_since(root: &Path, base: &str) -> Option<Vec<String>> {
     )
 }
 
+/// Whether this clone was cut short. A CI runner fetches one commit by default, and
+/// a diff against a base branch then has no ancestor to diff from.
+pub fn is_shallow(root: &Path) -> bool {
+    Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--is-shallow-repository"])
+        .output()
+        .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).trim() == "true")
+}
+
 /// The commit a baseline was taken at, recorded so whoever opens the file can tell
 /// how old it is.
 pub fn head(root: &Path) -> Option<String> {

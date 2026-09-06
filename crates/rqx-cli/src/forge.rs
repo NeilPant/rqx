@@ -71,7 +71,9 @@ impl Forge {
                 project: std::env::var("CI_PROJECT_ID").context("CI_PROJECT_ID is not set")?,
                 merge_request,
                 sha: std::env::var("CI_MERGE_REQUEST_SOURCE_BRANCH_SHA")
-                    .or_else(|_| std::env::var("CI_COMMIT_SHA"))
+                    .ok()
+                    .filter(|sha| !sha.is_empty())
+                    .or_else(|| std::env::var("CI_COMMIT_SHA").ok())
                     .unwrap_or_default(),
                 token,
                 job: std::env::var("CI_JOB_URL").ok(),
@@ -103,11 +105,7 @@ impl Forge {
                     .unwrap_or_else(|_| "https://api.github.com".to_owned()),
                 repository,
                 pull_request,
-                // The merge commit is what `GITHUB_SHA` names on a pull request, and a
-                // status on it shows against the branch rather than against the merge.
-                sha: std::env::var("GITHUB_HEAD_SHA")
-                    .or_else(|_| std::env::var("GITHUB_SHA"))
-                    .unwrap_or_default(),
+                sha: github_head_sha().unwrap_or_default(),
                 token,
                 job,
             });
@@ -272,61 +270,87 @@ impl Forge {
         }
     }
 
-    /// The payload goes through a file rather than the command line: a finding's text
-    /// is arbitrary source, an argument list is not private on a shared runner, and
-    /// `ARG_MAX` is real.
+    /// Neither the token nor the payload goes on the command line. `ps` is readable
+    /// by every other job on a shared runner and the token is the one secret here;
+    /// a finding's text is arbitrary source, and `ARG_MAX` is real.
+    ///
+    /// The status code comes back through `--write-out` rather than through
+    /// `--fail-with-body`, which landed in curl 7.76: Ubuntu 20.04 and Debian
+    /// bullseye ship older ones, where that option is an unknown-option failure
+    /// rather than a request.
     fn request(&self, verb: &str, url: &str, payload: Option<&Value>) -> Result<String> {
-        let mut command = Command::new("curl");
-        command
-            .args(["--silent", "--show-error", "--fail-with-body"])
+        let mut settings = self
+            .headers()
+            .iter()
+            .map(|header| format!("header = \"{}\"\n", escaped(header)))
+            .collect::<String>();
+
+        let body = payload
+            .map(|payload| tempfile::Temp::holding(&serde_json::to_vec(payload)?))
+            .transpose()?;
+        if let Some(body) = &body {
+            settings.push_str("header = \"Content-Type: application/json\"\n");
+            settings.push_str(&format!(
+                "data-binary = \"@{}\"\n",
+                escaped(&body.path().display().to_string())
+            ));
+        }
+        let settings = tempfile::Temp::holding(settings.as_bytes())?;
+        let answer = tempfile::Temp::named();
+
+        let output = Command::new("curl")
+            .args(["--silent", "--show-error"])
             .args(["--retry", "2", "--retry-connrefused"])
             .args(["--max-time", "30"])
             .args(["--request", verb])
-            .arg(url);
-        for header in self.headers() {
-            command.args(["--header", &header]);
-        }
+            .arg("--config")
+            .arg(settings.path())
+            .arg("--output")
+            .arg(answer.path())
+            .args(["--write-out", "%{http_code}"])
+            .arg(url)
+            .output()
+            .context(
+                "could not run `curl`. rqx posts through it rather than carrying a TLS stack; \
+                 every CI image has it, and alpine needs `apk add curl`.",
+            )?;
 
-        let body = payload
-            .map(|payload| -> Result<tempfile::Temp> { tempfile::Temp::holding(payload) })
-            .transpose()?;
-        if let Some(body) = &body {
-            command
-                .args(["--header", "Content-Type: application/json"])
-                .arg("--data-binary")
-                .arg(format!("@{}", body.path().display()));
-        }
-
-        let output = command.output().context(
-            "could not run `curl`. rqx posts through it rather than carrying a TLS stack; \
-             every CI image has it, and alpine needs `apk add curl`.",
-        )?;
         if !output.status.success() {
             let said = String::from_utf8_lossy(&output.stderr);
-            let answered = String::from_utf8_lossy(&output.stdout);
+            bail!("curl could not reach {}: {}", self.name(), said.trim());
+        }
+        let code: u16 = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse()
+            .unwrap_or_default();
+        let answered = answer.read();
+        if !(200..300).contains(&code) {
             bail!(
-                "{} refused a {verb}: {}{}",
+                "{} refused a {verb} with {code}{}",
                 self.name(),
-                said.trim(),
                 if answered.trim().is_empty() {
                     String::new()
                 } else {
-                    format!(" — {}", answered.trim())
+                    format!(": {}", answered.trim())
                 }
             );
         }
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+        Ok(answered)
     }
 }
 
-/// The pull-request number, from the event payload the runner writes. `GITHUB_REF` is
-/// `refs/pull/N/merge` on a pull request, which is the fallback when the payload is
-/// unreadable.
+/// The event the runner wrote to disk. Everything GitHub does not put in a variable
+/// is in here, and two of the three things this needs are among them.
+fn github_event() -> Option<Value> {
+    let path = std::env::var("GITHUB_EVENT_PATH").ok()?;
+    let text = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+/// The pull-request number. `GITHUB_REF` is `refs/pull/N/merge` on a pull request,
+/// which is the fallback when the payload is unreadable.
 fn github_pull_request() -> Option<String> {
-    if let Ok(path) = std::env::var("GITHUB_EVENT_PATH")
-        && let Ok(text) = std::fs::read_to_string(&path)
-        && let Ok(event) = serde_json::from_str::<Value>(&text)
-        && let Some(number) = event["pull_request"]["number"].as_i64()
+    if let Some(number) = github_event().and_then(|event| event["pull_request"]["number"].as_i64())
     {
         return Some(number.to_string());
     }
@@ -338,8 +362,41 @@ fn github_pull_request() -> Option<String> {
         .map(str::to_owned)
 }
 
-/// A JSON document on disk for the length of one request, removed afterwards even
-/// when the request fails.
+/// The commit a status has to name. On a `pull_request` event `GITHUB_SHA` is the
+/// *merge* commit the runner built, which belongs to no branch — a status posted
+/// there shows on nothing. The head is only in the event payload.
+fn github_head_sha() -> Option<String> {
+    github_event()
+        .and_then(|event| event["pull_request"]["head"]["sha"].as_str().map(str::to_owned))
+        .or_else(|| std::env::var("GITHUB_SHA").ok())
+}
+
+/// What the review should compare against, when the pipeline already knows. Both
+/// forges hand over the merge base, and both clone in a way that leaves `origin/HEAD`
+/// pointing at nothing, so guessing a ref name is worse than asking.
+pub fn base_revision() -> Option<String> {
+    if let Ok(base) = std::env::var("CI_MERGE_REQUEST_DIFF_BASE_SHA")
+        && !base.is_empty()
+    {
+        return Some(base);
+    }
+    if let Some(base) =
+        github_event().and_then(|event| event["pull_request"]["base"]["sha"].as_str().map(str::to_owned))
+    {
+        return Some(base);
+    }
+    None
+}
+
+/// curl's config-file syntax quotes a value and reads backslash escapes inside it,
+/// so a token only survives one after these two.
+fn escaped(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// A file on disk for the length of one request, removed afterwards even when the
+/// request fails. Written `0600`: one of these holds the token, and the temp
+/// directory on a shared runner is shared.
 mod tempfile {
     use std::path::{Path, PathBuf};
 
@@ -348,17 +405,43 @@ mod tempfile {
     pub struct Temp(PathBuf);
 
     impl Temp {
-        pub fn holding(payload: &serde_json::Value) -> Result<Self> {
-            let path = std::env::temp_dir().join(format!(
-                "rqx-post-{}-{}.json",
+        pub fn named() -> Self {
+            Self(std::env::temp_dir().join(format!(
+                "rqx-{}-{}",
                 std::process::id(),
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .map_or(0, |since| since.as_nanos())
-            ));
-            std::fs::write(&path, serde_json::to_vec(payload)?)
-                .with_context(|| format!("writing {}", path.display()))?;
-            Ok(Self(path))
+            )))
+        }
+
+        pub fn holding(bytes: &[u8]) -> Result<Self> {
+            let file = Self::named();
+            file.write(bytes)
+                .with_context(|| format!("writing {}", file.0.display()))?;
+            Ok(file)
+        }
+
+        #[cfg(unix)]
+        fn write(&self, bytes: &[u8]) -> std::io::Result<()> {
+            use std::io::Write;
+            use std::os::unix::fs::OpenOptionsExt;
+
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&self.0)?
+                .write_all(bytes)
+        }
+
+        #[cfg(not(unix))]
+        fn write(&self, bytes: &[u8]) -> std::io::Result<()> {
+            std::fs::write(&self.0, bytes)
+        }
+
+        pub fn read(&self) -> String {
+            std::fs::read_to_string(&self.0).unwrap_or_default()
         }
 
         pub fn path(&self) -> &Path {

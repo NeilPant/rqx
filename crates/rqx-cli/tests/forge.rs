@@ -106,6 +106,12 @@ fn answer(request: &Seen, notes: &mut Vec<Note>) -> (u16, String) {
     let listing = request.path.contains("/notes") || request.path.contains("/comments");
     let paged_past_one = request.path.contains("page=2") || request.path.contains("page=3");
 
+    // A project called `refuse` is how a test asks for the unhappy path: rqx has to
+    // report the code and what the forge said, not "curl exited 22".
+    if request.path.contains("refuse") {
+        return (403, r#"{"message":"insufficient scope"}"#.to_owned());
+    }
+
     match request.verb.as_str() {
         "GET" if listing && paged_past_one => (200, "[]".to_owned()),
         "GET" if listing => {
@@ -292,7 +298,14 @@ fn gitlab_gets_its_header_and_its_commit_status() {
 fn github_uses_its_own_verbs_and_paths() {
     let root = project("github");
     let event = root.join("event.json");
-    std::fs::write(&event, r#"{"pull_request":{"number":7}}"#).expect("an event");
+    // `GITHUB_SHA` on a pull_request event is the merge commit the runner built,
+    // which belongs to no branch: a status posted there shows on nothing. The head
+    // is only in the payload, and that is the one the status has to name.
+    std::fs::write(
+        &event,
+        r#"{"pull_request":{"number":7,"head":{"sha":"beadfeed"}}}"#,
+    )
+    .expect("an event");
     let github: Vec<(&str, &str)> = vec![
         ("GITHUB_REPOSITORY", "acme/widgets"),
         ("GITHUB_API_URL", "http://127.0.0.1:{port}"),
@@ -323,8 +336,15 @@ fn github_uses_its_own_verbs_and_paths() {
     assert!(
         calls
             .iter()
-            .any(|call| call.path == "/repos/acme/widgets/statuses/deadbeef"),
-        "no commit status"
+            .any(|call| call.path == "/repos/acme/widgets/statuses/beadfeed"),
+        "the status did not name the pull request's head: {:?}",
+        calls.iter().map(|c| &c.path).collect::<Vec<_>>()
+    );
+    assert!(
+        !calls
+            .iter()
+            .any(|call| call.path.contains("statuses/deadbeef")),
+        "the status named the merge commit"
     );
     assert!(
         calls.iter().any(|call| {
@@ -391,4 +411,52 @@ fn no_merge_request_is_explained_rather_than_crashed() {
     assert_eq!(output.status.code(), Some(2), "{said}");
     assert!(said.contains("no merge request"), "{said}");
     let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A forge that says no says why. The token is scoped wrong more often than anything
+/// else goes wrong here, and "curl exited 22" sends nobody anywhere.
+#[test]
+fn a_refusal_carries_the_code_and_what_the_forge_said() {
+    let root = project("refused");
+    let forge = stand_in();
+    let refusing: Vec<(&str, &str)> = vec![
+        ("CI_MERGE_REQUEST_IID", "42"),
+        ("CI_PROJECT_ID", "refuse"),
+        ("CI_API_V4_URL", "http://127.0.0.1:{port}/api/v4"),
+        ("GITLAB_TOKEN", "secret"),
+        ("CI_COMMIT_SHA", "abc123"),
+    ];
+
+    let output = comment(&root, forge.port, &refusing, &[]);
+    let _ = drain(&forge);
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+
+    assert_eq!(output.status.code(), Some(2), "{said}");
+    assert!(said.contains("403"), "{said}");
+    assert!(said.contains("insufficient scope"), "{said}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The token is a secret on a shared runner, where `ps` is readable by every other
+/// job. It goes to curl in a file, never in an argument.
+#[test]
+fn the_token_never_reaches_the_command_line() {
+    let source = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("src/forge.rs"),
+    )
+    .expect("forge.rs");
+    let request = source
+        .split_once("fn request(")
+        .expect("a request function")
+        .1;
+    let request = request.split("\n    }\n").next().expect("its body");
+
+    assert!(
+        !request.contains("\"--header\""),
+        "a header is being passed as an argument"
+    );
+    assert!(
+        request.contains("--config"),
+        "headers should go through a curl config file"
+    );
 }

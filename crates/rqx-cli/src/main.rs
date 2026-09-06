@@ -624,9 +624,10 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
-        /// Review against this revision, so the comment is about the change
-        #[arg(long, default_value = "origin/HEAD", value_name = "REF")]
-        base: String,
+        /// Review against this revision. Defaults to the merge request's own base,
+        /// which the pipeline already knows
+        #[arg(long, value_name = "REF")]
+        base: Option<String>,
         /// Print the comment and where it would go, and post nothing
         #[arg(long)]
         dry_run: bool,
@@ -1970,6 +1971,12 @@ fn run() -> Result<Exit> {
             // terminal, and this is a document somebody scrolls.
             settings.config.scan.max_findings = 0;
 
+            // A CI clone is `git init` plus a fetch, so `origin/HEAD` points at
+            // nothing and a branch name is not a local ref; both forges hand over the
+            // merge base as a SHA, which is a revision that exists.
+            let base = base
+                .or_else(forge::base_revision)
+                .unwrap_or_else(|| "origin/HEAD".to_owned());
             let review = check::review(&path, &settings, &base)?;
             let verdict = check::judge(&review, &settings.config);
             let report = Report::reviewed(&review, &verdict);
