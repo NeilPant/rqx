@@ -181,10 +181,7 @@ pub fn probe(
                 .map(|capture| Capture {
                     name: names[capture.index as usize].to_owned(),
                     kind: capture.node.kind(),
-                    text: capture
-                        .node
-                        .utf8_text(source.as_bytes())
-                        .unwrap_or_default()
+                    text: crate::tree::text_of(capture.node, source)
                         .lines()
                         .next()
                         .unwrap_or_default()
