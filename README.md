@@ -725,8 +725,11 @@ rqx setup neovim -w  # append it, after showing what will be added
 | **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Emacs** eglot, lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Vim** coc.nvim, vim-lsp | ✓ | ✓ | ✓ | ✓ | — | coc only | — |
+| **Emacs** eglot | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Emacs** lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **Vim** coc.nvim | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| **Vim** vim-lsp | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| **Kakoune** kak-lsp | ✓ | ✓ | ✓ | ✓ | — | — | — |
 | **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | — |
 
 VS Code and Zed ship extensions that fetch the matching binary themselves; the JetBrains

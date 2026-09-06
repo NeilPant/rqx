@@ -312,6 +312,39 @@ if executable('rqx')
 endif
 ```
 
+## Emacs, with lsp-mode
+
+```elisp
+(with-eval-after-load 'lsp-mode
+  (lsp-register-client
+   (make-lsp-client
+    :new-connection (lsp-stdio-connection '("rqx" "lsp"))
+    :activation-fn (lsp-activate-on "typescript" "typescriptreact" "python"
+                                    "go" "java" "cpp")
+    :add-on? t
+    :server-id 'rqx
+    :initialization-options
+    (lambda () (list :scanOnStartup t :patterns :json-false)))))
+```
+
+`:add-on? t` is what lets rqx sit beside the language's own server. Without it
+lsp-mode treats the two as alternatives and starts whichever it finds first.
+
+## Kakoune, with kak-lsp
+
+```toml
+# kak-lsp.toml
+[language_server.rqx]
+command = "rqx"
+args = ["lsp"]
+filetypes = ["typescript", "tsx", "python", "go", "java", "cpp"]
+roots = ["RQX.toml", ".git"]
+
+[language_server.rqx.settings]
+scanOnStartup = true
+patterns = false
+```
+
 ## Kate
 
 In Kate's **Settings → LSP Client → User Server Settings**:
