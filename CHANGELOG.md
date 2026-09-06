@@ -19,6 +19,18 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   day, and is skipped under CI, off a terminal, with `RQX_NO_UPDATE_CHECK`, or with
   `[update] check = false`.
 
+### Fixed
+
+- **The update check could print into a build log, and never completed.** Its gate
+  asked whether the reporter was a coloured kind — true for the default reporter
+  piped into a log — and leaned on `CI`, which Jenkins, TeamCity and Azure Pipelines
+  do not reliably set. It now requires stdout and stderr to be terminals and names
+  those systems too. Separately the worker was spawned after the report and
+  abandoned, but `process::exit` does not wait for a thread, so `curl` was killed
+  before answering; the check now starts with the scan and is collected at the end.
+- crates.io publishing skips with a notice when no token is configured, rather than
+  failing the last job of a release that had already published.
+
 ### Removed
 
 - **The published binaries.** No tarballs, no `SHA256SUMS`, no five-target build
