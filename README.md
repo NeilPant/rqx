@@ -35,6 +35,40 @@ rqx comment --fail-on error     # post that review onto the merge request
 rqx mcp                         # serve the analysis to an agent over MCP
 ```
 
+## Contents
+
+**Start here** — [Install](#install) · [The commands](#the-commands) ·
+[The report](#the-report) · [Anatomy of a finding](#anatomy-of-a-finding)
+
+**What it finds** — [The catalogue](#the-catalogue) ·
+[Design patterns](#design-patterns) ·
+[Architectural constraints](#architectural-constraints) ·
+[Language support](#language-support) ·
+[Cross-language duplication](#cross-language-duplication) ·
+[Performance rules](#performance-rules) ·
+[Confidence levels](#confidence-levels)
+
+**Acting on it** — [Automatic fixes](#automatic-fixes) ·
+[Verifying a refactoring](#verifying-a-refactoring) ·
+[Prioritising the work](#prioritising-the-work) ·
+[Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase) ·
+[Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
+
+**Configuring it** — [Levels](#levels) · [Configuration](#configuration) ·
+[Editing configuration](#editing-configuration) ·
+[Enabling and disabling rules](#enabling-and-disabling-rules) ·
+[Coverage as evidence](#coverage-as-evidence)
+
+**Running it** — [Editors](#editors) · [Agents](#agents) ·
+[The interface](#the-interface) · [CI](#ci) · [Performance](#performance)
+
+**The project** — [Contributing](#contributing) · [References](#references) ·
+[License](#license)
+
+Every page under [`docs/`](docs/README.md) goes further than its section here; the
+rule reference in [`docs/rules/`](docs/rules) and the pattern reference in
+[`docs/patterns/`](docs/patterns/README.md) are generated from the catalogue itself.
+
 ## Install
 
 ```bash
@@ -69,39 +103,6 @@ stale, unsigned, or missing for the machine in front of you.
 Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
 prints the configuration each one needs — see [Editors](#editors).
 
-<details>
-<summary><b>Contents</b></summary>
-
-- [Install](#install)
-- [The commands](#the-commands)
-- [The report](#the-report)
-- [Anatomy of a finding](#anatomy-of-a-finding)
-- [The catalogue](#the-catalogue)
-- [Design patterns](#design-patterns)
-- [Architectural constraints](#architectural-constraints)
-- [Language support](#language-support)
-- [Automatic fixes](#automatic-fixes)
-- [Verifying a refactoring](#verifying-a-refactoring)
-- [Prioritising the work](#prioritising-the-work)
-- [Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase)
-- [Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
-- [Editing configuration](#editing-configuration)
-- [Levels](#levels)
-- [Configuration](#configuration)
-- [Enabling and disabling rules](#enabling-and-disabling-rules)
-- [Cross-language duplication](#cross-language-duplication)
-- [Performance rules](#performance-rules)
-- [Coverage as evidence](#coverage-as-evidence)
-- [Confidence levels](#confidence-levels)
-- [Editors](#editors)
-- [Agents](#agents)
-- [The interface](#the-interface)
-- [CI](#ci)
-- [Performance](#performance)
-- [Contributing](#contributing)
-- [License](#license)
-
-</details>
 
 ## The commands
 
@@ -984,6 +985,30 @@ Roughly 90% of a cold scan is the per-file parse and walk. The stages after it �
 duplicates, the import graph, git history, co-change — are together about 200ms of
 the 3.2s above, which is why the cache pays: it skips the first part and keeps the
 second.
+
+## References
+
+Every rule names a metric and a refactoring, and neither is invented here. The
+catalogues rqx is traceable to, and what it takes from each:
+
+| Source | What rqx takes from it |
+|---|---|
+| Martin Fowler, *Refactoring: Improving the Design of Existing Code*, 2nd ed. (Addison-Wesley, 2018) | The refactoring names every finding prescribes — Extract Method, Move Method, Replace Nested Conditional with Guard Clauses — and most of the smells behind the Size, Abstraction, Coupling and Change families. `rqx techniques` lists them grouped by the kind of move each one is. |
+| Gamma, Helm, Johnson & Vlissides, *Design Patterns* (Addison-Wesley, 1994) | All twenty-three patterns, cited by section: `rqx explain decorator` prints `Design Patterns §4.4`. `rqx patterns` reports which a project uses, which are half applied, and where one would fit. |
+| Robert C. Martin, *Clean Code* (Prentice Hall, 2008) | The Naming and Flow families, and the argument that a long parameter list, a flag argument and an output parameter are defects rather than style. |
+| Gerard Meszaros, *xUnit Test Patterns* (Addison-Wesley, 2007) | The Tests family — assertionless tests, eager tests, self-asserting tests, unused fixtures and the rest of the suite smells. |
+| Michael Feathers, *Working Effectively with Legacy Code* (Prentice Hall, 2004) | The baseline and ratchet: judging what a change adds rather than what it inherited, so a gate can go on before the debt comes off. |
+| Adam Tornhill, *Your Code as a Crime Scene* (Pragmatic Bookshelf, 2015) | Reading git history as a signal — churn, hotspots, co-change and single-author files, and weighting a finding by what its file costs to change. |
+
+A handful of techniques have no entry in those catalogues because they answer
+something the books predate — `Extract Shared Module`, `Invert Dependency`,
+`Batch the Work`, `Memoize`. Those are rqx's own names, and `rqx techniques` marks
+no distinction: what matters at the point of a finding is that the fix has a name
+and the name means one thing.
+
+The rules that read the import graph, the module surface and the syntax tree are
+built on [tree-sitter](https://tree-sitter.github.io/tree-sitter/), one grammar per
+language, which is why a rule written once works in five.
 
 ## License
 
