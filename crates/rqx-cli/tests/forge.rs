@@ -441,10 +441,9 @@ fn a_refusal_carries_the_code_and_what_the_forge_said() {
 /// job. It goes to curl in a file, never in an argument.
 #[test]
 fn the_token_never_reaches_the_command_line() {
-    let source = std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("src/forge.rs"),
-    )
-    .expect("forge.rs");
+    let source =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/forge.rs"))
+            .expect("forge.rs");
     let request = source
         .split_once("fn request(")
         .expect("a request function")

@@ -159,9 +159,6 @@ impl Screen for Patterns {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[
-            ("↑↓", "move \u{b7} scroll"),
-            ("esc", "back"),
-        ]
+        &[("↑↓", "move \u{b7} scroll"), ("esc", "back")]
     }
 }

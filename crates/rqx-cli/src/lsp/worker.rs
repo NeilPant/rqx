@@ -356,7 +356,8 @@ fn scan_reporting(
         let token = token.clone();
         thread::spawn(move || forward(&publisher, &token, &ticks))
     };
-    let outcome = scan::scan_with_progress(publisher.root(), &job.config, scan::Watch::new(watcher)).ok();
+    let outcome =
+        scan::scan_with_progress(publisher.root(), &job.config, scan::Watch::new(watcher)).ok();
     let _ = reporter.join();
     outcome
 }

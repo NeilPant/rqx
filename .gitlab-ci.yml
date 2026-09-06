@@ -7,7 +7,8 @@
 stages: [check, quality]
 
 default:
-  image: rust:1.90
+  # Must be at least the `rust-version` in Cargo.toml; the workspace is edition 2024.
+  image: rust:1.96
   interruptible: true
 
 variables:

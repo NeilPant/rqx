@@ -367,7 +367,11 @@ fn github_pull_request() -> Option<String> {
 /// there shows on nothing. The head is only in the event payload.
 fn github_head_sha() -> Option<String> {
     github_event()
-        .and_then(|event| event["pull_request"]["head"]["sha"].as_str().map(str::to_owned))
+        .and_then(|event| {
+            event["pull_request"]["head"]["sha"]
+                .as_str()
+                .map(str::to_owned)
+        })
         .or_else(|| std::env::var("GITHUB_SHA").ok())
 }
 
@@ -380,9 +384,11 @@ pub fn base_revision() -> Option<String> {
     {
         return Some(base);
     }
-    if let Some(base) =
-        github_event().and_then(|event| event["pull_request"]["base"]["sha"].as_str().map(str::to_owned))
-    {
+    if let Some(base) = github_event().and_then(|event| {
+        event["pull_request"]["base"]["sha"]
+            .as_str()
+            .map(str::to_owned)
+    }) {
         return Some(base);
     }
     None

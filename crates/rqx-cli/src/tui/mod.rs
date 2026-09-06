@@ -332,9 +332,10 @@ impl App {
             && let Some(worker) = self.worker.take()
         {
             self.session.scanning = false;
-            let stopped = self.cancel.take().is_some_and(|cancel| {
-                cancel.load(std::sync::atomic::Ordering::Relaxed)
-            });
+            let stopped = self
+                .cancel
+                .take()
+                .is_some_and(|cancel| cancel.load(std::sync::atomic::Ordering::Relaxed));
             match worker.join() {
                 // A cancelled scan is not an answer and not a failure: what was on
                 // screen before it started stays there.

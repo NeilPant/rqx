@@ -1,1 +1,11 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Question, or something you are not sure is a bug
+    url: https://github.com/jadhamwi21/rqx/discussions
+    about: Ask here first. An answer often turns into a documentation fix.
+  - name: Security problem
+    url: https://github.com/jadhamwi21/rqx/security/advisories/new
+    about: Report privately. Please do not open a public issue for these.
+  - name: The rule reference
+    url: https://github.com/jadhamwi21/rqx/tree/main/docs/rules
+    about: Every rule, what it measures, and why it fires. Worth checking before reporting a false positive.

@@ -1,0 +1,28 @@
+# A security release nobody notices is a security release nobody applied. Monthly
+# rather than weekly: this is a workspace with one binary and no server, so the cost
+# of a stale minor version is low and the cost of five pull requests a week is not.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      rust:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: npm
+    directory: /editors/vscode
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: gradle
+    directory: /editors/jetbrains
+    schedule:
+      interval: monthly

@@ -1,0 +1,7 @@
+# rqx, on rqx.
+#
+# `fixtures/` is the test corpus: every file in it is a deliberate violation, kept
+# broken so a rule has something to fire on. Reading it here would drown the real
+# findings in planted ones and turn `--fail-on error` red on purpose.
+[ignore]
+patterns = ["fixtures/**"]

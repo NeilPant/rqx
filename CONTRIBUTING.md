@@ -1,15 +1,66 @@
 # Contributing
 
+Issues and pull requests are both welcome, and a question in
+[Discussions](https://github.com/jadhamwi21/rqx/discussions) is welcome before either
+— an answer there often turns out to be a documentation fix, which is a smaller
+change than the one you were about to make.
+
+By opening a pull request you agree that your contribution ships under the
+[MIT licence](LICENSE), the same as the rest of the project. There is no CLA to sign.
+[The code of conduct](CODE_OF_CONDUCT.md) is one page and comes down to arguing about
+the code rather than the person.
+
+## Getting it running
+
+Rust stable, at least the `rust-version` in `Cargo.toml`. Nothing else — no Node, no
+Python, no toolchain manager beyond `rustup`.
+
 ```sh
+git clone https://github.com/jadhamwi21/rqx
+cd rqx
+cargo test --workspace          # 240-ish tests, about twenty seconds
 ./rqx scan ../some-project      # builds, then execs — no install
-cargo test --workspace
-cargo clippy --workspace --all-targets
-cargo fmt --all
 ```
 
 `./rqx` execs the binary rather than using `cargo run`, so cargo's progress output
 never lands in the middle of the interface and paths resolve against your own working
 directory.
+
+Before opening a pull request:
+
+```sh
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
+```
+
+CI runs those three and fails on any of them. It also regenerates the rule reference
+and fails if the checked-in copy has drifted — `rqx docs` writes it, and a rule added
+without it leaves the documentation describing a tool that no longer exists.
+
+**`fixtures/` is a minefield on purpose.** Every file in it is a deliberate violation,
+kept broken so a rule has something to fire on. The repository's `RQX.toml` tells rqx
+not to read it; do not run `rqx fix` over it, and do not "clean up" a fixture you
+notice is bad code. If a fixture changes, the counts in
+`crates/rqx-cli/tests/fixtures.rs` change with it, and the checked-in rule reference
+usually does too.
+
+## Where things live
+
+| Directory | Holds |
+|---|---|
+| `crates/rqx-core` | the catalogue, findings, scoring, configuration |
+| `crates/rqx-lang` | the tree-sitter collectors — one rule set, five languages |
+| `crates/rqx-cli` | the command line, the interface, LSP, MCP, the reporters |
+| `fixtures/` | one deliberately broken file per language per rule |
+| `docs/` | the prose reference; `docs/rules/` is generated |
+| `editors/` | VS Code, Zed and JetBrains clients |
+
+## Commits
+
+One logical change each, and a message that says *why* rather than what — the diff
+already says what. Short subject, and a body when the reason is not obvious from the
+subject.
 
 ## Adding a rule
 

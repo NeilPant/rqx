@@ -216,7 +216,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -251,7 +251,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -275,7 +275,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -312,7 +312,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -350,7 +350,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -369,7 +369,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -402,7 +402,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -433,7 +433,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -459,7 +459,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -479,7 +479,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -497,7 +497,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -524,7 +524,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -545,7 +545,7 @@ enum Command {
         /// Show every capture of every match, not just where it starts
         #[arg(long)]
         captures: bool,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -570,7 +570,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -598,7 +598,7 @@ enum Command {
         view: View,
         #[command(flatten)]
         gate: Gate,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -642,7 +642,7 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -660,7 +660,7 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
         #[command(subcommand)]
@@ -673,7 +673,7 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         /// Serve Streamable HTTP on this address instead of speaking over stdio
         #[arg(long, value_name = "ADDR")]
         http: Option<std::net::SocketAddr>,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -681,7 +681,7 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
     Lsp {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -884,7 +884,7 @@ enum CacheAction {
     Status {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Read settings from this file instead of discovering `RQX.toml`
+        /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },

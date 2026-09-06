@@ -1,6 +1,12 @@
 # Changelog
 
-Notable changes. Dates are when the change landed on `main`.
+Notable changes, newest first, in the shape
+[keep a changelog](https://keepachangelog.com/en/1.1.0/) suggests: Added, Changed,
+Removed, Fixed. Dates are when the release was tagged.
+
+Anything user-visible goes under `## Unreleased` in the same pull request that
+changes it — `tools/release.sh` turns that section into the release, and the pipeline
+posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
@@ -24,9 +30,6 @@ Notable changes. Dates are when the change landed on `main`.
 - **The `noise` family** — five rules for text that costs a reader and buys nothing.
 - `--stats` for counts without findings, `--timings` for where a scan spent itself.
 - Four more MCP tools: `complexity`, `health`, `graph`, `recommend`.
-
-### Added
-
 - **The interface takes a mouse.** The wheel scrolls, a click selects, a second
   click opens, and the tab bar and key hints are buttons. `--no-mouse` turns
   capture off where drag-select matters more. [docs](docs/interface.md)
@@ -43,6 +46,18 @@ Notable changes. Dates are when the change landed on `main`.
   `--confidence`, `--fixable` and `--search`.
 - **`--detail terse|normal|full`** and a Cycles section in the report.
 - `rqx rules --slugs`, for a script or a shell completion.
+- **`rqx comment` posts the review onto the merge request.** GitLab and GitHub, one
+  comment edited on every re-run rather than repeated, and a commit status carrying
+  the grade so the branch shows it without anyone opening a job log. `--dry-run`
+  prints what it would post. [docs](docs/ci.md)
+- **A scan screen that says what is happening**: the phase it is in, the ones behind
+  it and what each took, files against total, lines a second, an estimate, a bar per
+  language filling as files land, and the paths going past.
+- **Grouped help.** `rqx --help` puts twenty-eight commands under five headings, and
+  a test fails the build until a new one is placed. `s`, `c`, `f` and `v` are
+  aliases for the four you type all day.
+- One dim line each when a run has no `RQX.toml`, and when it is not in a git
+  repository and the churn rules therefore found nothing.
 
 ### Removed
 
@@ -62,6 +77,15 @@ Notable changes. Dates are when the change landed on `main`.
 - **A cycle is reported as a ring** — `a.ts → b.ts → c.ts → a.ts` — anchored on the
   import that opens it rather than on byte zero of whichever file sorted first.
 - `verify` recognises an Extract Method that stayed in the file it came from.
+- **`rqx` scans on launch and opens on your own code**, rather than on a menu. The
+  menu is gone; the palette shows the same five groups when nothing is typed and
+  ranks matches when something is, and `esc` steps back through where you have been.
+- **One key, one meaning.** `s` was severity, sort and slop on three screens; it is
+  sort everywhere, `m` flips a screen's other mode, `g` groups, `>` raises the
+  severity floor. A test holds every screen's key table to one vocabulary.
+- `esc` on the scan screen stops the scan instead of leaving it running behind you.
+- The parser gives up on a file after five seconds, so one pathological minified
+  file cannot hold a worker forever.
 
 ### Fixed
 
@@ -75,3 +99,22 @@ Notable changes. Dates are when the change landed on `main`.
   all named a repository that does not exist.
 - The VS Code extension registered six commands the language client already
   registers from the server, so it failed to start at all.
+- **A monochrome palette printed escape codes.** `--reporter terminal=<path>` wrote
+  29 of them into the file and the reading pane showed `[1m` as text: bold is an
+  effect rather than a colour, so an empty style still rendered one. Every reporter
+  is now asserted to emit no `\x1b` at all when colour is off.
+- **`rqx scan .` on this repository took 5.05s; it takes 0.36s.** Resolving imports
+  walked the filesystem five levels deep ignoring `prune_dirs`, which on a build
+  directory is 209,803 `stat` calls. A cold scan of a 3,456-file TypeScript project
+  went from 6.05s to 2.60s: text is sliced rather than re-validated, node kinds are
+  compared as integers, the walker carries its own ancestry instead of asking
+  tree-sitter to re-descend for a parent, git blames run in parallel, and the cache
+  loads beside the walk rather than before it. Findings are byte-identical.
+- **The unused-fixture check was cubic** in the size of a test file. A 6,899-line
+  pytest file took 36s to scan and now takes 0.47s.
+- **The commit status named the wrong commit on GitHub.** `GITHUB_SHA` on a
+  pull_request event is the merge commit, which is on no branch. The token also went
+  to `curl` as an argument, where `ps` showed it to every other job on the runner.
+- `--config` said it read a file "instead of discovering `RQX.toml`" while layering
+  it over what it discovered, which is what `docs/configuration.md` describes and
+  what it still does. The flag now says so.

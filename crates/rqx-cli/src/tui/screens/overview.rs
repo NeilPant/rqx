@@ -249,8 +249,6 @@ impl Screen for Overview {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[
-            ("esc", "back"),
-        ]
+        &[("esc", "back")]
     }
 }

@@ -250,10 +250,6 @@ impl Screen for Rules {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[
-            ("↑↓", "move"),
-            ("/", "search"),
-            ("esc", "back"),
-        ]
+        &[("↑↓", "move"), ("/", "search"), ("esc", "back")]
     }
 }

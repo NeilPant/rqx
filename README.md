@@ -872,7 +872,9 @@ fail_on = "warning"
 max_findings = 0
 ```
 
-## Working on it
+## Contributing
+
+One Rust workspace, no other toolchain:
 
 ```
 ./rqx scan ../some-project      # runs from the source tree, no install
@@ -884,9 +886,20 @@ cargo test --workspace
 `./rqx` builds and then execs the binary rather than using `cargo run`, so cargo's
 progress output never lands in the middle of the interface, and paths still resolve
 against your own working directory. Build output goes to stderr, so
-`./rqx scan . --reporter json > out.json` stays valid JSON.
+`./rqx scan . --reporter json > out.json` stays valid JSON. To install it properly:
+`cargo install --path crates/rqx-cli`.
 
-To install it properly: `cargo install --path crates/rqx-cli`.
+Rules are a declarative table, and [CONTRIBUTING.md](CONTRIBUTING.md) walks through
+adding one — the compiler names most of the steps, and a rule no fixture can trigger
+does not compile. Precision numbers from a real repository are the review.
+
+[Code of conduct](CODE_OF_CONDUCT.md) ·
+[Security](SECURITY.md) ·
+[Releasing](RELEASING.md) ·
+[Changelog](CHANGELOG.md) ·
+[Discussions](https://github.com/jadhamwi21/rqx/discussions)
+
+MIT licensed.
 
 ## Performance
 

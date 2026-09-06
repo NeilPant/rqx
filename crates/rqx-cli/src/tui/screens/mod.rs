@@ -85,7 +85,8 @@ mod vocabulary {
     #[test]
     fn keys_mean_one_thing() {
         let spoken: std::collections::HashMap<&str, &str> = VOCABULARY.iter().copied().collect();
-        let mut seen: std::collections::HashMap<&str, (&str, &str)> = std::collections::HashMap::new();
+        let mut seen: std::collections::HashMap<&str, (&str, &str)> =
+            std::collections::HashMap::new();
 
         for (screen, keys) in every_screen() {
             for (key, label) in keys.keys() {

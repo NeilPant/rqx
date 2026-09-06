@@ -4,6 +4,13 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "The rule catalogue, findings, scoring and configuration behind rqx."
+documentation = "https://docs.rs/rqx-core"
 
 [dependencies]
 flate2 = "1.1.10"

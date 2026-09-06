@@ -28,6 +28,11 @@ jobs:
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      # In CI as well as in the pull-request checklist, because a formatting diff
+      # nobody asked for is noise in every review that follows it.
+      - name: Format
+        run: cargo fmt --all -- --check
+
       # The rule reference is generated from the catalogue. A rule added without
       # regenerating it leaves the docs describing a tool that no longer exists.
       - name: Documentation is current

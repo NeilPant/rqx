@@ -2131,11 +2131,7 @@ fn count_files(
     Ok(Some(counted.into_inner()).filter(|total| *total > 0))
 }
 
-fn scan_watched(
-    root: &Path,
-    settings: &Resolved,
-    watch: Option<Watch>,
-) -> Result<ScanOutcome> {
+fn scan_watched(root: &Path, settings: &Resolved, watch: Option<Watch>) -> Result<ScanOutcome> {
     let config = &settings.config;
     // A caller watching the channel is drawing its own progress on this terminal,
     // and a second writer scribbling over it corrupts both.
@@ -2193,15 +2189,9 @@ fn scan_watched(
         let watch = watch.as_ref();
         let root_ref = root;
         let handle = scope.spawn(move || {
-            collect(
-                receiver,
-                root_ref,
-                settings_ref,
-                bar,
-                total,
-                watch,
-                || Arc::new(history.join().unwrap_or_default()),
-            )
+            collect(receiver, root_ref, settings_ref, bar, total, watch, || {
+                Arc::new(history.join().unwrap_or_default())
+            })
         });
         let cached = cache.as_ref();
         walker.run(|| {
@@ -2250,7 +2240,9 @@ mod tests {
     fn a_cancelled_scan_reports_no_answer_at_all() {
         let (updates, _drain) = mpsc::sync_channel(1);
         let watch = Watch::new(updates);
-        watch.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        watch
+            .cancel
+            .store(true, std::sync::atomic::Ordering::Relaxed);
 
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
