@@ -1100,8 +1100,9 @@ impl Collector {
             std::mem::take(&mut self.todos).into_iter().collect();
         noted.sort_by(|left, right| left.0.cmp(&right.0));
         noted.truncate(MOST_FILES_WORTH_BLAMING);
-        for (file, spots) in noted {
-            let dates = crate::history::blame_dates(&self.root, &file);
+        let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
+        let blamed = crate::history::blame_dates_for(&self.root, &names);
+        for ((file, spots), dates) in noted.into_iter().zip(blamed) {
             if dates.is_empty() {
                 continue;
             }

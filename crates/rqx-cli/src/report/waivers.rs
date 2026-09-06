@@ -8,6 +8,29 @@ use crate::brand::{Ink, Palette, paint, severity_ink};
 use crate::report::plural;
 use crate::scan::ScanOutcome;
 
+/// Who waived each finding, and when. One blame per file rather than one per
+/// finding: a file with twelve waivers used to cost twelve processes, and every one
+/// of them read the same file.
+fn authors(
+    root: &Path,
+    waived: &[&rqx_core::suppress::Suppressed],
+) -> std::collections::HashMap<(String, u32), (String, String)> {
+    let mut files: Vec<std::sync::Arc<str>> = waived
+        .iter()
+        .map(|waived| std::sync::Arc::clone(&waived.finding.location.file))
+        .collect();
+    files.sort();
+    files.dedup();
+
+    let mut found = std::collections::HashMap::new();
+    for (file, lines) in files.iter().zip(crate::history::blame_files(root, &files)) {
+        for (line, who) in lines {
+            found.insert((file.to_string(), line), who);
+        }
+    }
+    found
+}
+
 pub fn render(
     root: &Path,
     outcome: &ScanOutcome,
@@ -40,6 +63,7 @@ pub fn render(
     }
     writeln!(out)?;
 
+    let blamed = authors(root, &waived);
     for waived in &waived {
         let finding = &waived.finding;
         writeln!(
@@ -62,10 +86,8 @@ pub fn render(
         if let Some(until) = &waived.until {
             aside.push(format!("until {until}"));
         }
-        // Read one line at a time rather than blaming every file up front: a project
-        // waives a handful of findings and blaming all of them is the slower way.
         if let Some((author, when)) =
-            crate::history::blame_line(root, &finding.location.file, waived.at.line)
+            blamed.get(&(finding.location.file.to_string(), waived.at.line))
         {
             aside.push(format!("{author}, {when}"));
         }
@@ -78,8 +100,10 @@ pub fn render(
 }
 
 pub fn json(root: &Path, outcome: &ScanOutcome, out: &mut dyn Write) -> Result<()> {
+    let every: Vec<&rqx_core::suppress::Suppressed> = outcome.suppressed.iter().collect();
+    let blamed = authors(root, &every);
     for waived in &outcome.suppressed {
-        let blame = crate::history::blame_line(root, &waived.finding.location.file, waived.at.line);
+        let blame = blamed.get(&(waived.finding.location.file.to_string(), waived.at.line));
         writeln!(
             out,
             "{}",

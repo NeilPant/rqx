@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 /// Everything the scan needs from git, read once. The per-file counts and the
 /// co-change sets came from two `git log` invocations differing only in their format
@@ -247,6 +248,95 @@ pub fn head(root: &Path) -> Option<String> {
 /// When each line of one file was last written, as a civil date. One `git blame`
 /// answers for the whole file, which is what makes this affordable on a scan: the
 /// per-line form costs a process each.
+/// The same, for a list of files at once. Every blame is its own process, so they
+/// wait on each other rather than on a core: two hundred of them serially is eight
+/// seconds with the machine idle.
+pub fn blame_dates_for(root: &Path, files: &[Arc<str>]) -> Vec<HashMap<u32, String>> {
+    at_once(files, |file| blame_dates(root, file))
+}
+
+/// The same, carrying the author beside the date.
+pub fn blame_files(root: &Path, files: &[Arc<str>]) -> Vec<HashMap<u32, (String, String)>> {
+    at_once(files, |file| blame_file(root, file))
+}
+
+fn at_once<T: Send>(files: &[Arc<str>], blame: impl Fn(&str) -> T + Sync) -> Vec<T> {
+    /// More processes than this and git's own start-up cost dominates; fewer and
+    /// the wait is not covered.
+    const AT_ONCE: usize = 8;
+
+    let mut answers: Vec<T> = Vec::with_capacity(files.len());
+    for batch in files.chunks(AT_ONCE) {
+        std::thread::scope(|scope| {
+            let running: Vec<_> = batch
+                .iter()
+                .map(|file| {
+                    let blame = &blame;
+                    scope.spawn(move || blame(file))
+                })
+                .collect();
+            for handle in running {
+                if let Ok(answer) = handle.join() {
+                    answers.push(answer);
+                }
+            }
+        });
+    }
+    answers
+}
+
+/// Who last touched each line, and when. One process for the whole file: the
+/// per-line form costs a process each, and the porcelain output already carries
+/// every line.
+pub fn blame_file(root: &Path, file: &str) -> HashMap<u32, (String, String)> {
+    let Ok(output) = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["blame", "--porcelain", "--"])
+        .arg(file)
+        .output()
+    else {
+        return HashMap::new();
+    };
+    if !output.status.success() {
+        return HashMap::new();
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    // Porcelain names the commit on every line but describes it only once, so the
+    // author and the date are gathered by sha and joined to the lines afterwards.
+    let mut who: HashMap<&str, (String, String)> = HashMap::new();
+    let mut lines: Vec<(u32, &str)> = Vec::new();
+    let mut sha = "";
+    for entry in text.lines() {
+        if let Some((head, rest)) = entry.split_once(' ')
+            && head.len() == 40
+            && head.chars().all(|c| c.is_ascii_hexdigit())
+        {
+            sha = head;
+            if let Some(number) = rest
+                .split_whitespace()
+                .nth(1)
+                .and_then(|number| number.parse().ok())
+            {
+                lines.push((number, head));
+            }
+            continue;
+        }
+        if let Some(name) = entry.strip_prefix("author ") {
+            who.entry(sha).or_default().0 = name.trim().to_owned();
+        }
+        if let Some(stamp) = entry.strip_prefix("author-time ")
+            && let Ok(seconds) = stamp.trim().parse::<i64>()
+        {
+            who.entry(sha).or_default().1 = rqx_core::suppress::civil_date(seconds / 86_400);
+        }
+    }
+    lines
+        .into_iter()
+        .filter_map(|(line, sha)| Some((line, who.get(sha)?.clone())))
+        .collect()
+}
+
 pub fn blame_dates(root: &Path, file: &str) -> HashMap<u32, String> {
     let Ok(output) = Command::new("git")
         .arg("-C")
@@ -292,35 +382,6 @@ pub fn blame_dates(root: &Path, file: &str) -> HashMap<u32, String> {
         .filter_map(|(line, sha)| Some((line, when.get(sha)?.clone())))
         .collect();
     dates
-}
-
-pub fn blame_line(root: &Path, file: &str, line: u32) -> Option<(String, String)> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["blame", "--porcelain", "-L"])
-        .arg(format!("{line},{line}"))
-        .arg("--")
-        .arg(file)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    let field = |name: &str| {
-        text.lines()
-            .find_map(|entry| entry.strip_prefix(name))
-            .map(|value| value.trim().to_owned())
-    };
-    let author = field("author ")?;
-    // Porcelain reports the time as a unix stamp; the date is the part a reader of
-    // a waiver list wants, and it is already how `until` is written.
-    let when = field("author-time ")
-        .and_then(|stamp| stamp.parse::<i64>().ok())
-        .map(|stamp| rqx_core::suppress::civil_date(stamp / 86_400))
-        .unwrap_or_default();
-    Some((author, when))
 }
 
 /// Uncommitted work counts as changed too, so `rqx check` is useful before a commit
@@ -394,5 +455,32 @@ mod tests {
         let history = History::read(root, 3650);
         let counts = history.commits_per_file();
         assert!(counts.values().all(|count| *count > 0));
+    }
+
+    /// Running the blames at once has to answer what running them one at a time
+    /// answers; the only thing that may differ is how long it took.
+    #[test]
+    fn blaming_together_agrees_with_blaming_one_at_a_time() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(std::path::Path::parent)
+            .expect("the workspace root");
+        if !root.join(".git").exists() {
+            return;
+        }
+        let files: Vec<Arc<str>> = ["Cargo.toml", "README.md", "crates/rqx-cli/src/history.rs"]
+            .into_iter()
+            .filter(|file| root.join(file).exists())
+            .map(Arc::from)
+            .collect();
+        if files.is_empty() {
+            return;
+        }
+
+        let together = blame_dates_for(root, &files);
+        assert_eq!(together.len(), files.len(), "one answer per file, in order");
+        for (file, batched) in files.iter().zip(together) {
+            assert_eq!(batched, blame_dates(root, file), "{file} disagreed");
+        }
     }
 }
