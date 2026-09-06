@@ -28,6 +28,16 @@ fn rqx(root: &Path, args: &[&str]) -> Output {
         .expect("failed to run rqx")
 }
 
+/// A command that takes no path, so it cannot go through `rqx`.
+fn rqx_bare(args: &[&str]) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(args)
+        .output()
+        .expect("failed to run rqx");
+    assert!(output.status.success(), "rqx exited with {}", output.status);
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
 fn code(output: &Output) -> i32 {
     output.status.code().unwrap_or(-1)
 }
@@ -593,4 +603,74 @@ fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
 
     let _ = std::fs::remove_dir_all(&origin);
     let _ = std::fs::remove_dir_all(&shallow);
+}
+
+/// `--slugs` is what a script and a shell completion read. Ignoring the family or
+/// language beside it hands back the whole catalogue with no sign it was narrowed.
+#[test]
+fn slugs_are_narrowed_the_same_way_the_listing_is() {
+    let all = rqx_bare(&["rules", "--slugs"]);
+    let performance = rqx_bare(&["rules", "performance", "--slugs"]);
+    let go = rqx_bare(&["rules", "--language", "go", "--slugs"]);
+
+    let count = |text: &str| text.lines().filter(|line| !line.is_empty()).count();
+    assert_eq!(count(&all), 185, "the catalogue is not 185 rules");
+    assert!(
+        count(&performance) < count(&all) && count(&performance) > 0,
+        "the family was ignored: {} of {}",
+        count(&performance),
+        count(&all)
+    );
+    assert!(
+        count(&go) < count(&all) && count(&go) > 0,
+        "the language was ignored: {} of {}",
+        count(&go),
+        count(&all)
+    );
+    for slug in performance.lines() {
+        assert!(all.lines().any(|line| line == slug), "{slug} is not a rule");
+    }
+}
+
+/// The README names the number of commands. It was wrong by one within a week of
+/// being written, which is what a number in prose does unless something counts it.
+#[test]
+fn the_readme_counts_the_commands_correctly() {
+    let readme =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../README.md"))
+            .expect("README.md");
+    let help = rqx_bare(&["--help"]);
+
+    let spelled = [
+        ("Twenty-six", 26),
+        ("Twenty-seven", 27),
+        ("Twenty-eight", 28),
+        ("Twenty-nine", 29),
+        ("Thirty", 30),
+    ];
+    let claimed = spelled
+        .iter()
+        .find(|(word, _)| readme.contains(&format!("{word} of them, under five headings")))
+        .map(|(_, count)| *count)
+        .expect("the README no longer says how many commands there are");
+
+    // A command row is `  <name>[, <alias>]   <Description>`: two spaces, the name,
+    // then a capitalised sentence. The example block under the groups is indented the
+    // same way but describes itself in lower case, which is what separates the two.
+    let real = help
+        .lines()
+        .filter(|line| line.starts_with("  ") && !line.starts_with("   "))
+        .filter_map(|line| line.trim_start().split_once("  "))
+        .filter(|(name, description)| {
+            name.starts_with(|character: char| character.is_ascii_lowercase())
+                && description
+                    .trim_start()
+                    .starts_with(|character: char| character.is_ascii_uppercase())
+        })
+        .count();
+
+    assert_eq!(
+        claimed, real,
+        "the README says {claimed}, `rqx --help` lists {real}"
+    );
 }

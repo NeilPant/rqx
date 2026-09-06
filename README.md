@@ -24,13 +24,14 @@ One Rust binary. No Node, no npm, no runtime dependencies.
 ---
 
 ```
-rqx                             # the interface: scan, then browse everything
+rqx                             # scans, then opens on your own code
 rqx scan ./src                  # report everything
 rqx fix --write                 # apply the fixes with one right answer, proven first
 rqx plan --budget 20            # rank the work, and say what the score will be after
 rqx perf --profile cpu.pprof    # what grows faster than its input, and what ran
 rqx verify --base main          # did the refactoring you named actually happen
 rqx check --base main           # review only what changed, fail CI on the gate
+rqx comment --fail-on error     # post that review onto the merge request
 rqx mcp                         # serve the analysis to an agent over MCP
 ```
 
@@ -60,6 +61,7 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
 <summary><b>Contents</b></summary>
 
 - [Install](#install)
+- [The commands](#the-commands)
 - [The report](#the-report)
 - [What makes a finding](#what-makes-a-finding)
 - [The catalogue](#the-catalogue)
@@ -69,42 +71,74 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
 - [It applies the fixes that have one right answer](#it-applies-the-fixes-that-have-one-right-answer)
 - [Did the refactoring actually happen](#did-the-refactoring-actually-happen)
 - [Which five do I fix on Monday](#which-five-do-i-fix-on-monday)
+- [Putting it on a codebase that already exists](#putting-it-on-a-codebase-that-already-exists)
+- [Reading a codebase you did not write](#reading-a-codebase-you-did-not-write)
+- [Changing a setting](#changing-a-setting)
 - [Levels](#levels)
 - [Configuration](#configuration)
 - [Families can be switched on and off](#families-can-be-switched-on-and-off)
 - [The same rule, written twice, in two languages](#the-same-rule-written-twice-in-two-languages)
+- [Where the time goes](#where-the-time-goes)
 - [What the tests actually ran](#what-the-tests-actually-ran)
 - [Confidence is never overstated](#confidence-is-never-overstated)
 - [Editors](#editors)
 - [Agents](#agents)
 - [The interface](#the-interface)
 - [CI](#ci)
-- [Working on it](#working-on-it)
+- [Contributing](#contributing)
 - [Performance](#performance)
 
 </details>
 
+## The commands
+
+Twenty-seven of them, under five headings. `rqx --help` prints this list; each
+command's own `--help` prints its flags, and [docs/cli.md](docs/cli.md) is the whole
+reference.
+
+| | |
+|---|---|
+| **The loop** | `scan` · `check` · `fix` · `verify` · `comment` |
+| **Look closer** | `complexity` · `perf` · `health` · `slop` · `graph` · `plan` · `patterns` · `recommend` |
+| **Reference** | `rules` · `explain` · `techniques` · `levels` |
+| **Project** | `init` · `config` · `baseline` · `suppressions` · `cache` |
+| **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` |
+
+The four you type all day have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
+`rqx v`. A twenty-eighth command fails the build until it is placed under a heading,
+so the list cannot quietly go back to being flat.
+
+Inside the interface the same list is `ctrl-p`, by name.
+
 ## The report
 
-```
- FAIL  src/orders/reconcile.ts  3 findings
+Real output, narrowed to two rules so it fits here:
 
-   ● cognitive-complexity  88:3  warning
-    88 │   private async reconcileBatch(batch: Batch): Promise<Result> {
+```
+  .  2 files · 11 findings · health 66/100
+
+  FAIL   src/orders/reconcile.ts  fair · 2 of 8 findings shown
+        Cost: changed 1 time in the last 90 days, 1 module imports it
+
+   ● deep-nesting  7:17  warning
+     7 │   private async reconcileBatch(batch: Batch): Promise<number> {
        │                 ^^^^^^^^^^^^^^
-     Cognitive complexity 25 (threshold 15), max nesting depth 6.
-     Why:  every nested decision point multiplies the paths a reader has to trace
-     Fix:  Decompose Conditional / Extract Method — lift the conditions into
-           named predicates, then extract the deepest block
+     Nesting reaches 7 levels (threshold 3).
+     Why:  at this depth the conditions that led here are off-screen, so the
+           preconditions of the innermost code are invisible where it matters
+     Fix:  Replace Nested Conditional with Guard Clauses — invert the outer
+           conditions of `reconcileBatch` into early returns so the innermost
+           code sits at depth 1
 
   Cycles
-    orders/reconcile.ts → orders/ledger.ts → orders/reconcile.ts
+    src/orders/ledger.ts → src/orders/reconcile.ts → src/orders/ledger.ts
 
-  Files     7 with findings · 35 clean · 42 scanned
-  Findings  3 errors · 31 warnings · 8 info
-  Rules     6 of 42 fired
-  Health    73/100
-  Duration  0.84s
+  Files     2 with findings · 0 clean · 2 scanned
+  Findings  0 errors · 10 warnings · 1 info · 8 not shown
+  Grades    1 clean · 1 fair
+  Rules     9 of 185 fired
+  Health    66/100
+  Duration  0.02s
 ```
 
 Every finding shows the code it is about, with the offending columns marked in the
@@ -479,13 +513,15 @@ rqx slop           # which files read as written rather than read
 `rqx complexity` is the one to run first on an unfamiliar tree:
 
 ```
-  Complexity  37410 functions measured
+  Complexity  39873 functions measured
 
                         cplx  stmts  nest args  where
+    (anonymous)           61    102     5    1  …/chart/layers/CandleLayer.tsx:82
+    TradingChartCanvas    60    221     4    1  …/chart/TradingChart.tsx:230
     submit                53    102     5    3  …/challenges.service.ts:658
     projectMarkdown       52     84     4    1  …/markdown-projection.ts:30
 
-    p50 0 · p90 2 · p99 9 · 137 of 37410 over the threshold of 15
+    p50 0 · p90 2 · p99 11 · 180 of 39873 over the threshold of 15
 ```
 
 That last line says whether the threshold is describing the exceptions or the norm.
@@ -604,7 +640,7 @@ its syntax changes completely.
 
 Most of what a profiler eventually points at is a shape a reader could have named
 from the source: a query inside a loop, a linear search inside a loop, an await per
-item, a pattern recompiled on every pass. Eight rules read those shapes, and
+item, a pattern recompiled on every pass. Ten rules read those shapes, and
 `rqx perf` ranks the functions carrying them by what they cost against how much of
 the project leans on the file they are in.
 
@@ -728,6 +764,8 @@ in a context window, and a tool that returned one would leave nothing to fix it 
 | `verify` | What a diff did to every finding: resolved, improved, relocated, introduced |
 | `analyze` | An unsaved buffer, without touching the disk |
 | `perf` | Where the work grows faster than the data, ranked by cost against reach |
+| `complexity` · `health` | The distributions the score comes from, and what each part costs |
+| `recommend` · `graph` | What to do about the project, and what imports what |
 | `patterns` · `explain` · `rules` · `config` | The catalogues, and the settings in force |
 
 All fifteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
@@ -739,7 +777,7 @@ a public address without `RQX_MCP_TOKEN` rather than handing your source to the 
 ## The interface
 
 `rqx`, or `rqx scan .`, opens a full-screen interface when it has a terminal to
-open it in. Piped, redirected, given `--format json`, given a gate flag, or run
+open it in. Piped, redirected, given `--reporter json`, given a gate flag, or run
 under CI, it prints the report instead — `--no-tui` says so explicitly.
 
 **It starts scanning before it draws the first frame**, so the project is on
@@ -772,7 +810,7 @@ not.
 
 **`ctrl-p` opens the palette.** Type a few letters of anything — a tab, a
 command, a file in the scan, a rule to explain — and it is the first row. It is
-how `complexity` gets found without reading a list of twenty-seven subcommands.
+how `complexity` gets found without reading the list at all.
 `recommend`, `suppressions`, `techniques` and `levels` open in a reading pane
 through the same functions the command line calls.
 
@@ -854,12 +892,19 @@ request shows `rqx: B · 12 findings` beside the other checks without anyone
 opening a job log.
 
 ```sh
-rqx comment --base "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --fail-on error
+rqx comment --fail-on error
 ```
 
-`--dry-run` prints what it would post and posts nothing. `--marker` keeps two
-jobs' comments apart on one merge request. `--no-status` comments without
-grading. The exit code is the gate's, so the job fails the same way `check` does.
+There is no `--base` there because the pipeline already knows it: GitLab hands over
+`CI_MERGE_REQUEST_DIFF_BASE_SHA` and GitHub the pull request's base, both of them
+commits that exist in a CI clone — which `origin/HEAD` is not. Pass `--base` to
+override it.
+
+`--dry-run` prints what it would post and posts nothing, which is the right first
+run. `--marker` keeps two jobs' comments apart on one merge request. `--no-status`
+comments without grading. The exit code is the gate's, so the job fails the same way
+`check` does. GitLab needs a token with `api` scope — `CI_JOB_TOKEN` cannot write
+merge-request notes — and GitHub needs `pull-requests: write`.
 
 The gate lives in `RQX.toml` and every part of it can be overridden per run with
 `--fail-on`, `--allow-findings` and `--min-health`, so a strict gate on the
@@ -903,10 +948,28 @@ MIT licensed.
 
 ## Performance
 
-A 12,330-file, 265k-line mixed-language repository: **~1.7s**, with memory a function
-of thread count rather than file count. Output is byte-identical regardless of how
-many threads it ran on, so a CI gate is never flaky.
+Measured on an M3 Pro — five performance cores, six efficiency cores — with the
+cache off for the cold numbers:
 
-Narrowing to one language narrows the work: the same tree with only TypeScript
-enabled is 2,070 files in **~0.37s**, because a file no enabled language claims is
-never opened.
+| | Files | Code lines | Cold | Warm |
+|---|---:|---:|---:|---:|
+| A TypeScript codebase | 3,456 | 461,090 | **3.2s** | **0.41s** |
+| Five languages in one tree | 4,440 | 178,344 | **1.6s** | **0.67s** |
+
+Warm is the same answer from `.rqx/cache.json` for every file whose contents have not
+moved; the cross-file stage — the import graph, the clone index, the churn rules —
+runs again either way, because a deleted import changes what the graph says about
+files nobody touched.
+
+The walk scales with the cores it is given. On the TypeScript codebase: one thread
+24.3s, two 12.3s, four 6.4s, eight 3.8s, all eleven 3.3s — **7.3× on 5+6**, which is
+close to what that mix of cores can give.
+
+**Output is byte-identical whatever the thread count**, so a CI gate is never flaky;
+a test asserts it. Memory is a function of thread count rather than file count, so a
+large repository does not need a large machine.
+
+Roughly 90% of a cold scan is the per-file parse and walk. The stages after it —
+duplicates, the import graph, git history, co-change — are together about 200ms of
+the 3.2s above, which is why the cache pays: it skips the first part and keeps the
+second.

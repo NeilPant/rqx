@@ -8,8 +8,8 @@ from the same scan by the same functions.
 
 It opens when every one of these holds: stdout is a terminal, `TERM` is set and is
 not `dumb`, `CI` is unset, the window is at least 60x20, `--no-tui` was not given,
-and no flag that shapes the output was — `-q`, `--stats`, `--timings`, `--format`,
-`--reporter`, `--watch`, or any gate flag. Otherwise the plain report is printed,
+and no flag that shapes the output was — `-q`, `--stats`, `--timings`, `--reporter`,
+`--watch`, or any gate flag. Otherwise the plain report is printed,
 unchanged.
 
 A filter given on the command line opens the interface already filtered, so
