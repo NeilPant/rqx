@@ -229,3 +229,59 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def social_preview(colours: dict[str, tuple[int, int, int]]) -> None:
+    """The 1280x640 card GitHub shows when the repository is linked anywhere else.
+
+    Written here rather than drawn by hand because it reads the same brand table and
+    the same owl as every other asset, so none of them can drift from the others.
+    GitHub has no API for uploading it: Settings -> General -> Social preview.
+    """
+    from PIL import ImageDraw, ImageFont
+
+    width, height = 1280, 640
+    ground = colours["Ground"]
+    text = colours["Text"]
+    signal = colours["Signal"]
+    card = Image.new("RGB", (width, height), ground)
+    draw = ImageDraw.Draw(card)
+
+    owl = Image.open(ASSETS / "mascot-256.png").convert("RGBA")
+    owl = owl.resize((320, 320), Image.LANCZOS)
+    card.paste(owl, (104, 160), owl)
+
+    def font(size: int, bold: bool = False):
+        for name in (
+            "/System/Library/Fonts/SFNSDisplay.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans%s.ttf" % ("-Bold" if bold else ""),
+        ):
+            try:
+                return ImageFont.truetype(name, size)
+            except OSError:
+                continue
+        return ImageFont.load_default(size)
+
+    # The rule sits clear of the descender on `q`, which a bar under the baseline
+    # would otherwise read as a strikethrough.
+    left = 472
+    draw.text((left, 138), "rqx", font=font(132, bold=True), fill=text)
+    draw.rectangle([(left, 318), (left + 104, 325)], fill=signal)
+    draw.text(
+        (left, 358),
+        "Static analysis that names the refactoring",
+        font=font(40),
+        fill=text,
+    )
+    draw.text((left, 414), "TypeScript · Python · Go · Java · C++", font=font(35), fill=signal)
+    draw.text(
+        (left, 478),
+        "185 rules · applies the mechanical fixes · grades a diff",
+        font=font(28),
+        fill=tuple(channel * 3 // 5 + 60 for channel in text),
+    )
+
+    out = ASSETS / "social-preview.png"
+    card.save(out)
+    print(f"wrote {out.relative_to(ROOT)} ({width}x{height})")
