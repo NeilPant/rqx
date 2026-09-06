@@ -2,10 +2,10 @@ package com.rqx
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.openapi.project.Project
-import com.redhat.devtools.lsp4ij.server.OSProcessStreamConnectionProvider
-import com.redhat.devtools.lsp4ij.server.definition.launching.LanguageServerFactory
-import com.redhat.devtools.lsp4ij.server.definition.LanguageServerDefinition
+import com.intellij.openapi.vfs.VirtualFile
+import com.redhat.devtools.lsp4ij.LanguageServerFactory
 import com.redhat.devtools.lsp4ij.client.LanguageClientImpl
+import com.redhat.devtools.lsp4ij.server.OSProcessStreamConnectionProvider
 
 /**
  * Starts `rqx lsp` in the project directory. Everything else the plugin shows comes
@@ -30,7 +30,7 @@ class RqxConnection(private val project: Project) : OSProcessStreamConnectionPro
         }
     }
 
-    override fun getInitializationOptions(rootUri: java.net.URI?): Any =
+    override fun getInitializationOptions(rootUri: VirtualFile?): Any =
         mapOf(
             "scanOnStartup" to RqxSettings.instance.scanOnStartup,
             "scanOnSave" to RqxSettings.instance.scanOnSave,

@@ -1,6 +1,6 @@
 use zed_extension_api::{self as zed, Command, LanguageServerId, Result, Worktree, settings};
 
-const REPOSITORY: &str = "jadhamwi/rqx";
+const REPOSITORY: &str = "jadhamwi21/rqx";
 
 #[derive(Default)]
 struct Rqx {

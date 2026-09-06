@@ -445,7 +445,7 @@ fn score(label: &str, typed: &str) -> Option<usize> {
     let mut haystack = label.char_indices();
     for wanted in typed.chars() {
         let at = haystack.find(|(_, character)| *character == wanted)?.0;
-        rank += at - last.map_or(0, |previous| previous) + 1;
+        rank += at - last.unwrap_or(0) + 1;
         last = Some(at);
     }
     Some(rank + label.len())
