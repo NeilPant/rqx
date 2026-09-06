@@ -10,6 +10,8 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+## 0.1.1 — 2026-09-06
+
 ### Added
 
 - **`rqx update`.** rqx publishes no binaries; a tag is the release, and updating
