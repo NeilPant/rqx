@@ -505,3 +505,26 @@ fn every_command_is_in_exactly_one_help_group() {
         assert!(help.contains(heading), "no {heading} heading:\n{help}");
     }
 }
+
+#[test]
+fn a_first_run_is_told_what_it_has_no_way_to_know() {
+    let bare = project("bare", &[("a.ts", CLEAN)]);
+    let said = String::from_utf8_lossy(&rqx(&bare, &["scan", "--no-tui"]).stdout).into_owned();
+    assert!(said.contains("No RQX.toml"), "{said}");
+    assert!(said.contains("Not a git repository"), "{said}");
+
+    let settled = project("settled", &[("a.ts", CLEAN), ("RQX.toml", "[gate]\n")]);
+    assert!(
+        Command::new("git")
+            .arg("-C")
+            .arg(&settled)
+            .arg("init")
+            .output()
+            .expect("git")
+            .status
+            .success()
+    );
+    let said = String::from_utf8_lossy(&rqx(&settled, &["scan", "--no-tui"]).stdout).into_owned();
+    assert!(!said.contains("No RQX.toml"), "{said}");
+    assert!(!said.contains("Not a git repository"), "{said}");
+}

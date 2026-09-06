@@ -420,6 +420,8 @@ pub mod tests {
 
     pub fn outcome_with(findings: &[(&str, Severity)], files_scanned: u32) -> ScanOutcome {
         let mut outcome = ScanOutcome {
+            configured: true,
+            versioned: true,
             root: std::path::PathBuf::from("."),
             counts: FindingCounts::default(),
             analyzed: BTreeSet::new(),

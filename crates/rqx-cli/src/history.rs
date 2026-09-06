@@ -12,6 +12,10 @@ use std::sync::Arc;
 /// the files are being parsed and is almost always waiting by the time it is asked for.
 #[derive(Default)]
 pub struct History {
+    /// Whether git answered at all. An empty history in a repository means a quiet
+    /// month; outside one it means every churn rule silently did nothing, which is
+    /// worth one line to whoever is reading a report that has none.
+    versioned: bool,
     commits: Vec<Vec<String>>,
     /// Who wrote each commit, in step with `commits`. Kept beside rather than inside
     /// so every existing reader of the file lists is unchanged.
@@ -23,9 +27,12 @@ impl History {
     /// A repository is the only place this data exists, so no repository simply means
     /// no churn signal rather than an error.
     pub fn read(root: &Path, days: u32) -> Self {
-        let prefix = repository_prefix(root).unwrap_or_default();
+        let found = repository_prefix(root);
+        let versioned = found.is_some();
+        let prefix = found.unwrap_or_default();
         if days == 0 {
             return Self {
+                versioned,
                 commits: Vec::new(),
                 authors: Vec::new(),
                 prefix,
@@ -46,6 +53,7 @@ impl History {
             .output()
         else {
             return Self {
+                versioned,
                 commits: Vec::new(),
                 authors: Vec::new(),
                 prefix,
@@ -53,6 +61,7 @@ impl History {
         };
         if !output.status.success() {
             return Self {
+                versioned,
                 commits: Vec::new(),
                 authors: Vec::new(),
                 prefix,
@@ -77,10 +86,15 @@ impl History {
             commits.push(files);
         }
         Self {
+            versioned,
             commits,
             authors,
             prefix,
         }
+    }
+
+    pub const fn versioned(&self) -> bool {
+        self.versioned
     }
 
     pub fn prefix(&self) -> &str {

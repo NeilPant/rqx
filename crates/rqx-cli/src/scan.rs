@@ -124,6 +124,10 @@ pub struct ScanOutcome {
     /// per file, so it never reaches the cache the shapes come from.
     pub profile: Option<rqx_core::runtime::Profile>,
     pub elapsed_ms: u128,
+    /// Whether any config file was found, and whether git answered. Both are things a
+    /// first run needs told once and a configured project never needs told at all.
+    pub configured: bool,
+    pub versioned: bool,
 }
 
 struct Ranked(Finding);
@@ -1378,6 +1382,7 @@ impl Collector {
     ) -> ScanOutcome {
         use crate::progress::Phase;
         let config = &settings.config;
+        let mut versioned = false;
         if !stopped {
             self.report_phase(Phase::Duplicates);
             self.finish_clones(root, settings);
@@ -1388,6 +1393,7 @@ impl Collector {
             self.finish_size(config, &mut at);
             self.report_phase(Phase::History);
             let history = history();
+            versioned = history.versioned();
             self.finish_history(config, &mut at, &history);
             self.report_phase(Phase::CoChange);
             self.finish_cochange(root, config, &mut at, &history);
@@ -1462,6 +1468,8 @@ impl Collector {
             .push((self.phase.label(), self.phase_began.elapsed().as_millis()));
         ScanOutcome {
             root: root.to_path_buf(),
+            configured: !settings.sources.is_empty(),
+            versioned,
             omitted: self.counts.total.saturating_sub(retained),
             counts: self.counts,
             analyzed: self.analyzed,
