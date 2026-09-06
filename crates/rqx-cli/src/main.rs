@@ -2145,6 +2145,12 @@ fn run() -> Result<Exit> {
                         })
                     })
                     .transpose()?;
+                // `writeln!` rather than `println!`, which panics when the reader
+                // closes the pipe. `rqx rules --slugs | head` is the shape a shell
+                // completion uses, and `reader_went_away` can only forgive an error
+                // that is returned to it.
+                use std::io::Write;
+                let mut out = std::io::stdout().lock();
                 for rule in rqx_core::rule::RuleId::ALL {
                     let spec = rule.spec();
                     if only.is_some_and(|family| spec.category != family) {
@@ -2153,8 +2159,9 @@ fn run() -> Result<Exit> {
                     if spoken.is_some_and(|language| !rule.applies_to(language)) {
                         continue;
                     }
-                    println!("{}", spec.slug);
+                    writeln!(out, "{}", spec.slug)?;
                 }
+                out.flush()?;
                 return Ok(Exit::Clean);
             }
             report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)

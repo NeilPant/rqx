@@ -674,3 +674,23 @@ fn the_readme_counts_the_commands_correctly() {
         "the README says {claimed}, `rqx --help` lists {real}"
     );
 }
+
+/// A shell completion runs `rqx rules --slugs` and often reads only the first lines.
+/// `println!` panics when the reader closes the pipe, which exits 101 and looks like
+/// a crash; the exit code has to be the one the README promises.
+#[test]
+fn a_reader_that_walks_away_from_the_slug_list_is_not_a_failure() {
+    let status = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "set -o pipefail; '{}' rules --slugs | head -3 > /dev/null",
+            env!("CARGO_BIN_EXE_rqx")
+        ))
+        .status()
+        .expect("failed to run rqx");
+    assert_eq!(
+        status.code(),
+        Some(0),
+        "closing the pipe was reported as a failure"
+    );
+}
