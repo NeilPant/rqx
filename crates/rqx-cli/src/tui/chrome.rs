@@ -243,6 +243,10 @@ impl Chrome<'_> {
         let mut hits = Vec::new();
         let mut x = area.x;
         for (key, meaning) in keys {
+            // What this screen's version of the key acts on, which is what a reader
+            // glancing at one line wants; the whole meaning is in the overlay. Without
+            // this the hints for a screen with four keys run off the width.
+            let meaning = meaning.rsplit(" \u{b7} ").next().unwrap_or(meaning);
             let label = format!(" {key} ");
             let width = (label.chars().count() + meaning.chars().count()) as u16;
             hits.push((
@@ -259,7 +263,7 @@ impl Chrome<'_> {
                 label,
                 Style::new().fg(palette.color(Ink::Accent)),
             ));
-            spans.push(Span::styled(*meaning, palette.dim()));
+            spans.push(Span::styled(meaning, palette.dim()));
         }
         frame.render_widget(Paragraph::new(Line::from(spans)), area);
         hits
@@ -285,9 +289,51 @@ pub fn cramped(frame: &mut Frame<'_>, palette: Palette, width: u16, height: u16)
     frame.render_widget(Paragraph::new(lines), frame.area());
 }
 
-/// Built from the screens' own key tables, so a binding cannot exist without being
-/// documented here.
+/// One key, one meaning, on every screen that has it. A screen may say what its own
+/// version of a meaning acts on, after a `\u{b7}` — `mode \u{b7} slop` — but never give
+/// a key a second meaning. `keys_mean_one_thing` holds every screen's table to this.
+#[cfg(test)]
+pub const VOCABULARY: &[(&str, &str)] = &[
+    ("\u{2191}\u{2193}", "move"),
+    ("enter", "open"),
+    ("/", "search"),
+    ("f", "filter"),
+    (">", "severity floor"),
+    ("g", "group"),
+    ("s", "sort"),
+    ("m", "mode"),
+    ("a", "fix"),
+    ("y", "write"),
+    ("x", "waive"),
+    ("esc", "back"),
+];
+
+/// Answered on every screen, so no screen lists them and the overlay adds them once.
+/// Before this they were bound in `global` and documented nowhere.
+pub const EVERYWHERE: &[(&str, &str)] = &[
+    ("tab", "next view"),
+    ("1-9", "jump to a view"),
+    ("ctrl-p", "commands"),
+    ("r", "scan"),
+    ("w", "watch"),
+    (",", "settings"),
+    ("?", "keys"),
+    ("q", "quit"),
+];
+
+/// Built from the screen's own key table and the ones every screen answers, so a
+/// binding cannot exist without being documented here.
 pub fn help(frame: &mut Frame<'_>, palette: Palette, rows: &[(&'static str, &'static str)]) {
+    let rows: Vec<(&str, &str)> = rows
+        .iter()
+        .copied()
+        .chain(
+            EVERYWHERE
+                .iter()
+                .copied()
+                .filter(|(key, _)| !rows.iter().any(|(had, _)| had == key)),
+        )
+        .collect();
     let width = 54;
     let height = (rows.len() as u16 + 4).min(frame.area().height);
     let area = centred(frame.area(), width, height);

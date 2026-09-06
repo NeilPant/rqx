@@ -697,7 +697,7 @@ fn key_named(label: &str) -> Option<KeyEvent> {
         _ => {
             let mut characters = label.chars();
             let only = characters.next()?;
-            if characters.next().is_some() || !only.is_ascii_alphanumeric() {
+            if characters.next().is_some() || !only.is_ascii_graphic() {
                 return None;
             }
             KeyCode::Char(only)

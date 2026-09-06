@@ -253,7 +253,6 @@ impl Screen for Rules {
         &[
             ("↑↓", "move"),
             ("/", "search"),
-            ("tab", "next view"),
             ("esc", "back"),
         ]
     }

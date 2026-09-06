@@ -250,11 +250,7 @@ impl Screen for Overview {
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
-            ("tab", "next view"),
-            ("digit", "jump to a view"),
-            ("?", "keys"),
             ("esc", "back"),
-            ("q", "quit"),
         ]
     }
 }

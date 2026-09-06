@@ -688,7 +688,7 @@ impl Screen for Findings {
                 self.group = Some(self.group.unwrap_or(Group::Rank).next());
                 self.reorder(session);
             }
-            KeyCode::Char('s') => {
+            KeyCode::Char('>') => {
                 self.floor = match self.floor {
                     None => Some(Severity::Warning),
                     Some(Severity::Warning) => Some(Severity::Error),
@@ -738,7 +738,7 @@ impl Screen for Findings {
             ("/", "search"),
             ("f", "filter"),
             ("g", "group"),
-            ("s", "severity"),
+            (">", "severity floor"),
             ("a", "fix"),
             ("x", "waive"),
             ("esc", "back"),

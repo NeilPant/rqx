@@ -214,14 +214,14 @@ impl Screen for Health {
             KeyCode::Up | KeyCode::Char('k') => self.step(-1),
             KeyCode::PageDown => self.step(12),
             KeyCode::PageUp => self.step(-12),
-            KeyCode::Char('s') => {
+            KeyCode::Char('m') => {
                 self.ledger = match self.ledger {
                     Ledger::Debt => Ledger::Slop,
                     Ledger::Slop => Ledger::Debt,
                 };
                 self.build(session);
             }
-            KeyCode::Char('b') => {
+            KeyCode::Char('g') => {
                 self.by = match self.by {
                     By::Family => By::Rule,
                     By::Rule => By::Dir,
@@ -266,9 +266,9 @@ impl Screen for Health {
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("↑↓", "move"),
-            ("s", "slop"),
-            ("b", "by rule, dir, file"),
-            ("enter", "its findings"),
+            ("m", "mode \u{b7} slop"),
+            ("g", "group \u{b7} by rule, dir, file"),
+            ("enter", "open \u{b7} its findings"),
         ]
     }
 }

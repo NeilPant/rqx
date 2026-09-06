@@ -124,9 +124,7 @@ impl Screen for Settings {
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("↑↓", "move"),
-            ("tab", "next view"),
             ("esc", "back"),
-            ("q", "quit"),
         ]
     }
 }

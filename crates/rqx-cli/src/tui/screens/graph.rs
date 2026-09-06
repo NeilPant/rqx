@@ -216,7 +216,7 @@ impl Screen for Graph {
             KeyCode::Up | KeyCode::Char('k') => self.step(-1),
             KeyCode::PageDown => self.step(12),
             KeyCode::PageUp => self.step(-12),
-            KeyCode::Char('c') => {
+            KeyCode::Char('m') => {
                 self.cycles_only = !self.cycles_only;
                 self.build(session);
             }
@@ -255,8 +255,8 @@ impl Screen for Graph {
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("↑↓", "move"),
-            ("c", "cycles only"),
-            ("enter", "its findings"),
+            ("m", "mode \u{b7} cycles only"),
+            ("enter", "open \u{b7} its findings"),
             ("esc", "back"),
         ]
     }

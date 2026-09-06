@@ -116,6 +116,6 @@ impl Screen for Reader {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("↑↓", "scroll"), ("esc", "back"), ("ctrl-p", "commands")]
+        &[("↑↓", "move \u{b7} scroll"), ("esc", "back")]
     }
 }

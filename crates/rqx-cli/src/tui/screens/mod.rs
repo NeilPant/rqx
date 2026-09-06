@@ -49,3 +49,67 @@ pub mod plan;
 pub mod reader;
 pub mod scanning;
 pub mod settings;
+
+#[cfg(test)]
+mod vocabulary {
+    use super::{
+        catalogue, complexity, files, findings, graph, health, overview, patterns, plan, reader,
+        scanning, settings,
+    };
+    use crate::tui::app::Screen;
+    use crate::tui::chrome::{EVERYWHERE, VOCABULARY};
+
+    fn every_screen() -> Vec<(&'static str, Box<dyn Screen>)> {
+        vec![
+            ("overview", Box::<overview::Overview>::default()),
+            ("findings", Box::<findings::Findings>::default()),
+            ("files", Box::<files::Files>::default()),
+            ("complexity", Box::<complexity::Complexity>::default()),
+            ("graph", Box::<graph::Graph>::default()),
+            ("health", Box::<health::Health>::default()),
+            ("plan", Box::<plan::Plan>::default()),
+            ("patterns", Box::<patterns::Patterns>::default()),
+            ("catalogue", Box::<catalogue::Rules>::default()),
+            ("settings", Box::<settings::Settings>::default()),
+            ("reader", Box::<reader::Reader>::default()),
+            ("scanning", Box::<scanning::Scanning>::default()),
+        ]
+    }
+
+    /// The word before the `·`: what the key does, without what this screen's version
+    /// of it acts on.
+    fn meaning(label: &str) -> &str {
+        label.split(" \u{b7} ").next().unwrap_or(label)
+    }
+
+    #[test]
+    fn keys_mean_one_thing() {
+        let spoken: std::collections::HashMap<&str, &str> = VOCABULARY.iter().copied().collect();
+        let mut seen: std::collections::HashMap<&str, (&str, &str)> = std::collections::HashMap::new();
+
+        for (screen, keys) in every_screen() {
+            for (key, label) in keys.keys() {
+                if let Some(word) = spoken.get(key) {
+                    assert_eq!(
+                        meaning(label),
+                        *word,
+                        "{screen} gives `{key}` a meaning the vocabulary does not"
+                    );
+                }
+                if let Some((first, elsewhere)) = seen.get(key) {
+                    assert_eq!(
+                        meaning(label),
+                        *first,
+                        "`{key}` means one thing on {elsewhere} and another on {screen}"
+                    );
+                } else {
+                    seen.insert(key, (meaning(label), screen));
+                }
+                assert!(
+                    !EVERYWHERE.iter().any(|(global, _)| global == key),
+                    "{screen} lists `{key}`, which every screen answers and the overlay adds once"
+                );
+            }
+        }
+    }
+}

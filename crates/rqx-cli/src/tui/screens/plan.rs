@@ -270,7 +270,7 @@ impl Screen for Plan {
         &[
             ("\u{2191}\u{2193}", "move"),
             ("+ -", "budget"),
-            ("enter", "its findings"),
+            ("enter", "open \u{b7} its findings"),
             ("esc", "back"),
         ]
     }

@@ -185,7 +185,7 @@ impl Screen for Files {
             KeyCode::Up | KeyCode::Char('k') => step(&mut self.state, -1, self.rows.len()),
             KeyCode::PageDown => step(&mut self.state, 12, self.rows.len()),
             KeyCode::PageUp => step(&mut self.state, -12, self.rows.len()),
-            KeyCode::Char('n') => {
+            KeyCode::Char('s') => {
                 self.by_name = !self.by_name;
                 self.build(session);
             }
@@ -203,8 +203,8 @@ impl Screen for Files {
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("↑↓", "move"),
-            ("enter", "its findings"),
-            ("n", "sort by name"),
+            ("s", "sort \u{b7} by name"),
+            ("enter", "open \u{b7} its findings"),
             ("esc", "back"),
         ]
     }

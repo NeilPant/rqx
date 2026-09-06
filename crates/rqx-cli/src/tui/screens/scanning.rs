@@ -262,6 +262,6 @@ impl Screen for Scanning {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &[("esc", "stop the scan"), ("q", "quit")]
+        &[("esc", "back \u{b7} stopping the scan")]
     }
 }

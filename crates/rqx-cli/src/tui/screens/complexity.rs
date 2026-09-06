@@ -256,14 +256,14 @@ impl Screen for Complexity {
             KeyCode::PageUp => self.step(-12),
             KeyCode::Home => self.step(isize::MIN / 2),
             KeyCode::End => self.step(isize::MAX / 2),
-            KeyCode::Char('p') => {
+            KeyCode::Char('m') => {
                 self.measure = match self.measure {
                     Measure::Complexity => Measure::Bottlenecks,
                     Measure::Bottlenecks => Measure::Complexity,
                 };
                 self.build(session);
             }
-            KeyCode::Char('b') => {
+            KeyCode::Char('g') => {
                 self.by = match self.by {
                     By::Function => By::File,
                     By::File => By::Dir,
@@ -317,10 +317,10 @@ impl Screen for Complexity {
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
         &[
             ("↑↓", "move"),
-            ("p", "bottlenecks"),
-            ("s", "sort"),
-            ("b", "by file"),
-            ("enter", "its findings"),
+            ("m", "mode \u{b7} bottlenecks"),
+            ("g", "group \u{b7} by file"),
+            ("s", "sort \u{b7} by measure"),
+            ("enter", "open \u{b7} its findings"),
         ]
     }
 }
