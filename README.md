@@ -51,9 +51,15 @@ rqx update --notes    # read what changed
 ```
 
 A scan prints one dim line when a newer version has been tagged, and nothing when it
-has not. The check runs on a thread nothing waits for, caches its answer for a day,
-and is skipped entirely under CI, when the output is not a terminal, with
-`RQX_NO_UPDATE_CHECK` set, or with `[update] check = false` in `RQX.toml`.
+has not. The check starts when the scan does, on a thread the report waits a quarter
+of a second for at the end; its answer is cached for a day.
+
+**It cannot disturb a pipeline.** It is skipped when stdout or stderr is not a
+terminal, which is the test that does not depend on knowing every CI system, and
+again when any of `CI`, `JENKINS_URL`, `TEAMCITY_VERSION`, `TF_BUILD` or their
+equivalents is set. `RQX_NO_UPDATE_CHECK` and `[update] check = false` in `RQX.toml`
+turn it off outright, `RQX_MANAGED` marks an install a package manager owns, and no
+exit code, report or reporter output changes either way.
 
 **No binaries are published.** Installing and updating both build from source, so a
 Rust toolchain at the `rust-version` in `Cargo.toml` is the one requirement — and

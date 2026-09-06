@@ -1220,13 +1220,19 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
 /// somewhere other than a terminal: a line about updates in a JSON document or a
 /// JUnit file is corruption, not news.
 fn update_notice(view: &View, sinks: &[Sink], palette: Palette, enabled: bool) {
-    let to_a_terminal = sinks
+    // `is_coloured` is about the reporter's kind, not about where it lands, so it is
+    // true for the default reporter piped into a build log. `update::wanted` is what
+    // actually tests the terminal.
+    let readable = sinks
         .iter()
         .any(|sink| sink.path.is_none() && sink.reporter.is_coloured());
-    if view.quiet || !to_a_terminal || !update::wanted(enabled) {
+    if view.quiet || !readable || !update::wanted(enabled) {
         return;
     }
-    if let Some(newer) = update::known() {
+    // A quarter of a second at the very end, for a check that started before the
+    // scan did. Long enough to catch an answer that is all but arrived, short enough
+    // that nobody attributes it to the scan.
+    if let Some(newer) = update::settle(std::time::Duration::from_millis(250)) {
         // Through anstream so a redirected stderr gets the words without the escape
         // sequences, which is the whole reason `paint` exists.
         anstream::eprintln!(
@@ -1234,7 +1240,6 @@ fn update_notice(view: &View, sinks: &[Sink], palette: Palette, enabled: bool) {
             brand::paint(palette.style(brand::Ink::Muted), newer.line())
         );
     }
-    update::check_quietly(enabled);
 }
 
 /// Scan, print, and scan again whenever a file changes. Polling rather than an OS
@@ -1470,6 +1475,9 @@ fn run() -> Result<Exit> {
                 );
             }
             let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            // Started before the scan rather than after it: the answer needs the length
+            // of the work to arrive in, and `process::exit` does not wait for a thread.
+            update::start(settings.config.update.check);
             if let Some(max) = max_findings {
                 settings.config.scan.max_findings = max;
             }
@@ -2096,6 +2104,9 @@ fn run() -> Result<Exit> {
                 );
             }
             let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            // Started before the scan rather than after it: the answer needs the length
+            // of the work to arrive in, and `process::exit` does not wait for a thread.
+            update::start(settings.config.update.check);
             gate.apply(&mut settings.config);
 
             let sinks = sinks(&view)?;

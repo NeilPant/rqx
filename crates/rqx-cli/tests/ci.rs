@@ -712,11 +712,12 @@ fn the_slug_listing_writes_through_a_handle_rather_than_println() {
     );
 }
 
-/// The update notice paints colour, so it has to go through the stream that strips
-/// it — the same reason the reporters do. Escape sequences in a redirected log are
-/// the defect this project already fixed once.
+/// A build log is not a person. The update check must not print into one, must not
+/// reach the network from one, and must not change what the pipeline exits with —
+/// the notice is the only thing rqx added to a report after this project's gate
+/// contract was written down.
 #[test]
-fn the_update_notice_never_writes_escape_sequences_to_a_file() {
+fn a_pipeline_never_sees_the_update_notice() {
     let cache = std::env::temp_dir().join(format!("rqx-notice-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&cache);
     std::fs::create_dir_all(cache.join("rqx")).expect("a cache directory");
@@ -733,22 +734,49 @@ fn the_update_notice_never_writes_escape_sequences_to_a_file() {
     .expect("a cached answer");
 
     let project = project("notice", &[("a.ts", CLEAN)]);
-    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+    // Every one of these on its own has to be enough, because a pipeline that sets
+    // only `TF_BUILD` is still a pipeline.
+    for pipeline in [
+        "CI",
+        "JENKINS_URL",
+        "TEAMCITY_VERSION",
+        "TF_BUILD",
+        "BUILD_NUMBER",
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+            .arg("scan")
+            .arg(&project)
+            .args(["--no-tui"])
+            .env("XDG_CACHE_HOME", &cache)
+            .env_remove("CI")
+            .env(pipeline, "1")
+            .output()
+            .expect("failed to run rqx");
+
+        let said = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            !said.contains("9.9.9"),
+            "{pipeline} still got an update notice: {said}"
+        );
+        assert_eq!(code(&output), 0, "{pipeline} changed the exit code");
+    }
+
+    // And with nothing set at all: the output is a pipe here, not a terminal, which
+    // is the test that does not depend on knowing every CI system's variables.
+    let piped = Command::new(env!("CARGO_BIN_EXE_rqx"))
         .arg("scan")
         .arg(&project)
         .args(["--no-tui"])
         .env("XDG_CACHE_HOME", &cache)
         .env_remove("CI")
-        .env_remove("RQX_NO_UPDATE_CHECK")
         .output()
         .expect("failed to run rqx");
-
-    let said = String::from_utf8_lossy(&output.stderr).into_owned();
-    assert!(said.contains("9.9.9 is out"), "no notice at all: {said}");
+    let said = String::from_utf8_lossy(&piped.stderr);
     assert!(
-        !said.contains('\u{1b}'),
-        "the notice wrote escape sequences into a pipe"
+        !said.contains("9.9.9"),
+        "a redirected stderr got a notice: {said}"
     );
+    assert!(!said.contains('\u{1b}'), "escape sequences reached a pipe");
 
     let _ = std::fs::remove_dir_all(&cache);
     let _ = std::fs::remove_dir_all(&project);

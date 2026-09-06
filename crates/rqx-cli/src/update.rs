@@ -90,15 +90,40 @@ fn remember(found: &Remembered) {
     }
 }
 
+/// Every variable that means "this is a build, not a person". `CI` covers GitHub
+/// Actions, GitLab, CircleCI, Travis, Buildkite and Bitbucket; Jenkins, TeamCity and
+/// Azure Pipelines do not set it reliably and are named individually.
+const A_PIPELINE: &[&str] = &[
+    "CI",
+    "CONTINUOUS_INTEGRATION",
+    "BUILD_NUMBER",
+    "RUN_ID",
+    "JENKINS_URL",
+    "TEAMCITY_VERSION",
+    "TF_BUILD",
+    "bamboo_buildKey",
+    "GO_PIPELINE_NAME",
+];
+
 /// Whether asking is appropriate at all. A pipeline that reached out to GitHub on
-/// every run would be a pipeline that fails when GitHub does.
+/// every run would be a pipeline that fails when GitHub does, so the check is off
+/// wherever the output is not going to a person who could act on it.
 pub fn wanted(enabled: bool) -> bool {
+    use std::io::IsTerminal;
+
     enabled
         && std::env::var_os("RQX_NO_UPDATE_CHECK").is_none()
-        && std::env::var_os("CI").is_none()
-        // A version bundled by a package manager is not one rqx should offer to
+        // A version a package manager installed is not one rqx should offer to
         // replace: the manager owns that file and will put it back.
         && std::env::var_os("RQX_MANAGED").is_none()
+        && !A_PIPELINE
+            .iter()
+            .any(|name| std::env::var_os(name).is_some())
+        // The decisive test rather than the environment's word for it: a notice is
+        // only worth printing to something a person is watching, and a redirected
+        // stderr is a log file whatever the variables say.
+        && std::io::stderr().is_terminal()
+        && std::io::stdout().is_terminal()
 }
 
 /// Compares two dotted versions numerically, so `0.10.0` is newer than `0.9.0` and a
@@ -203,21 +228,53 @@ fn section_for(changelog: &str, version: &str) -> Option<String> {
     (!trimmed.is_empty()).then_some(trimmed)
 }
 
-/// Starts the check on a thread and abandons it. Nothing joins this: the answer is
-/// for the next run, and a scan that waited on GitHub would be a scan that hangs
-/// when GitHub is slow.
-pub fn check_quietly(enabled: bool) {
-    if !wanted(enabled) || known().is_some() {
+/// The running check, so the report at the end of a scan can pick up an answer the
+/// beginning of it asked for.
+/// A `Receiver` is not `Sync`, so it travels in a mutex rather than bare. Only one
+/// thread ever reads it; the lock is what makes it a legal static, not contention.
+static ASKED: std::sync::Mutex<Option<std::sync::mpsc::Receiver<Option<Newer>>>> =
+    std::sync::Mutex::new(None);
+
+/// Starts the check before the work does, so it has the length of a scan to finish
+/// in. Spawning it at the end and abandoning it was the first shape of this, and it
+/// never completed once: `main` leaves through `process::exit`, which does not wait
+/// for a thread, and a scan is over before `curl` has finished its handshake.
+pub fn start(enabled: bool) {
+    if !wanted(enabled) || fresh() {
         return;
     }
-    if remembered()
-        .is_some_and(|found| now().saturating_sub(found.checked_at) <= GOOD_FOR.as_secs())
-    {
+    let (told, answer) = std::sync::mpsc::channel();
+    let Ok(mut asked) = ASKED.lock() else {
+        return;
+    };
+    if asked.is_some() {
         return;
     }
-    std::thread::spawn(|| {
-        let _ = fetch();
+    *asked = Some(answer);
+    std::thread::spawn(move || {
+        let _ = told.send(fetch().ok().flatten());
     });
+}
+
+/// Whether the last answer is recent enough to stand, whatever it said.
+fn fresh() -> bool {
+    remembered().is_some_and(|found| now().saturating_sub(found.checked_at) <= GOOD_FOR.as_secs())
+}
+
+/// The answer, if one is already known or arrives in the next moment. The wait is
+/// short and at the very end of a run: a scan that blocked on GitHub would be a scan
+/// that hangs when GitHub is slow, and a notice is worth no delay a reader notices.
+pub fn settle(within: Duration) -> Option<Newer> {
+    if let Some(newer) = known() {
+        return Some(newer);
+    }
+    ASKED
+        .lock()
+        .ok()?
+        .as_ref()?
+        .recv_timeout(within)
+        .ok()
+        .flatten()
 }
 
 /// Builds and installs the tagged version, the same way rqx was installed.
@@ -325,6 +382,33 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    /// The first shape of this spawned the check at the end of a run and abandoned
+    /// it, and it never once completed: `process::exit` does not wait for a thread.
+    /// What matters is that an answer sent by the worker actually reaches the notice.
+    #[test]
+    fn an_answer_that_arrives_in_time_reaches_the_notice() {
+        let (told, answer) = std::sync::mpsc::channel();
+        told.send(Some(Newer {
+            version: "9.9.9".to_owned(),
+            notes: "- something".to_owned(),
+        }))
+        .expect("the worker's answer");
+        *ASKED.lock().expect("the slot") = Some(answer);
+
+        let found = settle(Duration::from_millis(50)).expect("an answer was waiting");
+        assert_eq!(found.version, "9.9.9");
+        assert!(found.line().contains("9.9.9"), "{}", found.line());
+
+        // And a run where nothing arrives waits its moment and gives up rather than
+        // blocking, which is what keeps a slow GitHub off the end of a scan.
+        let (idle, quiet) = std::sync::mpsc::channel::<Option<Newer>>();
+        *ASKED.lock().expect("the slot") = Some(quiet);
+        let began = std::time::Instant::now();
+        assert!(settle(Duration::from_millis(60)).is_none());
+        assert!(began.elapsed() < Duration::from_millis(600), "it blocked");
+        drop(idle);
     }
 
     #[test]
