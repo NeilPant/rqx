@@ -2,7 +2,7 @@
 //! resolution is implemented: an edge into `node_modules` says nothing about dead
 //! code inside the project, so those specifiers resolve to nothing on purpose.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::module_graph::Resolver;
@@ -172,25 +172,35 @@ fn strip_comments(text: &str) -> String {
 /// A workspace has one `package.json` per package, each declaring its own entry
 /// points, so reading only the root manifest calls every package's public surface
 /// dead.
-fn package_manifests(root: &Path, depth: u32, found: &mut Vec<PathBuf>) {
-    if depth == 0 {
-        return;
-    }
-    let manifest = root.join("package.json");
-    if manifest.is_file() {
-        found.push(manifest);
-    }
-    let Ok(entries) = std::fs::read_dir(root) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if path.is_dir() && !name.starts_with('.') && name != "node_modules" {
-            package_manifests(&path, depth - 1, found);
+///
+/// Derived from the modules the scan already found rather than by walking the
+/// tree. A manifest that governs anything sits in a directory holding code, or an
+/// ancestor of one — so the analysed paths name every candidate there is, and
+/// there are tens of them. The walk this replaced recursed five levels from the
+/// root skipping only dotfiles and `node_modules`, which on a Rust checkout meant
+/// `stat`ing all two hundred thousand entries under `target/debug/deps` and cost
+/// ninety-three percent of the scan.
+fn package_manifests(root: &Path, known: &HashSet<PathBuf>) -> Vec<PathBuf> {
+    let mut directories: BTreeSet<&Path> = BTreeSet::new();
+    for module in known {
+        let mut at = module.parent();
+        while let Some(directory) = at {
+            if !directories.insert(directory) {
+                // An ancestor already walked to the root, and so would this one.
+                break;
+            }
+            if directory == root {
+                break;
+            }
+            at = directory.parent();
         }
     }
+    directories.insert(root);
+    directories
+        .into_iter()
+        .map(|directory| directory.join("package.json"))
+        .filter(|manifest| manifest.is_file())
+        .collect()
 }
 
 fn read_package_entrypoints(manifest: &Path) -> Vec<String> {
@@ -241,8 +251,7 @@ impl Resolver for TypeScriptResolver {
         configured: &[String],
         known: &HashSet<PathBuf>,
     ) -> HashSet<PathBuf> {
-        let mut manifests = Vec::new();
-        package_manifests(root, 5, &mut manifests);
+        let manifests = package_manifests(root, known);
 
         let mut declared: Vec<(PathBuf, String)> = Vec::new();
         for manifest in &manifests {
