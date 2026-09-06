@@ -41,7 +41,11 @@ jobs:
 
       # The release notes are this section. An empty one ships a release nobody can
       # read, and finding that out after the tag is pushed is too late.
+      #
+      # Only on a tag: `tools/release.sh` writes the section as it cuts the release,
+      # so on a manual rehearsal of the build there is legitimately nothing to find.
       - name: Release notes exist
+        if: github.ref_type == 'tag'
         shell: bash
         run: |
           set -euo pipefail
