@@ -77,6 +77,24 @@ impl Client {
             snippet: VIM,
         },
         Client {
+            slug: "vim-lsp",
+            name: "Vim, with vim-lsp",
+            home: Home::Append("~/.vimrc"),
+            snippet: VIM_LSP,
+        },
+        Client {
+            slug: "lsp-mode",
+            name: "Emacs, with lsp-mode",
+            home: Home::Append("~/.emacs.d/init.el"),
+            snippet: LSP_MODE,
+        },
+        Client {
+            slug: "kakoune",
+            name: "Kakoune, with kak-lsp",
+            home: Home::Merge("~/.config/kak-lsp/kak-lsp.toml"),
+            snippet: KAKOUNE,
+        },
+        Client {
             slug: "kate",
             name: "Kate",
             home: Home::Merge("~/.config/kate/lspclient/settings.json"),
@@ -235,6 +253,48 @@ const VIM: &str = r#"// coc-settings.json
   }
 }"#;
 
+const VIM_LSP: &str = r#"" rqx
+if executable('rqx')
+  au User lsp_setup call lsp#register_server({
+    \ 'name': 'rqx',
+    \ 'cmd': {server_info->['rqx', 'lsp']},
+    \ 'allowlist': ['typescript', 'typescriptreact', 'python', 'go', 'java', 'cpp'],
+    \ 'initialization_options': {'scanOnStartup': v:true, 'patterns': v:false},
+    \ })
+endif"#;
+
+const LSP_MODE: &str = r#";; rqx
+(with-eval-after-load 'lsp-mode
+  (add-to-list 'lsp-language-id-configuration '(typescript-mode . "typescript"))
+  (lsp-register-client
+   (make-lsp-client
+    :new-connection (lsp-stdio-connection '("rqx" "lsp"))
+    :activation-fn (lsp-activate-on "typescript" "typescriptreact" "python"
+                                    "go" "java" "cpp")
+    ;; `add-on?` is what lets rqx sit beside the language's own server rather
+    ;; than replacing it: without it lsp-mode starts one server per buffer.
+    :add-on? t
+    :server-id 'rqx
+    :initialization-options
+    (lambda () (list :scanOnStartup t :patterns :json-false))))
+  (defun rqx-scan ()
+    (interactive)
+    (lsp-request "workspace/executeCommand" (list :command "rqx.scan")))
+  (defun rqx-interface ()
+    (interactive)
+    (async-shell-command "rqx")))"#;
+
+const KAKOUNE: &str = r#"# kak-lsp.toml
+[language_server.rqx]
+command = "rqx"
+args = ["lsp"]
+filetypes = ["typescript", "tsx", "python", "go", "java", "cpp"]
+roots = ["RQX.toml", ".git"]
+
+[language_server.rqx.settings]
+scanOnStartup = true
+patterns = false"#;
+
 const KATE: &str = r#"// Settings → LSP Client → User Server Settings
 {
   "servers": {
@@ -274,8 +334,11 @@ mod tests {
             match client.home {
                 Home::Append(path) => {
                     assert!(client.appendable(), "{}", client.slug);
+                    // Lua, Elisp and Vimscript are sequences of statements, so a
+                    // second block at the end is a second instruction rather than a
+                    // duplicate key.
                     assert!(
-                        path.ends_with(".lua") || path.ends_with(".el"),
+                        path.ends_with(".lua") || path.ends_with(".el") || path.ends_with("vimrc"),
                         "{path} is not a format rqx should append to"
                     );
                 }

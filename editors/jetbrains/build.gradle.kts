@@ -23,12 +23,21 @@ dependencies {
         intellijIdeaCommunity("2024.2")
         plugin("com.redhat.devtools.lsp4ij:0.7.0")
         instrumentationTools()
+        // `verifyPlugin` is a no-op without it, and fails the build saying so.
+        pluginVerifier()
     }
 }
 
 kotlin { jvmToolchain(17) }
 
 intellijPlatform {
+    pluginVerification {
+        // The floor named in `sinceBuild`, rather than `recommended()`: the plugin is
+        // a thin LSP4IJ client, so what matters is that it still resolves against the
+        // oldest IDE it claims, not that every current release is downloaded on every
+        // push.
+        ides { ide("IC", "2024.2") }
+    }
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "242"
