@@ -91,6 +91,7 @@ pub struct RqxConfig {
     pub entrypoints: Entrypoints,
     pub gate: Gate,
     pub fix: Fix,
+    pub update: Update,
     pub architecture: Architecture,
     pub performance: Performance,
     /// Rules this project wrote, as `[[rule]]` blocks. The grammars are already in
@@ -206,6 +207,21 @@ impl Architecture {
             .filter(|layer| !seen.insert((*layer).clone()))
             .cloned()
             .collect()
+    }
+}
+
+/// Whether rqx may ask GitHub if a newer release exists. The check runs on a thread
+/// nobody waits for, caches its answer for a day, and never runs in CI — but a tool
+/// that reaches the network at all should be answerable to a line in a config file.
+#[derive(Clone, Debug, Deserialize, Hash)]
+#[serde(default, deny_unknown_fields)]
+pub struct Update {
+    pub check: bool,
+}
+
+impl Default for Update {
+    fn default() -> Self {
+        Self { check: true }
     }
 }
 

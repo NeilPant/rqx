@@ -34,6 +34,7 @@ mod scan;
 mod setup;
 mod slop;
 mod tui;
+mod update;
 mod verify;
 
 use brand::{ColorDepth, Palette};
@@ -102,7 +103,7 @@ const GROUPS: [(&str, &[&str]); 5] = [
     ),
     (
         "Integrations",
-        &["lsp", "mcp", "setup", "completions", "query"],
+        &["lsp", "mcp", "setup", "completions", "query", "update"],
     ),
 ];
 
@@ -436,6 +437,18 @@ enum Command {
         /// Read settings from this file, layered over any `RQX.toml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
+    },
+    /// Install the newest release, or say what it would change
+    #[command(
+        after_help = "Examples:\n  rqx update                          install the newest release\n  rqx update --check                  say whether one exists, install nothing\n  rqx update --notes                  read what changed"
+    )]
+    Update {
+        /// Report whether a newer release exists and stop
+        #[arg(long)]
+        check: bool,
+        /// Print the release notes for the newest release
+        #[arg(long)]
+        notes: bool,
     },
     /// Print a shell completion script
     Completions {
@@ -1202,6 +1215,26 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     Ok(())
 }
 
+/// One dim line under a report when a newer release is already known about, and a
+/// check on a thread nobody waits for so the next run knows. Never on a report going
+/// somewhere other than a terminal: a line about updates in a JSON document or a
+/// JUnit file is corruption, not news.
+fn update_notice(view: &View, sinks: &[Sink], palette: Palette, enabled: bool) {
+    let to_a_terminal = sinks
+        .iter()
+        .any(|sink| sink.path.is_none() && sink.reporter.is_coloured());
+    if view.quiet || !to_a_terminal || !update::wanted(enabled) {
+        return;
+    }
+    if let Some(newer) = update::known() {
+        eprintln!(
+            "\n  {}",
+            brand::paint(palette.style(brand::Ink::Muted), newer.line())
+        );
+    }
+    update::check_quietly(enabled);
+}
+
 /// Scan, print, and scan again whenever a file changes. Polling rather than an OS
 /// watcher: the scan already walks the tree to find its files, so the walk that
 /// answers "has anything changed" is one it knows how to do.
@@ -1491,6 +1524,7 @@ fn run() -> Result<Exit> {
                     let mut out = anstream::stdout().lock();
                     report::advice(&outcome, palette, &mut out)?;
                 }
+                update_notice(&view, &sinks, palette, settings.config.update.check);
                 Ok(Exit::of(verdict.is_some_and(|verdict| !verdict.passed())))
             };
 
@@ -2088,6 +2122,7 @@ fn run() -> Result<Exit> {
             let verdict = check::judge(&review, &settings.config);
             let report = Report::review(&review, &verdict, &filter);
             emit(&report, &sinks, &view, palette)?;
+            update_notice(&view, &sinks, palette, settings.config.update.check);
             Ok(Exit::of(!verdict.passed()))
         }
         Command::Mcp { path, http, config } => {
@@ -2165,6 +2200,54 @@ fn run() -> Result<Exit> {
                 return Ok(Exit::Clean);
             }
             report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
+        }
+        Command::Update { check, notes } => {
+            let dim = palette.style(brand::Ink::Muted);
+            // Asked for directly, so the cached answer is not good enough and the
+            // environment's opinion about CI does not apply.
+            let found = update::fetch()?;
+            let Some(newer) = found else {
+                println!(
+                    "\n  rqx {} is the newest release.\n",
+                    env!("CARGO_PKG_VERSION")
+                );
+                return Ok(Exit::Clean);
+            };
+
+            println!(
+                "\n  {}",
+                brand::paint(
+                    palette.bold(brand::Ink::Accent),
+                    format!("rqx {} is out", newer.version)
+                )
+            );
+            println!(
+                "  {}\n",
+                brand::paint(dim, format!("running {}", env!("CARGO_PKG_VERSION")))
+            );
+            if notes || check {
+                for line in newer.notes.lines() {
+                    println!("  {line}");
+                }
+                println!();
+            }
+            if check || notes {
+                return Ok(Exit::Clean);
+            }
+
+            println!(
+                "  {}\n",
+                brand::paint(dim, "building it with cargo; this takes a minute")
+            );
+            update::install(&newer.version)?;
+            println!(
+                "\n  {}\n",
+                brand::paint(
+                    palette.bold(brand::Ink::Good),
+                    format!("installed rqx {}", newer.version)
+                )
+            );
+            Ok(Exit::Clean)
         }
         Command::Techniques => {
             report::techniques(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)

@@ -81,90 +81,16 @@ jobs:
       - name: Crates would publish
         run: cargo package --workspace --locked
 
-  build:
-    needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
-          - target: x86_64-apple-darwin
-            os: macos-13
-          - target: aarch64-apple-darwin
-            os: macos-latest
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - uses: Swatinem/rust-cache@v2
-
-      - run: cargo build --release --locked --target ${{ matrix.target }} --bin rqx
-
-      # A prebuilt binary is the difference between a CI job that adds seconds and
-      # one that compiles a Rust workspace before it can lint a line of TypeScript.
-      # The version is in the asset name so a client can build the URL from a version
-      # it already knows, rather than querying the releases API to find out.
-      - name: Package
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="${{ needs.check.outputs.version }}"
-          name="rqx-${version}-${{ matrix.target }}"
-          mkdir "$name"
-          if [ -f "target/${{ matrix.target }}/release/rqx.exe" ]; then
-            cp "target/${{ matrix.target }}/release/rqx.exe" "$name/"
-          else
-            cp "target/${{ matrix.target }}/release/rqx" "$name/"
-          fi
-          cp README.md LICENSE CHANGELOG.md "$name/"
-          tar -czf "$name.tar.gz" "$name"
-          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
-
-      # The binary in the tarball has to be the one that runs, on the machine that
-      # built it. A cross-built artefact that cannot start is worth catching here.
-      - name: It runs
-        if: matrix.os != 'ubuntu-24.04-arm' || runner.arch == 'ARM64'
-        shell: bash
-        run: |
-          set -euo pipefail
-          binary="target/${{ matrix.target }}/release/rqx"
-          [ -f "$binary.exe" ] && binary="$binary.exe"
-          "$binary" --version
-          "$binary" rules --slugs | head -3
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ASSET }}
-          path: ${{ env.ASSET }}
-
+  # A tag is the release. The notes are the changelog section the tag carries, which
+  # is also what `rqx update` reads, so the two can never disagree.
   publish:
-    needs: [check, build]
+    needs: check
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-          path: assets
 
-      # An extension that downloads a binary without checking it against a published
-      # sum is trusting whatever answered on that URL.
-      - name: Checksums
-        working-directory: assets
-        run: sha256sum *.tar.gz > SHA256SUMS
-
-      # The hand-written section, not a list of pull-request titles: the changelog is
-      # where the reason for each change is already written down.
       - name: Notes
         shell: bash
         run: |
@@ -176,21 +102,16 @@ jobs:
             echo
             echo "---"
             echo
-            echo "Verify a download against \`SHA256SUMS\`:"
-            echo
             echo '```sh'
-            echo "sha256sum -c SHA256SUMS --ignore-missing"
+            echo "cargo install --git https://github.com/jadhamwi21/rqx --tag ${{ github.ref_name }} --locked rqx"
             echo '```'
+            echo
+            echo "An existing install updates itself with \`rqx update\`."
           } >> NOTES.md
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            assets/*.tar.gz
-            assets/SHA256SUMS
           body_path: NOTES.md
-          # A prerelease tag stays a prerelease: `v0.3.0-rc.1` should not become the
-          # version an installer picks up as latest.
           prerelease: ${{ contains(github.ref_name, '-') }}
 
   crates:

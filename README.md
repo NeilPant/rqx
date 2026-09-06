@@ -38,23 +38,27 @@ rqx mcp                         # serve the analysis to an agent over MCP
 ## Install
 
 ```bash
-cargo install --git https://github.com/jadhamwi21/rqx rqx
+cargo install --git https://github.com/jadhamwi21/rqx --locked rqx
 ```
 
-Each release also ships one tarball per target with `SHA256SUMS` beside them:
+That is the whole installation, and it is meant to be the only one: rqx keeps itself
+up to date afterwards.
 
 ```bash
-# macOS (Apple silicon); substitute the target for another platform
-VERSION=0.1.0 TARGET=aarch64-apple-darwin
-curl -fsSLO "https://github.com/jadhamwi21/rqx/releases/download/v$VERSION/rqx-$VERSION-$TARGET.tar.gz"
-tar -xzf "rqx-$VERSION-$TARGET.tar.gz"
-install "rqx-$VERSION-$TARGET/rqx" /usr/local/bin/
+rqx update            # build and install the newest tagged version
+rqx update --check    # say whether one exists, install nothing
+rqx update --notes    # read what changed
 ```
 
-Targets: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`,
-`x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`.
-Building from source needs a Rust toolchain at the `rust-version` in `Cargo.toml`
-and nothing else.
+A scan prints one dim line when a newer version has been tagged, and nothing when it
+has not. The check runs on a thread nothing waits for, caches its answer for a day,
+and is skipped entirely under CI, when the output is not a terminal, with
+`RQX_NO_UPDATE_CHECK` set, or with `[update] check = false` in `RQX.toml`.
+
+**No binaries are published.** Installing and updating both build from source, so a
+Rust toolchain at the `rust-version` in `Cargo.toml` is the one requirement — and
+there are no per-platform tarballs, checksums or marketplace listings that can be
+stale, unsigned, or missing for the machine in front of you.
 
 Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
 prints the configuration each one needs — see [Editors](#editors).
@@ -95,7 +99,7 @@ prints the configuration each one needs — see [Editors](#editors).
 
 ## The commands
 
-Twenty-seven of them, under five headings. `rqx --help` prints this list; each
+Twenty-eight of them, under five headings. `rqx --help` prints this list; each
 command's own `--help` prints its flags, and [docs/cli.md](docs/cli.md) is the whole
 reference.
 
@@ -105,10 +109,10 @@ reference.
 | **Look closer** | `complexity` · `perf` · `health` · `slop` · `graph` · `plan` · `patterns` · `recommend` |
 | **Reference** | `rules` · `explain` · `techniques` · `levels` |
 | **Project** | `init` · `config` · `baseline` · `suppressions` · `cache` |
-| **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` |
+| **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` · `update` |
 
 The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
-`rqx v`. A twenty-eighth command fails the build until it is placed under a heading,
+`rqx v`. A twenty-ninth command fails the build until it is placed under a heading,
 so the list cannot quietly go back to being flat.
 
 Inside the interface the same list is `ctrl-p`, by name.

@@ -493,6 +493,20 @@ List every refactoring Rqx prescribes, and which rules ask for it
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help |
 
+## `rqx update`
+
+Install the newest release, or say what it would change
+
+| Flag | What it does |
+| --- | --- |
+| `--check` | Report whether a newer release exists and stop |
+| `--notes` | Print the release notes for the newest release |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--help` | Print help |
+
 ## `rqx verify`
 
 Compare the working tree against a base revision and say what happened to each finding: resolved, improved, relocated, or introduced

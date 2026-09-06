@@ -42,37 +42,17 @@ outputs:
 runs:
   using: composite
   steps:
-    # A prebuilt binary turns this from a step that compiles a Rust workspace into one
-    # that downloads eight megabytes. Building from source stays as the fallback for a
-    # runner no release covers.
+    # Built from the checked-out action rather than downloaded: rqx publishes no
+    # binaries. The cache is what keeps this to seconds after the first run on a
+    # given commit.
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ github.action_path }}
+
     - name: Install rqx
       shell: bash
-      run: |
-        set -uo pipefail
-        version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "${{ github.action_path }}/Cargo.toml" | head -1)"
-        case "$RUNNER_OS-$RUNNER_ARCH" in
-          Linux-X64)   target=x86_64-unknown-linux-gnu ;;
-          Linux-ARM64) target=aarch64-unknown-linux-gnu ;;
-          macOS-X64)   target=x86_64-apple-darwin ;;
-          macOS-ARM64) target=aarch64-apple-darwin ;;
-          Windows-X64) target=x86_64-pc-windows-msvc ;;
-          *)           target="" ;;
-        esac
-
-        asset="rqx-${version}-${target}.tar.gz"
-        base="https://github.com/jadhamwi21/rqx/releases/download/v${version}"
-        if [ -n "$target" ] && curl -fsSL -o "$asset" "$base/$asset"; then
-          curl -fsSL -o SHA256SUMS "$base/SHA256SUMS"
-          grep " $asset\$" SHA256SUMS | sha256sum -c -
-          tar -xzf "$asset" --strip-components 1 -C "$HOME/.local/bin" 2>/dev/null \
-            || { mkdir -p "$HOME/.local/bin" && tar -xzf "$asset" --strip-components 1 -C "$HOME/.local/bin"; }
-          chmod +x "$HOME/.local/bin/rqx"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        else
-          echo "no release binary for $RUNNER_OS-$RUNNER_ARCH; building from source"
-          rustup toolchain install stable --profile minimal
-          cargo install --locked --path "${{ github.action_path }}/crates/rqx-cli"
-        fi
+      run: cargo install --locked --path "${{ github.action_path }}/crates/rqx-cli"
 
     - name: Run rqx
       id: rqx

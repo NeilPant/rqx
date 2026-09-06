@@ -35,9 +35,13 @@ It does not push. The tag sitting locally is the last moment to change your mind
 | Stage | Does |
 |---|---|
 | `check` | tag matches `Cargo.toml`, the changelog has that section, fmt, clippy, tests, and `cargo package --workspace` |
-| `build` | five targets, each tarball holding the binary, README, LICENSE and changelog, each binary run once to prove it starts |
-| `publish` | `SHA256SUMS`, then a GitHub release whose body is the changelog section |
+| `publish` | a GitHub release whose body is the changelog section |
 | `crates` | crates.io, the three crates in dependency order |
+
+No binaries are built or uploaded. The tag is the release: `cargo install --git
+--tag` is how it is installed and how `rqx update` installs it, so the thing users
+run is built from the commit the tag names rather than from an artifact somebody
+has to trust.
 
 `check` runs before anything is built, because a tag is hard to take back once a
 release and a crates.io version hang off it. Both the check and the publish go

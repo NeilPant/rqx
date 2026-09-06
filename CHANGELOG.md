@@ -10,8 +10,21 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Added
+
+- **`rqx update`.** rqx publishes no binaries; a tag is the release, and updating
+  builds it the same way `cargo install --git` installed it. A scan prints one dim
+  line when a newer version has been tagged, with the changelog behind
+  `rqx update --notes`. The check runs on a thread nothing waits for, caches for a
+  day, and is skipped under CI, off a terminal, with `RQX_NO_UPDATE_CHECK`, or with
+  `[update] check = false`.
+
 ### Removed
 
+- **The published binaries.** No tarballs, no `SHA256SUMS`, no five-target build
+  matrix — installing and updating both build from source, which is one thing that
+  can go wrong instead of five platform artifacts and the pipeline that uploads
+  them. The GitHub Action builds from the checked-out commit and caches it.
 - **The editor extensions.** The VS Code, Zed and JetBrains clients are gone, along
   with the marketplace publishing that went with them. Every editor rqx supports now
   talks to `rqx lsp` through stock LSP configuration, which `rqx setup <editor>`
