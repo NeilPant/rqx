@@ -10,6 +10,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Removed
+
+- **The editor extensions.** The VS Code, Zed and JetBrains clients are gone, along
+  with the marketplace publishing that went with them. Every editor rqx supports now
+  talks to `rqx lsp` through stock LSP configuration, which `rqx setup <editor>`
+  prints — nine of them, none needing anything installed beyond the binary.
+
 ## 0.1.0 — 2026-09-06
 
 ### Added

@@ -1,6 +1,5 @@
 # Build output
 /target
-/editors/vscode/out
 **/node_modules
 
 # Rqx's own cache, written into whatever project it scans
@@ -12,8 +11,6 @@
 .DS_Store
 
 # Packaged extension
-*.vsix
 
 # The server binary the platform builds carry
-/editors/vscode/server
 .playwright-mcp/

@@ -57,10 +57,6 @@ bump() {
 # the workspace stop resolving, which is a strange error to meet mid-release.
 bump Cargo.toml                        '^version = "'
 bump Cargo.toml                        '^rqx-(core|lang) = \{ version = "'
-bump editors/vscode/package.json       '^  "version": "'
-bump editors/zed/Cargo.toml            '^version = "'
-bump editors/zed/extension.toml        '^version = "'
-bump editors/jetbrains/gradle.properties '^pluginVersion='
 
 if [ -z "$dry_run" ]; then
   today="$(date -u +%Y-%m-%d)"

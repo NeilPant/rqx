@@ -12,14 +12,8 @@ pub fn render(client: &Client, palette: Palette, out: &mut dyn Write) -> Result<
 
     writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), client.name))?;
 
-    match client.home {
-        Home::Extension(how) => {
-            writeln!(out, "  {}\n", paint(palette.style(Ink::Accent), how))?;
-        }
-        Home::Append(path) | Home::Merge(path) => {
-            writeln!(out, "  {}\n", paint(palette.style(Ink::Accent), path))?;
-        }
-    }
+    let (Home::Append(path) | Home::Merge(path)) = client.home;
+    writeln!(out, "  {}\n", paint(palette.style(Ink::Accent), path))?;
 
     for line in client.snippet.lines() {
         writeln!(out, "    {line}")?;
@@ -40,11 +34,6 @@ pub fn render(client: &Client, palette: Palette, out: &mut dyn Write) -> Result<
                 "Merge this in by hand: the file is one document, and a second copy of \
                  a key is an error rather than an override."
             )
-        )?,
-        Home::Extension(_) => writeln!(
-            out,
-            "  {}",
-            paint(dim, "The extension needs no configuration to work.")
         )?,
     }
     writeln!(out)?;

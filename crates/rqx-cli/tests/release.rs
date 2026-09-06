@@ -41,17 +41,19 @@ fn version_on(text: &str, prefix: &str) -> String {
 fn every_manifest_carries_the_same_version() {
     let expected = env!("CARGO_PKG_VERSION");
 
-    let shipped = [
-        ("editors/vscode/package.json", "\"version\":"),
-        ("editors/zed/Cargo.toml", "version ="),
-        ("editors/zed/extension.toml", "version ="),
-        ("editors/jetbrains/gradle.properties", "pluginVersion="),
-    ];
-    for (file, prefix) in shipped {
+    // Twice in the workspace manifest: the package, and the version beside the path
+    // on each internal dependency. Moving one and not the other leaves the workspace
+    // unresolvable halfway through a release.
+    let manifest = read("Cargo.toml");
+    for prefix in [
+        "version =",
+        "rqx-core = { version =",
+        "rqx-lang = { version =",
+    ] {
         assert_eq!(
-            version_on(&read(file), prefix),
+            version_on(&manifest, prefix),
             expected,
-            "{file} is not at {expected}; `tools/release.sh` bumps all of them together"
+            "Cargo.toml line `{prefix}` is not at {expected}; `tools/release.sh` moves them together"
         );
     }
 }

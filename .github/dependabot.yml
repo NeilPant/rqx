@@ -16,13 +16,3 @@ updates:
     directory: /
     schedule:
       interval: monthly
-
-  - package-ecosystem: npm
-    directory: /editors/vscode
-    schedule:
-      interval: monthly
-
-  - package-ecosystem: gradle
-    directory: /editors/jetbrains
-    schedule:
-      interval: monthly

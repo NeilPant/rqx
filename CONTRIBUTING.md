@@ -54,7 +54,6 @@ usually does too.
 | `crates/rqx-cli` | the command line, the interface, LSP, MCP, the reporters |
 | `fixtures/` | one deliberately broken file per language per rule |
 | `docs/` | the prose reference; `docs/rules/` is generated |
-| `editors/` | VS Code, Zed and JetBrains clients |
 
 ## Commits
 

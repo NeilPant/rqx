@@ -10,8 +10,6 @@ pub enum Home {
     /// A file rqx must not append to, because the format is a single document and a
     /// second copy of a key is a parse error rather than an override.
     Merge(&'static str),
-    /// The editor installs an extension instead of reading a config file.
-    Extension(&'static str),
 }
 
 pub struct Client {
@@ -23,29 +21,6 @@ pub struct Client {
 
 impl Client {
     pub const ALL: &'static [Self] = &[
-        Client {
-            slug: "vscode",
-            name: "VS Code, Cursor, Windsurf, VSCodium",
-            home: Home::Extension(
-                "Search the marketplace for `rqx`, or `code --install-extension rqx`.",
-            ),
-            snippet: VSCODE,
-        },
-        Client {
-            slug: "zed",
-            name: "Zed",
-            home: Home::Extension("Zed: Extensions, then search for `rqx`."),
-            snippet: ZED,
-        },
-        Client {
-            slug: "jetbrains",
-            name: "IntelliJ, WebStorm, PyCharm, GoLand, CLion",
-            home: Home::Extension(
-                "Settings, Plugins, search for `rqx`. It needs LSP4IJ, which the \
-                 Marketplace installs with it.",
-            ),
-            snippet: JETBRAINS,
-        },
         Client {
             slug: "neovim",
             name: "Neovim",
@@ -106,12 +81,10 @@ impl Client {
         Self::ALL.iter().find(|client| client.slug == slug)
     }
 
-    /// The file to write into, with `~` expanded. `None` where the editor installs an
-    /// extension instead of reading a config file.
+    /// The file to write into, with `~` expanded.
     pub fn path(&self) -> Option<PathBuf> {
         let raw = match self.home {
             Home::Append(path) | Home::Merge(path) => path,
-            Home::Extension(_) => return None,
         };
         let Some(rest) = raw.strip_prefix("~/") else {
             // A path relative to the editor's own package directory, which only the
@@ -125,35 +98,6 @@ impl Client {
         matches!(self.home, Home::Append(_))
     }
 }
-
-const VSCODE: &str = r#"// settings.json — the extension needs none of this to work, but these are the
-// switches worth knowing about.
-{
-  "rqx.scanOnSave": true,
-  "rqx.codeLens": false,
-  "rqx.patterns": false,
-  "rqx.check.base": "origin/HEAD",
-  "editor.codeActionsOnSave": { "source.fixAll.rqx": "explicit" }
-}"#;
-
-const ZED: &str = r#"// settings.json — the extension launches `rqx lsp` itself; this only tunes it.
-{
-  "lsp": {
-    "rqx": {
-      "initialization_options": { "scanOnStartup": true, "patterns": false }
-    }
-  }
-}"#;
-
-const JETBRAINS: &str = r#"# The plugin needs no configuration. These are the switches, under
-# Settings → Tools → rqx:
-#
-#   rqx.path            where the binary is, when it is not on PATH
-#   scanOnStartup       scan the workspace when the project opens
-#   scanOnSave          rescan on save
-#   codeLens / patterns off by default
-#
-# LSP4IJ rather than the platform's own LSP API, because that one is Ultimate only."#;
 
 const NEOVIM: &str = r#"-- rqx
 local configs = require("lspconfig.configs")
@@ -342,7 +286,7 @@ mod tests {
                         "{path} is not a format rqx should append to"
                     );
                 }
-                Home::Merge(_) | Home::Extension(_) => {
+                Home::Merge(_) => {
                     assert!(!client.appendable(), "{}", client.slug);
                 }
             }

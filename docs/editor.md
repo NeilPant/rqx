@@ -15,7 +15,7 @@ you did.
 ## Commands
 
 Every command is a standard `workspace/executeCommand`, so any client that can invoke one
-can bind it. Nothing here is a VS Code extension talking to itself.
+can bind it. Nothing here depends on an editor-specific extension.
 
 | Command | Arguments | Does |
 |---|---|---|
@@ -83,35 +83,6 @@ Pass these as `initializationOptions`; no client-side plugin is needed for any o
 `RQX.toml` is otherwise resolved exactly as the CLI resolves it, and the server reloads
 it in place when the file changes — send `workspace/didChangeWatchedFiles` for
 `**/RQX.toml` and no restart is needed.
-
-## VS Code
-
-[`editors/vscode`](../editors/vscode/README.md) — install it from the Marketplace or Open
-VSX and the matching server comes with it; nothing else to set up. The leader chord is
-`cmd+alt+r` on macOS and `ctrl+alt+r` elsewhere.
-
-The sidebar has four views: **Health** (the score, the severity and grade splits, what to
-open first), **Findings** (every finding, grouped by file, rule, severity or directory and
-filtered by any combination of severity, rule, family, path, fixability and baseline
-status), **Files** (one row per file, worst grade first, expanding to that file's
-findings) and **Rules** (the catalogue, with how often each fired here).
-
-Fixes are `source.fixAll.rqx`, so this applies every proven edit on save:
-
-```json
-{ "editor.codeActionsOnSave": { "source.fixAll.rqx": "explicit" } }
-```
-
-## JetBrains
-
-[`editors/jetbrains`](../editors/jetbrains/README.md) — IDEA, WebStorm, PyCharm, GoLand
-and CLion, Community editions included. It needs
-[LSP4IJ](https://plugins.jetbrains.com/plugin/23257-lsp4ij), which installs with it, and
-an `rqx` on your `PATH`.
-
-Settings are under **Settings → Tools → rqx**: the binary, the revision a review compares
-against, and the four the server reads. The actions are under **Tools → rqx** and on the
-same leader chord as everywhere else.
 
 ## Neovim
 
@@ -201,26 +172,6 @@ h = ":lsp-workspace-command rqx.startHere"
 p = ":lsp-workspace-command rqx.togglePatterns"
 l = ":lsp-workspace-command rqx.toggleCodeLens"
 ```
-
-## Zed
-
-In `settings.json`:
-
-```json
-{
-  "lsp": {
-    "rqx": {
-      "binary": { "path": "rqx", "arguments": ["lsp"] },
-      "initialization_options": { "scanOnStartup": true }
-    }
-  }
-}
-```
-
-Zed gets diagnostics, hover, code actions and — with `"code_lens": true` — the grade
-lens. It does not get the commands bound to keys: a Zed extension can contribute a
-language server, a theme, an MCP server or a debugger, and nothing else, so there is no
-place to register them.
 
 ## Sublime Text
 

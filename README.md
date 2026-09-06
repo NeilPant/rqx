@@ -56,10 +56,8 @@ Targets: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`,
 Building from source needs a Rust toolchain at the `rust-version` in `Cargo.toml`
 and nothing else.
 
-Editors: **VS Code** (also Cursor, Windsurf, VSCodium) and **Zed** have extensions in
-this repository that fetch the matching binary themselves; both are built in CI and
-published with a release. Every other editor speaks to `rqx lsp` — see
-[Editors](#editors).
+Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
+prints the configuration each one needs — see [Editors](#editors).
 
 <details>
 <summary><b>Contents</b></summary>
@@ -717,27 +715,23 @@ rqx setup neovim     # the config it needs
 rqx setup neovim -w  # append it, after showing what will be added
 ```
 
-| | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Views |
-|---|---|---|---|---|---|---|---|
-| **VS Code**, Cursor, Windsurf, VSCodium | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Zed** | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
-| **JetBrains** IDEA, WebStorm, PyCharm, GoLand, CLion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Emacs** eglot | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Emacs** lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| **Vim** coc.nvim | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
-| **Vim** vim-lsp | ✓ | ✓ | ✓ | ✓ | — | — | — |
-| **Kakoune** kak-lsp | ✓ | ✓ | ✓ | ✓ | — | — | — |
-| **Kate** | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands |
+|---|---|---|---|---|---|---|
+| **Neovim** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Helix** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Sublime Text** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Emacs** eglot | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Emacs** lsp-mode | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Vim** coc.nvim | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| **Vim** vim-lsp | ✓ | ✓ | ✓ | ✓ | — | — |
+| **Kakoune** kak-lsp | ✓ | ✓ | ✓ | ✓ | — | — |
+| **Kate** | ✓ | ✓ | ✓ | ✓ | — | — |
 
-VS Code and Zed ship extensions that fetch the matching binary themselves; the JetBrains
-plugin runs on Community editions. **Views** are the sidebar's own findings, files and
-rules trees, which only VS Code has a place for; everywhere else `rqx` in a terminal
-split is that view. Everything else runs `rqx lsp`, so a capability added to the server
-appears in every editor in the same commit — which is why these clients stay small
-enough to survive being unmaintained.
+There is no extension to install and none to keep up to date: every client above is
+stock LSP configuration against the `rqx lsp` binary, so a capability added to the
+server reaches all of them in the same commit. Any editor with an LSP client works
+the same way. For a sidebar of findings, files and rules, `rqx` in a terminal split
+is that view.
 
 Quick fixes are the same edits `rqx fix` applies, verified the same way and tagged
 `source.fixAll` so an editor can apply them on save. The rules whose fix is
