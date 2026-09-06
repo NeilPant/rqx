@@ -1,5 +1,5 @@
-# Every rule in the catalogue, including the ten that are off by default because
-# they are noisy or encode a convention not every project shares. For a new
+# Every rule in the catalogue, including the twenty-one that are off by default
+# because they are noisy or encode a convention not every project shares. For a new
 # codebase, or one where the standard is the point.
 
 [thresholds]

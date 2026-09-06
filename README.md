@@ -4,11 +4,12 @@
 
 # rqx
 
-**Finds dead code, duplication and architectural drift in TypeScript, Python, Go, Java
-and C++ — says why each finding matters, names the refactoring that fixes it, applies
-the ones with a single right answer, and grades the diff afterwards.**
+**A static analyser for TypeScript, Python, Go, Java and C++.** It reports dead code,
+duplication, complexity and architectural drift; states why each finding matters and
+what it costs; names the refactoring that resolves it; applies the fixes that have a
+single correct answer; and grades a diff against the base branch.
 
-One Rust binary. No Node, no npm, no runtime dependencies.
+A single Rust binary with no runtime dependencies.
 
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
 [![Release](https://img.shields.io/github/v/release/jadhamwi21/rqx?color=0a84ff)](https://github.com/jadhamwi21/rqx/releases)
@@ -24,12 +25,12 @@ One Rust binary. No Node, no npm, no runtime dependencies.
 ---
 
 ```
-rqx                             # scans, then opens on your own code
+rqx                             # scan, then browse the result
 rqx scan ./src                  # report everything
 rqx fix --write                 # apply the fixes with one right answer, proven first
 rqx plan --budget 20            # rank the work, and say what the score will be after
 rqx perf --profile cpu.pprof    # what grows faster than its input, and what ran
-rqx verify --base main          # did the refactoring you named actually happen
+rqx verify --base main          # was the named refactoring actually made
 rqx check --base main           # review only what changed, fail CI on the gate
 rqx comment --fail-on error     # post that review onto the merge request
 rqx mcp                         # serve the analysis to an agent over MCP
@@ -40,7 +41,7 @@ rqx mcp                         # serve the analysis to an agent over MCP
 A release ships one tarball per target, with `SHA256SUMS` beside them:
 
 ```bash
-# macOS (Apple silicon); swap the target for your platform
+# macOS (Apple silicon); substitute the target for another platform
 VERSION=0.1.0 TARGET=aarch64-apple-darwin
 curl -fsSLO "https://github.com/jadhamwi21/rqx/releases/download/v$VERSION/rqx-$VERSION-$TARGET.tar.gz"
 tar -xzf "rqx-$VERSION-$TARGET.tar.gz"
@@ -63,30 +64,31 @@ fetch the matching binary themselves. Everything else speaks to `rqx lsp` — se
 - [Install](#install)
 - [The commands](#the-commands)
 - [The report](#the-report)
-- [What makes a finding](#what-makes-a-finding)
+- [Anatomy of a finding](#anatomy-of-a-finding)
 - [The catalogue](#the-catalogue)
 - [Design patterns](#design-patterns)
-- [The direction dependencies may point](#the-direction-dependencies-may-point)
-- [Five languages, one rule set](#five-languages-one-rule-set)
-- [It applies the fixes that have one right answer](#it-applies-the-fixes-that-have-one-right-answer)
-- [Did the refactoring actually happen](#did-the-refactoring-actually-happen)
-- [Which five do I fix on Monday](#which-five-do-i-fix-on-monday)
-- [Putting it on a codebase that already exists](#putting-it-on-a-codebase-that-already-exists)
-- [Reading a codebase you did not write](#reading-a-codebase-you-did-not-write)
-- [Changing a setting](#changing-a-setting)
+- [Architectural constraints](#architectural-constraints)
+- [Language support](#language-support)
+- [Automatic fixes](#automatic-fixes)
+- [Verifying a refactoring](#verifying-a-refactoring)
+- [Prioritising the work](#prioritising-the-work)
+- [Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase)
+- [Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
+- [Editing configuration](#editing-configuration)
 - [Levels](#levels)
 - [Configuration](#configuration)
-- [Families can be switched on and off](#families-can-be-switched-on-and-off)
-- [The same rule, written twice, in two languages](#the-same-rule-written-twice-in-two-languages)
-- [Where the time goes](#where-the-time-goes)
-- [What the tests actually ran](#what-the-tests-actually-ran)
-- [Confidence is never overstated](#confidence-is-never-overstated)
+- [Enabling and disabling rules](#enabling-and-disabling-rules)
+- [Cross-language duplication](#cross-language-duplication)
+- [Performance rules](#performance-rules)
+- [Coverage as evidence](#coverage-as-evidence)
+- [Confidence levels](#confidence-levels)
 - [Editors](#editors)
 - [Agents](#agents)
 - [The interface](#the-interface)
 - [CI](#ci)
-- [Contributing](#contributing)
 - [Performance](#performance)
+- [Contributing](#contributing)
+- [License](#license)
 
 </details>
 
@@ -104,7 +106,7 @@ reference.
 | **Project** | `init` · `config` · `baseline` · `suppressions` · `cache` |
 | **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` |
 
-The four you type all day have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
+The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
 `rqx v`. A twenty-eighth command fails the build until it is placed under a heading,
 so the list cannot quietly go back to being flat.
 
@@ -152,8 +154,8 @@ finding. `--context <n>` sets the window at any level.
 
 Import cycles, and the contracts a file breaks where an `[architecture]` is declared,
 get sections of their own above the summary. Both are ordinary findings as well —
-anchored on one member of the ring — but a ring read as a ring is the thing you were
-looking for.
+anchored on one member of the ring — but a cycle presented as a cycle is what the
+reader is looking for.
 
 Each file carries a grade — `pristine`, `clean`, `fair`, `poor`, `critical` — from
 the same curve as the health score applied to that file's own lines. It is what
@@ -168,7 +170,7 @@ on, and `--search` matches the rule, the file or the evidence. None of them move
 health score or the gate, because a CI result that depended on how it was printed
 would be worthless.
 
-## What makes a finding
+## Anatomy of a finding
 
 Every finding carries four things, and none of them are optional:
 
@@ -266,11 +268,11 @@ holds is `verified`, reading a Bridge out of a cross-product of subclass names i
 `measured threshold`, and pairing a save with a restore by name is `low confidence`
 and ships off. [`docs/patterns/`](docs/patterns/README.md) is the reference.
 
-## The direction dependencies may point
+## Architectural constraints
 
-ArchUnit does Java. dependency-cruiser does JavaScript. import-linter does Python.
-Nothing checks a polyglot monorepo in one config — which is exactly where the drift
-happens, because no single tool sees the whole thing.
+ArchUnit covers Java, dependency-cruiser JavaScript, import-linter Python. None of
+them covers a polyglot repository from one configuration, which is where layering
+drift tends to accumulate: no single tool observes the whole graph.
 
 ```toml
 [architecture]
@@ -288,14 +290,14 @@ before it, so the domain cannot reach for an adapter. The finding points at the 
 line, in whichever of the five languages wrote it, because it reads the same module
 graph the cycle detection already uses.
 
-Silent until you declare it — an architecture nobody wrote down is not one rqx should
-infer — and a layer named in `paths` that `layers` never declares is an error rather
-than a rule that quietly governs nothing.
+The check is silent until declared: an architecture that has not been written down
+is not one rqx infers. A layer named in `paths` but absent from `layers` is an error
+rather than a rule that silently governs nothing.
 
-## Five languages, one rule set
+## Language support
 
 ```toml
-# RQX.toml — all five are on unless you say otherwise
+# RQX.toml — all five are enabled unless stated otherwise
 [languages]
 enabled = ["typescript", "python", "go", "java", "cpp"]
 ```
@@ -312,7 +314,7 @@ import resolver; nothing else about it reaches the rules.
 | **Imports resolve via** | extensions, `index`, `tsconfig` paths, `package.json` | packages and `__init__.py`, relative dots | `go.mod` module path, package directories | package to directory under a source root | `#include "…"` against the file and include roots |
 | **Entry points** | `package.json` `main`/`exports`/`bin` | `__main__.py`, `main.py`, `conftest.py`, `test_*`, `[project.scripts]` | `package main`, `_test.go` | `static void main`, `@Test` | every translation unit, `TEST(…)` |
 | **Tests** | Jest/Mocha/Vitest | pytest, unittest | `go test` | JUnit | GoogleTest |
-| **Rules that apply** | 60 | 59 | 52 | 58 | 58 |
+| **Rules that apply** | 184 | 174 | 139 | 171 | 169 |
 
 A rule that cannot exist in a language says so, in the catalogue, with a reason:
 
@@ -329,7 +331,7 @@ applicable rule must fire on that language's fixtures, and every exempted rule m
 stay silent on them — so a rule that quietly stops working in one language fails the
 build rather than going unnoticed.
 
-## It applies the fixes that have one right answer
+## Automatic fixes
 
 Most findings name a refactoring, and choosing its shape is the work. Some do not:
 nothing about deleting an unused local is a design decision, and rqx already located
@@ -360,20 +362,21 @@ reason rather than passed over silently. Writes are atomic, and one fix making t
 possible is why it repeats — deleting the branch that held a binding's only reference
 is what makes that binding unused.
 
-Ten rules qualify today. `[fix] disabled = ["commented-out-code"]` opts one out;
-`rqx explain <rule>` says whether a rule is fixable. The other fifty-three are
+Thirteen rules qualify today. `[fix] disabled = ["commented-out-code"]` opts one out;
+`rqx explain <rule>` says whether a rule is fixable. The other 172 are
 `rqx fix --plan`, which emits them with the span, the source text, the metric, the
 reasoning and the named refactoring — the brief for a person or an agent, in the shape
 they can act on. `rqx check --base main --fix` does the same for a branch and judges
 the gate afterwards, so a branch whose only failures were mechanical passes.
 
-Your editor offers the same edits, verified the same way, tagged `source.fixAll` so
-they can run on save.
+Editors offer the same edits, verified the same way and tagged `source.fixAll`, so
+they can be applied on save.
 
-## Did the refactoring actually happen
+## Verifying a refactoring
 
-rqx names a refactoring for every finding. Nothing checked whether it was made —
-and now that agents write most refactors, that gap is where wrong diffs get merged.
+rqx names a refactoring for every finding, but naming one does not establish that
+it was carried out. `rqx verify` grades a diff against the refactoring it claimed to
+perform, which matters most where the diff was written by an agent.
 
 ```
 $ rqx verify --base main
@@ -402,11 +405,11 @@ never by line, so moving code around does not read as fixing it.
 particular finding was resolved. It is a `verify` MCP tool too, so an agent can
 propose, be graded, and try again.
 
-## Which five do I fix on Monday
+## Prioritising the work
 
-A list of three hundred findings ranked by severity is what every tool prints, and it
-is why debt lists go unread. `rqx plan` ranks the work by what it buys against what it
-costs, and says what the score would be after each item:
+A list of findings ranked by severity is the conventional output and is rarely
+acted on. `rqx plan` ranks the work by what each item buys against what it costs, and
+projects the health score after each one:
 
 ```
 $ rqx plan ./src --budget 12 --simulate
@@ -432,13 +435,13 @@ rule prescribes: deleting is one point, moving behaviour up or down a type tree 
 five. The selection is exact rather than greedy, because the cheapest two items are
 often worth more together than the dearest one.
 
-## Putting it on a codebase that already exists
+## Adopting it on an existing codebase
 
-A ten-year-old service has four thousand findings. Turn the gate on and it fails on
-the first pull request, so it gets turned off on the second. Four things exist for
-exactly that afternoon.
+A codebase of any age arrives with a large existing debt. A gate switched on
+against it fails the first pull request and is switched off by the second. Four
+features exist to make adoption incremental.
 
-**Record the debt you already have.**
+**Record the existing debt.**
 
 ```sh
 rqx baseline            # writes .rqx/baseline.json — commit it
@@ -472,7 +475,7 @@ Without the reason it waives nothing: the finding stands and
 and past that date it lapses the same way. `rqx suppressions` lists every waiver with
 its reason and who wrote it. [More](docs/suppressions.md).
 
-**Write the rules your codebase needs.**
+**Write project-specific rules.**
 
 ```toml
 [[rule]]
@@ -486,7 +489,7 @@ severity = "error"
 
 A tree-sitter query, and every grammar is already in the binary. It counts towards the
 score, shows in the editor, gets its own SARIF descriptor, and can be disabled or
-waived by name. `rqx query typescript '<query>' --captures` tries one before you
+waived by name. `rqx query typescript '<query>' --captures` tries one before
 commit to it, and a query that will not compile is a config error naming the rule and
 the row it failed at. [More](docs/custom-rules.md).
 
@@ -500,7 +503,7 @@ The policy sits *under* the project, so a service may still tighten what it like
 `[locked] keys` names what it may not change at all — not in its own config, not in an
 override, not with `--level`. [More](docs/policy.md).
 
-## Reading a codebase you did not write
+## Surveying an unfamiliar codebase
 
 ```sh
 rqx recommend      # which thresholds fit, which refactoring pays, what to read first
@@ -510,7 +513,7 @@ rqx graph --cycles --format mermaid
 rqx slop           # which files read as written rather than read
 ```
 
-`rqx complexity` is the one to run first on an unfamiliar tree:
+`rqx complexity` is the most useful first command on an unfamiliar tree:
 
 ```
   Complexity  39873 functions measured
@@ -524,20 +527,21 @@ rqx slop           # which files read as written rather than read
     p50 0 · p90 2 · p99 11 · 180 of 39873 over the threshold of 15
 ```
 
-That last line says whether the threshold is describing the exceptions or the norm.
-`rqx recommend` tells you to move it if it is the norm, and stays quiet if it is not.
+The final line establishes whether the threshold describes the exceptions or the
+norm. `rqx recommend` proposes moving it in the first case and stays silent in the
+second.
 
 `rqx graph` prints the import graph as text, Graphviz, Mermaid or JSON, with the edges
 that close a cycle marked in each — and `circular-dependency` reports the ring as a
-walk you can follow rather than a count, anchored on the import that opens it.
+walk that can be followed rather than a count, anchored on the import that opens it.
 
 `rqx slop` scores how much of a file is text that costs a reader and buys nothing: a
 comment above every line restating it, a divider in a fifty-line file, `example.com`
-in a constant, a leftover *Here's the implementation you asked for!* Each is nothing
+in a constant, a leftover *Here's the implementation you asked for!* — each is nothing
 alone; together and at density they describe code that was produced and never read
 back. It is labelled a heuristic everywhere it appears and gates nothing unless asked.
 
-## Changing a setting
+## Editing configuration
 
 ```sh
 rqx config                                   # the settings, and which file set each
@@ -548,7 +552,7 @@ rqx config files                             # the chain, nearest last
 ```
 
 A monorepo reads a user config, a policy and one `RQX.toml` per directory, so `set`
-writes to the file that already holds the key and `--pick` asks when you want a
+writes to the file that already holds the key, and `--pick` asks for one when a
 different one. Edits go through a format-preserving writer: the template is mostly
 prose explaining what each key is for, and a reserialise would throw all of it away on
 the first change. A key the policy locked is refused before the file is touched.
@@ -563,14 +567,14 @@ level = "strict"
 
 | Level | Rules | Gate | For |
 |---|---|---|---|
-| `relaxed` | 41 of 60 | error | legacy code that has to stay shippable while it is cleaned up |
-| `standard` | 50 of 60 | error | the catalogue as it stands |
-| `strict` | 54 of 60 | warning, min grade `fair` | held to what a reader can follow without effort |
-| `pristine` | 60 of 60 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
+| `relaxed` | 155 of 185 | error | legacy code that has to stay shippable while it is cleaned up |
+| `standard` | 164 of 185 | error | the catalogue as it stands |
+| `strict` | 168 of 185 | warning, min grade `fair` | held to what a reader can follow without effort |
+| `pristine` | 185 of 185 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
 
-A level is merged **under** everything you wrote, so it moves the defaults and never
-overrides a value you stated — `rqx config` says `level:strict` in the `from` column
-for a value the level moved, and names your file for one you set. `--level strict`
+A level is merged **under** everything the project states, so it moves the defaults
+and never overrides a stated value — `rqx config` says `level:strict` in the `from` column
+for a value the level moved, and names the project's file for one it set. `--level strict`
 overrides the file, because CI usually wants a stricter standard on the default branch
 than a working copy does, and an `[[override]]` may name its own level, so a project can
 be strict in its domain and relaxed in its scripts. `rqx levels` prints each one as the
@@ -582,7 +586,7 @@ settings it would take to write by hand.
 per table; `rqx config` prints what a run will actually use and names the file each
 value came from.
 
-Layers merge, lowest first: the built-in defaults, then your own
+Layers merge, lowest first: the built-in defaults, then the user's
 `~/.config/rqx/RQX.toml`, then every `RQX.toml` from the scanned directory upward
 (outermost first, stopping at the repository root), then `RQX_CONFIG`, then
 `--config`, then the command's own flags. So `rqx scan src/` in a monorepo uses the
@@ -601,9 +605,9 @@ long_function_statements = 200
 Nothing else may be scoped. The file walker is built once and the gate reaches one
 verdict, so an override naming `[scan]` or `[gate]` is an error rather than a setting
 that quietly does nothing. [docs/configuration.md](docs/configuration.md) has the
-whole schema, all 22 thresholds and the rules each one tunes.
+whole schema, all 44 thresholds and the rules each one tunes.
 
-## Families can be switched on and off
+## Enabling and disabling rules
 
 ```toml
 [rules]
@@ -612,11 +616,11 @@ disabled   = ["magic-number"]                # or a single rule
 enabled    = ["short-name-wide-scope"]       # opt into an off-by-default rule
 ```
 
-Ten rules ship off by default — the ones whose signal is real but noisy, or which
-encode a convention a given project may not share. They are listed with
+Twenty-one rules ship off by default — the ones whose signal is real but noisy, or
+which encode a convention a given project may not share. They are listed with
 `(off by default)` in `rqx rules`.
 
-## The same rule, written twice, in two languages
+## Cross-language duplication
 
 Clone detection is per-language everywhere, including here: the hash reads node ids a
 grammar assigns, and no two grammars agree on them. A second hash reads a vocabulary
@@ -636,11 +640,11 @@ rule, so a group has to span languages, clear eight statements and forty nodes, 
 share a constant before it is reported — ported code keeps its constants even when
 its syntax changes completely.
 
-## Where the time goes
+## Performance rules
 
-Most of what a profiler eventually points at is a shape a reader could have named
-from the source: a query inside a loop, a linear search inside a loop, an await per
-item, a pattern recompiled on every pass. Ten rules read those shapes, and
+Much of what a profiler eventually identifies is visible in the source: a query
+inside a loop, a linear search inside a loop, an await per item, a pattern recompiled
+on every pass. Ten rules read those shapes, and
 `rqx perf` ranks the functions carrying them by what they cost against how much of
 the project leans on the file they are in.
 
@@ -672,7 +676,7 @@ named `index` or `cache` — is a lookup rather than a round trip and is not rep
 [docs/perf.md](docs/perf.md) has the columns, the formats and the vocabulary a
 project can extend.
 
-## What the tests actually ran
+## Coverage as evidence
 
 Dead code is decided from the import graph, and a graph cannot see a dynamic import,
 a container wiring things up by name, or reflection. A coverage file settles it:
@@ -690,7 +694,7 @@ lcov, Go cover profiles and coverage.py JSON are recognised by content, several 
 merge, and a coverage file that cannot be read is skipped with a warning rather than
 failing the scan.
 
-## Confidence is never overstated
+## Confidence levels
 
 A finding says how sure it is. `unused-parameter` claims **verified** only for a
 trailing parameter of a function whose signature its author controls. A parameter
@@ -707,7 +711,7 @@ import manufactures false "unused export" findings.
 ```
 rqx setup            # every editor rqx knows
 rqx setup neovim     # the config it needs
-rqx setup neovim -w  # appended for you, after showing what will be added
+rqx setup neovim -w  # append it, after showing what will be added
 ```
 
 | | Diagnostics | Cross-file rules | Hover | Quick fixes | Code lens | Commands | Views |
@@ -729,8 +733,8 @@ split is that view. Everything else runs `rqx lsp`, so a capability added to the
 appears in every editor in the same commit — which is why these clients stay small
 enough to survive being unmaintained.
 
-**Quick fixes are the real edits**, verified exactly as `rqx fix` verifies them, tagged
-`source.fixAll` so an editor can apply every one of them on save. The rules whose fix is
+Quick fixes are the same edits `rqx fix` applies, verified the same way and tagged
+`source.fixAll` so an editor can apply them on save. The rules whose fix is
 a decision offer to explain themselves or turn the rule off instead.
 
 Cross-file findings arrive without being asked for: the server scans the workspace on
@@ -742,8 +746,8 @@ paste-in block per editor.
 
 ## Agents
 
-`rqx mcp` is an MCP server, so a coding agent can ask what a project's problems are
-instead of reading every file to guess. It answers with the same four things every
+`rqx mcp` runs an MCP server, so a coding agent can query a project's problems
+rather than inferring them by reading files. It answers with the same four things every
 finding carries — the measured fact, why it matters, what it costs and the named
 refactoring — which is exactly what an agent asked to "clean this up" otherwise invents.
 
@@ -771,7 +775,7 @@ in a context window, and a tool that returned one would leave nothing to fix it 
 All fifteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
 the brief and the agent does the writing. `--http` serves
 the same tools over Streamable HTTP for clients that cannot spawn a process, and refuses
-a public address without `RQX_MCP_TOKEN` rather than handing your source to the network.
+a public address without `RQX_MCP_TOKEN` rather than exposing the source to a network.
 [docs/mcp.md](docs/mcp.md) has the payload shapes and a config snippet per client.
 
 ## The interface
@@ -816,7 +820,7 @@ through the same functions the command line calls.
 
 **The palette is also the map.** Opened with nothing typed, it is the whole list
 under five headings — **Analyse**, **Browse**, **Report**, **Set up** and
-**Session** — and flattens into ranked matches the moment you type. There is no
+**Session** — and flattens into ranked matches as soon as anything is typed. There is no
 separate menu to keep in step with it. Set up is the three commands that write a
 file — `RQX.toml`, a baseline, clearing the cache — kept under a heading of their
 own and each saying what it did on the footer line.
@@ -829,16 +833,15 @@ every screen to it.
 
 `tab` cycles the nine tabs and `1`–`9` jump to one; `r` scans, `w` watches and
 re-analyses on every save, `,` opens the settings, `?` lists the keys of the
-screen you are on, `q` leaves and prints what the session found. Those are
+current screen, `q` leaves and prints what the session found. Those are
 answered everywhere, so no screen claims them and the `?` overlay adds them once
 — which it did not before, leaving `r` and `w` bound and documented nowhere.
 
-`esc` steps back through where you have been and quits at the root.
+`esc` steps back through the navigation history and quits at the root.
 
-`enter` on a finding opens it in `$EDITOR` at its line and comes back when you
-leave; `enter` on a file, a function, a ranked item or a module shows that file's
+`enter` on a finding opens it in `$EDITOR` at its line and returns on exit; `enter` on a file, a function, a ranked item or a module shows that file's
 findings. `a` proves the fixes for a file and shows what they would change, `y`
-writes them, and `x` waives the selected finding once you give a reason. After
+writes them, and `x` waives the selected finding once a reason is given. After
 either, only the file that changed is re-analysed — the cross-file stage still
 runs over everything, so the answer is the one a full scan would give.
 
@@ -930,7 +933,7 @@ cargo test --workspace
 
 `./rqx` builds and then execs the binary rather than using `cargo run`, so cargo's
 progress output never lands in the middle of the interface, and paths still resolve
-against your own working directory. Build output goes to stderr, so
+against the current working directory. Build output goes to stderr, so
 `./rqx scan . --reporter json > out.json` stays valid JSON. To install it properly:
 `cargo install --path crates/rqx-cli`.
 
@@ -943,8 +946,6 @@ does not compile. Precision numbers from a real repository are the review.
 [Releasing](RELEASING.md) ·
 [Changelog](CHANGELOG.md) ·
 [Discussions](https://github.com/jadhamwi21/rqx/discussions)
-
-MIT licensed.
 
 ## Performance
 
@@ -973,3 +974,10 @@ Roughly 90% of a cold scan is the per-file parse and walk. The stages after it �
 duplicates, the import graph, git history, co-change — are together about 200ms of
 the 3.2s above, which is why the cache pays: it skips the first part and keeps the
 second.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+Contributions are accepted under the same licence; there is no contributor licence
+agreement to sign.
