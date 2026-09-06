@@ -16,9 +16,12 @@ homepage = "https://github.com/jadhamwi21/rqx"
 keywords = ["static-analysis", "linter", "code-quality", "refactoring", "dead-code"]
 categories = ["development-tools", "command-line-utilities"]
 
+# The version is here and nowhere else. A published crate needs one beside the path,
+# and three manifests each carrying their own is three chances for a release to bump
+# the package and leave its siblings depending on the version before it.
 [workspace.dependencies]
-rqx-core = { path = "crates/rqx-core" }
-rqx-lang = { path = "crates/rqx-lang" }
+rqx-core = { version = "0.1.0", path = "crates/rqx-core" }
+rqx-lang = { version = "0.1.0", path = "crates/rqx-lang" }
 
 [profile.release]
 lto = "thin"

@@ -50,7 +50,11 @@ bump() {
   step "$file"
 }
 
+# Twice in this one: the package version, and the version beside the path on each
+# internal dependency in `[workspace.dependencies]`. Leaving the second behind makes
+# the workspace stop resolving, which is a strange error to meet mid-release.
 bump Cargo.toml                        '^version = "'
+bump Cargo.toml                        '^rqx-(core|lang) = \{ version = "'
 bump editors/vscode/package.json       '^  "version": "'
 bump editors/zed/Cargo.toml            '^version = "'
 bump editors/zed/extension.toml        '^version = "'
