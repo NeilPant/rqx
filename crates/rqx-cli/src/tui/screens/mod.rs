@@ -26,13 +26,23 @@ pub fn nothing_yet(frame: &mut Frame<'_>, area: Rect, session: &Session, tab: Ta
     frame.render_widget(Paragraph::new(lines), area);
 }
 
+/// A scan that ran and found nothing to show here. Not the same as one that has not
+/// run: four screens used to tell a clean project to press `r`, which it just had.
+pub fn nothing_found(frame: &mut Frame<'_>, area: Rect, session: &Session, what: &str) {
+    let palette = session.palette;
+    let lines = vec![
+        Line::default(),
+        Line::styled(format!("  No {what}."), palette.dim()),
+    ];
+    frame.render_widget(Paragraph::new(lines), area);
+}
+
 pub mod catalogue;
 pub mod complexity;
 pub mod files;
 pub mod findings;
 pub mod graph;
 pub mod health;
-pub mod menu;
 pub mod overview;
 pub mod patterns;
 pub mod plan;

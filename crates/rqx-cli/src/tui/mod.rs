@@ -146,8 +146,8 @@ type Refresher = JoinHandle<anyhow::Result<(Box<Project>, bool)>>;
 /// up before you have looked away from it.
 const BETWEEN_POLLS: std::time::Duration = std::time::Duration::from_millis(400);
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum Mode {
-    Menu,
     Scanning,
     Browsing(Tab),
     /// One of the analyses that answers with text rather than a table.
@@ -157,7 +157,6 @@ enum Mode {
 struct App {
     session: Session,
     mode: Mode,
-    menu: screens::menu::Menu,
     scanning: screens::scanning::Scanning,
     overview: screens::overview::Overview,
     findings: screens::findings::Findings,
@@ -191,6 +190,7 @@ struct App {
     /// the chrome without asking the screen.
     body: Rect,
     commands: Option<CommandPalette>,
+    came_from: Vec<Mode>,
     help: bool,
     dirty: bool,
     quit: bool,
@@ -202,7 +202,6 @@ macro_rules! parts {
     ($app:expr) => {{
         let app = &mut *$app;
         let screen: &mut dyn Screen = match app.mode {
-            Mode::Menu => &mut app.menu,
             Mode::Scanning => &mut app.scanning,
             Mode::Browsing(Tab::Overview) => &mut app.overview,
             Mode::Browsing(Tab::Findings) => &mut app.findings,
@@ -326,13 +325,12 @@ impl App {
                     self.reset_screens();
                     self.mode = Mode::Browsing(Tab::Overview);
                 }
-                Ok(Err(error)) => {
-                    self.session.failure = Some(format!("{error:#}"));
-                    self.mode = Mode::Menu;
-                }
+                // Stays on the scanning screen, which has always known how to draw a
+                // failure and never had the chance: the mode used to change in the
+                // same breath as the message was set.
+                Ok(Err(error)) => self.session.failure = Some(format!("{error:#}")),
                 Err(_) => {
                     self.session.failure = Some("the scan thread stopped unexpectedly".to_owned());
-                    self.mode = Mode::Menu;
                 }
             }
             changed = true;
@@ -346,7 +344,7 @@ impl App {
                     if moved || self.session.outcome.is_none() {
                         self.session.outcome = Some(project.outcome());
                         self.reset_screens();
-                        if matches!(self.mode, Mode::Menu | Mode::Scanning) {
+                        if matches!(self.mode, Mode::Scanning) {
                             self.mode = Mode::Browsing(Tab::Overview);
                         }
                     }
@@ -466,12 +464,30 @@ impl App {
         self.apply(nav);
     }
 
+    /// Remembers where you were, so `esc` has somewhere to go. Bounded because a
+    /// long session should not carry its whole history: a handful of steps back is
+    /// what anyone reaches for, and the bottom of the stack leaves.
+    fn go(&mut self, mode: Mode) {
+        const REMEMBERED: usize = 16;
+        if self.mode != mode {
+            if self.came_from.len() == REMEMBERED {
+                self.came_from.remove(0);
+            }
+            self.came_from.push(self.mode);
+        }
+        self.mode = mode;
+        self.dirty = true;
+    }
+
     fn apply(&mut self, nav: Nav) {
         match nav {
             Nav::Stay => {}
             Nav::Redraw => self.dirty = true,
             Nav::Quit => self.quit = true,
             Nav::Scan => self.start_scan(),
+            // Answered by the palette, which asks for the revision before handing it
+            // back as a review. Nothing else can act on it.
+            Nav::Ask => {}
             Nav::Refresh => self.start_refresh(),
             Nav::Watch => {
                 self.session.watching = !self.session.watching;
@@ -479,30 +495,28 @@ impl App {
                 self.dirty = true;
             }
             Nav::Review(base) => self.start_review(base),
-            Nav::To(tab) => {
-                self.mode = Mode::Browsing(tab);
-                self.dirty = true;
-            }
-            // Every screen leads back to the menu, and the menu is the only place
-            // where leaving means leaving the program.
-            Nav::Back => {
-                self.mode = Mode::Menu;
-                self.dirty = true;
-            }
+            Nav::To(tab) => self.go(Mode::Browsing(tab)),
+            // Back through where you have been. There is no menu to land on any
+            // more, so the bottom of the stack is the way out — which is what `esc`
+            // means everywhere that has no parent screen.
+            Nav::Back => match self.came_from.pop() {
+                Some(mode) => {
+                    self.mode = mode;
+                    self.dirty = true;
+                }
+                None => self.quit = true,
+            },
             Nav::Inspect(file) => {
                 self.findings.only(&file);
-                self.mode = Mode::Browsing(Tab::Findings);
-                self.dirty = true;
+                self.go(Mode::Browsing(Tab::Findings));
             }
             Nav::Explain(slug) => {
                 self.rules.only(&slug);
-                self.mode = Mode::Browsing(Tab::Rules);
-                self.dirty = true;
+                self.go(Mode::Browsing(Tab::Rules));
             }
             Nav::Read(page) => {
                 self.reader.show(page, &self.session);
-                self.mode = Mode::Reading;
-                self.dirty = true;
+                self.go(Mode::Reading);
             }
             Nav::Do(task) => {
                 self.session.notice = Some(match self.run_task(task) {
@@ -535,18 +549,20 @@ impl App {
             self.dirty = true;
             return;
         }
-        if key.code == KeyCode::Char('?') {
-            self.help = true;
-            self.dirty = true;
-            return;
-        }
-
+        // Asked before anything is intercepted: a screen taking text owns every
+        // printable key, and `?` typed into a filter used to open the help overlay
+        // and then eat the next keystroke closing it again.
         let capturing = {
             let (screen, _) = parts!(self);
             screen.capturing()
         };
-        // `:` reaches the palette too, but only where a screen is not taking text —
-        // a colon belongs in a search box before it belongs to a command line.
+        if key.code == KeyCode::Char('?') && !capturing {
+            self.help = true;
+            self.dirty = true;
+            return;
+        }
+        // `ctrl-p` carries a modifier no text field wants, so it reaches the palette
+        // from anywhere; a bare colon belongs in a search box first.
         let asked = (key.code == KeyCode::Char('p')
             && key.modifiers.contains(KeyModifiers::CONTROL))
             || (key.code == KeyCode::Char(':') && !capturing);
@@ -558,16 +574,11 @@ impl App {
             return;
         }
 
-        let capturing = {
-            let (screen, _) = parts!(self);
-            screen.capturing()
-        };
         if let Mode::Browsing(active) = self.mode
             && !capturing
             && let Some(next) = tab_key(key, active)
         {
-            self.mode = Mode::Browsing(next);
-            self.dirty = true;
+            self.go(Mode::Browsing(next));
             return;
         }
 
@@ -627,7 +638,6 @@ impl App {
             return Some(motion::IDLE);
         }
         let screen = match self.mode {
-            Mode::Menu => self.menu.animating(&self.session),
             Mode::Scanning => self.scanning.animating(&self.session),
             Mode::Browsing(Tab::Overview) => self.overview.animating(&self.session),
             _ => None,
@@ -789,8 +799,7 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
             painted: crate::brand::Ink::Accent,
             painted_at: std::time::Instant::now(),
         },
-        mode: Mode::Menu,
-        menu: screens::menu::Menu::default(),
+        mode: Mode::Scanning,
         scanning: screens::scanning::Scanning::default(),
         overview: screens::overview::Overview::default(),
         findings: filters.clone().into_screen(),
@@ -813,10 +822,15 @@ fn run(terminal: &mut DefaultTerminal, options: &Launch<'_>) -> Result<String> {
         hits: Hits::default(),
         body: Rect::default(),
         commands: None,
+        came_from: Vec::new(),
         help: false,
         dirty: true,
         quit: false,
     };
+
+    // Scanning starts before the first frame. Landing on a menu and choosing "scan"
+    // cost three keypresses and showed nothing of the project until they were spent.
+    app.start_scan();
 
     while !app.quit {
         if app.dirty {

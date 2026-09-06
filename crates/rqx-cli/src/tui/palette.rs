@@ -20,20 +20,46 @@ struct Entry {
     label: String,
     about: String,
     nav: Nav,
+    group: &'static str,
 }
+
+/// What the list holds. With nothing typed the palette is the menu — the groups in
+/// order, each under its heading — and the moment anything is typed it flattens into
+/// ranked matches, because a heading over one row is noise.
+enum Row {
+    Heading(&'static str),
+    Entry(Entry),
+}
+
+/// The groups, in the order they are offered. Analyse first because it is what a
+/// session starts with; Session last because it is how one ends.
+const GROUPS: [&str; 5] = ["Analyse", "Browse", "Report", "Set up", "Session"];
+
+/// What a review compares against unless you say otherwise.
+const DEFAULT_BASE: &str = "origin/HEAD";
 
 /// The lines above the first row inside the overlay: the top border, then the input,
 /// then the rule under it.
 const ABOVE: u16 = 3;
-const HEIGHT: u16 = 16;
-const WIDTH: u16 = 72;
+/// Tall enough to hold a group and its entries without scrolling, since with nothing
+/// typed this is the menu; `centred` clamps it to the frame on a short terminal.
+const HEIGHT: u16 = 26;
+const WIDTH: u16 = 74;
 
 #[derive(Default)]
 pub struct CommandPalette {
     typed: String,
-    shown: Vec<Entry>,
+    shown: Vec<Row>,
     state: ListState,
     at: Rect,
+    /// The question a chosen row still has to answer before it can run. Only a
+    /// review has one: it needs a revision, and guessing one runs the wrong scan.
+    asking: Option<Asking>,
+}
+
+struct Asking {
+    what: &'static str,
+    answer: String,
 }
 
 impl CommandPalette {
@@ -46,112 +72,214 @@ impl CommandPalette {
     /// keystroke rather than held, because the file list follows the last scan and a
     /// stale copy of it would offer files that are gone.
     fn every(session: &Session) -> Vec<Entry> {
-        let mut entries: Vec<Entry> = Tab::ALL
-            .iter()
-            .chain(std::iter::once(&Tab::Config))
-            .map(|tab| Entry {
-                label: tab.title().to_owned(),
-                about: tab.promise().to_owned(),
-                nav: Nav::To(*tab),
-            })
-            .collect();
-
-        entries.push(Entry {
-            label: "scan".to_owned(),
-            about: "analyse the whole project again".to_owned(),
-            nav: Nav::Scan,
-        });
-        entries.push(Entry {
-            label: "refresh".to_owned(),
-            about: "re-analyse only what changed on disk".to_owned(),
-            nav: Nav::Refresh,
-        });
-        entries.push(Entry {
-            label: if session.watching {
-                "unwatch".to_owned()
-            } else {
-                "watch".to_owned()
-            },
-            about: "re-analyse on every save".to_owned(),
-            nav: Nav::Watch,
-        });
-        entries.push(Entry {
-            label: "quit".to_owned(),
-            about: "leave the interface".to_owned(),
-            nav: Nav::Quit,
-        });
-
-        for page in Page::ALL {
+        let mut entries: Vec<Entry> = Vec::new();
+        let mut add = |group, label: String, about: String, nav| {
             entries.push(Entry {
-                label: page.title().to_owned(),
-                about: page.about().to_owned(),
-                nav: Nav::Read(page),
+                label,
+                about,
+                nav,
+                group,
             });
+        };
+
+        add(
+            "Analyse",
+            "scan".to_owned(),
+            "analyse this project, every file".to_owned(),
+            Nav::Scan,
+        );
+        add(
+            "Analyse",
+            "review a diff".to_owned(),
+            "only what changed against a revision".to_owned(),
+            Nav::Ask,
+        );
+        add(
+            "Analyse",
+            "refresh".to_owned(),
+            "re-analyse only what changed on disk".to_owned(),
+            Nav::Refresh,
+        );
+        add(
+            "Analyse",
+            if session.watching { "unwatch" } else { "watch" }.to_owned(),
+            "re-analyse on every save".to_owned(),
+            Nav::Watch,
+        );
+
+        for tab in Tab::ALL {
+            add(
+                "Browse",
+                tab.title().to_owned(),
+                tab.promise().to_owned(),
+                Nav::To(tab),
+            );
+        }
+        for page in Page::ALL {
+            add(
+                "Report",
+                page.title().to_owned(),
+                page.about().to_owned(),
+                Nav::Read(page),
+            );
         }
         for task in [Task::WriteConfig, Task::Baseline, Task::ClearCache] {
-            entries.push(Entry {
-                label: task.title().to_lowercase(),
-                about: task.about().to_owned(),
-                nav: Nav::Do(task),
-            });
+            add(
+                "Set up",
+                task.title().to_lowercase(),
+                task.about().to_owned(),
+                Nav::Do(task),
+            );
         }
+        add(
+            "Session",
+            "settings".to_owned(),
+            Tab::Config.promise().to_owned(),
+            Nav::To(Tab::Config),
+        );
+        add(
+            "Session",
+            "quit".to_owned(),
+            "leave, and print what the session found".to_owned(),
+            Nav::Quit,
+        );
 
+        // Files and rules are reachable but not listed: there are thousands of them
+        // and a menu of thousands is a search box with extra steps. Typing finds them.
         if let Some(outcome) = &session.outcome {
             for file in outcome
                 .analyzed
                 .iter()
                 .filter(|file| session.in_scope(file))
             {
-                entries.push(Entry {
-                    label: file.clone(),
-                    about: "open this file's findings".to_owned(),
-                    nav: Nav::Inspect(file.clone()),
-                });
+                add(
+                    "",
+                    file.clone(),
+                    "open this file's findings".to_owned(),
+                    Nav::Inspect(file.clone()),
+                );
             }
         }
         for rule in rqx_core::rule::RuleId::ALL {
             let spec = rule.spec();
-            entries.push(Entry {
-                label: format!("explain {}", spec.slug),
-                about: spec.why.to_owned(),
-                nav: Nav::Explain(spec.slug.to_owned()),
-            });
+            add(
+                "",
+                format!("explain {}", spec.slug),
+                spec.why.to_owned(),
+                Nav::Explain(spec.slug.to_owned()),
+            );
         }
         entries
     }
 
     fn rebuild(&mut self, session: &Session) {
-        let typed = self.typed.to_lowercase();
-        let mut scored: Vec<(usize, Entry)> = Self::every(session)
-            .into_iter()
-            .filter_map(|entry| score(&entry.label, &typed).map(|rank| (rank, entry)))
-            .collect();
-        // Rank first, then alphabetically, so the list does not reshuffle among equals
-        // as you type and the row under the cursor stays the row you were aiming at.
-        scored.sort_by(|left, right| left.0.cmp(&right.0).then(left.1.label.cmp(&right.1.label)));
-        self.shown = scored.into_iter().map(|(_, entry)| entry).collect();
-        self.state.select((!self.shown.is_empty()).then_some(0));
+        let every = Self::every(session);
+        self.shown = if self.typed.is_empty() {
+            let mut rows = Vec::new();
+            for group in GROUPS {
+                rows.push(Row::Heading(group));
+                rows.extend(
+                    every
+                        .iter()
+                        .filter(|entry| entry.group == group)
+                        .map(|entry| {
+                            Row::Entry(Entry {
+                                label: entry.label.clone(),
+                                about: entry.about.clone(),
+                                nav: entry.nav.clone(),
+                                group: entry.group,
+                            })
+                        }),
+                );
+            }
+            rows
+        } else {
+            let typed = self.typed.to_lowercase();
+            let mut scored: Vec<(usize, Entry)> = every
+                .into_iter()
+                .filter_map(|entry| score(&entry.label, &typed).map(|rank| (rank, entry)))
+                .collect();
+            // Rank first, then alphabetically, so the list does not reshuffle among
+            // equals as you type and the row under the cursor stays the one you were
+            // aiming at.
+            scored
+                .sort_by(|left, right| left.0.cmp(&right.0).then(left.1.label.cmp(&right.1.label)));
+            scored
+                .into_iter()
+                .map(|(_, entry)| Row::Entry(entry))
+                .collect()
+        };
+        self.state.select(self.first_entry());
     }
 
+    fn first_entry(&self) -> Option<usize> {
+        self.shown
+            .iter()
+            .position(|row| matches!(row, Row::Entry(_)))
+    }
+
+    /// A heading is a label rather than a place to be, so a step passes over one.
     fn step(&mut self, delta: isize) {
         if self.shown.is_empty() {
             return;
         }
-        let current = self.state.selected().unwrap_or(0) as isize;
-        self.state.select(Some(
-            (current + delta).clamp(0, self.shown.len() as isize - 1) as usize,
-        ));
+        let last = self.shown.len() as isize - 1;
+        let mut at = (self.state.selected().unwrap_or(0) as isize + delta).clamp(0, last);
+        let toward = if delta < 0 { -1 } else { 1 };
+        while matches!(self.shown.get(at as usize), Some(Row::Heading(_))) {
+            let next = at + toward;
+            if next < 0 || next > last {
+                break;
+            }
+            at = next;
+        }
+        if matches!(self.shown.get(at as usize), Some(Row::Entry(_))) {
+            self.state.select(Some(at as usize));
+        }
     }
 
     fn chosen(&self) -> Option<Nav> {
-        Some(self.shown.get(self.state.selected()?)?.nav.clone())
+        match self.shown.get(self.state.selected()?)? {
+            Row::Entry(entry) => Some(entry.nav.clone()),
+            Row::Heading(_) => None,
+        }
     }
 
     /// `None` means the palette stays open. `Some(None)` means it closes with nothing
     /// chosen; `Some(Some(choice))` means it closes and that happens.
     pub fn handle(&mut self, key: KeyEvent, session: &Session) -> Option<Option<Nav>> {
+        if let Some(asking) = &mut self.asking {
+            return match key.code {
+                KeyCode::Esc => {
+                    self.asking = None;
+                    None
+                }
+                KeyCode::Enter if asking.answer.trim().is_empty() => None,
+                KeyCode::Enter => {
+                    let answer = asking.answer.trim().to_owned();
+                    self.asking = None;
+                    Some(Some(Nav::Review(answer)))
+                }
+                KeyCode::Backspace => {
+                    asking.answer.pop();
+                    None
+                }
+                KeyCode::Char(character) => {
+                    asking.answer.push(character);
+                    None
+                }
+                _ => None,
+            };
+        }
         match key.code {
             KeyCode::Esc => Some(None),
+            KeyCode::Enter if self.chosen() == Some(Nav::Ask) => {
+                self.asking = Some(Asking {
+                    what: "review against",
+                    answer: DEFAULT_BASE.to_owned(),
+                });
+                None
+            }
             KeyCode::Enter => Some(self.chosen()),
             KeyCode::Down => {
                 self.step(1);
@@ -196,10 +324,17 @@ impl CommandPalette {
             // a dialog means everywhere else.
             return Some(None);
         };
-        if row >= self.shown.len() {
+        if !matches!(self.shown.get(row), Some(Row::Entry(_))) {
             return None;
         }
         self.state.select(Some(row));
+        if self.chosen() == Some(Nav::Ask) {
+            self.asking = Some(Asking {
+                what: "review against",
+                answer: DEFAULT_BASE.to_owned(),
+            });
+            return None;
+        }
         Some(self.chosen())
     }
 
@@ -226,17 +361,29 @@ impl CommandPalette {
         ])
         .areas(inner);
 
+        let (lead, typed) = match &self.asking {
+            Some(asking) => (format!("{} ", asking.what), asking.answer.clone()),
+            None => ("\u{203a} ".to_owned(), self.typed.clone()),
+        };
         frame.render_widget(
             Paragraph::new(Line::from(vec![
-                Span::styled("\u{203a} ", Style::new().fg(palette.color(Ink::Accent))),
-                Span::styled(
-                    self.typed.clone(),
-                    Style::new().fg(palette.color(Ink::Text)),
-                ),
+                Span::styled(lead, Style::new().fg(palette.color(Ink::Accent))),
+                Span::styled(typed, Style::new().fg(palette.color(Ink::Text))),
                 Span::styled("\u{2588}", Style::new().fg(palette.color(Ink::Accent))),
             ])),
             prompt,
         );
+
+        if self.asking.is_some() {
+            frame.render_widget(
+                Paragraph::new(Line::styled(
+                    "  enter to run, esc to go back",
+                    palette.dim(),
+                )),
+                list,
+            );
+            return;
+        }
 
         if self.shown.is_empty() {
             frame.render_widget(
@@ -249,10 +396,21 @@ impl CommandPalette {
         let items: Vec<ListItem<'static>> = self
             .shown
             .iter()
-            .map(|entry| {
+            .map(|row| {
+                let entry = match row {
+                    Row::Heading(title) => {
+                        return ListItem::new(Line::from(Span::styled(
+                            (*title).to_owned(),
+                            Style::new()
+                                .fg(palette.color(Ink::Muted))
+                                .add_modifier(Modifier::BOLD),
+                        )));
+                    }
+                    Row::Entry(entry) => entry,
+                };
                 ListItem::new(Line::from(vec![
                     Span::styled(
-                        format!("{:<28}", trim(&entry.label, 28)),
+                        format!("  {:<26}", trim(&entry.label, 26)),
                         Style::new().fg(palette.color(Ink::Text)),
                     ),
                     Span::styled(trim(&entry.about, 38), palette.dim()),

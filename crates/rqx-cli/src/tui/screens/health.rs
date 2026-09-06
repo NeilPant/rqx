@@ -132,8 +132,17 @@ impl Screen for Health {
         if !self.ready {
             self.build(session);
         }
-        if self.rows.is_empty() {
+        if session.outcome.is_none() {
             super::nothing_yet(frame, area, session, crate::tui::app::Tab::Health);
+            return;
+        }
+        if self.rows.is_empty() {
+            super::nothing_found(
+                frame,
+                area,
+                session,
+                "findings, so the score has nothing to explain",
+            );
             return;
         }
 

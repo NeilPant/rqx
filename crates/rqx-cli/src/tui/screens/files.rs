@@ -84,8 +84,12 @@ impl Screen for Files {
         if !self.ready {
             self.build(session);
         }
-        if self.rows.is_empty() {
+        if session.outcome.is_none() {
             super::nothing_yet(frame, area, session, crate::tui::app::Tab::Files);
+            return;
+        }
+        if self.rows.is_empty() {
+            super::nothing_found(frame, area, session, "files were scanned");
             return;
         }
 

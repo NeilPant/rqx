@@ -30,6 +30,9 @@ pub enum Nav {
     Refresh,
     /// Start or stop re-analysing whenever a file changes.
     Watch,
+    /// Chosen, but not yet runnable: a review needs a revision, and the palette asks
+    /// for one before it hands this back as a `Review`.
+    Ask,
     Review(String),
     /// Show one file's findings: the Files screen's answer to "what is wrong here".
     Inspect(String),
@@ -96,17 +99,6 @@ impl Page {
             Self::Suppressions => "suppressions",
             Self::Techniques => "techniques",
             Self::Levels => "levels",
-        }
-    }
-
-    /// The menu reads as a list of things to do rather than as a list of commands,
-    /// so it capitalises them the way the tabs are capitalised.
-    pub const fn menu_title(self) -> &'static str {
-        match self {
-            Self::Recommend => "Recommend",
-            Self::Suppressions => "Waivers",
-            Self::Techniques => "Techniques",
-            Self::Levels => "Levels",
         }
     }
 
