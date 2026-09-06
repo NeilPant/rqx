@@ -3,5 +3,10 @@
 # `fixtures/` is the test corpus: every file in it is a deliberate violation, kept
 # broken so a rule has something to fire on. Reading it here would drown the real
 # findings in planted ones and turn `--fail-on error` red on purpose.
+#
+# `fixtures/*/**` rather than `fixtures/**` because a pattern is matched against
+# paths relative to whatever was scanned, not to this file. `fixtures/go/fixtures/`
+# is a real directory, so scanning `fixtures/go` would make the shorter pattern
+# match its contents and hide the corpus from the tests that exist to read it.
 [ignore]
-patterns = ["fixtures/**"]
+patterns = ["fixtures/*/**"]

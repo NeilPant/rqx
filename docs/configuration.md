@@ -17,6 +17,8 @@ Layers are merged in this order, each one overriding the one above it. A table m
 
 The upward search stops at a directory holding `.git`, or at a file that sets `root = true` — a config above a checkout describes a different project, and reading it would make a scan depend on where the repository happens to sit.
 
+**An `ignore.patterns` glob is matched against paths relative to the directory being scanned**, not to the file the pattern is written in. `rqx scan .` and `rqx scan src` therefore see different things from one `patterns = ["src/**"]`, and a pattern naming a directory whose name appears again deeper in the tree — `fixtures/**` against a `fixtures/go/fixtures/` — matches in both places. Name one level more when that matters: `fixtures/*/**`.
+
 ## A subtree with different standards
 
 ```toml
