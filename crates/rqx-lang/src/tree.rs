@@ -53,14 +53,7 @@ pub fn operator_of<'src>(node: Node<'_>, source: &'src str) -> Option<&'src str>
 
 /// Whether this name is what an assignment declares, seeing through any list the
 /// grammar wraps the left-hand side in.
-pub fn declares_through_list(node: Node<'_>, declaring: &[&str], lists: &[&str]) -> bool {
-    let Some(parent) = node.parent() else {
-        return false;
-    };
-    declares_through_list_under(parent, node, declaring, lists)
-}
-
-fn declares_through_list_under<'tree>(
+pub fn declares_through_list_under<'tree>(
     parent: Node<'tree>,
     node: Node<'tree>,
     declaring: &[&str],

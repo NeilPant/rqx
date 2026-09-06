@@ -4,7 +4,7 @@ use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
-use crate::tree::{declares_through_list, field_name, span_of, text_of};
+use crate::tree::{declares_through_list_under, field_name_under, span_of, text_of};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BindingKind {
@@ -119,11 +119,11 @@ impl<'a> Builder<'a> {
             .or_insert(index);
     }
 
-    fn binding_kind(&self, node: Node<'a>) -> Option<BindingKind> {
+    fn binding_kind(&self, node: Node<'a>, above: Option<Node<'a>>) -> Option<BindingKind> {
         if !self.profile.is_identifier(node) {
             return None;
         }
-        let parent = node.parent()?;
+        let parent = above?;
         if self.profile.parameter_kinds.contains(&parent.kind()) {
             return Some(BindingKind::Parameter);
         }
@@ -132,24 +132,21 @@ impl<'a> Builder<'a> {
         }
         // Languages with no declaration keyword say "this is a new name" by assigning
         // to it, which fills a `left` field rather than a `name` one.
-        let assigns = declares_through_list(
+        let assigns = declares_through_list_under(
+            parent,
             node,
             self.profile.local_declaring_kinds,
             self.profile.expression_list_kinds,
         );
         if !assigns
-            && !matches!(field_name(node), Some(field) if self.profile.binding_fields.contains(&field))
+            && !matches!(field_name_under(parent, node), Some(field) if self.profile.binding_fields.contains(&field))
         {
             return None;
         }
         if self.profile.declarator_kinds.contains(&parent.kind()) {
             return Some(BindingKind::Local);
         }
-        if declares_through_list(
-            node,
-            self.profile.local_declaring_kinds,
-            self.profile.expression_list_kinds,
-        ) {
+        if assigns {
             return Some(BindingKind::Local);
         }
         if self.profile.field_kinds.contains(&parent.kind())
@@ -162,18 +159,18 @@ impl<'a> Builder<'a> {
 
     /// A property name is not a reference to anything this file declares: `a.length`
     /// says nothing about a local called `length`.
-    fn is_reference(&self, node: Node<'a>) -> bool {
+    fn is_reference(&self, node: Node<'a>, above: Option<Node<'a>>) -> bool {
         if self.profile.reference_only_kinds.contains(&node.kind()) {
             return true;
         }
         if !self.profile.is_identifier(node) {
             return false;
         }
-        let Some(parent) = node.parent() else {
+        let Some(parent) = above else {
             return false;
         };
         if self.profile.is_member_access(parent)
-            && field_name(node).is_some_and(|field| field == "property")
+            && field_name_under(parent, node).is_some_and(|field| field == "property")
         {
             return false;
         }
@@ -183,27 +180,27 @@ impl<'a> Builder<'a> {
     /// A parameter belongs to the scope its function opens; the function's own name
     /// belongs to the scope the function is written in, or nothing outside could
     /// call it.
-    fn owning_scope(&self, node: Node<'a>, kind: BindingKind, scope: usize) -> usize {
+    fn owning_scope(&self, above: Option<Node<'a>>, kind: BindingKind, scope: usize) -> usize {
         if kind == BindingKind::Parameter {
             return scope;
         }
-        let opens_own_scope = node
-            .parent()
-            .is_some_and(|parent| self.profile.scope_kinds.contains(&parent.kind()));
+        let opens_own_scope =
+            above.is_some_and(|parent| self.profile.scope_kinds.contains(&parent.kind()));
         if opens_own_scope {
             return self.scopes[scope].parent.unwrap_or(scope);
         }
         scope
     }
 
-    fn walk(&mut self, node: Node<'a>, scope: usize) {
+    /// The parent travels down with the walk rather than being asked for at each
+    /// node: `Node::parent` walks down from the root to find it, and between this
+    /// function and the three it calls the same answer was wanted six times.
+    fn walk(&mut self, node: Node<'a>, above: Option<Node<'a>>, scope: usize) {
         let opens = self.profile.scope_kinds.contains(&node.kind());
         // A class body opens the scope its members live in, and the body is a node of
         // its own in most grammars, so the class is the parent rather than the opener.
         let holds_members = self.profile.is_class(node)
-            || node
-                .parent()
-                .is_some_and(|parent| self.profile.is_class(parent));
+            || above.is_some_and(|parent| self.profile.is_class(parent));
         let inner = if opens {
             self.open(Some(scope), holds_members)
         } else {
@@ -212,20 +209,20 @@ impl<'a> Builder<'a> {
 
         // A parameter belongs to the scope the function opens, not the one the
         // function is written in, so the function node has to be entered first.
-        if let Some(mut kind) = self.binding_kind(node) {
-            let target = self.owning_scope(node, kind, scope);
+        if let Some(mut kind) = self.binding_kind(node, above) {
+            let target = self.owning_scope(above, kind, scope);
             if kind == BindingKind::Local && self.scopes[target].holds_members {
                 kind = BindingKind::Member;
             }
             self.declare(node, kind, target);
-        } else if self.is_reference(node) {
+        } else if self.is_reference(node, above) {
             self.references
                 .push((text_of(node, self.source).to_owned(), span_of(node), inner));
         }
 
         let mut cursor = node.walk();
         for child in node.named_children(&mut cursor) {
-            self.walk(child, inner);
+            self.walk(child, Some(node), inner);
         }
     }
 
@@ -258,6 +255,6 @@ pub fn resolve(profile: &'static LanguageProfile, source: &str, root: Node<'_>) 
         references: Vec::new(),
     };
     let file = builder.open(None, false);
-    builder.walk(root, file);
+    builder.walk(root, None, file);
     builder.resolve()
 }
