@@ -2069,6 +2069,24 @@ fn scan_watched(
         let days = config.scan.churn_days;
         thread::spawn(move || crate::history::History::read(&root, days))
     };
+    // Never in a development build. The key covers the version, the settings and
+    // the catalogue, but not the analyser itself — so a collector fixed between two
+    // builds of the same version would go on serving the answer it gave before it
+    // was fixed. That is a confusing hour for a contributor and it has already cost
+    // two; a released binary carries a version that moves.
+    // The environment turns it off for one run without editing a file anybody else
+    // shares: a CI job proving a cache bug should not have to commit a config.
+    let asked_off = std::env::var_os("RQX_NO_CACHE").is_some();
+    // Read beside the git history rather than before the walk. It is one JSON
+    // document — thirty-three megabytes on a three-thousand-file project — and
+    // parsing it used to be dead time with every core idle, which on a warm run was
+    // most of the run.
+    let cache = (config.scan.cache && !asked_off && !cfg!(debug_assertions)).then(|| {
+        let root = root.to_path_buf();
+        let settings = settings.clone();
+        thread::spawn(move || crate::cache::Cache::open(&root, &settings))
+    });
+
     let mut bar = if drawing {
         crate::progress::Bar::new(crate::brand::Palette::detect())
     } else {
@@ -2082,16 +2100,7 @@ fn scan_watched(
     let total = count_files(root, config)?;
 
     let walker = build_walker(root, config)?;
-    // Never in a development build. The key covers the version, the settings and
-    // the catalogue, but not the analyser itself — so a collector fixed between two
-    // builds of the same version would go on serving the answer it gave before it
-    // was fixed. That is a confusing hour for a contributor and it has already cost
-    // two; a released binary carries a version that moves.
-    // The environment turns it off for one run without editing a file anybody else
-    // shares: a CI job proving a cache bug should not have to commit a config.
-    let asked_off = std::env::var_os("RQX_NO_CACHE").is_some();
-    let cache = (config.scan.cache && !asked_off && !cfg!(debug_assertions))
-        .then(|| crate::cache::Cache::open(root, settings));
+    let cache = cache.and_then(|loading| loading.join().ok());
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 
     let collector = thread::scope(|scope| {

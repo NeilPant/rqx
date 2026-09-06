@@ -156,8 +156,11 @@ impl Cache {
             version: self.version,
             entries,
         };
+        // Written through a temporary and renamed: a ctrl-c mid-write used to leave
+        // a truncated document, which the version check then silently threw away
+        // along with every entry in it.
         if let Ok(text) = serde_json::to_string(&contents) {
-            let _ = std::fs::write(&self.path, text);
+            let _ = crate::fix::write_atomically(&self.path, &text);
         }
     }
 }
