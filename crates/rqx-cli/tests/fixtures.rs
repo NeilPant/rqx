@@ -4,6 +4,16 @@ use std::process::Command;
 /// Every language gets its own scan root, with its own entry-point manifest and its
 /// own exact rule counts. One shared root would make a Python fixture change a
 /// TypeScript expectation, which is a test that fails for the wrong reason.
+/// Whether the checkout was cut short, which changes what the churn rules can see.
+fn shallow(root: &str) -> bool {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--is-shallow-repository"])
+        .output()
+        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).trim() == "true")
+}
+
 fn language_dir(language: &str) -> String {
     format!("{}/../../fixtures/{language}", env!("CARGO_MANIFEST_DIR"))
 }
@@ -1695,6 +1705,14 @@ fn the_checked_in_reference_is_current() {
         if generated != checked_in {
             stale.push(relative);
         }
+    }
+    // The reference embeds worked examples scanned from the fixtures, and the churn
+    // rules need real history to produce theirs. In a shallow clone those examples
+    // are absent, so the pages differ for a reason the contributor did not cause and
+    // cannot fix by regenerating. CI clones in full, which is where this is enforced.
+    if !stale.is_empty() && shallow(&root) {
+        eprintln!("skipped: this clone is shallow, so the churn examples cannot be generated");
+        return;
     }
     assert!(
         stale.is_empty(),

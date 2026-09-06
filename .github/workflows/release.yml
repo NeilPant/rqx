@@ -21,7 +21,12 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
+      # In full: the reference pages embed examples from the churn rules, which need
+      # history to produce. A shallow clone generates shorter pages and the drift
+      # test then reports a difference nobody introduced.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - id: version
         shell: bash
