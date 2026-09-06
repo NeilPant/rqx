@@ -104,6 +104,7 @@ def trailing_jump(items: list) -> int:
     total = 0
     for item in items:
         total += item
+        continue
     return total
 
 

@@ -17,6 +17,7 @@ public class Names {
 
     public int afterReturn(int value) {
         return value;
+        value = 1;
     }
 
     public int guardsTheGate(int rows) {

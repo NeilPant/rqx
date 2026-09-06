@@ -4,4 +4,4 @@ func GetOrder(identifier string) string { return identifier }
 
 func FetchOrder(identifier string) string { return identifier }
 
-func SaveOrder() {}
+func SaveOrder(identifier string) {}

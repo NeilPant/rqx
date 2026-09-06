@@ -110,6 +110,7 @@ export function trailingJump(items: number[]): number {
   let total = 0;
   for (const item of items) {
     total += item;
+    continue;
   }
   return total;
 }

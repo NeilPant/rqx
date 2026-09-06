@@ -12,6 +12,8 @@ func Pricing(cart []int, applyDiscount bool) int {
 		total += item
 	}
 
+	// legacy := total * 2;
+	// return legacy + shipping;
 
 	if !applyDiscount && total > 4999 && len(cart) > 12 && total != 7 {
 		return total
@@ -25,8 +27,10 @@ func Unreachable(value int) int {
 	// rqx-ignore magic-number
 	seed := 1
 	return value + seed
+	value = 1
 }
 
+//nolint
 var Suppressed = 1
 
 type city struct{ Name string }
@@ -48,6 +52,8 @@ func Ship(target order) string {
 	return target.Customer.Address.City.Label()
 }
 
+// ---------------- helpers ----------------
+// Here's the helper you asked for! 🎉
 // Sorry, this one is ugly.
 
 func NothingHappens() {

@@ -23,11 +23,11 @@ class ReportBuilder {
         return this;
     }
 
-    public ReportBuilder withRows() {
+    public ReportBuilder withRows(int rows) {
         return this;
     }
 
-    public ReportBuilder withFooter() {
+    public ReportBuilder withFooter(String footer) {
         return this;
     }
 
@@ -39,16 +39,16 @@ class ReportBuilder {
 class QueryBuilder {
     private int clauses = 0;
 
-    public QueryBuilder where() {
+    public QueryBuilder where(String field) {
         this.clauses += 1;
         return this;
     }
 
-    public QueryBuilder order() {
+    public QueryBuilder order(String field) {
         return this;
     }
 
-    public QueryBuilder take() {
+    public QueryBuilder take(int count) {
         return this;
     }
 }
@@ -116,7 +116,7 @@ class Feed {
         this.listeners.remove(handler);
     }
 
-    public void publish() {
+    public void publish(int value) {
         this.listeners.forEach(Runnable::run);
     }
 }

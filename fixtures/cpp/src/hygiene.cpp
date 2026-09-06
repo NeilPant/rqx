@@ -11,6 +11,8 @@ int pricing(const std::vector<int>& cart, bool apply_discount) {
         total += item;
     }
 
+    // int legacy = total * 2;
+    // return legacy + shipping;
 
     if (!apply_discount && total > 4999 && cart.size() > 12 && total != 7) {
         return total;
@@ -31,9 +33,10 @@ int unreachable(int value) {
     // rqx-ignore magic-number
     int seed = 1;
     return value + seed;
+    value = 1;
 }
 
-int mutates_parameter(int value) {
+int mutates_parameter(int value) {  // NOLINT
     value = 1;
     return value;
 }
@@ -42,6 +45,8 @@ std::string ship(const Order& order) {
     return order.customer().address().city().label();
 }
 
+// ---------------- helpers ----------------
+// Here's the helper you asked for! 🎉
 // Sorry, this one is ugly.
 
 
@@ -122,6 +127,7 @@ int score_of(int user_id) {
     return user_id;
 }
 
+/** Score of user id */
 int score_of_user(int user_id) {
     return user_id;
 }

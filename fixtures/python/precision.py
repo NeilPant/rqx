@@ -1,5 +1,7 @@
 from typing import Any
 
+# @author someone
+# Created on 2019-04-02
 
 
 def widen(raw: Any) -> str:
@@ -7,6 +9,7 @@ def widen(raw: Any) -> str:
     return text.strip()
 
 
+# user name
 user_name = "ada"
 
 

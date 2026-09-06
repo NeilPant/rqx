@@ -45,7 +45,7 @@ class Narrator {
     static Logger log = new Logger();
 
     static class Logger {
-        void info() {
+        void info(String message) {
         }
     }
 }
