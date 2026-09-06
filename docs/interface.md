@@ -17,34 +17,24 @@ A filter given on the command line opens the interface already filtered, so
 
 `rqx check` never goes interactive. It exists for its exit code.
 
-## The menu
+## Launching
 
-`rqx` opens on it, and `esc` from anywhere returns to it. It is the map: five
-groups on the left, that group's entries on the right, and one line above them
-saying what the group is for.
+`rqx` starts the scan before the first frame and opens on the scan screen, then
+lands on Overview when the scan does. Seeing your own code costs no keypresses.
 
-| Group | Holds |
-|---|---|
-| Analyse | Scan, Review a diff, Refresh, Watch |
-| Browse | the nine tabs |
-| Report | Recommend, Waivers, Techniques, Levels |
-| Set up | Write RQX.toml, Record a baseline, Clear the cache |
-| Session | Settings, Quit |
+The scan screen is the only thing on display for as long as a scan takes, so it
+says what is happening rather than that something is:
 
-`←`/`→` and `tab` move between groups, `1`–`5` jump to one, `↑`/`↓` move within it,
-`enter` runs. The digit picks the group rather than the entry, because a group's
-entries move with the session — watching toggles its own label — and a number that
-meant something different each run is no number.
-
-Everything in it is in the palette too, by name. The menu is for reading what there
-is; `ctrl-p` is for when you already know.
-
-**Set up writes to disk**, which is why it is a group of its own rather than three
-entries mixed in with the views. Each one says what it did on the footer line —
-which is on every screen, so running one from the palette answers where you are
-rather than where the menu is — and clears on the next key. None of them
-overwrites: a baseline that already exists wants `rqx baseline --update`, and an
-`RQX.toml` that already exists is left alone.
+- **A phase stepper** — `counting › scanning › duplicates › imports › history ›
+  co-change` — the current one spinning, the finished ones ticked and carrying
+  what each took.
+- **Files done of files found**, and beneath it the findings so far, the lines
+  read, the rate in lines per second, and roughly what is left. Until the count
+  finishes there is no total to be a proportion of, so the bar sweeps rather than
+  claiming a percentage.
+- **A bar per language**, filling as files land: the shape of the codebase
+  appearing while the work happens.
+- **The last few paths**, sampled on a clock rather than on a repaint.
 
 ## The tabs
 
@@ -80,20 +70,32 @@ is where a thing looked at once belongs.
 | `x` | waive the selected finding, with a reason |
 | `enter` | open the finding in `$EDITOR`, or open a row's file |
 | `,` | the resolved settings |
-| `1`–`5` in the menu | jump to a group |
 | `?` | the keys of the screen you are on |
 | `esc` | step back |
 | `q` | leave, and print what the session found |
 
 ## The command palette
 
-`ctrl-p` opens it over whatever is on screen. It holds every tab, every command,
-every file in the last scan and every rule in the catalogue, and narrows as you
-type: `cplx` reaches Complexity, `recomm` reaches the recommendations. `enter`
-runs the row, `esc` closes.
+`ctrl-p` opens it over whatever is on screen. **With nothing typed it is the map**
+— Analyse, Browse, Report, Set up and Session, with headings — and it flattens
+into ranked matches as soon as you type: `cplx` reaches Complexity, `recomm`
+reaches the recommendations. It holds every tab, every command, every file in the
+last scan and every rule in the catalogue. `enter` runs the row, `esc` closes.
+
+There is one list rather than a menu and a palette holding the same entries two
+ways. `esc` steps back through where you have been and quits at the root.
+
+**Set up writes to disk**, which is why it has a heading of its own rather than
+sitting among the views. Each entry says what it did on the footer line, which is
+on every screen, and clears on the next key. None of them overwrites: a baseline
+that already exists wants `rqx baseline --update`, and an `RQX.toml` that already
+exists is left alone.
+
+Review a diff asks for the revision as a second step, the way a waiver asks for
+its reason.
 
 `recommend`, `suppressions`, `techniques` and `levels` have no screen of their own
-and do not need one — the palette and the menu open them in a reading pane,
+and do not need one — the palette opens them in a reading pane,
 rendered by the same functions the command line calls, with colour off. The three
 commands that write a file are in it too, under their own names.
 

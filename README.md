@@ -742,6 +742,13 @@ a public address without `RQX_MCP_TOKEN` rather than handing your source to the 
 open it in. Piped, redirected, given `--format json`, given a gate flag, or run
 under CI, it prints the report instead — `--no-tui` says so explicitly.
 
+**It starts scanning before it draws the first frame**, so the project is on
+screen without a keypress. While it runs, the scan screen names the phase it is
+in — counting, scanning, duplicates, imports, history, co-change — ticks off the
+ones behind it with what each took, shows files done against files found, the
+rate in lines per second and what is left, a bar per language filling as files
+land, and the last few paths going past.
+
 | Tab | Shows |
 |---|---|
 | Overview | health, severity and grade distributions, what to open first |
@@ -769,17 +776,19 @@ how `complexity` gets found without reading a list of twenty-seven subcommands.
 `recommend`, `suppressions`, `techniques` and `levels` open in a reading pane
 through the same functions the command line calls.
 
-`esc` returns to the menu, which is the map: **Analyse**, **Browse**, **Report**,
-**Set up** and **Session**, with that group's entries beside it. `←`/`→` change
-group, `↑`/`↓` move within one, `enter` runs. Set up is the three commands that
-write a file — `RQX.toml`, a baseline, clearing the cache — kept in a group of
-their own and each saying what it did.
+**The palette is also the map.** Opened with nothing typed, it is the whole list
+under five headings — **Analyse**, **Browse**, **Report**, **Set up** and
+**Session** — and flattens into ranked matches the moment you type. There is no
+separate menu to keep in step with it. Set up is the three commands that write a
+file — `RQX.toml`, a baseline, clearing the cache — kept under a heading of their
+own and each saying what it did on the footer line.
 
 `tab` cycles the nine tabs and `1`–`9` jump to one. `r` scans, `w` watches and
 re-analyses on every save, `/` searches, `f` filters by rule, family and path in
 the same spelling the flags take, `g` groups, `?` lists the keys of the screen
-you are on, `esc` steps back, `,` opens the settings, `q` leaves and prints what
-the session found.
+you are on, `,` opens the settings, `q` leaves and prints what the session found.
+
+`esc` steps back through where you have been and quits at the root.
 
 `enter` on a finding opens it in `$EDITOR` at its line and comes back when you
 leave; `enter` on a file, a function, a ranked item or a module shows that file's
@@ -828,6 +837,22 @@ JUnit XML and GitLab Code Quality that covers GitHub, GitLab, Jenkins, CircleCI,
 Pipelines, Bitbucket and Buildkite natively. Copy-paste snippets for each
 are in [docs/ci.md](docs/ci.md); `action.yml` wires up GitHub Actions in five
 lines.
+
+**`rqx comment` posts the review onto the merge request it is reviewing**, on
+GitLab and GitHub alike. It reads the project, the merge request and the token
+from the CI environment, writes one comment — a verdict line, the counts, and the
+worst findings folded behind a `<details>` — and edits that same comment on every
+later run instead of adding another. It also grades the commit, so the merge
+request shows `rqx: B · 12 findings` beside the other checks without anyone
+opening a job log.
+
+```sh
+rqx comment --base "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --fail-on error
+```
+
+`--dry-run` prints what it would post and posts nothing. `--marker` keeps two
+jobs' comments apart on one merge request. `--no-status` comments without
+grading. The exit code is the gate's, so the job fails the same way `check` does.
 
 The gate lives in `RQX.toml` and every part of it can be overridden per run with
 `--fail-on`, `--allow-findings` and `--min-health`, so a strict gate on the
