@@ -67,6 +67,14 @@ pub struct ScanProgress {
     pub total: Option<u32>,
     pub phase: crate::progress::Phase,
     pub file: Option<std::sync::Arc<str>>,
+    /// Since the scan began, so a reader can be given a rate and a time left rather
+    /// than a count that means nothing without one.
+    pub elapsed_ms: u64,
+    pub code_lines: u64,
+    pub skipped: u32,
+    /// Files seen per language, indexed the way `Language::ALL` is ordered. An array
+    /// rather than a map so a tick stays a copy of a few dozen bytes.
+    pub by_language: [u32; rqx_core::Language::ALL.len()],
 }
 
 pub struct ScanOutcome {
@@ -201,6 +209,12 @@ struct Collector {
     phase: crate::progress::Phase,
     phase_began: std::time::Instant,
     timings: Vec<(&'static str, u128)>,
+    /// Where the interface's own progress goes. The bar draws for a plain run and is
+    /// hidden for an interactive one, so without this the interface heard about the
+    /// walk and about nothing that came after it.
+    watcher: Option<SyncSender<ScanProgress>>,
+    by_language: [u32; rqx_core::Language::ALL.len()],
+    showing: Option<Arc<str>>,
     shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
     advice: Vec<rqx_core::Advice>,
     clone_groups: HashMap<u64, CloneGroup>,
@@ -254,6 +268,9 @@ impl Collector {
             phase: crate::progress::Phase::Scanning,
             phase_began: std::time::Instant::now(),
             timings: Vec::new(),
+            watcher: None,
+            by_language: [0; rqx_core::Language::ALL.len()],
+            showing: None,
             shape_by_file: std::collections::BTreeMap::new(),
             advice: Vec::new(),
             clone_groups: HashMap::new(),
@@ -274,6 +291,25 @@ impl Collector {
             total,
             started: Instant::now(),
         }
+    }
+
+    /// One update to whoever is drawing. A dropped update costs nothing: the reader
+    /// only ever wants the latest, so a full channel means it is already current.
+    fn tick(&self, phase: Option<crate::progress::Phase>) {
+        let Some(watcher) = &self.watcher else {
+            return;
+        };
+        let _ = watcher.try_send(ScanProgress {
+            files_scanned: self.files_scanned,
+            findings: self.counts.total,
+            total: self.total,
+            phase: phase.unwrap_or(self.phase),
+            file: self.showing.clone(),
+            elapsed_ms: self.started.elapsed().as_millis() as u64,
+            code_lines: self.code_lines,
+            skipped: self.skipped.len() as u32,
+            by_language: self.by_language,
+        });
     }
 
     /// Advice never passes through `accept`: it must not reach `counts`, and the way
@@ -417,6 +453,10 @@ impl Collector {
         ));
         self.phase = phase;
         self.phase_began = now;
+        // The interface hears about it too. Its bar is `Bar::hidden`, so for as long
+        // as this only spoke to the bar every phase after the walk ran with the
+        // screen still saying "scanning" and the gauge stuck at full.
+        self.tick(Some(phase));
         self.bar
             .update(phase, self.files_scanned, None, self.counts.total, "");
     }
@@ -1741,6 +1781,7 @@ pub(crate) fn collect(
         bar,
         total,
     );
+    collector.watcher = watcher.cloned();
     collector.coverage = read_coverage(root, &settings.config.scan.coverage);
     collector.profile = read_profile(root, &settings.config.scan.profile);
     collector.baseline = settings.baseline.clone();
@@ -1795,17 +1836,9 @@ pub(crate) fn collect(
                     });
                 }
                 collector.analyzed.insert(display);
-                if let Some(watcher) = watcher {
-                    // A dropped update costs nothing: the reader only ever wants the
-                    // latest count, so a full channel means it is already current.
-                    let _ = watcher.try_send(ScanProgress {
-                        files_scanned: collector.files_scanned,
-                        findings: collector.counts.total,
-                        total: collector.total,
-                        phase: crate::progress::Phase::Scanning,
-                        file: Some(Arc::clone(&shared)),
-                    });
-                }
+                collector.by_language[language as usize] += 1;
+                collector.showing = Some(Arc::clone(&shared));
+                collector.tick(None);
             }
             ScanMessage::Skipped { path, reason } => collector.skipped.push((path, reason)),
         }
@@ -2097,6 +2130,13 @@ fn scan_watched(
     // traversal with no file opened and nothing parsed, against a scan measured in
     // seconds — and a bar that claims a percentage it cannot know is worse than none.
     bar.update(crate::progress::Phase::Counting, 0, None, 0, "");
+    // The interface hears it too, or it opens on zero files with no word of why.
+    if let Some(watcher) = &watcher {
+        let _ = watcher.try_send(ScanProgress {
+            phase: crate::progress::Phase::Counting,
+            ..ScanProgress::default()
+        });
+    }
     let total = count_files(root, config)?;
 
     let walker = build_walker(root, config)?;
