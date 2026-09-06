@@ -25,7 +25,9 @@ step() { echo "  $*"; }
   || die "\`$version\` is not a semantic version"
 
 current="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
-[ "$version" != "$current" ] || die "already at $version"
+# The tag is the guard against cutting the same release twice. Refusing the version
+# already in the manifest as well would mean the first release could never be cut,
+# because nothing has bumped it yet.
 git rev-parse "v$version" >/dev/null 2>&1 && die "tag v$version already exists"
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
