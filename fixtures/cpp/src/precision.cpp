@@ -5,6 +5,5 @@ std::string widen(void* input) {
     return raw;
 }
 
-std::string user_name = "ada";
 
 int stamp() { return 1; }

@@ -22,7 +22,7 @@ func TestShips(t *testing.T) {
 	}
 }
 
-func TestChecksNothing(t *testing.T) {
+func TestChecksNothing() {
 	value := Add(1, 1)
 	_ = value
 }
@@ -66,7 +66,7 @@ func TestExpectsANumberFromNowhere(t *testing.T) {
 	require.Equal(t, Add(2400, 2599), 4999)
 }
 
-func TestIsNotWrittenYet(t *testing.T) {
+func TestIsNotWrittenYet() {
 }
 
 func TestDrivesTheLot(t *testing.T) {

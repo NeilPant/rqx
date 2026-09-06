@@ -9,6 +9,6 @@ public class Vocabulary {
         return id.toUpperCase();
     }
 
-    public void saveAccount(String id) {
+    public void saveAccount() {
     }
 }

@@ -675,22 +675,39 @@ fn the_readme_counts_the_commands_correctly() {
     );
 }
 
-/// A shell completion runs `rqx rules --slugs` and often reads only the first lines.
-/// `println!` panics when the reader closes the pipe, which exits 101 and looks like
-/// a crash; the exit code has to be the one the README promises.
+/// `println!` panics when the reader closes the pipe, and `main` can only forgive a
+/// broken pipe that is returned to it as an error — so the slug listing has to write
+/// through a handle. `rqx rules --slugs | head` is what a shell completion does, and
+/// it exited 101 until it did.
+///
+/// Asserted against the source rather than by piping: the whole listing is 3KB and
+/// fits in a pipe buffer, so the child usually finishes before the reader closes and
+/// a runtime test passes with the bug still in place. It did.
 #[test]
-fn a_reader_that_walks_away_from_the_slug_list_is_not_a_failure() {
-    let status = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "set -o pipefail; '{}' rules --slugs | head -3 > /dev/null",
-            env!("CARGO_BIN_EXE_rqx")
-        ))
-        .status()
-        .expect("failed to run rqx");
-    assert_eq!(
-        status.code(),
-        Some(0),
-        "closing the pipe was reported as a failure"
+fn the_slug_listing_writes_through_a_handle_rather_than_println() {
+    let source = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/main.rs"))
+        .expect("main.rs");
+    let listing = source
+        .split_once("if slugs {")
+        .expect("the --slugs branch")
+        .1
+        .split_once("\n            }")
+        .expect("its end")
+        .0;
+
+    // Comments excluded: the one above this very code names the macro it avoids.
+    let code: String = listing
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(
+        !code.contains("println!"),
+        "the slug listing prints with a macro that panics on a closed pipe"
+    );
+    assert!(
+        code.contains("writeln!"),
+        "the slug listing should write through a handle so the error can propagate"
     );
 }

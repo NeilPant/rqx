@@ -24,14 +24,14 @@ class Checkout {
 }
 
 class CsvWriter {
-    public void open(String path) { }
-    public void write(String row) { }
+    public void open() { }
+    public void write() { }
     public void close() { }
 }
 
 class JsonEmitter {
-    public void begin(String path) { }
-    public void emit(String row) { }
+    public void begin() { }
+    public void emit() { }
     public void finish() { }
 }
 

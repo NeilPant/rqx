@@ -133,15 +133,15 @@ class Product extends Expression {
 }
 
 class Printer {
-    public String visitLiteral(Literal node) {
+    public String visitLiteral() {
         return "1";
     }
 
-    public String visitSum(Sum node) {
+    public String visitSum() {
         return "+";
     }
 
-    public String visitProduct(Product node) {
+    public String visitProduct() {
         return "*";
     }
 }

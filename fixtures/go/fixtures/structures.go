@@ -21,11 +21,11 @@ func (b *ReportBuilder) WithTitle(title string) *ReportBuilder {
 	return b
 }
 
-func (b *ReportBuilder) WithRows(rows int) *ReportBuilder {
+func (b *ReportBuilder) WithRows() *ReportBuilder {
 	return b
 }
 
-func (b *ReportBuilder) WithFooter(footer string) *ReportBuilder {
+func (b *ReportBuilder) WithFooter() *ReportBuilder {
 	return b
 }
 
@@ -37,16 +37,16 @@ type QueryBuilder struct {
 	clauses int
 }
 
-func (q *QueryBuilder) Where(field string) *QueryBuilder {
+func (q *QueryBuilder) Where() *QueryBuilder {
 	q.clauses++
 	return q
 }
 
-func (q *QueryBuilder) Order(field string) *QueryBuilder {
+func (q *QueryBuilder) Order() *QueryBuilder {
 	return q
 }
 
-func (q *QueryBuilder) Take(count int) *QueryBuilder {
+func (q *QueryBuilder) Take() *QueryBuilder {
 	return q
 }
 
@@ -78,7 +78,7 @@ func (f *Feed) AddListener(handler func(int)) {
 	f.listeners = append(f.listeners, handler)
 }
 
-func (f *Feed) RemoveListener(handler func(int)) {
+func (f *Feed) RemoveListener() {
 	f.listeners = nil
 }
 
@@ -110,14 +110,14 @@ type Product struct{ Right int }
 
 type Printer struct{}
 
-func (p Printer) VisitLiteral(node Literal) string {
+func (p Printer) VisitLiteral() string {
 	return "1"
 }
 
-func (p Printer) VisitSum(node Sum) string {
+func (p Printer) VisitSum() string {
 	return "+"
 }
 
-func (p Printer) VisitProduct(node Product) string {
+func (p Printer) VisitProduct() string {
 	return "*"
 }

@@ -25,14 +25,14 @@ func (c Checkout) Lines() []string {
 
 type CsvWriter struct{}
 
-func (CsvWriter) Open(path string)  {}
-func (CsvWriter) Write(row string)  {}
+func (CsvWriter) Open()  {}
+func (CsvWriter) Write()  {}
 func (CsvWriter) Close()            {}
 
 type JsonEmitter struct{}
 
-func (JsonEmitter) Begin(path string) {}
-func (JsonEmitter) Emit(row string)   {}
+func (JsonEmitter) Begin() {}
+func (JsonEmitter) Emit()   {}
 func (JsonEmitter) Finish()           {}
 
 func StampedAt() int64 {

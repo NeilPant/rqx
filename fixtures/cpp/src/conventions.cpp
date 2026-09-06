@@ -1,7 +1,5 @@
 #include "conventions.hpp"
 
-int retry_limit = 3;
-int retryBackoff = 250;
 
 std::string query(const std::string& user_id) {
     return "SELECT id, name FROM users WHERE id = '" + user_id + "'";

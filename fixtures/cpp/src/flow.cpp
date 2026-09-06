@@ -70,7 +70,6 @@ int trailing_jump(const std::vector<int>& items) {
     int total = 0;
     for (int item : items) {
         total += item;
-        continue;
     }
     return total;
 }
