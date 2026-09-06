@@ -5639,6 +5639,15 @@ fn note_unused_fixtures(
     if setups.is_empty() {
         return;
     }
+    // Every identifier in the file by the text it spells, gathered once. Asking the
+    // whole tree per prepared value made this cubic in the size of a test file.
+    let mut spelled: std::collections::HashMap<&str, Vec<Node<'_>>> =
+        std::collections::HashMap::new();
+    for node in descendants(root) {
+        if profile.is_identifier(node) {
+            spelled.entry(text_of(node, source)).or_default().push(node);
+        }
+    }
     for setup in setups {
         let prepared: Vec<Node<'_>> = descendants(setup)
             .into_iter()
@@ -5663,20 +5672,20 @@ fn note_unused_fixtures(
             .collect();
         for node in prepared {
             let name = text_of(node, source);
-            let read = descendants(root).into_iter().any(|other| {
-                other.id() != node.id()
-                    && profile.is_identifier(other)
-                    && text_of(other, source) == name
-                    && !(other.start_byte() >= setup.start_byte()
-                        && other.end_byte() <= setup.end_byte())
-                    // Its own declaration is not somebody reading it.
-                    && !crate::tree::is_binding_position(
-                        other,
-                        &[],
-                        profile.borrowed_name_kinds,
-                        profile.local_declaring_kinds,
-                        profile.expression_list_kinds,
-                    )
+            let read = spelled.get(name).is_some_and(|others| {
+                others.iter().any(|other| {
+                    other.id() != node.id()
+                        && !(other.start_byte() >= setup.start_byte()
+                            && other.end_byte() <= setup.end_byte())
+                        // Its own declaration is not somebody reading it.
+                        && !crate::tree::is_binding_position(
+                            *other,
+                            &[],
+                            profile.borrowed_name_kinds,
+                            profile.local_declaring_kinds,
+                            profile.expression_list_kinds,
+                        )
+                })
             });
             if !read {
                 out.unused_fixtures.push(Spot {
