@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
-use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
+use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint};
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 use rqx_core::rule::RuleId;
@@ -43,7 +43,18 @@ use report::{FindingFilter, Layout, Report, Reporter};
     name = "rqx",
     version,
     about = "Finds dead weight in TypeScript, Python, Go, Java and C++ and says why it matters",
-    after_help = AFTER_HELP,
+    // `{subcommands}` is left out and the grouped list put in `after_help` instead:
+    // clap has no heading for a subcommand, and twenty-seven of them in one block is
+    // a wall that gets worse with every one added. They stay visible to the parser
+    // rather than hidden, because hiding them would group the help and silently
+    // break shell completion, which reads the same flag.
+    help_template = "\
+{about}
+
+{usage-heading} {usage}
+
+{options}
+{after-help}",
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -63,41 +74,115 @@ pub struct Cli {
     motion: Motion,
 }
 
-/// Run on its own, `rqx` opens the interface, so the help a reader reaches is more
-/// often about what else it can do than about what it is.
-const AFTER_HELP: &str = "\
+/// The commands, in five groups. Order inside a group is the order a reader meets
+/// them, not alphabetical: `scan` before `check` before `fix` is the loop itself.
+///
+/// A test asserts every subcommand is in exactly one group and every name here is a
+/// real subcommand, so a twenty-eighth command fails the build until it is placed.
+const GROUPS: [(&str, &[&str]); 5] = [
+    ("The loop", &["scan", "check", "fix", "verify"]),
+    (
+        "Look closer",
+        &[
+            "complexity",
+            "perf",
+            "health",
+            "slop",
+            "graph",
+            "plan",
+            "patterns",
+            "recommend",
+        ],
+    ),
+    ("Reference", &["rules", "explain", "techniques", "levels"]),
+    (
+        "Project",
+        &["init", "config", "baseline", "suppressions", "cache"],
+    ),
+    (
+        "Integrations",
+        &["lsp", "mcp", "setup", "completions", "query"],
+    ),
+];
+
+/// The parser, with the grouped list attached. Attached here rather than declared
+/// on the derive because building the list reads the parser's own descriptions, and
+/// an attribute that asks for the command while the command is being built never
+/// finishes.
+pub fn parser() -> clap::Command {
+    use clap::CommandFactory;
+
+    let base = Cli::command();
+    let grouped = grouped_help(&base);
+    base.after_help(grouped)
+}
+
+/// Built from the parser rather than written out, so a description here cannot drift
+/// from the one `rqx <command> --help` gives.
+fn grouped_help(command: &clap::Command) -> String {
+    let described: std::collections::HashMap<String, (String, String)> = command
+        .get_subcommands()
+        .map(|sub| {
+            let alias = sub
+                .get_visible_aliases()
+                .next()
+                .map(|alias| format!(", {alias}"))
+                .unwrap_or_default();
+            (
+                sub.get_name().to_owned(),
+                (
+                    alias,
+                    sub.get_about().map(ToString::to_string).unwrap_or_default(),
+                ),
+            )
+        })
+        .collect();
+
+    let mut out = String::new();
+    for (title, names) in GROUPS {
+        out.push_str(title);
+        out.push('\n');
+        for name in names {
+            let (alias, about) = described
+                .get(*name)
+                .map(|(alias, about)| (alias.as_str(), about.as_str()))
+                .unwrap_or_default();
+            // One line each: the first sentence is what the command is for, and the
+            // rest is what `--help` on it is for.
+            let first = about.split_once(". ").map_or(about, |(head, _)| head);
+            let named = format!("{name}{alias}");
+            out.push_str(&format!("  {named:<14}{}\n", first.trim_end_matches('.')));
+        }
+        out.push('\n');
+    }
+    out.push_str(
+        "\
+Run on its own, `rqx` opens the interface on the working directory and scans it.
+`scan` already reports import cycles, layer violations against a declared
+[architecture], dead code, duplication and churn; the commands under Look closer
+narrow that same scan to one question.
+
 Examples:
-  rqx                              open the interface on the working directory
+  rqx                              the interface, on the working directory
   rqx scan . --no-tui              print the whole report instead
   rqx scan . --fail-on error       report, and exit 1 if anything is an error
   rqx check --base main            review only what changed, and gate on it
   rqx explain unused-export        what one rule measures and how to fix it
-  rqx init                         write an RQX.toml you can edit
-
-What answers what:
-  `scan` already reports import cycles, layer violations against a declared
-  [architecture], dead code, duplication, churn and every function over a
-  threshold. These narrow the same scan to one question:
-
-  complexity   every function it measured, not only the ones over the line
-  perf         what grows faster than its input
-  graph        the import graph, as text, Graphviz, Mermaid or data
-  health       which family the score is losing to, and what removing it buys
-  slop         which files read as written rather than read
-  patterns     which design patterns are half applied, and where one would fit
-  plan         the work ranked by what it buys against what it costs
-  recommend    what to do about the project, as against what is wrong with it
 
 Exit codes:
   0   ran, nothing failed the gate
   1   ran, the gate failed
   2   rqx could not run: bad path, bad config, unreadable revision
   101 rqx hit a bug; please report it
-";
+",
+    );
+    out
+}
 
 #[derive(Subcommand)]
 enum Command {
     /// Analyze a project and report every finding
+    #[command(visible_alias = "s")]
     #[command(
         after_help = "Examples:\n  rqx scan .                          the interface, on a terminal\n  rqx scan . --no-tui                 the whole report as text\n  rqx scan . --rule empty-catch       open on one rule\n  rqx scan . --not-path 'test/**'     everything except the tests\n  rqx scan . --fixable                only what `rqx fix` can act on\n  rqx scan . --stats                  which rules fired, and how often"
     )]
@@ -136,6 +221,7 @@ enum Command {
     },
     /// Apply the fixes a finding decides on its own, proving each one before it is
     /// written. Previews by default.
+    #[command(visible_alias = "f")]
     #[command(
         after_help = "Examples:\n  rqx fix                             show what would change\n  rqx fix -w                          write it\n  rqx fix --plan                      the edits as a list, not a diff"
     )]
@@ -170,6 +256,7 @@ enum Command {
     },
     /// Compare the working tree against a base revision and say what happened to
     /// each finding: resolved, improved, relocated, or introduced
+    #[command(visible_alias = "v")]
     Verify {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
@@ -487,6 +574,7 @@ enum Command {
         config: Option<PathBuf>,
     },
     /// Analyze changed files against a base revision and fail if the gate is not met
+    #[command(visible_alias = "c")]
     #[command(
         after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and fail CI on any error\n  rqx check --fix -w                  apply the proven fixes first"
     )]
@@ -1143,11 +1231,9 @@ fn decline_to_help(
     settings: &RqxConfig,
     source: Option<&str>,
 ) -> Result<()> {
-    use clap::CommandFactory;
-
     print!("{}", tui::static_header(root, settings, source));
     println!("  interactive interface unavailable: {reason}\n");
-    Cli::command().print_help()?;
+    parser().print_help()?;
     println!();
     Ok(())
 }
@@ -1266,7 +1352,7 @@ fn main() {
 }
 
 fn run() -> Result<Exit> {
-    let cli = Cli::parse();
+    let cli = Cli::from_arg_matches(&parser().get_matches()).unwrap_or_else(|error| error.exit());
     // Set before anything draws: `anstream::stdout()` and `Palette::detect()` both
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();

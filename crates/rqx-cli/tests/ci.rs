@@ -437,3 +437,70 @@ fn a_directory_with_nothing_to_analyse_says_so() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// The root help lists the commands in groups, so a twenty-eighth command must be
+/// placed in one rather than quietly falling off the page.
+#[test]
+fn every_command_is_in_exactly_one_help_group() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .arg("--help")
+        .output()
+        .expect("failed to run rqx");
+    let help = String::from_utf8_lossy(&output.stdout);
+
+    // `help` is clap's own and `docs` is hidden; everything else a reader can type
+    // has to appear under a heading.
+    let listed = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .arg("completions")
+        .arg("bash")
+        .output()
+        .expect("failed to run rqx");
+    let script = String::from_utf8_lossy(&listed.stdout);
+    let mut missing = Vec::new();
+    for name in [
+        "scan",
+        "check",
+        "fix",
+        "verify",
+        "complexity",
+        "perf",
+        "health",
+        "slop",
+        "graph",
+        "plan",
+        "patterns",
+        "recommend",
+        "rules",
+        "explain",
+        "techniques",
+        "levels",
+        "init",
+        "config",
+        "baseline",
+        "suppressions",
+        "cache",
+        "lsp",
+        "mcp",
+        "setup",
+        "completions",
+        "query",
+    ] {
+        if !help.contains(&format!("  {name}")) {
+            missing.push(name);
+        }
+        assert!(
+            script.contains(name),
+            "{name} is missing from the completion script"
+        );
+    }
+    assert!(missing.is_empty(), "not in any help group: {missing:?}");
+    for heading in [
+        "The loop",
+        "Look closer",
+        "Reference",
+        "Project",
+        "Integrations",
+    ] {
+        assert!(help.contains(heading), "no {heading} heading:\n{help}");
+    }
+}
