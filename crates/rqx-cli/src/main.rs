@@ -2106,8 +2106,54 @@ fn run() -> Result<Exit> {
             slugs,
         } => {
             if slugs {
+                // The same narrowing the printed listing does. Without this a script
+                // asking for one family's slugs got all 185 and no sign it had been
+                // ignored.
+                let only = category
+                    .as_deref()
+                    .map(|name| {
+                        rqx_core::rule::Category::parse(name).ok_or_else(|| {
+                            report::unknown(
+                                "family",
+                                name,
+                                &rqx_core::rule::Category::ALL.map(rqx_core::rule::Category::slug),
+                                &format!(
+                                    "The families are: {}.",
+                                    rqx_core::rule::Category::ALL
+                                        .map(rqx_core::rule::Category::slug)
+                                        .join(", ")
+                                ),
+                            )
+                        })
+                    })
+                    .transpose()?;
+                let spoken = language
+                    .as_deref()
+                    .map(|name| {
+                        rqx_core::Language::parse(name).ok_or_else(|| {
+                            report::unknown(
+                                "language",
+                                name,
+                                &rqx_core::Language::ALL.map(rqx_core::Language::slug),
+                                &format!(
+                                    "rqx reads: {}.",
+                                    rqx_core::Language::ALL
+                                        .map(rqx_core::Language::slug)
+                                        .join(", ")
+                                ),
+                            )
+                        })
+                    })
+                    .transpose()?;
                 for rule in rqx_core::rule::RuleId::ALL {
-                    println!("{}", rule.spec().slug);
+                    let spec = rule.spec();
+                    if only.is_some_and(|family| spec.category != family) {
+                        continue;
+                    }
+                    if spoken.is_some_and(|language| !rule.applies_to(language)) {
+                        continue;
+                    }
+                    println!("{}", spec.slug);
                 }
                 return Ok(Exit::Clean);
             }
