@@ -84,6 +84,62 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     Ok(())
 }
 
+/// The same report, shaped for a merge request: a verdict anyone reads at a glance,
+/// then the detail folded away. A comment that opens with three tables is a comment
+/// that gets collapsed by the reader instead.
+pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
+    let health = report.health();
+    let grade = rqx_core::Cleanliness::of(health, report.totals.findings);
+    let passed = report.verdict.is_none_or(crate::check::Verdict::passed);
+
+    let mut out: Vec<u8> = Vec::new();
+    writeln!(
+        out,
+        "### {} rqx — {} · health {health}/100\n",
+        if passed { "\u{2705}" } else { "\u{274c}" },
+        grade.label()
+    )?;
+
+    if let Some(verdict) = report.verdict.filter(|verdict| !verdict.passed()) {
+        for failure in &verdict.failures {
+            writeln!(out, "> {}", escape(failure))?;
+        }
+        writeln!(out)?;
+    }
+
+    let severity = |level: Severity| report.totals.by_severity.get(&level).copied().unwrap_or(0);
+    writeln!(
+        out,
+        "{} across {} — {} errors, {} warnings, {} info.\n",
+        plural(report.totals.findings, "finding", "findings"),
+        plural(report.files.len() as u32, "file", "files"),
+        severity(Severity::Error),
+        severity(Severity::Warning),
+        severity(Severity::Info),
+    )?;
+
+    // Folded, because a merge request is a conversation and this is one voice in it.
+    writeln!(out, "<details><summary>What it found</summary>\n")?;
+    render(report, &mut out)?;
+    writeln!(out, "\n</details>")?;
+
+    if let Some(job) = job {
+        writeln!(out, "\n<sub>[Full report]({job})</sub>")?;
+    }
+    Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
+/// One line for a commit status, which has a hard limit and no markdown.
+pub fn classification(report: &Report<'_>) -> String {
+    let health = report.health();
+    let grade = rqx_core::Cleanliness::of(health, report.totals.findings);
+    format!(
+        "{} \u{b7} health {health}/100 \u{b7} {}",
+        grade.label(),
+        plural(report.totals.findings, "finding", "findings")
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,5 +147,28 @@ mod tests {
     #[test]
     fn a_pipe_cannot_break_out_of_its_cell() {
         assert_eq!(escape("a|b"), "a\\|b");
+    }
+
+    /// The verdict is the first thing in the comment and the detail is folded: a
+    /// merge request is a conversation, and this is one voice in it.
+    #[test]
+    fn the_comment_leads_with_the_verdict_and_folds_the_rest() {
+        let outcome = crate::report::tests::outcome_with(&[("a.ts", Severity::Error)], 1);
+        let filter = crate::report::FindingFilter::default();
+        let report = Report::scan(&outcome, &filter);
+        let body = comment(&report, Some("https://ci.example/job/1")).expect("a comment");
+
+        let headline = body.lines().next().unwrap_or_default();
+        assert!(headline.starts_with("### "), "{headline}");
+        assert!(headline.contains("health"), "{headline}");
+        assert!(
+            body.contains("<details>"),
+            "the detail is not folded:\n{body}"
+        );
+        assert!(body.contains("https://ci.example/job/1"));
+        assert!(
+            !classification(&report).contains('\n'),
+            "a commit status is one line"
+        );
     }
 }

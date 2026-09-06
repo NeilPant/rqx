@@ -462,6 +462,7 @@ fn every_command_is_in_exactly_one_help_group() {
         "check",
         "fix",
         "verify",
+        "comment",
         "complexity",
         "perf",
         "health",

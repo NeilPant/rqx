@@ -200,3 +200,76 @@ pattern advice reaches an exit code. It sees the half-applied stance and nothing
 a decorator that cannot substitute for what it wraps, a subscribe with no unsubscribe.
 A pattern that is merely in use, or would merely fit, can never fail a run, and none
 of the advice moves the health score in any configuration.
+
+## Commenting on the merge request
+
+`rqx comment` posts the review onto the merge request it is reviewing: one comment,
+edited on every re-run rather than repeated, and a commit status carrying the grade
+so the branch shows it without anyone opening a log.
+
+```sh
+rqx comment --base "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --fail-on error
+```
+
+It reads the pipeline's own variables to find the merge request — GitLab's
+`CI_MERGE_REQUEST_IID` and `CI_PROJECT_ID`, GitHub's `GITHUB_REPOSITORY` and event
+payload — and exits 2 with an explanation when it is not running on one.
+
+| Flag | Does |
+|---|---|
+| `--dry-run` | print the comment and where it would go; post nothing |
+| `--marker <id>` | which comment to keep, so two jobs each keep their own |
+| `--no-status` | comment, but leave the commit ungraded |
+| `--base <ref>` | what the review compares against |
+
+**Tokens.** GitLab needs `RQX_TOKEN` or `GITLAB_TOKEN` with `api` scope —
+`CI_JOB_TOKEN` can read merge-request notes but not write them, which is a GitLab
+limitation and not something rqx can work around. GitHub needs
+`permissions: pull-requests: write`, and `statuses: write` for the commit grade.
+
+Requests go through `curl`. rqx already requires `git`; every CI image has `curl`,
+and the alternative is a TLS stack in a binary whose claim is that it has no runtime
+dependencies. Certificates and proxies stay the system's, which on a self-hosted
+GitLab is where they belong. Alpine images need `apk add curl`.
+
+### GitLab
+
+```yaml
+rqx:
+  image: alpine
+  before_script:
+    - apk add --no-cache curl git
+  script:
+    - rqx comment --base "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --fail-on error
+    - rqx scan . --reporter gitlab=gl-code-quality-report.json
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+```
+
+The `gitlab` reporter is the other half: GitLab reads it as a Code Quality report and
+draws each finding inline on the diff, where the comment is the summary above it.
+
+### GitHub
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  rqx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: rqx comment --base "origin/${{ github.base_ref }}" --fail-on error
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+`fetch-depth: 0` matters: a review compares against a revision, and a shallow clone
+does not have one.

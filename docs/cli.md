@@ -89,6 +89,30 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--motion` | Animation in the interactive interface |
 | `--help` | Print help (see more with '--help') |
 
+## `rqx comment`
+
+Post the review onto the merge request it is reviewing, and grade the commit
+
+| Flag | What it does |
+| --- | --- |
+| `--level` | relaxed, standard, strict or pristine |
+| `--base` | Review against this revision, so the comment is about the change |
+| `--dry-run` | Print the comment and where it would go, and post nothing |
+| `--marker` | Which comment to keep. Two jobs on one merge request each keep their own |
+| `--no-status` | Comment, but leave the commit ungraded |
+| `--fail-on` | Lowest severity that fails the run |
+| `--allow-findings` | Findings allowed before the run fails |
+| `--min-health` | Health score below which the run fails; 0 disables |
+| `--min-grade` | Lowest grade any single file may carry |
+| `--fail-on-incomplete` | Fail when a design pattern is half applied |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file instead of discovering `RQX.toml` |
+| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--help` | Print help |
+
 ## `rqx completions`
 
 Print a shell completion script

@@ -19,7 +19,7 @@
 | [patterns/](patterns/README.md) | The design-pattern catalogue: what rqx recognises, what it calls half applied, and where one would fit |
 | [editor.md](editor.md) | `rqx lsp` as a product, and a paste-in config for every editor |
 | [mcp.md](mcp.md) | The fifteen MCP tools, their payloads, paging, and HTTP with a token |
-| [ci.md](ci.md) | The exit-code contract, every reporter, and a snippet per CI system |
+| [ci.md](ci.md) | The exit-code contract, every reporter, commenting on a merge request, and a snippet per CI system |
 
 `cli.md`, `docs/rules/`, `docs/patterns/` and the levels section of
 `configuration.md` are

@@ -16,6 +16,7 @@ mod complexity;
 mod config;
 mod edit_config;
 mod fix;
+mod forge;
 mod graph;
 mod health;
 mod history;
@@ -80,7 +81,7 @@ pub struct Cli {
 /// A test asserts every subcommand is in exactly one group and every name here is a
 /// real subcommand, so a twenty-eighth command fails the build until it is placed.
 const GROUPS: [(&str, &[&str]); 5] = [
-    ("The loop", &["scan", "check", "fix", "verify"]),
+    ("The loop", &["scan", "check", "fix", "verify", "comment"]),
     (
         "Look closer",
         &[
@@ -608,6 +609,41 @@ enum Command {
         out: PathBuf,
         #[arg(long, default_value = "fixtures", value_hint = ValueHint::DirPath)]
         fixtures: PathBuf,
+    },
+    /// Post the review onto the merge request it is reviewing, and grade the commit
+    #[command(after_help = "Examples:
+  rqx comment --base main             one sticky comment, edited on every re-run
+  rqx comment --dry-run               print what would be posted, post nothing
+  rqx comment --marker api            a second comment for a second job
+
+GitLab needs RQX_TOKEN or GITLAB_TOKEN with `api` scope: CI_JOB_TOKEN cannot write
+merge-request notes. GitHub needs `permissions: pull-requests: write`, and
+`statuses: write` for the commit grade.")]
+    Comment {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Review against this revision, so the comment is about the change
+        #[arg(long, default_value = "origin/HEAD", value_name = "REF")]
+        base: String,
+        /// Print the comment and where it would go, and post nothing
+        #[arg(long)]
+        dry_run: bool,
+        /// Which comment to keep. Two jobs on one merge request each keep their own
+        #[arg(long, default_value = "results", value_name = "ID")]
+        marker: String,
+        /// Comment, but leave the commit ungraded
+        #[arg(long)]
+        no_status: bool,
+        #[command(flatten)]
+        gate: Gate,
+        /// Worker threads. Defaults to the machine's parallelism
+        #[arg(long, value_name = "N", env = "RQX_THREADS")]
+        threads: Option<usize>,
+        /// Read settings from this file instead of discovering `RQX.toml`
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
     },
     /// Write a commented RQX.toml with every setting at its default
     Init {
@@ -1908,6 +1944,69 @@ fn run() -> Result<Exit> {
             .map(|_| Exit::Clean)
         }
         Command::Docs { out, fixtures } => report::docs(&out, &fixtures).map(|()| Exit::Clean),
+        Command::Comment {
+            path,
+            standard,
+            base,
+            dry_run,
+            marker,
+            no_status,
+            gate,
+            threads,
+            config,
+        } => {
+            if !path.exists() {
+                bail!(
+                    "`{}` does not exist. rqx comments on a project; try `rqx comment .`",
+                    path.display()
+                );
+            }
+            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            if let Some(count) = threads {
+                settings.config.scan.threads = count;
+            }
+            gate.apply(&mut settings.config);
+            // The whole review, not the first five hundred: a display cap is for a
+            // terminal, and this is a document somebody scrolls.
+            settings.config.scan.max_findings = 0;
+
+            let review = check::review(&path, &settings, &base)?;
+            let verdict = check::judge(&review, &settings.config);
+            let report = Report::reviewed(&review, &verdict);
+
+            // Detected before posting but after the scan, so a dry run still gets its
+            // comment where there is nowhere to put one.
+            let forge = forge::Forge::detect();
+            let body = report::comment(&report, forge.as_ref().ok().and_then(forge::Forge::job))?;
+            if dry_run {
+                println!("{body}");
+                eprintln!(
+                    "\n  would post to {}\n",
+                    forge.as_ref().map_or_else(
+                        |error| format!("nowhere: {error:#}"),
+                        |forge| format!("{} {}", forge.name(), forge.target())
+                    )
+                );
+                return Ok(Exit::of(!verdict.passed()));
+            }
+
+            let forge = forge?;
+            let said = match forge.comment(&marker, &body)? {
+                forge::Posted::Created => "commented on",
+                forge::Posted::Updated => "updated the comment on",
+            };
+            eprintln!("  {said} {} {}", forge.name(), forge.target());
+            if !no_status {
+                let classification = report::classification(&report);
+                // A status that cannot be set is worth saying and not worth failing
+                // the build over: the comment is already there.
+                match forge.classify(verdict.passed(), &classification) {
+                    Ok(()) => eprintln!("  graded the commit: {classification}"),
+                    Err(error) => eprintln!("  could not grade the commit: {error:#}"),
+                }
+            }
+            Ok(Exit::of(!verdict.passed()))
+        }
         Command::Init { path, force } => write_template(&path, force).map(|()| Exit::Clean),
         Command::Config {
             path,
@@ -2013,5 +2112,38 @@ fn run() -> Result<Exit> {
         Command::Levels => {
             report::levels(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
         }
+    }
+}
+
+#[cfg(test)]
+mod grouping {
+    use std::collections::HashSet;
+
+    #[test]
+    fn every_subcommand_is_in_exactly_one_group() {
+        let parser = super::parser();
+        let real: HashSet<&str> = parser
+            .get_subcommands()
+            .filter(|sub| !sub.is_hide_set() && sub.get_name() != "help")
+            .map(clap::Command::get_name)
+            .collect();
+
+        let mut placed: Vec<&str> = Vec::new();
+        for (_, names) in super::GROUPS {
+            placed.extend_from_slice(names);
+        }
+
+        let twice: Vec<&&str> = placed
+            .iter()
+            .filter(|name| placed.iter().filter(|other| other == name).count() > 1)
+            .collect();
+        assert!(twice.is_empty(), "in more than one group: {twice:?}");
+
+        let listed: HashSet<&str> = placed.iter().copied().collect();
+        let missing: Vec<&&str> = real.difference(&listed).collect();
+        assert!(missing.is_empty(), "in no help group: {missing:?}");
+
+        let invented: Vec<&&str> = listed.difference(&real).collect();
+        assert!(invented.is_empty(), "not a real subcommand: {invented:?}");
     }
 }
