@@ -754,9 +754,9 @@ land, and the last few paths going past.
 | Overview | health, severity and grade distributions, what to open first |
 | Findings | every finding with the offending code marked, and the keys to filter, group, open, fix or waive it |
 | Files | one row per file, worst grade first, with churn and blast radius |
-| Complexity | every function it measured — `p` flips the same table to the bottlenecks |
-| Graph | the cycles as rings, then what imports what; `c` for cycles only |
-| Health | which family the score is losing to and what removing it would buy; `s` flips to slop |
+| Complexity | every function it measured — `m` flips the same table to the bottlenecks |
+| Graph | the cycles as rings, then what imports what; `m` for cycles only |
+| Health | which family the score is losing to and what removing it would buy; `m` flips to slop |
 | Plan | the work ranked by what it buys against what it costs, with a budget |
 | Patterns | which design patterns are in use, which are half applied, and where one would fit |
 | Rules | the catalogue, searchable, with each rule's family, metric, fix and why |
@@ -783,10 +783,17 @@ separate menu to keep in step with it. Set up is the three commands that write a
 file — `RQX.toml`, a baseline, clearing the cache — kept under a heading of their
 own and each saying what it did on the footer line.
 
-`tab` cycles the nine tabs and `1`–`9` jump to one. `r` scans, `w` watches and
-re-analyses on every save, `/` searches, `f` filters by rule, family and path in
-the same spelling the flags take, `g` groups, `?` lists the keys of the screen
-you are on, `,` opens the settings, `q` leaves and prints what the session found.
+**One key, one meaning.** `/` searches, `f` filters by rule, family and path in
+the same spelling the flags take, `>` raises the severity floor, `g` groups, `s`
+sorts, `m` flips the screen's other mode, `enter` opens. A screen says what its
+own version acts on — `mode · slop`, `mode · cycles only` — and a test holds
+every screen to it.
+
+`tab` cycles the nine tabs and `1`–`9` jump to one; `r` scans, `w` watches and
+re-analyses on every save, `,` opens the settings, `?` lists the keys of the
+screen you are on, `q` leaves and prints what the session found. Those are
+answered everywhere, so no screen claims them and the `?` overlay adds them once
+— which it did not before, leaving `r` and `w` bound and documented nowhere.
 
 `esc` steps back through where you have been and quits at the root.
 

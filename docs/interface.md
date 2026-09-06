@@ -43,9 +43,9 @@ says what is happening rather than that something is:
 | 1 | Overview | health, the severity and grade distributions, and what to open first |
 | 2 | Findings | every finding with the offending code marked |
 | 3 | Files | one row per file, worst grade first, with churn and blast radius |
-| 4 | Complexity | every function it measured; `p` flips to the bottlenecks |
-| 5 | Graph | the cycles as rings, then what imports what; `c` for cycles only |
-| 6 | Health | which family the score is losing to; `s` flips to slop |
+| 4 | Complexity | every function it measured; `m` flips to the bottlenecks |
+| 5 | Graph | the cycles as rings, then what imports what; `m` for cycles only |
+| 6 | Health | which family the score is losing to; `m` flips to slop |
 | 7 | Plan | the work ranked by what it buys against what it costs |
 | 8 | Patterns | which design patterns are half applied, and where one would fit |
 | 9 | Rules | the catalogue, searchable |
@@ -55,6 +55,26 @@ is where a thing looked at once belongs.
 
 ## Keys
 
+One key, one meaning. A screen says what its own version of a meaning acts on —
+`mode · slop` on Health, `mode · cycles only` on Graph — but no key means two
+different things, and a test holds every screen's key table to it.
+
+| Key | Does |
+|---|---|
+| `/` | search within the screen |
+| `f` | filter by rule, family and path, in the spelling the flags take |
+| `>` | raise the severity floor |
+| `g` | group: by rule, directory or file |
+| `s` | sort |
+| `m` | mode: bottlenecks on Complexity, slop on Health, cycles only on Graph |
+| `enter` | open: the finding in `$EDITOR`, or a row's findings |
+| `a` then `y` | prove a file's fixes, then write them |
+| `x` | waive the selected finding, with a reason |
+| `esc` | step back |
+
+These are answered on every screen, so no screen lists them and the `?` overlay
+adds them once:
+
 | Key | Does |
 |---|---|
 | `tab` / `shift-tab` | next and previous tab |
@@ -62,16 +82,8 @@ is where a thing looked at once belongs.
 | `ctrl-p` or `:` | the command palette |
 | `r` | scan the whole project again |
 | `w` | watch, and re-analyse on every save |
-| `/` | search within the screen |
-| `f` | filter by rule, family and path, in the spelling the flags take |
-| `g` | group the findings |
-| `s` | severity floor, or on Health, flip to slop |
-| `a` then `y` | prove a file's fixes, then write them |
-| `x` | waive the selected finding, with a reason |
-| `enter` | open the finding in `$EDITOR`, or open a row's file |
 | `,` | the resolved settings |
 | `?` | the keys of the screen you are on |
-| `esc` | step back |
 | `q` | leave, and print what the session found |
 
 ## The command palette
