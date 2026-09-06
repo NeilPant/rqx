@@ -12,10 +12,9 @@ single correct answer; and grades a diff against the base branch.
 A single Rust binary with no runtime dependencies.
 
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
-[![Release](https://img.shields.io/github/v/release/jadhamwi21/rqx?color=0a84ff)](https://github.com/jadhamwi21/rqx/releases)
-[![VS Code](https://img.shields.io/visual-studio-marketplace/v/jadhamwi.rqx?label=VS%20Code&color=0a84ff)](https://marketplace.visualstudio.com/items?itemName=jadhamwi.rqx)
-[![Open VSX](https://img.shields.io/open-vsx/v/jadhamwi/rqx?label=Open%20VSX&color=0a84ff)](https://open-vsx.org/extension/jadhamwi/rqx)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
+![Rules](https://img.shields.io/badge/rules-185-0a84ff)
+![Languages](https://img.shields.io/badge/languages-5-0a84ff)
 ![No runtime dependencies](https://img.shields.io/badge/runtime%20deps-none-1f9e55)
 
 `static-analysis` · `code-quality` · `refactoring` · `dead-code` · `lsp` · `mcp` · `rust`
@@ -38,7 +37,11 @@ rqx mcp                         # serve the analysis to an agent over MCP
 
 ## Install
 
-A release ships one tarball per target, with `SHA256SUMS` beside them:
+```bash
+cargo install --git https://github.com/jadhamwi21/rqx rqx
+```
+
+Each release also ships one tarball per target with `SHA256SUMS` beside them:
 
 ```bash
 # macOS (Apple silicon); substitute the target for another platform
@@ -46,16 +49,16 @@ VERSION=0.1.0 TARGET=aarch64-apple-darwin
 curl -fsSLO "https://github.com/jadhamwi21/rqx/releases/download/v$VERSION/rqx-$VERSION-$TARGET.tar.gz"
 tar -xzf "rqx-$VERSION-$TARGET.tar.gz"
 install "rqx-$VERSION-$TARGET/rqx" /usr/local/bin/
-
-# or build it
-cargo install --git https://github.com/jadhamwi21/rqx rqx
 ```
 
 Targets: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`,
 `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`.
+Building from source needs a Rust toolchain at the `rust-version` in `Cargo.toml`
+and nothing else.
 
-Editors: **VS Code** (also Cursor, Windsurf, VSCodium) and **Zed** ship extensions that
-fetch the matching binary themselves. Everything else speaks to `rqx lsp` — see
+Editors: **VS Code** (also Cursor, Windsurf, VSCodium) and **Zed** have extensions in
+this repository that fetch the matching binary themselves; both are built in CI and
+published with a release. Every other editor speaks to `rqx lsp` — see
 [Editors](#editors).
 
 <details>
