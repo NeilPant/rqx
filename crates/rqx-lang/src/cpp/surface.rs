@@ -4,7 +4,7 @@
 use rqx_core::facts::{ExportKind, ExportedSymbol, Heritage, ImportRequest, ModuleFacts};
 use tree_sitter::Node;
 
-use crate::tree::{descendants, find_within, span_of, text_of};
+use crate::tree::{descendants, find_within, kind_of, span_of, text_of};
 
 const DECLARATOR_KINDS: [&str; 3] = [
     "function_declarator",
@@ -19,7 +19,7 @@ fn declared_name<'tree>(node: Node<'tree>) -> Option<Node<'tree>> {
     let mut cursor = declarator.walk();
     declarator
         .named_children(&mut cursor)
-        .find(|child| matches!(child.kind(), "identifier" | "field_identifier"))
+        .find(|child| matches!(kind_of(child), "identifier" | "field_identifier"))
 }
 
 fn collect_class(class: Node<'_>, source: &str, facts: &mut ModuleFacts) {
@@ -46,11 +46,11 @@ fn collect_class(class: Node<'_>, source: &str, facts: &mut ModuleFacts) {
     let mut cursor = class.walk();
     for clause in class
         .named_children(&mut cursor)
-        .filter(|node| node.kind() == "base_class_clause")
+        .filter(|node| kind_of(node) == "base_class_clause")
     {
         for parent in descendants(clause)
             .into_iter()
-            .filter(|node| node.kind() == "type_identifier")
+            .filter(|node| kind_of(node) == "type_identifier")
         {
             let label = text_of(parent, source).to_owned();
             facts.implemented.push(label.clone());
@@ -73,7 +73,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
         .iter()
         .filter(|node| {
             matches!(
-                node.kind(),
+                kind_of(*node),
                 "identifier" | "type_identifier" | "field_identifier"
             )
         })
@@ -81,7 +81,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
         .collect();
 
     for node in nodes.iter().copied() {
-        match node.kind() {
+        match kind_of(node) {
             "preproc_include" => {
                 let Some(path) = node.child_by_field_name("path") else {
                     continue;
@@ -106,7 +106,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
                 // a member belongs to the class that holds it.
                 let inside_class = node
                     .parent()
-                    .is_some_and(|parent| parent.kind() == "field_declaration_list");
+                    .is_some_and(|parent| kind_of(parent) == "field_declaration_list");
                 if inside_class {
                     continue;
                 }

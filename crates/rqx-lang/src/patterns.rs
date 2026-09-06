@@ -6,7 +6,8 @@ use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
 use crate::tree::{
-    descendants, find_within, is_binding_position, operands_of, operator_of, span_of, text_of,
+    descendants, find_within, is_binding_position, kind_of, operands_of, operator_of, span_of,
+    text_of,
 };
 
 /// `strName`, `bEnabled`, `IOrder`: a type spelled into a name the compiler already
@@ -99,7 +100,7 @@ impl<'a> Collector<'a> {
 
     fn see_through(&self, node: Node<'a>) -> Node<'a> {
         let mut current = node;
-        while self.profile.transparent_kinds.contains(&current.kind()) {
+        while self.profile.transparent_kinds.contains(&kind_of(current)) {
             match current.named_child(0) {
                 Some(inner) => current = inner,
                 None => break,
@@ -135,7 +136,7 @@ impl<'a> Collector<'a> {
         if let Some(topic) = self.subject_text(node) {
             return Some(topic);
         }
-        if self.profile.binary_kinds.contains(&node.kind()) {
+        if self.profile.binary_kinds.contains(&kind_of(node)) {
             return operands_of(node).and_then(|(left, _)| self.condition_topic(left));
         }
         node.named_child(0)
@@ -156,7 +157,7 @@ impl<'a> Collector<'a> {
         if self.profile.else_is_sibling_list {
             let mut cursor = statement.walk();
             for clause in statement.named_children(&mut cursor) {
-                if !self.profile.else_clause_kinds.contains(&clause.kind()) {
+                if !self.profile.else_clause_kinds.contains(&kind_of(clause)) {
                     continue;
                 }
                 let Some(condition) = clause.child_by_field_name(self.profile.condition_field)
@@ -173,11 +174,11 @@ impl<'a> Collector<'a> {
 
         let mut alternative = statement.child_by_field_name(self.profile.else_field);
         while let Some(branch) = alternative {
-            let branch = if branch.kind() == self.profile.if_kind {
+            let branch = if kind_of(branch) == self.profile.if_kind {
                 branch
             } else {
                 match branch.named_child(0) {
-                    Some(inner) if inner.kind() == self.profile.if_kind => inner,
+                    Some(inner) if kind_of(inner) == self.profile.if_kind => inner,
                     _ => break,
                 }
             };
@@ -202,7 +203,7 @@ impl<'a> Collector<'a> {
             let mut cursor = node.walk();
             let arguments = node
                 .named_children(&mut cursor)
-                .find(|child| self.profile.argument_list_kinds.contains(&child.kind()))?;
+                .find(|child| self.profile.argument_list_kinds.contains(&kind_of(child)))?;
             return Some(arguments.named_child_count() as u32);
         }
         node.named_child(0).and_then(|inner| self.call_arity(inner))
@@ -254,7 +255,7 @@ impl<'a> Collector<'a> {
     /// switch wearing a different syntax.
     fn comparison_subject(&self, condition: Node<'a>) -> Option<String> {
         let node = self.see_through(condition);
-        if !self.profile.binary_kinds.contains(&node.kind()) {
+        if !self.profile.binary_kinds.contains(&kind_of(node)) {
             return None;
         }
         let operator = operator_of(node, self.source)?;
@@ -263,8 +264,8 @@ impl<'a> Collector<'a> {
         }
         let (left, right) = operands_of(node)?;
         let right = self.see_through(right);
-        let literal = self.profile.string_kinds.contains(&right.kind())
-            || self.profile.number_kinds.contains(&right.kind());
+        let literal = self.profile.string_kinds.contains(&kind_of(right))
+            || self.profile.number_kinds.contains(&kind_of(right));
         literal.then(|| self.subject_text(left)).flatten()
     }
 
@@ -274,10 +275,14 @@ impl<'a> Collector<'a> {
     fn assigns_subject(&self, statement: Node<'a>, subject: &str) -> bool {
         descendants(statement)
             .into_iter()
-            .filter(|node| self.profile.assignment_kinds.contains(&node.kind()))
+            .filter(|node| self.profile.assignment_kinds.contains(&kind_of(node)))
             .filter_map(|assignment| assignment.child_by_field_name("left"))
             .any(|target| {
-                let target = if self.profile.expression_list_kinds.contains(&target.kind()) {
+                let target = if self
+                    .profile
+                    .expression_list_kinds
+                    .contains(&kind_of(target))
+                {
                     target.named_child(0).unwrap_or(target)
                 } else {
                     target
@@ -299,7 +304,7 @@ impl<'a> Collector<'a> {
         if self.profile.else_is_sibling_list {
             let mut cursor = statement.walk();
             for clause in statement.named_children(&mut cursor) {
-                if !self.profile.else_clause_kinds.contains(&clause.kind()) {
+                if !self.profile.else_clause_kinds.contains(&kind_of(clause)) {
                     continue;
                 }
                 let matches_subject = clause
@@ -327,11 +332,11 @@ impl<'a> Collector<'a> {
         }
         let mut alternative = statement.child_by_field_name(self.profile.else_field);
         while let Some(branch) = alternative {
-            let branch = if branch.kind() == self.profile.if_kind {
+            let branch = if kind_of(branch) == self.profile.if_kind {
                 branch
             } else {
                 match branch.named_child(0) {
-                    Some(inner) if inner.kind() == self.profile.if_kind => inner,
+                    Some(inner) if kind_of(inner) == self.profile.if_kind => inner,
                     _ => break,
                 }
             };
@@ -371,7 +376,7 @@ impl<'a> Collector<'a> {
             .child_by_field_name("body")
             .unwrap_or(statement)
             .named_children(&mut cursor)
-            .filter(|child| self.profile.case_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.case_kinds.contains(&kind_of(child)))
             .collect();
         let arities: Vec<Option<u32>> = cases
             .iter()
@@ -395,7 +400,7 @@ impl<'a> Collector<'a> {
         let receiver = method.child_by_field_name("receiver")?;
         descendants(receiver)
             .into_iter()
-            .find(|node| node.kind() == "type_identifier")
+            .find(|node| kind_of(node) == "type_identifier")
             .map(|node| self.text(node).to_owned())
     }
 
@@ -412,7 +417,7 @@ impl<'a> Collector<'a> {
         let mut inner = list.walk();
         let names: Vec<String> = list
             .named_children(&mut inner)
-            .filter(|child| self.profile.parameter_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.parameter_kinds.contains(&kind_of(child)))
             .filter_map(|parameter| {
                 if self.profile.is_identifier(parameter) {
                     return Some(self.text(parameter).to_owned());
@@ -431,7 +436,7 @@ impl<'a> Collector<'a> {
     /// A union of three operands is written as two nested unions in some grammars,
     /// so the operands are the leaves rather than the immediate children.
     fn union_members(&self, node: Node<'a>) -> Vec<Node<'a>> {
-        if !self.profile.union_type_kinds.contains(&node.kind()) {
+        if !self.profile.union_type_kinds.contains(&kind_of(node)) {
             return vec![node];
         }
         let mut cursor = node.walk();
@@ -453,7 +458,7 @@ impl<'a> Collector<'a> {
         // the list, where `type X = "a" | "b"` is the list itself.
         let Some(union) = descendants(value)
             .into_iter()
-            .find(|node| self.profile.union_type_kinds.contains(&node.kind()))
+            .find(|node| self.profile.union_type_kinds.contains(&kind_of(node)))
         else {
             return;
         };
@@ -461,11 +466,11 @@ impl<'a> Collector<'a> {
         let strings = members
             .iter()
             .filter(|node| {
-                self.profile.literal_type_kinds.contains(&node.kind())
+                self.profile.literal_type_kinds.contains(&kind_of(*node))
                     && self.profile.string_kinds.contains(
                         &node
                             .named_child(0)
-                            .map_or(node.kind(), |inner| inner.kind()),
+                            .map_or(kind_of(*node), |inner| kind_of(inner)),
                     )
             })
             .count();
@@ -479,7 +484,7 @@ impl<'a> Collector<'a> {
     }
 
     fn walk(&mut self, node: Node<'a>) {
-        let kind = node.kind();
+        let kind = kind_of(node);
         let profile = self.profile;
         let mut pushed_class = false;
 
@@ -506,12 +511,12 @@ impl<'a> Collector<'a> {
                         let nested: Vec<Node<'a>> = child.named_children(&mut inner).collect();
                         std::iter::once(child).chain(nested)
                     })
-                    .find(|child| profile.extends_kinds.contains(&child.kind()))
+                    .find(|child| profile.extends_kinds.contains(&kind_of(child)))
                     .and_then(|clause| {
                         let mut inner = clause.walk();
-                        clause
-                            .named_children(&mut inner)
-                            .find(|child| profile.binding_identifier_kinds.contains(&child.kind()))
+                        clause.named_children(&mut inner).find(|child| {
+                            profile.binding_identifier_kinds.contains(&kind_of(child))
+                        })
                     })
                     .map(|id| self.text(id).to_owned());
                 if let Some(parent) = parent {
@@ -556,7 +561,7 @@ impl<'a> Collector<'a> {
         if profile.property_kinds.contains(&kind)
             && node
                 .parent()
-                .is_some_and(|parent| profile.signature_kinds.contains(&parent.kind()))
+                .is_some_and(|parent| profile.signature_kinds.contains(&kind_of(parent)))
             && let Some(encoding) = encoding_of(self.text(node), profile.hungarian_prefixes)
         {
             let name = self.text(node).to_owned();

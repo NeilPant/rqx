@@ -5,7 +5,7 @@ use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
-use crate::tree::{descendants, find_within, operator_of, span_of, text_of};
+use crate::tree::{descendants, find_within, kind_of, operator_of, span_of, text_of};
 
 /// A class as the rules understand it: a name, and the members that belong to it.
 /// Most languages write that as one node; Go writes the type in one place and its
@@ -134,7 +134,7 @@ impl<'a> Collector<'a> {
             }
             let operator_is_negation = operator_of(current, self.source)
                 .is_some_and(|operator| self.profile.negation_operators.contains(&operator));
-            if operator_is_negation || self.profile.transparent_kinds.contains(&current.kind()) {
+            if operator_is_negation || self.profile.transparent_kinds.contains(&kind_of(current)) {
                 current = current.named_child(current.named_child_count().saturating_sub(1))?;
                 continue;
             }
@@ -145,13 +145,13 @@ impl<'a> Collector<'a> {
     fn reach(&self, body: Node<'a>) -> Reach {
         let mut reach = Reach::default();
         for node in descendants(body) {
-            if node.kind() == self.profile.if_kind
+            if kind_of(node) == self.profile.if_kind
                 && let Some(condition) = node.child_by_field_name(self.profile.condition_field)
                 && let Some(field) = self.guarded_field(condition)
             {
                 reach.guards.insert(field);
             }
-            if self.profile.literal_field_kinds.contains(&node.kind())
+            if self.profile.literal_field_kinds.contains(&kind_of(node))
                 && let Some(key) = node.named_child(0)
             {
                 reach.reads.insert(self.text(key).to_owned());
@@ -169,7 +169,7 @@ impl<'a> Collector<'a> {
                 reach.own += 1;
                 reach.reads.insert(self.text(property).to_owned());
                 let assigns = node.parent().is_some_and(|parent| {
-                    self.profile.assignment_kinds.contains(&parent.kind())
+                    self.profile.assignment_kinds.contains(&kind_of(parent))
                         && parent.child_by_field_name("left") == Some(node)
                 });
                 if assigns {
@@ -200,7 +200,7 @@ impl<'a> Collector<'a> {
             .collect();
         match statements.as_slice() {
             [] => true,
-            [only] => self.profile.throw_kinds.contains(&only.kind()),
+            [only] => self.profile.throw_kinds.contains(&kind_of(only)),
             _ => false,
         }
     }
@@ -222,7 +222,7 @@ impl<'a> Collector<'a> {
         };
         // A `return` may hold a list of values in some grammars; delegation is the
         // single value inside it.
-        let value = if self.profile.expression_list_kinds.contains(&value.kind()) {
+        let value = if self.profile.expression_list_kinds.contains(&kind_of(value)) {
             value.named_child(0).unwrap_or(value)
         } else {
             value
@@ -264,7 +264,7 @@ impl<'a> Collector<'a> {
         let mut cursor = member.walk();
         member
             .named_children(&mut cursor)
-            .find(|child| self.profile.name_holder_kinds.contains(&child.kind()))
+            .find(|child| self.profile.name_holder_kinds.contains(&kind_of(child)))
             .and_then(|holder| holder.child_by_field_name("name"))
             .map(|name| self.text(name).to_owned())
     }
@@ -282,7 +282,7 @@ impl<'a> Collector<'a> {
         let mut cursor = member.walk();
         member
             .named_children(&mut cursor)
-            .find(|child| self.profile.name_holder_kinds.contains(&child.kind()))
+            .find(|child| self.profile.name_holder_kinds.contains(&kind_of(child)))
             .and_then(|holder| holder.child_by_field_name("name"))
             .map_or(span_of(member), span_of)
     }
@@ -290,7 +290,7 @@ impl<'a> Collector<'a> {
     fn is_private(&self, member: Node<'a>) -> bool {
         let mut cursor = member.walk();
         member.children(&mut cursor).any(|child| {
-            self.profile.private_markers.contains(&child.kind())
+            self.profile.private_markers.contains(&kind_of(child))
                 || self.profile.private_markers.contains(&self.text(child))
         }) || self.member_name(member).is_some_and(|name| {
             self.profile
@@ -303,8 +303,9 @@ impl<'a> Collector<'a> {
     fn has_modifier(&self, member: Node<'a>, markers: &[&str]) -> bool {
         let mut cursor = member.walk();
         let children: Vec<Node<'a>> = member.children(&mut cursor).collect();
-        let matches =
-            |node: &Node<'a>| markers.contains(&node.kind()) || markers.contains(&self.text(*node));
+        let matches = |node: &Node<'a>| {
+            markers.contains(&kind_of(node)) || markers.contains(&self.text(*node))
+        };
         if children.iter().any(matches) {
             return true;
         }
@@ -312,7 +313,7 @@ impl<'a> Collector<'a> {
         for container in children.iter().filter(|child| {
             self.profile
                 .modifier_container_kinds
-                .contains(&child.kind())
+                .contains(&kind_of(*child))
         }) {
             let mut inner = container.walk();
             if container.children(&mut inner).any(|child| matches(&child)) {
@@ -330,13 +331,13 @@ impl<'a> Collector<'a> {
         let Some(parent) = member.parent() else {
             return Vec::new();
         };
-        if !self.profile.decorated_kinds.contains(&parent.kind()) {
+        if !self.profile.decorated_kinds.contains(&kind_of(parent)) {
             return Vec::new();
         }
         let mut cursor = parent.walk();
         parent
             .named_children(&mut cursor)
-            .filter(|child| self.profile.decorator_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.decorator_kinds.contains(&kind_of(child)))
             .map(|child| {
                 self.text(child)
                     .trim_start_matches('@')
@@ -370,14 +371,14 @@ impl<'a> Collector<'a> {
         };
         let mut inner = list.walk();
         list.named_children(&mut inner)
-            .filter(|child| self.profile.parameter_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.parameter_kinds.contains(&kind_of(child)))
             .collect()
     }
 
     /// The type written on a declaration. TypeScript and Python wrap it in a
     /// `type_annotation`; the other three put the type node straight in the field.
     fn type_text(&self, node: Node<'a>) -> String {
-        let inner = if node.kind() == "type_annotation" {
+        let inner = if kind_of(node) == "type_annotation" {
             node.named_child(0).unwrap_or(node)
         } else {
             node
@@ -411,7 +412,7 @@ impl<'a> Collector<'a> {
         let parameter = self.parameters(member).into_iter().next()?;
         let annotation = descendants(parameter)
             .into_iter()
-            .find(|child| self.profile.type_annotation_kinds.contains(&child.kind()))?;
+            .find(|child| self.profile.type_annotation_kinds.contains(&kind_of(child)))?;
         Some(
             self.text(annotation.named_child(0).unwrap_or(annotation))
                 .trim_matches(['"', '\'']),
@@ -425,7 +426,7 @@ impl<'a> Collector<'a> {
         let mut cursor = member.walk();
         let assignment = member
             .named_children(&mut cursor)
-            .find(|child| self.profile.assignment_kinds.contains(&child.kind()))?;
+            .find(|child| self.profile.assignment_kinds.contains(&kind_of(child)))?;
         let target = assignment.child_by_field_name("left")?;
         self.profile
             .is_identifier(target)
@@ -442,7 +443,7 @@ impl<'a> Collector<'a> {
             let mut cursor = node.walk();
             node.named_children(&mut cursor).find(|child| {
                 self.profile.is_identifier(*child)
-                    || self.profile.property_kinds.contains(&child.kind())
+                    || self.profile.property_kinds.contains(&kind_of(child))
             })
         };
         // Declarators nest through their own `declarator` field: a method returning a
@@ -481,7 +482,7 @@ impl<'a> Collector<'a> {
         let mut cursor = member.walk();
         member
             .named_children(&mut cursor)
-            .find(|child| self.profile.property_kinds.contains(&child.kind()))
+            .find(|child| self.profile.property_kinds.contains(&kind_of(child)))
     }
 
     /// A field given a value where it is declared is set for the object's whole life.
@@ -492,7 +493,7 @@ impl<'a> Collector<'a> {
         let mut cursor = member.walk();
         member
             .named_children(&mut cursor)
-            .filter(|child| self.profile.name_holder_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.name_holder_kinds.contains(&kind_of(child)))
             .any(|holder| holder.child_by_field_name("value").is_some())
     }
 
@@ -544,7 +545,7 @@ impl<'a> Collector<'a> {
             .members
             .iter()
             .map(|member| {
-                if self.profile.decorated_kinds.contains(&member.kind()) {
+                if self.profile.decorated_kinds.contains(&kind_of(member)) {
                     member
                         .named_child(member.named_child_count().saturating_sub(1))
                         .unwrap_or(*member)
@@ -558,7 +559,7 @@ impl<'a> Collector<'a> {
         // carried forward rather than read off each member.
         let mut section_private = self.profile.default_members_are_private;
         for member in members {
-            let kind = member.kind();
+            let kind = kind_of(member);
             if self.profile.access_section_kinds.contains(&kind) {
                 section_private = self.text(member).trim_end_matches(':').trim() == "private";
                 continue;
@@ -856,14 +857,14 @@ pub fn units<'tree>(
         let mut cursor = class.walk();
         let has_heritage = class
             .named_children(&mut cursor)
-            .any(|child| profile.heritage_kinds.contains(&child.kind()));
+            .any(|child| profile.heritage_kinds.contains(&kind_of(child)));
         let supertypes: Vec<String> = class
             .named_children(&mut class.walk())
-            .filter(|child| profile.heritage_kinds.contains(&child.kind()))
+            .filter(|child| profile.heritage_kinds.contains(&kind_of(child)))
             .flat_map(|clause| {
                 descendants(clause)
                     .into_iter()
-                    .filter(|node| profile.binding_identifier_kinds.contains(&node.kind()))
+                    .filter(|node| profile.binding_identifier_kinds.contains(&kind_of(node)))
                     .map(|node| text_of(node, source).to_owned())
                     .collect::<Vec<_>>()
             })

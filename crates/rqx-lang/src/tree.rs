@@ -1,6 +1,57 @@
 use rqx_core::span::Span;
 use tree_sitter::Node;
 
+/// A node's kind, read from a table rather than from the grammar.
+///
+/// `Node::kind` is `CStr::from_ptr(ts_node_type(..)).to_str().unwrap()` — a foreign
+/// call, a `strlen` and a UTF-8 validation, every time, for a string the grammar
+/// already owns and never changes. A profile put eleven percent of a scan's
+/// processor time in those three. The table is built once per grammar and indexed
+/// by the node's own kind id, which is a field read.
+///
+/// The last table is kept beside the last grammar because a file is one grammar
+/// from its first node to its last: the pointer check misses once per file and hits
+/// on every node after it.
+/// Takes the node by value or by reference: half the call sites hold one and half
+/// hold the other, and `Node` is `Copy` either way.
+pub fn kind_of<'tree>(node: impl std::borrow::Borrow<Node<'tree>>) -> &'static str {
+    let node = *node.borrow();
+    thread_local! {
+        static LAST: std::cell::RefCell<Option<(tree_sitter::Language, &'static [&'static str])>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    static TABLES: std::sync::LazyLock<
+        std::sync::Mutex<std::collections::HashMap<tree_sitter::Language, &'static [&'static str]>>,
+    > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+    let id = node.kind_id() as usize;
+    let grammar = tree_sitter::Language::clone(&node.language());
+    let table = LAST.with_borrow_mut(|last| {
+        if let Some((held, table)) = last
+            && *held == grammar
+        {
+            return *table;
+        }
+        let table = *TABLES
+            .lock()
+            .expect("the kind tables")
+            .entry(tree_sitter::Language::clone(&grammar))
+            .or_insert_with(|| {
+                let names: Vec<&'static str> = (0..grammar.node_kind_count() as u16)
+                    .map(|id| grammar.node_kind_for_id(id).unwrap_or_default())
+                    .collect();
+                // Leaked deliberately: one table per grammar for the life of the
+                // process, and every grammar is itself a `&'static`.
+                &*Box::leak(names.into_boxed_slice())
+            });
+        *last = Some((tree_sitter::Language::clone(&grammar), table));
+        table
+    });
+    // A grammar can report a kind id past its own table for an error or a missing
+    // node, and the grammar's own answer is right where the table has none.
+    table.get(id).copied().unwrap_or_else(|| node.kind())
+}
+
 pub fn span_of(node: Node<'_>) -> Span {
     Span::new(node.start_byte() as u32, node.end_byte() as u32)
 }

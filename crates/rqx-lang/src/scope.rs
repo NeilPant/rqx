@@ -4,7 +4,7 @@ use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
-use crate::tree::{declares_through_list_under, field_name_under, span_of, text_of};
+use crate::tree::{declares_through_list_under, field_name_under, kind_of, span_of, text_of};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BindingKind {
@@ -124,10 +124,10 @@ impl<'a> Builder<'a> {
             return None;
         }
         let parent = above?;
-        if self.profile.parameter_kinds.contains(&parent.kind()) {
+        if self.profile.parameter_kinds.contains(&kind_of(parent)) {
             return Some(BindingKind::Parameter);
         }
-        if self.profile.import_binding_kinds.contains(&parent.kind()) {
+        if self.profile.import_binding_kinds.contains(&kind_of(parent)) {
             return Some(BindingKind::Import);
         }
         // Languages with no declaration keyword say "this is a new name" by assigning
@@ -143,14 +143,14 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
-        if self.profile.declarator_kinds.contains(&parent.kind()) {
+        if self.profile.declarator_kinds.contains(&kind_of(parent)) {
             return Some(BindingKind::Local);
         }
         if assigns {
             return Some(BindingKind::Local);
         }
-        if self.profile.field_kinds.contains(&parent.kind())
-            || self.profile.method_kinds.contains(&parent.kind())
+        if self.profile.field_kinds.contains(&kind_of(parent))
+            || self.profile.method_kinds.contains(&kind_of(parent))
         {
             return Some(BindingKind::Member);
         }
@@ -160,7 +160,7 @@ impl<'a> Builder<'a> {
     /// A property name is not a reference to anything this file declares: `a.length`
     /// says nothing about a local called `length`.
     fn is_reference(&self, node: Node<'a>, above: Option<Node<'a>>) -> bool {
-        if self.profile.reference_only_kinds.contains(&node.kind()) {
+        if self.profile.reference_only_kinds.contains(&kind_of(node)) {
             return true;
         }
         if !self.profile.is_identifier(node) {
@@ -185,7 +185,7 @@ impl<'a> Builder<'a> {
             return scope;
         }
         let opens_own_scope =
-            above.is_some_and(|parent| self.profile.scope_kinds.contains(&parent.kind()));
+            above.is_some_and(|parent| self.profile.scope_kinds.contains(&kind_of(parent)));
         if opens_own_scope {
             return self.scopes[scope].parent.unwrap_or(scope);
         }
@@ -196,7 +196,7 @@ impl<'a> Builder<'a> {
     /// node: `Node::parent` walks down from the root to find it, and between this
     /// function and the three it calls the same answer was wanted six times.
     fn walk(&mut self, node: Node<'a>, above: Option<Node<'a>>, scope: usize) {
-        let opens = self.profile.scope_kinds.contains(&node.kind());
+        let opens = self.profile.scope_kinds.contains(&kind_of(node));
         // A class body opens the scope its members live in, and the body is a node of
         // its own in most grammars, so the class is the parent rather than the opener.
         let holds_members = self.profile.is_class(node)

@@ -3,12 +3,12 @@
 use rqx_core::facts::{ExportKind, ExportedSymbol, Heritage, ImportRequest, ModuleFacts};
 use tree_sitter::Node;
 
-use crate::tree::{descendants, span_of, text_of};
+use crate::tree::{descendants, kind_of, span_of, text_of};
 
 fn named_child_of_kinds<'tree>(node: Node<'tree>, kinds: &[&str]) -> Option<Node<'tree>> {
     let mut cursor = node.walk();
     node.named_children(&mut cursor)
-        .find(|child| kinds.contains(&child.kind()))
+        .find(|child| kinds.contains(&kind_of(child)))
 }
 
 fn string_value<'src>(node: Node<'_>, source: &'src str) -> Option<&'src str> {
@@ -17,7 +17,7 @@ fn string_value<'src>(node: Node<'_>, source: &'src str) -> Option<&'src str> {
 }
 
 fn declared(node: Node<'_>, source: &str) -> Option<(String, rqx_core::span::Span, ExportKind)> {
-    let kind = match node.kind() {
+    let kind = match kind_of(node) {
         "function_declaration" | "generator_function_declaration" | "function_signature" => {
             ExportKind::Function
         }
@@ -41,7 +41,7 @@ fn collect_exports(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
         let mut cursor = clause.walk();
         let specifiers: Vec<Node<'_>> = clause
             .named_children(&mut cursor)
-            .filter(|child| child.kind() == "export_specifier")
+            .filter(|child| kind_of(child) == "export_specifier")
             .collect();
         // A re-export is both: it uses the target's name and offers one of its own.
         if let Some(specifier) = source_module {
@@ -107,13 +107,13 @@ fn collect_exports(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
         return;
     }
     if matches!(
-        declaration.kind(),
+        kind_of(declaration),
         "lexical_declaration" | "variable_declaration"
     ) {
         let mut cursor = declaration.walk();
         for declarator in declaration.named_children(&mut cursor) {
             if let Some(name) = declarator.child_by_field_name("name")
-                && name.kind() == "identifier"
+                && kind_of(name) == "identifier"
             {
                 facts.exports.push(ExportedSymbol {
                     name: text_of(name, source).to_owned(),
@@ -138,7 +138,7 @@ fn collect_import(statement: Node<'_>, source: &str, facts: &mut ModuleFacts) {
     if let Some(clause) = named_child_of_kinds(statement, &["import_clause"]) {
         let mut cursor = clause.walk();
         for child in clause.named_children(&mut cursor) {
-            match child.kind() {
+            match kind_of(child) {
                 "identifier" => {
                     names.push("default".to_owned());
                     locals.push(text_of(child, source).to_owned());
@@ -186,7 +186,7 @@ fn collect_class(class: Node<'_>, source: &str, facts: &mut ModuleFacts) {
         return;
     };
     let child = text_of(name, source).to_owned();
-    if class.kind() == "abstract_class_declaration" {
+    if kind_of(class) == "abstract_class_declaration" {
         facts.abstractions.push(ExportedSymbol {
             name: child.clone(),
             span: span_of(name),
@@ -200,12 +200,12 @@ fn collect_class(class: Node<'_>, source: &str, facts: &mut ModuleFacts) {
     for clause in heritage.named_children(&mut cursor) {
         let mut inner = clause.walk();
         for parent in clause.named_children(&mut inner) {
-            let parent_name = match parent.kind() {
+            let parent_name = match kind_of(parent) {
                 "identifier" | "type_identifier" => text_of(parent, source).to_owned(),
                 _ => continue,
             };
             facts.implemented.push(parent_name.clone());
-            if clause.kind() == "extends_clause" {
+            if kind_of(clause) == "extends_clause" {
                 facts.heritage.push(Heritage {
                     child: child.clone(),
                     parent: parent_name,
@@ -219,12 +219,12 @@ fn collect_class(class: Node<'_>, source: &str, facts: &mut ModuleFacts) {
 fn collect_interface(interface: Node<'_>, source: &str, facts: &mut ModuleFacts) {
     let mut cursor = interface.walk();
     for child in interface.named_children(&mut cursor) {
-        if child.kind() != "extends_type_clause" {
+        if kind_of(child) != "extends_type_clause" {
             continue;
         }
         let mut inner = child.walk();
         for parent in child.named_children(&mut inner) {
-            if matches!(parent.kind(), "identifier" | "type_identifier") {
+            if matches!(kind_of(parent), "identifier" | "type_identifier") {
                 facts.implemented.push(text_of(parent, source).to_owned());
             }
         }
@@ -234,7 +234,7 @@ fn collect_interface(interface: Node<'_>, source: &str, facts: &mut ModuleFacts)
 pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
     let mut facts = ModuleFacts::default();
     for node in descendants(root) {
-        match node.kind() {
+        match kind_of(node) {
             "export_statement" => collect_exports(node, source, &mut facts),
             "import_statement" => collect_import(node, source, &mut facts),
             "class_declaration" | "abstract_class_declaration" => {

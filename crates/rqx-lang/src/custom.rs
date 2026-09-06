@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::tree::kind_of;
 use rqx_core::Language;
 use rqx_core::config::CustomRule;
 use rqx_core::finding::{Evidence, Finding};
@@ -180,7 +181,7 @@ pub fn probe(
                 .iter()
                 .map(|capture| Capture {
                     name: names[capture.index as usize].to_owned(),
-                    kind: capture.node.kind(),
+                    kind: kind_of(capture.node),
                     text: crate::tree::text_of(capture.node, source)
                         .lines()
                         .next()

@@ -5,12 +5,12 @@
 use rqx_core::facts::{ExportKind, ExportedSymbol, Heritage, ImportRequest, ModuleFacts};
 use tree_sitter::Node;
 
-use crate::tree::{span_of, text_of};
+use crate::tree::{kind_of, span_of, text_of};
 
 fn named_child_of_kinds<'tree>(node: Node<'tree>, kinds: &[&str]) -> Option<Node<'tree>> {
     let mut cursor = node.walk();
     node.named_children(&mut cursor)
-        .find(|child| kinds.contains(&child.kind()))
+        .find(|child| kinds.contains(&kind_of(child)))
 }
 
 /// `from .. import x` names a package two levels up; the dots are the whole address.
@@ -30,7 +30,7 @@ fn imported_names(node: Node<'_>, source: &str) -> (Vec<String>, Vec<String>, bo
         if Some(child) == module {
             continue;
         }
-        match child.kind() {
+        match kind_of(child) {
             "wildcard_import" => return (Vec::new(), Vec::new(), true),
             "dotted_name" | "identifier" => {
                 names.push(text_of(child, source).to_owned());
@@ -55,7 +55,7 @@ fn public(name: &str) -> bool {
 }
 
 fn declared(node: Node<'_>, source: &str) -> Option<(String, rqx_core::span::Span, ExportKind)> {
-    let kind = match node.kind() {
+    let kind = match kind_of(node) {
         "function_definition" => ExportKind::Function,
         "class_definition" => ExportKind::Class,
         _ => return None,
@@ -84,7 +84,7 @@ fn explicit_exports(module: Node<'_>, source: &str) -> Option<Vec<String>> {
         let mut inner = list.walk();
         return Some(
             list.named_children(&mut inner)
-                .filter(|child| child.kind() == "string")
+                .filter(|child| kind_of(child) == "string")
                 .map(|child| text_of(child, source).trim_matches(['"', '\'']).to_owned())
                 .collect(),
         );
@@ -131,11 +131,11 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
 
     let mut cursor = root.walk();
     for statement in root.named_children(&mut cursor) {
-        match statement.kind() {
+        match kind_of(statement) {
             "import_statement" => {
                 let mut inner = statement.walk();
                 for target in statement.named_children(&mut inner) {
-                    let specifier = match target.kind() {
+                    let specifier = match kind_of(target) {
                         "aliased_import" => target
                             .child_by_field_name("name")
                             .map(|name| text_of(name, source).to_owned()),
@@ -173,7 +173,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
             _ => {}
         }
 
-        let declaration = if statement.kind() == "decorated_definition" {
+        let declaration = if kind_of(statement) == "decorated_definition" {
             statement.named_child(statement.named_child_count().saturating_sub(1))
         } else {
             Some(statement)
@@ -182,7 +182,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
             continue;
         };
 
-        if declaration.kind() == "class_definition" {
+        if kind_of(declaration) == "class_definition" {
             collect_class(declaration, source, &mut facts);
         }
         if let Some((name, span, kind)) = declared(declaration, source) {
@@ -196,7 +196,7 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
         }
         if let Some(assignment) = named_child_of_kinds(declaration, &["assignment"])
             && let Some(target) = assignment.child_by_field_name("left")
-            && target.kind() == "identifier"
+            && kind_of(target) == "identifier"
         {
             let name = text_of(target, source).to_owned();
             if name != "__all__"

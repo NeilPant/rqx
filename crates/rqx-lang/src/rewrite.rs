@@ -16,6 +16,7 @@ use tree_sitter::{Node, Tree};
 
 use crate::profile::LanguageProfile;
 use crate::scope::{BindingKind, Scopes};
+use crate::tree::kind_of;
 use crate::{AnalysisError, support};
 
 /// One parse of one file, reused across every finding in it. Parsing per finding
@@ -275,13 +276,13 @@ impl<'src> Rewriter<'src> {
             return Vec::new();
         };
         let Some(parameter) = climb(name, |node| {
-            self.profile.parameter_kinds.contains(&node.kind())
+            self.profile.parameter_kinds.contains(&kind_of(node))
         }) else {
             return Vec::new();
         };
         let Some(list) = parameter
             .parent()
-            .filter(|node| self.profile.parameter_list_kinds.contains(&node.kind()))
+            .filter(|node| self.profile.parameter_list_kinds.contains(&kind_of(node)))
         else {
             return Vec::new();
         };
@@ -314,7 +315,7 @@ impl<'src> Rewriter<'src> {
             let mut cursor = call.walk();
             let Some(arguments) = call
                 .named_children(&mut cursor)
-                .find(|node| self.profile.argument_list_kinds.contains(&node.kind()))
+                .find(|node| self.profile.argument_list_kinds.contains(&kind_of(node)))
             else {
                 return Vec::new();
             };
@@ -351,8 +352,8 @@ impl<'src> Rewriter<'src> {
     /// but the call may be why the line is there.
     fn unused_local(&self, finding: &Finding, name: Node<'_>) -> Option<Edit> {
         let declarator = climb(name, |node| {
-            self.profile.declarator_kinds.contains(&node.kind())
-                || self.profile.local_declaring_kinds.contains(&node.kind())
+            self.profile.declarator_kinds.contains(&kind_of(node))
+                || self.profile.local_declaring_kinds.contains(&kind_of(node))
         })?;
         if self.has_effect(declarator, name) {
             return None;
@@ -373,7 +374,7 @@ impl<'src> Rewriter<'src> {
     /// variant reported on an assignment inside a constructor names a narrower span
     /// that is a statement in someone else's body, so it is left to a person.
     fn unused_member(&self, finding: &Finding, node: Node<'_>) -> Option<Edit> {
-        let kind = node.kind();
+        let kind = kind_of(node);
         let declares = self.profile.field_kinds.contains(&kind)
             || self.profile.function_kinds.contains(&kind)
             || self.profile.decorated_kinds.contains(&kind);
@@ -383,7 +384,7 @@ impl<'src> Rewriter<'src> {
     /// `it.only(...)` becomes `it(...)`: the focus is the property, so removing it
     /// leaves the call the author meant to write.
     fn unfocus(&self, finding: &Finding, node: Node<'_>) -> Option<Edit> {
-        if self.profile.annotation_kinds.contains(&node.kind()) {
+        if self.profile.annotation_kinds.contains(&kind_of(node)) {
             return Some(self.deletion(finding, whole_lines(self.source, span_of(node))));
         }
         let call = if self.profile.is_call(node) {
@@ -422,7 +423,7 @@ impl<'src> Rewriter<'src> {
         let mut stack: Vec<Node<'_>> = statement.children(&mut cursor).collect();
         let mut found = 0;
         while let Some(node) = stack.pop() {
-            if self.profile.declarator_kinds.contains(&node.kind()) {
+            if self.profile.declarator_kinds.contains(&kind_of(node)) {
                 found += 1;
                 continue;
             }

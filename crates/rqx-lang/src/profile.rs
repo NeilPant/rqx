@@ -1,6 +1,7 @@
 use rqx_core::Language;
 use tree_sitter::Node;
 
+use crate::tree::kind_of;
 use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
 /// Everything about a language that is a list of node kinds. What a table cannot
@@ -324,35 +325,35 @@ pub struct LanguageProfile {
 
 impl LanguageProfile {
     pub fn is_function(&self, node: Node<'_>) -> bool {
-        self.function_kinds.contains(&node.kind())
+        self.function_kinds.contains(&kind_of(node))
     }
 
     pub fn is_class(&self, node: Node<'_>) -> bool {
-        self.class_kinds.contains(&node.kind())
+        self.class_kinds.contains(&kind_of(node))
     }
 
     pub fn is_statement(&self, node: Node<'_>) -> bool {
-        self.statement_kinds.contains(&node.kind())
+        self.statement_kinds.contains(&kind_of(node))
     }
 
     pub fn is_block(&self, node: Node<'_>) -> bool {
-        self.block_kinds.contains(&node.kind())
+        self.block_kinds.contains(&kind_of(node))
     }
 
     pub fn is_comment(&self, node: Node<'_>) -> bool {
-        self.comment_kinds.contains(&node.kind())
+        self.comment_kinds.contains(&kind_of(node))
     }
 
     pub fn is_identifier(&self, node: Node<'_>) -> bool {
-        self.identifier_kinds.contains(&node.kind())
+        self.identifier_kinds.contains(&kind_of(node))
     }
 
     pub fn is_member_access(&self, node: Node<'_>) -> bool {
-        self.member_access_kinds.contains(&node.kind())
+        self.member_access_kinds.contains(&kind_of(node))
     }
 
     pub fn is_call(&self, node: Node<'_>) -> bool {
-        self.call_kinds.contains(&node.kind())
+        self.call_kinds.contains(&kind_of(node))
     }
 
     /// The last segment of what a call calls: `db.user.find` answers `find`. It is
@@ -383,7 +384,7 @@ impl LanguageProfile {
         let mut cursor = function.walk();
         function
             .children(&mut cursor)
-            .any(|child| child.kind() == marker)
+            .any(|child| kind_of(child) == marker)
     }
 
     /// A function literal handed to `forEach` or `map` runs once per element, so its
@@ -392,7 +393,7 @@ impl LanguageProfile {
         let Some(list) = function.parent() else {
             return false;
         };
-        if !self.argument_list_kinds.contains(&list.kind()) {
+        if !self.argument_list_kinds.contains(&kind_of(list)) {
             return false;
         }
         list.parent().is_some_and(|call| {

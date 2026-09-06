@@ -6,7 +6,7 @@ use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
-use crate::tree::{find_within, is_binding_position, operator_of, span_of, text_of};
+use crate::tree::{find_within, is_binding_position, kind_of, operator_of, span_of, text_of};
 use crate::vocabulary::MEMO_HINTS;
 
 struct FunctionFrame {
@@ -207,7 +207,7 @@ impl<'a> MetricsWalker<'a> {
         let mut cursor = list.walk();
         let parameters: Vec<Node<'a>> = list
             .named_children(&mut cursor)
-            .filter(|child| self.profile.parameter_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.parameter_kinds.contains(&kind_of(child)))
             .collect();
         let receivers = parameters
             .first()
@@ -246,7 +246,7 @@ impl<'a> MetricsWalker<'a> {
         let mut cursor = declarator.walk();
         declarator.named_children(&mut cursor).find(|child| {
             self.profile.is_identifier(*child)
-                || self.profile.property_kinds.contains(&child.kind())
+                || self.profile.property_kinds.contains(&kind_of(child))
         })
     }
 
@@ -330,7 +330,7 @@ impl<'a> MetricsWalker<'a> {
     /// which is what lets two syntaxes for the same logic agree.
     fn neutral_token(&self, node: Node<'a>) -> Option<u64> {
         let profile = self.profile;
-        let kind = node.kind();
+        let kind = kind_of(node);
         let shape: u64 = if kind == profile.if_kind || profile.branch_kinds.contains(&kind) {
             1
         } else if profile.loop_kinds.contains(&kind) {
@@ -373,8 +373,8 @@ impl<'a> MetricsWalker<'a> {
 
     fn literal_token(&self, node: Node<'a>) -> u64 {
         let profile = self.profile;
-        if !profile.number_kinds.contains(&node.kind())
-            && !profile.string_kinds.contains(&node.kind())
+        if !profile.number_kinds.contains(&kind_of(node))
+            && !profile.string_kinds.contains(&kind_of(node))
         {
             return 0;
         }
@@ -393,7 +393,7 @@ impl<'a> MetricsWalker<'a> {
     fn shape_token(&self, node: Node<'a>, field: Option<&'static str>) -> u64 {
         let mut hasher = DefaultHasher::new();
         node.kind_id().hash(&mut hasher);
-        if self.profile.binary_kinds.contains(&node.kind())
+        if self.profile.binary_kinds.contains(&kind_of(node))
             && let Some(operator) = operator_of(node, self.source)
         {
             operator.hash(&mut hasher);
@@ -412,7 +412,7 @@ impl<'a> MetricsWalker<'a> {
         let mut cursor = statement.walk();
         let Some(assignment) = statement
             .named_children(&mut cursor)
-            .find(|child| child.kind() == "assignment_expression")
+            .find(|child| kind_of(child) == "assignment_expression")
         else {
             return false;
         };
@@ -484,7 +484,7 @@ impl<'a> MetricsWalker<'a> {
             let mut cursor = node.walk();
             let clauses: Vec<Node<'a>> = node
                 .named_children(&mut cursor)
-                .filter(|child| self.profile.else_clause_kinds.contains(&child.kind()))
+                .filter(|child| self.profile.else_clause_kinds.contains(&kind_of(child)))
                 .collect();
             for clause in clauses {
                 self.increment();
@@ -507,13 +507,13 @@ impl<'a> MetricsWalker<'a> {
         while let Some(branch) = alternative {
             // Some grammars wrap the tail in an `else_clause`; the branch itself is
             // the single child that matters.
-            let branch = if branch.kind() == self.profile.if_kind || branch.named_child_count() == 0
-            {
-                branch
-            } else {
-                branch.named_child(0).unwrap_or(branch)
-            };
-            if branch.kind() == self.profile.if_kind {
+            let branch =
+                if kind_of(branch) == self.profile.if_kind || branch.named_child_count() == 0 {
+                    branch
+                } else {
+                    branch.named_child(0).unwrap_or(branch)
+                };
+            if kind_of(branch) == self.profile.if_kind {
                 self.count_statement(span_of(branch), false);
                 self.increment();
                 if let Some(condition) = branch.child_by_field_name(self.profile.condition_field) {
@@ -563,13 +563,13 @@ impl<'a> MetricsWalker<'a> {
                     && !self
                         .profile
                         .structural_block_parents
-                        .contains(&parent.kind())
+                        .contains(&kind_of(parent))
             })
     }
 
     fn walk(&mut self, node: Node<'a>, field: Option<&'static str>) {
         self.feed_hash(node, field);
-        let kind = node.kind();
+        let kind = kind_of(node);
         let profile = self.profile;
 
         if self.counts_as_statement(node) {
@@ -596,7 +596,7 @@ impl<'a> MetricsWalker<'a> {
     /// The half of `walk` that runs after statement and call bookkeeping, so those
     /// two can wrap it without repeating everything below.
     fn walk_inner(&mut self, node: Node<'a>) {
-        let kind = node.kind();
+        let kind = kind_of(node);
         let profile = self.profile;
 
         if kind == profile.if_kind {
@@ -722,7 +722,7 @@ impl<'a> MetricsWalker<'a> {
 fn clause_count(node: Node<'_>) -> u32 {
     let mut cursor = node.walk();
     node.named_children(&mut cursor)
-        .filter(|child| child.kind() == "for_in_clause")
+        .filter(|child| kind_of(child) == "for_in_clause")
         .count() as u32
 }
 

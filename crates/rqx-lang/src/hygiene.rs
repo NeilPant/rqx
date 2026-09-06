@@ -6,7 +6,7 @@ use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
 use crate::scope::{Binding, BindingKind, Scopes};
-use crate::tree::{descendants, find_within, operands_of, operator_of, span_of, text_of};
+use crate::tree::{descendants, find_within, kind_of, operands_of, operator_of, span_of, text_of};
 use crate::vocabulary::{
     CONVENTIONAL, HASHED_HINTS, IO_BARE, KEYED_CONSTRUCTIONS, TestVocabulary, asks_for_data,
     configuration_literal, convention_of, foreign_language, journal_marker, looks_like_code,
@@ -54,7 +54,7 @@ impl<'a> Walker<'a> {
 
     fn see_through(&self, node: Node<'a>) -> Node<'a> {
         let mut current = node;
-        while self.profile.transparent_kinds.contains(&current.kind()) {
+        while self.profile.transparent_kinds.contains(&kind_of(current)) {
             match current.named_child(0) {
                 Some(inner) => current = inner,
                 None => break,
@@ -84,7 +84,7 @@ impl<'a> Walker<'a> {
         {
             return Some(format!("{object}.{}", self.text(property)));
         }
-        if self.profile.qualified_name_kinds.contains(&node.kind()) {
+        if self.profile.qualified_name_kinds.contains(&kind_of(node)) {
             return Some(self.text(node).replace("::", "."));
         }
         // A call written on the answer of another call. Read from the callee rather
@@ -123,7 +123,7 @@ impl<'a> Walker<'a> {
     /// still one decision per operand to a reader.
     fn operands(&self, node: Node<'a>) -> u32 {
         let node = self.see_through(node);
-        if self.profile.binary_kinds.contains(&node.kind())
+        if self.profile.binary_kinds.contains(&kind_of(node))
             && operator_of(node, self.source)
                 .is_some_and(|operator| self.profile.logical_operators.contains(&operator))
         {
@@ -156,10 +156,10 @@ impl<'a> Walker<'a> {
         descendants(node)
             .into_iter()
             .filter(|inner| {
-                self.profile.binary_kinds.contains(&inner.kind())
+                self.profile.binary_kinds.contains(&kind_of(inner))
                     || self.profile.is_call(*inner)
-                    || inner.kind() == "ternary_expression"
-                    || inner.kind() == "conditional_expression"
+                    || kind_of(inner) == "ternary_expression"
+                    || kind_of(inner) == "conditional_expression"
             })
             .count() as u32
     }
@@ -176,7 +176,7 @@ impl<'a> Walker<'a> {
         if self
             .profile
             .assertion_statement_kinds
-            .contains(&node.kind())
+            .contains(&kind_of(node))
         {
             return true;
         }
@@ -191,12 +191,15 @@ impl<'a> Walker<'a> {
     fn body_mutates(&self, body: Node<'a>) -> bool {
         descendants(body)
             .into_iter()
-            .filter(|node| self.profile.assignment_kinds.contains(&node.kind()))
+            .filter(|node| self.profile.assignment_kinds.contains(&kind_of(node)))
             .any(|assignment| {
                 assignment
                     .child_by_field_name("left")
                     .is_some_and(|target| {
-                        let target = if self.profile.expression_list_kinds.contains(&target.kind())
+                        let target = if self
+                            .profile
+                            .expression_list_kinds
+                            .contains(&kind_of(target))
                         {
                             target.named_child(0).unwrap_or(target)
                         } else {
@@ -245,7 +248,7 @@ impl<'a> Walker<'a> {
         let mut cursor = declarator.walk();
         declarator.named_children(&mut cursor).find(|child| {
             self.profile.is_identifier(*child)
-                || self.profile.property_kinds.contains(&child.kind())
+                || self.profile.property_kinds.contains(&kind_of(child))
         })
     }
 
@@ -273,7 +276,7 @@ impl<'a> Walker<'a> {
         let mut cursor = list.walk();
         let parameters: Vec<Node<'a>> = list
             .named_children(&mut cursor)
-            .filter(|child| self.profile.parameter_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.parameter_kinds.contains(&kind_of(child)))
             .collect();
         for (index, parameter) in parameters.iter().enumerate() {
             let declared = self.declared_type(*parameter);
@@ -297,7 +300,7 @@ impl<'a> Walker<'a> {
     fn declared_type(&self, parameter: Node<'a>) -> Option<&'a str> {
         let annotation = descendants(parameter)
             .into_iter()
-            .find(|child| self.profile.type_annotation_kinds.contains(&child.kind()))?;
+            .find(|child| self.profile.type_annotation_kinds.contains(&kind_of(child)))?;
         let inner = annotation.named_child(0).unwrap_or(annotation);
         Some(self.text(inner))
     }
@@ -313,12 +316,12 @@ impl<'a> Walker<'a> {
                 .profile
                 .exit_kinds
                 .iter()
-                .find(|(kind, _)| *kind == statement.kind())
+                .find(|(kind, _)| *kind == kind_of(statement))
             else {
                 continue;
             };
             if let Some(next) = statements.get(index + 1)
-                && !self.profile.hoisted_kinds.contains(&next.kind())
+                && !self.profile.hoisted_kinds.contains(&kind_of(next))
             {
                 self.out.unreachable.push(Spot {
                     span: span_of(*next),
@@ -426,13 +429,13 @@ impl<'a> Walker<'a> {
     fn annotations(&self, function: Node<'a>) -> Vec<String> {
         let mut found = Vec::new();
         if let Some(parent) = function.parent()
-            && self.profile.decorated_kinds.contains(&parent.kind())
+            && self.profile.decorated_kinds.contains(&kind_of(parent))
         {
             let mut cursor = parent.walk();
             found.extend(
                 parent
                     .named_children(&mut cursor)
-                    .filter(|child| self.profile.decorator_kinds.contains(&child.kind()))
+                    .filter(|child| self.profile.decorator_kinds.contains(&kind_of(child)))
                     .map(|child| self.text(child).to_owned()),
             );
         }
@@ -440,12 +443,12 @@ impl<'a> Walker<'a> {
         for container in function.named_children(&mut cursor).filter(|child| {
             self.profile
                 .modifier_container_kinds
-                .contains(&child.kind())
+                .contains(&kind_of(child))
         }) {
             found.extend(
                 descendants(container)
                     .into_iter()
-                    .filter(|child| self.profile.decorator_kinds.contains(&child.kind()))
+                    .filter(|child| self.profile.decorator_kinds.contains(&kind_of(child)))
                     .map(|child| self.text(child).to_owned()),
             );
         }
@@ -496,7 +499,7 @@ impl<'a> Walker<'a> {
                     // reader a name; one that takes a bare identifier gives the call.
                     let written = arguments
                         .and_then(|list| list.named_child(0))
-                        .filter(|node| self.profile.string_kinds.contains(&node.kind()))
+                        .filter(|node| self.profile.string_kinds.contains(&kind_of(node)))
                         .map(|node| self.text(node).trim_matches(['"', '\'', '`']).to_owned());
                     let named = written.is_some();
                     let label = written.unwrap_or_else(|| name.clone());
@@ -532,7 +535,7 @@ impl<'a> Walker<'a> {
                     .map(descendants)
                     .unwrap_or_default()
                     .into_iter()
-                    .find(|node| self.profile.number_kinds.contains(&node.kind()))
+                    .find(|node| self.profile.number_kinds.contains(&kind_of(node)))
                     .and_then(|node| self.text(node).parse::<f64>().ok());
                 if let Some(pause) = pause.filter(|ms| *ms >= f64::from(self.limits.slow_test_ms)) {
                     self.out.slow_tests.push(Spot {
@@ -626,7 +629,7 @@ impl<'a> Walker<'a> {
             // Some languages make the alternative the block itself and others wrap it
             // in an `else` clause; only the wrapper is worth seeing through.
             let other = self.body(alternative);
-            if other.kind() != profile.if_kind
+            if kind_of(other) != profile.if_kind
                 && !self.text(consequence).trim().is_empty()
                 && squashed(self.text(consequence)) == squashed(self.text(other))
             {
@@ -648,7 +651,7 @@ impl<'a> Walker<'a> {
                 });
             }
         } else if let Some(inner) = self.sole_statement(consequence)
-            && inner.kind() == profile.if_kind
+            && kind_of(inner) == profile.if_kind
             && inner.child_by_field_name(profile.else_field).is_none()
         {
             self.out.collapsible_ifs.push(Spot {
@@ -670,16 +673,16 @@ impl<'a> Walker<'a> {
         // A grammar that puts a statement list inside the braces makes the block's
         // parent the braces rather than the branch, so the decision is one level up.
         let governs = |candidate: Node<'a>| {
-            candidate.kind() == profile.if_kind
-                || profile.else_clause_kinds.contains(&candidate.kind())
-                || profile.loop_kinds.contains(&candidate.kind())
+            kind_of(candidate) == profile.if_kind
+                || profile.else_clause_kinds.contains(&kind_of(candidate))
+                || profile.loop_kinds.contains(&kind_of(candidate))
         };
         let decides = governs(parent)
-            || (profile.structural_block_parents.contains(&parent.kind())
+            || (profile.structural_block_parents.contains(&kind_of(parent))
                 && parent.parent().is_some_and(governs));
         // Reported once: where both the braces and a list inside them are nodes, the
         // list is the one that carries the statements.
-        if profile.structural_block_parents.contains(&node.kind())
+        if profile.structural_block_parents.contains(&kind_of(node))
             && node
                 .named_children(&mut node.walk())
                 .any(|child| profile.is_block(child))
@@ -693,7 +696,7 @@ impl<'a> Walker<'a> {
         }
         self.out.empty_blocks.push(Spot {
             span: span_of(node),
-            detail: parent.kind().replace('_', " "),
+            detail: kind_of(parent).replace('_', " "),
             count: 1,
         });
     }
@@ -710,7 +713,7 @@ impl<'a> Walker<'a> {
         let [only] = children.as_slice() else {
             return;
         };
-        let kind = only.kind();
+        let kind = kind_of(only);
         let discarded = profile.number_kinds.contains(&kind)
             || profile.is_identifier(*only)
             || (profile.binary_kinds.contains(&kind) && self.compares(*only));
@@ -810,7 +813,7 @@ impl<'a> Walker<'a> {
     /// languages spell "the default, but private".
     fn note_empty_method(&mut self, function: Node<'a>) {
         let profile = self.profile;
-        if profile.constructor_kinds.contains(&function.kind()) {
+        if profile.constructor_kinds.contains(&kind_of(function)) {
             return;
         }
         let Some(body) = self.function_body(function) else {
@@ -820,7 +823,7 @@ impl<'a> Walker<'a> {
         // everywhere, and `pass` or `...` in Python.
         let empty = body
             .named_children(&mut body.walk())
-            .all(|child| profile.empty_body_kinds.contains(&child.kind()));
+            .all(|child| profile.empty_body_kinds.contains(&kind_of(child)));
         if !empty {
             return;
         }
@@ -851,7 +854,7 @@ impl<'a> Walker<'a> {
         // the body both do exactly what falling off the end does — unless they carry
         // a label, which is a jump out of somewhere else entirely.
         let bare = last.named_child_count() == 0;
-        if bare && last.kind() == "continue_statement" {
+        if bare && kind_of(last) == "continue_statement" {
             self.out.redundant_jumps.push(Spot {
                 span: span_of(last),
                 detail: "continue".to_owned(),
@@ -887,14 +890,14 @@ impl<'a> Walker<'a> {
         let Some(last) = holder.named_children(&mut holder.walk()).last() else {
             return;
         };
-        let leaves = matches!(last.kind(), "return_statement" | "break_statement");
+        let leaves = matches!(kind_of(last), "return_statement" | "break_statement");
         // A labelled break leaves an outer loop, so this one is not the loop that
         // stops.
-        if !leaves || last.named_child_count() > 0 && last.kind() == "break_statement" {
+        if !leaves || last.named_child_count() > 0 && kind_of(last) == "break_statement" {
             return;
         }
         let restarts = descendants(loop_node).into_iter().any(|node| {
-            node.kind() == "continue_statement"
+            kind_of(node) == "continue_statement"
                 && !Self::inside_nested_loop(node, loop_node, profile)
         });
         if restarts {
@@ -902,7 +905,7 @@ impl<'a> Walker<'a> {
         }
         self.out.single_pass_loops.push(Spot {
             span: span_of(last),
-            detail: last.kind().trim_end_matches("_statement").to_owned(),
+            detail: kind_of(last).trim_end_matches("_statement").to_owned(),
             count: 1,
         });
     }
@@ -913,7 +916,7 @@ impl<'a> Walker<'a> {
             if current.id() == outer.id() {
                 return false;
             }
-            if profile.loop_kinds.contains(&current.kind()) || profile.is_function(current) {
+            if profile.loop_kinds.contains(&kind_of(current)) || profile.is_function(current) {
                 return true;
             }
             parent = current.parent();
@@ -927,7 +930,7 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         let mut parent = node.parent();
         while let Some(current) = parent {
-            if profile.ternary_kinds.contains(&current.kind()) {
+            if profile.ternary_kinds.contains(&kind_of(current)) {
                 self.out.nested_ternaries.push(Spot {
                     span: span_of(node),
                     detail: self.snippet(node),
@@ -956,7 +959,7 @@ impl<'a> Walker<'a> {
             return;
         };
         for side in [left, right] {
-            if !profile.binary_kinds.contains(&side.kind()) {
+            if !profile.binary_kinds.contains(&kind_of(side)) {
                 continue;
             }
             let Some(inner) = operator_of(side, self.source) else {
@@ -985,7 +988,7 @@ impl<'a> Walker<'a> {
             return;
         };
         let inner = self.see_through(operand);
-        if !profile.binary_kinds.contains(&inner.kind()) {
+        if !profile.binary_kinds.contains(&kind_of(inner)) {
             return;
         }
         let Some(compared) = operator_of(inner, self.source) else {
@@ -1010,7 +1013,7 @@ impl<'a> Walker<'a> {
         let mut arms = 0_u32;
         let mut catches_the_rest = false;
         while let Some(current) = stack.pop() {
-            if profile.case_kinds.contains(&current.kind()) {
+            if profile.case_kinds.contains(&kind_of(current)) {
                 arms += 1;
                 let text = self.text(current).trim_start();
                 if profile
@@ -1022,7 +1025,7 @@ impl<'a> Walker<'a> {
                 }
                 continue;
             }
-            if profile.switch_kinds.contains(&current.kind()) {
+            if profile.switch_kinds.contains(&kind_of(current)) {
                 continue;
             }
             let mut inner = current.walk();
@@ -1065,7 +1068,7 @@ impl<'a> Walker<'a> {
         let Some(only) = statements.next() else {
             return;
         };
-        if statements.next().is_some() || !profile.throw_kinds.contains(&only.kind()) {
+        if statements.next().is_some() || !profile.throw_kinds.contains(&kind_of(only)) {
             return;
         }
         // Throwing something built here is translation, not a rethrow: the handler
@@ -1124,7 +1127,7 @@ impl<'a> Walker<'a> {
         let Some(only) = statements.next() else {
             return;
         };
-        if statements.next().is_some() || !profile.throw_kinds.contains(&only.kind()) {
+        if statements.next().is_some() || !profile.throw_kinds.contains(&kind_of(only)) {
             return;
         }
         let Some(marker) = crate::vocabulary::unfinished_marker(self.text(only)) else {
@@ -1189,7 +1192,7 @@ impl<'a> Walker<'a> {
         let mut value = self.see_through(statement.named_child(0)?);
         // Go wraps a returned value in a list of one, which is not a step the author
         // wrote.
-        while self.profile.expression_list_kinds.contains(&value.kind())
+        while self.profile.expression_list_kinds.contains(&kind_of(value))
             && value.named_child_count() == 1
         {
             value = self.see_through(value.named_child(0)?);
@@ -1207,7 +1210,7 @@ impl<'a> Walker<'a> {
         };
         list.named_children(&mut list.walk())
             .filter(|child| {
-                profile.parameter_kinds.contains(&child.kind()) || profile.is_identifier(*child)
+                profile.parameter_kinds.contains(&kind_of(child)) || profile.is_identifier(*child)
             })
             .filter_map(|parameter| {
                 if profile.is_identifier(parameter) {
@@ -1234,7 +1237,7 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         let Some(list) = call
             .named_children(&mut call.walk())
-            .find(|child| profile.argument_list_kinds.contains(&child.kind()))
+            .find(|child| profile.argument_list_kinds.contains(&kind_of(child)))
         else {
             return Vec::new();
         };
@@ -1254,7 +1257,7 @@ impl<'a> Walker<'a> {
             .profile
             .wildcard_import_kinds
             .iter()
-            .find(|(kind, _)| *kind == node.kind())
+            .find(|(kind, _)| *kind == kind_of(node))
         else {
             return;
         };
@@ -1285,7 +1288,7 @@ impl<'a> Walker<'a> {
             if profile.is_function(node) {
                 continue;
             }
-            if node.kind() == "return_statement" {
+            if kind_of(node) == "return_statement" {
                 if node.named_child_count() == 0 {
                     bare += 1;
                     first_bare = Some(node);
@@ -1315,15 +1318,15 @@ impl<'a> Walker<'a> {
         // A `return` inside a callback leaves the callback, not the clause.
         for node in crate::tree::descendants_outside(clause, |node| profile.is_function(node)) {
             let leaves = matches!(
-                node.kind(),
+                kind_of(node),
                 "return_statement" | "break_statement" | "continue_statement"
-            ) || profile.throw_kinds.contains(&node.kind());
+            ) || profile.throw_kinds.contains(&kind_of(node));
             if !leaves {
                 continue;
             }
             self.out.exits_from_finally.push(Spot {
                 span: span_of(node),
-                detail: node.kind().trim_end_matches("_statement").to_owned(),
+                detail: kind_of(node).trim_end_matches("_statement").to_owned(),
                 count: 1,
             });
             return;
@@ -1349,7 +1352,7 @@ impl<'a> Walker<'a> {
         // annotation, and the annotation is the half that says what is taken.
         let annotated = header
             .iter()
-            .find(|node| profile.type_annotation_kinds.contains(&node.kind()))
+            .find(|node| profile.type_annotation_kinds.contains(&kind_of(*node)))
             .and_then(|node| node.named_child(0));
         let named = annotated.or_else(|| {
             header
@@ -1357,8 +1360,8 @@ impl<'a> Walker<'a> {
                 .copied()
                 .find(|node| {
                     profile.is_identifier(*node)
-                        || profile.binding_identifier_kinds.contains(&node.kind())
-                        || profile.qualified_name_kinds.contains(&node.kind())
+                        || profile.binding_identifier_kinds.contains(&kind_of(node))
+                        || profile.qualified_name_kinds.contains(&kind_of(node))
                 })
                 .filter(|_| profile.catch_names_a_type)
         });
@@ -1447,7 +1450,7 @@ impl<'a> Walker<'a> {
         }
         let Some(list) = call
             .named_children(&mut call.walk())
-            .find(|child| profile.argument_list_kinds.contains(&child.kind()))
+            .find(|child| profile.argument_list_kinds.contains(&kind_of(child)))
         else {
             return;
         };
@@ -1549,7 +1552,7 @@ impl<'a> Walker<'a> {
             .filter(|child| !profile.is_comment(*child))
             .map(|child| {
                 // A decorated member is wrapped, and the wrapper is not the member.
-                if profile.decorated_kinds.contains(&child.kind()) {
+                if profile.decorated_kinds.contains(&kind_of(child)) {
                     child
                         .named_child(child.named_child_count().saturating_sub(1))
                         .unwrap_or(child)
@@ -1559,7 +1562,7 @@ impl<'a> Walker<'a> {
             })
             .collect();
         let inherits = descendants(class).into_iter().any(|node| {
-            node.start_byte() < body.start_byte() && profile.heritage_kinds.contains(&node.kind())
+            node.start_byte() < body.start_byte() && profile.heritage_kinds.contains(&kind_of(node))
         });
         let Some(name) = self.class_name(class) else {
             return;
@@ -1567,7 +1570,7 @@ impl<'a> Walker<'a> {
         if inherits
             && members
                 .iter()
-                .all(|member| profile.empty_body_kinds.contains(&member.kind()))
+                .all(|member| profile.empty_body_kinds.contains(&kind_of(member)))
         {
             self.out.empty_subclasses.push(Spot {
                 span: span_of(class),
@@ -1578,7 +1581,7 @@ impl<'a> Walker<'a> {
         let behaviour: Vec<Node<'a>> = members
             .iter()
             .copied()
-            .filter(|member| profile.method_kinds.contains(&member.kind()))
+            .filter(|member| profile.method_kinds.contains(&kind_of(member)))
             .collect();
         if !inherits
             && behaviour.len() > 1
@@ -1619,7 +1622,7 @@ impl<'a> Walker<'a> {
             .child_by_field_name("name")
             .filter(|node| {
                 profile.is_identifier(*node)
-                    || profile.binding_identifier_kinds.contains(&node.kind())
+                    || profile.binding_identifier_kinds.contains(&kind_of(node))
             })
             .map(|node| self.text(node).to_owned())
     }
@@ -1630,14 +1633,14 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         let holder = member
             .parent()
-            .filter(|parent| profile.decorated_kinds.contains(&parent.kind()))
+            .filter(|parent| profile.decorated_kinds.contains(&kind_of(parent)))
             .unwrap_or(member);
         let mut cursor = holder.walk();
         let mut direct: Vec<Node<'a>> = holder.children(&mut cursor).collect();
         let containers: Vec<Node<'a>> = direct
             .iter()
             .copied()
-            .filter(|node| profile.modifier_container_kinds.contains(&node.kind()))
+            .filter(|node| profile.modifier_container_kinds.contains(&kind_of(node)))
             .collect();
         for container in containers {
             let mut inner = container.walk();
@@ -1659,7 +1662,7 @@ impl<'a> Walker<'a> {
     fn note_working_constructor(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let named = self.function_name(function).map(|node| self.text(node));
-        let is_constructor = profile.constructor_kinds.contains(&function.kind())
+        let is_constructor = profile.constructor_kinds.contains(&kind_of(function))
             || named.is_some_and(|name| profile.constructor_names.contains(&name))
             || named
                 .is_some_and(|name| self.enclosing_class_name(function).as_deref() == Some(name));
@@ -1708,7 +1711,7 @@ impl<'a> Walker<'a> {
         // A decision inside a callback belongs to whatever the callback stands in
         // for — a mock, a render, a comparator — not to the test's own path.
         for node in crate::tree::descendants_outside(body, |node| profile.is_function(node)) {
-            let kind = node.kind();
+            let kind = kind_of(node);
             // Deliberately not every branch kind: a ternary is an expression the test
             // evaluates, not a path the test can take.
             if kind == profile.if_kind
@@ -1741,7 +1744,7 @@ impl<'a> Walker<'a> {
         let labelled = checks.iter().any(|check| {
             descendants(*check)
                 .into_iter()
-                .any(|node| profile.string_kinds.contains(&node.kind()))
+                .any(|node| profile.string_kinds.contains(&kind_of(node)))
         });
         if checks.len() >= 3 && !labelled {
             self.out.unlabelled_assertions.push(Spot {
@@ -1764,7 +1767,7 @@ impl<'a> Walker<'a> {
             .filter_map(|node| {
                 let parent = node.parent().map(|parent| {
                     // The value half of a declaration can sit in a list of one.
-                    if profile.expression_list_kinds.contains(&parent.kind()) {
+                    if profile.expression_list_kinds.contains(&kind_of(parent)) {
                         parent.parent().unwrap_or(parent)
                     } else {
                         parent
@@ -1776,7 +1779,7 @@ impl<'a> Walker<'a> {
                     .find_map(|field| parent.child_by_field_name(field))
                     .or_else(|| parent.child_by_field_name("left"))
                     .map(|held| {
-                        if profile.expression_list_kinds.contains(&held.kind()) {
+                        if profile.expression_list_kinds.contains(&kind_of(held)) {
                             held.named_child(0).unwrap_or(held)
                         } else {
                             held
@@ -1824,7 +1827,7 @@ impl<'a> Walker<'a> {
         // A check against a serialised shape holds the code to how it prints rather
         // than to what it answered.
         if let Some(printed) = descendants(body).into_iter().find(|node| {
-            profile.string_kinds.contains(&node.kind()) && {
+            profile.string_kinds.contains(&kind_of(node)) && {
                 // A serialised shape opens with its own bracket; a sentence that
                 // happens to hold one is prose.
                 let text = self
@@ -1867,7 +1870,7 @@ impl<'a> Walker<'a> {
             .find(|child| profile.is_block(*child))
             .unwrap_or(body);
         if holder.named_children(&mut holder.walk()).all(|child| {
-            profile.is_comment(child) || profile.empty_body_kinds.contains(&child.kind())
+            profile.is_comment(child) || profile.empty_body_kinds.contains(&kind_of(child))
         }) {
             self.out.empty_tests.push(Spot {
                 span: span_of(body),
@@ -1911,7 +1914,7 @@ impl<'a> Walker<'a> {
         if let Some(node) = guarded
             && descendants(node)
                 .into_iter()
-                .any(|child| profile.catch_kinds.contains(&child.kind()))
+                .any(|child| profile.catch_kinds.contains(&kind_of(child)))
         {
             self.out.hand_rolled_throws.push(Spot {
                 span: span_of(node),
@@ -1970,7 +1973,7 @@ impl<'a> Walker<'a> {
     fn unexplained_value(&self, check: Node<'a>) -> Option<Node<'a>> {
         let profile = self.profile;
         descendants(check).into_iter().find(|node| {
-            profile.number_kinds.contains(&node.kind())
+            profile.number_kinds.contains(&kind_of(node))
                 && self
                     .text(*node)
                     .parse::<f64>()
@@ -2034,7 +2037,7 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         for statement in root.named_children(&mut root.walk()) {
             // `export let x = 1` is a declaration wearing a wrapper.
-            let statement = if profile.export_kinds.contains(&statement.kind()) {
+            let statement = if profile.export_kinds.contains(&kind_of(statement)) {
                 statement.named_child(0).unwrap_or(statement)
             } else {
                 statement
@@ -2046,9 +2049,9 @@ impl<'a> Walker<'a> {
             }
             let declares = profile
                 .variable_declaration_kinds
-                .contains(&statement.kind())
-                || profile.local_declaring_kinds.contains(&statement.kind())
-                || profile.field_kinds.contains(&statement.kind());
+                .contains(&kind_of(statement))
+                || profile.local_declaring_kinds.contains(&kind_of(statement))
+                || profile.field_kinds.contains(&kind_of(statement));
             if !declares {
                 continue;
             }
@@ -2067,7 +2070,7 @@ impl<'a> Walker<'a> {
             let inner = descendants(statement);
             if inner.iter().any(|node| {
                 profile.is_function(*node)
-                    || profile.declarator_wrapper_kinds.contains(&node.kind())
+                    || profile.declarator_wrapper_kinds.contains(&kind_of(node))
                     || profile.is_class(*node)
             }) {
                 continue;
@@ -2106,7 +2109,7 @@ impl<'a> Walker<'a> {
     fn note_import_time_work(&mut self, root: Node<'a>) {
         let profile = self.profile;
         for statement in root.named_children(&mut root.walk()) {
-            if statement.kind() != "expression_statement" {
+            if kind_of(statement) != "expression_statement" {
                 continue;
             }
             let Some(call) = statement
@@ -2142,7 +2145,7 @@ impl<'a> Walker<'a> {
             .or_else(|| {
                 profile
                     .qualified_name_kinds
-                    .contains(&node.kind())
+                    .contains(&kind_of(node))
                     .then(|| self.text(node).replace("::", "."))
             })
         else {
@@ -2299,14 +2302,14 @@ impl<'a> Walker<'a> {
     /// An `if` whose whole body is one way out and nothing else.
     fn is_bare_guard(&self, statement: Node<'a>) -> bool {
         let profile = self.profile;
-        if statement.kind() != profile.if_kind {
+        if kind_of(statement) != profile.if_kind {
             return false;
         }
         let Some(taken) = statement.child_by_field_name("consequence") else {
             return false;
         };
         let leaves = |node: Node<'a>| {
-            profile.throw_kinds.contains(&node.kind()) || node.kind() == "return_statement"
+            profile.throw_kinds.contains(&kind_of(node)) || kind_of(node) == "return_statement"
         };
         // A guard is often written without braces, in which case the consequence is
         // the way out rather than a block holding it.
@@ -2394,13 +2397,13 @@ impl<'a> Walker<'a> {
         let [.., declares, returns] = statements.as_slice() else {
             return;
         };
-        if returns.kind() != "return_statement" {
+        if kind_of(returns) != "return_statement" {
             return;
         }
         let Some(mut answer) = returns.named_child(0).map(|node| self.see_through(node)) else {
             return;
         };
-        while profile.expression_list_kinds.contains(&answer.kind())
+        while profile.expression_list_kinds.contains(&kind_of(answer))
             && answer.named_child_count() == 1
         {
             let Some(only) = answer.named_child(0) else {
@@ -2444,7 +2447,7 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         // Only from the head of a chain, so a chain of four is read once.
         let is_tail = branch.parent().is_some_and(|parent| {
-            parent.kind() == profile.if_kind
+            kind_of(parent) == profile.if_kind
                 && parent
                     .child_by_field_name(profile.else_field)
                     .is_some_and(|alternative| alternative.id() == branch.id())
@@ -2465,7 +2468,7 @@ impl<'a> Walker<'a> {
             let mut cursor = branch.walk();
             let clauses: Vec<Node<'a>> = branch
                 .named_children(&mut cursor)
-                .filter(|child| profile.else_clause_kinds.contains(&child.kind()))
+                .filter(|child| profile.else_clause_kinds.contains(&kind_of(child)))
                 .collect();
             for clause in clauses {
                 ask(clause, &mut asked);
@@ -2475,12 +2478,12 @@ impl<'a> Walker<'a> {
             while let Some(node) = current {
                 // Some grammars hang the next `if` straight off the field; others put
                 // an `else` clause in between and nest the `if` inside that.
-                let arm = if node.kind() == profile.if_kind {
+                let arm = if kind_of(node) == profile.if_kind {
                     node
-                } else if profile.else_clause_kinds.contains(&node.kind()) {
+                } else if profile.else_clause_kinds.contains(&kind_of(node)) {
                     match node
                         .named_children(&mut node.walk())
-                        .find(|child| child.kind() == profile.if_kind)
+                        .find(|child| kind_of(child) == profile.if_kind)
                     {
                         Some(nested) => nested,
                         None => break,
@@ -2530,7 +2533,7 @@ impl<'a> Walker<'a> {
                 || introduced.trim_start().starts_with(['"', '\'', '`'])
         }) || assignment
             .child_by_field_name("right")
-            .is_some_and(|value| profile.string_kinds.contains(&value.kind()));
+            .is_some_and(|value| profile.string_kinds.contains(&kind_of(value)));
         if !holds_text {
             return;
         }
@@ -2559,14 +2562,14 @@ impl<'a> Walker<'a> {
         };
         let unfinished = descendants(body).into_iter().any(|node| {
             let mut inner = node.walk();
-            profile.method_kinds.contains(&node.kind())
+            profile.method_kinds.contains(&kind_of(node))
                 && (node
                     .children(&mut inner)
                     .any(|child| profile.abstract_markers.contains(&self.text(child)))
-                    || profile.signature_kinds.contains(&node.kind()))
+                    || profile.signature_kinds.contains(&kind_of(node)))
         }) || descendants(body)
             .into_iter()
-            .any(|node| profile.signature_kinds.contains(&node.kind()));
+            .any(|node| profile.signature_kinds.contains(&kind_of(node)));
         if unfinished {
             return;
         }
@@ -2587,11 +2590,11 @@ impl<'a> Walker<'a> {
         let mut stack: Vec<Node<'a>> = switch.named_children(&mut cursor).collect();
         let mut arms: Vec<Node<'a>> = Vec::new();
         while let Some(current) = stack.pop() {
-            if profile.case_kinds.contains(&current.kind()) {
+            if profile.case_kinds.contains(&kind_of(current)) {
                 arms.push(current);
                 continue;
             }
-            if profile.switch_kinds.contains(&current.kind()) {
+            if profile.switch_kinds.contains(&kind_of(current)) {
                 continue;
             }
             let mut inner = current.walk();
@@ -2625,9 +2628,9 @@ impl<'a> Walker<'a> {
     fn leaves_the_arm(&self, node: Node<'a>) -> bool {
         let profile = self.profile;
         matches!(
-            node.kind(),
+            kind_of(node),
             "break_statement" | "return_statement" | "continue_statement" | "goto_statement"
-        ) || profile.throw_kinds.contains(&node.kind())
+        ) || profile.throw_kinds.contains(&kind_of(node))
     }
 
     /// A function literal written inside a loop and reading the name the loop moves.
@@ -2668,7 +2671,7 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         let mut parent = node.parent();
         while let Some(current) = parent {
-            if profile.loop_kinds.contains(&current.kind()) {
+            if profile.loop_kinds.contains(&kind_of(current)) {
                 return Some(current);
             }
             if profile.is_function(current) {
@@ -2721,7 +2724,7 @@ impl<'a> Walker<'a> {
         loop_node.child_by_field_name(field).or_else(|| {
             loop_node
                 .named_children(&mut loop_node.walk())
-                .find(|child| child.kind() == "range_clause")
+                .find(|child| kind_of(child) == "range_clause")
                 .and_then(|clause| clause.child_by_field_name(field))
         })
     }
@@ -2763,8 +2766,8 @@ impl<'a> Walker<'a> {
                 });
             // A language whose collections are values rewrites the name instead of
             // calling a method on it.
-            let rewrites = (profile.assignment_kinds.contains(&node.kind())
-                || profile.local_declaring_kinds.contains(&node.kind()))
+            let rewrites = (profile.assignment_kinds.contains(&kind_of(node))
+                || profile.local_declaring_kinds.contains(&kind_of(node)))
                 && node
                     .child_by_field_name("left")
                     .is_some_and(|target| self.text(target) == walked);
@@ -2867,7 +2870,7 @@ impl<'a> Walker<'a> {
     fn waits(&self, statement: Node<'a>) -> bool {
         descendants(statement)
             .into_iter()
-            .any(|node| self.profile.await_kinds.contains(&node.kind()))
+            .any(|node| self.profile.await_kinds.contains(&kind_of(node)))
     }
 
     /// A check that the language is free to compile away, standing where a real one
@@ -2877,7 +2880,7 @@ impl<'a> Walker<'a> {
             return;
         }
         let profile = self.profile;
-        let is_assert = profile.assertion_statement_kinds.contains(&node.kind())
+        let is_assert = profile.assertion_statement_kinds.contains(&kind_of(node))
             || (profile.is_call(node)
                 && self
                     .called_name(node)
@@ -2901,9 +2904,9 @@ impl<'a> Walker<'a> {
         };
         // A list of one is how some grammars spell every return; a list of several is
         // the function answering with several things.
-        let several = profile.expression_list_kinds.contains(&value.kind())
-            || matches!(value.kind(), "expression_list" | "tuple")
-            || value.kind().contains("array");
+        let several = profile.expression_list_kinds.contains(&kind_of(value))
+            || matches!(kind_of(value), "expression_list" | "tuple")
+            || kind_of(value).contains("array");
         // A list of records is a collection the caller walks; a run of plain values
         // is several answers the caller has to know the order of.
         let positional = value.named_children(&mut value.walk()).all(|element| {
@@ -2911,8 +2914,8 @@ impl<'a> Walker<'a> {
             profile.is_identifier(element)
                 || profile.is_call(element)
                 || profile.is_member_access(element)
-                || profile.number_kinds.contains(&element.kind())
-                || profile.string_kinds.contains(&element.kind())
+                || profile.number_kinds.contains(&kind_of(element))
+                || profile.string_kinds.contains(&kind_of(element))
         });
         let handed = if several && positional {
             value.named_child_count() as u32
@@ -2954,9 +2957,9 @@ impl<'a> Walker<'a> {
             .into_iter()
             .filter(|node| node.start_byte() >= list.end_byte() && node.start_byte() < body_at)
             .find(|node| {
-                profile.type_annotation_kinds.contains(&node.kind())
+                profile.type_annotation_kinds.contains(&kind_of(node))
                     || profile.is_identifier(*node)
-                    || profile.binding_identifier_kinds.contains(&node.kind())
+                    || profile.binding_identifier_kinds.contains(&kind_of(node))
             })
             .map(|node| self.text(node))
             .or_else(|| {
@@ -2988,7 +2991,7 @@ impl<'a> Walker<'a> {
         // A field's name wears a kind of its own in some grammars, and a field is a
         // declaration like any other.
         let names_something =
-            profile.is_identifier(node) || profile.property_kinds.contains(&node.kind());
+            profile.is_identifier(node) || profile.property_kinds.contains(&kind_of(node));
         if !names_something
             || !crate::tree::is_binding_position(
                 node,
@@ -3045,7 +3048,7 @@ impl<'a> Walker<'a> {
         };
         // A list of one is how some grammars spell every initialiser, and it is not
         // the collection this rule is about.
-        while profile.expression_list_kinds.contains(&value.kind())
+        while profile.expression_list_kinds.contains(&kind_of(value))
             && value.named_child_count() == 1
         {
             let Some(only) = value.named_child(0) else {
@@ -3053,12 +3056,12 @@ impl<'a> Walker<'a> {
             };
             value = self.see_through(only);
         }
-        if profile.expression_list_kinds.contains(&value.kind()) {
+        if profile.expression_list_kinds.contains(&kind_of(value)) {
             return;
         }
         // Only a literal can settle this: a call may answer with anything, and
         // guessing from its name is how the rule would start being wrong.
-        let kind = value.kind();
+        let kind = kind_of(value);
         let literal_many = kind.contains("array")
             || kind.contains("list")
             || kind.contains("set")
@@ -3087,7 +3090,7 @@ impl<'a> Walker<'a> {
         };
         let members: Vec<Node<'a>> = body
             .named_children(&mut body.walk())
-            .filter(|child| profile.method_kinds.contains(&child.kind()))
+            .filter(|child| profile.method_kinds.contains(&kind_of(child)))
             .collect();
         // A type whose methods are declared here and written elsewhere cannot say who
         // reads a field: most of its behaviour is in another file.
@@ -3100,16 +3103,16 @@ impl<'a> Walker<'a> {
         }
         let declared: Vec<(String, Node<'a>)> = body
             .named_children(&mut body.walk())
-            .filter(|child| profile.field_kinds.contains(&child.kind()))
+            .filter(|child| profile.field_kinds.contains(&kind_of(child)))
             .filter_map(|field| {
                 // The declared name, not the type beside it: both are identifiers
                 // under the same node in most of these grammars.
                 let holder = field
                     .named_children(&mut field.walk())
-                    .find(|child| profile.declarator_kinds.contains(&child.kind()))
+                    .find(|child| profile.declarator_kinds.contains(&kind_of(child)))
                     .unwrap_or(field);
                 let spells_a_name = |node: &Node<'a>| {
-                    profile.is_identifier(*node) || profile.property_kinds.contains(&node.kind())
+                    profile.is_identifier(*node) || profile.property_kinds.contains(&kind_of(node))
                 };
                 let name = profile
                     .binding_fields
@@ -3151,9 +3154,9 @@ impl<'a> Walker<'a> {
                 known.insert(built);
                 continue;
             }
-            if profile.type_annotation_kinds.contains(&node.kind())
+            if profile.type_annotation_kinds.contains(&kind_of(node))
                 && let Some(inner) = node.named_child(0)
-                && profile.binding_identifier_kinds.contains(&inner.kind())
+                && profile.binding_identifier_kinds.contains(&kind_of(inner))
             {
                 known.insert(self.text(inner).to_owned());
             }
@@ -3241,13 +3244,13 @@ impl<'a> Walker<'a> {
         let Some(only) = statements.next() else {
             return;
         };
-        if statements.next().is_some() || only.kind() != "return_statement" {
+        if statements.next().is_some() || kind_of(only) != "return_statement" {
             return;
         }
         let Some(mut answer) = only.named_child(0).map(|node| self.see_through(node)) else {
             return;
         };
-        while profile.expression_list_kinds.contains(&answer.kind())
+        while profile.expression_list_kinds.contains(&kind_of(answer))
             && answer.named_child_count() == 1
         {
             let Some(inner) = answer.named_child(0) else {
@@ -3322,7 +3325,7 @@ impl<'a> Walker<'a> {
         let mut cursor = guarded.walk();
         let handlers: Vec<Node<'a>> = guarded
             .named_children(&mut cursor)
-            .filter(|child| profile.catch_kinds.contains(&child.kind()))
+            .filter(|child| profile.catch_kinds.contains(&kind_of(child)))
             .collect();
         if handlers.len() < 2 {
             return;
@@ -3356,8 +3359,8 @@ impl<'a> Walker<'a> {
         let named = descendants(catch).into_iter().find(|node| {
             node.start_byte() < body.start_byte()
                 && (profile.is_identifier(*node)
-                    || profile.binding_identifier_kinds.contains(&node.kind())
-                    || profile.qualified_name_kinds.contains(&node.kind()))
+                    || profile.binding_identifier_kinds.contains(&kind_of(node))
+                    || profile.qualified_name_kinds.contains(&kind_of(node)))
         });
         match named.map(|node| self.text(node)) {
             Some(name) => profile.catch_all_types.contains(&name),
@@ -3406,7 +3409,7 @@ impl<'a> Walker<'a> {
         };
         let fields: Vec<String> = body
             .named_children(&mut body.walk())
-            .filter(|child| profile.field_kinds.contains(&child.kind()))
+            .filter(|child| profile.field_kinds.contains(&kind_of(child)))
             .filter_map(|field| self.declared_field_name(field))
             .collect();
         if fields.len() < 2 {
@@ -3414,13 +3417,13 @@ impl<'a> Walker<'a> {
         }
         let touched: Vec<std::collections::BTreeSet<&str>> = body
             .named_children(&mut body.walk())
-            .filter(|child| profile.method_kinds.contains(&child.kind()))
+            .filter(|child| profile.method_kinds.contains(&kind_of(child)))
             .map(|member| {
                 let names: Vec<&str> = descendants(member)
                     .into_iter()
                     .filter(|node| {
                         profile.is_identifier(*node)
-                            || profile.property_kinds.contains(&node.kind())
+                            || profile.property_kinds.contains(&kind_of(node))
                     })
                     .map(|node| self.text(node))
                     .collect();
@@ -3465,11 +3468,11 @@ impl<'a> Walker<'a> {
     fn declared_field_name(&self, field: Node<'a>) -> Option<String> {
         let profile = self.profile;
         let spells_a_name = |node: &Node<'a>| {
-            profile.is_identifier(*node) || profile.property_kinds.contains(&node.kind())
+            profile.is_identifier(*node) || profile.property_kinds.contains(&kind_of(node))
         };
         let holder = field
             .named_children(&mut field.walk())
-            .find(|child| profile.declarator_kinds.contains(&child.kind()))
+            .find(|child| profile.declarator_kinds.contains(&kind_of(child)))
             .unwrap_or(field);
         profile
             .binding_fields
@@ -3490,7 +3493,7 @@ impl<'a> Walker<'a> {
             .parent()
             .and_then(|parent| parent.parent())
             .is_some_and(|grand| profile.is_class(grand));
-        if !inside_class || profile.constructor_kinds.contains(&function.kind()) {
+        if !inside_class || profile.constructor_kinds.contains(&kind_of(function)) {
             return;
         }
         let Some(name) = self
@@ -3527,7 +3530,7 @@ impl<'a> Walker<'a> {
         };
         if descendants(statement)
             .into_iter()
-            .any(|node| profile.await_kinds.contains(&node.kind()))
+            .any(|node| profile.await_kinds.contains(&kind_of(node)))
         {
             return;
         }
@@ -3553,7 +3556,7 @@ impl<'a> Walker<'a> {
         let mut seen: HashMap<&'a str, Vec<Touch>> = HashMap::new();
         for node in descendants(body) {
             let names_something =
-                profile.is_identifier(node) || profile.property_kinds.contains(&node.kind());
+                profile.is_identifier(node) || profile.property_kinds.contains(&kind_of(node));
             if !names_something {
                 continue;
             }
@@ -3576,13 +3579,13 @@ impl<'a> Walker<'a> {
             // A language that writes `a, b = x, y` puts the target inside a list even
             // when there is only one of them.
             let holder = above.filter(|parent| {
-                profile.expression_list_kinds.contains(&parent.kind())
+                profile.expression_list_kinds.contains(&kind_of(parent))
                     && parent.named_child_count() == 1
             });
             let statement = holder.and_then(|list| list.parent()).or(above);
             let target = |kinds: &[&str]| {
                 statement.is_some_and(|parent| {
-                    kinds.contains(&parent.kind())
+                    kinds.contains(&kind_of(parent))
                         && parent.child_by_field_name("left").is_some_and(|left| {
                             left.id() == node.id() || Some(left.id()) == holder.map(|l| l.id())
                         })
@@ -3593,7 +3596,7 @@ impl<'a> Walker<'a> {
             let reaching = above.is_some_and(|parent| {
                 profile.is_call(parent)
                     || profile.is_member_access(parent)
-                    || profile.markup_kinds.contains(&parent.kind())
+                    || profile.markup_kinds.contains(&kind_of(parent))
             });
             let assigns = target(profile.assignment_kinds);
             let updates = target(profile.compound_assignment_kinds)
@@ -3705,7 +3708,7 @@ impl<'a> Walker<'a> {
         };
         let fields: Vec<(String, Node<'a>)> = body
             .named_children(&mut body.walk())
-            .filter(|child| profile.field_kinds.contains(&child.kind()))
+            .filter(|child| profile.field_kinds.contains(&kind_of(child)))
             .filter(|child| {
                 let head = self.text(*child);
                 !profile
@@ -3720,7 +3723,7 @@ impl<'a> Walker<'a> {
         }
         let members: Vec<Node<'a>> = body
             .named_children(&mut body.walk())
-            .filter(|child| profile.method_kinds.contains(&child.kind()))
+            .filter(|child| profile.method_kinds.contains(&kind_of(child)))
             .collect();
         for (name, at) in fields {
             let written_outside = members.iter().any(|member| {
@@ -3731,7 +3734,7 @@ impl<'a> Walker<'a> {
                         profile.constructor_names.contains(&named)
                             || self.enclosing_class_name(*member).as_deref() == Some(named)
                     })
-                    || profile.constructor_kinds.contains(&member.kind());
+                    || profile.constructor_kinds.contains(&kind_of(member));
                 if is_constructor {
                     return false;
                 }
@@ -3763,7 +3766,7 @@ impl<'a> Walker<'a> {
         };
         let whole = |side: Node<'a>| {
             let side = self.see_through(side);
-            profile.number_kinds.contains(&side.kind())
+            profile.number_kinds.contains(&kind_of(side))
                 && !self.text(side).contains(['.', 'e', 'E'])
         };
         if !whole(left) || !whole(right) {
@@ -3788,7 +3791,7 @@ impl<'a> Walker<'a> {
         }) else {
             return;
         };
-        let target = if profile.expression_list_kinds.contains(&target.kind()) {
+        let target = if profile.expression_list_kinds.contains(&kind_of(target)) {
             target.named_child(0).unwrap_or(target)
         } else {
             target
@@ -3803,7 +3806,7 @@ impl<'a> Walker<'a> {
         else {
             return;
         };
-        let value = if profile.expression_list_kinds.contains(&value.kind()) {
+        let value = if profile.expression_list_kinds.contains(&kind_of(value)) {
             value.named_child(0).unwrap_or(value)
         } else {
             value
@@ -3828,8 +3831,8 @@ impl<'a> Walker<'a> {
         let guards = (0..body.named_child_count())
             .filter_map(|index| body.named_child(index))
             .take_while(|child| {
-                child.kind() == profile.if_kind
-                    || profile.exit_kinds.iter().any(|(k, _)| *k == child.kind())
+                kind_of(child) == profile.if_kind
+                    || profile.exit_kinds.iter().any(|(k, _)| *k == kind_of(child))
             })
             .count();
 
@@ -3842,7 +3845,7 @@ impl<'a> Walker<'a> {
             if profile.is_function(node) {
                 continue;
             }
-            if profile.exit_kinds.iter().any(|(k, _)| *k == node.kind()) {
+            if profile.exit_kinds.iter().any(|(k, _)| *k == kind_of(node)) {
                 exits += 1;
             }
             let mut inner = node.walk();
@@ -3867,11 +3870,11 @@ impl<'a> Walker<'a> {
         let mut stack: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
         let mut arms = 0_u32;
         while let Some(current) = stack.pop() {
-            if profile.case_kinds.contains(&current.kind()) {
+            if profile.case_kinds.contains(&kind_of(current)) {
                 arms += 1;
                 continue;
             }
-            if profile.switch_kinds.contains(&current.kind()) {
+            if profile.switch_kinds.contains(&kind_of(current)) {
                 continue;
             }
             let mut inner = current.walk();
@@ -3925,7 +3928,7 @@ impl<'a> Walker<'a> {
         let mut stack: Vec<Node<'a>> = condition.children(&mut cursor).collect();
         stack.push(condition);
         while let Some(current) = stack.pop() {
-            if profile.assignment_kinds.contains(&current.kind()) {
+            if profile.assignment_kinds.contains(&kind_of(current)) {
                 self.out.assignments_in_conditions.push(Spot {
                     span: span_of(current),
                     detail: self.text(current).trim().to_owned(),
@@ -3953,14 +3956,14 @@ impl<'a> Walker<'a> {
             profile
                 .exit_kinds
                 .iter()
-                .any(|(kind, _)| *kind == node.kind())
+                .any(|(kind, _)| *kind == kind_of(node))
         };
         let last = (0..block.named_child_count())
             .filter_map(|index| block.named_child(index))
             .rfind(|child| !profile.is_comment(*child));
         match last {
             Some(node) if exits(node) => true,
-            Some(node) if node.kind() == profile.if_kind => {
+            Some(node) if kind_of(node) == profile.if_kind => {
                 let consequence = node.child_by_field_name("consequence");
                 let alternative = node.child_by_field_name(profile.else_field);
                 match (consequence, alternative) {
@@ -4013,7 +4016,7 @@ impl<'a> Walker<'a> {
         if !profile
             .exit_kinds
             .iter()
-            .any(|(kind, _)| *kind == statement.kind())
+            .any(|(kind, _)| *kind == kind_of(statement))
         {
             return None;
         }
@@ -4071,7 +4074,7 @@ impl<'a> Walker<'a> {
     /// thing, so the single element is what the rules are about.
     fn unwrapped(&self, node: Node<'a>) -> Node<'a> {
         let node = self.see_through(node);
-        if self.profile.expression_list_kinds.contains(&node.kind()) {
+        if self.profile.expression_list_kinds.contains(&kind_of(node)) {
             return node.named_child(0).unwrap_or(node);
         }
         node
@@ -4155,7 +4158,7 @@ impl<'a> Walker<'a> {
     fn arguments(&self, call: Node<'a>) -> Vec<Node<'a>> {
         let Some(list) = (0..call.named_child_count())
             .filter_map(|index| call.named_child(index))
-            .find(|child| self.profile.argument_list_kinds.contains(&child.kind()))
+            .find(|child| self.profile.argument_list_kinds.contains(&kind_of(child)))
         else {
             return Vec::new();
         };
@@ -4164,7 +4167,7 @@ impl<'a> Walker<'a> {
     }
 
     fn is_literal(&self, node: Node<'a>) -> bool {
-        let kind = node.kind();
+        let kind = kind_of(node);
         self.profile.string_kinds.contains(&kind)
             || self.profile.number_kinds.contains(&kind)
             || kind == "regex"
@@ -4234,7 +4237,7 @@ impl<'a> Walker<'a> {
                 && !self
                     .arguments(node)
                     .first()
-                    .is_some_and(|first| self.profile.string_kinds.contains(&first.kind()))
+                    .is_some_and(|first| self.profile.string_kinds.contains(&kind_of(first)))
             {
                 self.note(|out| &mut out.scans_in_loops, span, dotted.clone());
                 return;
@@ -4305,7 +4308,7 @@ impl<'a> Walker<'a> {
             return;
         }
         let built = descendants(node).into_iter().any(|child| {
-            self.profile.argument_list_kinds.contains(&child.kind())
+            self.profile.argument_list_kinds.contains(&kind_of(child))
                 && child
                     .named_child(0)
                     .is_some_and(|first| self.is_literal(first))
@@ -4377,7 +4380,7 @@ impl<'a> Walker<'a> {
             || text.starts_with('{')
             || descendants(value)
                 .into_iter()
-                .any(|child| self.profile.string_kinds.contains(&child.kind()))
+                .any(|child| self.profile.string_kinds.contains(&kind_of(child)))
     }
 
     /// What a name was introduced as. The first declaration wins: a later assignment
@@ -4422,7 +4425,7 @@ impl<'a> Walker<'a> {
     }
 
     fn walk(&mut self, node: Node<'a>) {
-        let kind = node.kind();
+        let kind = kind_of(node);
         let profile = self.profile;
         let mut entered_test = false;
 
@@ -4458,7 +4461,7 @@ impl<'a> Walker<'a> {
         let clauses = if profile.comprehension_kinds.contains(&kind) {
             let mut cursor = node.walk();
             node.named_children(&mut cursor)
-                .filter(|child| child.kind() == "for_in_clause")
+                .filter(|child| kind_of(child) == "for_in_clause")
                 .count()
                 .max(1) as u32
         } else {
@@ -4490,7 +4493,7 @@ impl<'a> Walker<'a> {
                 .or_else(|| node.named_child(node.named_child_count().saturating_sub(1)))
                 .is_some_and(|body| {
                     body.named_children(&mut body.walk())
-                        .all(|child| profile.empty_body_kinds.contains(&child.kind()))
+                        .all(|child| profile.empty_body_kinds.contains(&kind_of(child)))
                 })
         {
             self.out.empty_catches.push(Spot {
@@ -4742,7 +4745,7 @@ impl<'a> Walker<'a> {
         if profile.assignment_kinds.contains(&kind)
             && let Some(target) = node.child_by_field_name("left")
         {
-            let target = if profile.expression_list_kinds.contains(&target.kind()) {
+            let target = if profile.expression_list_kinds.contains(&kind_of(target)) {
                 target.named_child(0).unwrap_or(target)
             } else {
                 target
@@ -4862,9 +4865,9 @@ pub fn unused_imports(
     let mut mentioned: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for node in descendants(root) {
         let named = profile.is_identifier(node)
-            || profile.binding_identifier_kinds.contains(&node.kind())
-            || profile.reference_only_kinds.contains(&node.kind())
-            || profile.property_kinds.contains(&node.kind());
+            || profile.binding_identifier_kinds.contains(&kind_of(node))
+            || profile.reference_only_kinds.contains(&kind_of(node))
+            || profile.property_kinds.contains(&kind_of(node));
         if !named {
             continue;
         }
@@ -5125,7 +5128,7 @@ pub fn collect(
     if !awaited.is_empty() {
         let statements: Vec<Node<'_>> = descendants(root)
             .into_iter()
-            .filter(|node| node.kind() == "expression_statement")
+            .filter(|node| kind_of(node) == "expression_statement")
             .collect();
         for statement in statements {
             walker.note_dropped_promise(statement, &awaited);
@@ -5277,7 +5280,7 @@ fn note_narration(
         // A comment above a field or a property signature is documentation of a
         // shape, not narration of a run of work.
         let over_a_statement = leads(profile, *comment).is_some_and(|node| {
-            let kind = node.kind();
+            let kind = kind_of(node);
             !profile.field_kinds.contains(&kind)
                 && !profile.signature_kinds.contains(&kind)
                 && !profile.property_definition_kinds.contains(&kind)
@@ -5409,12 +5412,12 @@ fn note_body_docstrings(
         let Some(first) = body.named_child(0) else {
             continue;
         };
-        let doc = if profile.string_kinds.contains(&first.kind()) {
+        let doc = if profile.string_kinds.contains(&kind_of(first)) {
             first
-        } else if first.kind() == "expression_statement"
+        } else if kind_of(first) == "expression_statement"
             && first
                 .named_child(0)
-                .is_some_and(|value| profile.string_kinds.contains(&value.kind()))
+                .is_some_and(|value| profile.string_kinds.contains(&kind_of(value)))
         {
             first.named_child(0).unwrap_or(first)
         } else {
@@ -5432,7 +5435,7 @@ fn note_body_docstrings(
 
 /// A declaration wearing an export wrapper is still the declaration.
 fn unwrap_export<'tree>(profile: &'static LanguageProfile, node: Node<'tree>) -> Node<'tree> {
-    if profile.export_kinds.contains(&node.kind()) {
+    if profile.export_kinds.contains(&kind_of(node)) {
         return node.named_child(0).unwrap_or(node);
     }
     node
@@ -5644,14 +5647,14 @@ fn note_unused_fixtures(
                 // The target can sit inside a list of one where the language writes
                 // `a, b = x, y`.
                 let listed = node.parent().filter(|parent| {
-                    profile.expression_list_kinds.contains(&parent.kind())
+                    profile.expression_list_kinds.contains(&kind_of(parent))
                         && parent.named_child_count() == 1
                 });
                 let statement = listed
                     .and_then(|list| list.parent())
                     .or_else(|| node.parent());
                 statement.is_some_and(|parent| {
-                    profile.assignment_kinds.contains(&parent.kind())
+                    profile.assignment_kinds.contains(&kind_of(parent))
                         && parent.child_by_field_name("left").is_some_and(|left| {
                             left.id() == node.id() || Some(left.id()) == listed.map(|l| l.id())
                         })

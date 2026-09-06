@@ -3,7 +3,7 @@ use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
 use crate::scope::{BindingKind, Scopes};
-use crate::tree::{find_within, span_of, text_of};
+use crate::tree::{find_within, kind_of, span_of, text_of};
 
 /// Who decides the shape of a parameter list. Only a signature the author owns can
 /// be shortened: a callback's arity is fixed by whatever calls it, and an override's
@@ -61,7 +61,7 @@ impl<'a> Grader<'a> {
         parameter.children(&mut cursor).any(|child| {
             self.profile
                 .field_declaring_modifiers
-                .contains(&child.kind())
+                .contains(&kind_of(child))
         })
     }
 
@@ -95,7 +95,7 @@ impl<'a> Grader<'a> {
         let mut cursor = list.walk();
         let parameters: Vec<Node<'a>> = list
             .named_children(&mut cursor)
-            .filter(|child| self.profile.parameter_kinds.contains(&child.kind()))
+            .filter(|child| self.profile.parameter_kinds.contains(&kind_of(child)))
             .collect();
         let total = parameters.len() as u32;
 
@@ -113,7 +113,7 @@ impl<'a> Grader<'a> {
                     let mut cursor = declarator.walk();
                     declarator.named_children(&mut cursor).find(|child| {
                         self.profile.is_identifier(*child)
-                            || self.profile.property_kinds.contains(&child.kind())
+                            || self.profile.property_kinds.contains(&kind_of(child))
                     })
                 })
             })
@@ -161,7 +161,7 @@ impl<'a> Grader<'a> {
     }
 
     fn walk(&mut self, node: Node<'a>) {
-        let kind = node.kind();
+        let kind = kind_of(node);
         let profile = self.profile;
         let mut owners = 0;
         let mut names = 0;
@@ -177,7 +177,7 @@ impl<'a> Grader<'a> {
             let mut cursor = node.walk();
             let inherited = node
                 .named_children(&mut cursor)
-                .any(|child| profile.heritage_kinds.contains(&child.kind()));
+                .any(|child| profile.heritage_kinds.contains(&kind_of(child)));
             self.owner.push(if inherited {
                 SignatureOwner::Supertype
             } else {
@@ -198,7 +198,7 @@ impl<'a> Grader<'a> {
             let mut cursor = node.walk();
             let annotated = node
                 .named_children(&mut cursor)
-                .any(|child| profile.type_annotation_kinds.contains(&child.kind()))
+                .any(|child| profile.type_annotation_kinds.contains(&kind_of(child)))
                 || profile.property_definition_kinds.contains(&kind);
             self.owner.push(if annotated {
                 SignatureOwner::Caller
