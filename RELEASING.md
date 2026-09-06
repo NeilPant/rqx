@@ -34,14 +34,17 @@ It does not push. The tag sitting locally is the last moment to change your mind
 
 | Stage | Does |
 |---|---|
-| `check` | tag matches `Cargo.toml`, the changelog has that section, fmt, clippy, tests, and `cargo publish --dry-run` for all three crates |
+| `check` | tag matches `Cargo.toml`, the changelog has that section, fmt, clippy, tests, and `cargo package --workspace` |
 | `build` | five targets, each tarball holding the binary, README, LICENSE and changelog, each binary run once to prove it starts |
 | `publish` | `SHA256SUMS`, then a GitHub release whose body is the changelog section |
 | `crates` / `extensions` | crates.io in dependency order, then the VS Code Marketplace, Open VSX and the `.vsix` on the release |
 
 `check` runs before anything is built, because a tag is hard to take back once a
-release and a crates.io version hang off it. crates.io publishing tolerates a version
-that is already there, so the job is safe to re-run when one of the three fails
+release and a crates.io version hang off it. Both the check and the publish go
+through `--workspace`, which resolves the three crates against each other rather than
+against the registry — packaging `rqx-lang` alone looks for an `rqx-core` crates.io
+has not been given yet, so every release would fail its own check. A version already
+on crates.io is treated as a re-run, so the job is safe to retry when it fails
 halfway.
 
 A tag with a hyphen in it — `v0.3.0-rc.1` — is marked a prerelease, so an installer

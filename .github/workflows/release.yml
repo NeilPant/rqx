@@ -65,11 +65,12 @@ jobs:
       # Catches a missing `description`, a path dependency without a version, an
       # excluded file something needs — all of which only fail at publish time,
       # which is after the tag exists.
+      #
+      # `--workspace` rather than one crate at a time: packaging `rqx-lang` on its own
+      # resolves `rqx-core` from the registry, which has not got this version yet, so
+      # every release would fail its own check.
       - name: Crates would publish
-        run: |
-          for package in rqx-core rqx-lang rqx; do
-            cargo publish --locked --dry-run --allow-dirty -p "$package" || exit 1
-          done
+        run: cargo package --workspace --locked
 
   build:
     needs: check
@@ -192,27 +193,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
-      # In dependency order, and waiting between each, because a crate cannot publish
-      # against a version of its dependency the registry has not finished indexing.
-      # An already-published version is a re-run, not a failure: the job is safe to
-      # retry when one of the three fails halfway.
+      # `--workspace` publishes the three in dependency order and waits for each to
+      # index before the next needs it. Doing it by hand meant a `sleep` chosen by
+      # guess, and a crate that published against a version the registry had not
+      # finished serving.
       - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -uo pipefail
-          for package in rqx-core rqx-lang rqx; do
-            if output="$(cargo publish --locked -p "$package" 2>&1)"; then
-              echo "$output"
-            elif grep -q "already exists\|already uploaded" <<<"$output"; then
-              echo "$package ${{ needs.check.outputs.version }} is already on crates.io"
-              continue
-            else
-              echo "$output" >&2
-              exit 1
-            fi
-            sleep 30
-          done
+          if output="$(cargo publish --workspace --locked 2>&1)"; then
+            echo "$output"
+          elif grep -q "already exists\|already uploaded" <<<"$output"; then
+            # A re-run after a half-finished publish, not a failure.
+            echo "$output"
+            echo "::notice::some crates were already on crates.io"
+          else
+            echo "$output" >&2
+            exit 1
+          fi
 
   # The marketplaces, each skipped rather than failed when its token is not
   # configured: a fork cutting a tag should get binaries, not a red pipeline about
