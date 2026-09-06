@@ -429,7 +429,10 @@ mod tests {
     #[test]
     fn the_header_reports_the_run_rather_than_a_tagline() {
         let screen = draw(&session(), None, 100, 20);
-        assert!(screen.contains("rqx 0.1.0"), "{screen}");
+        assert!(
+            screen.contains(&format!("rqx {}", env!("CARGO_PKG_VERSION"))),
+            "{screen}"
+        );
         assert!(screen.contains("rules"), "no rule count:\n{screen}");
         assert!(screen.contains("defaults"), "no config source:\n{screen}");
         assert!(
