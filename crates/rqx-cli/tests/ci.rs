@@ -384,3 +384,56 @@ fn a_test_run_contradicts_a_dead_code_finding_without_hiding_it() {
     );
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// The interface takes over the terminal. A pipeline's stdout is not a terminal, so
+/// it must never see an alternate-screen escape — and if it ever did, the job would
+/// hang waiting for a keypress nobody is there to send.
+#[test]
+fn a_pipeline_never_gets_the_interface() {
+    let root = project("piped", &[("a.ts", DIRTY)]);
+    // No `--no-tui`: the point is that a pipe is enough on its own.
+    let output = rqx(&root, &["scan"]);
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(!text.contains('\u{1b}'), "escape sequences reached a pipe");
+    assert!(
+        !text.contains("[?1049h"),
+        "the interface opened into a pipe"
+    );
+    assert!(text.contains("Findings"), "no report was printed:\n{text}");
+    assert_eq!(code(&output), 0, "a bare scan never gates");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// `CI` set is the other half: a build machine can have a terminal attached and must
+/// still get the report rather than a screen it cannot answer.
+#[test]
+fn ci_gets_the_report_and_the_exit_code() {
+    let root = project("ci-env", &[("a.ts", DIRTY)]);
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .arg("scan")
+        .arg(&root)
+        .args(["--fail-on", "error"])
+        .env("CI", "true")
+        .env("TERM", "xterm-256color")
+        .output()
+        .expect("failed to run rqx");
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(!text.contains("[?1049h"), "the interface opened under CI");
+    assert_eq!(code(&output), 1, "the gate did not fail the build");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A pipeline pointed at the wrong directory would otherwise pass, silently, with a
+/// perfect score: nothing was analysed, so nothing was wrong.
+#[test]
+fn a_directory_with_nothing_to_analyse_says_so() {
+    let root = project("nosources", &[("README.md", "# nothing to scan\n")]);
+    let output = rqx(&root, &["scan", "--no-tui"]);
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(code(&output), 0, "finding nothing is not a failure");
+    assert!(
+        text.contains("No files to analyse"),
+        "an empty scan read as a clean one:\n{text}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

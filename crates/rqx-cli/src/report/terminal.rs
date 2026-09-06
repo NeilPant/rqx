@@ -267,6 +267,7 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
     write_cycles(out, layout, report)?;
     write_architecture(out, layout, report, &prefix)?;
     write_summary(out, layout, report, &totals)?;
+    write_notes(out, layout, report.outcome)?;
     write_hotspots(out, layout, report, &prefix)?;
     write_skipped(out, layout, report.outcome)?;
     write_gate(out, layout, report)
@@ -928,6 +929,28 @@ fn write_hotspots(
             )
         )?;
     }
+    Ok(())
+}
+
+/// What a run assumed, on the run where the assumption matters. A pipeline pointed
+/// at the wrong directory would otherwise pass with a perfect score, because nothing
+/// was analysed and so nothing was wrong.
+fn write_notes(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Result<()> {
+    if outcome.files_scanned > 0 || layout.quiet {
+        return Ok(());
+    }
+    let languages = rqx_core::Language::ALL
+        .map(rqx_core::Language::slug)
+        .join(", ");
+    writeln!(
+        out,
+        "\n  {}\n  {}",
+        paint(layout.palette.bold(Ink::Warn), "No files to analyse."),
+        paint(
+            layout.palette.style(Ink::Muted),
+            format!("rqx reads {languages}. Check the path, `[languages]` and `[ignore]`.")
+        )
+    )?;
     Ok(())
 }
 
