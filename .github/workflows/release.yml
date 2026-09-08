@@ -313,6 +313,24 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      # `npm publish --dry-run` never contacts the registry, so a rehearsal passes on
+      # a token that cannot publish `@rqx` at all. The account behind the token is
+      # what decides that, and finding it out here costs nothing; finding it out
+      # from a 403 costs a tag.
+      - name: The token's account
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::notice::NPM_TOKEN is not set"
+            exit 0
+          fi
+          who="$(npm whoami 2>&1)" \
+            && echo "the token publishes as $who" \
+            || echo "::warning::the token does not identify an account: $who"
+
       - uses: actions/download-artifact@v4
         with:
           pattern: rqx-*
