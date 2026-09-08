@@ -12,7 +12,6 @@ single correct answer; and grades a diff against the base branch.
 A single Rust binary with no runtime dependencies.
 
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
-[![npm](https://img.shields.io/npm/v/rqx-cli?color=0a84ff&label=npm)](https://www.npmjs.com/package/rqx-cli)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
 ![Rules](https://img.shields.io/badge/rules-185-0a84ff)
 ![Languages](https://img.shields.io/badge/languages-5-0a84ff)
@@ -75,22 +74,12 @@ rule reference in [`docs/rules/`](docs/rules) and the pattern reference in
 ## Install
 
 ```bash
-npm install --save-dev rqx-cli
-```
-
-A prebuilt binary for the machine you are on, and nothing to compile. macOS, Linux
-and Windows, on x64 and arm64; the Linux build is static, so Alpine works as well as
-Debian. `npx rqx-cli scan .` runs it without installing anything at all. The package
-is `rqx-cli` and the command it installs is `rqx`; a bare `rqx` on npm is somebody
-else's placeholder from 2016.
-
-From source, which needs the Rust toolchain and about a minute:
-
-```bash
 cargo install --git https://github.com/jadhamwi21/rqx --locked rqx
 ```
 
-A source install keeps itself up to date afterwards:
+That is the whole installation, and it is meant to be the only one: rqx keeps itself
+up to date afterwards. It compiles from source and takes about a minute on a modern
+laptop — 185 crates and five tree-sitter grammars, most of them in parallel.
 
 ```bash
 rqx update            # build and install the newest tagged version
@@ -98,8 +87,9 @@ rqx update --check    # say whether one exists, install nothing
 rqx update --notes    # read what changed
 ```
 
-Under npm, `rqx update` reads the notes and then points at `npm` rather than building
-over a file npm owns.
+An install a package manager owns marks itself with `RQX_MANAGED`, and `rqx update`
+then reads the notes and points at that manager rather than building over a file it
+does not own.
 
 A scan prints one dim line when a newer version has been tagged, and nothing when it
 has not. The check starts when the scan does, on a thread the report waits a quarter
@@ -112,11 +102,10 @@ equivalents is set. `RQX_NO_UPDATE_CHECK` and `[update] check = false` in `RQX.t
 turn it off outright, `RQX_MANAGED` marks an install a package manager owns, and no
 exit code, report or reporter output changes either way.
 
-**One tag, every channel.** A release publishes six binaries, three crates and seven
-npm packages from the same commit, so a version means the same thing wherever it came
-from. The binaries are checksummed in `SHA256SUMS` on the release, and the npm
-packages carry a Sigstore attestation tying each tarball to the workflow run that
-built it.
+**One tag, every channel.** A release builds six binaries, one per platform, and
+publishes them beside the crates from the same commit, so a version means the same
+thing wherever it came from. Every asset is checksummed in `SHA256SUMS` on the
+release.
 
 Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
 prints the configuration each one needs — see [Editors](#editors).
