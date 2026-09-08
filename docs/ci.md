@@ -86,8 +86,8 @@ ahead of the last release — falls back to compiling from the checkout.
 rqx:
   image: node:22-alpine
   script:
-    - npm install --no-save @rqx/cli@0.1.1
-    - npx @rqx/cli check . --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - npm install --no-save rqx-cli@0.1.1
+    - npx rqx-cli check . --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
         --reporter terminal
         --reporter gitlab=gl-code-quality-report.json
         --reporter junit=rqx-junit.xml

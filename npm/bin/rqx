@@ -5,13 +5,13 @@ const { execFileSync } = require("node:child_process");
 const os = require("node:os");
 const path = require("node:path");
 
-const PLATFORM = `@rqx/${process.platform}-${process.arch}`;
+const PLATFORM_PACKAGE = `rqx-cli-${process.platform}-${process.arch}`;
 const SOURCE =
   "cargo install --git https://github.com/jadhamwi21/rqx --locked rqx";
 
 function missing() {
   process.stderr.write(
-    `rqx: cannot find ${PLATFORM}.\n` +
+    `rqx: cannot find ${PLATFORM_PACKAGE}.\n` +
       `Either ${process.platform}-${process.arch} has no published binary, or the\n` +
       `optional dependency was skipped. Reinstall without --no-optional, or build\n` +
       `from source:\n\n  ${SOURCE}\n\n`,
@@ -21,7 +21,7 @@ function missing() {
 
 function binary() {
   try {
-    const home = path.dirname(require.resolve(`${PLATFORM}/package.json`));
+    const home = path.dirname(require.resolve(`${PLATFORM_PACKAGE}/package.json`));
     return path.join(home, process.platform === "win32" ? "rqx.exe" : "rqx");
   } catch {
     return missing();

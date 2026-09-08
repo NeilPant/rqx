@@ -12,7 +12,7 @@ single correct answer; and grades a diff against the base branch.
 A single Rust binary with no runtime dependencies.
 
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
-[![npm](https://img.shields.io/npm/v/%40rqx%2Fcli?color=0a84ff&label=npm)](https://www.npmjs.com/package/@rqx/cli)
+[![npm](https://img.shields.io/npm/v/rqx-cli?color=0a84ff&label=npm)](https://www.npmjs.com/package/rqx-cli)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
 ![Rules](https://img.shields.io/badge/rules-185-0a84ff)
 ![Languages](https://img.shields.io/badge/languages-5-0a84ff)
@@ -75,13 +75,14 @@ rule reference in [`docs/rules/`](docs/rules) and the pattern reference in
 ## Install
 
 ```bash
-npm install --save-dev @rqx/cli
+npm install --save-dev rqx-cli
 ```
 
 A prebuilt binary for the machine you are on, and nothing to compile. macOS, Linux
 and Windows, on x64 and arm64; the Linux build is static, so Alpine works as well as
-Debian. `npx @rqx/cli scan .` runs it without installing anything at all — the
-scope matters, because an unscoped `rqx` on npm belongs to someone else.
+Debian. `npx rqx-cli scan .` runs it without installing anything at all. The package
+is `rqx-cli` and the command it installs is `rqx`; a bare `rqx` on npm is somebody
+else's placeholder from 2016.
 
 From source, which needs the Rust toolchain and about a minute:
 

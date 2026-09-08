@@ -38,11 +38,11 @@ It does not push. The tag sitting locally is the last moment to change your mind
 | `build` | six binaries, one per platform npm has a name for, each built and run on its own native runner |
 | `publish` | a GitHub release whose body is the changelog section, carrying the six tarballs and `SHA256SUMS` |
 | `crates` | crates.io, the three crates in dependency order |
-| `npm` | the six `@rqx/<platform>` packages, then `@rqx/cli` on top of them |
+| `npm` | the six `rqx-cli-<platform>` packages, then `rqx-cli` on top of them |
 
 `publish` waits on `build`, because a release object that exists before its assets do
 is a download link that 404s for whoever is quickest. `npm` publishes the platform
-packages first and `@rqx/cli` last: the main package resolves its binaries as optional
+packages first and `rqx-cli` last: the main package resolves its binaries as optional
 dependencies at install time, so publishing it before they exist would put a version
 on the registry that installs into nothing.
 
@@ -93,7 +93,7 @@ same reason — nothing to hold, nothing to rotate, nothing to lose.
 again. Nothing outside GitHub has seen it.
 
 **After crates.io or npm.** A published version cannot be replaced. `cargo yank
---version 0.2.0 rqx` and `npm deprecate @rqx/cli@0.2.0 "<why>"` both stop new projects
+--version 0.2.0 rqx` and `npm deprecate rqx-cli@0.2.0 "<why>"` both stop new projects
 resolving to it and leave existing lock files alone; then release the fix as `0.2.1`.
 Neither is deleting: the code stays readable and installable for anyone pinned to it.
 
