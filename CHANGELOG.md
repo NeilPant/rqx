@@ -22,7 +22,7 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Changed
 
-- **The action downloads rqx rather than building it.** `jadhamwi/rqx@v1` reads the
+- **The action downloads rqx rather than building it.** `jadhamwi21/rqx@v1` reads the
   version out of the checkout, fetches that release's binary for the runner and
   verifies it against `SHA256SUMS`. A ref with no published binary — a fork, or
   `@main` ahead of the last release — still compiles from the checkout as before.
