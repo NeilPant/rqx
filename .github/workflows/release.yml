@@ -148,18 +148,31 @@ jobs:
 
       # Linux ships musl so that one binary covers Alpine, Debian and RHEL without a
       # glibc floor to track. That only holds if it is actually static.
+      #
+      # The test is the absence of a dynamic loader rather than the presence of the
+      # word "static", because rustc links x86_64 musl as static-pie and aarch64 musl
+      # as plain static, and `file` spells those "static-pie linked" and "statically
+      # linked". Matching either spelling passes one arch and fails the other.
       - name: Nothing to link against
         if: endsWith(matrix.target, '-musl')
         shell: bash
         run: |
           set -euo pipefail
           binary="target/${{ matrix.target }}/release/rqx"
-          file "$binary"
-          file "$binary" | grep -q "statically linked"
-          linked="$(ldd "$binary" 2>&1 || true)"
-          case "$linked" in
-            *"not a dynamic executable"*|*"statically linked"*) ;;
-            *) echo "::error::$binary links against $linked"; exit 1 ;;
+          described="$(file "$binary")"
+          echo "$described"
+          # Without this, a `file` that recognised nothing would satisfy the test below
+          # by saying nothing at all.
+          case "$described" in
+            *ELF*) ;;
+            *) echo "::error::file does not recognise $binary: $described"; exit 1 ;;
+          esac
+          case "$described" in
+            *"dynamically linked"*|*"interpreter "*)
+              echo "::error::$binary wants a dynamic loader, so it is not the static \
+          build this row exists to produce: $described"
+              exit 1
+              ;;
           esac
 
       - uses: actions/upload-artifact@v4
