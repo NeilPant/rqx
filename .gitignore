@@ -14,3 +14,6 @@
 
 # The server binary the platform builds carry
 .playwright-mcp/
+
+# A project-level `npm login` writes an auth token here
+.npmrc
