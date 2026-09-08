@@ -2248,6 +2248,14 @@ fn run() -> Result<Exit> {
                 return Ok(Exit::Clean);
             }
 
+            if let Some(manager) = update::managed() {
+                anstream::println!(
+                    "  {}\n",
+                    brand::paint(dim, update::managed_update(&manager))
+                );
+                return Ok(Exit::Clean);
+            }
+
             anstream::println!(
                 "  {}\n",
                 brand::paint(dim, "building it with cargo; this takes a minute")

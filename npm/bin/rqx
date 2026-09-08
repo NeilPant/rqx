@@ -1,0 +1,50 @@
+#!/usr/bin/env node
+"use strict";
+
+const { execFileSync } = require("node:child_process");
+const os = require("node:os");
+const path = require("node:path");
+
+const PLATFORM = `@rqx/${process.platform}-${process.arch}`;
+const SOURCE =
+  "cargo install --git https://github.com/jadhamwi21/rqx --locked rqx";
+
+function missing() {
+  process.stderr.write(
+    `rqx: cannot find ${PLATFORM}.\n` +
+      `Either ${process.platform}-${process.arch} has no published binary, or the\n` +
+      `optional dependency was skipped. Reinstall without --no-optional, or build\n` +
+      `from source:\n\n  ${SOURCE}\n\n`,
+  );
+  process.exit(2);
+}
+
+function binary() {
+  try {
+    const home = path.dirname(require.resolve(`${PLATFORM}/package.json`));
+    return path.join(home, process.platform === "win32" ? "rqx.exe" : "rqx");
+  } catch {
+    return missing();
+  }
+}
+
+// Terminated by a signal: the shell convention, so a gate reading the exit code
+// sees a crash rather than the 0 an unset status would collapse to.
+function afterSignal(signal) {
+  const number = os.constants.signals[signal];
+  return number ? 128 + number : 2;
+}
+
+try {
+  execFileSync(binary(), process.argv.slice(2), {
+    stdio: "inherit",
+    env: { ...process.env, RQX_MANAGED: "npm" },
+  });
+} catch (error) {
+  if (error.code === "ENOENT") missing();
+  // rqx documents 0, 1, 2 and 101 as a contract CI gates read, so the shim has to
+  // pass the child's code through untouched rather than reporting its own failure.
+  if (typeof error.status === "number") process.exit(error.status);
+  if (error.signal) process.exit(afterSignal(error.signal));
+  throw error;
+}

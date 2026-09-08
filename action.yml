@@ -42,15 +42,77 @@ outputs:
 runs:
   using: composite
   steps:
-    # Built from the checked-out action rather than downloaded: rqx publishes no
-    # binaries. The cache is what keeps this to seconds after the first run on a
-    # given commit.
+    # The version comes from the checked-out action rather than from `action_ref`,
+    # because the ref is often a moving major tag (`@v1`) that no release object is
+    # named after. Reading the manifest the runner already has means the binary
+    # always matches the action code beside it.
+    - name: Install rqx
+      id: install
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ACTION_PATH: ${{ github.action_path }}
+        # The repository the action itself came from, so a fork publishing its own
+        # releases downloads its own binaries rather than this one's.
+        ACTION_REPO: ${{ github.action_repository }}
+      run: |
+        set -uo pipefail
+        version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ACTION_PATH/Cargo.toml" | head -1)"
+
+        case "$RUNNER_OS/$RUNNER_ARCH" in
+          Linux/X64)    triple=linux-x64    ;;
+          Linux/ARM64)  triple=linux-arm64  ;;
+          macOS/X64)    triple=darwin-x64   ;;
+          macOS/ARM64)  triple=darwin-arm64 ;;
+          Windows/X64)  triple=win32-x64    ;;
+          Windows/ARM64) triple=win32-arm64 ;;
+          *)            triple=""           ;;
+        esac
+
+        # Backslashes, because RUNNER_TEMP arrives in Windows form on a Windows
+        # runner and bash reads them as escapes; GITHUB_PATH takes either form.
+        home="${RUNNER_TEMP//\\//}/rqx"
+        mkdir -p "$home/download"
+
+        # A release the tag has no binary for is not an error here: a fork, a
+        # prerelease that skipped a platform, or an action pinned to a commit ahead
+        # of the last release all land here and are still meant to work.
+        if [ -n "$triple" ] && [ -n "${ACTION_REPO:-}" ] && gh release download "v$version" \
+             --repo "$ACTION_REPO" \
+             --pattern "rqx-$version-$triple.tar.gz" --pattern SHA256SUMS \
+             --dir "$home/download" --clobber; then
+          # `shasum` because a macOS runner has no GNU coreutils, and the one
+          # expected line rather than `--check` because that flag needs every other
+          # platform's tarball to be present too.
+          archive="rqx-$version-$triple.tar.gz"
+          want="$(awk -v name="$archive" '$2 == name {print $1}' "$home/download/SHA256SUMS")"
+          if command -v sha256sum >/dev/null 2>&1; then
+            got="$(sha256sum "$home/download/$archive" | cut -d' ' -f1)"
+          else
+            got="$(shasum -a 256 "$home/download/$archive" | cut -d' ' -f1)"
+          fi
+          if [ -z "$want" ] || [ "$want" != "$got" ]; then
+            echo "::error::$archive hashes to ${got:-nothing}, and SHA256SUMS says ${want:-nothing}"
+            exit 1
+          fi
+          tar xzf "$home/download/$archive" -C "$home"
+          chmod +x "$home"/rqx*
+          echo "$home" >> "$GITHUB_PATH"
+          echo "source=download" >> "$GITHUB_OUTPUT"
+          echo "rqx $version, downloaded"
+        else
+          echo "::notice::no published binary for v$version on $RUNNER_OS/$RUNNER_ARCH; building from source"
+          echo "source=build" >> "$GITHUB_OUTPUT"
+        fi
+
     - uses: dtolnay/rust-toolchain@stable
+      if: steps.install.outputs.source == 'build'
     - uses: Swatinem/rust-cache@v2
+      if: steps.install.outputs.source == 'build'
       with:
         workspaces: ${{ github.action_path }}
-
-    - name: Install rqx
+    - name: Build rqx
+      if: steps.install.outputs.source == 'build'
       shell: bash
       run: cargo install --locked --path "${{ github.action_path }}/crates/rqx-cli"
 

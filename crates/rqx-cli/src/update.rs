@@ -1,10 +1,10 @@
 //! Whether a newer rqx has been tagged, and installing it.
 //!
-//! rqx publishes no binaries. A tag is the release, and updating means building it
-//! the same way it was installed — `cargo install --git`. That keeps distribution to
-//! one thing that can go wrong instead of five platform tarballs, their checksums
-//! and the pipeline that uploads them; the cost is that updating needs the Rust
-//! toolchain that installed rqx in the first place.
+//! A tag is the release: it carries the binaries, the crates and the npm packages,
+//! so there is one version and one changelog section behind all of them. What this
+//! module updates is a `cargo install --git` build, because that is the only install
+//! nothing else owns — an npm or distribution install marks itself with
+//! `RQX_MANAGED` and is handed back to whatever put it there.
 //!
 //! A version check is a network request, and a scan is not the place for one: the
 //! answer is cached for a day, fetched on a thread nobody waits for, and never
@@ -115,7 +115,7 @@ pub fn wanted(enabled: bool) -> bool {
         && std::env::var_os("RQX_NO_UPDATE_CHECK").is_none()
         // A version a package manager installed is not one rqx should offer to
         // replace: the manager owns that file and will put it back.
-        && std::env::var_os("RQX_MANAGED").is_none()
+        && managed().is_none()
         && !A_PIPELINE
             .iter()
             .any(|name| std::env::var_os(name).is_some())
@@ -124,6 +124,25 @@ pub fn wanted(enabled: bool) -> bool {
         // stderr is a log file whatever the variables say.
         && std::io::stderr().is_terminal()
         && std::io::stdout().is_terminal()
+}
+
+/// Set by the npm wrapper, and expected of a distribution packager, because a
+/// binary a manager owns must not be replaced behind its back.
+pub fn managed() -> Option<String> {
+    let manager = std::env::var_os("RQX_MANAGED")?;
+    (!manager.is_empty()).then(|| manager.to_string_lossy().into_owned())
+}
+
+/// Installing over a managed binary leaves a second copy on the path and the
+/// manager puts its own back on the next install, so `rqx update` hands the job
+/// over rather than doing it badly.
+pub fn managed_update(manager: &str) -> String {
+    match manager {
+        "npm" => {
+            "npm installed rqx. `npm install --save-dev @rqx/cli@latest` updates it.".to_owned()
+        }
+        other => format!("{other} installed rqx, so updating it is {other}'s job."),
+    }
 }
 
 /// Compares two dotted versions numerically, so `0.10.0` is newer than `0.9.0` and a

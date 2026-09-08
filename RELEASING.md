@@ -30,18 +30,29 @@ It does not push. The tag sitting locally is the last moment to change your mind
 
 ## What the tag triggers
 
-`.github/workflows/release.yml`, in four stages:
+`.github/workflows/release.yml`, in five stages:
 
 | Stage | Does |
 |---|---|
 | `check` | tag matches `Cargo.toml`, the changelog has that section, fmt, clippy, tests, and `cargo package --workspace` |
-| `publish` | a GitHub release whose body is the changelog section |
+| `build` | six binaries, one per platform npm has a name for, each built and run on its own native runner |
+| `publish` | a GitHub release whose body is the changelog section, carrying the six tarballs and `SHA256SUMS` |
 | `crates` | crates.io, the three crates in dependency order |
+| `npm` | the six `@rqx/<platform>` packages, then `@rqx/cli` on top of them |
 
-No binaries are built or uploaded. The tag is the release: `cargo install --git
---tag` is how it is installed and how `rqx update` installs it, so the thing users
-run is built from the commit the tag names rather than from an artifact somebody
-has to trust.
+`publish` waits on `build`, because a release object that exists before its assets do
+is a download link that 404s for whoever is quickest. `npm` publishes the platform
+packages first and `@rqx/cli` last: the main package resolves its binaries as optional
+dependencies at install time, so publishing it before they exist would put a version
+on the registry that installs into nothing.
+
+The npm packages carry no version in the repository. The publish job writes
+`Cargo.toml`'s into each generated manifest, which is how the tag-matches-the-manifest
+check covers npm too, with nothing new that can drift.
+
+A `workflow_dispatch` run is a rehearsal: everything above happens except publishing —
+the six binaries are built and smoke-tested, the tarballs and checksums are assembled,
+and the npm packages go through `npm publish --dry-run`.
 
 `check` runs before anything is built, because a tag is hard to take back once a
 release and a crates.io version hang off it. Both the check and the publish go
@@ -59,25 +70,32 @@ looking for the latest version skips it.
 | Secret | For | Missing |
 |---|---|---|
 | `CARGO_REGISTRY_TOKEN` | crates.io | the publish is skipped with a notice |
+| `NPM_TOKEN` | npm | the publish is skipped with a notice |
 
 `GITHUB_TOKEN` is the one the runner already provides, so the binaries and the
-release itself need no configuration at all. crates.io is skipped rather than
+release itself need no configuration at all. Both registries are skipped rather than
 required, so a fork cutting a tag gets binaries instead of a red pipeline about a
 credential it was never going to have.
 
-The `crates` job names a GitHub environment. Adding a required reviewer to it turns
-that publish into something a person approves.
+The `crates` and `npm` jobs each name a GitHub environment. Adding a required reviewer
+to one turns that publish into something a person approves.
+
+npm publishes with `--provenance`, which needs no key: `id-token: write` and a public
+repository are enough for npm to attest that the tarball came from this workflow at
+this commit. The release tarballs get `SHA256SUMS` rather than a signature, for the
+same reason — nothing to hold, nothing to rotate, nothing to lose.
 
 ## If it goes wrong
 
 **Before the push.** `git tag -d v0.2.0 && git reset --hard HEAD~1`.
 
-**After the push, before crates.io.** Delete the tag and the draft release, fix, tag
+**After the push, before the registries.** Delete the tag and the release, fix, tag
 again. Nothing outside GitHub has seen it.
 
-**After crates.io.** A published version cannot be replaced. `cargo yank --version
-0.2.0 rqx` stops new projects resolving to it and leaves existing lock files alone,
-then release the fix as `0.2.1`. Yanking is not deleting: the code stays readable.
+**After crates.io or npm.** A published version cannot be replaced. `cargo yank
+--version 0.2.0 rqx` and `npm deprecate @rqx/cli@0.2.0 "<why>"` both stop new projects
+resolving to it and leave existing lock files alone; then release the fix as `0.2.1`.
+Neither is deleting: the code stays readable and installable for anyone pinned to it.
 
 ## Version numbers
 

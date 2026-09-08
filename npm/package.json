@@ -1,0 +1,47 @@
+{
+  "name": "@rqx/cli",
+  "version": "0.0.0",
+  "description": "Finds dead code, duplication and architectural drift in TypeScript, Python, Go, Java and C++, and names the refactoring that fixes each one.",
+  "keywords": [
+    "static-analysis",
+    "linter",
+    "code-quality",
+    "refactoring",
+    "dead-code",
+    "duplication",
+    "circular-dependencies",
+    "complexity",
+    "typescript",
+    "python",
+    "go",
+    "java",
+    "cpp"
+  ],
+  "license": "MIT",
+  "author": "Jad Alhamwi",
+  "homepage": "https://github.com/jadhamwi21/rqx",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jadhamwi21/rqx.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jadhamwi21/rqx/issues"
+  },
+  "bin": {
+    "rqx": "bin/rqx"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "@rqx/darwin-arm64": "0.0.0",
+    "@rqx/darwin-x64": "0.0.0",
+    "@rqx/linux-arm64": "0.0.0",
+    "@rqx/linux-x64": "0.0.0",
+    "@rqx/win32-arm64": "0.0.0",
+    "@rqx/win32-x64": "0.0.0"
+  }
+}
