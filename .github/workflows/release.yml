@@ -225,7 +225,7 @@ jobs:
             echo "---"
             echo
             echo '```sh'
-            echo "npm install --save-dev @rqx/cli@$version"
+            echo "npm install --save-dev rqx-cli@$version"
             echo '```'
             echo
             echo "Or from source, which needs the Rust toolchain:"
@@ -279,7 +279,7 @@ jobs:
             exit 1
           fi
 
-  # Seven packages: one binary each behind `os`/`cpu`, and `@rqx/cli` on top of them
+  # Seven packages: one binary each behind `os`/`cpu`, and `rqx-cli` on top of them
   # as optional dependencies npm resolves at install time.
   #
   # The version lives in `Cargo.toml` and is written in here, never committed — which
@@ -322,7 +322,7 @@ jobs:
               const [triple, version] = process.argv.slice(1);
               const [os, cpu] = triple.split("-");
               process.stdout.write(JSON.stringify({
-                name: `@rqx/${triple}`,
+                name: `rqx-cli-${triple}`,
                 version,
                 description: `The rqx binary for ${triple}.`,
                 license: "MIT",
@@ -338,7 +338,7 @@ jobs:
           sed -i "s/\"0\.0\.0\"/\"$version\"/g" packages/cli/package.json
           cat packages/cli/package.json
 
-      # Platform packages first and `@rqx/cli` last, because the main package is the
+      # Platform packages first and `rqx-cli` last, because the main package is the
       # commit point: its optional dependencies are resolved at install time, so one
       # published before its binaries exist is a version that installs into nothing.
       - name: Publish

@@ -8,24 +8,24 @@ const { spawnSync } = require("node:child_process");
 const { test } = require("node:test");
 
 const SHIM = path.join(__dirname, "bin", "rqx");
-const PLATFORM = `${process.platform}-${process.arch}`;
+const PLATFORM_PACKAGE = `rqx-cli-${process.platform}-${process.arch}`;
 
 // node stands in for the binary, because `-e "process.exit(n)"` is the only way to
 // make a child exit with a chosen code on every platform the shim runs on.
 function tree({ withPlatformPackage }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "rqx-shim-"));
-  const home = path.join(root, "node_modules", "@rqx");
+  const home = path.join(root, "node_modules");
 
-  const cli = path.join(home, "cli", "bin");
+  const cli = path.join(home, "rqx-cli", "bin");
   fs.mkdirSync(cli, { recursive: true });
   fs.copyFileSync(SHIM, path.join(cli, "rqx"));
 
   if (withPlatformPackage) {
-    const platform = path.join(home, PLATFORM);
+    const platform = path.join(home, PLATFORM_PACKAGE);
     fs.mkdirSync(platform, { recursive: true });
     fs.writeFileSync(
       path.join(platform, "package.json"),
-      JSON.stringify({ name: `@rqx/${PLATFORM}`, version: "0.0.0" }),
+      JSON.stringify({ name: PLATFORM_PACKAGE, version: "0.0.0" }),
     );
     const binary = path.join(
       platform,
@@ -63,7 +63,7 @@ test("a missing platform package exits 2 and names it", () => {
   const shim = tree({ withPlatformPackage: false });
   const { status, stderr } = run(shim, ["--version"]);
   assert.strictEqual(status, 2);
-  assert.match(stderr, new RegExp(`@rqx/${PLATFORM}`));
+  assert.match(stderr, new RegExp(PLATFORM_PACKAGE));
 });
 
 test("the child is told a package manager owns this install", () => {

@@ -1,5 +1,5 @@
 {
-  "name": "@rqx/cli",
+  "name": "rqx-cli",
   "version": "0.0.0",
   "description": "Finds dead code, duplication and architectural drift in TypeScript, Python, Go, Java and C++, and names the refactoring that fixes each one.",
   "keywords": [
@@ -37,11 +37,11 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@rqx/darwin-arm64": "0.0.0",
-    "@rqx/darwin-x64": "0.0.0",
-    "@rqx/linux-arm64": "0.0.0",
-    "@rqx/linux-x64": "0.0.0",
-    "@rqx/win32-arm64": "0.0.0",
-    "@rqx/win32-x64": "0.0.0"
+    "rqx-cli-darwin-arm64": "0.0.0",
+    "rqx-cli-darwin-x64": "0.0.0",
+    "rqx-cli-linux-arm64": "0.0.0",
+    "rqx-cli-linux-x64": "0.0.0",
+    "rqx-cli-win32-arm64": "0.0.0",
+    "rqx-cli-win32-x64": "0.0.0"
   }
 }
