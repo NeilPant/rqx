@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const { test } = require("node:test");
 
 const SHIM = path.join(__dirname, "bin", "rqx");
-const PLATFORM_PACKAGE = `rqx-cli-${process.platform}-${process.arch}`;
+const PLATFORM_PACKAGE = `@rqx/${process.platform}-${process.arch}`;
 
 // node stands in for the binary, because `-e "process.exit(n)"` is the only way to
 // make a child exit with a chosen code on every platform the shim runs on.
@@ -16,7 +16,7 @@ function tree({ withPlatformPackage }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "rqx-shim-"));
   const home = path.join(root, "node_modules");
 
-  const cli = path.join(home, "rqx-cli", "bin");
+  const cli = path.join(home, "@rqx", "cli", "bin");
   fs.mkdirSync(cli, { recursive: true });
   fs.copyFileSync(SHIM, path.join(cli, "rqx"));
 

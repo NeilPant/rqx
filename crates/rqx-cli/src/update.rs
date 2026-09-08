@@ -139,7 +139,7 @@ pub fn managed() -> Option<String> {
 pub fn managed_update(manager: &str) -> String {
     match manager {
         "npm" => {
-            "npm installed rqx. `npm install --save-dev rqx-cli@latest` updates it.".to_owned()
+            "npm installed rqx. `npm install --save-dev @rqx/cli@latest` updates it.".to_owned()
         }
         other => format!("{other} installed rqx, so updating it is {other}'s job."),
     }

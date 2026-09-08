@@ -5,7 +5,7 @@ const { execFileSync } = require("node:child_process");
 const os = require("node:os");
 const path = require("node:path");
 
-const PLATFORM_PACKAGE = `rqx-cli-${process.platform}-${process.arch}`;
+const PLATFORM_PACKAGE = `@rqx/${process.platform}-${process.arch}`;
 const SOURCE =
   "cargo install --git https://github.com/jadhamwi21/rqx --locked rqx";
 

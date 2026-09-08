@@ -12,7 +12,7 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
-- **`npm install --save-dev rqx-cli`.** Every release now carries a prebuilt binary
+- **`npm install --save-dev @rqx/cli`.** Every release now carries a prebuilt binary
   for macOS, Linux and Windows on x64 and arm64, behind an npm package that resolves
   the right one at install time. Nothing to compile and no Rust toolchain: a CI job
   that spent minutes building rqx now spends seconds downloading it. The Linux build
