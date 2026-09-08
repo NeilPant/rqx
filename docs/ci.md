@@ -68,23 +68,26 @@ forces it off, `--color always` forces it on for a log viewer that renders ANSI.
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0          # `check` diffs against a base
-- uses: jadhamwi/rqx@v1
+- uses: jadhamwi21/rqx@v1
   with:
     base: ${{ github.base_ref }}
     fail-on: error
 ```
 
 The action runs the analysis once and produces the log, inline annotations, the
-SARIF upload and a job summary from that single pass.
+SARIF upload and a job summary from that single pass. It downloads the binary its
+own tag was released with and checks it against `SHA256SUMS`, so the install step is
+a download rather than a build; a ref with no published binary — a fork, or `@main`
+ahead of the last release — falls back to compiling from the checkout.
 
 ## GitLab CI
 
 ```yaml
 rqx:
-  image: rust:latest
+  image: node:22-alpine
   script:
-    - cargo install --locked --git https://github.com/jadhamwi21/rqx rqx
-    - rqx check . --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - npm install --no-save @rqx/cli@0.1.1
+    - npx @rqx/cli check . --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
         --reporter terminal
         --reporter gitlab=gl-code-quality-report.json
         --reporter junit=rqx-junit.xml
@@ -94,6 +97,21 @@ rqx:
       codequality: gl-code-quality-report.json
       junit: rqx-junit.xml
 ```
+
+Pin the version. A new rule can turn a passing gate red on a day nobody changed
+anything, which is the one way a quality gate loses its audience.
+
+The Linux binary is static, so `alpine` and `slim` images work as well as a full one
+and there is no glibc floor to think about. On an image without Node, take the
+tarball from the release instead — one file, no runtime:
+
+```sh
+version=0.1.1
+curl -fsSL "https://github.com/jadhamwi21/rqx/releases/download/v$version/rqx-$version-linux-x64.tar.gz" \
+  | tar xz -C /usr/local/bin
+```
+
+Every asset on a release is listed in `SHA256SUMS` beside it.
 
 Fingerprints in the Code Quality report deliberately exclude the line number, so
 editing the top of a file does not re-report everything below it as new. A file

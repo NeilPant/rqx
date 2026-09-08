@@ -10,8 +10,28 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Added
+
+- **`npm install --save-dev @rqx/cli`.** Every release now carries a prebuilt binary
+  for macOS, Linux and Windows on x64 and arm64, behind an npm package that resolves
+  the right one at install time. Nothing to compile and no Rust toolchain: a CI job
+  that spent minutes building rqx now spends seconds downloading it. The Linux build
+  is static musl, so one binary covers Alpine, Debian and RHEL with no glibc floor.
+  The tarballs are on the GitHub release with a `SHA256SUMS` beside them, and the npm
+  packages publish with Sigstore provenance.
+
 ### Changed
 
+- **The action downloads rqx rather than building it.** `jadhamwi/rqx@v1` reads the
+  version out of the checkout, fetches that release's binary for the runner and
+  verifies it against `SHA256SUMS`. A ref with no published binary — a fork, or
+  `@main` ahead of the last release — still compiles from the checkout as before.
+- **`rqx update` hands a managed install back to its manager.** Under npm it reads
+  the notes and points at `npm` instead of building over a file npm owns, which would
+  have left a second binary on the path for npm to overwrite on the next install.
+- The published binary is built with fat LTO, one codegen unit and no symbols.
+  Nobody waits for a release build, so it takes the opposite side of the trade
+  `Cargo.toml` makes for source installs — smaller to download and faster to run.
 - **A clean install takes 68 seconds rather than 228.** `codegen-units = 1` compiled
   the binary crate as one unit no core could share — 183 of those 228 seconds, all
   of it serialised at the end. Sixteen units cost 2.4% of scan time and 4MB of

@@ -3,19 +3,16 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # A rehearsal: everything a tag would do, up to but not including publishing.
   workflow_dispatch:
-    inputs:
-      dry-run:
-        description: "Build and check, publish nothing"
-        type: boolean
-        default: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   # Everything that can disagree with the tag, before anything is built. A tag is
-  # hard to take back once a release and a crates.io version hang off it.
+  # hard to take back once a release, a crates.io version and seven npm packages
+  # hang off it.
   check:
     runs-on: ubuntu-latest
     outputs:
@@ -70,6 +67,7 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      - run: node --test npm/exit-codes.test.js
 
       # Catches a missing `description`, a path dependency without a version, an
       # excluded file something needs — all of which only fail at publish time,
@@ -82,16 +80,140 @@ jobs:
         run: cargo package --workspace --locked
 
 
-  # A tag is the release. The notes are the changelog section the tag carries, which
-  # is also what `rqx update` reads, so the two can never disagree.
-  publish:
+  # One binary per platform npm has a name for. Every row builds natively, so there
+  # is no cross-compiler, no container and no emulator anywhere in here — and every
+  # row can run what it just built, which is the only way an unusable binary is
+  # caught before somebody installs it.
+  #
+  # The Rust triple appears only inside its own job. Artifacts are named for the npm
+  # triple, so everything downstream loops over `rqx-*` and needs no lookup table.
+  build:
     needs: check
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { npm: darwin-arm64, target: aarch64-apple-darwin,       os: macos-15 }
+          - { npm: darwin-x64,   target: x86_64-apple-darwin,        os: macos-15 }
+          - { npm: linux-x64,    target: x86_64-unknown-linux-musl,  os: ubuntu-24.04 }
+          - { npm: linux-arm64,  target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
+          - { npm: win32-x64,    target: x86_64-pc-windows-msvc,     os: windows-2025 }
+          - { npm: win32-arm64,  target: aarch64-pc-windows-msvc,    os: windows-11-arm }
+    runs-on: ${{ matrix.os }}
+    env:
+      # `Cargo.toml` trades scan speed and binary size for build time, because an
+      # install compiles and somebody is waiting for it. Nobody waits for this one,
+      # so the published binary takes the other side of that trade — and loses the
+      # 4.5MB of symbols nothing reads, on a file every CI run downloads.
+      CARGO_PROFILE_RELEASE_LTO: fat
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+      CARGO_PROFILE_RELEASE_STRIP: symbols
+      # An x86_64 build on an arm64 runner; cc picks the arch up from the SDK.
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      # cc maps `aarch64-unknown-linux-musl` to the hard-coded prefix
+      # `aarch64-linux-musl-` with no fallback, and Ubuntu's musl-tools installs
+      # `musl-gcc` under no prefix at all. Left alone, cc finds neither and quietly
+      # compiles the five tree-sitter grammars against glibc headers, which links a
+      # binary whose `FILE` layout disagrees with the musl the Rust half is linked
+      # to. Naming the compiler is what makes the assertion below pass.
+      CC_x86_64_unknown_linux_musl: musl-gcc
+      AR_x86_64_unknown_linux_musl: ar
+      CC_aarch64_unknown_linux_musl: musl-gcc
+      AR_aarch64_unknown_linux_musl: ar
     steps:
       - uses: actions/checkout@v4
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: musl
+        if: endsWith(matrix.target, '-musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      # `crt-static` is already the default for a musl target, and setting RUSTFLAGS
+      # to say so again would invalidate every rust-cache key.
+      - run: cargo build --locked --release --target ${{ matrix.target }} -p rqx --bin rqx
+
+      - name: It runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="target/${{ matrix.target }}/release/rqx"
+          if [ -f "$binary.exe" ]; then binary="$binary.exe"; fi
+          "$binary" --version
+
+      # Linux ships musl so that one binary covers Alpine, Debian and RHEL without a
+      # glibc floor to track. That only holds if it is actually static.
+      - name: Nothing to link against
+        if: endsWith(matrix.target, '-musl')
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="target/${{ matrix.target }}/release/rqx"
+          file "$binary"
+          file "$binary" | grep -q "statically linked"
+          linked="$(ldd "$binary" 2>&1 || true)"
+          case "$linked" in
+            *"not a dynamic executable"*|*"statically linked"*) ;;
+            *) echo "::error::$binary links against $linked"; exit 1 ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rqx-${{ matrix.npm }}
+          path: target/${{ matrix.target }}/release/rqx${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+          if-no-files-found: error
+
+
+  # A tag is the release. The notes are the changelog section the tag carries, which
+  # is also what `rqx update` reads, so the two can never disagree.
+  #
+  # `needs: build` rather than `needs: check` alone: a release object that exists
+  # before its assets do is a download link that 404s for whoever is quickest.
+  publish:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rqx-*
+          path: artifacts
+
+      # The executable bit does not survive an artifact upload, and a tarball of a
+      # binary nobody can run is worse than no tarball.
+      #
+      # The binary is named rather than archived as `.`, because `curl | tar xz -C
+      # /usr/local/bin` is a documented way to install this and a `./` entry would
+      # reset the mode of the directory it unpacks into.
+      #
+      # One SHA256SUMS written here from all six, rather than one line per build job
+      # concatenated afterwards, because six chances to get it wrong is five too many.
+      - name: Archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.check.outputs.version }}"
+          mkdir -p dist
+          for dir in artifacts/rqx-*; do
+            triple="${dir##*/rqx-}"
+            binary=rqx
+            if [ -f "$dir/rqx.exe" ]; then binary=rqx.exe; fi
+            chmod +x "$dir/$binary"
+            tar czf "dist/rqx-$version-$triple.tar.gz" -C "$dir" "$binary"
+          done
+          (cd dist && sha256sum rqx-*.tar.gz > SHA256SUMS)
+          cat dist/SHA256SUMS
+
       - name: Notes
+        if: github.ref_type == 'tag'
         shell: bash
         run: |
           set -euo pipefail
@@ -103,16 +225,26 @@ jobs:
             echo "---"
             echo
             echo '```sh'
+            echo "npm install --save-dev @rqx/cli@$version"
+            echo '```'
+            echo
+            echo "Or from source, which needs the Rust toolchain:"
+            echo
+            echo '```sh'
             echo "cargo install --git https://github.com/jadhamwi21/rqx --tag ${{ github.ref_name }} --locked rqx"
             echo '```'
             echo
-            echo "An existing install updates itself with \`rqx update\`."
+            echo "Binaries below are checksummed in \`SHA256SUMS\`."
           } >> NOTES.md
 
       - uses: softprops/action-gh-release@v3
+        if: github.ref_type == 'tag'
         with:
           body_path: NOTES.md
           prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            dist/rqx-*.tar.gz
+            dist/SHA256SUMS
 
   crates:
     needs: [check, publish]
@@ -146,3 +278,102 @@ jobs:
             echo "$output" >&2
             exit 1
           fi
+
+  # Seven packages: one binary each behind `os`/`cpu`, and `@rqx/cli` on top of them
+  # as optional dependencies npm resolves at install time.
+  #
+  # The version lives in `Cargo.toml` and is written in here, never committed — which
+  # is how the tag-matches-the-manifest check above covers npm too, with nothing new
+  # that can drift.
+  npm:
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rqx-*
+          path: artifacts
+
+      - name: Assemble
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.check.outputs.version }}"
+          mkdir -p packages
+
+          for dir in artifacts/rqx-*; do
+            triple="${dir##*/rqx-}"
+            home="packages/$triple"
+            mkdir -p "$home"
+            cp "$dir"/rqx* "$home"/
+            chmod +x "$home"/rqx*
+            node -e '
+              const [triple, version] = process.argv.slice(1);
+              const [os, cpu] = triple.split("-");
+              process.stdout.write(JSON.stringify({
+                name: `@rqx/${triple}`,
+                version,
+                description: `The rqx binary for ${triple}.`,
+                license: "MIT",
+                repository: { type: "git", url: "git+https://github.com/jadhamwi21/rqx.git" },
+                os: [os],
+                cpu: [cpu],
+              }, null, 2) + "\n");
+            ' "$triple" "$version" > "$home/package.json"
+          done
+
+          cp -R npm packages/cli
+          cp README.md LICENSE packages/cli/
+          sed -i "s/\"0\.0\.0\"/\"$version\"/g" packages/cli/package.json
+          cat packages/cli/package.json
+
+      # Platform packages first and `@rqx/cli` last, because the main package is the
+      # commit point: its optional dependencies are resolved at install time, so one
+      # published before its binaries exist is a version that installs into nothing.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DRY_RUN: ${{ github.ref_type != 'tag' && 'yes' || '' }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "$DRY_RUN" ] && [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::notice::NPM_TOKEN is not set; skipping npm"
+            exit 0
+          fi
+
+          publish() {
+            local home="$1"
+            if [ -n "$DRY_RUN" ]; then
+              npm publish --dry-run --access public "$home" || return 1
+              return 0
+            fi
+            local output
+            if output="$(npm publish --provenance --access public "$home" 2>&1)"; then
+              echo "$output"
+            elif grep -q "cannot publish over" <<<"$output"; then
+              # A re-run after a half-finished publish, not a failure.
+              echo "$output"
+              echo "::notice::$home was already on npm"
+            else
+              echo "$output" >&2
+              return 1
+            fi
+          }
+
+          for home in ./packages/*/; do
+            [ "$home" = "./packages/cli/" ] && continue
+            publish "$home" || exit 1
+          done
+          publish ./packages/cli/ || exit 1

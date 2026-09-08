@@ -1,4 +1,6 @@
-# rqx's own pipeline, and the shape it recommends to a project using it.
+# rqx's own pipeline. A project using rqx installs the published binary — see
+# `docs/ci.md` — and this one builds from source because the source is the thing
+# under test; a job that ran the last release would never catch this commit.
 #
 # `gitlab-runner exec` was removed in 16.x, so `tools/ci-local.sh` runs a job's
 # script here rather than in a runner: the same commands, the same order, no GitLab

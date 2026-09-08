@@ -25,7 +25,9 @@ rqx-lang = { version = "0.1.1", path = "crates/rqx-lang" }
 # units brings that to 68 seconds and costs 2.4% of scan time and 4MB of binary,
 # measured on a 3,456-file corpus. Splitting at all is what costs the 2.4%; four
 # units cost the same and built slower, so there is nothing to buy back by going
-# lower. Installing is the thing people wait for.
+# lower. Installing from source is the thing people wait for — the published
+# binaries take the other side of this trade, in the release workflow's build job,
+# because nobody waits for that one.
 [profile.release]
 lto = "thin"
 codegen-units = 16
