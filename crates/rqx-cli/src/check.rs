@@ -297,3 +297,583 @@ fn verdict(counted: u32, health: u32, config: &RqxConfig) -> Verdict {
         known: 0,
     }
 }
+
+/// What each gate decides today, pinned exactly. These are characterisation tests:
+/// they record the verdicts the code gives now, including the ones that are known
+/// gaps, so a refactor of the gate cannot change an exit code without a test saying
+/// so. A pinned gap is fixed on purpose and its expectation changed in the same
+/// commit.
+#[cfg(test)]
+mod gates {
+    use std::collections::BTreeSet;
+    use std::sync::Arc;
+
+    use rqx_core::config::{Gate, GateGrade, GateSeverity};
+    use rqx_core::finding::{Severity, SourceRange};
+    use rqx_core::{Advice, AdviceId, RqxConfig, Signal};
+
+    use super::*;
+    use crate::report::tests::outcome_with;
+
+    /// Three files with deliberately different grades. `bad.ts` carries ten errors in
+    /// ten lines and grades critical; `ok.ts` carries a warning and an info and grades
+    /// clean; `clean0.ts` has nothing. Across 200 code lines the project scores 54.
+    fn scenario() -> ScanOutcome {
+        let mut findings = vec![("bad.ts", Severity::Error); 10];
+        findings.push(("ok.ts", Severity::Warning));
+        findings.push(("ok.ts", Severity::Info));
+        let mut outcome = outcome_with(&findings, 3);
+        outcome.code_lines = 200;
+        outcome.lines_by_file.insert(Arc::from("bad.ts"), 10);
+        outcome.lines_by_file.insert(Arc::from("ok.ts"), 100);
+        outcome
+    }
+
+    fn reviewing(outcome: ScanOutcome, files: &[&str]) -> Review {
+        Review {
+            outcome,
+            reviewed: files.iter().map(|file| (*file).to_owned()).collect(),
+            base: "main".to_owned(),
+        }
+    }
+
+    fn everything() -> Review {
+        reviewing(scenario(), &["bad.ts", "ok.ts", "clean0.ts"])
+    }
+
+    fn config(gate: Gate) -> RqxConfig {
+        RqxConfig {
+            gate,
+            ..RqxConfig::default()
+        }
+    }
+
+    fn gate(fail_on: GateSeverity, min_health: u32, min_grade: GateGrade) -> Gate {
+        Gate {
+            fail_on,
+            min_health,
+            min_grade,
+            ..Gate::default()
+        }
+    }
+
+    fn half_applied_advice() -> Advice {
+        advice(AdviceId::DecoratorNotSubstitutable)
+    }
+
+    fn advice(advisory: AdviceId) -> Advice {
+        Advice {
+            advisory,
+            location: SourceRange {
+                file: Arc::from("ok.ts"),
+                start: 0,
+                end: 1,
+                line: 1,
+                column: 1,
+                end_line: 1,
+            },
+            signal: Signal::Shape {
+                class: "Wrapper".to_owned(),
+                detail: "forwards everything".to_owned(),
+            },
+            note: String::new(),
+            related: Vec::new(),
+        }
+    }
+
+    struct Case {
+        name: &'static str,
+        gate: Gate,
+        tweak: fn(&mut ScanOutcome),
+        failures: &'static [&'static str],
+        counted: u32,
+        known: u32,
+    }
+
+    fn untouched(_: &mut ScanOutcome) {}
+
+    fn recorded_as_baseline(outcome: &mut ScanOutcome) {
+        for finding in &mut outcome.findings {
+            finding.known = finding.severity == Severity::Error;
+        }
+        outcome.counts.new_by_severity.remove(&Severity::Error);
+    }
+
+    fn with_half_applied_pattern(outcome: &mut ScanOutcome) {
+        outcome.advice.push(half_applied_advice());
+    }
+
+    fn with_only_fitting_and_recognised_patterns(outcome: &mut ScanOutcome) {
+        outcome.advice.push(advice(AdviceId::CommandFits));
+        outcome.advice.push(advice(AdviceId::DecoratorFound));
+    }
+
+    fn with_baseline_of_five(outcome: &mut ScanOutcome) {
+        outcome.baseline_size = Some(5);
+    }
+
+    fn with_baseline_of_twelve(outcome: &mut ScanOutcome) {
+        outcome.baseline_size = Some(12);
+    }
+
+    fn assert_case(case: &Case, verdict: &Verdict) {
+        assert_eq!(verdict.failures, case.failures, "{}: failures", case.name);
+        assert_eq!(verdict.counted, case.counted, "{}: counted", case.name);
+        assert_eq!(verdict.known, case.known, "{}: known", case.name);
+    }
+
+    use GateGrade::{Never as NoGrade, Poor, Pristine};
+    use GateSeverity::{Error, Info, Never, Warning};
+
+    const ERRORS: &str = "10 findings at or above `error`, limit is 0";
+    const WARNINGS: &str = "11 findings at or above `warning`, limit is 0";
+    const INFOS: &str = "12 findings at or above `info`, limit is 0";
+    const HEALTH: &str = "health score 54 is below the required 60";
+    const BAD_BELOW_POOR: &str = "`bad.ts` grades critical against a floor of poor";
+    const TWO_BELOW_PRISTINE: &str =
+        "`bad.ts` grades critical against a floor of pristine and 1 more";
+
+    #[test]
+    fn the_scenario_is_what_the_expectations_assume() {
+        let outcome = scenario();
+        assert_eq!(outcome.counts.total, 12);
+        assert_eq!(
+            outcome
+                .counts
+                .weighted_health_score(outcome.code_lines, &outcome.impact),
+            54
+        );
+    }
+
+    #[test]
+    fn judge_decides_a_review_by_severity_health_and_grade() {
+        let cases = [
+            Case {
+                name: "fail_on error counts the errors",
+                gate: gate(Error, 0, NoGrade),
+                tweak: untouched,
+                failures: &[ERRORS],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "fail_on warning adds the warnings",
+                gate: gate(Warning, 0, NoGrade),
+                tweak: untouched,
+                failures: &[WARNINGS],
+                counted: 11,
+                known: 0,
+            },
+            Case {
+                name: "fail_on info counts everything",
+                gate: gate(Info, 0, NoGrade),
+                tweak: untouched,
+                failures: &[INFOS],
+                counted: 12,
+                known: 0,
+            },
+            Case {
+                name: "fail_on never passes",
+                gate: gate(Never, 0, NoGrade),
+                tweak: untouched,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "a health floor above the score adds a failure after the count",
+                gate: gate(Error, 60, NoGrade),
+                tweak: untouched,
+                failures: &[ERRORS, HEALTH],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "a health floor at or below the score adds nothing",
+                gate: gate(Error, 54, NoGrade),
+                tweak: untouched,
+                failures: &[ERRORS],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                // pinned: known gap, fixed in 0.3.0 (A9–A11)
+                name: "fail_on never skips the health floor",
+                gate: gate(Never, 60, NoGrade),
+                tweak: untouched,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "a grade floor names the worst file",
+                gate: gate(Error, 0, Poor),
+                tweak: untouched,
+                failures: &[ERRORS, BAD_BELOW_POOR],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "a grade floor counts the other files below it",
+                gate: gate(Error, 0, Pristine),
+                tweak: untouched,
+                failures: &[ERRORS, TWO_BELOW_PRISTINE],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "health and grade failures follow the count, in that order",
+                gate: gate(Error, 60, Poor),
+                tweak: untouched,
+                failures: &[ERRORS, HEALTH, BAD_BELOW_POOR],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                // pinned: known gap, fixed in 0.3.0 (A9–A11)
+                name: "fail_on never skips the grade floor",
+                gate: gate(Never, 0, Pristine),
+                tweak: untouched,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "findings the baseline holds are known, not counted",
+                gate: gate(Error, 0, NoGrade),
+                tweak: recorded_as_baseline,
+                failures: &[],
+                counted: 0,
+                known: 10,
+            },
+            Case {
+                name: "a baseline does not hide the debt from the health floor",
+                gate: gate(Error, 60, NoGrade),
+                tweak: recorded_as_baseline,
+                failures: &[HEALTH],
+                counted: 0,
+                known: 10,
+            },
+            Case {
+                name: "a baseline does not hide the debt from the grade floor",
+                gate: gate(Error, 0, Poor),
+                tweak: recorded_as_baseline,
+                failures: &[BAD_BELOW_POOR],
+                counted: 0,
+                known: 10,
+            },
+            Case {
+                name: "max_findings allows up to that many",
+                gate: Gate {
+                    max_findings: 10,
+                    ..gate(Error, 0, NoGrade)
+                },
+                tweak: untouched,
+                failures: &[],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "max_findings one short still fails",
+                gate: Gate {
+                    max_findings: 9,
+                    ..gate(Error, 0, NoGrade)
+                },
+                tweak: untouched,
+                failures: &["10 findings at or above `error`, limit is 9"],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                // pinned: known gap, fixed in 0.3.0 (A9–A11)
+                name: "a review ignores a half applied pattern",
+                gate: Gate {
+                    fail_on_incomplete: true,
+                    max_findings: 10,
+                    ..gate(Error, 0, NoGrade)
+                },
+                tweak: with_half_applied_pattern,
+                failures: &[],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                // pinned: known gap, fixed in 0.3.0 (A9–A11)
+                name: "a review ignores the ratchet",
+                gate: Gate {
+                    ratchet: true,
+                    max_findings: 10,
+                    ..gate(Error, 0, NoGrade)
+                },
+                tweak: with_baseline_of_five,
+                failures: &[],
+                counted: 10,
+                known: 0,
+            },
+        ];
+
+        for case in &cases {
+            let mut review = everything();
+            (case.tweak)(&mut review.outcome);
+            assert_case(case, &judge(&review, &config(case.gate.clone())));
+        }
+    }
+
+    #[test]
+    fn judge_looks_only_at_the_files_the_review_names() {
+        let only_ok = || reviewing(scenario(), &["ok.ts"]);
+
+        let verdict = judge(&only_ok(), &config(gate(Error, 0, NoGrade)));
+        assert!(verdict.passed(), "{:?}", verdict.failures);
+        assert_eq!((verdict.counted, verdict.known), (0, 0));
+
+        let verdict = judge(&only_ok(), &config(gate(Warning, 0, NoGrade)));
+        assert_eq!(
+            verdict.failures,
+            ["1 findings at or above `warning`, limit is 0"]
+        );
+        assert_eq!(verdict.counted, 1);
+
+        let verdict = judge(&only_ok(), &config(gate(Info, 0, Pristine)));
+        assert_eq!(
+            verdict.failures,
+            [
+                "2 findings at or above `info`, limit is 0",
+                "`ok.ts` grades clean against a floor of pristine"
+            ],
+            "bad.ts is not in the review, so its grade is nobody's business here"
+        );
+
+        let verdict = judge(&only_ok(), &config(gate(Error, 60, NoGrade)));
+        assert_eq!(
+            verdict.failures,
+            [HEALTH],
+            "health is the whole project's, whichever files were reviewed"
+        );
+    }
+
+    #[test]
+    fn judge_scan_decides_a_whole_project_by_severity_health_grade_patterns_and_ratchet() {
+        let cases = [
+            Case {
+                name: "fail_on error counts the errors",
+                gate: gate(Error, 0, NoGrade),
+                tweak: untouched,
+                failures: &[ERRORS],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "fail_on warning adds the warnings",
+                gate: gate(Warning, 0, NoGrade),
+                tweak: untouched,
+                failures: &[WARNINGS],
+                counted: 11,
+                known: 0,
+            },
+            Case {
+                name: "fail_on info counts everything",
+                gate: gate(Info, 0, NoGrade),
+                tweak: untouched,
+                failures: &[INFOS],
+                counted: 12,
+                known: 0,
+            },
+            Case {
+                name: "fail_on never passes",
+                gate: gate(Never, 0, NoGrade),
+                tweak: untouched,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "a health floor above the score adds a failure after the count",
+                gate: gate(Error, 60, NoGrade),
+                tweak: untouched,
+                failures: &[ERRORS, HEALTH],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "a health floor at or below the score adds nothing",
+                gate: gate(Error, 54, NoGrade),
+                tweak: untouched,
+                failures: &[ERRORS],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                // pinned: known gap, fixed in 0.3.0 (A9–A11)
+                name: "fail_on never skips the health floor",
+                gate: gate(Never, 60, NoGrade),
+                tweak: untouched,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "a grade floor names the worst file",
+                gate: gate(Error, 0, Poor),
+                tweak: untouched,
+                failures: &[ERRORS, BAD_BELOW_POOR],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "a grade floor counts the other files below it",
+                gate: gate(Error, 0, Pristine),
+                tweak: untouched,
+                failures: &[ERRORS, TWO_BELOW_PRISTINE],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "fail_on never still enforces the grade floor",
+                gate: gate(Never, 0, Poor),
+                tweak: untouched,
+                failures: &[BAD_BELOW_POOR],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "findings the baseline holds are known, not counted",
+                gate: gate(Error, 0, NoGrade),
+                tweak: recorded_as_baseline,
+                failures: &[],
+                counted: 0,
+                known: 10,
+            },
+            Case {
+                name: "a baseline does not hide the debt from the health floor",
+                gate: gate(Error, 60, NoGrade),
+                tweak: recorded_as_baseline,
+                failures: &[HEALTH],
+                counted: 0,
+                known: 10,
+            },
+            Case {
+                name: "a half applied pattern fails only when asked to",
+                gate: gate(Never, 0, NoGrade),
+                tweak: with_half_applied_pattern,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "fail_on_incomplete names the half applied pattern",
+                gate: Gate {
+                    fail_on_incomplete: true,
+                    ..gate(Error, 0, NoGrade)
+                },
+                tweak: with_half_applied_pattern,
+                failures: &[ERRORS, "1 pattern half applied: Decorator"],
+                counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "fail_on_incomplete holds when fail_on is never",
+                gate: Gate {
+                    fail_on_incomplete: true,
+                    ..gate(Never, 0, NoGrade)
+                },
+                tweak: with_half_applied_pattern,
+                failures: &["1 pattern half applied: Decorator"],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "a fitting or recognised pattern never fails the gate",
+                gate: Gate {
+                    fail_on_incomplete: true,
+                    ..gate(Never, 0, NoGrade)
+                },
+                tweak: with_only_fitting_and_recognised_patterns,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "the ratchet fails when the total outgrows the baseline",
+                gate: Gate {
+                    ratchet: true,
+                    ..gate(Never, 0, NoGrade)
+                },
+                tweak: with_baseline_of_five,
+                failures: &[
+                    "12 findings against the 5 the baseline recorded; remove 7 or run `rqx baseline --update`",
+                ],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "the ratchet passes at exactly the baseline",
+                gate: Gate {
+                    ratchet: true,
+                    ..gate(Never, 0, NoGrade)
+                },
+                tweak: with_baseline_of_twelve,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "the ratchet needs a baseline to compare against",
+                gate: Gate {
+                    ratchet: true,
+                    ..gate(Never, 0, NoGrade)
+                },
+                tweak: untouched,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "a baseline size means nothing without the ratchet",
+                gate: gate(Never, 0, NoGrade),
+                tweak: with_baseline_of_five,
+                failures: &[],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "every failure is reported, in a fixed order",
+                gate: Gate {
+                    fail_on_incomplete: true,
+                    ratchet: true,
+                    ..gate(Error, 60, Poor)
+                },
+                tweak: |outcome| {
+                    with_half_applied_pattern(outcome);
+                    with_baseline_of_five(outcome);
+                },
+                failures: &[
+                    ERRORS,
+                    HEALTH,
+                    BAD_BELOW_POOR,
+                    "1 pattern half applied: Decorator",
+                    "12 findings against the 5 the baseline recorded; remove 7 or run `rqx baseline --update`",
+                ],
+                counted: 10,
+                known: 0,
+            },
+        ];
+
+        for case in &cases {
+            let mut outcome = scenario();
+            (case.tweak)(&mut outcome);
+            assert_case(case, &judge_scan(&outcome, &config(case.gate.clone())));
+        }
+    }
+
+    #[test]
+    fn judge_scan_counts_from_the_exact_tally_not_the_retained_findings() {
+        let mut outcome = scenario();
+        outcome.findings.clear();
+        outcome.analyzed = BTreeSet::from(["bad.ts".to_owned()]);
+
+        let verdict = judge_scan(&outcome, &config(gate(Error, 0, NoGrade)));
+        assert_eq!(verdict.failures, [ERRORS]);
+        assert_eq!(verdict.counted, 10);
+    }
+}

@@ -2311,3 +2311,102 @@ mod grouping {
         assert!(invented.is_empty(), "not a real subcommand: {invented:?}");
     }
 }
+
+/// Every flag, alias and subcommand a script can type today, checked against
+/// `tests/contract/flags.txt`. Removing or renaming one breaks whoever wrote it into
+/// a pipeline; adding one is free, so the file may grow but no line may disappear.
+/// `RQX_BLESS=1 cargo test -p rqx flags` rewrites the file.
+#[cfg(test)]
+mod flags {
+    use std::collections::BTreeSet;
+
+    fn surface(command: &clap::Command, path: &str, lines: &mut BTreeSet<String>) {
+        for argument in command.get_arguments() {
+            argument_lines(argument, path, lines);
+        }
+        for sub in command.get_subcommands() {
+            let sub_path = if path.is_empty() {
+                sub.get_name().to_owned()
+            } else {
+                format!("{path} {}", sub.get_name())
+            };
+            lines.insert(sub_path.clone());
+            for alias in sub.get_all_aliases() {
+                lines.insert(format!("alias {alias} -> {sub_path}"));
+            }
+            surface(sub, &sub_path, lines);
+        }
+    }
+
+    fn argument_lines(argument: &clap::Arg, path: &str, lines: &mut BTreeSet<String>) {
+        let mut spellings: Vec<String> = Vec::new();
+        spellings.extend(argument.get_long().map(|long| format!("--{long}")));
+        spellings.extend(argument.get_short().map(|short| format!("-{short}")));
+        spellings.extend(
+            argument
+                .get_all_aliases()
+                .into_iter()
+                .flatten()
+                .map(|alias| format!("--{alias}")),
+        );
+        spellings.extend(
+            argument
+                .get_all_short_aliases()
+                .into_iter()
+                .flatten()
+                .map(|alias| format!("-{alias}")),
+        );
+        if spellings.is_empty() {
+            lines.insert(format!("{path} <{}>", argument.get_id()));
+            return;
+        }
+        for spelling in spellings {
+            lines.insert(format!("{path} {spelling}"));
+            if let Some(variable) = argument.get_env() {
+                lines.insert(format!(
+                    "{path} {spelling} [env {}]",
+                    variable.to_string_lossy()
+                ));
+            }
+            for value in argument.get_possible_values() {
+                lines.insert(format!("{path} {spelling} ={}", value.get_name()));
+            }
+        }
+    }
+
+    fn current_surface() -> BTreeSet<String> {
+        let mut parser = super::parser();
+        parser.build();
+        let mut lines = BTreeSet::new();
+        surface(&parser, "", &mut lines);
+        lines
+            .into_iter()
+            .map(|line| line.trim_start().to_owned())
+            .collect()
+    }
+
+    #[test]
+    fn no_flag_alias_or_subcommand_is_ever_removed() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/contract/flags.txt");
+        let current = current_surface();
+
+        if std::env::var_os("RQX_BLESS").is_some() {
+            let mut text = current.iter().cloned().collect::<Vec<_>>().join("\n");
+            text.push('\n');
+            std::fs::write(path, text).expect("the flags file");
+            return;
+        }
+
+        let recorded = std::fs::read_to_string(path)
+            .unwrap_or_else(|_| panic!("no {path}; generate it with RQX_BLESS=1"));
+        let removed: Vec<&str> = recorded
+            .lines()
+            .filter(|line| !line.is_empty() && !current.contains(*line))
+            .collect();
+        assert!(
+            removed.is_empty(),
+            "these were part of the command line and are gone:\n{}",
+            removed.join("\n")
+        );
+    }
+}
