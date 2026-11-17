@@ -228,6 +228,19 @@ impl Drop for Worktree {
     }
 }
 
+/// The revision `base` and the working tree last had in common, which is what a
+/// change is measured from.
+pub fn merge_base(root: &Path, base: &str) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["merge-base", base, "HEAD"])
+        .output()
+        .ok()?;
+    let revision = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (output.status.success() && !revision.is_empty()).then_some(revision)
+}
+
 /// Files that differ from a base revision. Uses the merge base so a stale branch is
 /// judged on what it actually changed rather than on everything that landed on the
 /// base since it forked.

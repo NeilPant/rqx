@@ -31,6 +31,18 @@ export function asksTwice(kind: string): number {
 
 Suggested fix: extract the shared block into one function and call it from all 2 sites
 
+## `reimplemented-existing`
+
+a second copy of an existing function has to be changed together with the original, and nothing in the code connects the two
+
+| | |
+|---|---|
+| Measures | added function whose normalised body matches a function that exists at the base revision |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Replace Algorithm / Extract Shared Module |
+| Tuned by | `thresholds.clone_min_statements`, `thresholds.clone_min_nodes` |
+
 ## `unused-export`
 
 an export that nothing imports still has to be read, type-checked and kept working during every refactoring that touches it

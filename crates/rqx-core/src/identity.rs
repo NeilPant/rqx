@@ -120,6 +120,7 @@ impl Evidence {
             // The comment itself is the subject, and its text is the span's text.
             Self::Noise { .. } => None,
             Self::Name { identifier, .. } => Some(identifier),
+            Self::Reimplemented { added, .. } => Some(added),
             Self::UnusedExport { symbol, .. } => Some(symbol),
             Self::UnusedParameter { name, .. }
             | Self::UnusedBinding { name, .. }
@@ -218,6 +219,7 @@ impl Evidence {
             Self::BuriedConfiguration { depth, .. } => Some(*depth),
             Self::AlternativeClasses { methods, .. } => Some(*methods),
             Self::Name { .. }
+            | Self::Reimplemented { .. }
             | Self::UnusedExport { .. }
             | Self::UnusedParameter { .. }
             | Self::UnusedBinding { .. }

@@ -34,6 +34,7 @@ mod progress;
 mod project;
 mod query;
 mod recommend;
+mod reimplemented;
 mod release;
 mod render;
 mod report;

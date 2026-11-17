@@ -58,6 +58,23 @@ pub struct FunctionShape {
     pub loop_depth: u32,
     #[serde(default)]
     pub self_calls: u32,
+    /// The clone detector's fingerprints of the function's body, when the body holds
+    /// enough to be worth comparing.
+    #[serde(default)]
+    pub body: Option<BodyPrint>,
+}
+
+/// A function body as the clone detector fingerprints it. `hash` is salted by
+/// language family, so equal hashes mean the same normalised syntax in one language.
+/// `shape` and `literals` are the vocabulary every language shares, so equal pairs
+/// can come from two languages.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct BodyPrint {
+    pub hash: u64,
+    pub shape: u64,
+    pub literals: u64,
+    pub statements: u32,
+    pub nodes: u32,
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
@@ -455,15 +472,34 @@ pub fn analyze_as(
     // saying a Go block duplicates a Java one would be true and useless. TypeScript
     // and JavaScript share a salt because a block copied between them is a copy.
     let salt = language.family() as u64 + 1;
+    let is_comparable = |candidate: &&rqx_core::facts::CloneCandidate| {
+        candidate.statements >= thresholds.clone_min_statements
+            && candidate.nodes >= thresholds.clone_min_nodes
+    };
+    let salted = |hash: u64| hash.wrapping_mul(salt).rotate_left(salt as u32);
+    let bodies: Vec<Option<BodyPrint>> = measured
+        .functions
+        .iter()
+        .map(|function| {
+            body_of(
+                function.extent,
+                measured.clones.iter().filter(is_comparable),
+            )
+            .map(|candidate| BodyPrint {
+                hash: salted(candidate.hash),
+                shape: candidate.shape,
+                literals: candidate.literals,
+                statements: candidate.statements,
+                nodes: candidate.nodes,
+            })
+        })
+        .collect();
     let clones = measured
         .clones
         .iter()
-        .filter(|candidate| {
-            candidate.statements >= thresholds.clone_min_statements
-                && candidate.nodes >= thresholds.clone_min_nodes
-        })
+        .filter(is_comparable)
         .map(|candidate| CloneSite {
-            hash: candidate.hash.wrapping_mul(salt).rotate_left(salt as u32),
+            hash: salted(candidate.hash),
             shape: candidate.shape,
             literals: candidate.literals,
             range: builder.range(candidate.span),
@@ -478,7 +514,8 @@ pub fn analyze_as(
         functions: measured
             .functions
             .into_iter()
-            .map(|function| FunctionShape {
+            .zip(bodies)
+            .map(|(function, body)| FunctionShape {
                 name: function.name,
                 range: builder.range(function.report),
                 end: function.extent.end,
@@ -489,6 +526,7 @@ pub fn analyze_as(
                 max_nesting: function.max_nesting,
                 loop_depth: function.loop_depth,
                 self_calls: function.self_calls,
+                body,
             })
             .collect(),
         classes: measured
@@ -515,6 +553,19 @@ pub fn analyze_as(
         suppressions: hygiene.waivers,
         todos: hygiene.todos,
     })
+}
+
+/// The block that is a function's body: the largest one inside the function, because
+/// the body contains every block that a branch or a loop in it opens.
+fn body_of<'a>(
+    function: Span,
+    candidates: impl Iterator<Item = &'a rqx_core::facts::CloneCandidate>,
+) -> Option<&'a rqx_core::facts::CloneCandidate> {
+    candidates
+        .filter(|candidate| {
+            function.start <= candidate.span.start && candidate.span.end <= function.end
+        })
+        .max_by_key(|candidate| candidate.nodes)
 }
 
 /// Re-exported so a caller can build a `SourceRange` for a finding discovered after

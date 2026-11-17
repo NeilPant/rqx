@@ -470,6 +470,7 @@ mod tests {
                 max_nesting: 1,
                 loop_depth: *loops,
                 self_calls: *calls,
+                body: None,
             });
         }
         outcome

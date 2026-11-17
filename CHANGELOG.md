@@ -11,6 +11,14 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Added
 
+- **`reimplemented-existing` reports new functions that repeat existing ones.**
+  `rqx check` and `rqx comment` scan the revision the change forked from and compare
+  the bodies of the functions the change adds with the functions that exist at both
+  revisions, using the fingerprints of the clone detector. A match is reported with the
+  existing function and its location as the one to call. Confidence is `verified` for
+  the same normalised syntax, `heuristic` for the same control flow and constants in one
+  language, and `low` for a match across languages. Renamed and moved functions are not
+  reported. `rqx scan` and `--files-from` do not report the rule. See `docs/ci.md`.
 - **`--sarif-in` reads other tools' SARIF results.** `rqx scan`, `rqx check` and
   `rqx comment` accept SARIF 2.1.0 files from ruff, Biome, ESLint, Semgrep or any tool
   that writes the format, and report each result as a finding in the new `external`

@@ -79,3 +79,73 @@ pub fn file_uri(path: &Path) -> String {
     }
     format!("file://{}", text.replace(' ', "%20"))
 }
+
+/// A throwaway git repository that commits the files it is given, so a test can build
+/// the history a review compares against instead of mocking git.
+pub struct Repository {
+    pub root: std::path::PathBuf,
+}
+
+impl Repository {
+    pub fn new(name: &str) -> Self {
+        let root = std::env::temp_dir().join(format!("rqx-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("a temp repository");
+        let repository = Self { root };
+        repository.git(&["init", "-q"]);
+        repository.git(&["config", "core.autocrlf", "false"]);
+        repository.git(&["config", "user.email", "test@example.com"]);
+        repository.git(&["config", "user.name", "test"]);
+        repository
+    }
+
+    pub fn git(&self, args: &[&str]) {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.root)
+            .args(args)
+            .output()
+            .expect("git runs");
+        assert!(
+            output.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    /// Writes the files, removes the ones named with no text, and commits everything.
+    pub fn commit(&self, message: &str, files: &[(&str, Option<&str>)]) {
+        for (path, text) in files {
+            let file = self.root.join(path);
+            match text {
+                Some(text) => {
+                    std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
+                    std::fs::write(file, text).expect("a file");
+                }
+                None => {
+                    let _ = std::fs::remove_file(file);
+                }
+            }
+        }
+        self.git(&["add", "-A"]);
+        self.git(&["commit", "-qm", message]);
+    }
+
+    /// Runs rqx in the repository and returns its parsed JSON lines.
+    pub fn rqx_lines(&self, args: &[&str]) -> Vec<serde_json::Value> {
+        let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+            .args(args)
+            .current_dir(&self.root)
+            .env("HOME", &self.root)
+            .env("XDG_CONFIG_HOME", &self.root)
+            .env_remove("RQX_CONFIG")
+            .env_remove("RQX_POLICY")
+            .env_remove("RQX_LEVEL")
+            .output()
+            .expect("rqx runs");
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    }
+}

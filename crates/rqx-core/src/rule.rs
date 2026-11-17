@@ -263,10 +263,10 @@ macro_rules! catalogue {
 
 impl RuleId {
     /// The rules one file's re-analysis cannot re-derive: the ones that read the
-    /// import graph, and three that are computed across files by the scan although
-    /// they declare `Syntax` — clones, and the two churn rules. Listed by id because
-    /// `analysis` alone would miss those three.
-    pub const PROJECT_SCOPED: [Self; 16] = [
+    /// import graph, and the ones the scan computes across files although they declare
+    /// `Syntax`: clones, reimplementations, history and notes. Listed by id because
+    /// `analysis` alone would miss them.
+    pub const PROJECT_SCOPED: [Self; 17] = [
         Self::ParallelInheritance,
         Self::UnusedExport,
         Self::UnusedFile,
@@ -277,6 +277,7 @@ impl RuleId {
         Self::WideFanOut,
         Self::WideFanIn,
         Self::DuplicateCode,
+        Self::ReimplementedExisting,
         Self::DivergentChange,
         Self::ShotgunSurgery,
         Self::Hotspot,
@@ -386,6 +387,7 @@ mod tests {
             let collector = matches!(
                 rule,
                 RuleId::DuplicateCode
+                    | RuleId::ReimplementedExisting
                     | RuleId::DivergentChange
                     | RuleId::ShotgunSurgery
                     | RuleId::Hotspot

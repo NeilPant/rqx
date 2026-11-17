@@ -121,8 +121,8 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `max_params` | 4 | `long-parameter-list` |
 | `class_members` | 20 | `large-class` |
 | `class_statements` | 200 | `large-class` |
-| `clone_min_statements` | 3 | `duplicate-code` |
-| `clone_min_nodes` | 12 | `duplicate-code` |
+| `clone_min_statements` | 3 | `duplicate-code`, `reimplemented-existing` |
+| `clone_min_nodes` | 12 | `duplicate-code`, `reimplemented-existing` |
 | `condition_operands` | 3 | `complex-condition` |
 | `message_chain_depth` | 3 | `message-chain` |
 | `commented_code_lines` | 2 | `commented-out-code` |

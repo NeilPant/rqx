@@ -368,6 +368,7 @@ mod tests {
                 last_line: 1,
                 loop_depth: 0,
                 self_calls: 0,
+                body: None,
                 parameters: 1,
                 statements: *statements,
                 cognitive_complexity: *complexity,

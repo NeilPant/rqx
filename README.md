@@ -13,7 +13,7 @@ A single Rust binary with no runtime dependencies.
 
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
-![Rules](https://img.shields.io/badge/rules-185-0a84ff)
+![Rules](https://img.shields.io/badge/rules-186-0a84ff)
 ![Languages](https://img.shields.io/badge/languages-6-0a84ff)
 ![No runtime dependencies](https://img.shields.io/badge/runtime%20deps-none-1f9e55)
 
@@ -184,8 +184,8 @@ Inside the interface the same list is `/help`.
 - **It does not type-check.** rqx parses source, resolves scopes and imports, and reads
   git history. It does not resolve types, so a finding that needs a type checker to be
   certain is reported at lower confidence, or not reported, and says which.
-- **Rule coverage differs by language.** Of 185 rules, 184 apply to TypeScript, 176 to
-  JavaScript, 174 to Python, 171 to Java, 169 to C++ and 139 to Go. A rule that cannot
+- **Rule coverage differs by language.** Of 186 rules, 185 apply to TypeScript, 177 to
+  JavaScript, 175 to Python, 172 to Java, 170 to C++ and 140 to Go. A rule that cannot
   exist in a language says so in `rqx explain`, with a reason. `rqx rules --language
   <name>` lists the ones that apply.
 - **JavaScript leaves out the type-syntax rules.** JavaScript is read as TypeScript
@@ -226,7 +226,7 @@ Real output, narrowed to two rules so it fits here:
   Files     2 with findings · 0 clean · 2 scanned
   Findings  0 errors · 10 warnings · 1 info · 8 not shown
   Grades    1 clean · 1 fair
-  Rules     9 of 185 fired
+  Rules     9 of 186 fired
   Health    66/100
   Duration  0.02s
 ```
@@ -282,14 +282,14 @@ match, so a rule that does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-185 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
+186 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
 
 | Family | Rules | What it measures |
 |---|---|---|
 | **Size** | 16 | functions, types and modules whose size or complexity exceeds a threshold |
 | **Abstraction** | 17 | types whose structure does not match the problem |
 | **Change** | 7 | code shapes that raise the cost of a change |
-| **Waste** | 33 | code and comments that nothing reaches |
+| **Waste** | 34 | code and comments that nothing reaches |
 | **Coupling** | 18 | dependencies between modules that are too broad or point the wrong way |
 | **Flow** | 17 | control flow that is redundant or misleading |
 | **Naming** | 12 | names that mislead or carry no information |
@@ -394,7 +394,7 @@ import resolver. Nothing else about a language reaches the rules.
 | **Imports resolve via** | extensions, `index`, `tsconfig` paths, `package.json` | the same, and one graph with TypeScript: `./x.js` finds `x.ts` | packages and `__init__.py`, relative dots | `go.mod` module path, package directories | package to directory under a source root | `#include "…"` against the file and include roots |
 | **Entry points** | `package.json` `main`/`exports`/`bin` | `package.json` `main`/`exports`/`bin` | `__main__.py`, `main.py`, `conftest.py`, `test_*`, `[project.scripts]` | `package main`, `_test.go` | `static void main`, `@Test` | every translation unit, `TEST(…)` |
 | **Tests** | Jest/Mocha/Vitest | Jest/Mocha/Vitest | pytest, unittest | `go test` | JUnit | GoogleTest |
-| **Rules that apply** | 184 | 176 | 174 | 139 | 171 | 169 |
+| **Rules that apply** | 185 | 177 | 175 | 140 | 172 | 170 |
 
 JavaScript is read as TypeScript without its types. TypeScript and JavaScript files
 in one project share a module graph, so an import of `./util.js` that is really
@@ -653,10 +653,10 @@ level: strict
 
 | Level | Rules | Gate | For |
 |---|---|---|---|
-| `relaxed` | 155 of 185 | error | legacy code that has to stay shippable while it is cleaned up |
-| `standard` | 164 of 185 | error | the catalogue as it stands |
-| `strict` | 168 of 185 | warning, min grade `fair` | held to what a reader can follow without effort |
-| `pristine` | 185 of 185 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
+| `relaxed` | 156 of 186 | error | legacy code that has to stay shippable while it is cleaned up |
+| `standard` | 165 of 186 | error | the catalogue as it stands |
+| `strict` | 169 of 186 | warning, min grade `fair` | held to what a reader can follow without effort |
+| `pristine` | 186 of 186 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
 
 A level is merged under everything the project states, so it moves the defaults and
 does not override a stated value. `rqx config` shows `level:strict` in the `from`

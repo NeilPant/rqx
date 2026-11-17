@@ -2897,14 +2897,14 @@
           "properties": {
             "clone_min_nodes": {
               "default": 12,
-              "description": "Tunes `duplicate-code`. A floor on AST nodes rather than statements, to reject a block of three bare identifiers. Statement count is the primary filter: candidates are only taken at extractable block boundaries, where a real three-statement block runs to roughly twenty nodes.",
+              "description": "Tunes `duplicate-code` and `reimplemented-existing`. A floor on AST nodes rather than statements, to reject a block of three bare identifiers. Statement count is the primary filter: candidates are only taken at extractable block boundaries, where a real three-statement block runs to roughly twenty nodes.",
               "format": "uint32",
               "minimum": 0,
               "type": "integer"
             },
             "clone_min_statements": {
               "default": 3,
-              "description": "Smallest repeated block, in statements, that is reported as duplicate code. Tunes `duplicate-code`.",
+              "description": "Smallest repeated block, in statements, that is reported as duplicate code or as a function that repeats an existing one. Tunes `duplicate-code` and `reimplemented-existing`.",
               "format": "uint32",
               "minimum": 0,
               "type": "integer"
@@ -7035,6 +7035,66 @@
           ],
           "type": "object"
         },
+        "reimplemented-existing": {
+          "additionalProperties": false,
+          "description": "Settings for `reimplemented-existing`. a second copy of an existing function has to be changed together with the original, and nothing in the code connects the two",
+          "properties": {
+            "clone_min_nodes": {
+              "default": 12,
+              "description": "Tunes `duplicate-code` and `reimplemented-existing`. A floor on AST nodes rather than statements, to reject a block of three bare identifiers. Statement count is the primary filter: candidates are only taken at extractable block boundaries, where a real three-statement block runs to roughly twenty nodes.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "clone_min_statements": {
+              "default": 3,
+              "description": "Smallest repeated block, in statements, that is reported as duplicate code or as a function that repeats an existing one. Tunes `duplicate-code` and `reimplemented-existing`.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "confidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this confidence. Only `verified` findings count towards the health score."
+            },
+            "enabled": {
+              "description": "`false` switches the rule off and `true` switches it on, even when it ships off. It is the most specific word on the rule, so it wins over the rule being named in `disabled` or `enabled`, or filtered out by `categories`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "paths": {
+              "description": "Globs, relative to the scanned directory. When given, the rule only reports in files they match.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "severity": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this severity instead of the catalogue's."
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "type": "object"
+        },
         "rethrow-only-catch": {
           "additionalProperties": false,
           "description": "Settings for `rethrow-only-catch`. it reads as a decision about the failure and makes none, and in languages that rebuild the stack trace on rethrow it loses the original",
@@ -9534,14 +9594,14 @@
         },
         "clone_min_nodes": {
           "default": 12,
-          "description": "Tunes `duplicate-code`. A floor on AST nodes rather than statements, to reject a block of three bare identifiers. Statement count is the primary filter: candidates are only taken at extractable block boundaries, where a real three-statement block runs to roughly twenty nodes.",
+          "description": "Tunes `duplicate-code` and `reimplemented-existing`. A floor on AST nodes rather than statements, to reject a block of three bare identifiers. Statement count is the primary filter: candidates are only taken at extractable block boundaries, where a real three-statement block runs to roughly twenty nodes.",
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
         "clone_min_statements": {
           "default": 3,
-          "description": "Smallest repeated block, in statements, that is reported as duplicate code. Tunes `duplicate-code`.",
+          "description": "Smallest repeated block, in statements, that is reported as duplicate code or as a function that repeats an existing one. Tunes `duplicate-code` and `reimplemented-existing`.",
           "format": "uint32",
           "minimum": 0,
           "type": "integer"

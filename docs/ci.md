@@ -343,6 +343,25 @@ rule name that is not in the catalogue, exits `0` by default and `1` under `--st
 With `--json`, the command prints one line per problem with its file, line and column.
 See [json.md](json.md).
 
+## Functions that repeat existing code
+
+`rqx check` and `rqx comment` also scan the revision the change forked from, the merge
+base of `--base` and `HEAD`. A function that exists only in the working tree and whose
+body matches a function that exists at both revisions is reported as
+`reimplemented-existing`. The finding names the existing function and its location.
+
+| Match | Confidence |
+|---|---|
+| The same normalised syntax, differing only in local names. | `verified` |
+| The same control flow and constants in one language, with other member names, in a body of at least 8 statements and 40 syntax nodes. | `heuristic` |
+| The same control flow and constants in a file of another language, with the same size floor. | `low` |
+
+A function that was renamed or moved is not reported, because the function it replaced
+no longer exists to call. `clone_min_statements` and `clone_min_nodes` set the smallest
+body that is compared. The base scan roughly doubles the run time of `rqx check`, and
+the base checkout starts without a scan cache. `--files-from` names no revision, so
+the rule does not run there, and `rqx scan` never reports it.
+
 ## Review without git history
 
 `rqx check` normally asks git which files differ from `--base`. A shallow clone has no
