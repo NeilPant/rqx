@@ -341,6 +341,35 @@ mod tests {
         }
     }
 
+    /// The header owl, which is small enough that a pixel out of place changes the face.
+    /// Run it with `cargo test -p rqx render_compact_owl -- --nocapture`.
+    #[test]
+    fn render_compact_owl() {
+        let sprite = Sprite::parse(include_str!("../../assets/mascot-compact.txt"));
+        for depth in [ColorDepth::Truecolor, ColorDepth::Monochrome] {
+            println!("\n{depth:?}");
+            let drawn: Vec<Vec<String>> = FRAMES
+                .iter()
+                .map(|name| {
+                    sprite
+                        .render_frame(
+                            Palette::with_depth(depth),
+                            sprite.frame(name),
+                            Ink::Good,
+                            usize::MAX,
+                        )
+                        .iter()
+                        .map(escape)
+                        .collect()
+                })
+                .collect();
+            for row in 0..sprite.cell_height() as usize {
+                let line: Vec<&str> = drawn.iter().map(|frame| frame[row].as_str()).collect();
+                println!("{}", line.join("  "));
+            }
+        }
+    }
+
     fn escape(line: &Line<'_>) -> String {
         let mut out = String::new();
         for span in &line.spans {

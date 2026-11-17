@@ -1,0 +1,41 @@
+# rqx. The owl at header size: 8x6 pixels, which is eight columns and three rows of
+# terminal cells. The same four frames and the same letters as mascot.txt (S plumage,
+# H shade, T iris, K pupil); `tools/render-mascot.py` reads only that file, so the icons
+# are still drawn from the large owl.
+#
+# Six pixel rows are too few to downscale the large owl and keep its face, so this one
+# is drawn by hand. The eyes are pixel rows 2 and 3, which share one cell row, so each
+# eye is a pupil above its iris in a single cell and still reads as one dark band. The
+# irises touch in the middle, because a gap between them would cost the pupils the room
+# they need to look left and right.
+#
+# A glance moves only the pupils, a pixel to one side inside the same iris, and both
+# eyes look the same way.
+#: idle
+.H....H.
+HSSSSSSH
+HTKTTKTH
+HTTTTTTH
+HSSHHSSH
+.HHHHHH.
+#: blink
+.H....H.
+HSSSSSSH
+HSSSSSSH
+HHHHHHHH
+HSSHHSSH
+.HHHHHH.
+#: glance-left
+.H....H.
+HSSSSSSH
+HKTTKTTH
+HTTTTTTH
+HSSHHSSH
+.HHHHHH.
+#: glance-right
+.H....H.
+HSSSSSSH
+HTTKTTKH
+HTTTTTTH
+HSSHHSSH
+.HHHHHH.

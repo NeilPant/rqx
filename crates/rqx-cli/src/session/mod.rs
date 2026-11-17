@@ -41,7 +41,7 @@ use commands::{Action, Context, Invocation, Parsed, Target, WatchMode};
 use completion::{Catalogue, Suggestion};
 use job::{Finished, Job};
 use motion::Motion;
-use owl::{Owl, Pose};
+use owl::Owl;
 use prompt::Prompt;
 use recall::Recall;
 use sprite::Sprite;
@@ -49,7 +49,7 @@ use view::{Idle, Look, Menu, MenuRow, SCANNING_ROWS};
 use viewport::Viewport;
 use watching::{Change, Watcher};
 
-const MASCOT: &str = include_str!("../../assets/mascot.txt");
+const MASCOT: &str = include_str!("../../assets/mascot-compact.txt");
 const MIN_WIDTH: u16 = 50;
 const MIN_HEIGHT: u16 = 14;
 /// How long the loop may sleep when nothing is moving and no job is running.
@@ -164,7 +164,7 @@ impl App {
                 palette: Palette::detect(),
             },
             motion: Motion::new(options.reduced_motion),
-            owl: Owl::new(Sprite::parse(MASCOT), clock_seed()),
+            owl: Owl::new(Sprite::parse(MASCOT)),
             root: display_root(options.path),
             path: options.path.to_path_buf(),
             config: options.config.clone(),
@@ -233,21 +233,6 @@ impl App {
         brand::mascot_ink(self.health())
     }
 
-    fn pose(&self) -> Pose {
-        if self.job.is_some() {
-            Pose::Working
-        } else {
-            Pose::Resting
-        }
-    }
-
-    /// The owl as it looks this frame: glancing while a job runs, blinking when not.
-    fn owl_now(&mut self) -> Vec<Line<'static>> {
-        let (pose, signal) = (self.pose(), self.signal());
-        self.owl
-            .lines(pose, &self.motion, self.look.palette, signal)
-    }
-
     fn wanted_rows(&self) -> u16 {
         if self.job.is_some() {
             SCANNING_ROWS
@@ -262,9 +247,9 @@ impl App {
     }
 
     fn draw(&mut self) -> Result<()> {
-        let owl = self.owl_now();
         let look = &self.look;
         if let Some((_, busy)) = &self.job {
+            let owl = self.owl.glancing(&self.motion, look.palette, self.signal());
             let room = view::text_width(&owl, self.viewport.width());
             let spinner = self.motion.spinner();
             let text = match busy {
@@ -297,7 +282,7 @@ impl App {
             status: &status,
         };
         self.viewport
-            .draw(|frame| view::idle(frame, look, owl, &state))?;
+            .draw(|frame| view::idle(frame, look, &state))?;
         Ok(())
     }
 
@@ -331,9 +316,7 @@ impl App {
         let own = if self.job.is_some() {
             motion::FRAME
         } else {
-            self.owl
-                .changes_in(self.pose(), &self.motion)
-                .map_or(QUIET, |change| change.min(QUIET))
+            QUIET
         };
         own.min(watching)
     }
@@ -733,13 +716,6 @@ fn health_of(outcome: &ScanOutcome) -> u32 {
     outcome
         .counts
         .weighted_health_score(outcome.code_lines, &outcome.impact)
-}
-
-/// Where the blinks fall is not worth reproducing, so the clock is as good a seed as any.
-fn clock_seed() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0x006f_776c, |since| since.as_nanos() as u64)
 }
 
 /// The directory the session is looking at, as a person would write it: relative to

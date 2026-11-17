@@ -24,24 +24,28 @@ tools, and what the session printed is still there after you leave.
 
 ```
 ╭────────────────────────────────────────────────╮
-│ ▄▀▀▄▄▀▀▄  rqx 0.2.0                            │
-│ █◉▓▓▓▓◉█  ~/work/billing · 3,456 files         │
-│ ▀▄▄▄▄▄▄▀  health 82/100 · fair · 31 findings   │
+│ ▄█▄▄▄▄█▄  rqx 0.2.0                            │
+│ █▀██▀▀█▀  ~/work/billing · 3,456 files         │
+│ ▀██▀▀██▀  health 82/100 · fair · 31 findings   │
 ╰────────────────────────────────────────────────╯
  ✓ Scanned 3,456 files in 0.41s · cache 3,455/3,456
- ● error    dead-export     src/api/client.ts:42
+ 1 ● error    dead-export     src/api/client.ts:42
    … 28 more · /findings to list them
+────────────────────────────────────────────────────
 > /plan --budget 20
- 1. Extract InvoiceTotals   −6 findings  +4 health
+────────────────────────────────────────────────────
+ /help  /findings  /fix  /watch  /open  /waive  /exit    health 82 · fair · 31 findings
 ```
 
-The owl is drawn larger in a real terminal; this is the layout, not the pixels.
+The owl is three rows of half blocks, eight columns wide; the sketch above is the
+layout, not the pixels.
 
 The session scans the working directory as it opens. While it runs, the owl glances
-left and right beside the phase, the files done and the file being read. When the
-scan lands, the header and the worst findings go into scrollback and the prompt
-takes the bottom of the window, with the owl beside it. The plumage follows the
-health score, and the owl blinks every few seconds. `--motion off` draws it still.
+left and right beside the phase, the files done and the file being read; it does the
+same while any other command works. When the scan lands, the header and the worst
+findings go into scrollback, and the prompt takes the bottom of the window across its
+whole width. The plumage follows the health score. `--motion off` draws the owl
+still.
 
 The status line at the bottom is right-aligned: health, grade, findings, `watching`
 when it is on, and how many files came from the cache. The key hints on the left
