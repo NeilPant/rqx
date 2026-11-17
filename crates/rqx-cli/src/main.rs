@@ -2228,7 +2228,8 @@ fn run() -> Result<Exit> {
                     .collect();
             }
             let sinks = printing.sinks(json)?;
-            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            let outcome =
+                scan::scan_drawn_against(&path, &settings, progress, scan::Comparison::costed())?;
             let view = perf::View {
                 by,
                 sort,

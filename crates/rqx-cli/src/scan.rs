@@ -340,7 +340,6 @@ impl Default for CostFacts {
 
 impl CostFacts {
     /// The facts of the file findings call `name`.
-    #[allow(dead_code)]
     pub fn of_file(&self, name: &str) -> Option<&rqx_core::cost::FileCost> {
         self.costs
             .iter()
@@ -380,7 +379,6 @@ pub(crate) struct Comparison {
 
 impl Comparison {
     /// A scan that keeps the cost facts, for the performance report and `--explain`.
-    #[allow(dead_code)]
     pub fn costed() -> Self {
         Self {
             reference: None,
@@ -2661,8 +2659,25 @@ pub fn scan_drawn(
     settings: &Resolved,
     mode: crate::progress::Mode,
 ) -> Result<ScanOutcome> {
+    scan_drawn_against(root, settings, mode, Comparison::default())
+}
+
+/// `scan_drawn` for a caller that holds on to more than the answer, as `comparison` says.
+pub(crate) fn scan_drawn_against(
+    root: &Path,
+    settings: &Resolved,
+    mode: crate::progress::Mode,
+    comparison: Comparison,
+) -> Result<ScanOutcome> {
     crate::progress::drawing(mode, |watch| {
-        scan_with(root, settings, watch, CachePolicy::FromSettings)
+        scan_against(
+            root,
+            settings,
+            watch,
+            CachePolicy::FromSettings,
+            comparison,
+            None,
+        )
     })
 }
 
