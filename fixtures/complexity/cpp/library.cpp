@@ -15,7 +15,7 @@ void sort_in_place(std::vector<int>& values) {
     std::sort(values.begin(), values.end());
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified rule=linear-op-in-loop scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=scan-in-loop scope=local
 int contains_any(const std::vector<int>& values, const std::vector<int>& wanted) {
     int hits = 0;
     for (int value : values) {

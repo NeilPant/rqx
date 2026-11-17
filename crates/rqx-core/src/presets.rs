@@ -113,6 +113,20 @@ mod tests {
     }
 
     #[test]
+    fn perf_switches_on_the_performance_rules_that_ship_off() {
+        use crate::rule::{Category, RuleId};
+        let perf: RqxConfig = serde_saphyr::from_str(lookup("perf").expect("perf")).unwrap();
+        let off: Vec<RuleId> = Category::Performance
+            .rules()
+            .filter(|rule| rule.spec().off_by_default)
+            .collect();
+        assert!(!off.is_empty());
+        for rule in off {
+            assert!(perf.rules.enabled(rule), "{rule} is off under perf");
+        }
+    }
+
+    #[test]
     fn ci_gate_gates_and_recommended_does_not_move_anything() {
         let gate: RqxConfig = serde_saphyr::from_str(lookup("ci-gate").expect("ci-gate")).unwrap();
         assert_eq!(gate.gate.min_health, 70);

@@ -102,5 +102,26 @@ public class Main {
         new Ticker().fire();
         new Editor().save();
         new SmsGateway().disconnect();
+        new CostBoxingInLoop().sumBoxed(java.util.List.of());
+        new CostBoxingInLoop().sumPrimitive(java.util.List.of());
+        new CostBoxingInLoop().firstBoxed(java.util.List.of());
+        new CostUnboundedCache().rememberPage("", 0);
+        new CostUnboundedCache().rememberRecentPage("", 0);
+        new CostLockInLoop().tallyUnderOneLock(java.util.List.of(), new Object());
+        new CostLockInLoop().tallyUnderEachLock(java.util.List.of(), java.util.List.of());
+        new CostUnboundedConcurrency().loadEveryPage(java.util.List.of(), id -> id);
+        new CostUnboundedConcurrency().loadFewPages(java.util.List.of(), id -> id, Runnable::run);
+        new CostAllocationInLoop().describeRows(java.util.List.of());
+        new CostAllocationInLoop().bufferEachRow(java.util.List.of());
+        new CostAllocationInLoop().pairEachRow(java.util.List.of());
+        new CostMissingCapacity().copyNames(java.util.List.of());
+        new CostMissingCapacity().copyNamesSized(java.util.List.of());
+        new CostAccumulateByCopy().joinWithPlus(java.util.List.of());
+        new CostAccumulateByCopy().joinWithBuilder(java.util.List.of());
+        new CostAccumulateByCopy().lengthOf(java.util.List.of());
+        new CostLinearOpInLoop().sumLinked(new java.util.LinkedList<>(), 0);
+        new CostLinearOpInLoop().sumArray(new java.util.ArrayList<>(), 0);
+        new CostSortInLoop().rankEach(java.util.List.of(), new java.util.ArrayList<>());
+        new CostSortInLoop().rankOwn(java.util.List.of());
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use rqx_core::facts::{Hygiene, Limits, Spot};
 use rqx_core::span::Span;
@@ -43,6 +43,9 @@ struct Walker<'a> {
     /// What each local name was introduced as, so a rule can ask whether a value is a
     /// list, a string, or something already keyed.
     declared: HashMap<String, String>,
+    /// The names whose declaration spells a text type, as opposed to one that merely
+    /// started out holding a piece of text.
+    text_declared: HashSet<String>,
     frames: Vec<PerfFrame>,
     test_depth: u32,
     /// Whether anything in this file turned out to be a test. Known only once the
@@ -4220,11 +4223,19 @@ impl<'a> Walker<'a> {
             || head.starts_with(&format!("{name} + "))
             || (self.text(node).contains("+=") && self.grows_by_copy(name, value));
         if rebuilt && self.grows_by_copy(name, value) {
-            self.note(
-                |out| &mut out.copied_accumulators,
-                span_of(node),
-                name.to_owned(),
-            );
+            if self.text_declared.contains(name) {
+                self.note(
+                    |out| &mut out.typed_text_accumulators,
+                    span_of(node),
+                    name.to_owned(),
+                );
+            } else {
+                self.note(
+                    |out| &mut out.copied_accumulators,
+                    span_of(node),
+                    name.to_owned(),
+                );
+            }
         }
     }
 
@@ -4276,6 +4287,14 @@ impl<'a> Walker<'a> {
             .map(|value| self.text(value))
             .unwrap_or_default();
         let head: String = value.chars().take(40).collect();
+        if self
+            .profile
+            .perf
+            .string_types
+            .contains(&declared.trim_start_matches("final ").trim())
+        {
+            self.text_declared.insert(name.clone());
+        }
         self.declared
             .entry(name)
             .or_insert_with(|| format!("{declared} {head}").trim().to_owned());
@@ -4990,6 +5009,7 @@ pub fn collect_over(
         conventions: Vec::new(),
         verbs: Vec::new(),
         declared: HashMap::new(),
+        text_declared: HashSet::new(),
         frames: vec![PerfFrame::default()],
         test_depth: 0,
         holds_tests: false,

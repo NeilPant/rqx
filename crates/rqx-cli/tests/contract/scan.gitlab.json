@@ -936,6 +936,78 @@
     "severity": "minor"
   },
   {
+    "check_name": "unbounded-concurrency",
+    "description": "`Promise.all` starts one piece of work per element with nothing limiting how many run at once. — the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit",
+    "fingerprint": "9036a3c6921baa50",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-unbounded-concurrency.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "unbounded-cache",
+    "description": "`pageSizes` gains an entry for every distinct key it is given and is never trimmed. — it holds an entry for every distinct key the program has ever been given, so memory grows with the variety of the input for as long as the process runs",
+    "fingerprint": "ab9b74ec1cd49a38",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-unbounded-cache.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "lock-in-loop",
+    "description": "`latch.lock` runs on every pass of the loop. — each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop",
+    "fingerprint": "f6f5654ebb0b65fa",
+    "location": {
+      "lines": {
+        "begin": 9
+      },
+      "path": "typescript/cost-lock-in-loop.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "sort-in-loop",
+    "description": "`<expression>.sort` runs on every pass of the loop. — every pass after the first sorts input that is already sorted, at a cost of n log n each time",
+    "fingerprint": "2d209f2209e69065",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-sort-in-loop.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "linear-op-in-loop",
+    "description": "`entries.shift` runs on every pass of the loop. — the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's",
+    "fingerprint": "7145cdf28855e88f",
+    "location": {
+      "lines": {
+        "begin": 5
+      },
+      "path": "typescript/cost-linear-op-in-loop.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "linear-op-in-loop",
+    "description": "`rows.splice` runs on every pass of the loop. — the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's",
+    "fingerprint": "afce2469dbdc276e",
+    "location": {
+      "lines": {
+        "begin": 85
+      },
+      "path": "typescript/performance.ts"
+    },
+    "severity": "minor"
+  },
+  {
     "check_name": "blocking-call-in-async",
     "description": "`readFileSync` blocks the thread inside an `async` function. — an async function is expected not to hold the thread and this call holds it, so everything else waiting on that event loop queues behind one blocking call",
     "fingerprint": "086c9515e08b7396",
@@ -992,6 +1064,18 @@
         "begin": 39
       },
       "path": "typescript/performance.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "query-in-loop",
+    "description": "`fetch` runs on every pass of the loop. — every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them",
+    "fingerprint": "9c8b59cc4b47c54a",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-unbounded-concurrency.ts"
     },
     "severity": "minor"
   },
@@ -2808,6 +2892,42 @@
     "severity": "info"
   },
   {
+    "check_name": "plural-mismatch",
+    "description": "`pair` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
+    "fingerprint": "da5988a3bd530b56",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "plural-mismatch",
+    "description": "`spare` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
+    "fingerprint": "311f3e5d2d8dbc67",
+    "location": {
+      "lines": {
+        "begin": 6
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "plural-mismatch",
+    "description": "`pair` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
+    "fingerprint": "da5988a3bd530b560001",
+    "location": {
+      "lines": {
+        "begin": 24
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
     "check_name": "name-repeats-type",
     "description": "`entryList (List)` spells its type into its name. — the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes",
     "fingerprint": "9e79a0b69ca5a42a",
@@ -2972,6 +3092,18 @@
         "begin": 88
       },
       "path": "typescript/suite.test.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "never-reassigned",
+    "description": "`at` is declared changeable and never changes. — a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need",
+    "fingerprint": "3bb77ae70e78438d",
+    "location": {
+      "lines": {
+        "begin": 18
+      },
+      "path": "typescript/cost-lock-in-loop.ts"
     },
     "severity": "info"
   },
@@ -3284,6 +3416,18 @@
         "begin": 9
       },
       "path": "typescript/conventions.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "boundary-arithmetic",
+    "description": "`row` is adjusted by one in 3 places, each of them a chance to be off by one. — each place that recomputes the boundary can compute it wrongly, and off-by-one errors are found by readers, not by types",
+    "fingerprint": "78e8318de1d5bf4e",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
     },
     "severity": "info"
   },

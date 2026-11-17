@@ -37,6 +37,9 @@ pub struct FileFacts {
     pub fields: HashMap<String, HashMap<String, TypeFact>>,
     /// Collections shared by the whole program: module-level, or `static`.
     pub globals: HashSet<String>,
+    /// The shared collections that start empty or are filled by the code that follows,
+    /// by name, with the declaration that makes each.
+    pub collections: HashMap<String, String>,
     /// Imported names, by the name this file uses.
     pub imports: HashMap<String, Import>,
     /// The names this file makes available to others.
@@ -220,7 +223,26 @@ fn note_global(
         {
             facts.globals.insert(declaration.name.to_owned());
         }
+        if is_a_filled_collection(&names, &declaration) {
+            facts
+                .collections
+                .insert(declaration.name.to_owned(), names.text(node).to_owned());
+        }
     }
+}
+
+/// A collection that starts empty, or is built at run time, and so is what code later
+/// fills. A list written out in full is a table, and a string or a number is no
+/// collection.
+fn is_a_filled_collection(names: &Names<'_>, declaration: &super::types::Declaration<'_>) -> bool {
+    let Some(fact) = super::types::fact_of_declaration(names, declaration) else {
+        return false;
+    };
+    let scalar = matches!(fact.head.as_str(), "string" | "str" | "String" | "bool");
+    let fixed = declaration
+        .value
+        .is_some_and(|value| super::types::is_fixed_literal(names.profile, value));
+    !scalar && !fixed && !super::types::is_integer(names.profile.language, &fact.head)
 }
 
 /// Whether the statement a name is declared in says it cannot change.
@@ -273,6 +295,11 @@ fn class_fields<'a>(
             let fact = fact_of_declaration(&names, &declaration);
             if is_static && fact.is_some() {
                 facts.globals.insert(declaration.name.to_owned());
+                if is_a_filled_collection(&names, &declaration) {
+                    facts
+                        .collections
+                        .insert(declaration.name.to_owned(), names.text(member).to_owned());
+                }
             }
             if let Some(fact) = fact {
                 fields.insert(declaration.name.to_owned(), fact);

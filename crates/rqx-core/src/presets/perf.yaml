@@ -1,11 +1,13 @@
 # Puts the performance family first. Every performance rule reports as an error, so
 # the default gate fails on one, and nested loops and nested callbacks are reported at
-# a shallower depth than the defaults allow. Everything else is left as it is.
+# a shallower depth than the defaults allow. The performance rules that ship off for
+# being noisy are switched on. Everything else is left as it is.
 thresholds:
   loop_nesting: 1
   callback_depth: 2
 
 rules:
+  enabled: [allocation-in-loop, missing-capacity]
   loop-concatenation: { severity: error }
   sequential-await: { severity: error }
   scan-in-loop: { severity: error }
@@ -16,3 +18,14 @@ rules:
   accumulate-by-copy: { severity: error }
   branching-recursion: { severity: error }
   blocking-call-in-async: { severity: error }
+  linear-op-in-loop: { severity: error }
+  sort-in-loop: { severity: error }
+  allocation-in-loop: { severity: error }
+  missing-capacity: { severity: error }
+  lock-in-loop: { severity: error }
+  unbounded-concurrency: { severity: error }
+  unbounded-cache: { severity: error }
+  defer-in-loop: { severity: error }
+  boxing-in-loop: { severity: error }
+  copy-in-range-for: { severity: error }
+  large-by-value: { severity: error }

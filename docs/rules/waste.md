@@ -577,12 +577,12 @@ a reader has to allow for the possibility that the variable changes, and it neve
 | Not in Python | the language has no word for a name that cannot change |
 | Not in Go | a short declaration says nothing about whether the name moves |
 
-From `fixtures/typescript/shapes.ts`, line 59:
+From `fixtures/typescript/cost-lock-in-loop.ts`, line 18:
 
 ```ts
-export function sweep(rows: number[]) {
-  let n = 0;
-  const seen: number[] = [];
+  let total = 0;
+  for (let at = 0; at < rows.length; at++) {
+    latches[at].lock();
 ```
 
 Suggested fix: declare it as constant, so the compiler enforces it

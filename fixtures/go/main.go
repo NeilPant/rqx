@@ -130,5 +130,26 @@ func main() {
 	_ = fixtures.CountDigits
 	_ = fixtures.JoinByCopy
 	_ = fixtures.Fibonacci
+	_ = fixtures.PrependEach
+	_ = fixtures.AppendEach
+	_ = fixtures.RankEach
+	_ = fixtures.RankOwn
+	_ = fixtures.JoinWithPlus
+	_ = fixtures.JoinWithBuilder
+	_ = fixtures.LengthOf
+	_ = fixtures.DescribeRows
+	_ = fixtures.BufferEachRow
+	_ = fixtures.PairEachRow
+	_ = fixtures.CopyNames
+	_ = fixtures.CopyNamesSized
+	_ = fixtures.TallyUnderOneLock
+	_ = fixtures.TallyUnderEachLock
+	_ = fixtures.LoadEveryPage
+	_ = fixtures.LoadFewPages
+	_ = fixtures.RememberPage
+	_ = fixtures.RememberRecentPage
+	_ = fixtures.SizeOfEach
+	_ = fixtures.SizeOfEachInTurn
+	_ = fixtures.SizeOfOne
 	_ = cyclea.Orbit
 }

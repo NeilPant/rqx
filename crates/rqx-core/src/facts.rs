@@ -75,6 +75,19 @@ pub struct Spot {
     pub count: u32,
 }
 
+/// A place the cost analysis found for one of the performance rules to report. The
+/// analysis knows which rule a place belongs to, so the rule table in `crate::rules`
+/// only has to say how each is worded.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CostSite {
+    pub rule: crate::rule::RuleId,
+    pub span: Span,
+    /// What the rule names: a call, a collection, a type.
+    pub subject: String,
+    /// How many loops enclose the place, inside its function.
+    pub depth: u32,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Hygiene {
     /// Waivers a developer wrote next to the code. Not a `Spot`: a waiver carries a
@@ -216,6 +229,8 @@ pub struct Hygiene {
     pub awaits_in_loops: Vec<Spot>,
     pub invariants_in_loops: Vec<Spot>,
     pub copied_accumulators: Vec<Spot>,
+    /// Accumulators that the source declares as text, which a rule can be sure copy.
+    pub typed_text_accumulators: Vec<Spot>,
     pub blocking_in_async: Vec<Spot>,
 }
 

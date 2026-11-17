@@ -36,7 +36,7 @@ export function overlap(left, right) {
   return shared;
 }
 
-// @complexity time=O(n*m) space=O(1) conf=heuristic rule=linear-op-in-loop scope=local
+// @complexity time=O(n*m) space=O(1) conf=heuristic rule=scan-in-loop scope=local
 export function missing(wanted, available) {
   let gone = 0;
   for (const item of wanted) {

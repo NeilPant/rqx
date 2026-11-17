@@ -23,6 +23,15 @@
 #include "structures.hpp"
 #include "shapes.hpp"
 #include "performance.hpp"
+#include "cost_large_by_value.hpp"
+#include "cost_copy_in_range_for.hpp"
+#include "cost_unbounded_cache.hpp"
+#include "cost_unbounded_concurrency.hpp"
+#include "cost_lock_in_loop.hpp"
+#include "cost_missing_capacity.hpp"
+#include "cost_allocation_in_loop.hpp"
+#include "cost_sort_in_loop.hpp"
+#include "cost_linear_op_in_loop.hpp"
 #include "vocabulary.hpp"
 
 int main() {
@@ -89,5 +98,26 @@ int main() {
     LoggingNotifier().history();
     GuardedNotifier().close();
     SmsNotifier().close();
+    std::vector<int> prepended; prepend_each(prepended, {});
+    std::deque<int> fronted; front_each(fronted, {});
+    std::vector<int> baseline; rank_each({}, baseline);
+    std::vector<std::vector<int>> groups; rank_own(groups);
+    buffer_each_row({});
+    pad_each_row({});
+    copy_names({});
+    copy_names_sized({});
+    std::mutex guard; tally_under_one_lock(guard, {});
+    std::vector<std::mutex> guards(1); tally_under_each_lock(guards, {});
+    PageClient pages; load_every_page(pages, {});
+    load_few_pages(pages, {});
+    remember_page("", 0);
+    remember_recent_page("", 0);
+    total_length_by_copy({});
+    total_length_by_reference({});
+    total_length_of_edited({});
+    count_characters({});
+    count_characters_by_reference({});
+    shouted("");
+    Collected({}).size();
     return 0;
 }

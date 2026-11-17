@@ -2,7 +2,7 @@
 //! and space come from, the calls the function makes, and the signals beside them.
 //! Subtrees that cost nothing are not written down.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use rqx_core::config::Performance;
@@ -10,6 +10,8 @@ use rqx_core::cost::{
     ArgSize, Bound, CallSite, CalleeRef, Conf, Cost, FunctionCost, Indicators, Param, Recurrence,
     SizeSrc,
 };
+use rqx_core::facts::CostSite;
+use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use super::bindings::{bind_assignment, bind_declaration, bind_parameters};
@@ -23,7 +25,7 @@ use super::shape::{Parts, seq};
 use super::tables::{CallFacts, CostTables, Entry, SizeOf};
 use super::types::{KEYED_GUESS, TypeFact, constructed_fact, declares, names_a_keyed_value};
 use crate::names::Names;
-use crate::tree::{descendants, kind_of, operator_of};
+use crate::tree::{descendants, kind_of, operator_of, span_of};
 use crate::vocabulary::{IO_BARE, MEMO_HINTS, asks_for_data, mentions_any, reaches_outside};
 
 /// What a function is read against: the library tables, the project's own names for
@@ -34,11 +36,19 @@ pub struct Shared<'f> {
     pub file: &'f FileFacts,
 }
 
+mod allocation;
+mod concurrency;
+mod copies;
+mod sites;
+mod statements;
+
 pub struct Built<'a> {
     /// `None` for a function that is plainly constant time and calls nothing.
     pub cost: Option<FunctionCost>,
     /// Functions written inside this one that are not callbacks of a loop.
     pub nested: Vec<Site<'a>>,
+    /// Places in the function a performance rule reports.
+    pub sites: Vec<CostSite>,
 }
 
 /// What one loop's passes allocate, so the innermost loop can say how much each pass
@@ -46,6 +56,10 @@ pub struct Built<'a> {
 #[derive(Default)]
 struct LoopFrame {
     allocations: u32,
+    /// Where the first of them is, which is where a report points.
+    first_allocation: Option<Span>,
+    /// A allocation of a fixed, large size, and what it is written as.
+    large_allocation: Option<(Span, String)>,
     holds_a_loop: bool,
 }
 
@@ -73,6 +87,17 @@ struct Visitor<'a, 'f> {
     frames: Vec<LoopFrame>,
     /// The bound of each loop the visit is inside, outermost first.
     loop_bounds: Vec<Bound>,
+    /// The loops the visit is inside, outermost first, to read what they leave alone.
+    loop_nodes: Vec<Node<'a>>,
+    sites: Vec<CostSite>,
+    /// Boxed numbers declared here, by the loop depth they were declared at.
+    boxed: HashMap<&'a str, u8>,
+    /// Work started with no limit in sight, held until the function is read in full,
+    /// because a limit may be written anywhere in it.
+    unbounded: Vec<CostSite>,
+    /// Collections made here with nothing in them and no room set aside, by the loop
+    /// depth they were made at.
+    empty_collections: HashMap<&'a str, u8>,
     nested: Vec<Site<'a>>,
     nested_names: HashSet<String>,
     reductions: Vec<Reduction>,
@@ -103,6 +128,11 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         depth: 0,
         frames: Vec::new(),
         loop_bounds: Vec::new(),
+        loop_nodes: Vec::new(),
+        sites: Vec::new(),
+        boxed: HashMap::new(),
+        unbounded: Vec::new(),
+        empty_collections: HashMap::new(),
         nested: Vec::new(),
         nested_names: HashSet::new(),
         reductions: Vec::new(),
@@ -121,10 +151,13 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
 
     let body = names.function_body(function);
     let parts = body.map_or_else(Parts::default, |body| visitor.visit(body));
+    visitor.settle_concurrency(function);
+    visitor.note_large_parameters(function, body);
     let cost = visitor.finish(function, body, parts);
     Built {
         cost,
         nested: visitor.nested,
+        sites: visitor.sites,
     }
 }
 
@@ -151,8 +184,9 @@ impl<'a> Visitor<'a, '_> {
         }
     }
 
-    fn enter_loop(&mut self, bound: Bound) {
+    fn enter_loop(&mut self, bound: Bound, node: Node<'a>) {
         self.loop_bounds.push(bound);
+        self.loop_nodes.push(node);
         self.depth = self.depth.saturating_add(1);
         if let Some(outer) = self.frames.last_mut() {
             outer.holds_a_loop = true;
@@ -162,11 +196,13 @@ impl<'a> Visitor<'a, '_> {
 
     fn exit_loop(&mut self) {
         self.loop_bounds.pop();
+        self.loop_nodes.pop();
         self.depth = self.depth.saturating_sub(1);
         if let Some(frame) = self.frames.pop()
             && !frame.holds_a_loop
         {
             self.allocations_per_pass = self.allocations_per_pass.max(frame.allocations);
+            self.note_allocation_site(&frame);
         }
     }
 
@@ -216,6 +252,10 @@ impl<'a> Visitor<'a, '_> {
             && let Some(frame) = self.frames.last_mut()
         {
             frame.allocations += 1;
+            frame.first_allocation.get_or_insert(span_of(node));
+        }
+        if !self.frames.is_empty() {
+            self.note_large_allocation(node, kind);
         }
         if self.depth > 0 {
             self.note_statement_in_loop(node, kind);
@@ -246,9 +286,12 @@ impl<'a> Visitor<'a, '_> {
         // What a name stands for is known only once the value it is set from has been read.
         if declares(profile, node) {
             bind_declaration(&mut self.bounds(), node);
+            self.note_empty_collection(node);
+            self.note_boxed_declaration(node);
         } else if profile.assignment_kinds.contains(&kind) {
             bind_assignment(&mut self.bounds(), node);
         }
+        self.note_boxed_step(node, kind);
         if profile.assignment_kinds.contains(&kind) {
             return self.with_growth_by_key(node, parts);
         }
@@ -271,6 +314,8 @@ impl<'a> Visitor<'a, '_> {
     }
 
     fn note_statement_in_loop(&mut self, node: Node<'a>, kind: &str) {
+        self.note_statement_sites(node, kind);
+        self.note_deferred_in_loop(node, kind);
         let signals = &self.names.profile.signals;
         if signals.lock_kinds.contains(&kind) {
             self.locks_in_loop = true;
@@ -292,10 +337,11 @@ impl<'a> Visitor<'a, '_> {
     // -- loops ---------------------------------------------------------------------
 
     fn looping(&mut self, node: Node<'a>) -> Parts {
+        self.note_range_for_copy(node, kind_of(node));
         let bound = self.bounds().of_loop(node).unwrap_or(Bound::Unknown);
         self.note_bound(bound);
         self.bind_loop_variables(node);
-        self.enter_loop(bound);
+        self.enter_loop(bound, node);
         let body = self.visit_children(node);
         self.exit_loop();
         body.repeated(bound, line_of(node))
@@ -340,7 +386,7 @@ impl<'a> Visitor<'a, '_> {
             bounds.push(bound);
         }
         for bound in &bounds {
-            self.enter_loop(*bound);
+            self.enter_loop(*bound, node);
         }
         let mut parts = vec![self.visit_children(node)];
         for _ in &bounds {
@@ -479,7 +525,7 @@ impl<'a> Visitor<'a, '_> {
             self.bounds().iterable_bound(source)
         });
         self.note_bound(bound);
-        self.enter_loop(bound);
+        self.enter_loop(bound, call);
         let mut body = Vec::new();
         for callback in callbacks {
             body.push(self.callback_body(*callback));
@@ -533,6 +579,8 @@ impl<'a> Visitor<'a, '_> {
         let mut parts = Parts::default();
 
         self.note_signals(dotted, receiver, tail, arguments);
+        self.note_call_sites(node, dotted, arguments);
+        self.note_reservation(receiver, tail);
         if self.is_round_trip(receiver, tail) {
             parts.io = Some(Cost::One);
         }
@@ -541,6 +589,7 @@ impl<'a> Visitor<'a, '_> {
         }
         if let Some(name) = self.grown_local(receiver, tail, arguments) {
             parts.grow = Some(Cost::One);
+            self.note_append(&name, node);
             self.bound_by_enclosing_loop(&name);
         }
 
@@ -591,6 +640,7 @@ impl<'a> Visitor<'a, '_> {
         let receiver_node = self.bounds().receiver_expression(node);
 
         let mut found = tables.function(language, dotted, &call);
+        let by_function = found.is_some();
         let mut keyed = false;
         if found.is_none() && receiver.is_some() {
             let fact = receiver_node.and_then(|expression| self.fact_of(expression));
@@ -616,7 +666,14 @@ impl<'a> Visitor<'a, '_> {
         let Some((index, entry)) = found else {
             return Library::Unmatched;
         };
-        Library::Matched(self.charge(index, entry, receiver_node, arguments, line))
+        let charge = self.charge(index, entry, receiver_node, arguments, line);
+        let operand = if by_function {
+            arguments.first().copied()
+        } else {
+            receiver_node
+        };
+        self.note_library_site(node, dotted, entry, operand, charge.size);
+        Library::Matched(charge)
     }
 
     fn charge(
@@ -658,6 +715,7 @@ impl<'a> Visitor<'a, '_> {
             arg,
         };
         Charge {
+            size,
             time: if entry.cost.is_one() {
                 Cost::One
             } else {
@@ -990,6 +1048,7 @@ impl<'a> Visitor<'a, '_> {
             self.weaken(Conf::Heuristic);
         }
         let charge = self.charge(index, entry, Some(subject), &[], line_of(comparison));
+        self.note_library_site(comparison, "in", entry, Some(subject), charge.size);
         Parts::sequence(vec![
             parts,
             Parts {
@@ -1128,6 +1187,8 @@ impl<'a> Visitor<'a, '_> {
 /// The time and temporary space of a library call.
 #[derive(Default)]
 struct Charge {
+    /// The size the entry's `n` stood for.
+    size: ArgSize,
     time: Cost,
     temp: Cost,
 }

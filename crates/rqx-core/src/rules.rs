@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::config::RqxConfig;
-use crate::facts::{ClassMetrics, FunctionMetrics, SuspiciousName, UnusedParameter};
+use crate::facts::{ClassMetrics, CostSite, FunctionMetrics, SuspiciousName, UnusedParameter};
 use crate::finding::{Confidence, Evidence, Finding, SourceRange};
 use crate::line_index::LineIndex;
 use crate::rule::RuleId;
@@ -398,6 +398,105 @@ fn first_of(module: &crate::facts::ModuleFacts, specifier: &str) -> u32 {
         .unwrap_or_default()
 }
 
+/// What each rule the cost analysis feeds says about a place it found, and the fix it
+/// points to. A rule that analysis does not feed has no wording here.
+fn cost_site_wording(site: &CostSite) -> Option<(Evidence, &'static str)> {
+    let in_loop = || Evidence::InLoop {
+        subject: site.subject.clone(),
+        depth: site.depth,
+        sampled: None,
+    };
+    Some(match site.rule {
+        RuleId::LinearOpInLoop => (
+            in_loop(),
+            "use a structure whose operation takes constant time, or take the operation out of the loop",
+        ),
+        RuleId::SortInLoop => (
+            in_loop(),
+            "sort once above the loop: nothing in the loop changes what is being sorted",
+        ),
+        RuleId::AllocationInLoop => (
+            Evidence::BranchShape {
+                shape: format!("{} on every pass of the innermost loop.", site.subject),
+            },
+            "allocate once above the loop and reuse it, clearing it between passes",
+        ),
+        RuleId::MissingCapacity => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is appended to in a loop over a collection of known size, with no \
+                         capacity set"
+                    .to_owned(),
+            },
+            "give it the loop's size as its capacity where it is made",
+        ),
+        RuleId::LockInLoop => (
+            in_loop(),
+            "take the lock once around the whole loop, or keep it per pass only if other threads \
+             need the gaps",
+        ),
+        RuleId::UnboundedCache => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "gains an entry for every distinct key it is given and is never trimmed"
+                    .to_owned(),
+            },
+            "bound it with a maximum size and an eviction rule, or key it by something that \
+             has a limited number of values",
+        ),
+        RuleId::DeferInLoop => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is deferred inside a loop, so it runs when the function returns and not \
+                         when the pass ends"
+                    .to_owned(),
+            },
+            "move the loop body into its own function, so the deferred call runs at the end of each pass",
+        ),
+        RuleId::BoxingInLoop => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is a boxed number changed on every pass, allocating a new object each \
+                         time"
+                    .to_owned(),
+            },
+            "declare it with the primitive type",
+        ),
+        RuleId::CopyInRangeFor => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is copied from the element on every pass of the loop".to_owned(),
+            },
+            "declare the variable as a const reference",
+        ),
+        RuleId::LargeByValue => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is copied for every call and only read".to_owned(),
+            },
+            "take it as a const reference, or take it by value and std::move it if the function keeps it",
+        ),
+        RuleId::UnboundedConcurrency => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "starts one piece of work per element with nothing limiting how many run \
+                         at once"
+                    .to_owned(),
+            },
+            "run the work through a semaphore, a limiter or a fixed-size pool",
+        ),
+        _ => return None,
+    })
+}
+
+pub fn check_cost_sites(sites: &[CostSite], builder: &FindingBuilder<'_>, out: &mut Vec<Finding>) {
+    for site in sites {
+        if let Some((evidence, hint)) = cost_site_wording(site) {
+            builder.emit(out, site.rule, site.span, evidence, hint.to_owned());
+        }
+    }
+}
+
 pub fn check_hygiene(
     hygiene: &crate::facts::Hygiene,
     builder: &FindingBuilder<'_>,
@@ -557,11 +656,6 @@ pub fn check_hygiene(
             RuleId::InvariantInLoop,
             "compile it once above the loop and reuse it",
         ),
-        (
-            &hygiene.copied_accumulators,
-            RuleId::AccumulateByCopy,
-            "add to the accumulator in place instead of rebuilding it",
-        ),
     ] {
         for spot in spots {
             emit(
@@ -574,6 +668,27 @@ pub fn check_hygiene(
                     sampled: None,
                 },
                 hint.to_owned(),
+            );
+        }
+    }
+    // A name the source declares as text is a copy the rule can be sure of; any other
+    // accumulator is a guess from the value it started with.
+    for (spots, confidence) in [
+        (&hygiene.typed_text_accumulators, Confidence::Verified),
+        (&hygiene.copied_accumulators, Confidence::Heuristic),
+    ] {
+        for spot in spots {
+            builder.emit_with(
+                out,
+                RuleId::AccumulateByCopy,
+                spot.span,
+                Evidence::InLoop {
+                    subject: spot.detail.clone(),
+                    depth: spot.count,
+                    sampled: None,
+                },
+                "add to the accumulator in place instead of rebuilding it".to_owned(),
+                confidence,
             );
         }
     }
