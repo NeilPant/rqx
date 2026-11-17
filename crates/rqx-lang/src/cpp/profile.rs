@@ -1,3 +1,4 @@
+use crate::cost::bounds::{CountedLoop, LoopVocabulary};
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -279,6 +280,36 @@ pub static CPP: LanguageProfile = LanguageProfile {
         blocking_receivers: &[],
         sleep_calls: &["sleep", "sleep_for", "usleep", "nanosleep"],
         string_types: &["string", "std::string"],
+    },
+    loops: LoopVocabulary {
+        each: &[("for_range_loop", "right")],
+        counted: &[CountedLoop {
+            kind: "for_statement",
+            init: "initializer",
+            condition: "condition",
+            update: "update",
+        }],
+        conditional: &[
+            ("while_statement", "condition"),
+            ("do_statement", "condition"),
+        ],
+        clauses: &[],
+        steps: &["update_expression"],
+        size_members: &[],
+        size_calls: &["size", "length"],
+        range_calls: &[],
+        derived_methods: &["begin", "end", "cbegin", "cend", "rbegin", "rend", "data"],
+        derived_functions: &["std.move", "std.begin", "std.end"],
+        appenders: &[
+            "push_back",
+            "emplace_back",
+            "insert",
+            "push",
+            "emplace",
+            "push_front",
+            "append",
+            "emplace_front",
+        ],
     },
     test: TestVocabulary {
         suite_roots: &["TEST", "TEST_F", "TEST_P"],

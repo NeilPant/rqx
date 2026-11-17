@@ -1,3 +1,4 @@
+use crate::cost::bounds::{CountedLoop, LoopVocabulary};
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -312,6 +313,49 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         blocking_receivers: &[],
         sleep_calls: &["sleep"],
         string_types: &["String", "CharSequence", "StringBuilder"],
+    },
+    loops: LoopVocabulary {
+        each: &[("enhanced_for_statement", "value")],
+        counted: &[CountedLoop {
+            kind: "for_statement",
+            init: "init",
+            condition: "condition",
+            update: "update",
+        }],
+        conditional: &[
+            ("while_statement", "condition"),
+            ("do_statement", "condition"),
+        ],
+        clauses: &[],
+        steps: &["update_expression"],
+        size_members: &["length"],
+        size_calls: &["size", "length"],
+        range_calls: &[],
+        derived_methods: &[
+            "stream",
+            "keySet",
+            "values",
+            "entrySet",
+            "subList",
+            "toList",
+            "sorted",
+            "filter",
+            "map",
+            "boxed",
+            "toArray",
+            "iterator",
+            "parallelStream",
+        ],
+        derived_functions: &[
+            "Arrays.asList",
+            "List.copyOf",
+            "Set.copyOf",
+            "Arrays.stream",
+            "Collections.unmodifiableList",
+        ],
+        appenders: &[
+            "add", "addAll", "put", "offer", "push", "append", "addFirst", "addLast", "putAll",
+        ],
     },
     test: TestVocabulary {
         suite_roots: &[],

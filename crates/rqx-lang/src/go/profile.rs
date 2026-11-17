@@ -1,3 +1,4 @@
+use crate::cost::bounds::{CountedLoop, LoopVocabulary};
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -261,6 +262,30 @@ pub static GO: LanguageProfile = LanguageProfile {
         blocking_receivers: &[],
         sleep_calls: &["Sleep"],
         string_types: &["string"],
+    },
+    loops: LoopVocabulary {
+        each: &[("range_clause", "right")],
+        counted: &[CountedLoop {
+            kind: "for_clause",
+            init: "initializer",
+            condition: "condition",
+            update: "update",
+        }],
+        conditional: &[("for_statement", "")],
+        clauses: &[],
+        steps: &["inc_statement", "dec_statement"],
+        size_members: &[],
+        size_calls: &["len", "cap"],
+        range_calls: &[],
+        derived_methods: &[],
+        derived_functions: &[
+            "slices.Clone",
+            "slices.Values",
+            "maps.Keys",
+            "maps.Values",
+            "slices.Sorted",
+        ],
+        appenders: &["append"],
     },
     test: TestVocabulary {
         suite_roots: &[],

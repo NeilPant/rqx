@@ -7,6 +7,7 @@ use rqx_core::Language;
 use tree_sitter::Node;
 
 use crate::names::Names;
+use crate::profile::LanguageProfile;
 use crate::tree::{descendants, kind_of};
 use crate::vocabulary::{HASHED_HINTS, mentions_any};
 
@@ -241,6 +242,7 @@ fn literal_head(language: Language, kind: &str) -> Option<&'static str> {
         Language::Cpp => &[
             ("string_literal", "string"),
             ("raw_string_literal", "string"),
+            ("initializer_list", "initializer_list"),
         ],
     };
     heads
@@ -446,10 +448,7 @@ fn unwrap_list<'a>(names: &Names<'a>, node: Node<'a>) -> Node<'a> {
 
 /// The identifier a declarator binds, through the pointer, reference and initializer
 /// wrappers C++ puts around it.
-fn bound_identifier<'a>(
-    profile: &crate::profile::LanguageProfile,
-    holder: Node<'a>,
-) -> Option<Node<'a>> {
+fn bound_identifier<'a>(profile: &LanguageProfile, holder: Node<'a>) -> Option<Node<'a>> {
     if profile.is_identifier(holder) {
         return Some(holder);
     }
@@ -461,6 +460,34 @@ fn bound_identifier<'a>(
                 .into_iter()
                 .find(|child| profile.is_identifier(*child))
         })
+}
+
+/// Whether a node introduces a name: a declarator, a parameter, an assignment that
+/// declares where the language has no keyword for it, or a C++ declaration.
+pub fn declares(profile: &LanguageProfile, node: Node<'_>) -> bool {
+    let kind = kind_of(node);
+    profile.declarator_kinds.contains(&kind)
+        || profile.local_declaring_kinds.contains(&kind)
+        || profile.parameter_kinds.contains(&kind)
+        || (profile.variable_declaration_kinds.contains(&kind) && kind != "expression_statement")
+}
+
+/// A literal whose size the source fixes: a string, a number, a list written out. An
+/// empty one is not, because the code that follows will usually fill it.
+pub fn is_fixed_literal(profile: &LanguageProfile, node: Node<'_>) -> bool {
+    let kind = kind_of(node);
+    if profile.number_kinds.contains(&kind) || profile.string_kinds.contains(&kind) {
+        return true;
+    }
+    if kind == "composite_literal" {
+        return node
+            .child_by_field_name("body")
+            .is_some_and(|body| body.named_child_count() > 0);
+    }
+    literal_head(profile.language, kind).is_some()
+        && !kind.contains("comprehension")
+        && kind != "array_creation_expression"
+        && node.named_child_count() > 0
 }
 
 /// Names that say a value is a lookup table: a set, a map, an index, a cache.

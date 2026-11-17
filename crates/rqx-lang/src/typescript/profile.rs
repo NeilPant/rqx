@@ -1,3 +1,4 @@
+use crate::cost::bounds::{CountedLoop, LoopVocabulary};
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -334,6 +335,49 @@ pub const TYPESCRIPT_PROFILE: LanguageProfile = LanguageProfile {
         blocking_receivers: &["fs", "fsSync", "childProcess", "child_process", "cp"],
         sleep_calls: &["sleep"],
         string_types: &["string", "String"],
+    },
+    loops: LoopVocabulary {
+        each: &[("for_in_statement", "right")],
+        counted: &[CountedLoop {
+            kind: "for_statement",
+            init: "initializer",
+            condition: "condition",
+            update: "increment",
+        }],
+        conditional: &[
+            ("while_statement", "condition"),
+            ("do_statement", "condition"),
+        ],
+        clauses: &[],
+        steps: &["update_expression"],
+        size_members: &["length", "size"],
+        size_calls: &[],
+        range_calls: &[],
+        derived_methods: &[
+            "filter",
+            "map",
+            "slice",
+            "concat",
+            "flat",
+            "flatMap",
+            "toSorted",
+            "toReversed",
+            "reverse",
+            "sort",
+            "split",
+            "keys",
+            "values",
+            "entries",
+            "splice",
+            "trim",
+        ],
+        derived_functions: &[
+            "Object.keys",
+            "Object.values",
+            "Object.entries",
+            "Array.from",
+        ],
+        appenders: &["push", "unshift", "add", "set"],
     },
     test: TestVocabulary {
         suite_roots: &["describe"],

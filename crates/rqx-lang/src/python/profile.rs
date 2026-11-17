@@ -1,3 +1,4 @@
+use crate::cost::bounds::LoopVocabulary;
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -282,6 +283,48 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
         blocking_receivers: &["time", "requests", "urllib", "subprocess", "socket"],
         sleep_calls: &["sleep"],
         string_types: &["str"],
+    },
+    loops: LoopVocabulary {
+        each: &[("for_statement", "right")],
+        counted: &[],
+        conditional: &[("while_statement", "condition")],
+        clauses: &[("for_in_clause", "right")],
+        steps: &[],
+        size_members: &[],
+        size_calls: &["len"],
+        range_calls: &["range", "xrange"],
+        derived_methods: &[
+            "items",
+            "keys",
+            "values",
+            "copy",
+            "split",
+            "splitlines",
+            "strip",
+        ],
+        derived_functions: &[
+            "enumerate",
+            "reversed",
+            "sorted",
+            "list",
+            "set",
+            "tuple",
+            "iter",
+            "zip",
+            "filter",
+            "map",
+            "frozenset",
+            "dict",
+        ],
+        appenders: &[
+            "append",
+            "add",
+            "extend",
+            "insert",
+            "appendleft",
+            "update",
+            "setdefault",
+        ],
     },
     test: TestVocabulary {
         suite_roots: &["describe"],

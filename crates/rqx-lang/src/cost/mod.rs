@@ -4,6 +4,9 @@
 //! these across calls and files is a later stage; this one produces the per-file
 //! facts that the cache holds.
 
+pub mod bindings;
+pub mod bounds;
+pub mod env;
 pub mod types;
 
 #[cfg(test)]
