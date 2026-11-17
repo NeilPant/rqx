@@ -31,7 +31,7 @@ can bind it. Nothing here depends on an editor-specific extension.
 | `rqx.baseline` | `[update]` | Record every finding now, so the gate judges only what a change adds |
 | `rqx.suppress` | `[{file, line, rule, reason, until}]` | A `WorkspaceEdit` writing an `rqx-ignore` comment. The reason is required, because rqx does not honour a waiver without one |
 | `rqx.config` | | The effective settings and where each one came from |
-| `rqx.disableRule` / `rqx.disableCategory` | `[name]` | A `WorkspaceEdit` that switches one off in `RQX.toml` |
+| `rqx.disableRule` / `rqx.disableCategory` | `[name]` | A `WorkspaceEdit` that switches one off in `rqx.yaml` |
 | `rqx.togglePatterns` | | Half-applied design patterns on or off, as hints |
 | `rqx.toggleCodeLens` | | The per-file grade lens on or off |
 
@@ -74,15 +74,15 @@ Pass these as `initializationOptions`; no client-side plugin is needed for any o
 
 | Option | Default | Meaning |
 |---|---|---|
-| `configFile` | *(unset)* | An `RQX.toml` to use instead of the one rqx finds itself |
+| `configFile` | *(unset)* | A YAML config to use instead of the one rqx finds itself |
 | `scanOnStartup` | `true` | Scan the workspace after the handshake |
 | `scanOnSave` | `true` | Rescan the workspace after every save. The cross-file rules can only change when some *other* file does |
 | `codeLens` | `false` | A grade, blast radius and churn lens above the first line |
 | `patterns` | `false` | Publish half-applied design patterns as hints |
 
-`RQX.toml` is otherwise resolved exactly as the CLI resolves it, and the server reloads
+`rqx.yaml` is otherwise resolved exactly as the CLI resolves it, and the server reloads
 it in place when the file changes — send `workspace/didChangeWatchedFiles` for
-`**/RQX.toml` and no restart is needed.
+`**/rqx.yaml` and no restart is needed.
 
 ## Neovim
 
@@ -97,7 +97,7 @@ if not configs.rqx then
     default_config = {
       cmd = { "rqx", "lsp" },
       filetypes = { "typescript", "typescriptreact", "python", "go", "java", "cpp" },
-      root_dir = lspconfig.util.root_pattern("RQX.toml", ".git"),
+      root_dir = lspconfig.util.root_pattern("rqx.yaml", ".git"),
       init_options = { scanOnStartup = true, codeLens = false, patterns = false },
     },
   }
@@ -128,7 +128,7 @@ lspconfig.rqx.setup({
 })
 ```
 
-`root_pattern` puts `RQX.toml` first so a monorepo package with its own config wins over
+`root_pattern` puts `rqx.yaml` first so a monorepo package with its own config wins over
 the repository root. The health score is on `rqx/health`:
 
 ```lua
@@ -234,7 +234,7 @@ In `coc-settings.json`:
       "command": "rqx",
       "args": ["lsp"],
       "filetypes": ["typescript", "typescriptreact", "python", "go", "java", "cpp"],
-      "rootPatterns": ["RQX.toml", ".git"],
+      "rootPatterns": ["rqx.yaml", ".git"],
       "initializationOptions": { "scanOnStartup": true }
     }
   }
@@ -289,7 +289,7 @@ lsp-mode treats the two as alternatives and starts whichever it finds first.
 command = "rqx"
 args = ["lsp"]
 filetypes = ["typescript", "tsx", "python", "go", "java", "cpp"]
-roots = ["RQX.toml", ".git"]
+roots = ["rqx.yaml", ".git"]
 
 [language_server.rqx.settings]
 scanOnStartup = true

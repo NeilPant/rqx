@@ -13,10 +13,10 @@ That scans the project and writes `.rqx/baseline.json` — one entry per finding
 sorted, keyed by an identity that survives the finding moving down the file. Commit
 it. Then point the gate at it:
 
-```toml
-[gate]
-fail_on = "warning"
-baseline = ".rqx/baseline.json"
+```yaml
+gate:
+  fail_on: warning
+  baseline: .rqx/baseline.json
 ```
 
 Now `rqx check` and a gated `rqx scan` count only findings the baseline does not
@@ -52,10 +52,10 @@ Fix them, or pass --force to accept the larger set.
 And the ratchet fails the gate when the total grows at all, whether or not the new
 findings are in files anybody reviewed:
 
-```toml
-[gate]
-baseline = ".rqx/baseline.json"
-ratchet = true
+```yaml
+gate:
+  baseline: .rqx/baseline.json
+  ratchet: true
 ```
 
 ```

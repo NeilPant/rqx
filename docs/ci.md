@@ -16,7 +16,7 @@ A closed pipe is not a failure. `rqx scan . | head` exits `0`: the scan did what
 asked, and the reader going away is the reader's decision, not a broken run.
 
 `rqx scan` never fails on its own. It gates only when you pass one of the gate
-flags. `rqx check` always gates, using `[gate]` from `RQX.toml` unless a flag
+flags. `rqx check` always gates, using `gate` from `rqx.yaml` unless a flag
 overrides it.
 
 | Flag | Fails when |
@@ -184,12 +184,12 @@ rqx scan . --reporter json \
 A gate that fails on day one gets disabled on day one. Start where you already
 are and tighten from there:
 
-```toml
-# RQX.toml
-[gate]
-fail_on = "error"        # only the three rules that are never a false positive
-max_findings = 0
-min_health = 0
+```yaml
+# rqx.yaml
+gate:
+  fail_on: error        # only the three rules that are never a false positive
+  max_findings: 0
+  min_health: 0
 ```
 
 Then move to `rqx check --base main`, which reviews the changed files plus

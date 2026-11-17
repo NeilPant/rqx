@@ -98,7 +98,7 @@ of a second for at the end; its answer is cached for a day.
 **It cannot disturb a pipeline.** It is skipped when stdout or stderr is not a
 terminal, which is the test that does not depend on knowing every CI system, and
 again when any of `CI`, `JENKINS_URL`, `TEAMCITY_VERSION`, `TF_BUILD` or their
-equivalents is set. `RQX_NO_UPDATE_CHECK` and `[update] check = false` in `RQX.toml`
+equivalents is set. `RQX_NO_UPDATE_CHECK` and `update.check: false` in `rqx.yaml`
 turn it off outright, `RQX_MANAGED` marks an install a package manager owns, and no
 exit code, report or reporter output changes either way.
 
@@ -293,15 +293,14 @@ ArchUnit covers Java, dependency-cruiser JavaScript, import-linter Python. None 
 them covers a polyglot repository from one configuration, which is where layering
 drift tends to accumulate: no single tool observes the whole graph.
 
-```toml
-[architecture]
-layers = ["domain", "application", "adapters"]
-
-[architecture.paths]
-"src/domain/**"      = { layer = "domain" }
-"src/application/**" = { layer = "application" }
-"src/adapters/**"    = { layer = "adapters" }
-"src/scripts/**"     = { may_only_import = ["src/adapters/**"] }
+```yaml
+architecture:
+  layers: [domain, application, adapters]
+  paths:
+    "src/domain/**": { layer: domain }
+    "src/application/**": { layer: application }
+    "src/adapters/**": { layer: adapters }
+    "src/scripts/**": { may_only_import: ["src/adapters/**"] }
 ```
 
 `layers` is ordered inner to outer: a file may import its own layer and any layer
@@ -315,10 +314,10 @@ rather than a rule that silently governs nothing.
 
 ## Language support
 
-```toml
-# RQX.toml — all five are enabled unless stated otherwise
-[languages]
-enabled = ["typescript", "python", "go", "java", "cpp"]
+```yaml
+# rqx.yaml — all five are enabled unless stated otherwise
+languages:
+  enabled: [typescript, python, go, java, cpp]
 ```
 
 Every rule is written once, against measurements a language backend fills in: how
@@ -466,11 +465,11 @@ features exist to make adoption incremental.
 rqx baseline            # writes .rqx/baseline.json — commit it
 ```
 
-```toml
-[gate]
-fail_on = "warning"
-baseline = ".rqx/baseline.json"
-ratchet  = true          # and it may not grow
+```yaml
+gate:
+  fail_on: warning
+  baseline: .rqx/baseline.json
+  ratchet: true          # and it may not grow
 ```
 
 ```
@@ -496,14 +495,16 @@ its reason and who wrote it. [More](docs/suppressions.md).
 
 **Write project-specific rules.**
 
-```toml
-[[rule]]
-id = "no-legacy-client"
-languages = ["typescript"]
-query = "((call_expression function: (member_expression object: (identifier) @o)) @site (#eq? @o \"legacyClient\"))"
-message = "legacyClient is retired; call ApiClient"
-family = "coupling"
-severity = "error"
+```yaml
+rule:
+  - id: no-legacy-client
+    languages: [typescript]
+    query: |
+      ((call_expression function: (member_expression object: (identifier) @o)) @site
+        (#eq? @o "legacyClient"))
+    message: legacyClient is retired; call ApiClient
+    family: coupling
+    severity: error
 ```
 
 A tree-sitter query, and every grammar is already in the binary. It counts towards the
@@ -514,12 +515,12 @@ the row it failed at. [More](docs/custom-rules.md).
 
 **One standard across many repositories.**
 
-```toml
-policy = "../platform/rqx-policy.toml"
+```yaml
+policy: ../platform/rqx-policy.yaml
 ```
 
 The policy sits *under* the project, so a service may still tighten what it likes.
-`[locked] keys` names what it may not change at all — not in its own config, not in an
+`locked.keys` names what it may not change at all — not in its own config, not in an
 override, not with `--level`. [More](docs/policy.md).
 
 ## Surveying an unfamiliar codebase
@@ -570,18 +571,18 @@ rqx config unset thresholds.max_params
 rqx config files                             # the chain, nearest last
 ```
 
-A monorepo reads a user config, a policy and one `RQX.toml` per directory, so `set`
+A monorepo reads a user config, a policy and one `rqx.yaml` per directory, so `set`
 writes to the file that already holds the key, and `--pick` asks for one when a
 different one. Edits go through a format-preserving writer: the template is mostly
 prose explaining what each key is for, and a reserialise would throw all of it away on
-the first change. A key the policy locked is refused before the file is touched.
+the first change. A value the config would refuse is refused before the file is written. A key the policy locked is refused before the file is touched.
 
 ## Levels
 
 How much a project asks of itself is one word:
 
-```toml
-level = "strict"
+```yaml
+level: strict
 ```
 
 | Level | Rules | Gate | For |
@@ -595,44 +596,76 @@ A level is merged **under** everything the project states, so it moves the defau
 and never overrides a stated value — `rqx config` says `level:strict` in the `from` column
 for a value the level moved, and names the project's file for one it set. `--level strict`
 overrides the file, because CI usually wants a stricter standard on the default branch
-than a working copy does, and an `[[override]]` may name its own level, so a project can
+than a working copy does, and an entry of `overrides` may name its own level, so a project can
 be strict in its domain and relaxed in its scripts. `rqx levels` prints each one as the
 settings it would take to write by hand.
 
 ## Configuration
 
-`rqx init` writes an `RQX.toml` with every setting at its default and a line of prose
-per table; `rqx config` prints what a run will actually use and names the file each
-value came from.
+`rqx init` writes an `rqx.yaml` with every setting at its default and a line of prose
+per table, and a `# yaml-language-server: $schema=` line that gives an editor
+completion and validation from [`docs/rqx.schema.json`](docs/rqx.schema.json).
+`rqx config` prints what a run will actually use and names the file or preset each
+value came from, and `rqx config explain thresholds.max_params` says what one setting
+is, what it defaults to and why it has the value it has. `rqx.yml`, `.rqx.yml` and
+`.rqx.yaml` are read too; two in one directory is an error.
 
-Layers merge, lowest first: the built-in defaults, then the user's
-`~/.config/rqx/RQX.toml`, then every `RQX.toml` from the scanned directory upward
+rqx no longer reads TOML. A directory holding an `RQX.toml` stops the run with exit
+code 2, because skipping it could change what a pipeline gates on, and
+`rqx config migrate` converts it, its policy files and the user config to YAML,
+keeping comments and the originals as `.bak`.
+
+Layers merge, lowest first: the built-in defaults and the `level`, then every preset
+and file named by `extends`, then the user's `~/.config/rqx/rqx.yaml`, then the policy
+a project points at, then every `rqx.yaml` from the scanned directory upward
 (outermost first, stopping at the repository root), then `RQX_CONFIG`, then
 `--config`, then the command's own flags. So `rqx scan src/` in a monorepo uses the
 project's config rather than silently running on defaults.
 
-A subtree with different standards can relax the two tables that are decided per file:
+**Start from a preset.** `extends` builds on named sets of settings, or on other
+files, and the file's own keys win:
 
-```toml
-[[override]]
-paths = ["src/generated/**"]
+```yaml
+extends: [legacy-adoption, ci-gate]
 
-[override.thresholds]
-long_function_statements = 200
+thresholds:
+  max_params: 5
+```
+
+`recommended`, `strict`, `legacy-adoption`, `ci-gate` and `perf` are built in
+([docs/presets.md](docs/presets.md)).
+
+**Settings for one rule.** A rule's slug is a key under `rules`:
+
+```yaml
+rules:
+  long-parameter-list:
+    severity: error
+    max_params: 6
+    paths: ["src/domain/**"]
+```
+
+A subtree with different standards can relax the tables that are decided per file:
+
+```yaml
+overrides:
+  - paths: ["src/generated/**"]
+    thresholds:
+      long_function_statements: 200
 ```
 
 Nothing else may be scoped. The file walker is built once and the gate reaches one
-verdict, so an override naming `[scan]` or `[gate]` is an error rather than a setting
+verdict, so an override naming `scan` or `gate` is an error rather than a setting
 that quietly does nothing. [docs/configuration.md](docs/configuration.md) has the
 whole schema, all 44 thresholds and the rules each one tunes.
 
 ## Enabling and disabling rules
 
-```toml
-[rules]
-categories = ["waste", "coupling"]           # only these families
-disabled   = ["magic-number"]                # or a single rule
-enabled    = ["short-name-wide-scope"]       # opt into an off-by-default rule
+```yaml
+rules:
+  categories: [waste, coupling]           # only these families
+  disabled: [magic-number]                # or a single rule
+  enabled: [short-name-wide-scope]        # opt into an off-by-default rule
 ```
 
 Twenty-one rules ship off by default — the ones whose signal is real but noisy, or
@@ -840,7 +873,7 @@ through the same functions the command line calls.
 under five headings — **Analyse**, **Browse**, **Report**, **Set up** and
 **Session** — and flattens into ranked matches as soon as anything is typed. There is no
 separate menu to keep in step with it. Set up is the three commands that write a
-file — `RQX.toml`, a baseline, clearing the cache — kept under a heading of their
+file — `rqx.yaml`, a baseline, clearing the cache — kept under a heading of their
 own and each saying what it did on the footer line.
 
 **One key, one meaning.** `/` searches, `f` filters by rule, family and path in
@@ -927,15 +960,15 @@ comments without grading. The exit code is the gate's, so the job fails the same
 `check` does. GitLab needs a token with `api` scope — `CI_JOB_TOKEN` cannot write
 merge-request notes — and GitHub needs `pull-requests: write`.
 
-The gate lives in `RQX.toml` and every part of it can be overridden per run with
+The gate lives in `rqx.yaml` and every part of it can be overridden per run with
 `--fail-on`, `--allow-findings` and `--min-health`, so a strict gate on the
 default branch and a lenient one on feature branches do not need two config files.
 
-```toml
-# RQX.toml
-[gate]
-fail_on = "warning"
-max_findings = 0
+```yaml
+# rqx.yaml
+gate:
+  fail_on: warning
+  max_findings: 0
 ```
 
 ## Contributing

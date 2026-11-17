@@ -4,29 +4,29 @@ Forty repositories, one standard. Config composes by walking up from the file be
 scanned and stops at the repository boundary, so a platform team has nowhere to put
 the thing every service should agree on. A policy is that file.
 
-```toml
-# services/billing/RQX.toml
-policy = "../../platform/rqx-policy.toml"
+```yaml
+# services/billing/rqx.yaml
+policy: ../../platform/rqx-policy.yaml
 
-[thresholds]
-max_params = 2
+thresholds:
+  max_params: 2
 ```
 
-```toml
-# platform/rqx-policy.toml
-[thresholds]
-cognitive_complexity = 12
-max_params = 4
+```yaml
+# platform/rqx-policy.yaml
+thresholds:
+  cognitive_complexity: 12
+  max_params: 4
 
-[gate]
-fail_on = "warning"
+gate:
+  fail_on: warning
 
-[locked]
-keys = ["thresholds.cognitive_complexity", "gate.fail_on"]
+locked:
+  keys: [thresholds.cognitive_complexity, gate.fail_on]
 ```
 
 The policy is a normal config file. It may set anything a project can, including
-`[[rule]]` and `[[override]]`. The path is relative to the file that names it, or
+`rule` and `overrides`. The path is relative to the file that names it, or
 absolute; `RQX_POLICY` overrides it, for a CI job that has to impose one.
 
 ## It sits under the project, not over it
@@ -36,21 +36,25 @@ in the policy and 2 in the service, and 2 wins — the service is holding itself
 higher standard, which is not something to refuse.
 
 ```
-  cognitive complexity            12 rqx-policy.toml · locked
-  max parameters                   2 RQX.toml
+  cognitive complexity            12 rqx-policy.yaml · locked
+  max parameters                   2 rqx.yaml
 ```
 
 `rqx config` names the file each setting actually came from, per key rather than per
 table, so a value the policy supplied is not attributed to the project's own file.
 
+Presets sit lower still. Everything a file `extends`, in the project or in the policy
+itself, goes under every file rqx reads, so a preset a service names can neither
+override the policy nor move a key it locks. See [presets.md](presets.md).
+
 ## Locked keys
 
-A key in `[locked] keys` may not be given a different value by anything above the
-policy — not the project's config, not an `[[override]]`, not `--level`:
+A key in `locked.keys` may not be given a different value by anything above the
+policy — not the project's config, not an entry of `overrides`, not `--level`:
 
 ```
-Error: `thresholds.cognitive_complexity` is locked to 12 by ../../platform/rqx-policy.toml;
-       services/billing/RQX.toml sets 25.
+Error: `thresholds.cognitive_complexity` is locked to 12 by ../../platform/rqx-policy.yaml;
+       services/billing/rqx.yaml sets 25.
 ```
 
 Restating the policy's own value is allowed, so a service can write down the standard
@@ -64,7 +68,7 @@ That has a consequence worth knowing. Locking `rules.disabled` to `["magic-numbe
 stops a service disabling anything else as well. If you want a floor rather than an
 exact list, lock nothing and rely on review.
 
-Only the policy may lock. A `[locked]` table in a project's own config is refused —
+Only the policy may lock. A `locked` mapping in a project's own config is refused —
 a repository locking itself against the platform is the wrong way round.
 
 ## What it is for
