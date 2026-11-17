@@ -15,7 +15,10 @@ use crate::brand::Palette;
 use crate::config::Resolved;
 use crate::report::{self, Report};
 use crate::scan::{self, ScanOutcome};
-use crate::{Cli, Command, Standard, check, complexity, fix, graph, parser, perf, render, verify};
+use crate::{
+    Cli, Command, DisplayCap, Evidence, Standard, check, complexity, fix, graph, parser, perf,
+    render, verify,
+};
 
 /// What a typed line turned out to be.
 pub enum Parsed {
@@ -283,6 +286,13 @@ impl<'a> Context<'a> {
     }
 }
 
+fn refuse_scan_changes(evidence: &Evidence, cap: &DisplayCap) -> Result<()> {
+    if evidence.is_empty() && !cap.is_set() {
+        return Ok(());
+    }
+    bail!("`--coverage`, `--profile` and `--max-findings` change the scan; run them from a shell")
+}
+
 /// What running a command asks the session to do.
 pub enum Action {
     Print(Vec<u8>),
@@ -311,18 +321,13 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             view,
             gate,
             advice,
-            coverage,
-            profile,
-            max_findings,
+            evidence,
+            cap,
             watch,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
-            if !coverage.is_empty() || !profile.is_empty() || max_findings.is_some() {
-                bail!(
-                    "`--coverage`, `--profile` and `--max-findings` change the scan; run them from a shell"
-                );
-            }
+            refuse_scan_changes(&evidence, &cap)?;
             if watch {
                 bail!("use /watch on");
             }
@@ -575,15 +580,17 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Check {
             path,
-            standard,
             base,
             fix,
             write: _,
             view,
             gate,
-            config,
+            evidence,
+            cap,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_scan_changes(&evidence, &cap)?;
             if fix {
                 bail!("`--fix` writes files; run `rqx check --fix` from a shell, or /fix");
             }

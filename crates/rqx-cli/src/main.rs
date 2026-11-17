@@ -256,17 +256,10 @@ enum Command {
         /// Append what the design-pattern catalogue makes of the same files
         #[arg(long)]
         advice: bool,
-        /// A coverage file, so a test run can contradict a dead-code finding.
-        /// lcov, a Go cover profile and coverage.py JSON are read by content.
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        coverage: Vec<PathBuf>,
-        /// A CPU profile, so a run can contradict a performance finding. A V8
-        /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        profile: Vec<PathBuf>,
-        /// Display cap; 0 shows every finding. Never affects the health score.
-        #[arg(long)]
-        max_findings: Option<usize>,
+        #[command(flatten)]
+        evidence: Evidence,
+        #[command(flatten)]
+        cap: DisplayCap,
         /// Scan again whenever a file changes, until interrupted
         #[arg(long)]
         watch: bool,
@@ -608,8 +601,6 @@ enum Command {
     Check {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Revision to compare against
         #[arg(long, default_value = "origin/HEAD", conflicts_with = "files_from")]
         base: String,
@@ -624,9 +615,12 @@ enum Command {
         view: View,
         #[command(flatten)]
         gate: Gate,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        evidence: Evidence,
+        #[command(flatten)]
+        cap: DisplayCap,
+        #[command(flatten)]
+        run: Run,
     },
     /// Regenerate the checked-in rule reference under docs/
     #[command(hide = true)]
@@ -663,6 +657,8 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         no_status: bool,
         #[command(flatten)]
         gate: Gate,
+        #[command(flatten)]
+        evidence: Evidence,
         #[command(flatten)]
         run: Run,
     },
@@ -757,6 +753,64 @@ struct Run {
     /// Read settings from this file, layered over any `rqx.yaml` found
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     config: Option<PathBuf>,
+}
+
+/// What a test run or a profile saw, so a finding about code nothing ran can be
+/// contradicted by the run that says otherwise.
+#[derive(Args, Default)]
+struct Evidence {
+    /// A coverage file, so a test run can contradict a dead-code finding.
+    /// lcov, a Go cover profile and coverage.py JSON are read by content.
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    coverage: Vec<PathBuf>,
+    /// A CPU profile, so a run can contradict a performance finding. A V8
+    /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    profile: Vec<PathBuf>,
+}
+
+impl Evidence {
+    fn is_empty(&self) -> bool {
+        self.coverage.is_empty() && self.profile.is_empty()
+    }
+
+    fn apply(&self, settings: &mut config::Resolved) {
+        let scan = &mut settings.config.scan;
+        if !self.coverage.is_empty() {
+            scan.coverage = display_all(&self.coverage);
+        }
+        if !self.profile.is_empty() {
+            scan.profile = display_all(&self.profile);
+        }
+    }
+}
+
+fn display_all(paths: &[PathBuf]) -> Vec<String> {
+    paths
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect()
+}
+
+/// How many findings a report lists. The gate and the health score count every
+/// finding whatever this says.
+#[derive(Args, Default)]
+struct DisplayCap {
+    /// Display cap; 0 shows every finding. Never affects the health score.
+    #[arg(long)]
+    max_findings: Option<usize>,
+}
+
+impl DisplayCap {
+    fn is_set(&self) -> bool {
+        self.max_findings.is_some()
+    }
+
+    fn apply(&self, settings: &mut config::Resolved) {
+        if let Some(max) = self.max_findings {
+            settings.config.scan.max_findings = max;
+        }
+    }
 }
 
 impl Run {
@@ -1650,9 +1704,8 @@ fn run() -> Result<Exit> {
             view,
             gate,
             advice,
-            coverage,
-            profile,
-            max_findings,
+            evidence,
+            cap,
             watch,
             run,
         } => {
@@ -1666,21 +1719,8 @@ fn run() -> Result<Exit> {
             // Started before the scan rather than after it: the answer needs the length
             // of the work to arrive in, and `process::exit` does not wait for a thread.
             update::start(settings.config.update.check);
-            if let Some(max) = max_findings {
-                settings.config.scan.max_findings = max;
-            }
-            if !coverage.is_empty() {
-                settings.config.scan.coverage = coverage
-                    .iter()
-                    .map(|path| path.display().to_string())
-                    .collect();
-            }
-            if !profile.is_empty() {
-                settings.config.scan.profile = profile
-                    .iter()
-                    .map(|path| path.display().to_string())
-                    .collect();
-            }
+            cap.apply(&mut settings);
+            evidence.apply(&mut settings);
             gate.apply(&mut settings.config);
 
             let progress = progress_for(view.quiet);
@@ -2116,6 +2156,7 @@ fn run() -> Result<Exit> {
             marker,
             no_status,
             gate,
+            evidence,
             run,
         } => {
             if !path.exists() {
@@ -2126,6 +2167,7 @@ fn run() -> Result<Exit> {
             }
             let mut settings = run.resolve(&path)?;
             gate.apply(&mut settings.config);
+            evidence.apply(&mut settings);
             // The whole review, not the first five hundred: a display cap is for a
             // terminal, and this is a document somebody scrolls.
             settings.config.scan.max_findings = 0;
@@ -2254,13 +2296,14 @@ fn run() -> Result<Exit> {
         }
         Command::Check {
             path,
-            standard,
             base,
             fix,
             write,
             view,
             gate,
-            config,
+            evidence,
+            cap,
+            run,
         } => {
             if !path.exists() {
                 bail!(
@@ -2268,11 +2311,13 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            let mut settings = run.resolve(&path)?;
             // Started before the scan rather than after it: the answer needs the length
             // of the work to arrive in, and `process::exit` does not wait for a thread.
             update::start(settings.config.update.check);
             gate.apply(&mut settings.config);
+            cap.apply(&mut settings);
+            evidence.apply(&mut settings);
 
             let progress = progress_for(view.quiet);
             let view = view.on_terminal(verbosity, hyperlinks);

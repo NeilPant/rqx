@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-comment \- Post the review onto the merge request it is reviewing, and grade the commit
 .SH SYNOPSIS
-\fBrqx comment\fR [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx comment\fR [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Post the review onto the merge request it is reviewing, and grade the commit
 .SH OPTIONS
@@ -20,6 +20,12 @@ Which comment to keep. Two jobs on one merge request each keep their own
 .TP
 \fB\-\-no\-status\fR
 Comment, but leave the commit ungraded
+.TP
+\fB\-\-coverage\fR \fI<FILE>\fR
+A coverage file, so a test run can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are read by content
+.TP
+\fB\-\-profile\fR \fI<FILE>\fR
+A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content
 .TP
 \fB\-\-level\fR \fI<LEVEL>\fR
 relaxed, standard, strict or pristine

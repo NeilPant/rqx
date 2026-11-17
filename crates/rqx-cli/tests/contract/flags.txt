@@ -167,6 +167,7 @@ check --confidence =heuristic
 check --confidence =verified
 check --config
 check --context
+check --coverage
 check --detail
 check --detail =full
 check --detail =normal
@@ -202,6 +203,7 @@ check --hyperlinks =never
 check --hyperlinks [env RQX_HYPERLINKS]
 check --level
 check --level [env RQX_LEVEL]
+check --max-findings
 check --min-grade
 check --min-grade =clean
 check --min-grade =critical
@@ -221,6 +223,7 @@ check --not-category
 check --not-path
 check --not-rule
 check --path
+check --profile
 check --progress
 check --progress =auto
 check --progress =bar
@@ -243,6 +246,8 @@ check --sort =file
 check --sort =line
 check --sort =severity
 check --stats
+check --threads
+check --threads [env RQX_THREADS]
 check --timings
 check --top
 check --verbose
@@ -260,6 +265,7 @@ comment --color =always
 comment --color =auto
 comment --color =never
 comment --config
+comment --coverage
 comment --dry-run
 comment --fail-on
 comment --fail-on =error
@@ -292,6 +298,7 @@ comment --no-progress
 comment --no-progress [env RQX_NO_PROGRESS]
 comment --no-status
 comment --no-tui
+comment --profile
 comment --progress
 comment --progress =auto
 comment --progress =bar
@@ -1481,6 +1488,11 @@ waive --color =never
 waive --config
 waive --dry-run
 waive --help
+waive --hyperlinks
+waive --hyperlinks =always
+waive --hyperlinks =auto
+waive --hyperlinks =never
+waive --hyperlinks [env RQX_HYPERLINKS]
 waive --motion
 waive --motion =off
 waive --motion =on
@@ -1488,9 +1500,17 @@ waive --no-mouse
 waive --no-progress
 waive --no-progress [env RQX_NO_PROGRESS]
 waive --no-tui
+waive --progress
+waive --progress =auto
+waive --progress =bar
+waive --progress =none
+waive --progress =plain
+waive --progress [env RQX_PROGRESS]
 waive --reason
 waive --until
+waive --verbose
 waive --whole-file
 waive -h
+waive -v
 waive <at>
 waive <rule>

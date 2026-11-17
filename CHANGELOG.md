@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`rqx check` takes the scan's options.** `--threads` (or `RQX_THREADS`),
+  `--coverage` and `--profile` work as they do on `rqx scan`, and `rqx comment`
+  takes `--coverage` and `--profile`. `rqx check --max-findings N` shortens the
+  listing only: the gate counts every finding, so a cap never lets a branch through.
 - **`/waive`, `/watch` and `/open` in the session.** `/waive src/a.ts:42 rule` is
   `rqx waive`, and asks on the prompt for the reason when `--reason` is missing.
   `/watch on` re-analyses files as they are saved and prints what moved, such as

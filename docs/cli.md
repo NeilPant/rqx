@@ -59,7 +59,6 @@ Analyze changed files against a base revision and fail if the gate is not met
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--base` | Revision to compare against |
 | `--fix` | Apply the mechanical fixes to what the branch touched before gating, so a branch whose only failures were mechanical passes |
 | `--write` | With --fix, write the fixes. Without it nothing on disk changes |
@@ -92,6 +91,11 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--min-health` | Health score below which the run fails; 0 disables |
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
+| `--coverage` | A coverage file, so a test run can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are read by content |
+| `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
+| `--max-findings` | Display cap; 0 shows every finding. Never affects the health score |
+| `--level` | relaxed, standard, strict or pristine |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -117,6 +121,8 @@ Post the review onto the merge request it is reviewing, and grade the commit
 | `--min-health` | Health score below which the run fails; 0 disables |
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
+| `--coverage` | A coverage file, so a test run can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are read by content |
+| `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
