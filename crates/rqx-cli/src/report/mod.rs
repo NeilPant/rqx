@@ -92,6 +92,11 @@ pub use markdown::{classification, comment};
 pub use settings::{render as config, rows as setting_rows};
 pub use terminal::{Detail, Grouping, Layout, Order};
 
+/// The shape of the machine formats. Bumped only when a key is removed or changes
+/// meaning, which `docs/json.md` promises never to do, so a consumer can refuse a
+/// document newer than it understands.
+pub const SCHEMA_VERSION: u32 = 1;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum Reporter {
     Terminal,

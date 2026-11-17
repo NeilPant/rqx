@@ -4,11 +4,13 @@ use anyhow::Result;
 use rqx_core::finding::Finding;
 use serde::Serialize;
 
-use crate::report::Report;
+use crate::report::{Report, SCHEMA_VERSION};
 
 #[derive(Serialize)]
 struct JsonSummary<'a> {
     kind: &'static str,
+    schema_version: u32,
+    rqx_version: &'static str,
     health_score: u32,
     files_scanned: u32,
     code_lines: u64,
@@ -60,13 +62,23 @@ pub fn finding_of(finding: &Finding) -> serde_json::Value {
     serde_json::Value::Object(object)
 }
 
+/// A line of the stream, tagged so a consumer can switch on `kind` instead of
+/// guessing from which keys are present.
+fn finding_line(finding: &Finding) -> serde_json::Value {
+    let mut line = finding_of(finding);
+    line["kind"] = "finding".into();
+    line
+}
+
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     for finding in &report.findings {
-        writeln!(out, "{}", serde_json::to_string(&finding_of(finding))?)?;
+        writeln!(out, "{}", serde_json::to_string(&finding_line(finding))?)?;
     }
     let outcome = report.outcome;
     let summary = JsonSummary {
         kind: "summary",
+        schema_version: SCHEMA_VERSION,
+        rqx_version: env!("CARGO_PKG_VERSION"),
         health_score: report.health(),
         files_scanned: outcome.files_scanned,
         code_lines: outcome.code_lines,

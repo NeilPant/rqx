@@ -194,6 +194,7 @@ pub fn json(outcome: &ScanOutcome, plan: &[Item<'_>], out: &mut dyn Write) -> Re
         "{}",
         json!({
             "kind": "summary",
+            "schema_version": super::SCHEMA_VERSION,
             "items": plan.len(),
             "effort": plan.iter().map(|item| u32::from(item.effort)).sum::<u32>(),
             "healthBefore": before,

@@ -49,7 +49,7 @@ rqx scan . \
 | Reporter | Consumer |
 |---|---|
 | `terminal` | the job log |
-| `json` | newline-delimited JSON, one object per finding then a summary |
+| `json` | newline-delimited JSON, one object per finding then a summary; [what it promises](json.md) |
 | `sarif` | GitHub code scanning, Azure DevOps advanced security |
 | `junit` | GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket, Buildkite |
 | `gitlab` | GitLab Code Quality — inline merge-request annotations |

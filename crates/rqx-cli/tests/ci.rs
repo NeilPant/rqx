@@ -677,6 +677,37 @@ fn the_fix_report_leaves_a_sarif_document_whole() {
     assert!(!output.stderr.is_empty(), "the fix report went missing");
 }
 
+fn json_lines(output: &Output) -> Vec<serde_json::Value> {
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("a json object"))
+        .collect()
+}
+
+#[test]
+fn every_json_line_says_what_it_is() {
+    let root = project("json-kinds", &[("a.ts", DIRTY)]);
+    let lines = json_lines(&rqx(&root, &["scan", "--reporter", "json", "--no-tui"]));
+
+    let (summary, findings) = lines.split_last().expect("a summary line");
+    assert!(!findings.is_empty(), "the fixture found nothing");
+    assert!(findings.iter().all(|line| line["kind"] == "finding"));
+    assert_eq!(summary["kind"], "summary");
+    assert_eq!(summary["schema_version"], 1);
+    assert_eq!(summary["rqx_version"], env!("CARGO_PKG_VERSION"));
+}
+
+#[test]
+fn the_secondary_summaries_carry_the_schema_version() {
+    let root = project("json-secondary", &[("a.ts", DIRTY)]);
+    for command in ["fix", "plan"] {
+        let lines = json_lines(&rqx(&root, &[command, "--json", "--no-tui"]));
+        let summary = lines.last().expect("a summary line");
+        assert_eq!(summary["kind"], "summary", "{command}");
+        assert_eq!(summary["schema_version"], 1, "{command}");
+    }
+}
+
 /// `--slugs` is what a script and a shell completion read. Ignoring the family or
 /// language beside it hands back the whole catalogue with no sign it was narrowed.
 #[test]

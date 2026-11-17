@@ -10,6 +10,16 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Added
+
+- **Every JSON line says what it is.** Finding lines in `--reporter json` now carry
+  `"kind": "finding"`, so a consumer switches on `kind` for every line instead of
+  telling findings apart by the keys they lack. The summary line gains
+  `schema_version` (`1`) and `rqx_version`, and the summaries of `fix --json`,
+  `verify --json` and `plan --json` gain `schema_version`. `docs/json.md` is new and
+  states the promise: keys are never removed or renamed, and a consumer ignores keys
+  it does not know. The camelCase keys in `verify` and `plan` stay as they are.
+
 ### Fixed
 
 - **Every `--group-by` ends with the summary and the gate.** Grouping by rule, family

@@ -291,6 +291,7 @@ pub fn json(outcome: &Outcome, out: &mut dyn Write) -> Result<()> {
         "{}",
         serde_json::json!({
             "kind": "summary",
+            "schema_version": super::SCHEMA_VERSION,
             "files": outcome.fixes().count(),
             "applied": outcome.applied(),
             "withheld": outcome.withheld().count(),

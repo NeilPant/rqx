@@ -222,3 +222,24 @@ fn an_expectation_that_was_not_met_fails_the_run() {
     assert!(met.passed);
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn the_verify_summary_carries_the_schema_version() {
+    let root = repository(
+        "schema-version",
+        &[("a.ts", "export const one = 1\n")],
+        &[("a.ts", "export const one = 2\n")],
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["verify"])
+        .arg(&root)
+        .args(["--base", "HEAD~1", "--json"])
+        .output()
+        .expect("failed to run rqx");
+    let body = String::from_utf8(output.stdout).expect("utf-8 output");
+    let summary: serde_json::Value =
+        serde_json::from_str(body.lines().last().expect("a summary")).expect("a json object");
+    assert_eq!(summary["kind"], "summary");
+    assert_eq!(summary["schema_version"], 1);
+    let _ = std::fs::remove_dir_all(&root);
+}
