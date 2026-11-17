@@ -33,7 +33,7 @@ patterns:
   enabled: [memento, interpreter]
 
 ignore:
-  # The repository's own `RQX.toml` does not read this tree — every file in it is a
+  # The repository's own `rqx.yaml` does not read this tree — every file in it is a
   # planted violation. This layer sits over that one, which is how the fixtures stay
   # readable to the tests that exist to read them.
   patterns: []
