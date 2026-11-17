@@ -156,6 +156,30 @@
     "severity": "major"
   },
   {
+    "check_name": "deep-recursion",
+    "description": "`sumTo` calls itself once with `n` one smaller each time, so the stack it needs is O(n) deep. — every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach",
+    "fingerprint": "b0afecb87f1cd3c8",
+    "location": {
+      "lines": {
+        "begin": 5
+      },
+      "path": "typescript/cost-deep-recursion.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "quadratic-via-call",
+    "description": "`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2. — the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop",
+    "fingerprint": "b115a75bc45602b8",
+    "location": {
+      "lines": {
+        "begin": 13
+      },
+      "path": "typescript/cost-quadratic-via-call.ts"
+    },
+    "severity": "minor"
+  },
+  {
     "check_name": "invariant-in-loop",
     "description": "`RegExp` runs on every pass of the loop. — the same pattern is parsed and compiled on every pass when once would do, and compiling is the expensive half of matching",
     "fingerprint": "41ea4da7fd13335d",
@@ -932,6 +956,18 @@
         "begin": 17
       },
       "path": "typescript/shapes.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "repeated-computation-in-loop",
+    "description": "`totalLength` runs on every pass of the loop. — the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do",
+    "fingerprint": "1d7829a808672a4d",
+    "location": {
+      "lines": {
+        "begin": 12
+      },
+      "path": "typescript/cost-repeated-computation-in-loop.ts"
     },
     "severity": "minor"
   },
@@ -2928,6 +2964,18 @@
     "severity": "info"
   },
   {
+    "check_name": "plural-mismatch",
+    "description": "`own` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
+    "fingerprint": "f6744decf3bf8fb8",
+    "location": {
+      "lines": {
+        "begin": 21
+      },
+      "path": "typescript/cost-repeated-computation-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
     "check_name": "name-repeats-type",
     "description": "`entryList (List)` spells its type into its name. — the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes",
     "fingerprint": "9e79a0b69ca5a42a",
@@ -3104,6 +3152,30 @@
         "begin": 18
       },
       "path": "typescript/cost-lock-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "never-reassigned",
+    "description": "`i` is declared changeable and never changes. — a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need",
+    "fingerprint": "947c77aba5438e17",
+    "location": {
+      "lines": {
+        "begin": 2
+      },
+      "path": "typescript/cost-quadratic-via-call.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "never-reassigned",
+    "description": "`at` is declared changeable and never changes. — a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need",
+    "fingerprint": "3fcd27f24fccff1d",
+    "location": {
+      "lines": {
+        "begin": 12
+      },
+      "path": "typescript/cost-quadratic-via-call.ts"
     },
     "severity": "info"
   },

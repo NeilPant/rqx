@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="302" failures="160" time="0">
+<testsuites name="rqx" tests="309" failures="163" time="0">
   <testsuite name="typescript/bloat.ts" tests="19" failures="10">
     <testcase classname="typescript/bloat.ts" name="no-base-case at 86:17">
       <failure type="no-base-case" message="Calls itself 1 times per invocation with no memo in sight.">Calls itself 1 times per invocation with no memo in sight.
@@ -164,6 +164,14 @@ Fix: give each group its own type, and have one type hold the other</failure>
       <skipped message="`row` is adjusted by one in 3 places, each of them a chance to be off by one." />
     </testcase>
   </testsuite>
+  <testsuite name="typescript/cost-deep-recursion.ts" tests="1" failures="1">
+    <testcase classname="typescript/cost-deep-recursion.ts" name="deep-recursion at 5:3">
+      <failure type="deep-recursion" message="`sumTo` calls itself once with `n` one smaller each time, so the stack it needs is O(n) deep.">`sumTo` calls itself once with `n` one smaller each time, so the stack it needs is O(n) deep.
+
+Why: every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach
+Fix: walk the input with a loop and an explicit stack, so the depth is not limited by the call stack</failure>
+    </testcase>
+  </testsuite>
   <testsuite name="typescript/cost-linear-op-in-loop.ts" tests="1" failures="1">
     <testcase classname="typescript/cost-linear-op-in-loop.ts" name="linear-op-in-loop at 5:15">
       <failure type="linear-op-in-loop" message="`entries.shift` runs on every pass of the loop.">`entries.shift` runs on every pass of the loop.
@@ -181,6 +189,34 @@ Fix: take the lock once around the whole loop, or keep it per pass only if other
     </testcase>
     <testcase classname="typescript/cost-lock-in-loop.ts" name="never-reassigned at 18:12">
       <skipped message="`at` is declared changeable and never changes." />
+    </testcase>
+  </testsuite>
+  <testsuite name="typescript/cost-pair-scan-could-hash.ts" tests="1" failures="0">
+    <testcase classname="typescript/cost-pair-scan-could-hash.ts" name="rqx" />
+  </testsuite>
+  <testsuite name="typescript/cost-quadratic-via-call.ts" tests="3" failures="1">
+    <testcase classname="typescript/cost-quadratic-via-call.ts" name="quadratic-via-call at 13:5">
+      <failure type="quadratic-via-call" message="`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2.">`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2.
+
+Why: the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop
+Fix: index what the callee searches once above the loop, or change the callee to look up by key so each pass costs constant time</failure>
+    </testcase>
+    <testcase classname="typescript/cost-quadratic-via-call.ts" name="never-reassigned at 2:12">
+      <skipped message="`i` is declared changeable and never changes." />
+    </testcase>
+    <testcase classname="typescript/cost-quadratic-via-call.ts" name="never-reassigned at 12:12">
+      <skipped message="`at` is declared changeable and never changes." />
+    </testcase>
+  </testsuite>
+  <testsuite name="typescript/cost-repeated-computation-in-loop.ts" tests="2" failures="1">
+    <testcase classname="typescript/cost-repeated-computation-in-loop.ts" name="repeated-computation-in-loop at 12:5">
+      <failure type="repeated-computation-in-loop" message="`totalLength` runs on every pass of the loop.">`totalLength` runs on every pass of the loop.
+
+Why: the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do
+Fix: compute it once above the loop: nothing in the loop changes what it is given</failure>
+    </testcase>
+    <testcase classname="typescript/cost-repeated-computation-in-loop.ts" name="plural-mismatch at 21:11">
+      <skipped message="`own` disagrees in number with what it holds." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/cost-sort-in-loop.ts" tests="1" failures="1">

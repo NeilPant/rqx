@@ -7,9 +7,12 @@
 
 mod fold;
 mod graph;
+mod sites;
 mod solve;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_sites;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
@@ -18,6 +21,7 @@ use rqx_core::cost::{
     Conf, FileCost, Order, Recurrence, Shrink, SizeId, SizeSrc, SizeVar, Summaries, Summary,
     TraceStep,
 };
+use rqx_core::cost_sites::CrossSite;
 use rqx_core::facts::{ImportRequest, ModuleFacts};
 
 use self::fold::{Done, Fold, TRACE_STEPS, Work, bind};
@@ -45,6 +49,14 @@ pub struct Analysed<'a> {
     pub cost: &'a FileCost,
 }
 
+/// What a composition found: the summary of every function, and the places in them
+/// that the cross-file performance rules report.
+pub struct Composed {
+    pub summaries: Summaries,
+    /// Empty unless the composition was asked for them and covered the whole project.
+    pub sites: Vec<CrossSite>,
+}
+
 /// The summary of every function the extraction recorded, from the files of one scan.
 /// `complete` says whether those were all the files of the project.
 pub fn summarise(
@@ -53,8 +65,25 @@ pub fn summarise(
     tables: &CostTables,
     complete: bool,
 ) -> Summaries {
+    summarise_with_sites(files, root, tables, complete, false).summaries
+}
+
+/// As [`summarise`], and with the places the cross-file rules report when `sites` is
+/// set. A call into a file the scan did not read costs nothing to the composition, so a
+/// rule that concludes from a cost that crosses files has no places unless the scan
+/// was `complete`.
+pub fn summarise_with_sites(
+    files: &[Analysed<'_>],
+    root: &Path,
+    tables: &CostTables,
+    complete: bool,
+    sites: bool,
+) -> Composed {
     if files.iter().all(|file| file.cost.is_empty()) {
-        return Summaries::new(complete);
+        return Composed {
+            summaries: Summaries::new(complete),
+            sites: Vec::new(),
+        };
     }
     let units: Vec<Unit<'_>> = files
         .iter()
@@ -66,7 +95,7 @@ pub fn summarise(
         })
         .collect();
     let requests = requests_of(files, &units, root);
-    compose(&units, &requests, tables, complete)
+    compose_with_sites(&units, &requests, tables, complete, sites)
 }
 
 /// The import requests the composition may follow, resolved per language family because
@@ -174,6 +203,18 @@ pub fn compose(
     tables: &CostTables,
     complete: bool,
 ) -> Summaries {
+    compose_with_sites(units, requests, tables, complete, false).summaries
+}
+
+/// As [`compose`], and with the places the cross-file rules report when `sites` is set
+/// and the units are `complete`.
+pub fn compose_with_sites(
+    units: &[Unit<'_>],
+    requests: &ResolvedRequests,
+    tables: &CostTables,
+    complete: bool,
+    sites: bool,
+) -> Composed {
     let mut ordered: Vec<&Unit<'_>> = units.iter().collect();
     ordered.sort_by(|left, right| left.name.cmp(right.name));
     let mut graph = Graph::new(ordered, requests, tables);
@@ -198,6 +239,11 @@ pub fn compose(
         }
     }
 
+    let found = if sites && complete {
+        self::sites::find(&graph, &done, tables)
+    } else {
+        Vec::new()
+    };
     let mut summaries = Summaries::new(complete);
     for (node, answer) in done.into_iter().enumerate() {
         let Some(answer) = answer else { continue };
@@ -214,7 +260,10 @@ pub fn compose(
             },
         );
     }
-    summaries
+    Composed {
+        summaries,
+        sites: found,
+    }
 }
 
 /// The answer for each member of a strongly connected component, in the members' order.

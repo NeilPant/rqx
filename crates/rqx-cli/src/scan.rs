@@ -24,6 +24,8 @@ use crate::cache::{Cached, Loading, Stamp};
 use crate::config::Resolved;
 use crate::stats::{FileReads, ScanStats};
 
+mod cost_rules;
+
 /// The walk analyzes files far faster than one collector drains them, so an
 /// unbounded channel becomes the place a whole repo's findings pile up. Bounding
 /// it makes producers wait instead, which is what keeps peak memory a function of
@@ -306,6 +308,8 @@ impl Staged {
 struct CostFile {
     name: Arc<str>,
     cost: rqx_core::cost::FileCost,
+    /// The lines where a per-file rule already reports work in a loop.
+    covered: Vec<u32>,
 }
 
 /// Findings are capped for display while `counts` stays exact, because a health
@@ -1569,7 +1573,7 @@ impl Collector {
         modules: &[rqx_lang::module_graph::ModuleEntry],
         costs: &[CostFile],
         root: &Path,
-        tables: &rqx_lang::cost::tables::CostTables,
+        settings: &Resolved,
         complete: bool,
     ) -> Staged {
         let files: Vec<rqx_lang::cost::compose::Analysed<'_>> = modules
@@ -1581,12 +1585,21 @@ impl Collector {
                 cost: &file.cost,
             })
             .collect();
-        Staged {
-            summaries: Some(rqx_lang::cost::compose::summarise(
-                &files, root, tables, complete,
-            )),
-            ..Staged::default()
-        }
+        let composed = rqx_lang::cost::compose::summarise_with_sites(
+            &files,
+            root,
+            &settings.cost_tables,
+            complete,
+            cost_rules::wanted(settings),
+        );
+        let languages: HashMap<&str, Language> = costs
+            .iter()
+            .zip(modules)
+            .map(|(file, module)| (&*file.name, module.language))
+            .collect();
+        let mut staged = cost_rules::staged(composed.sites, costs, &languages, root, settings);
+        staged.summaries = Some(composed.summaries);
+        staged
     }
 
     /// What other tools reported, read from the SARIF files the project named.
@@ -1646,13 +1659,7 @@ impl Collector {
                 ]
             });
             let costed = scope.spawn(move || {
-                Self::cost_summaries(
-                    modules_ref,
-                    costs_ref,
-                    root,
-                    &settings.cost_tables,
-                    complete,
-                )
+                Self::cost_summaries(modules_ref, costs_ref, root, settings, complete)
             });
             let git = scope.spawn(move || {
                 let history = history();
@@ -2072,6 +2079,25 @@ impl Positions {
         rqx_core::paths::display_path(path)
     }
 
+    /// The text of a line, without the indentation in front of it.
+    fn line_range(&mut self, path: &Path, line: u32) -> Option<SourceRange> {
+        let span = {
+            let read = self
+                .files
+                .entry(path.to_path_buf())
+                .or_insert_with(|| ReadFile::read(path))
+                .as_ref()?;
+            let start = read.lines.line_start(line) as usize;
+            let text = read.text.get(start..)?.lines().next().unwrap_or_default();
+            let indent = text.len() - text.trim_start().len();
+            Span::new(
+                (start + indent) as u32,
+                (start + text.trim_end().len()) as u32,
+            )
+        };
+        self.range(path, span)
+    }
+
     fn range(&mut self, path: &Path, span: Span) -> Option<SourceRange> {
         let file: Arc<str> = Arc::from(self.relative(path));
         let read = self
@@ -2205,6 +2231,7 @@ pub(crate) fn collect_against(
                 if !todos.is_empty() {
                     collector.todos.insert(Arc::clone(&shared), todos);
                 }
+                let covered = lines_reported_in_loops(&findings);
                 for finding in findings {
                     collector.accept(finding);
                 }
@@ -2225,6 +2252,7 @@ pub(crate) fn collect_against(
                     collector.costs.push(CostFile {
                         name: Arc::clone(&shared),
                         cost,
+                        covered,
                     });
                 }
                 collector.analyzed.insert(display);
@@ -2325,6 +2353,14 @@ pub(crate) fn analyze_file(
         }
     };
     analyzed(path, display, cached, settings)
+}
+
+fn lines_reported_in_loops(findings: &[Finding]) -> Vec<u32> {
+    findings
+        .iter()
+        .filter(|finding| cost_rules::REPORTED_IN_LOOPS.contains(&finding.rule.slug()))
+        .map(|finding| finding.location.line)
+        .collect()
 }
 
 fn skipped(path: &Path, reason: String) -> ScanMessage {

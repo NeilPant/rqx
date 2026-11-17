@@ -7,7 +7,7 @@ thresholds:
   callback_depth: 2
 
 rules:
-  enabled: [allocation-in-loop, missing-capacity]
+  enabled: [allocation-in-loop, missing-capacity, pair-scan-could-hash]
   loop-concatenation: { severity: error }
   sequential-await: { severity: error }
   scan-in-loop: { severity: error }
@@ -29,3 +29,7 @@ rules:
   boxing-in-loop: { severity: error }
   copy-in-range-for: { severity: error }
   large-by-value: { severity: error }
+  quadratic-via-call: { severity: error }
+  deep-recursion: { severity: error }
+  repeated-computation-in-loop: { severity: error }
+  pair-scan-could-hash: { severity: error }

@@ -2779,6 +2779,52 @@
           ],
           "type": "object"
         },
+        "deep-recursion": {
+          "additionalProperties": false,
+          "description": "Settings for `deep-recursion`. every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach",
+          "properties": {
+            "confidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this confidence. Only `verified` findings count towards the health score."
+            },
+            "enabled": {
+              "description": "`false` switches the rule off and `true` switches it on, even when it ships off. It is the most specific word on the rule, so it wins over the rule being named in `disabled` or `enabled`, or filtered out by `categories`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "paths": {
+              "description": "Globs, relative to the scanned directory. When given, the rule only reports in files they match.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "severity": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this severity instead of the catalogue's."
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "type": "object"
+        },
         "deep-relative-import": {
           "additionalProperties": false,
           "description": "Settings for `deep-relative-import`. a path that climbs this far reaches across the project's structure instead of through it, and it breaks when either end moves",
@@ -6854,6 +6900,52 @@
           ],
           "type": "object"
         },
+        "pair-scan-could-hash": {
+          "additionalProperties": false,
+          "description": "Settings for `pair-scan-could-hash`. every element of one collection is compared with every element of the other to find its match, which a map keyed on the compared field answers in constant time per element",
+          "properties": {
+            "confidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this confidence. Only `verified` findings count towards the health score."
+            },
+            "enabled": {
+              "description": "`false` switches the rule off and `true` switches it on, even when it ships off. It is the most specific word on the rule, so it wins over the rule being named in `disabled` or `enabled`, or filtered out by `categories`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "paths": {
+              "description": "Globs, relative to the scanned directory. When given, the rule only reports in files they match.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "severity": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this severity instead of the catalogue's."
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "type": "object"
+        },
         "parallel-inheritance": {
           "additionalProperties": false,
           "description": "Settings for `parallel-inheritance`. each new case needs a new subclass in both hierarchies, and adding only one leaves the two hierarchies out of step",
@@ -7133,6 +7225,52 @@
         "production-assert": {
           "additionalProperties": false,
           "description": "Settings for `production-assert`. the language may compile the assertion out, so the check a reader relies on may not run in production",
+          "properties": {
+            "confidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this confidence. Only `verified` findings count towards the health score."
+            },
+            "enabled": {
+              "description": "`false` switches the rule off and `true` switches it on, even when it ships off. It is the most specific word on the rule, so it wins over the rule being named in `disabled` or `enabled`, or filtered out by `categories`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "paths": {
+              "description": "Globs, relative to the scanned directory. When given, the rule only reports in files they match.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "severity": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this severity instead of the catalogue's."
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "type": "object"
+        },
+        "quadratic-via-call": {
+          "additionalProperties": false,
+          "description": "Settings for `quadratic-via-call`. the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7562,6 +7700,52 @@
               "minimum": 0,
               "type": "integer"
             },
+            "confidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this confidence. Only `verified` findings count towards the health score."
+            },
+            "enabled": {
+              "description": "`false` switches the rule off and `true` switches it on, even when it ships off. It is the most specific word on the rule, so it wins over the rule being named in `disabled` or `enabled`, or filtered out by `categories`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "paths": {
+              "description": "Globs, relative to the scanned directory. When given, the rule only reports in files they match.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "severity": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this severity instead of the catalogue's."
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "type": "object"
+        },
+        "repeated-computation-in-loop": {
+          "additionalProperties": false,
+          "description": "Settings for `repeated-computation-in-loop`. the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do",
+          "properties": {
             "confidence": {
               "anyOf": [
                 {

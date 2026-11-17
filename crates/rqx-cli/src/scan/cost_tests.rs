@@ -182,3 +182,91 @@ fn the_stage_is_timed() {
         outcome.timings
     );
 }
+
+const SQUARING_CALLER: &str = "import { find } from \"./finder\";\n\
+    export function dedupe(items: string[]) {\n  \
+      const seen: string[] = [];\n  \
+      for (const item of items) { if (find(items, item) === null) { seen.push(item); } }\n  \
+      return seen;\n}\n";
+
+fn reported(outcome: &ScanOutcome, rule: RuleId) -> Vec<(String, u32)> {
+    outcome
+        .findings
+        .iter()
+        .filter(|finding| finding.rule == rule)
+        .map(|finding| (finding.location.file.to_string(), finding.location.line))
+        .collect()
+}
+
+#[test]
+fn a_loop_around_a_call_into_another_file_that_scans_the_same_collection_is_quadratic() {
+    let tree = Tree::with(&[("caller.ts", SQUARING_CALLER), ("finder.ts", FINDER_LINEAR)]);
+
+    let outcome = tree.scan();
+
+    assert_eq!(
+        reported(&outcome, RuleId::QuadraticViaCall),
+        [("caller.ts".to_owned(), 4)]
+    );
+    let finding = outcome
+        .findings
+        .iter()
+        .find(|finding| finding.rule == RuleId::QuadraticViaCall)
+        .unwrap();
+    let text = finding.evidence.to_string();
+    assert!(
+        text.contains("O(n²): loop :4 \u{2192} find O(n) finder.ts:1"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_loop_over_another_collection_than_the_callee_scans_is_left_alone() {
+    let tree = Tree::with(&[("caller.ts", CALLER), ("finder.ts", FINDER_LINEAR)]);
+
+    assert!(reported(&tree.scan(), RuleId::QuadraticViaCall).is_empty());
+}
+
+#[test]
+fn a_scan_of_one_file_reports_no_rule_that_reads_costs_across_files() {
+    let tree = Tree::with(&[("caller.ts", SQUARING_CALLER), ("finder.ts", FINDER_LINEAR)]);
+
+    let alone = scan_with(
+        &tree.root.join("caller.ts"),
+        &tree.settings,
+        None,
+        CachePolicy::Off,
+    )
+    .unwrap();
+
+    assert!(reported(&alone, RuleId::QuadraticViaCall).is_empty());
+}
+
+#[test]
+fn an_edit_to_the_callee_changes_what_the_cached_caller_is_reported_for() {
+    let tree = Tree::with(&[("caller.ts", SQUARING_CALLER), ("finder.ts", FINDER_LINEAR)]);
+    assert_eq!(reported(&tree.scan(), RuleId::QuadraticViaCall).len(), 1);
+
+    let constant = "export function find(list: string[], x: string) {\n  return list.length > 0 ? x : null;\n}\n";
+    tree.write("finder.ts", constant, HOUR / 2);
+    let warm = tree.scan();
+
+    assert_eq!(
+        warm.stats.cache_hits, 1,
+        "the caller is served from the cache"
+    );
+    assert!(reported(&warm, RuleId::QuadraticViaCall).is_empty());
+}
+
+#[test]
+fn a_project_that_turns_the_rule_off_is_not_told_about_it() {
+    let mut config = rqx_core::config::RqxConfig::default();
+    config
+        .rules
+        .disabled
+        .insert("quadratic-via-call".to_owned());
+    let mut tree = Tree::with(&[("caller.ts", SQUARING_CALLER), ("finder.ts", FINDER_LINEAR)]);
+    tree.settings = Resolved::of(config);
+
+    assert!(reported(&tree.scan(), RuleId::QuadraticViaCall).is_empty());
+}

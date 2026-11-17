@@ -266,7 +266,7 @@ impl RuleId {
     /// import graph, and the ones the scan computes across files although they declare
     /// `Syntax`: clones, reimplementations, history and notes. Listed by id because
     /// `analysis` alone would miss them.
-    pub const PROJECT_SCOPED: [Self; 17] = [
+    pub const PROJECT_SCOPED: [Self; 21] = [
         Self::ParallelInheritance,
         Self::UnusedExport,
         Self::UnusedFile,
@@ -284,6 +284,10 @@ impl RuleId {
         Self::SingleAuthorFile,
         Self::DeepInheritance,
         Self::StaleTodo,
+        Self::QuadraticViaCall,
+        Self::DeepRecursion,
+        Self::RepeatedComputationInLoop,
+        Self::PairScanCouldHash,
     ];
 
     pub fn is_project_scoped(self) -> bool {
@@ -382,8 +386,9 @@ mod tests {
     fn project_scoped_names_every_modules_rule_and_only_the_collector_rules_besides() {
         for rule in RuleId::ALL.iter().copied() {
             let modules = rule.spec().analysis == Analysis::Modules;
-            // Declared `Syntax` because no per-file pass can answer them: three read
-            // git history and one compares every file against every other.
+            // Declared `Syntax` or `Semantics` because no per-file pass can answer them:
+            // three read git history, one compares every file against every other, and
+            // four read the cost of a function composed with the functions it calls.
             let collector = matches!(
                 rule,
                 RuleId::DuplicateCode
@@ -393,6 +398,10 @@ mod tests {
                     | RuleId::Hotspot
                     | RuleId::SingleAuthorFile
                     | RuleId::StaleTodo
+                    | RuleId::QuadraticViaCall
+                    | RuleId::DeepRecursion
+                    | RuleId::RepeatedComputationInLoop
+                    | RuleId::PairScanCouldHash
             );
             assert_eq!(rule.is_project_scoped(), modules || collector, "{rule}");
         }

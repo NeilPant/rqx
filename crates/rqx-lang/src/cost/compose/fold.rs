@@ -176,6 +176,14 @@ struct Callee {
     stack: Order,
 }
 
+/// A function a call may reach, and what it costs in the caller's sizes.
+pub struct Reached {
+    pub node: NodeId,
+    pub time: Order,
+    /// Which function is called was settled by a name, not by what is known of it.
+    pub guessed: bool,
+}
+
 pub struct Fold<'g, 'a> {
     graph: &'g Graph<'a>,
     node: NodeId,
@@ -243,6 +251,22 @@ impl<'g, 'a> Fold<'g, 'a> {
 
     pub fn sizes(&mut self) -> &mut Sizes<'g> {
         &mut self.sizes
+    }
+
+    /// The functions the call at `index` may reach that cost something, with what each
+    /// costs in this function's sizes.
+    pub fn reached(&mut self, index: usize) -> Vec<Reached> {
+        let guessed = self.graph.calls[self.node]
+            .get(index)
+            .is_some_and(|reached| reached.guessed);
+        self.callees(index)
+            .iter()
+            .map(|callee| Reached {
+                node: callee.node,
+                time: callee.time.clone(),
+                guessed,
+            })
+            .collect()
     }
 
     /// The round trips the extraction counted in the body itself.

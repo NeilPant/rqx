@@ -30,6 +30,7 @@ rules:
     - assign-once-field
     - allocation-in-loop
     - missing-capacity
+    - pair-scan-could-hash
 
 patterns:
   enabled: [memento, interpreter]
