@@ -63,6 +63,24 @@ them. `tools/release.sh` turns that section into the release notes.
   `gate.fail_on`, the reporters and the pull request comment cover these findings; the
   health score does not. `scan.sarif_in` in `rqx.yaml` sets the files. See
   `docs/ci.md`.
+- **Ownership from CODEOWNERS.** rqx reads `.github/CODEOWNERS`, `.gitlab/CODEOWNERS`,
+  `CODEOWNERS` or `docs/CODEOWNERS` (the first that holds a rule), in GitHub's format
+  or GitLab's, including `[Section]` and `^[Optional]` headers. The last matching rule
+  decides. Each JSON finding line gains an `owners` array, and the JSON summary gains an
+  `owners` object with `files`, `findings`, `health` and `grade` per owner. Both appear
+  only when a CODEOWNERS file exists. See `docs/ownership.md`.
+- **`--group-by owner`** on `scan` and `check` lists findings under the owners of their
+  file. A file with several owners is listed under each, and a file no rule names is
+  listed under `(unowned)`.
+- **Health per owner** in the terminal summary, in the HTML report as an Owners section
+  after the summary, and in the JSON summary.
+- **`rqx owners`** prints the owners ranked by health, as a table or, with
+  `--reporter json`, one object per owner. `/owners` prints the same output in the
+  session.
+- **`rqx comment` names the owners** of files with new findings, with a count each.
+- **`gate.owners`** sets `min_health` and `fail_on` per owner in `rqx.yaml`. The verdict
+  lists each owner that fell short. Both checks are off until set, and the check runs
+  only when `gate.owners` is not empty.
 
 ## 0.3.0 — 2026-11-17
 

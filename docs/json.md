@@ -42,6 +42,7 @@ The summary line has `"kind": "summary"` and:
 | `resolved` | Present for `rqx check` and `rqx comment` against a revision: the findings the base had that the change removed, each as `{ "rule", "subject", "file", "line" }` |
 | `resolved_scope` | Present with `resolved`: `project` when the base was scanned whole, `changed-files` when the credit covers only the findings one file's analysis produces in the files the change touched |
 | `health_delta` | Present when `resolved_scope` is `project`: the health score after the change minus the score at the base |
+| `owners` | Present when the project has a CODEOWNERS file: per owner, `files`, `findings`, `health` and `grade`. See [ownership.md](ownership.md) |
 
 `gate` is present for a scan only when the run was gated by a flag (`--fail-on`,
 `--allow-findings`, `--min-health`, `--min-grade` or `--fail-on-incomplete`), and
@@ -50,6 +51,12 @@ cannot see the exit code can read the verdict here. `review` predates `gate` and
 kept unchanged for consumers written against it.
 
 ## The other commands
+
+When the project has a CODEOWNERS file, each finding line also has an `owners` array,
+empty for a file no rule names.
+
+`rqx owners --reporter json` writes one object per owner with the keys `owner`,
+`files`, `findings`, `health` and `grade`.
 
 `fix`, `verify` and `plan` end with a `"kind": "summary"` line that also carries
 `schema_version`. Their other lines have their own kinds: `fix` and `withheld` for
