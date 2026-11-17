@@ -140,7 +140,11 @@ pub fn waiver(
     }
     let leader = match language {
         Language::Python => "#",
-        Language::TypeScript | Language::Go | Language::Java | Language::Cpp => "//",
+        Language::TypeScript
+        | Language::JavaScript
+        | Language::Go
+        | Language::Java
+        | Language::Cpp => "//",
     };
     let (line, indent) = if whole_file {
         (1, "")

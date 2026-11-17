@@ -3,7 +3,11 @@ use rqx_core::Language;
 use crate::profile::LanguageProfile;
 use crate::vocabulary::{PerfVocabulary, TestVocabulary};
 
-pub static TYPESCRIPT: LanguageProfile = LanguageProfile {
+pub static TYPESCRIPT: LanguageProfile = TYPESCRIPT_PROFILE;
+
+/// A constant as well, so JavaScript can start from every table here and replace
+/// only the ones that describe type syntax.
+pub const TYPESCRIPT_PROFILE: LanguageProfile = LanguageProfile {
     language: Language::TypeScript,
     grammar: || tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
     markup_grammar: Some(|| tree_sitter_typescript::LANGUAGE_TSX.into()),

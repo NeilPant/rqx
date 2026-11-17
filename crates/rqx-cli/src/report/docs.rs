@@ -204,6 +204,10 @@ pub fn write(out: &Path, fixtures: &Path) -> Result<()> {
     Ok(())
 }
 
+/// The fixture directories examples are drawn from, in the order a rule's first
+/// finding wins.
+const EXAMPLE_LANGUAGES: [&str; 6] = ["typescript", "python", "go", "java", "cpp", "javascript"];
+
 /// One scan of the fixture tree, with the off-by-default rules turned on so their
 /// pages get an example too.
 fn examples(fixtures: &Path) -> BTreeMap<RuleId, Example> {
@@ -212,7 +216,7 @@ fn examples(fixtures: &Path) -> BTreeMap<RuleId, Example> {
         return found;
     }
     let config = fixtures.join("all-rules.toml");
-    for language in ["typescript", "python", "go", "java", "cpp"] {
+    for language in EXAMPLE_LANGUAGES {
         let root = fixtures.join(language);
         if !root.exists() {
             continue;
@@ -246,7 +250,7 @@ fn advice_examples(fixtures: &Path) -> BTreeMap<AdviceId, Example> {
         return found;
     }
     let config = fixtures.join("all-rules.toml");
-    for language in ["typescript", "python", "go", "java", "cpp"] {
+    for language in EXAMPLE_LANGUAGES {
         let root = fixtures.join(language);
         if !root.exists() {
             continue;
@@ -414,6 +418,7 @@ fn excerpt(root: &Path, language: &str, finding: &Finding) -> Option<Example> {
 fn fence(file: &str) -> &'static str {
     match file.rsplit('.').next() {
         Some("ts" | "tsx") => "ts",
+        Some("js" | "jsx" | "mjs" | "cjs") => "js",
         Some("py") => "python",
         Some("go") => "go",
         Some("java") => "java",

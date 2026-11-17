@@ -44,7 +44,7 @@ use report::{FindingFilter, Layout, Report, Reporter};
 #[command(
     name = "rqx",
     version,
-    about = "Finds dead weight in TypeScript, Python, Go, Java and C++ and says why it matters",
+    about = "Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says why it matters",
     // `{subcommands}` is left out and the grouped list put in `after_help` instead:
     // clap has no heading for a subcommand, and twenty-seven of them in one block is
     // a wall that gets worse with every one added. They stay visible to the parser
@@ -549,7 +549,7 @@ enum Command {
     /// Run a tree-sitter query over a project, to try one out before writing it into
     /// a `[[rule]]`
     Query {
-        /// typescript, python, go, java or cpp
+        /// typescript, javascript, python, go, java or cpp
         language: String,
         /// The query, in tree-sitter's s-expression syntax
         query: String,
