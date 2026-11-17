@@ -146,6 +146,14 @@ impl<'e, 'a> Bounds<'e, 'a> {
             .find(|child| kind_of(child) == kind)
     }
 
+    /// The part of a loop over a collection that names its element and its collection.
+    pub fn each_header(&self, node: Node<'a>) -> Option<Node<'a>> {
+        self.vocabulary()
+            .each
+            .iter()
+            .find_map(|(kind, _)| self.header(node, kind))
+    }
+
     fn first_part_but(&self, node: Node<'a>, body: Option<Node<'a>>) -> Option<Node<'a>> {
         let mut cursor = node.walk();
         node.named_children(&mut cursor)

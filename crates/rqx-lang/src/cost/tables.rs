@@ -7,7 +7,7 @@
 //! method name that means the same thing on every type that has one, which the caller
 //! reports as less sure.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::{Arc, LazyLock};
 
@@ -157,6 +157,7 @@ impl Entry {
 #[derive(Default)]
 struct Index {
     methods: HashMap<(String, String), Vec<u16>>,
+    types: HashSet<String>,
     any_receiver: HashMap<String, Vec<u16>>,
     functions: HashMap<String, Vec<u16>>,
 }
@@ -243,6 +244,14 @@ impl CostTables {
         self.entries.get(usize::from(index))
     }
 
+    /// Whether the tables cost anything called on a type of this head, which says it is
+    /// a library type and not one of the project's.
+    pub fn knows_type(&self, language: Language, head: &str) -> bool {
+        self.languages
+            .get(&language)
+            .is_some_and(|index| index.types.contains(head))
+    }
+
     /// The entry for `method` called on a value whose type is `head`.
     pub fn method(
         &self,
@@ -320,6 +329,7 @@ impl Index {
                     .or_default()
                     .push(position);
             } else if let Some(head) = canonical_head(language, receiver) {
+                self.types.insert(head.clone());
                 self.methods
                     .entry((head, method.clone()))
                     .or_default()

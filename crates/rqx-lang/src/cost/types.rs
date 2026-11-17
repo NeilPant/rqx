@@ -437,6 +437,21 @@ fn bare_parameter<'a>(
     })
 }
 
+/// What a declaration says its name holds: the type written beside it, or else the
+/// type of what it is set to.
+pub fn fact_of_declaration(names: &Names<'_>, declaration: &Declaration<'_>) -> Option<TypeFact> {
+    let language = names.profile.language;
+    declaration
+        .spelled_type
+        .and_then(|spelled| canonical_head(language, spelled))
+        .map(TypeFact::declared)
+        .or_else(|| {
+            declaration
+                .value
+                .and_then(|value| constructed_fact(names, value))
+        })
+}
+
 /// Go writes the left of an assignment as a list even when it holds one name.
 fn unwrap_list<'a>(names: &Names<'a>, node: Node<'a>) -> Node<'a> {
     let node = names.see_through(node);
@@ -449,7 +464,8 @@ fn unwrap_list<'a>(names: &Names<'a>, node: Node<'a>) -> Node<'a> {
 /// The identifier a declarator binds, through the pointer, reference and initializer
 /// wrappers C++ puts around it.
 fn bound_identifier<'a>(profile: &LanguageProfile, holder: Node<'a>) -> Option<Node<'a>> {
-    if profile.is_identifier(holder) {
+    // A member's name is spelled with a kind of its own in some grammars.
+    if profile.is_identifier(holder) || profile.property_kinds.contains(&kind_of(holder)) {
         return Some(holder);
     }
     holder

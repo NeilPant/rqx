@@ -35,6 +35,8 @@ pub struct Env {
     /// What the function calls the object it belongs to, in a language that names it
     /// as an ordinary parameter, as Go does.
     receiver: Option<String>,
+    /// Variables found to be the same size as an earlier one.
+    same_as: HashMap<u16, u16>,
 }
 
 impl Env {
@@ -80,6 +82,31 @@ impl Env {
             src,
         });
         (self.vars.len() - 1) as u16
+    }
+
+    /// Records that `var` is no larger than `other` and so stands for it: a list only
+    /// added to inside a loop over `other` has at most `other`'s length.
+    pub fn merge(&mut self, var: u16, other: u16) {
+        let other = self.resolve(other);
+        if self.resolve(var) != other {
+            let root = self.resolve(var);
+            self.same_as.insert(root, other);
+        }
+    }
+
+    fn resolve(&self, var: u16) -> u16 {
+        let mut current = var;
+        while let Some(next) = self.same_as.get(&current) {
+            current = *next;
+        }
+        current
+    }
+
+    /// For every variable, the one it stands for.
+    pub fn same_as(&self) -> Vec<u16> {
+        (0..self.vars.len() as u16)
+            .map(|var| self.resolve(var))
+            .collect()
     }
 
     pub fn vars(&self) -> &[SizeVar] {
