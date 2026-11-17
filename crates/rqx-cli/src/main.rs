@@ -15,6 +15,7 @@ mod complexity;
 mod config;
 mod edit_config;
 mod explain;
+mod external;
 mod fix;
 mod forge;
 mod gate;
@@ -824,11 +825,16 @@ struct Evidence {
     /// .cpuprofile, a Go pprof and collapsed stacks are detected by content.
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     profile: Vec<PathBuf>,
+    /// A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings
+    /// in the `external` family. They count for the gate and the reports and not for
+    /// the health score
+    #[arg(long = "sarif-in", value_name = "FILE", value_hint = ValueHint::FilePath)]
+    sarif_in: Vec<PathBuf>,
 }
 
 impl Evidence {
     fn is_empty(&self) -> bool {
-        self.coverage.is_empty() && self.profile.is_empty()
+        self.coverage.is_empty() && self.profile.is_empty() && self.sarif_in.is_empty()
     }
 
     fn apply(&self, settings: &mut config::Resolved) {
@@ -838,6 +844,9 @@ impl Evidence {
         }
         if !self.profile.is_empty() {
             scan.profile = display_all(&self.profile);
+        }
+        if !self.sarif_in.is_empty() {
+            scan.sarif_in = display_all(&self.sarif_in);
         }
     }
 }

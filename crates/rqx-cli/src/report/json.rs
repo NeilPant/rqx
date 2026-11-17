@@ -62,13 +62,13 @@ pub fn finding_of(finding: &Finding) -> serde_json::Value {
         _ => serde_json::Map::new(),
     };
     object.insert("rule".to_owned(), finding.slug().into());
-    object.insert("why".to_owned(), spec.why.into());
+    object.insert("why".to_owned(), finding.why().into());
     object.insert(
         "fixes".to_owned(),
         spec.fixes.iter().map(|fix| fix.name()).collect(),
     );
     object.insert("category".to_owned(), finding.category().slug().into());
-    object.insert("metric".to_owned(), spec.metric.into());
+    object.insert("metric".to_owned(), finding.metric().into());
     serde_json::Value::Object(object)
 }
 

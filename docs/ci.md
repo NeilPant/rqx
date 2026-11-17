@@ -364,6 +364,33 @@ Any program can produce the list, for example a changed-files API call or the
 affected-projects output of a build tool. `--base` and `--files-from` cannot be
 combined.
 
+## Other tools' results
+
+`--sarif-in FILE` reads a SARIF 2.1.0 file that another linter wrote and reports each
+result as a finding in the `external` family. It is accepted by `scan`, `check` and
+`comment`, can be repeated, and can be set as `scan.sarif_in` in `rqx.yaml`.
+
+```sh
+ruff check --output-format sarif --output-file ruff.sarif
+rqx check --base origin/main --sarif-in ruff.sarif --fail-on error
+```
+
+| Property | Value |
+|---|---|
+| Rule id | The tool name in lower case, a slash, and the tool's rule id: `eslint/no-unused-vars`, `ruff/F401`. |
+| Severity | SARIF `error` maps to `error`, `warning` and an absent level to `warning`, `note` and `none` to `info`. A result without a level uses the rule's `defaultConfiguration.level`. |
+| Location and message | The first physical location and the message text, with line breaks collapsed. The rule's help text becomes the fix hint. |
+| Skipped | Results suppressed in the SARIF file, results without a physical location, and results in files outside the scanned directory. |
+| Unknown fields | Ignored. |
+
+External findings take part in baselines, `gate.fail_on`, every
+reporter and the pull request comment. They are not part of the health score: the
+severities of other tools are not calibrated against the weights of the rqx catalogue,
+so counting them would make the score depend on which linters a project runs. A file
+that cannot be read or is not SARIF is reported on stderr and skipped. `rqx baseline`
+has no `--sarif-in` flag; it records external findings when `scan.sarif_in` is set in
+`rqx.yaml`.
+
 ## Adopting a gate on an existing codebase
 
 A gate that fails on the first run is often disabled. To avoid that, start from the

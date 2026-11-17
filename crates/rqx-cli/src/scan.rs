@@ -450,7 +450,7 @@ impl Collector {
         // it and nothing has tagged it yet. There are a handful of these against a
         // file per worker, so reading their text here costs almost nothing.
         if let Some(baseline) = &self.baseline
-            && finding.rule.is_project_scoped()
+            && (finding.rule.is_project_scoped() || finding.is_external())
         {
             let text = self
                 .texts
@@ -1515,6 +1515,14 @@ impl Collector {
         staged
     }
 
+    /// What other tools reported, read from the SARIF files the project named.
+    fn external_findings(root: &Path, config: &RqxConfig) -> Staged {
+        Staged {
+            findings: crate::external::read_all(root, &config.scan.sarif_in),
+            ..Staged::default()
+        }
+    }
+
     /// The stages that need every file, run side by side: duplicates, the import graph,
     /// and what git knows touch nothing but what the walk collected, so none waits for
     /// another. What they found is taken in the order the stages are written in, which
@@ -1582,6 +1590,7 @@ impl Collector {
             self.finish_churn(analyzed_ref, config, &mut Positions::new(root), &history);
             self.report_phase(Phase::CoChange);
             self.absorb(together);
+            self.absorb(Self::external_findings(root, config));
             history.versioned()
         });
 

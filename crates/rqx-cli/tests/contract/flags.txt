@@ -238,6 +238,7 @@ check --progress [env RQX_PROGRESS]
 check --quiet
 check --reporter
 check --rule
+check --sarif-in
 check --search
 check --severity
 check --severity =error
@@ -315,6 +316,7 @@ comment --progress =bar
 comment --progress =none
 comment --progress =plain
 comment --progress [env RQX_PROGRESS]
+comment --sarif-in
 comment --threads
 comment --threads [env RQX_THREADS]
 comment --verbose
@@ -1287,6 +1289,7 @@ scan --progress [env RQX_PROGRESS]
 scan --quiet
 scan --reporter
 scan --rule
+scan --sarif-in
 scan --search
 scan --severity
 scan --severity =error

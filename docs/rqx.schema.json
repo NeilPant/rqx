@@ -79,6 +79,11 @@
           "const": "performance",
           "description": "Work that grows faster than the data it runs on.",
           "type": "string"
+        },
+        {
+          "const": "external",
+          "description": "Findings other tools reported, read from their SARIF output. No rule in the catalogue belongs to it, so it is not part of `ALL`, and the health score does not count it.",
+          "type": "string"
         }
       ]
     },
@@ -9387,6 +9392,14 @@
           },
           "type": "array"
         },
+        "sarif_in": {
+          "default": [],
+          "description": "SARIF 2.1.0 files other tools wrote. Their results become findings in the `external` family, under rule ids prefixed with the tool's name.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "skip_generated": {
           "default": true,
           "description": "Skip files carrying a generator's marker, and list them as skipped.",
@@ -9970,6 +9983,7 @@
           "cmake-build-release",
           "third_party"
         ],
+        "sarif_in": [],
         "skip_generated": true,
         "threads": 0
       }

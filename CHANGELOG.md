@@ -9,6 +9,16 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **`--sarif-in` reads other tools' SARIF results.** `rqx scan`, `rqx check` and
+  `rqx comment` accept SARIF 2.1.0 files from ruff, Biome, ESLint, Semgrep or any tool
+  that writes the format, and report each result as a finding in the new `external`
+  family. Rule ids carry the tool name (`eslint/no-unused-vars`). Baselines,
+  `gate.fail_on`, the reporters and the pull request comment cover these findings; the
+  health score does not. `scan.sarif_in` in `rqx.yaml` sets the files. See
+  `docs/ci.md`.
+
 ## 0.3.0 — 2026-11-17
 
 ### Added

@@ -43,7 +43,20 @@ impl Identity {
             .evidence
             .subject()
             .map_or_else(|| span.text(source).trim().to_owned(), ToOwned::to_owned);
-        Self::of(finding.rule, &finding.location.file, &subject)
+        Self::keyed(finding, &subject)
+    }
+
+    /// `of` for a finding that has already been given its subject. A rule the project
+    /// wrote shares the slug `custom`, which is what baselines recorded before
+    /// external findings existed, so only an external finding is keyed on its own
+    /// rule id: two of another tool's rules must not collapse into one identity.
+    pub fn keyed(finding: &Finding, subject: &str) -> Self {
+        let rule = if finding.is_external() {
+            finding.slug()
+        } else {
+            finding.rule.slug()
+        };
+        Self(fnv1a(&[rule, &finding.location.file, subject]))
     }
 }
 

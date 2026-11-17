@@ -7,6 +7,7 @@
 
 # Reports
 *.sarif
+!/crates/rqx-cli/tests/sarif/*.sarif
 
 .DS_Store
 

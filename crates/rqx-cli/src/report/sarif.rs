@@ -88,9 +88,7 @@ fn rule_descriptor(finding: &Finding) -> Value {
     let slug = finding.slug();
     let family = finding.category();
     let (metric, why) = match &finding.evidence {
-        rqx_core::finding::Evidence::Custom { message, .. } => {
-            (message.as_str(), "this project asked to be told about it")
-        }
+        rqx_core::finding::Evidence::Custom { message, .. } => (message.as_str(), finding.why()),
         _ => (spec.metric, spec.why),
     };
     let tags = vec![

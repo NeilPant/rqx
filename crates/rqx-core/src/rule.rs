@@ -36,6 +36,10 @@ pub enum Category {
     Noise,
     /// Work that grows faster than the data it runs on.
     Performance,
+    /// Findings other tools reported, read from their SARIF output. No rule in the
+    /// catalogue belongs to it, so it is not part of `ALL`, and the health score does
+    /// not count it.
+    External,
 }
 
 impl Category {
@@ -66,6 +70,7 @@ impl Category {
             Self::Tests => "tests",
             Self::Noise => "noise",
             Self::Performance => "performance",
+            Self::External => "external",
         }
     }
 
@@ -82,12 +87,14 @@ impl Category {
             Self::Tests => "Tests",
             Self::Noise => "Noise",
             Self::Performance => "Performance",
+            Self::External => "External",
         }
     }
 
     pub fn parse(slug: &str) -> Option<Self> {
         Self::ALL
             .into_iter()
+            .chain([Self::External])
             .find(|category| category.slug() == slug)
     }
 

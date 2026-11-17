@@ -180,6 +180,11 @@ scan:
   # sampled is shown but stops counting; one it sampled says how often. A V8
   # .cpuprofile, a Go pprof and collapsed stacks are all recognised by content.
   profile: []
+  # SARIF 2.1.0 files other tools wrote, such as ruff, ESLint or Semgrep. Each result
+  # becomes a finding in the `external` family, with a rule id prefixed by the tool's
+  # name (`eslint/no-unused-vars`). Baselines, the ratchet, `gate.fail_on`, the
+  # reporters and the pull request comment cover them; the health score does not.
+  sarif_in: []
 
 gate:
   # What makes a run fail. `rqx check` always gates. `rqx scan` gates only when you

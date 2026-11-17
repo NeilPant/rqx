@@ -1085,6 +1085,9 @@ pub struct Scan {
     /// CPU profiles to read, so a run can say which performance findings are on a
     /// path that executes.
     pub profile: Vec<String>,
+    /// SARIF 2.1.0 files other tools wrote. Their results become findings in the
+    /// `external` family, under rule ids prefixed with the tool's name.
+    pub sarif_in: Vec<String>,
     /// Days of git history to read for churn; 0 turns the signal off.
     pub churn_days: u32,
     /// Reuse `.rqx/cache.bin` for files whose contents have not changed. It was
@@ -1106,6 +1109,7 @@ impl Default for Scan {
             cache: true,
             coverage: Vec::new(),
             profile: Vec::new(),
+            sarif_in: Vec::new(),
             // A glob still has to descend into a directory to produce the paths it
             // then rejects, which on a populated `node_modules` or `.venv` is the
             // difference between skipping a directory and walking every file in it.

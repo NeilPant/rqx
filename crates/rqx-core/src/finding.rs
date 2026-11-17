@@ -798,4 +798,27 @@ impl Finding {
             _ => self.rule.spec().category,
         }
     }
+
+    /// Whether another tool reported this, and rqx only carries it.
+    pub fn is_external(&self) -> bool {
+        self.category() == crate::rule::Category::External
+    }
+
+    /// Why the rule matters. A result another tool reported has no catalogue entry,
+    /// so the text says where it came from.
+    pub fn why(&self) -> &'static str {
+        if self.is_external() {
+            "reported by another tool and read from its SARIF output"
+        } else {
+            self.rule.spec().why
+        }
+    }
+
+    pub fn metric(&self) -> &'static str {
+        if self.is_external() {
+            "a result in another tool's SARIF output"
+        } else {
+            self.rule.spec().metric
+        }
+    }
 }

@@ -203,6 +203,7 @@ const fn measures(family: Category) -> &'static str {
         Category::Tests => "tests that pass without checking behaviour",
         Category::Noise => "text that adds reading cost without adding information",
         Category::Performance => "work done more often, or more expensively, than needed",
+        Category::External => "results other tools reported, read from their SARIF output",
     }
 }
 
