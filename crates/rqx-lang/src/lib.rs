@@ -13,6 +13,7 @@ pub mod java;
 pub mod javascript;
 pub mod metrics;
 pub mod module_graph;
+pub mod names;
 pub mod parameters;
 pub mod patterns;
 pub mod profile;
