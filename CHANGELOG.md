@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **The gate can be set from the environment.** `RQX_FAIL_ON`, `RQX_ALLOW_FINDINGS`,
+  `RQX_MIN_HEALTH`, `RQX_MIN_GRADE` and `RQX_FAIL_ON_INCOMPLETE` stand in for the
+  flags of the same names on `scan`, `check` and `comment`. A flag beats its variable
+  and a variable beats `rqx.yaml`. As with a flag, setting one makes `rqx scan` gate.
 - **`rqx check` takes the scan's options.** `--threads` (or `RQX_THREADS`),
   `--coverage` and `--profile` work as they do on `rqx scan`, and `rqx comment`
   takes `--coverage` and `--profile`. `rqx check --max-findings N` shortens the

@@ -155,6 +155,7 @@ cache status -v
 cache status <path>
 check
 check --allow-findings
+check --allow-findings [env RQX_ALLOW_FINDINGS]
 check --base
 check --category
 check --changed
@@ -177,7 +178,9 @@ check --fail-on =error
 check --fail-on =info
 check --fail-on =never
 check --fail-on =warning
+check --fail-on [env RQX_FAIL_ON]
 check --fail-on-incomplete
+check --fail-on-incomplete [env RQX_FAIL_ON_INCOMPLETE]
 check --files-from
 check --fix
 check --fixable
@@ -211,7 +214,9 @@ check --min-grade =fair
 check --min-grade =never
 check --min-grade =poor
 check --min-grade =pristine
+check --min-grade [env RQX_MIN_GRADE]
 check --min-health
+check --min-health [env RQX_MIN_HEALTH]
 check --motion
 check --motion =off
 check --motion =on
@@ -259,6 +264,7 @@ check -w
 check <path>
 comment
 comment --allow-findings
+comment --allow-findings [env RQX_ALLOW_FINDINGS]
 comment --base
 comment --color
 comment --color =always
@@ -272,7 +278,9 @@ comment --fail-on =error
 comment --fail-on =info
 comment --fail-on =never
 comment --fail-on =warning
+comment --fail-on [env RQX_FAIL_ON]
 comment --fail-on-incomplete
+comment --fail-on-incomplete [env RQX_FAIL_ON_INCOMPLETE]
 comment --help
 comment --hyperlinks
 comment --hyperlinks =always
@@ -289,7 +297,9 @@ comment --min-grade =fair
 comment --min-grade =never
 comment --min-grade =poor
 comment --min-grade =pristine
+comment --min-grade [env RQX_MIN_GRADE]
 comment --min-health
+comment --min-health [env RQX_MIN_HEALTH]
 comment --motion
 comment --motion =off
 comment --motion =on
@@ -1186,6 +1196,7 @@ rules <category>
 scan
 scan --advice
 scan --allow-findings
+scan --allow-findings [env RQX_ALLOW_FINDINGS]
 scan --category
 scan --changed
 scan --color
@@ -1207,7 +1218,9 @@ scan --fail-on =error
 scan --fail-on =info
 scan --fail-on =never
 scan --fail-on =warning
+scan --fail-on [env RQX_FAIL_ON]
 scan --fail-on-incomplete
+scan --fail-on-incomplete [env RQX_FAIL_ON_INCOMPLETE]
 scan --files-from
 scan --fixable
 scan --format
@@ -1240,7 +1253,9 @@ scan --min-grade =fair
 scan --min-grade =never
 scan --min-grade =poor
 scan --min-grade =pristine
+scan --min-grade [env RQX_MIN_GRADE]
 scan --min-health
+scan --min-health [env RQX_MIN_HEALTH]
 scan --motion
 scan --motion =off
 scan --motion =on

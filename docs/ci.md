@@ -26,6 +26,21 @@ overrides it.
 | `--min-health <n>` | the project score drops below `n` |
 | `--min-grade <grade>` | any single file grades below that floor |
 
+Each flag has an environment variable, so a pipeline can set its standard once for
+every job:
+
+| Variable | Same as |
+|---|---|
+| `RQX_FAIL_ON` | `--fail-on` |
+| `RQX_ALLOW_FINDINGS` | `--allow-findings` |
+| `RQX_MIN_HEALTH` | `--min-health` |
+| `RQX_MIN_GRADE` | `--min-grade` |
+| `RQX_FAIL_ON_INCOMPLETE` | `--fail-on-incomplete`; `1`, `true` or `yes` turns it on, and `0`, `false` or an empty value leaves it off |
+
+A flag beats its variable, and a variable beats `rqx.yaml`. Like a flag, setting any of
+them makes `rqx scan` gate, so a variable left in a shared runner image changes what
+every scan on it returns.
+
 `--min-grade` is the one that catches a file rotting on its own: a project-wide
 score averages it away, and severity is per finding rather than per file. Grades
 run `pristine`, `clean`, `fair`, `poor`, `critical`, and `never` turns the gate off.

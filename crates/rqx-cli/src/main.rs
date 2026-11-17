@@ -1061,22 +1061,30 @@ enum CacheAction {
     },
 }
 
+/// Each setting can also come from the environment, so a pipeline sets its standard
+/// once for every job. A flag wins over the variable, and the variable over
+/// `rqx.yaml`; setting any of them opts a scan into gating, as a flag does.
 #[derive(Args)]
 struct Gate {
     /// Lowest severity that fails the run
-    #[arg(long, value_enum, help_heading = "Gate")]
+    #[arg(long, value_enum, env = "RQX_FAIL_ON", help_heading = "Gate")]
     fail_on: Option<FailOn>,
     /// Findings allowed before the run fails
-    #[arg(long, help_heading = "Gate")]
+    #[arg(long, env = "RQX_ALLOW_FINDINGS", help_heading = "Gate")]
     allow_findings: Option<u32>,
     /// Health score below which the run fails; 0 disables
-    #[arg(long, help_heading = "Gate")]
+    #[arg(long, env = "RQX_MIN_HEALTH", help_heading = "Gate")]
     min_health: Option<u32>,
     /// Lowest grade any single file may carry
-    #[arg(long, value_enum, help_heading = "Gate")]
+    #[arg(long, value_enum, env = "RQX_MIN_GRADE", help_heading = "Gate")]
     min_grade: Option<MinGrade>,
     /// Fail when a design pattern is half applied
-    #[arg(long, help_heading = "Gate")]
+    #[arg(
+        long,
+        env = "RQX_FAIL_ON_INCOMPLETE",
+        value_parser = clap::builder::FalseyValueParser::new(),
+        help_heading = "Gate"
+    )]
     fail_on_incomplete: bool,
 }
 

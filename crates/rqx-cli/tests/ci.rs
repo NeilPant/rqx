@@ -1423,3 +1423,70 @@ fn a_pipeline_never_sees_the_update_notice() {
     let _ = std::fs::remove_dir_all(&cache);
     let _ = std::fs::remove_dir_all(&project);
 }
+
+fn scan_with_env(root: &Path, variables: &[(&str, &str)], flags: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan"])
+        .arg(root)
+        .args(flags)
+        .envs(variables.iter().copied())
+        .output()
+        .expect("failed to run rqx")
+}
+
+/// A pipeline sets its standard once, in the job's environment. The variable gates a
+/// scan as the flag does, the flag outranks it, and it outranks the file.
+#[test]
+fn the_gate_can_be_set_from_the_environment() {
+    let root = project(
+        "gate-env",
+        &[
+            ("a.ts", DIRTY),
+            ("index.ts", "export * from './a'\n"),
+            ("rqx.yaml", "gate:\n  fail_on: never\n  max_findings: 0\n"),
+        ],
+    );
+
+    assert_eq!(code(&scan_with_env(&root, &[], &[])), 0);
+    assert_eq!(
+        code(&scan_with_env(&root, &[("RQX_FAIL_ON", "info")], &[])),
+        1,
+        "the variable gates a scan and outranks rqx.yaml"
+    );
+    assert_eq!(
+        code(&scan_with_env(
+            &root,
+            &[("RQX_FAIL_ON", "info")],
+            &["--fail-on", "never"]
+        )),
+        0,
+        "the flag outranks the variable"
+    );
+    assert_eq!(
+        code(&scan_with_env(
+            &root,
+            &[("RQX_FAIL_ON", "info"), ("RQX_ALLOW_FINDINGS", "99")],
+            &[]
+        )),
+        0
+    );
+    assert_eq!(
+        code(&scan_with_env(&root, &[("RQX_MIN_HEALTH", "100")], &[])),
+        1
+    );
+    assert_eq!(
+        code(&scan_with_env(&root, &[("RQX_MIN_GRADE", "pristine")], &[])),
+        1
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_false_incomplete_variable_does_not_gate() {
+    let root = project("gate-env-off", &[("a.ts", DIRTY)]);
+    for value in ["0", "false", ""] {
+        let output = scan_with_env(&root, &[("RQX_FAIL_ON_INCOMPLETE", value)], &[]);
+        assert_eq!(code(&output), 0, "RQX_FAIL_ON_INCOMPLETE={value}");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
