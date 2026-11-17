@@ -369,10 +369,11 @@ mod tests {
     }
 
     fn project(files: &[&str]) -> (PathBuf, TypeScriptResolver) {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let root = std::env::temp_dir().join(format!(
             "rqx-imports-{}-{}",
             std::process::id(),
-            files.join("-").replace('/', "_")
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("a directory");
