@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`--no-progress` turns the progress bar off, and `--quiet` does too.** The bar
+  already stayed away from anything but a terminal; on a terminal there was no way to
+  silence it short of redirecting stderr. `--no-progress` (or `RQX_NO_PROGRESS=1`) is a
+  global flag, and `-q` on `scan` and `check` now implies it.
 - **JUnit and GitHub annotations carry the gate.** A gated run adds a
   `<testsuite name="rqx gate">` to the JUnit report with one test that fails when the
   gate does, and ends the GitHub annotations with `::error title=rqx gate::` and the

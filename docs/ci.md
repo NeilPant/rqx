@@ -65,6 +65,10 @@ have the stream, or a file, to itself.
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.
 
+The progress bar draws only when stderr is a terminal, so a CI log never holds it.
+`--no-progress`, or `RQX_NO_PROGRESS=1`, turns it off on a terminal too, and `--quiet`
+implies it.
+
 ### Where the verdict lives
 
 The exit code is the contract, but a report is often read somewhere the exit code

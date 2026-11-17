@@ -12,6 +12,7 @@ Finds dead weight in TypeScript, Python, Go, Java and C++ and says why it matter
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 | `--version` | Print version |
 
@@ -30,6 +31,7 @@ Record the findings this project already has, so a gate can judge only what a ch
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx cache`
@@ -42,6 +44,7 @@ Show what the analysis cache holds, or throw it away
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx check`
@@ -87,6 +90,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx comment`
@@ -111,6 +115,7 @@ Post the review onto the merge request it is reviewing, and grade the commit
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx completions`
@@ -124,6 +129,7 @@ Print a shell completion script
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx complexity`
@@ -144,6 +150,7 @@ What the analyser measured, as a distribution rather than only its tail
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx config`
@@ -158,6 +165,7 @@ Print the settings a run will use, and the file each one came from
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx explain`
@@ -170,6 +178,7 @@ Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it, 
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx fix`
@@ -190,6 +199,7 @@ Apply the fixes a finding decides on its own, proving each one before it is writ
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx graph`
@@ -208,6 +218,7 @@ Print the import graph — as text, Graphviz, Mermaid or data
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx health`
@@ -224,6 +235,7 @@ Where the health score comes from, and what removing each part would buy
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx help`
@@ -242,6 +254,7 @@ Write a commented RQX.toml with every setting at its default
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx levels`
@@ -254,6 +267,7 @@ Print what each cleanliness level changes, as the settings it would take to writ
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx lsp`
@@ -267,6 +281,7 @@ Run as a Language Server over stdio, for editor integration
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx mcp`
@@ -281,6 +296,7 @@ Run as an MCP server, so an AI agent can ask what a project's problems are
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx patterns`
@@ -298,6 +314,7 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx perf`
@@ -318,6 +335,7 @@ Where the work grows faster than the data, ranked by reach
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx plan`
@@ -337,6 +355,7 @@ Rank the work by what it buys against what it costs, and say what the health sco
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx query`
@@ -353,6 +372,7 @@ Run a tree-sitter query over a project, to try one out before writing it into a 
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx recommend`
@@ -369,6 +389,7 @@ What to do about this project, as distinct from what is wrong with it
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx rules`
@@ -384,6 +405,7 @@ List every rule Rqx can report, grouped by family
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx scan`
@@ -432,6 +454,7 @@ Analyze a project and report every finding
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx setup`
@@ -446,6 +469,7 @@ Print the configuration one editor needs to talk to rqx, or list them all
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx slop`
@@ -462,6 +486,7 @@ Which files read as written rather than read
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx suppressions`
@@ -479,6 +504,7 @@ List every finding a comment in the source waives, with the reason given
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx techniques`
@@ -491,6 +517,7 @@ List every refactoring Rqx prescribes, and which rules ask for it
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx update`
@@ -505,6 +532,7 @@ Install the newest release, or say what it would change
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
 
 ## `rqx verify`
@@ -523,4 +551,5 @@ Compare the working tree against a base revision and say what happened to each f
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |

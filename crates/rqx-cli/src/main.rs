@@ -76,6 +76,15 @@ pub struct Cli {
     /// Animation in the interactive interface
     #[arg(long, value_enum, default_value_t = Motion::On, global = true)]
     motion: Motion,
+    /// Do not draw the progress bar on stderr; `--quiet` implies it
+    #[arg(long, global = true, env = "RQX_NO_PROGRESS")]
+    no_progress: bool,
+}
+
+/// The bar is for a person watching a terminal, and a request for quiet output is a
+/// request not to be drawn at either.
+const fn progress_wanted(no_progress: bool, quiet: bool) -> bool {
+    !no_progress && !quiet
 }
 
 /// The commands, in five groups. Order inside a group is the order a reader meets
@@ -1449,6 +1458,7 @@ fn run() -> Result<Exit> {
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();
     progress::set_animated(!matches!(cli.motion, Motion::Off));
+    progress::set_shown(progress_wanted(cli.no_progress, false));
     let palette = Palette::detect();
     let interface = Interface {
         motion: cli.motion,
@@ -1529,6 +1539,7 @@ fn run() -> Result<Exit> {
                 );
             }
 
+            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
             let filter = filter_of(&view, &path)?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
@@ -2124,6 +2135,7 @@ fn run() -> Result<Exit> {
             update::start(settings.config.update.check);
             gate.apply(&mut settings.config);
 
+            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
             let filter = filter_of(&view, &path)?;
             let mut review = check::review(&path, &settings, &base)?;
@@ -2398,6 +2410,27 @@ mod flags {
             .into_iter()
             .map(|line| line.trim_start().to_owned())
             .collect()
+    }
+
+    #[test]
+    fn quiet_implies_no_progress() {
+        assert!(super::progress_wanted(false, false));
+        assert!(!super::progress_wanted(true, false));
+        assert!(!super::progress_wanted(false, true));
+    }
+
+    #[test]
+    fn no_progress_is_accepted_before_and_after_the_command() {
+        for arguments in [
+            ["rqx", "--no-progress", "scan"],
+            ["rqx", "scan", "--no-progress"],
+        ] {
+            let matches = super::parser()
+                .try_get_matches_from(arguments)
+                .unwrap_or_else(|error| panic!("{arguments:?}: {error}"));
+            let cli = <super::Cli as clap::FromArgMatches>::from_arg_matches(&matches).unwrap();
+            assert!(cli.no_progress, "{arguments:?}");
+        }
     }
 
     #[test]
