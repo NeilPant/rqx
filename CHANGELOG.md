@@ -77,7 +77,9 @@ them. `tools/release.sh` turns that section into the release notes.
 - **`rqx owners`** prints the owners ranked by health, as a table or, with
   `--reporter json`, one object per owner. `/owners` prints the same output in the
   session.
-- **`rqx comment` names the owners** of files with new findings, with a count each.
+- **`rqx comment` names the owners** of files with new findings, with a count each. The
+  names are written in code spans, which the forge does not notify.
+  `comment.mention_owners: true` in `rqx.yaml` writes them as real mentions.
 - **`gate.owners`** sets `min_health` and `fail_on` per owner in `rqx.yaml`. The verdict
   lists each owner that fell short. Both checks are off until set, and the check runs
   only when `gate.owners` is not empty.

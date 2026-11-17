@@ -120,8 +120,17 @@ Owners of files with new findings: @web (3 findings), @api (1 finding).
 ```
 
 It counts findings the baseline does not already hold, in the files the comment covers.
-The owners are written as plain mentions, so the forge notifies them. Files no rule
-names are left out.
+Files no rule names are left out.
+
+By default the owners are written inside code spans, as `@web`, which GitHub and GitLab
+do not turn into mentions, so nobody is notified. Setting `comment.mention_owners` in
+`rqx.yaml` writes them as bare mentions, which the forge notifies as it would for a
+review request:
+
+```yaml
+comment:
+  mention_owners: true
+```
 
 ## A gate per owner
 

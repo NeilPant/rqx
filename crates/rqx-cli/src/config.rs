@@ -1160,6 +1160,18 @@ mod tests {
     }
 
     #[test]
+    fn comment_mentions_are_off_until_asked_for() {
+        let root = workspace("mentions");
+        write(&root.join("rqx.yaml"), "# nothing\n");
+        let settings = resolve(&root, None, None).expect("resolves");
+        assert!(!settings.config.comment.mention_owners);
+
+        write(&root.join("rqx.yaml"), "comment:\n  mention_owners: true\n");
+        let settings = resolve(&root, None, None).expect("resolves");
+        assert!(settings.config.comment.mention_owners);
+    }
+
+    #[test]
     fn a_gate_can_hold_each_owner_to_a_floor_of_its_own() {
         let root = workspace("owner-gate");
         write(

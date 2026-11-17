@@ -145,7 +145,7 @@ fn health_change(credit: &Credit) -> String {
 /// The same report, shaped for a merge request: a verdict anyone reads at a glance,
 /// then the detail folded away. A comment that opens with three tables is a comment
 /// that gets collapsed by the reader instead.
-pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
+pub fn comment(report: &Report<'_>, job: Option<&str>, mention_owners: bool) -> Result<String> {
     let health = report.health();
     let grade = rqx_core::Cleanliness::of(health, report.totals.findings);
     let passed = report.verdict.is_none_or(crate::gate::Verdict::passed);
@@ -185,7 +185,7 @@ pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
             health_change(credit)
         )?;
     }
-    write_owners_to_notify(&mut out, report)?;
+    write_owners_to_notify(&mut out, report, mention_owners)?;
 
     // Folded, because a merge request is a conversation and this is one voice in it.
     writeln!(out, "<details><summary>What it found</summary>\n")?;
@@ -198,16 +198,28 @@ pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
     Ok(String::from_utf8_lossy(&out).into_owned())
 }
 
-/// Who to look at the findings, by the CODEOWNERS file, written as plain mentions so
-/// the forge notifies them as it would for a review request.
-fn write_owners_to_notify(out: &mut Vec<u8>, report: &Report<'_>) -> Result<()> {
+/// Who to look at the findings, by the CODEOWNERS file. A name inside a code span is
+/// not a mention to GitHub or GitLab, so by default the comment names owners without
+/// notifying them; `comment.mention_owners` writes them bare, which does.
+fn write_owners_to_notify(
+    out: &mut Vec<u8>,
+    report: &Report<'_>,
+    mention_owners: bool,
+) -> Result<()> {
     let owners = report.owners_of_new_findings();
     if owners.is_empty() {
         return Ok(());
     }
     let named: Vec<String> = owners
         .iter()
-        .map(|(owner, count)| format!("{owner} ({})", plural(*count, "finding", "findings")))
+        .map(|(owner, count)| {
+            let name = if mention_owners {
+                (*owner).to_owned()
+            } else {
+                format!("`{owner}`")
+            };
+            format!("{name} ({})", plural(*count, "finding", "findings"))
+        })
         .collect();
     writeln!(
         out,
@@ -244,7 +256,7 @@ mod tests {
         let outcome = crate::report::tests::outcome_with(&[("a.ts", Severity::Error)], 1);
         let filter = crate::report::FindingFilter::default();
         let report = Report::scan(&outcome, &filter);
-        let body = comment(&report, Some("https://ci.example/job/1")).expect("a comment");
+        let body = comment(&report, Some("https://ci.example/job/1"), false).expect("a comment");
 
         let headline = body.lines().next().unwrap_or_default();
         assert!(headline.starts_with("### "), "{headline}");
@@ -261,8 +273,7 @@ mod tests {
         assert!(!body.contains("Owners of files"), "no CODEOWNERS file");
     }
 
-    #[test]
-    fn the_comment_names_the_owners_of_files_with_new_findings() {
+    fn owned_comment(mention_owners: bool) -> String {
         let mut outcome = crate::report::tests::outcome_with(
             &[("web/a.ts", Severity::Error), ("web/b.ts", Severity::Info)],
             3,
@@ -274,12 +285,27 @@ mod tests {
         outcome.findings[1].known = true;
         let filter = crate::report::FindingFilter::default();
         let report = Report::scan(&outcome, &filter);
-        let body = comment(&report, None).expect("a comment");
+        comment(&report, None, mention_owners).expect("a comment")
+    }
 
+    #[test]
+    fn the_comment_names_owners_in_code_spans_so_the_forge_does_not_notify_them() {
+        let body = owned_comment(false);
+        assert!(
+            body.contains("Owners of files with new findings: `@web` (1 finding)."),
+            "{body}"
+        );
+        assert!(!body.contains("@lead"), "only a known finding: {body}");
+        assert!(!body.contains(" @web"), "no bare mention: {body}");
+    }
+
+    #[test]
+    fn mention_owners_writes_real_mentions() {
+        let body = owned_comment(true);
         assert!(
             body.contains("Owners of files with new findings: @web (1 finding)."),
             "{body}"
         );
-        assert!(!body.contains("@lead"), "only a known finding: {body}");
+        assert!(!body.contains("`@web`"), "{body}");
     }
 }

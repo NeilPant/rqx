@@ -710,7 +710,8 @@ fn configuration_page() -> String {
          appears above a project from changing the exit code of a pipeline that never asked \
          for a gate.\n\n\
          `gate.owners` sets a health floor and a severity limit for each owner named in a \
-         CODEOWNERS file. See [ownership.md](ownership.md).\n\n\
+         CODEOWNERS file. See [ownership.md](ownership.md). `comment.mention_owners` makes \
+         `rqx comment` write those owners as real mentions.\n\n\
          ## Design pattern advice\n\n\
          `patterns` decides which of the twenty-three Gang of Four patterns rqx reports \
          on. It can be addressed four ways: by advisory, when one claim does not apply to the \

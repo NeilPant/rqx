@@ -87,6 +87,18 @@
         }
       ]
     },
+    "Comment": {
+      "additionalProperties": false,
+      "description": "What `rqx comment` writes into the merge request.",
+      "properties": {
+        "mention_owners": {
+          "default": false,
+          "description": "Write the owners of files with new findings as real `@mentions`, which the forge notifies. Off by default: the names are written inside code spans, which it does not.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "Confidence": {
       "enum": [
         "low",
@@ -9909,6 +9921,12 @@
       "default": {
         "layers": [],
         "paths": {}
+      }
+    },
+    "comment": {
+      "$ref": "#/$defs/Comment",
+      "default": {
+        "mention_owners": false
       }
     },
     "entrypoints": {

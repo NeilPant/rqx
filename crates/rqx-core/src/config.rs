@@ -172,6 +172,7 @@ pub struct RqxConfig {
     pub gate: Gate,
     pub fix: Fix,
     pub update: Update,
+    pub comment: Comment,
     pub architecture: Architecture,
     pub performance: Performance,
     /// Rules this project wrote, as `[[rule]]` blocks. The grammars are already in
@@ -351,6 +352,16 @@ impl Default for Update {
     fn default() -> Self {
         Self { check: true }
     }
+}
+
+/// What `rqx comment` writes into the merge request.
+#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct Comment {
+    /// Write the owners of files with new findings as real `@mentions`, which the forge
+    /// notifies. Off by default: the names are written inside code spans, which it does
+    /// not.
+    pub mention_owners: bool,
 }
 
 /// Which mechanical fixes `rqx fix` may apply. A project that keeps commented-out

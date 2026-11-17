@@ -2473,7 +2473,11 @@ fn run() -> Result<Exit> {
             // Detected before posting but after the scan, so a dry run still gets its
             // comment where there is nowhere to put one.
             let forge = forge::Forge::detect();
-            let body = report::comment(&report, forge.as_ref().ok().and_then(forge::Forge::job))?;
+            let body = report::comment(
+                &report,
+                forge.as_ref().ok().and_then(forge::Forge::job),
+                settings.config.comment.mention_owners,
+            )?;
             if dry_run {
                 println!("{body}");
                 eprintln!(
