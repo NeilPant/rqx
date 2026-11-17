@@ -49,6 +49,19 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   It cleared the screen before every run whatever stdout was, so a watch redirected to
   a log filled it with escape characters. It now clears only on a terminal, and
   anywhere else prints a `── rescanned after HH:MM:SS ──` line between reports.
+
+## 0.2.1 — 2026-11-17
+
+### Added
+
+- **One line installs rqx.** `curl -fsSL …/install.sh | sh` on macOS and Linux, and
+  `irm …/install.ps1 | iex` on Windows, download the release binary for the machine,
+  check it against `SHA256SUMS` and install it into `~/.local/bin` or
+  `%LOCALAPPDATA%\rqx\bin`. Neither uses sudo or edits shell files. `--version`
+  pins a release and `--dry-run` shows every step without changing anything.
+
+### Fixed
+
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding
   only that file, so the next run analysed everything else again, and the run after
   paid the same price for the next edit. The cache now keeps every file the run saw,
