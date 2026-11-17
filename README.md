@@ -163,20 +163,20 @@ but only when you run it.
 
 ## The commands
 
-Thirty-one of them, under five headings. `rqx --help` prints this list; each
+Thirty-two of them, under five headings. `rqx --help` prints this list; each
 command's own `--help` prints its flags, and [docs/cli.md](docs/cli.md) is the whole
 reference.
 
 | | |
 |---|---|
 | **The loop** | `scan` · `check` · `fix` · `verify` · `comment` |
-| **Look closer** | `complexity` · `perf` · `health` · `slop` · `hotspots` · `graph` · `plan` · `patterns` · `recommend` |
+| **Look closer** | `complexity` · `perf` · `health` · `owners` · `slop` · `hotspots` · `graph` · `plan` · `patterns` · `recommend` |
 | **Reference** | `rules` · `explain` · `techniques` · `levels` |
 | **Project** | `init` · `config` · `baseline` · `suppressions` · `waive` · `cache` |
 | **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `badge` · `query` · `update` |
 
 The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
-`rqx v`. Adding a thirtieth command fails the build until it is placed under a heading.
+`rqx v`. Adding a thirty-third command fails the build until it is placed under a heading.
 
 Inside the interface the same list is `/help`.
 

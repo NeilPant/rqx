@@ -891,6 +891,7 @@ help init
 help levels
 help lsp
 help mcp
+help owners
 help patterns
 help perf
 help plan
@@ -1058,6 +1059,41 @@ mcp --verbose
 mcp -h
 mcp -v
 mcp <path>
+owners
+owners --color
+owners --color =always
+owners --color =auto
+owners --color =never
+owners --config
+owners --help
+owners --hyperlinks
+owners --hyperlinks =always
+owners --hyperlinks =auto
+owners --hyperlinks =never
+owners --hyperlinks [env RQX_HYPERLINKS]
+owners --json
+owners --level
+owners --level [env RQX_LEVEL]
+owners --motion
+owners --motion =off
+owners --motion =on
+owners --no-mouse
+owners --no-progress
+owners --no-progress [env RQX_NO_PROGRESS]
+owners --no-tui
+owners --progress
+owners --progress =auto
+owners --progress =bar
+owners --progress =none
+owners --progress =plain
+owners --progress [env RQX_PROGRESS]
+owners --reporter
+owners --threads
+owners --threads [env RQX_THREADS]
+owners --verbose
+owners -h
+owners -v
+owners <path>
 patterns
 patterns --color
 patterns --color =always

@@ -12,7 +12,7 @@ use crate::scan::ScanOutcome;
 
 /// Where each forge looks for the file, in the order it prefers them. GitLab reads one
 /// more place than GitHub does.
-const LOCATIONS: [&str; 4] = [
+pub const LOCATIONS: [&str; 4] = [
     ".github/CODEOWNERS",
     ".gitlab/CODEOWNERS",
     "CODEOWNERS",

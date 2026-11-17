@@ -152,6 +152,7 @@ const GROUPS: [(&str, &[&str]); 5] = [
             "complexity",
             "perf",
             "health",
+            "owners",
             "slop",
             "hotspots",
             "graph",
@@ -600,6 +601,18 @@ enum Command {
         #[arg(long, value_enum, default_value_t = health::By::Family)]
         by: health::By,
         /// Emit one JSON object per bucket
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
+        run: Run,
+    },
+    /// Rank the owners named in CODEOWNERS by the health of the files they own
+    Owners {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        /// Emit one JSON object per owner
         #[arg(long)]
         json: bool,
         #[command(flatten)]
@@ -2283,6 +2296,21 @@ fn run() -> Result<Exit> {
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             sink::deliver(&sinks, palette, |rendering, palette, out| {
                 render::health(&outcome, by, rendering.is_json(), palette, out)
+            })
+            .map(|()| Exit::Clean)
+        }
+        Command::Owners {
+            path,
+            json,
+            printing,
+            run,
+        } => {
+            let mut settings = run.resolve(&path)?;
+            settings.config.scan.max_findings = 0;
+            let sinks = printing.sinks(json)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::owners(&outcome, rendering.is_json(), palette, out)
             })
             .map(|()| Exit::Clean)
         }

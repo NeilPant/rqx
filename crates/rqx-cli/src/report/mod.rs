@@ -47,7 +47,7 @@ pub use docs::schema_text as config_schema;
 pub use docs::write as docs;
 pub use fixes::{json as fixes_json, render as fixes};
 pub use graded::{json as verify_json, render as verify};
-pub use owners::render as owners;
+pub use owners::{json as owners_json, missing as owners_missing, render as owners};
 pub use patterns::{
     coverage as pattern_coverage, explain as explain_pattern, json as advice_json, render as advice,
 };

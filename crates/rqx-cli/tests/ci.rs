@@ -1289,6 +1289,7 @@ fn the_readme_counts_the_commands_correctly() {
         ("Twenty-nine", 29),
         ("Thirty", 30),
         ("Thirty-one", 31),
+        ("Thirty-two", 32),
     ];
     let claimed = spelled
         .iter()

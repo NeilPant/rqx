@@ -75,10 +75,11 @@ pub const SESSION_ONLY: [(&str, &str); 6] = [
 
 /// The command line commands the session runs against its own scan. `findings` is
 /// `scan`, named for what it shows.
-pub const TWINS: [&str; 19] = [
+pub const TWINS: [&str; 20] = [
     "findings",
     "plan",
     "health",
+    "owners",
     "complexity",
     "perf",
     "graph",
@@ -397,6 +398,17 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::health(outcome, by, json, palette, out))
+        }
+        Command::Owners {
+            path,
+            json,
+            printing,
+            run,
+        } => {
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
+            let outcome = context.scanned()?;
+            print(|out| render::owners(outcome, json, palette, out))
         }
         Command::Complexity {
             path,
@@ -962,7 +974,7 @@ mod tests {
             let outcome = fixture();
             let settings = Resolved::default();
             let palette = Palette::with_depth(ColorDepth::Truecolor);
-            let cases: [(&str, Direct); 9] = [
+            let cases: [(&str, Direct); 10] = [
                 ("/findings", |outcome, _, palette, out| {
                     terminal(outcome, &View::default(), palette, out)
                 }),
@@ -986,6 +998,9 @@ mod tests {
                 }),
                 ("/health", |outcome, _, palette, out| {
                     render::health(outcome, crate::health::By::Family, false, palette, out)
+                }),
+                ("/owners", |outcome, _, palette, out| {
+                    render::owners(outcome, false, palette, out)
                 }),
                 ("/complexity --top 5", |outcome, settings, palette, out| {
                     let view = complexity::View {

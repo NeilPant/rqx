@@ -54,6 +54,34 @@ pub fn render(rows: &[OwnerRow], palette: Palette, out: &mut dyn Write) -> Resul
     Ok(())
 }
 
+/// One object per owner, with the same keys the summary's `owners` object carries.
+pub fn json(rows: &[OwnerRow], out: &mut dyn Write) -> Result<()> {
+    for row in rows {
+        writeln!(
+            out,
+            "{}",
+            serde_json::json!({
+                "owner": row.owner,
+                "files": row.files,
+                "findings": row.findings,
+                "health": row.health,
+                "grade": row.grade.label(),
+            })
+        )?;
+    }
+    Ok(())
+}
+
+/// What a command about owners prints when there is nothing to read them from.
+pub fn missing(palette: Palette, out: &mut dyn Write) -> Result<()> {
+    let note = format!(
+        "no CODEOWNERS file found in {}",
+        crate::ownership::LOCATIONS.join(", ")
+    );
+    writeln!(out, "\n  {}", paint(palette.style(Ink::Muted), note))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use rqx_core::Cleanliness;
@@ -98,5 +126,14 @@ mod tests {
     fn an_empty_table_says_why() {
         let table = text(|out| render(&[], Palette::with_depth(ColorDepth::Monochrome), out));
         assert!(table.contains("no CODEOWNERS rules apply"), "{table}");
+    }
+
+    #[test]
+    fn each_owner_is_one_json_object() {
+        let lines = text(|out| json(&rows(), out));
+        let first: serde_json::Value = serde_json::from_str(lines.lines().next().unwrap()).unwrap();
+        assert_eq!(first["owner"], "@web");
+        assert_eq!(first["grade"], "critical");
+        assert_eq!(lines.lines().count(), 2);
     }
 }

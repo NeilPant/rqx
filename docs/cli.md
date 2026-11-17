@@ -388,6 +388,26 @@ Run as an MCP server, so an AI agent can query a project's findings
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
 | `--help` | Print help (see more with '--help') |
 
+## `rqx owners`
+
+Rank the owners named in CODEOWNERS by the health of the files they own
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Emit one JSON object per owner |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
+| `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--help` | Print help (see more with '--help') |
+
 ## `rqx patterns`
 
 Report which design patterns a project uses, which are half applied, and where one would fit
