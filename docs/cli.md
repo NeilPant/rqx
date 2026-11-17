@@ -68,7 +68,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--changed` | Show only findings in files not yet committed |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
-| `--timings` | Print how long each stage of the scan took |
+| `--timings` | Print how long each stage of the scan took, and what it did |
 | `--stats` | Counts only: which rules and families fired, and how often |
 | `--group-by` | What the listing is a list of |
 | `--sort` | What decides the order inside each group |
@@ -407,7 +407,7 @@ Analyze a project and report every finding
 | `--changed` | Show only findings in files not yet committed |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
-| `--timings` | Print how long each stage of the scan took |
+| `--timings` | Print how long each stage of the scan took, and what it did |
 | `--stats` | Counts only: which rules and families fired, and how often |
 | `--group-by` | What the listing is a list of |
 | `--sort` | What decides the order inside each group |

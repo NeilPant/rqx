@@ -25,6 +25,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   is unused. To keep the old behaviour, name the languages you want with
   `[languages] enabled = ["typescript", "python", "go", "java", "cpp"]`, or skip the
   files with `[ignore] patterns = ["**/*.js"]`.
+- **`--timings` says what the scan did.** Beneath the stage times it now prints
+  counts: files read, cache hits and misses, walks of the tree, `git` processes and
+  blames. A count is the same on every machine, so a warm run that stopped using the
+  cache shows up as a number rather than as noise in a timing. The stages gain cache
+  load, cache save and render.
 
 ### Fixed
 

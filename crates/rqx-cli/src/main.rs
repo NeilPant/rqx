@@ -33,6 +33,7 @@ mod report;
 mod scan;
 mod setup;
 mod slop;
+mod stats;
 mod tui;
 mod update;
 mod verify;
@@ -825,7 +826,7 @@ struct View {
     /// Print the summary without the findings
     #[arg(short, long, help_heading = "Display")]
     quiet: bool,
-    /// Print how long each stage of the scan took
+    /// Print how long each stage of the scan took, and what it did
     #[arg(long, help_heading = "Display")]
     timings: bool,
     /// Counts only: which rules and families fired, and how often
@@ -1173,44 +1174,71 @@ impl From<ConfigAction> for edit_config::Change {
 }
 
 fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
-    if view.timings {
-        report::timings(report.outcome, palette, &mut anstream::stdout().lock())?;
-    }
-    for sink in sinks {
-        let plain = Layout {
-            detail: view.detail.into(),
-            grouping: view.grouping.into(),
-            show_suppressed: view.show_suppressed,
-            order: view.order.into(),
-            top: view.top,
-            palette: Palette::with_depth(ColorDepth::Monochrome),
-            show_passed: view.show_passed,
-            stats: view.stats,
-            quiet: view.quiet,
-            // Full is the level that shows everything, so it is the one that pays
-            // for surrounding lines; at 285 findings they are most of the scroll.
-            context: view.context.unwrap_or(match view.detail {
-                DetailArg::Full => 2,
-                DetailArg::Terse | DetailArg::Normal => 0,
-            }),
-        };
-        match &sink.path {
-            Some(path) => {
-                let mut file = std::fs::File::create(path)
-                    .with_context(|| format!("writing {}", path.display()))?;
-                report::emit(report, sink.reporter, &plain, &mut file)?;
-                file.flush()?;
-            }
-            None if sink.reporter.is_coloured() => {
-                let layout = Layout { palette, ..plain };
-                let mut out = anstream::stdout().lock();
-                report::emit(report, sink.reporter, &layout, &mut out)?;
-            }
-            None => {
-                let mut out = std::io::stdout().lock();
-                report::emit(report, sink.reporter, &plain, &mut out)?;
-            }
+    if !view.timings {
+        for sink in sinks {
+            write_sink(report, sink, view, palette, &mut stdout_for(sink))?;
         }
+        return Ok(());
+    }
+    // Held back so rendering can be timed and still printed beneath the stages it
+    // is one of, which come above the report.
+    let mut held = Vec::new();
+    let rendering = std::time::Instant::now();
+    for sink in sinks {
+        write_sink(report, sink, view, palette, &mut held)?;
+    }
+    let render = rendering.elapsed().as_millis();
+    let mut out = anstream::stdout().lock();
+    report::timings(report.outcome, &[("render", render)], palette, &mut out)?;
+    out.write_all(&held)?;
+    Ok(())
+}
+
+fn stdout_for(sink: &Sink) -> Box<dyn Write> {
+    if sink.reporter.is_coloured() {
+        Box::new(anstream::stdout().lock())
+    } else {
+        Box::new(std::io::stdout().lock())
+    }
+}
+
+/// One sink's report, to its file or to `stdout`, whichever the sink names.
+fn write_sink(
+    report: &Report<'_>,
+    sink: &Sink,
+    view: &View,
+    palette: Palette,
+    stdout: &mut dyn Write,
+) -> Result<()> {
+    let plain = Layout {
+        detail: view.detail.into(),
+        grouping: view.grouping.into(),
+        show_suppressed: view.show_suppressed,
+        order: view.order.into(),
+        top: view.top,
+        palette: Palette::with_depth(ColorDepth::Monochrome),
+        show_passed: view.show_passed,
+        stats: view.stats,
+        quiet: view.quiet,
+        // Full is the level that shows everything, so it is the one that pays
+        // for surrounding lines; at 285 findings they are most of the scroll.
+        context: view.context.unwrap_or(match view.detail {
+            DetailArg::Full => 2,
+            DetailArg::Terse | DetailArg::Normal => 0,
+        }),
+    };
+    match &sink.path {
+        Some(path) => {
+            let mut file = std::fs::File::create(path)
+                .with_context(|| format!("writing {}", path.display()))?;
+            report::emit(report, sink.reporter, &plain, &mut file)?;
+            file.flush()?;
+        }
+        None if sink.reporter.is_coloured() => {
+            let layout = Layout { palette, ..plain };
+            report::emit(report, sink.reporter, &layout, stdout)?;
+        }
+        None => report::emit(report, sink.reporter, &plain, stdout)?,
     }
     Ok(())
 }

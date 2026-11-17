@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use rqx_lang::FileAnalysis;
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,7 @@ pub struct Cache {
     loaded: HashMap<String, Entry>,
     fresh: Mutex<HashMap<String, Entry>>,
     hits: Mutex<HashSet<String>>,
+    misses: AtomicU32,
 }
 
 /// Everything that changes what analysing a file produces. A cache keyed on file
@@ -119,18 +121,31 @@ impl Cache {
             loaded,
             fresh: Mutex::new(HashMap::new()),
             hits: Mutex::new(HashSet::new()),
+            misses: AtomicU32::new(0),
         }
     }
 
     pub fn get(&self, key: &str, source: &str) -> Option<&FileAnalysis> {
-        let entry = self.loaded.get(key)?;
-        if entry.fingerprint != fingerprint(source) {
+        let served = self
+            .loaded
+            .get(key)
+            .filter(|entry| entry.fingerprint == fingerprint(source));
+        let Some(entry) = served else {
+            self.misses.fetch_add(1, Ordering::Relaxed);
             return None;
-        }
+        };
         if let Ok(mut hits) = self.hits.lock() {
             hits.insert(key.to_owned());
         }
         Some(&entry.analysis)
+    }
+
+    pub fn hit_count(&self) -> u32 {
+        self.hits.lock().map_or(0, |hits| hits.len() as u32)
+    }
+
+    pub fn miss_count(&self) -> u32 {
+        self.misses.load(Ordering::Relaxed)
     }
 
     pub fn put(&self, key: &str, source: &str, analysis: &FileAnalysis) {
