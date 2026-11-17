@@ -443,8 +443,7 @@ fn threshold_rows(
 
 /// `rqx config`. The list of files comes first because that is the question a
 /// surprising value raises, and answering it by inspection means guessing.
-pub fn render(settings: &Resolved, palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
+pub fn render(settings: &Resolved, palette: Palette, out: &mut dyn Write) -> Result<()> {
     let dim = palette.style(Ink::Muted);
 
     writeln!(out)?;

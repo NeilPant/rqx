@@ -24,9 +24,9 @@ Record the findings this project already has, so a gate can judge only what a ch
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--update` | Take it again over the current findings. Refuses to record more than the last one did unless --force |
 | `--force` | Record a larger set than the last one held |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -59,7 +59,6 @@ Analyze changed files against a base revision and fail if the gate is not met
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--base` | Revision to compare against |
 | `--fix` | Apply the mechanical fixes to what the branch touched before gating, so a branch whose only failures were mechanical passes |
 | `--write` | With --fix, write the fixes. Without it nothing on disk changes |
@@ -92,6 +91,11 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--min-health` | Health score below which the run fails; 0 disables |
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
+| `--coverage` | A coverage file, so a test run can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are read by content |
+| `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
+| `--max-findings` | Display cap; 0 shows every finding. Never affects the health score |
+| `--level` | relaxed, standard, strict or pristine |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -108,7 +112,6 @@ Post the review onto the merge request it is reviewing, and grade the commit
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--base` | Review against this revision. Defaults to the merge request's own base, which the pipeline already knows |
 | `--dry-run` | Print the comment and where it would go, and post nothing |
 | `--marker` | Which comment to keep. Two jobs on one merge request each keep their own |
@@ -118,6 +121,9 @@ Post the review onto the merge request it is reviewing, and grade the commit
 | `--min-health` | Health score below which the run fails; 0 disables |
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
+| `--coverage` | A coverage file, so a test run can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are read by content |
+| `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -151,12 +157,13 @@ What the analyser measured, as a distribution rather than only its tail
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--by` | One row per function, per file, or per directory |
 | `--top` | How many rows |
 | `--min` | Skip anything below this, on whatever `--sort` measures |
 | `--histogram` | Draw the distribution as well as the worst of it |
 | `--json` | Emit one JSON object per row |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -177,6 +184,7 @@ Print the settings a run will use, and the file each one came from
 | `--level` | relaxed, standard, strict or pristine |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--json` | One JSON object per setting, then a summary, instead of the table |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -207,12 +215,13 @@ Apply the fixes a finding decides on its own, proving each one before it is writ
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--write` | Write the fixes. Without it nothing on disk changes |
 | `--max-rounds` | One fix can make the next one possible, so fixing repeats until a round finds nothing. Overrides `[fix] max_rounds` |
 | `--json` | Emit one JSON object per fixed file instead of the reader's preview |
 | `--plan` | Report the findings `fix` will not touch, with the span, the source, the metric and the named refactoring, for a person or an agent to act on |
 | `--markdown` | With --plan, emit markdown a person can paste rather than a report to read |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -230,10 +239,12 @@ Print the import graph — as text, Graphviz, Mermaid or data
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
+| `--format` | text, dot, mermaid or json. Text unless a `--reporter` says otherwise |
+| `--reporter` | Where the graph goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are the formats, and `terminal` is `text` |
 | `--cycles` | Only the edges that close a cycle |
 | `--focus` | Only what this file reaches, and what reaches it |
 | `--depth` | How far from `--focus` to follow |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -251,8 +262,9 @@ Where the health score comes from, and what removing each part would buy
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--json` | Emit one JSON object per bucket |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -339,9 +351,10 @@ Report which design patterns a project uses, which are half applied, and where o
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--coverage` | Print what rqx does about every pattern in the book, without scanning |
 | `--json` | Emit one JSON object per advisory instead of the reader's report |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -359,12 +372,13 @@ Where the work grows faster than the data, ranked by reach
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--by` | One row per function, per file, or per directory |
 | `--top` | How many rows |
 | `--min-depth` | Skip anything whose loops nest less deeply than this |
 | `--profile` | A CPU profile, so a finding nothing ran stops counting. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--json` | Emit one JSON object per row |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -382,11 +396,12 @@ Rank the work by what it buys against what it costs, and say what the health sco
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--budget` | Effort points to spend. Without it the plan is the top items by value |
 | `--limit` | How many items to rank when no budget is given |
 | `--simulate` | Also print what the plan does to the grade of every file |
 | `--json` | Emit one JSON object per item instead of the reader's plan |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -423,8 +438,9 @@ What to do about this project, as distinct from what is wrong with it
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--only` | Just one section |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -460,7 +476,6 @@ Analyze a project and report every finding
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--severity` | Show only findings at or above this severity |
 | `--rule` | Show only this rule; repeatable |
 | `--category` | Show only this smell family; repeatable |
@@ -495,6 +510,7 @@ Analyze a project and report every finding
 | `--profile` | A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content |
 | `--max-findings` | Display cap; 0 shows every finding. Never affects the health score |
 | `--watch` | Scan again whenever a file changes, until interrupted |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -529,8 +545,9 @@ Which files read as written rather than read
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--min` | Skip anything scoring below this |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -548,9 +565,10 @@ List every finding a comment in the source waives, with the reason given
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--expiring` | Show only the waivers that carry an `until` date |
 | `--json` | Emit one JSON object per waiver instead of the reader's report |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
@@ -602,10 +620,11 @@ Compare the working tree against a base revision and say what happened to each f
 
 | Flag | What it does |
 | --- | --- |
-| `--level` | relaxed, standard, strict or pristine |
 | `--base` | Revision to compare against |
 | `--expect` | Rules that must be resolved, as `rule` or `rule@file`. Repeatable |
 | `--json` | Emit one JSON object per change instead of the reader's report |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |

@@ -30,6 +30,10 @@ inputs:
     description: "Upload the SARIF report to GitHub code scanning."
     required: false
     default: "true"
+  cache:
+    description: "Carry the scan cache (.rqx/cache.bin) from one run to the next, so a run analyses only the files that changed."
+    required: false
+    default: "true"
 
 outputs:
   findings:
@@ -58,6 +62,7 @@ runs:
       run: |
         set -uo pipefail
         version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ACTION_PATH/Cargo.toml" | head -1)"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
 
         case "$RUNNER_OS/$RUNNER_ARCH" in
           Linux/X64)    triple=linux-x64    ;;
@@ -116,45 +121,63 @@ runs:
       shell: bash
       run: cargo install --locked --path "${{ github.action_path }}/crates/rqx-cli"
 
+    # The cache holds one analysis per file, keyed by what the file contains, so a fresh
+    # clone still hits: its modification times are new and its contents are not. The key
+    # carries the rqx version, the config and the OS, because rqx throws away a cache
+    # written under another version or other settings. The commit is on the end so each
+    # run saves a cache of its own (GitHub never overwrites a key), and the prefix lets
+    # the next run start from the newest one.
+    - name: Restore the scan cache
+      id: scan-cache
+      if: ${{ inputs.cache == 'true' }}
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ inputs.path }}/.rqx/cache.bin
+        key: rqx-${{ runner.os }}-${{ steps.install.outputs.version }}-${{ hashFiles('**/rqx.yaml', '**/rqx.yml', '**/.rqx.yaml', '**/.rqx.yml') }}-${{ github.sha }}
+        restore-keys: |
+          rqx-${{ runner.os }}-${{ steps.install.outputs.version }}-${{ hashFiles('**/rqx.yaml', '**/rqx.yml', '**/.rqx.yaml', '**/.rqx.yml') }}-
+
     - name: Run rqx
       id: rqx
       shell: bash
+      # Named for what they are, not `RQX_*`: rqx reads those from the environment, and
+      # an input left blank would arrive as an empty `RQX_CONFIG` pointing at nothing.
       env:
-        RQX_PATH: ${{ inputs.path }}
-        RQX_BASE: ${{ inputs.base }}
-        RQX_CONFIG: ${{ inputs.config }}
-        RQX_FAIL_ON: ${{ inputs.fail-on }}
-        RQX_SARIF: ${{ inputs.sarif-file }}
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_BASE: ${{ inputs.base }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_SARIF: ${{ inputs.sarif-file }}
       run: |
         set -uo pipefail
         summary="$(mktemp)"
 
-        args=("$RQX_PATH")
-        [ -n "$RQX_CONFIG" ] && args+=(--config "$RQX_CONFIG")
-        [ -n "$RQX_FAIL_ON" ] && args+=(--fail-on "$RQX_FAIL_ON")
+        args=("$INPUT_PATH")
+        [ -n "$INPUT_CONFIG" ] && args+=(--config "$INPUT_CONFIG")
+        [ -n "$INPUT_FAIL_ON" ] && args+=(--fail-on "$INPUT_FAIL_ON")
 
         # One analysis, four renderings: the log, the inline annotations, the SARIF
         # upload and the job summary. Running rqx twice to get two of them doubled
         # the cost of the slowest step in the job.
         args+=(--reporter terminal --reporter github)
-        args+=(--reporter "sarif=$RQX_SARIF" --reporter "markdown=$summary")
+        args+=(--reporter "sarif=$INPUT_SARIF" --reporter "markdown=$summary")
 
-        if [ -n "$RQX_BASE" ]; then
+        if [ -n "$INPUT_BASE" ]; then
           # A review diffs `base...HEAD`, which needs the commit the two branches
           # share. `actions/checkout` clones one commit deep by default, so fetching
           # the base one commit deep leaves two histories with no ancestor between
           # them and the diff fails. Deepen until there is one, or say why not.
-          git fetch --no-tags origin "$RQX_BASE" 2>/dev/null || true
+          git fetch --no-tags origin "$INPUT_BASE" 2>/dev/null || true
           if ! git merge-base HEAD FETCH_HEAD >/dev/null 2>&1; then
-            git fetch --no-tags --deepen=200 origin "$RQX_BASE" 2>/dev/null || true
+            git fetch --no-tags --deepen=200 origin "$INPUT_BASE" 2>/dev/null || true
           fi
           if ! git merge-base HEAD FETCH_HEAD >/dev/null 2>&1; then
-            git fetch --no-tags --unshallow origin "$RQX_BASE" 2>/dev/null || true
+            git fetch --no-tags --unshallow origin "$INPUT_BASE" 2>/dev/null || true
           fi
           if ! git merge-base HEAD FETCH_HEAD >/dev/null 2>&1; then
-            echo "::warning::no commit shared with $RQX_BASE; add fetch-depth: 0 to actions/checkout"
+            echo "::warning::no commit shared with $INPUT_BASE; add fetch-depth: 0 to actions/checkout"
           fi
-          rqx check "${args[@]}" --base "$RQX_BASE"
+          rqx check "${args[@]}" --base "$INPUT_BASE"
         else
           rqx scan "${args[@]}"
         fi
@@ -165,10 +188,18 @@ runs:
 
         # SARIF lists a waived finding too, marked suppressed, and the output is the
         # number of findings reported.
-        findings=$(jq '[.runs[].results[] | select((.suppressions // []) == [])] | length' "$RQX_SARIF" 2>/dev/null || echo 0)
+        findings=$(jq '[.runs[].results[] | select((.suppressions // []) == [])] | length' "$INPUT_SARIF" 2>/dev/null || echo 0)
         echo "findings=$findings" >> "$GITHUB_OUTPUT"
         echo "passed=$([ "$status" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
         exit "$status"
+
+    # Saved even when the gate failed: that is the run the next push repeats.
+    - name: Save the scan cache
+      if: ${{ always() && inputs.cache == 'true' && steps.scan-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ inputs.path }}/.rqx/cache.bin
+        key: rqx-${{ runner.os }}-${{ steps.install.outputs.version }}-${{ hashFiles('**/rqx.yaml', '**/rqx.yml', '**/.rqx.yaml', '**/.rqx.yml') }}-${{ github.sha }}
 
     # Runs even when the gate failed, so a failing PR still gets its annotations.
     - name: Upload SARIF

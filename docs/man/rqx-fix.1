@@ -4,13 +4,10 @@
 .SH NAME
 rqx\-fix \- Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
 .SH SYNOPSIS
-\fBrqx fix\fR [\fB\-\-level\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx fix\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
 .SH OPTIONS
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
 .TP
 \fB\-w\fR, \fB\-\-write\fR
 Write the fixes. Without it nothing on disk changes
@@ -26,6 +23,12 @@ Report the findings `fix` will not touch, with the span, the source, the metric 
 .TP
 \fB\-\-markdown\fR
 With \-\-plan, emit markdown a person can paste rather than a report to read
+.TP
+\fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
+Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism

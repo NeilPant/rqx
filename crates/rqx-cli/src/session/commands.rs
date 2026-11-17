@@ -15,7 +15,10 @@ use crate::brand::Palette;
 use crate::config::Resolved;
 use crate::report::{self, Report};
 use crate::scan::{self, ScanOutcome};
-use crate::{Cli, Command, Standard, check, complexity, fix, graph, parser, perf, render, verify};
+use crate::{
+    Cli, Command, DisplayCap, Evidence, Standard, check, complexity, fix, graph, parser, perf,
+    render, verify,
+};
 
 /// What a typed line turned out to be.
 pub enum Parsed {
@@ -283,6 +286,20 @@ impl<'a> Context<'a> {
     }
 }
 
+fn refuse_reporter(given: bool) -> Result<()> {
+    if given {
+        bail!("`--reporter` writes outside the session; `--json` prints here");
+    }
+    Ok(())
+}
+
+fn refuse_scan_changes(evidence: &Evidence, cap: &DisplayCap) -> Result<()> {
+    if evidence.is_empty() && !cap.is_set() {
+        return Ok(());
+    }
+    bail!("`--coverage`, `--profile` and `--max-findings` change the scan; run them from a shell")
+}
+
 /// What running a command asks the session to do.
 pub enum Action {
     Print(Vec<u8>),
@@ -308,23 +325,16 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
     match invocation.command {
         Command::Scan {
             path,
-            standard,
             view,
             gate,
             advice,
-            coverage,
-            profile,
-            max_findings,
+            evidence,
+            cap,
             watch,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
-            if !coverage.is_empty() || !profile.is_empty() || max_findings.is_some() {
-                bail!(
-                    "`--coverage`, `--profile` and `--max-findings` change the scan; run them from a shell"
-                );
-            }
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_scan_changes(&evidence, &cap)?;
             if watch {
                 bail!("use /watch on");
             }
@@ -357,15 +367,15 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Plan {
             path,
-            standard,
             budget,
             limit,
             simulate,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let request = render::Plan {
                 budget,
                 limit,
@@ -377,29 +387,29 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Health {
             path,
-            standard,
             by,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::health(outcome, by, json, palette, out))
         }
         Command::Complexity {
             path,
-            standard,
             by,
             sort,
             top,
             min,
             histogram,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let view = complexity::View {
                 by,
                 sort,
@@ -412,17 +422,17 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Perf {
             path,
-            standard,
             by,
             sort,
             top,
             min_depth,
             profile,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             if !profile.is_empty() {
                 bail!("`--profile` changes the scan; run it from a shell");
             }
@@ -437,17 +447,17 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Graph {
             path,
-            standard,
             format,
             cycles,
             focus,
             depth,
-            threads: _,
-            config,
+            reporters,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(!reporters.is_empty())?;
             let view = graph::View {
-                shape: format,
+                shape: format.unwrap_or_default(),
                 cycles_only: cycles,
                 focus: focus.as_deref(),
                 depth,
@@ -457,40 +467,40 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Recommend {
             path,
-            standard,
             only,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::recommend(outcome, context.settings, only, json, palette, out))
         }
         Command::Patterns {
             path,
-            standard,
             coverage,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
             if coverage {
                 return print(|out| report::pattern_coverage(palette, out));
             }
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::patterns(outcome, json, palette, out))
         }
         Command::Suppressions {
             path,
-            standard,
             expiring,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::suppressions(&path, outcome, expiring, json, palette, out))
         }
@@ -533,14 +543,14 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         Command::Levels => print(|out| report::levels(palette, out)),
         Command::Slop {
             path,
-            standard,
             top,
             min,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             // The signals are Info rules that ship off, which the session's scan did not
             // run, so this one scans again with its own family on.
             let mut settings = context.settings.clone();
@@ -555,16 +565,16 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Fix {
             path,
-            standard,
             write,
             max_rounds,
             json,
             plan,
             markdown,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             if plan {
                 let outcome = context.scanned()?;
                 return print(|out| {
@@ -597,15 +607,17 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Check {
             path,
-            standard,
             base,
             fix,
             write: _,
             view,
             gate,
-            config,
+            evidence,
+            cap,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_scan_changes(&evidence, &cap)?;
             if fix {
                 bail!("`--fix` writes files; run `rqx check --fix` from a shell, or /fix");
             }
@@ -626,14 +638,14 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Verify {
             path,
-            standard,
             base,
             expect,
             json,
-            threads: _,
-            config,
+            printing,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let settings = context.settings.clone();
             background(false, move || {
                 verify::ensure_repository(&path, &base)?;

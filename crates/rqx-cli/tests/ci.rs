@@ -1423,3 +1423,200 @@ fn a_pipeline_never_sees_the_update_notice() {
     let _ = std::fs::remove_dir_all(&cache);
     let _ = std::fs::remove_dir_all(&project);
 }
+
+fn scan_with_env(root: &Path, variables: &[(&str, &str)], flags: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan"])
+        .arg(root)
+        .args(flags)
+        .envs(variables.iter().copied())
+        .output()
+        .expect("failed to run rqx")
+}
+
+/// A pipeline sets its standard once, in the job's environment. The variable gates a
+/// scan as the flag does, the flag outranks it, and it outranks the file.
+#[test]
+fn the_gate_can_be_set_from_the_environment() {
+    let root = project(
+        "gate-env",
+        &[
+            ("a.ts", DIRTY),
+            ("index.ts", "export * from './a'\n"),
+            ("rqx.yaml", "gate:\n  fail_on: never\n  max_findings: 0\n"),
+        ],
+    );
+
+    assert_eq!(code(&scan_with_env(&root, &[], &[])), 0);
+    assert_eq!(
+        code(&scan_with_env(&root, &[("RQX_FAIL_ON", "info")], &[])),
+        1,
+        "the variable gates a scan and outranks rqx.yaml"
+    );
+    assert_eq!(
+        code(&scan_with_env(
+            &root,
+            &[("RQX_FAIL_ON", "info")],
+            &["--fail-on", "never"]
+        )),
+        0,
+        "the flag outranks the variable"
+    );
+    assert_eq!(
+        code(&scan_with_env(
+            &root,
+            &[("RQX_FAIL_ON", "info"), ("RQX_ALLOW_FINDINGS", "99")],
+            &[]
+        )),
+        0
+    );
+    assert_eq!(
+        code(&scan_with_env(&root, &[("RQX_MIN_HEALTH", "100")], &[])),
+        1
+    );
+    assert_eq!(
+        code(&scan_with_env(&root, &[("RQX_MIN_GRADE", "pristine")], &[])),
+        1
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_false_incomplete_variable_does_not_gate() {
+    let root = project("gate-env-off", &[("a.ts", DIRTY)]);
+    for value in ["0", "false", ""] {
+        let output = scan_with_env(&root, &[("RQX_FAIL_ON_INCOMPLETE", value)], &[]);
+        assert_eq!(code(&output), 0, "RQX_FAIL_ON_INCOMPLETE={value}");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+fn stdout_of(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+const COMMANDS_WITH_A_JSON_VIEW: [&str; 10] = [
+    "fix",
+    "plan",
+    "suppressions",
+    "complexity",
+    "perf",
+    "recommend",
+    "slop",
+    "health",
+    "patterns",
+    "config",
+];
+
+/// `--json` was the only way to ask these commands for a document, and pipelines
+/// already use it. `--reporter json` has to print exactly what it printed.
+#[test]
+fn reporter_json_prints_what_json_prints() {
+    let root = project(
+        "reporter-json",
+        &[
+            ("a.ts", DIRTY),
+            (
+                "waived.ts",
+                "export function f(): number {\n  return 1\n  // rqx-ignore unreachable-code: kept for the test\n  console.log('dead')\n}\n",
+            ),
+            ("index.ts", "export * from './a'\n"),
+        ],
+    );
+    for command in COMMANDS_WITH_A_JSON_VIEW {
+        let shorthand = rqx(&root, &[command, "--json"]);
+        let named = rqx(&root, &[command, "--reporter", "json"]);
+        assert_eq!(code(&shorthand), 0, "{command} --json");
+        assert_eq!(
+            stdout_of(&shorthand),
+            stdout_of(&named),
+            "{command}: --reporter json differs from --json"
+        );
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_reporter_can_write_the_json_to_a_file_and_leave_the_console_alone() {
+    let root = project(
+        "reporter-file",
+        &[("a.ts", DIRTY), ("index.ts", "export * from './a'\n")],
+    );
+    let target = root.join("health.json");
+    let shown = rqx(
+        &root,
+        &[
+            "health",
+            "--reporter",
+            &format!("json={}", target.display()),
+        ],
+    );
+    let json = rqx(&root, &["health", "--json"]);
+
+    assert_eq!(code(&shown), 0);
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("the file"),
+        stdout_of(&json)
+    );
+    assert!(
+        !stdout_of(&shown).contains("\"bucket\""),
+        "the console still gets the readable report"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_document_and_the_console_cannot_share_stdout_on_any_command() {
+    let root = project("reporter-clash", &[("a.ts", DIRTY)]);
+    let refused = rqx(&root, &["health", "--reporter", "terminal", "--json"]);
+    assert_eq!(code(&refused), 2);
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("cannot share stdout"),
+        "{}",
+        String::from_utf8_lossy(&refused.stderr)
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn graph_takes_its_formats_as_reporters_and_keeps_format() {
+    let root = project(
+        "reporter-graph",
+        &[
+            ("a.ts", "import { b } from './b'\nexport const a = b\n"),
+            ("b.ts", "export const b = 1\n"),
+        ],
+    );
+    for shape in ["dot", "mermaid", "json", "text"] {
+        let flag = rqx(&root, &["graph", "--format", shape]);
+        let reporter = rqx(&root, &["graph", "--reporter", shape]);
+        assert_eq!(stdout_of(&flag), stdout_of(&reporter), "{shape}");
+    }
+    assert_eq!(
+        stdout_of(&rqx(&root, &["graph", "--reporter", "terminal"])),
+        stdout_of(&rqx(&root, &["graph"])),
+        "`terminal` is the default text form"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// A workflow that sets a variable from an input it was not given passes an empty
+/// string. That is "nothing to say", not a value to reject and not a gate to turn on.
+#[test]
+fn a_blank_gate_variable_is_not_set() {
+    let root = project(
+        "gate-env-blank",
+        &[("a.ts", DIRTY), ("index.ts", "export * from './a'\n")],
+    );
+    for variable in [
+        "RQX_FAIL_ON",
+        "RQX_ALLOW_FINDINGS",
+        "RQX_MIN_HEALTH",
+        "RQX_MIN_GRADE",
+        "RQX_FAIL_ON_INCOMPLETE",
+    ] {
+        let output = scan_with_env(&root, &[(variable, "")], &[]);
+        assert_eq!(code(&output), 0, "{variable} set to nothing");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}

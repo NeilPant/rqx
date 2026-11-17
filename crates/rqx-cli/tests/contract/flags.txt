@@ -155,6 +155,7 @@ cache status -v
 cache status <path>
 check
 check --allow-findings
+check --allow-findings [env RQX_ALLOW_FINDINGS]
 check --base
 check --category
 check --changed
@@ -167,6 +168,7 @@ check --confidence =heuristic
 check --confidence =verified
 check --config
 check --context
+check --coverage
 check --detail
 check --detail =full
 check --detail =normal
@@ -176,7 +178,9 @@ check --fail-on =error
 check --fail-on =info
 check --fail-on =never
 check --fail-on =warning
+check --fail-on [env RQX_FAIL_ON]
 check --fail-on-incomplete
+check --fail-on-incomplete [env RQX_FAIL_ON_INCOMPLETE]
 check --files-from
 check --fix
 check --fixable
@@ -202,6 +206,7 @@ check --hyperlinks =never
 check --hyperlinks [env RQX_HYPERLINKS]
 check --level
 check --level [env RQX_LEVEL]
+check --max-findings
 check --min-grade
 check --min-grade =clean
 check --min-grade =critical
@@ -209,7 +214,9 @@ check --min-grade =fair
 check --min-grade =never
 check --min-grade =poor
 check --min-grade =pristine
+check --min-grade [env RQX_MIN_GRADE]
 check --min-health
+check --min-health [env RQX_MIN_HEALTH]
 check --motion
 check --motion =off
 check --motion =on
@@ -221,6 +228,7 @@ check --not-category
 check --not-path
 check --not-rule
 check --path
+check --profile
 check --progress
 check --progress =auto
 check --progress =bar
@@ -243,6 +251,8 @@ check --sort =file
 check --sort =line
 check --sort =severity
 check --stats
+check --threads
+check --threads [env RQX_THREADS]
 check --timings
 check --top
 check --verbose
@@ -254,19 +264,23 @@ check -w
 check <path>
 comment
 comment --allow-findings
+comment --allow-findings [env RQX_ALLOW_FINDINGS]
 comment --base
 comment --color
 comment --color =always
 comment --color =auto
 comment --color =never
 comment --config
+comment --coverage
 comment --dry-run
 comment --fail-on
 comment --fail-on =error
 comment --fail-on =info
 comment --fail-on =never
 comment --fail-on =warning
+comment --fail-on [env RQX_FAIL_ON]
 comment --fail-on-incomplete
+comment --fail-on-incomplete [env RQX_FAIL_ON_INCOMPLETE]
 comment --help
 comment --hyperlinks
 comment --hyperlinks =always
@@ -283,7 +297,9 @@ comment --min-grade =fair
 comment --min-grade =never
 comment --min-grade =poor
 comment --min-grade =pristine
+comment --min-grade [env RQX_MIN_GRADE]
 comment --min-health
+comment --min-health [env RQX_MIN_HEALTH]
 comment --motion
 comment --motion =off
 comment --motion =on
@@ -292,6 +308,7 @@ comment --no-progress
 comment --no-progress [env RQX_NO_PROGRESS]
 comment --no-status
 comment --no-tui
+comment --profile
 comment --progress
 comment --progress =auto
 comment --progress =bar
@@ -366,6 +383,7 @@ complexity --progress =bar
 complexity --progress =none
 complexity --progress =plain
 complexity --progress [env RQX_PROGRESS]
+complexity --reporter
 complexity --sort
 complexity --sort =complexity
 complexity --sort =nesting
@@ -406,6 +424,7 @@ config --progress =bar
 config --progress =none
 config --progress =plain
 config --progress [env RQX_PROGRESS]
+config --reporter
 config --verbose
 config -h
 config -v
@@ -619,6 +638,7 @@ config validate --progress =bar
 config validate --progress =none
 config validate --progress =plain
 config validate --progress [env RQX_PROGRESS]
+config validate --reporter
 config validate --strict
 config validate --verbose
 config validate -h
@@ -712,6 +732,7 @@ fix --progress =bar
 fix --progress =none
 fix --progress =plain
 fix --progress [env RQX_PROGRESS]
+fix --reporter
 fix --threads
 fix --threads [env RQX_THREADS]
 fix --verbose
@@ -755,6 +776,7 @@ graph --progress =bar
 graph --progress =none
 graph --progress =plain
 graph --progress [env RQX_PROGRESS]
+graph --reporter
 graph --threads
 graph --threads [env RQX_THREADS]
 graph --verbose
@@ -794,6 +816,7 @@ health --progress =bar
 health --progress =none
 health --progress =plain
 health --progress [env RQX_PROGRESS]
+health --reporter
 health --threads
 health --threads [env RQX_THREADS]
 health --verbose
@@ -985,6 +1008,7 @@ patterns --progress =bar
 patterns --progress =none
 patterns --progress =plain
 patterns --progress [env RQX_PROGRESS]
+patterns --reporter
 patterns --threads
 patterns --threads [env RQX_THREADS]
 patterns --verbose
@@ -1025,6 +1049,7 @@ perf --progress =bar
 perf --progress =none
 perf --progress =plain
 perf --progress [env RQX_PROGRESS]
+perf --reporter
 perf --sort
 perf --sort =io
 perf --sort =order
@@ -1068,6 +1093,7 @@ plan --progress =bar
 plan --progress =none
 plan --progress =plain
 plan --progress [env RQX_PROGRESS]
+plan --reporter
 plan --simulate
 plan --threads
 plan --threads [env RQX_THREADS]
@@ -1140,6 +1166,7 @@ recommend --progress =bar
 recommend --progress =none
 recommend --progress =plain
 recommend --progress [env RQX_PROGRESS]
+recommend --reporter
 recommend --threads
 recommend --threads [env RQX_THREADS]
 recommend --verbose
@@ -1179,6 +1206,7 @@ rules <category>
 scan
 scan --advice
 scan --allow-findings
+scan --allow-findings [env RQX_ALLOW_FINDINGS]
 scan --category
 scan --changed
 scan --color
@@ -1200,7 +1228,9 @@ scan --fail-on =error
 scan --fail-on =info
 scan --fail-on =never
 scan --fail-on =warning
+scan --fail-on [env RQX_FAIL_ON]
 scan --fail-on-incomplete
+scan --fail-on-incomplete [env RQX_FAIL_ON_INCOMPLETE]
 scan --files-from
 scan --fixable
 scan --format
@@ -1233,7 +1263,9 @@ scan --min-grade =fair
 scan --min-grade =never
 scan --min-grade =poor
 scan --min-grade =pristine
+scan --min-grade [env RQX_MIN_GRADE]
 scan --min-health
+scan --min-health [env RQX_MIN_HEALTH]
 scan --motion
 scan --motion =off
 scan --motion =on
@@ -1337,6 +1369,7 @@ slop --progress =bar
 slop --progress =none
 slop --progress =plain
 slop --progress [env RQX_PROGRESS]
+slop --reporter
 slop --threads
 slop --threads [env RQX_THREADS]
 slop --top
@@ -1373,6 +1406,7 @@ suppressions --progress =bar
 suppressions --progress =none
 suppressions --progress =plain
 suppressions --progress [env RQX_PROGRESS]
+suppressions --reporter
 suppressions --threads
 suppressions --threads [env RQX_THREADS]
 suppressions --verbose
@@ -1467,6 +1501,7 @@ verify --progress =bar
 verify --progress =none
 verify --progress =plain
 verify --progress [env RQX_PROGRESS]
+verify --reporter
 verify --threads
 verify --threads [env RQX_THREADS]
 verify --verbose
@@ -1481,6 +1516,11 @@ waive --color =never
 waive --config
 waive --dry-run
 waive --help
+waive --hyperlinks
+waive --hyperlinks =always
+waive --hyperlinks =auto
+waive --hyperlinks =never
+waive --hyperlinks [env RQX_HYPERLINKS]
 waive --motion
 waive --motion =off
 waive --motion =on
@@ -1488,9 +1528,17 @@ waive --no-mouse
 waive --no-progress
 waive --no-progress [env RQX_NO_PROGRESS]
 waive --no-tui
+waive --progress
+waive --progress =auto
+waive --progress =bar
+waive --progress =none
+waive --progress =plain
+waive --progress [env RQX_PROGRESS]
 waive --reason
 waive --until
+waive --verbose
 waive --whole-file
 waive -h
+waive -v
 waive <at>
 waive <rule>

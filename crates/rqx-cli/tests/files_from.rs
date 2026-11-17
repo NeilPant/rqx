@@ -195,6 +195,38 @@ fn check_without_git_history_reviews_the_listed_files_and_gates_on_them() {
 }
 
 #[test]
+fn a_display_cap_on_check_hides_findings_without_loosening_the_gate() {
+    let root = project("check-cap", &[("a.ts", DIRTY), ("b.ts", DIRTY)]);
+    let arguments = |cap: &'static str| {
+        vec![
+            "check",
+            ".",
+            "--files-from",
+            "-",
+            "--fail-on",
+            "info",
+            "--allow-findings",
+            "1",
+            "--reporter",
+            "json",
+            "--threads",
+            "1",
+            "--max-findings",
+            cap,
+        ]
+    };
+    let listed = b"a.ts\nb.ts\n";
+
+    let capped = rqx_with(&root, &arguments("1"), listed);
+    let uncapped = rqx_with(&root, &arguments("0"), listed);
+
+    assert_eq!(code(&capped), 1, "{}", stdout(&capped));
+    assert_eq!(code(&uncapped), 1, "{}", stdout(&uncapped));
+    assert!(files_with_findings(&capped).len() < files_with_findings(&uncapped).len());
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn check_reads_a_nul_separated_list() {
     let root = project("check-nul", &[("clean.ts", CLEAN), ("dirty.ts", DIRTY)]);
     let gated = rqx_with(

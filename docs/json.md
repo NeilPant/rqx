@@ -1,7 +1,7 @@
 # The JSON stream
 
-`--reporter json` and the `--json` flag on the other commands write newline-delimited
-JSON: one object per line. This page is what you can rely on when you parse it.
+`--reporter json` writes newline-delimited JSON: one object per line. `--json` is the
+short form of it on the commands that have always had the flag. This page is what you can rely on when you parse it.
 
 ## The promise
 

@@ -36,6 +36,22 @@ Passing any gate flag opts a scan into gating, so the rest of `[gate]` applies t
 `fail_on = "never"` turns off only the count of findings by severity. The health floor,
 the grade floor, the ratchet and `fail_on_incomplete` still apply when they are set.
 
+Each flag has an environment variable, so a pipeline can set its standard once for
+every job:
+
+| Variable | Same as |
+|---|---|
+| `RQX_FAIL_ON` | `--fail-on` |
+| `RQX_ALLOW_FINDINGS` | `--allow-findings` |
+| `RQX_MIN_HEALTH` | `--min-health` |
+| `RQX_MIN_GRADE` | `--min-grade` |
+| `RQX_FAIL_ON_INCOMPLETE` | `--fail-on-incomplete`; `1`, `true` or `yes` turns it on, and `0`, `false` or an empty value leaves it off |
+
+A flag beats its variable, and a variable beats `rqx.yaml`. Like a flag, setting any of
+them makes `rqx scan` gate, so a variable left in a shared runner image changes what
+every scan on it returns. A variable set to an empty string counts as not set, which is
+what a workflow passes for an input nobody filled in.
+
 ## Reporters
 
 `--reporter <name>` writes to stdout. `--reporter <name>=<path>` writes to a file.
@@ -62,6 +78,14 @@ rqx scan . \
 
 `terminal` and `github` can share stdout; anything else is a document and has to
 have the stream, or a file, to itself.
+
+The commands that print their own view instead of the findings — `fix`, `verify`,
+`plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`,
+`patterns`, `graph` and `config` — take `--reporter` too, with two names: `terminal`
+and `json`. `rqx health --reporter terminal --reporter json=health.json` prints the
+table and writes the document. `--json` on those commands is short for `--reporter
+json`. `graph` also takes `text`, `dot` and `mermaid`, which are its `--format`
+values.
 
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.
@@ -173,6 +197,38 @@ SARIF upload and a job summary from that single pass. It installs rqx by downloa
 the binary its own tag was released with and checking it against `SHA256SUMS`; a ref
 with no published binary — a fork, or `@main` ahead of the last release — compiles
 from the checkout instead.
+
+### The scan cache
+
+rqx keeps one analysis per file in `.rqx/cache.bin`, and a run that finds the file
+unchanged skips it. The action carries that file from one run to the next with
+`actions/cache`, so a pull request re-analyses only what it touched. It is on by
+default; `cache: "false"` turns it off.
+
+A fresh clone still hits. The cache looks a file up by its path and its modification
+time first, and a clone has new modification times, but when they do not match it reads
+the file and compares a hash of the contents, which are the same. The cache is keyed on
+the rqx version, a hash of the `rqx.yaml` files and the OS, with the commit on the end
+so every run saves a cache of its own; a run starts from the newest one with the same
+version, configuration and OS. A cache written under another rqx version or other
+settings is not used, whatever the key says, so a stale restore costs a full scan and
+nothing more.
+
+Without the action, cache `.rqx/cache.bin` yourself. The GitLab form:
+
+```yaml
+rqx:
+  cache:
+    key:
+      prefix: rqx
+      files: [rqx.yaml]       # a new cache whenever the config changes
+    paths: [.rqx/cache.bin]
+    when: always              # saved when the gate fails too
+```
+
+Put a pinned rqx version in the prefix (`prefix: rqx-0.2.1`) if the job installs a
+specific one. The cache is a best-effort speedup: a missing, old or damaged file is
+rebuilt on the next scan, and nothing in a report depends on it.
 
 ## GitLab CI
 

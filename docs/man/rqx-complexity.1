@@ -4,13 +4,10 @@
 .SH NAME
 rqx\-complexity \- What the analyser measured, as a distribution rather than only its tail
 .SH SYNOPSIS
-\fBrqx complexity\fR [\fB\-\-level\fR] [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\fR] [\fB\-\-histogram\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx complexity\fR [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\fR] [\fB\-\-histogram\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 What the analyser measured, as a distribution rather than only its tail
 .SH OPTIONS
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
 .TP
 \fB\-\-by\fR \fI<BY>\fR [default: function]
 One row per function, per file, or per directory
@@ -53,6 +50,12 @@ Draw the distribution as well as the worst of it
 .TP
 \fB\-\-json\fR
 Emit one JSON object per row
+.TP
+\fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
+Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism

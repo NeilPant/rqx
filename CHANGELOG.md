@@ -12,6 +12,27 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **The GitHub Action keeps the scan cache between runs.** A new `cache` input, on by
+  default, restores and saves `.rqx/cache.bin` with `actions/cache`, keyed on the rqx
+  version, the `rqx.yaml` files and the OS, so a pull request analyses only the files it
+  changed. `cache: "false"` turns it off. `docs/ci.md` has the GitLab `cache:` recipe.
+- **`--reporter` on every command that prints.** `fix`, `verify`, `plan`,
+  `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`, `patterns`,
+  `graph`, `config` and `config validate` take `--reporter terminal|json`, and
+  `--reporter json=out.json` writes the document to a file while the console keeps the
+  readable form. `--json` still works and prints exactly what it did. `graph` also
+  takes `text`, `dot` and `mermaid`; `--format` is unchanged. As on `scan`, a JSON
+  document cannot share stdout with another reporter, and the run says so before
+  writing anything.
+- **The gate can be set from the environment.** `RQX_FAIL_ON`, `RQX_ALLOW_FINDINGS`,
+  `RQX_MIN_HEALTH`, `RQX_MIN_GRADE` and `RQX_FAIL_ON_INCOMPLETE` stand in for the
+  flags of the same names on `scan`, `check` and `comment`. A flag beats its variable
+  and a variable beats `rqx.yaml`. As with a flag, setting one makes `rqx scan` gate; a variable set to an empty string
+  counts as not set.
+- **`rqx check` takes the scan's options.** `--threads` (or `RQX_THREADS`),
+  `--coverage` and `--profile` work as they do on `rqx scan`, and `rqx comment`
+  takes `--coverage` and `--profile`. `rqx check --max-findings N` shortens the
+  listing only: the gate counts every finding, so a cap never lets a branch through.
 - **`/waive`, `/watch` and `/open` in the session.** `/waive src/a.ts:42 rule` is
   `rqx waive`, and asks on the prompt for the reason when `--reason` is missing.
   `/watch on` re-analyses files as they are saved and prints what moved, such as
@@ -204,6 +225,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **The GitHub Action no longer fails when `config` is left blank.** It handed its
+  inputs to rqx in `RQX_CONFIG` and `RQX_FAIL_ON`, so a blank `config` arrived as an
+  `RQX_CONFIG` pointing at nothing, and rqx refused to run. The inputs now travel under
+  names rqx does not read.
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
   It cleared the screen before every run whatever stdout was, so a watch redirected to
   a log filled it with escape characters. It now clears only on a terminal, and
