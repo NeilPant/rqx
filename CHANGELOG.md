@@ -124,6 +124,13 @@ posts it as the release notes.
 
 ### Changed
 
+- **Rule explanations and fix hints were reworded.** The `why` text of all 185 rules,
+  the `metric` text of some, the fix hints of many and the pattern advisory text now
+  use a plainer, more technical wording. The new text appears in `rqx explain`,
+  `docs/rules`, the terminal report, `docs/rqx.schema.json` and the `why`, `metric` and
+  `fix_hint` fields of the JSON, SARIF, GitLab, JUnit and GitHub reports. Field names,
+  rule ids, severities, locations, counts and evidence text are unchanged, so finding
+  identities and GitLab fingerprints do not change.
 - **`rqx scan` always prints the report.** In a terminal it used to open the
   interactive interface, which silently dropped `--severity`, `--not-*`,
   `--confidence`, `--fixable`, `--search`, `--since`, `--changed`, `--group-by`,

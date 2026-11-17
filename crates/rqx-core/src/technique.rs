@@ -39,14 +39,14 @@ impl Group {
 
     pub const fn summary(self) -> &'static str {
         match self {
-            Self::Extraction => "pull a unit out, or fold one back in",
+            Self::Extraction => "extract a unit, or fold one back in",
             Self::Placement => "move a member to the type that uses it",
-            Self::Data => "give state a shape and a gatekeeper",
-            Self::Conditionals => "make a branch say what it decides",
-            Self::Signatures => "change what a caller has to know",
-            Self::Hierarchy => "move behaviour up or down a type tree",
-            Self::Removal => "delete what nothing reaches",
-            Self::Performance => "make the same result cost less",
+            Self::Data => "give state a type and control access to it",
+            Self::Conditionals => "restructure a conditional so it states what it decides",
+            Self::Signatures => "change what a caller must know about a signature",
+            Self::Hierarchy => "move behaviour up or down a type hierarchy",
+            Self::Removal => "delete code that nothing reaches",
+            Self::Performance => "produce the same result at lower cost",
         }
     }
 

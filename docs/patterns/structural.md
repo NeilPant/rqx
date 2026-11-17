@@ -165,7 +165,7 @@ one entrance to a subsystem, so callers do not learn its parts
 
 ### `facade-fits`
 
-every one of those files is written against someone else's API, so the blast radius of that dependency changing is the number of files, not one
+every one of those files is written against the package's API, so a change in the dependency affects every one of them
 
 | | |
 |---|---|
@@ -228,7 +228,7 @@ stand in for another object and control reaching it
 
 ### `proxy-found`
 
-it controls reaching the thing it stands for without changing what the thing does, which is the whole of what a proxy is
+it controls access to the thing it stands for without changing what the thing does, which is what a proxy does
 
 | | |
 |---|---|

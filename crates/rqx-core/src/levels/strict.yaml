@@ -1,6 +1,6 @@
-# A codebase held to what a reader can follow without effort. Thresholds are close
-# to what a well-factored module already meets, four naming rules are on, and the
-# gate fails on a warning rather than only on an error.
+# For a codebase held to a standard a reader can follow without effort. Thresholds
+# are close to what a well-factored module meets, four naming rules are on, and the
+# gate fails on a warning as well as on an error.
 
 thresholds:
   relative_climb: 2

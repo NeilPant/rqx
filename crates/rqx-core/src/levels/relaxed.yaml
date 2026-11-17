@@ -1,6 +1,6 @@
-# Legacy code, or a repository that has to stay shippable while it is cleaned up.
-# The thresholds sit where a large existing codebase can meet them, and the rules
-# that read as opinion rather than defect are off.
+# For legacy code, or a repository that must stay shippable while it is cleaned up.
+# Thresholds are set at values a large existing codebase can meet, and the rules
+# that report matters of opinion are off.
 
 thresholds:
   relative_climb: 3

@@ -4,7 +4,7 @@
 
 ## `redundant-else`
 
-the branch already left, so everything after it is indented one level deeper than the logic actually is
+the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
 
 | | |
 |---|---|
@@ -27,7 +27,7 @@ Suggested fix: drop the `else` and outdent its body; the branch above already re
 
 ## `collapsible-if`
 
-it is one condition written as two, so a reader holds a branch that never branches
+this is one condition written as two, so a reader has to follow a branch that never branches
 
 | | |
 |---|---|
@@ -52,7 +52,7 @@ Suggested fix: join the two conditions with `&&` and keep one branch
 
 ## `boolean-from-branch`
 
-the condition is already the answer, and branching on it to restate it is four lines saying what one says
+the condition is already the result, so branching on it to produce the same boolean takes four lines to say what one says
 
 | | |
 |---|---|
@@ -77,7 +77,7 @@ Suggested fix: return the condition itself
 
 ## `literal-comparison`
 
-comparing a boolean to a boolean asks a question that was already answered, and reads as though the value might be something else
+comparing a boolean to a boolean literal asks a question the value already answers, and suggests the value might be something other than a boolean
 
 | | |
 |---|---|
@@ -98,7 +98,7 @@ Suggested fix: use the value directly, or negate it
 
 ## `self-comparison`
 
-the answer is decided before it runs, so either the comparison does nothing or one side was meant to be something else
+the result is decided before the comparison runs, so either it does nothing or one side was meant to be a different expression
 
 | | |
 |---|---|
@@ -119,7 +119,7 @@ Suggested fix: one side was meant to be something else; decide which
 
 ## `identical-branches`
 
-the decision changes nothing, so either it is not a decision or one arm was meant to differ and does not
+the decision changes nothing, so either it is not a decision or one branch was meant to differ
 
 | | |
 |---|---|
@@ -144,7 +144,7 @@ Suggested fix: keep one body and delete the branch, or make the arms differ
 
 ## `empty-block`
 
-a decision was written and then nothing was done about it, which reads as unfinished work or as a condition somebody inverted by accident
+a decision was written and no action was taken, which reads as unfinished work or an accidentally inverted condition
 
 | | |
 |---|---|
@@ -167,11 +167,11 @@ Suggested fix: write what should happen, or delete the branch
 
 ## `duplicate-condition`
 
-the second arm cannot be reached, so whatever it was written to do has never run and nobody has noticed
+the second branch cannot be reached, so whatever it was written to do has never run
 
 | | |
 |---|---|
-| Measures | the same question asked twice in one chain of branches |
+| Measures | the same condition tested twice in one chain of branches |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |
@@ -188,11 +188,11 @@ Suggested fix: decide which of the two arms was meant, and delete the other
 
 ## `silent-fallthrough`
 
-the arm below runs too, and nothing written here says whether that was wanted or forgotten
+the arm below also runs, and nothing here says whether that was intended
 
 | | |
 |---|---|
-| Measures | a switch arm that does work and then runs into the next one |
+| Measures | a switch arm that does work and then continues into the next one |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |
@@ -212,7 +212,7 @@ Suggested fix: end the arm, or say in the code that falling through is the point
 
 ## `nested-ternary`
 
-two conditions folded into one expression have to be unfolded in the reader's head before either can be checked
+two conditions folded into one expression have to be unfolded by the reader before either can be checked
 
 | | |
 |---|---|
@@ -234,7 +234,7 @@ Suggested fix: give the inner condition a named value, or write the whole thing 
 
 ## `ambiguous-precedence`
 
-the language knows which one binds tighter and the reader has to remember, so the parentheses cost nothing and settle it
+the language defines which operator binds tighter but the reader has to remember it, and parentheses remove the question at no cost
 
 | | |
 |---|---|
@@ -255,7 +255,7 @@ Suggested fix: put the tighter half in parentheses, or name it
 
 ## `negated-comparison`
 
-the language already has the operator this spells out the long way, and the short one is read without inverting anything
+the language already has an operator for this comparison, and the shorter form can be read without inverting anything
 
 | | |
 |---|---|
@@ -276,11 +276,11 @@ Suggested fix: invert the operator and drop the negation
 
 ## `no-default-branch`
 
-a value the switch never anticipated falls straight through it, and nothing in the code says whether that was the intent
+a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended
 
 | | |
 |---|---|
-| Measures | a switch with arms enough to be one and no arm for the values it does not name |
+| Measures | a switch with enough arms to count as one and no arm for the values it does not name |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional / Replace Conditional with Polymorphism |
@@ -300,11 +300,11 @@ export function labelOf(state: number): string {
   return "unknown";
 ```
 
-Suggested fix: add the arm that says what an unnamed value means, even if it only raises
+Suggested fix: add a default arm that handles unnamed values, even if it only raises
 
 ## `loop-runs-once`
 
-it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup wearing a loop's clothes
+it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup written as a loop
 
 | | |
 |---|---|
@@ -325,7 +325,7 @@ Suggested fix: drop the loop and take the first match, or move the exit behind t
 
 ## `redundant-jump`
 
-control was going there anyway, so the keyword makes a reader stop and look for the condition that is not there
+control reaches that point anyway, so the keyword makes a reader look for a condition that does not exist
 
 | | |
 |---|---|
@@ -343,15 +343,15 @@ From `fixtures/typescript/flow.ts`, line 113:
   }
 ```
 
-Suggested fix: delete it; control was going there anyway
+Suggested fix: delete it; control reaches that point without it
 
 ## `tiny-switch`
 
-a switch is a table a reader scans, and one with two arms is an if spelled in four more lines
+a switch is a table a reader scans, and a switch with two arms is an `if` written in four more lines
 
 | | |
 |---|---|
-| Measures | arms in a switch, below the count that earns the shape |
+| Measures | arms in a switch, below the count that justifies a switch |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |
@@ -371,11 +371,11 @@ export function twoArmed(kind: string): number {
 }
 ```
 
-Suggested fix: write it as an if, or give the switch the arms that justify it
+Suggested fix: write it as an `if`, or add the arms that justify a switch
 
 ## `nested-then`
 
-the order is real and none of it is written as an order, so a reader follows it by tracing which callback holds which
+the order is real but is not written as an order, so a reader follows it by tracing which callback holds which
 
 | | |
 |---|---|
@@ -397,5 +397,5 @@ export function chained(rows: number[]): Promise<number> {
 }
 ```
 
-Suggested fix: wait for each in turn where the language lets you, so the order is the order of the lines
+Suggested fix: await each in turn where the language allows it, so the order of execution is the order of the lines
 

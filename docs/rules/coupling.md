@@ -4,7 +4,7 @@
 
 ## `circular-dependency`
 
-no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that makes it work today is accidental
+no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that works today is accidental
 
 | | |
 |---|---|
@@ -24,7 +24,7 @@ Suggested fix: break the cycle by moving what they share into a module both can 
 
 ## `layer-violation`
 
-the layer the project put underneath now depends on the one above it, so the thing it was separated from cannot be replaced without changing it
+a lower layer depends on a layer above it, so what the lower layer was separated from cannot be replaced without changing it
 
 | | |
 |---|---|
@@ -35,7 +35,7 @@ the layer the project put underneath now depends on the one above it, so the thi
 
 ## `forbidden-import`
 
-the boundary was written down and this import crosses it, which is the one kind of architectural drift a reader cannot infer from the code
+the project declared this boundary and the import crosses it, which is a kind of architectural drift a reader cannot infer from the code
 
 | | |
 |---|---|
@@ -46,7 +46,7 @@ the boundary was written down and this import crosses it, which is the one kind 
 
 ## `message-chain`
 
-this line depends on the shape of every object along the chain, so a change to any one of them breaks a caller that never mentioned it
+the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it
 
 | | |
 |---|---|
@@ -64,11 +64,11 @@ export function ship(order: { customer: { address: { city: string } } }) {
 }
 ```
 
-Suggested fix: ask the nearest object for what you need and let it do the reaching
+Suggested fix: ask the nearest object for what is needed, and let it do the reaching
 
 ## `feature-envy`
 
-the method wants to live on the other class, and while it does not, both classes have to stay in step for it to keep working
+the method belongs on the other class, and while it stays here both classes have to change together to keep it working
 
 | | |
 |---|---|
@@ -90,7 +90,7 @@ Suggested fix: move `reconcileBatch` onto `row`, where the data it wants already
 
 ## `middle-man`
 
-every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it
+every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it
 
 | | |
 |---|---|
@@ -111,7 +111,7 @@ Suggested fix: let callers talk to the delegate directly and delete the pass-thr
 
 ## `inappropriate-intimacy`
 
-neither class can be read, tested or moved without the other coming with it, so the pair behaves as one class written in two places
+neither class can be read, tested or moved without the other, so the pair behaves as one class written in two places
 
 | | |
 |---|---|
@@ -132,7 +132,7 @@ Suggested fix: move what they share into one of them, or behind an interface bot
 
 ## `global-accessor`
 
-it is the shared value wearing a function's clothes, and every caller is still reading the same one thing
+it is a shared value behind a function call, and every caller still reads the same single instance
 
 | | |
 |---|---|
@@ -149,15 +149,15 @@ export function tabsOpen(): number {
   return openTabs;
 ```
 
-Suggested fix: hand the value to whoever needs it, so a caller can decide what it is
+Suggested fix: pass the value to the code that needs it, so a caller can choose it
 
 ## `many-collaborators`
 
-each one is a reason for this type to change, and a test of it has to stand up all of them first
+each collaborator is a reason for this type to change, and a test of it has to set up all of them first
 
 | | |
 |---|---|
-| Measures | other types one type has to know about |
+| Measures | other types one type references |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Extract Class / Invert Dependency |
@@ -179,11 +179,11 @@ export class DarkKit extends Kit {
 
 ```
 
-Suggested fix: give one of them the work that needs the rest
+Suggested fix: give one collaborator the work that needs the others
 
 ## `deep-relative-import`
 
-a path that climbs this far is reaching across the shape of the project rather than through it, and it breaks the moment either end is moved
+a path that climbs this far reaches across the project's structure instead of through it, and it breaks when either end moves
 
 | | |
 |---|---|
@@ -207,7 +207,7 @@ Suggested fix: move what `../../../shared/far` reaches for somewhere both ends c
 
 ## `mutable-module-state`
 
-every function that reads it takes an argument nobody passed, so two calls with the same arguments can answer differently and no signature says why
+every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why
 
 | | |
 |---|---|
@@ -224,11 +224,11 @@ export let openSessions = 0;
 
 ```
 
-Suggested fix: fix it at its declaration, or give it an owner that decides who writes it
+Suggested fix: declare it constant, or give it an owner that controls who writes it
 
 ## `ambient-dependency`
 
-the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine
+the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine
 
 | | |
 |---|---|
@@ -249,7 +249,7 @@ Suggested fix: take it as an argument, so a test can hand it whatever it needs
 
 ## `self-built-collaborators`
 
-nothing can be put in its place, so every test of the owner stands up the real collaborator and everything behind it
+nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it
 
 | | |
 |---|---|
@@ -271,7 +271,7 @@ Suggested fix: accept it as an argument, so a caller can decide what it is
 
 ## `import-time-work`
 
-it happens before any caller has asked for anything, in whatever order the imports happen to resolve, and nothing can stop it
+it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it
 
 | | |
 |---|---|
@@ -295,11 +295,11 @@ Suggested fix: put it behind a function the caller chooses to call
 
 ## `reaches-into-private`
 
-the other type is free to change it and has said so, so this line breaks on a change nobody could have known would reach it
+the other type is free to change the member and has declared it private, so this line breaks on a change nobody could have known would reach it
 
 | | |
 |---|---|
-| Measures | reading a member another type marked as its own business |
+| Measures | reading a member another type marks as private |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
 | Fix | Encapsulate Delegation / Move Method |
@@ -316,11 +316,11 @@ From `fixtures/typescript/intimacy.ts`, line 43:
   }
 ```
 
-Suggested fix: ask the other type for what this line wanted, and let it decide how
+Suggested fix: ask the other type for what this line needs, and let it decide how to provide it
 
 ## `wildcard-import`
 
-nothing in the file says which names came from where, so a reader has to open the other module to find out and a new export there can shadow a local one silently
+nothing in the file says which names come from where, so a reader has to open the other module to find out, and a new export there can shadow a local name without any warning
 
 | | |
 |---|---|
@@ -336,7 +336,7 @@ import * as everything from "./cycle-b";
 import { neverRead } from "./cycle-c";
 ```
 
-Suggested fix: name the handful of things this file actually uses
+Suggested fix: import only the names this file uses
 
 ## `wide-fan-out`
 
@@ -361,7 +361,7 @@ Suggested fix: give it one collaborator that knows the rest, or move what it is 
 
 ## `wide-fan-in`
 
-every change here reaches this many places, so the module is load bearing whether or not anybody decided it should be
+every change here reaches this many places, so the module is heavily depended on whether or not that was intended
 
 | | |
 |---|---|

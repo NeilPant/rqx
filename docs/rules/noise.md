@@ -4,7 +4,7 @@
 
 ## `comment-per-line`
 
-the code is being read aloud rather than explained, so the reader now has two things to keep in step and only one of them is checked
+the code is being read aloud and not explained, so the reader has two things to keep in step and only one of them is checked
 
 | | |
 |---|---|
@@ -28,11 +28,11 @@ export function narrated(rows: number[]): number {
   return total;
 ```
 
-Suggested fix: let the names say it, and keep the one comment that gives a reason
+Suggested fix: let the names carry the meaning, and keep the comment that gives a reason
 
 ## `explanation-longer-than-code`
 
-a body that needs more prose than code is a body whose names are not carrying it, and the prose is what goes stale
+a body that needs more prose than code has names that do not carry its meaning, and the prose is what becomes outdated
 
 | | |
 |---|---|
@@ -56,11 +56,11 @@ From `fixtures/typescript/hygiene.ts`, line 117:
 export function scoreOf(userId: number): number {
 ```
 
-Suggested fix: put what the prose is explaining into the names, and keep the part that says why
+Suggested fix: express in names what the prose explains, and keep the part that gives the reason
 
 ## `docstring-restates-signature`
 
-it is the signature written twice, so it costs a reader a second pass and goes wrong the first time the signature changes
+it repeats the signature, so it costs a reader a second pass and becomes wrong when the signature changes
 
 | | |
 |---|---|
@@ -99,11 +99,11 @@ export function narrates(rows: number[]): number {
   const log = { info: (message: string) => message };
 ```
 
-Suggested fix: log the decision and the failure; the steps between are the code
+Suggested fix: log decisions and failures, and leave the steps between them to the code
 
 ## `banner-comment`
 
-a table of contents for a file short enough not to need one, and it goes stale the moment a section moves
+it is a table of contents in a file short enough not to need one, and it becomes outdated when a section moves
 
 | | |
 |---|---|
@@ -121,11 +121,11 @@ From `fixtures/typescript/hygiene.ts`, line 40:
 // Here's the helper you asked for! 🎉
 ```
 
-Suggested fix: delete it; if the file needs sections, it needs splitting
+Suggested fix: delete it; if the file needs sections, split it
 
 ## `chat-residue`
 
-it is the residue of a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on
+it is left over from a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on
 
 | | |
 |---|---|
@@ -147,7 +147,7 @@ Suggested fix: say what the code does that its name does not, or delete the comm
 
 ## `apology-comment`
 
-somebody already knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would let it be undone
+someone knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would allow it to be reversed
 
 | | |
 |---|---|
@@ -164,11 +164,11 @@ From `fixtures/typescript/hygiene.ts`, line 42:
 
 ```
 
-Suggested fix: fix it, or record why it stays and what would let it go
+Suggested fix: fix it, or record why it stays and what would allow its removal
 
 ## `emoji-in-source`
 
-it survives grep, diffs and terminals badly, and it is decoration in a place where everything else has to earn its width
+emoji display inconsistently in grep results, diffs and terminals, and they add decoration to source code
 
 | | |
 |---|---|
@@ -186,11 +186,11 @@ From `fixtures/typescript/hygiene.ts`, line 41:
 // Sorry, this one is ugly.
 ```
 
-Suggested fix: write it in words
+Suggested fix: use words instead
 
 ## `example-value`
 
-a stand-in that reads as real is the kind of value that ships, and the first person to notice is whoever it was sent to
+a placeholder that looks real is a value that can ship, and the first person to notice is whoever receives it
 
 | | |
 |---|---|
@@ -207,5 +207,5 @@ From `fixtures/typescript/config.ts`, line 5:
       }
 ```
 
-Suggested fix: name it as configuration, or move it to a test where a stand-in belongs
+Suggested fix: name it as configuration, or move it to a test, where a placeholder is appropriate
 

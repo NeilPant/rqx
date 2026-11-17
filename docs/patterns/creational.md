@@ -162,7 +162,7 @@ one instance, reachable from everywhere
 
 ### `singleton-found`
 
-one instance exists and the constructor enforces it, which is also why nothing that depends on it can be tested against a different one
+one instance exists and the constructor enforces it, so code that depends on it cannot be tested against a different instance
 
 | | |
 |---|---|
@@ -186,7 +186,7 @@ Suggested fix: everything that reaches `Settings` shares one instance, and nothi
 
 ### `singleton-escapable`
 
-the shared instance is a convention rather than a guarantee, so some code is using the one and some is making its own
+the shared instance is a convention and is not enforced, so some code uses the shared instance and some creates its own
 
 | | |
 |---|---|

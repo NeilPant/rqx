@@ -11,8 +11,8 @@ catalogue! {
         fixes: [ExtractMethod],
         confidence: Heuristic,
         severity: Warning,
-        why: "a body this long is doing several things, so a reader has to hold all of \
-              them at once to change any one of them",
+        why: "a long body usually does several things, and a reader has to hold all of them in \
+              mind to change any one",
     },
     CognitiveComplexity {
         slug: "cognitive-complexity",
@@ -22,8 +22,8 @@ catalogue! {
         fixes: [DecomposeConditional, ExtractMethod],
         confidence: Heuristic,
         severity: Warning,
-        why: "every nested decision point multiplies the paths a reader has to trace, \
-              and untraced paths are where regressions survive review",
+        why: "each nested decision point multiplies the paths a reader has to trace, and paths \
+              that go untraced are where regressions pass review",
     },
     DeepNesting {
         slug: "deep-nesting",
@@ -33,8 +33,8 @@ catalogue! {
         fixes: [ReplaceNestedConditionalWithGuardClauses],
         confidence: Heuristic,
         severity: Warning,
-        why: "at this depth the conditions that led here are off-screen, so the \
-              preconditions of the innermost code are invisible where it matters",
+        why: "at this depth the conditions that led to the innermost code are off screen, so its \
+              preconditions are hard to see",
     },
     LongParameterList {
         slug: "long-parameter-list",
@@ -44,8 +44,8 @@ catalogue! {
         fixes: [IntroduceParameterObject, PassWholeObject],
         confidence: Heuristic,
         severity: Warning,
-        why: "callers have to remember an order this long, and same-typed neighbours \
-              make a silent transposition possible at every call site",
+        why: "callers have to remember a long argument order, and adjacent parameters of the same \
+              type allow an undetected transposition at every call site",
     },
     LargeClass {
         slug: "large-class",
@@ -55,8 +55,8 @@ catalogue! {
         fixes: [ExtractClass, ExtractSubclass],
         confidence: Heuristic,
         severity: Warning,
-        why: "a class this size has more than one reason to change, so unrelated work \
-              lands in the same file and the same merge conflicts",
+        why: "a class this size usually has more than one reason to change, so unrelated changes \
+              land in the same file and produce the same merge conflicts",
     },
     DataClump {
         slug: "data-clump",
@@ -66,8 +66,8 @@ catalogue! {
         fixes: [IntroduceParameterObject, ExtractClass],
         confidence: Heuristic,
         severity: Info,
-        why: "these values already travel together everywhere, so they are a concept \
-              the code has not named yet, and every new use has to rediscover it",
+        why: "these values are passed together in several signatures, which indicates a concept \
+              the code has not named, and each new use has to rediscover it",
     },
     PrimitiveObsession {
         slug: "primitive-obsession",
@@ -77,8 +77,8 @@ catalogue! {
         fixes: [ReplaceTypeCodeWithClass, IntroduceParameterObject],
         confidence: Low,
         severity: Info,
-        why: "a raw string or number carries no rules of its own, so every place that \
-              uses it re-implements the same validation, and one of them gets it wrong",
+        why: "a raw string or number carries no rules of its own, so each place that uses it \
+              repeats the same validation and one of them can be wrong",
         off_by_default: true,
         not_applicable: [
             (Go, "Go has no union types, so the string-literal alias this measures cannot be written"),
@@ -101,8 +101,8 @@ catalogue! {
         ],
         confidence: Heuristic,
         severity: Warning,
-        why: "the same set of cases is now spelled out in several places, so adding a \
-              case means finding all of them and the compiler will not remind you",
+        why: "the same set of cases is written out in several places, so adding a case requires \
+              finding all of them and the compiler does not report a missed one",
     },
     TemporaryField {
         slug: "temporary-field",
@@ -112,8 +112,8 @@ catalogue! {
         fixes: [ExtractClass, ExtractMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "the field is empty for most of the object's life, so every other method \
-              has to know it must not look at it",
+        why: "the field is empty for most of the object's lifetime, so every other method has to \
+              know it must not read it",
     },
     RefusedBequest {
         slug: "refused-bequest",
@@ -123,8 +123,8 @@ catalogue! {
         fixes: [PushDownMethod, ExtractInterface, CollapseHierarchy],
         confidence: Verified,
         severity: Warning,
-        why: "the subclass is inheriting an interface it cannot honour, so a caller \
-              holding the base type has no safe way to know which methods actually work",
+        why: "the subclass inherits an interface it cannot honour, so a caller holding the base \
+              type cannot tell which methods work",
         not_applicable: [
             (Go, "nothing is inherited in Go, so nothing can be refused: a type either has a method or does not"),
         ],
@@ -137,8 +137,8 @@ catalogue! {
         fixes: [InvertDependency, PushDownMethod],
         confidence: Verified,
         severity: Warning,
-        why: "the base cannot be deployed, tested or understood without its children, \
-              which is the entire benefit of having a base class given away",
+        why: "the base cannot be deployed, tested or understood without its subclasses, which \
+              removes the benefit of having a base class",
         not_applicable: [
             (Go, "Go has no inheritance: embedding is a field, so no type is a base another derives from"),
         ],
@@ -151,8 +151,8 @@ catalogue! {
         fixes: [MoveMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "a static can never be overridden, so behaviour that clearly belongs to the \
-              instance is frozen for every subclass and every test that wants to fake it",
+        why: "a static member cannot be overridden, so behaviour that belongs to the instance \
+              cannot vary in subclasses or be replaced by a test double",
         not_applicable: [
             (Go, "Go has no methods on the type itself, only on values of it, so the static-on-own-type shape cannot be written"),
             (JavaScript, "a parameter declares no type, so nothing says it is an instance of its own class"),
@@ -168,19 +168,19 @@ catalogue! {
         fixes: [ExtractClass, ExtractMethod],
         confidence: Verified,
         severity: Warning,
-        why: "the cost of what is wrong here is paid on every change, and this file \
-              changes more than any other, so it is where cleaning up buys the most",
+        why: "the cost of the problems in this file is paid on every change, and this file \
+              changes more often than any other, so cleaning it up has the largest effect",
     },
     SingleAuthorFile {
         slug: "single-author-file",
         category: Change,
         analysis: Syntax,
-        metric: "a file with a history of its own and only one name in it",
+        metric: "a file with its own history and a single author",
         fixes: [ExtractMethod],
         confidence: Verified,
         severity: Info,
-        why: "nobody else has read it closely enough to change it, so whatever it \
-              knows leaves with the person who wrote it",
+        why: "no one else has read the file closely enough to change it, so its knowledge is lost \
+              when its author leaves",
     },
     ShotgunSurgery {
         slug: "shotgun-surgery",
@@ -190,9 +190,8 @@ catalogue! {
         fixes: [ExtractClass, MoveMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "one decision is spread across files that must be edited in lockstep, and \
-              nothing in the code says so, so the day someone edits four of the five is \
-              the day it breaks",
+        why: "one decision is spread across files that must be edited together, and nothing in \
+              the code says so, so an edit to only some of them breaks the behaviour",
     },
     DivergentChange {
         slug: "divergent-change",
@@ -202,8 +201,8 @@ catalogue! {
         fixes: [ExtractClass],
         confidence: Low,
         severity: Info,
-        why: "this file is edited for many unrelated reasons, which is the observable \
-              signature of more than one responsibility living in it",
+        why: "the file is edited for many unrelated reasons, which indicates that more than one \
+              responsibility lives in it",
         off_by_default: true,
     },
 
@@ -215,8 +214,8 @@ catalogue! {
         fixes: [MoveMethod, MoveField, CollapseHierarchy],
         confidence: Low,
         severity: Info,
-        why: "every new case means a new subclass in both trees, and the day someone \
-              adds only one the two hierarchies quietly stop lining up",
+        why: "each new case needs a new subclass in both hierarchies, and adding only one leaves \
+              the two hierarchies out of step",
         off_by_default: true,
         not_applicable: [
             (Go, "hierarchies need inheritance, and Go has none to build one from"),
@@ -232,8 +231,8 @@ catalogue! {
         fixes: [ExtractMethod, PullUpMethod],
         confidence: Verified,
         severity: Warning,
-        why: "a fix applied to one copy leaves the others wrong, and nothing in the code \
-              points from the copy you edited to the ones you did not",
+        why: "a fix applied to one copy leaves the others unfixed, and nothing in the code links \
+              the edited copy to the others",
     },
     UnusedExport {
         slug: "unused-export",
@@ -243,8 +242,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "an export nobody imports still has to be read, typechecked and kept working \
-              during every refactor that touches it",
+        why: "an export that nothing imports still has to be read, type-checked and kept working \
+              during every refactoring that touches it",
     },
     UnusedFile {
         slug: "unused-file",
@@ -254,8 +253,8 @@ catalogue! {
         fixes: [DeleteFile],
         confidence: Verified,
         severity: Warning,
-        why: "nothing in the build reaches this file, so every hour spent maintaining it \
-              buys nothing",
+        why: "nothing in the build reaches this file, so the effort of maintaining it has no \
+              effect on the program",
     },
     UnusedParameter {
         slug: "unused-parameter",
@@ -265,8 +264,8 @@ catalogue! {
         fixes: [RemoveParameter],
         confidence: Verified,
         severity: Warning,
-        why: "every caller is passing a value that is read nowhere, so the argument list \
-              is teaching readers something untrue about the function",
+        why: "every caller passes a value that is never read, so the parameter list misdescribes \
+              the function",
         autofix: Rewrite,
     },
     UnusedLocal {
@@ -277,8 +276,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "the value is computed and thrown away, which either wastes the work or \
-              hides the fact that somebody meant to use it",
+        why: "the value is computed and discarded, which either wastes the work or hides a \
+              missing use",
         autofix: Deletion,
     },
     UnusedPrivateMember {
@@ -289,8 +288,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "a private member can only be used from inside its class, so one nothing in \
-              the class touches is unreachable by construction",
+        why: "a private member can be used only from inside its class, so one that nothing in the \
+              class references cannot be reached",
         autofix: Deletion,
         not_applicable: [
             (Go, "Go scopes visibility to the package, not the type, so a field unused in one file may be read by another beside it"),
@@ -304,8 +303,7 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Error,
-        why: "this code cannot run, so whatever it was meant to do is not happening and \
-              has not been happening",
+        why: "this code cannot run, so whatever it was written to do is not happening",
         autofix: Deletion,
     },
     CommentedOutCode {
@@ -316,8 +314,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Warning,
-        why: "nobody dares delete it because nobody knows if it matters, so it sits there \
-              rotting while version control already remembers it perfectly",
+        why: "readers cannot tell whether the code still matters, so it is left in place, and \
+              version control already preserves it",
         autofix: Deletion,
     },
     LazyClass {
@@ -328,8 +326,8 @@ catalogue! {
         fixes: [InlineClass],
         confidence: Heuristic,
         severity: Info,
-        why: "the class costs a file, an import and a name, and does not yet do enough to \
-              earn any of them",
+        why: "the class costs a file, an import and a name, and does not do enough to justify \
+              them",
     },
     DataClass {
         slug: "data-class",
@@ -339,8 +337,8 @@ catalogue! {
         fixes: [MoveMethod, EncapsulateField],
         confidence: Heuristic,
         severity: Info,
-        why: "the behaviour that belongs with this data lives somewhere else, so the \
-              rules about the data are enforced everywhere except where the data is",
+        why: "the behaviour that belongs with this data is implemented elsewhere, so the rules \
+              about the data are enforced everywhere except where the data is defined",
     },
     SpeculativeGenerality {
         slug: "speculative-generality",
@@ -350,10 +348,10 @@ catalogue! {
         fixes: [CollapseHierarchy, InlineClass],
         confidence: Verified,
         severity: Info,
-        why: "it was built for a case that never arrived, and until it does it is only an \
-              extra indirection every reader has to step through. Interfaces are not \
-              reported: TypeScript's are structural, so nothing implementing one says \
-              nothing about whether it is speculative",
+        why: "it was built for a case that has not occurred, and until it does it is an extra \
+              indirection every reader has to follow. Interfaces are not reported: TypeScript \
+              interfaces are structural, so the absence of implementers says nothing about \
+              whether one is speculative",
         not_applicable: [(JavaScript, "JavaScript has no abstract keyword, so no class declares itself waiting for a subclass")],
     },
     EmptyCatch {
@@ -364,8 +362,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Error,
-        why: "the failure is swallowed silently, so the first sign of it is wrong data \
-              somewhere far away with nothing in the logs to connect the two",
+        why: "the failure is swallowed silently, so it first appears as wrong data elsewhere, \
+              with nothing in the logs to connect the two",
         not_applicable: [
             (Go, "Go has no exceptions and so no catch clause; an ignored error is a different shape this rule does not measure"),
         ],
@@ -378,8 +376,8 @@ catalogue! {
         fixes: [ReplaceMagicNumberWithConstant, ExtractVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "the number encodes a decision nobody wrote down, so the next reader cannot \
-              tell whether changing it is safe or what else shares it",
+        why: "the number encodes a decision that is not recorded, so a reader cannot tell whether \
+              changing it is safe or what else depends on the same value",
     },
 
     ImpreciseType {
@@ -390,8 +388,8 @@ catalogue! {
         fixes: [ReplaceDataValueWithObject, IntroduceAssertion],
         confidence: Verified,
         severity: Warning,
-        why: "each of these tells the checker to stop checking, so the guarantee the \
-              rest of the file is written against quietly stops holding here",
+        why: "each of these types turns off type checking for the value, so the guarantees the \
+              rest of the file relies on do not hold here",
         not_applicable: [(JavaScript, "JavaScript declares no types, so there is no annotation or cast to be imprecise")],
     },
 
@@ -403,8 +401,8 @@ catalogue! {
         fixes: [ExtractClass, ExtractVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "a second language in the file gets none of the tooling the first one \
-              has, so nothing checks it until it fails at run time",
+        why: "a second language in the file gets none of the tooling the first language has, so \
+              nothing checks it until it fails at run time",
     },
     BoundaryArithmetic {
         slug: "boundary-arithmetic",
@@ -414,8 +412,8 @@ catalogue! {
         fixes: [ExtractVariable, ExtractMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "every place the boundary is recomputed is a place it can be recomputed \
-              wrongly, and off-by-one errors are found by readers rather than types",
+        why: "each place that recomputes the boundary can compute it wrongly, and off-by-one \
+              errors are found by readers, not by types",
     },
     MixedConventions {
         slug: "mixed-conventions",
@@ -425,8 +423,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "a reader who has to guess which convention a name follows cannot skim, \
-              and the mixture spreads every time somebody copies a neighbouring line",
+        why: "a reader who has to guess which convention a name follows cannot skim, and the \
+              mixture spreads each time a neighbouring line is copied",
     },
     SlowTest {
         slug: "slow-test",
@@ -436,8 +434,8 @@ catalogue! {
         fixes: [ReplaceAlgorithm],
         confidence: Verified,
         severity: Warning,
-        why: "a suite slow enough to skip stops being run, and a test nobody runs is \
-              worth less than the time it took to write",
+        why: "a suite that is slow enough to be skipped stops being run, and a test that is not \
+              run provides no protection",
     },
 
     DistantDeclaration {
@@ -448,8 +446,8 @@ catalogue! {
         fixes: [ExtractVariable, InlineVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "everything in between has to be read while still holding this name in \
-              mind, and the reader has no way to know it will matter",
+        why: "a reader has to keep the name in mind while reading everything in between, without \
+              knowing whether it will matter",
     },
 
     ObscuredExpression {
@@ -460,8 +458,8 @@ catalogue! {
         fixes: [ExtractVariable, ExtractMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "nothing in the expression is named, so a reader has to re-derive every \
-              intermediate step the author already worked out",
+        why: "no part of the expression is named, so a reader has to re-derive each intermediate \
+              step the author already worked out",
     },
     BuriedConfiguration {
         slug: "buried-configuration",
@@ -471,8 +469,8 @@ catalogue! {
         fixes: [ReplaceMagicNumberWithConstant, ExtractVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "changing where the program points means finding this line first, and \
-              nothing about its position suggests it is a setting",
+        why: "changing the program's target requires finding this line first, and nothing about \
+              its position indicates that it is a setting",
     },
 
     TemporalCoupling {
@@ -483,8 +481,8 @@ catalogue! {
         fixes: [IntroduceAssertion, ExtractClass],
         confidence: Heuristic,
         severity: Warning,
-        why: "the order the methods must be called in is real but unwritten, so the \
-              only way to learn it is to call them wrongly first",
+        why: "the order in which the methods must be called is required but not written down, so \
+              it is learned by calling them in the wrong order",
     },
 
     // ---- Coupling -------------------------------------------------------------
@@ -496,8 +494,8 @@ catalogue! {
         fixes: [ExtractSharedModule, InvertDependency],
         confidence: Verified,
         severity: Warning,
-        why: "no module in the cycle can be understood, tested or loaded on its own, and \
-              the initialisation order that makes it work today is accidental",
+        why: "no module in the cycle can be understood, tested or loaded on its own, and the \
+              initialisation order that works today is accidental",
     },
     LayerViolation {
         slug: "layer-violation",
@@ -507,8 +505,8 @@ catalogue! {
         fixes: [InvertDependency],
         confidence: Verified,
         severity: Error,
-        why: "the layer the project put underneath now depends on the one above it, so \
-              the thing it was separated from cannot be replaced without changing it",
+        why: "a lower layer depends on a layer above it, so what the lower layer was separated \
+              from cannot be replaced without changing it",
     },
     ForbiddenImport {
         slug: "forbidden-import",
@@ -518,8 +516,8 @@ catalogue! {
         fixes: [InvertDependency],
         confidence: Verified,
         severity: Error,
-        why: "the boundary was written down and this import crosses it, which is the \
-              one kind of architectural drift a reader cannot infer from the code",
+        why: "the project declared this boundary and the import crosses it, which is a kind of \
+              architectural drift a reader cannot infer from the code",
     },
     MessageChain {
         slug: "message-chain",
@@ -529,8 +527,8 @@ catalogue! {
         fixes: [EncapsulateDelegation, ExtractMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "this line depends on the shape of every object along the chain, so a change \
-              to any one of them breaks a caller that never mentioned it",
+        why: "the line depends on the shape of every object along the chain, so a change to any \
+              of them breaks a caller that does not mention it",
     },
     FeatureEnvy {
         slug: "feature-envy",
@@ -540,8 +538,8 @@ catalogue! {
         fixes: [MoveMethod, ExtractMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "the method wants to live on the other class, and while it does not, both \
-              classes have to stay in step for it to keep working",
+        why: "the method belongs on the other class, and while it stays here both classes have to \
+              change together to keep it working",
     },
     MiddleMan {
         slug: "middle-man",
@@ -551,8 +549,8 @@ catalogue! {
         fixes: [InlineDelegation, InlineClass],
         confidence: Heuristic,
         severity: Info,
-        why: "every call pays for a hop that adds nothing, and every new method on the \
-              delegate needs a twin here before anyone can reach it",
+        why: "every call pays for a hop that adds nothing, and every new method on the delegate \
+              needs a matching method here before callers can reach it",
     },
 
     JournalComment {
@@ -563,8 +561,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "version control already answers who and when, and unlike the comment it \
-              is not left behind by the next edit",
+        why: "version control already records who changed the code and when, and unlike the \
+              comment it is not left behind by later edits",
         autofix: Deletion,
     },
     RedundantComment {
@@ -575,8 +573,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "it takes space and attention to say what the name has already said, and \
-              it is one more thing to keep true when the name changes",
+        why: "it takes space and attention to repeat what the name already says, and it has to be \
+              kept accurate when the name changes",
         autofix: Deletion,
     },
 
@@ -588,8 +586,8 @@ catalogue! {
         fixes: [RenameMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "the name has to be read past to learn anything, so every call site \
-              forces a trip to the definition",
+        why: "the name does not say what the function does, so each call site requires reading \
+              the definition",
     },
     QueryWithSideEffect {
         slug: "query-with-side-effect",
@@ -599,8 +597,8 @@ catalogue! {
         fixes: [SeparateQueryFromModifier, RenameMethod],
         confidence: Heuristic,
         severity: Warning,
-        why: "callers assume asking is free, so they ask twice, order the calls \
-              freely, and are surprised when that changes the answer",
+        why: "callers assume a query has no effect, so they call it more than once, reorder \
+              calls, and are surprised when the answer changes",
     },
 
     MisleadingPatternName {
@@ -611,8 +609,8 @@ catalogue! {
         fixes: [RenameMethod, ExtractClass],
         confidence: Heuristic,
         severity: Info,
-        why: "a pattern name is a promise about the interface, and a reader who trusts \
-              it goes looking for members that are not there",
+        why: "a pattern name describes an interface, and a reader who trusts it looks for members \
+              that do not exist",
         off_by_default: true,
     },
 
@@ -624,8 +622,8 @@ catalogue! {
         fixes: [RenameMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "a reader who has met `fetchUser` cannot tell whether `getUser` is the \
-              same thing or a second one, so both have to be read before either is used",
+        why: "a reader who has seen `fetchUser` cannot tell whether `getUser` is the same \
+              operation or a different one, so both have to be read before either is used",
         off_by_default: true,
     },
 
@@ -637,8 +635,8 @@ catalogue! {
         fixes: [MoveMethod, ExtractClass, EncapsulateDelegation],
         confidence: Heuristic,
         severity: Warning,
-        why: "neither class can be read, tested or moved without the other coming \
-              with it, so the pair behaves as one class written in two places",
+        why: "neither class can be read, tested or moved without the other, so the pair behaves \
+              as one class written in two places",
     },
     AlternativeClasses {
         slug: "alternative-classes",
@@ -648,8 +646,8 @@ catalogue! {
         fixes: [RenameMethod, ExtractSuperclass, MoveMethod],
         confidence: Low,
         severity: Info,
-        why: "callers have to learn both interfaces to do one job, and a fix applied \
-              to one of them silently leaves the other wrong",
+        why: "callers have to learn both interfaces to do one job, and a fix applied to one class \
+              leaves the other unfixed",
         off_by_default: true,
     },
 
@@ -661,8 +659,8 @@ catalogue! {
         fixes: [ExtractInterface, ExtractClass],
         confidence: Heuristic,
         severity: Warning,
-        why: "every public member is a promise to keep working, so the surface is what \
-              the type costs to change rather than what it does",
+        why: "every public member is a commitment to keep working, so the surface determines what \
+              the type costs to change",
     },
     ManyExits {
         slug: "many-exits",
@@ -672,8 +670,8 @@ catalogue! {
         fixes: [ExtractMethod, DecomposeConditional],
         confidence: Heuristic,
         severity: Warning,
-        why: "a reader has to find every way out before they can say what the function \
-              answers, and the ones written deep in the body are the easy ones to miss",
+        why: "a reader has to find every exit before they can say what the function returns, and \
+              exits deep in the body are the easiest to miss",
     },
     WideSwitch {
         slug: "wide-switch",
@@ -683,8 +681,8 @@ catalogue! {
         fixes: [ReplaceConditionalWithPolymorphism, ExtractMethod],
         confidence: Heuristic,
         severity: Warning,
-        why: "past a certain width the arms stop being a table a reader scans and \
-              become a list they have to search",
+        why: "past a certain width the arms are no longer a table a reader scans, and become a \
+              list the reader has to search",
     },
     CallbackNesting {
         slug: "callback-nesting",
@@ -694,8 +692,8 @@ catalogue! {
         fixes: [ExtractMethod],
         confidence: Heuristic,
         severity: Warning,
-        why: "the order the steps run in is the opposite of the order they are written \
-              in, so following the sequence means reading inside out",
+        why: "the steps run in the reverse of the order in which they are written, so following \
+              the sequence means reading from the inside out",
     },
     AssignmentInCondition {
         slug: "assignment-in-condition",
@@ -705,8 +703,8 @@ catalogue! {
         fixes: [ExtractVariable],
         confidence: Verified,
         severity: Error,
-        why: "it reads as a comparison and behaves as a write, which is why it is the \
-              typo that survives review",
+        why: "it reads as a comparison and behaves as an assignment, so an accidental assignment \
+              is easy to miss in review",
         not_applicable: [
             (
                 Python,
@@ -728,8 +726,8 @@ catalogue! {
         fixes: [ExtractSharedModule],
         confidence: Low,
         severity: Info,
-        why: "the same rule is written twice in two languages, so the day it changes it \
-              changes in one of them and the two quietly disagree",
+        why: "the same rule is written twice in two languages, so a change is likely to be made \
+              in only one and the two diverge",
         off_by_default: true,
     },
     // ---- Flow -------------------------------------------------------------
@@ -741,8 +739,8 @@ catalogue! {
         fixes: [ReplaceNestedConditionalWithGuardClauses],
         confidence: Verified,
         severity: Warning,
-        why: "the branch already left, so everything after it is indented one level \
-              deeper than the logic actually is",
+        why: "the branch above already exits, so the code after the `else` is indented one level \
+              deeper than its logic requires",
     },
     CollapsibleIf {
         slug: "collapsible-if",
@@ -752,8 +750,8 @@ catalogue! {
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Warning,
-        why: "it is one condition written as two, so a reader holds a branch that \
-              never branches",
+        why: "this is one condition written as two, so a reader has to follow a branch that never \
+              branches",
     },
     BooleanFromBranch {
         slug: "boolean-from-branch",
@@ -763,8 +761,8 @@ catalogue! {
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Warning,
-        why: "the condition is already the answer, and branching on it to restate it \
-              is four lines saying what one says",
+        why: "the condition is already the result, so branching on it to produce the same boolean \
+              takes four lines to say what one says",
     },
     LiteralComparison {
         slug: "literal-comparison",
@@ -774,8 +772,8 @@ catalogue! {
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Info,
-        why: "comparing a boolean to a boolean asks a question that was already \
-              answered, and reads as though the value might be something else",
+        why: "comparing a boolean to a boolean literal asks a question the value already answers, \
+              and suggests the value might be something other than a boolean",
     },
     SelfComparison {
         slug: "self-comparison",
@@ -785,8 +783,8 @@ catalogue! {
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Error,
-        why: "the answer is decided before it runs, so either the comparison does \
-              nothing or one side was meant to be something else",
+        why: "the result is decided before the comparison runs, so either it does nothing or one \
+              side was meant to be a different expression",
     },
     IdenticalBranches {
         slug: "identical-branches",
@@ -796,8 +794,8 @@ catalogue! {
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Error,
-        why: "the decision changes nothing, so either it is not a decision or one arm \
-              was meant to differ and does not",
+        why: "the decision changes nothing, so either it is not a decision or one branch was \
+              meant to differ",
     },
     EmptyBlock {
         slug: "empty-block",
@@ -807,8 +805,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "a decision was written and then nothing was done about it, which reads \
-              as unfinished work or as a condition somebody inverted by accident",
+        why: "a decision was written and no action was taken, which reads as unfinished work or \
+              an accidentally inverted condition",
         not_applicable: [(
             Python,
             "Python has no empty block: a body needs `pass` or an ellipsis, which is a \
@@ -820,12 +818,12 @@ catalogue! {
         slug: "meaningless-name",
         category: Naming,
         analysis: Syntax,
-        metric: "identifier matched against a curated non-name set",
+        metric: "identifier matching a fixed list of non-descriptive names",
         fixes: [RenameVariable],
         confidence: Low,
         severity: Info,
-        why: "a name that describes nothing forces every reader to re-derive the value's \
-              purpose from its uses",
+        why: "a name that describes nothing requires each reader to work out the value's purpose \
+              from its uses",
         off_by_default: true,
     },
     ShortNameWideScope {
@@ -836,8 +834,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Low,
         severity: Info,
-        why: "a one-letter name is readable while its whole life fits on screen, and stops \
-              being readable the moment it does not",
+        why: "a one-letter name is readable while its whole lifetime fits on screen, and stops \
+              being readable when it does not",
         off_by_default: true,
     },
     HungarianNotation {
@@ -848,8 +846,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "the type is already in the declaration and checked by the compiler, so the \
-              prefix is a second copy that nothing keeps honest",
+        why: "the type is already in the declaration and checked by the compiler, so the prefix \
+              is a second copy that nothing keeps accurate",
         off_by_default: true,
     },
 
@@ -858,23 +856,22 @@ catalogue! {
         slug: "return-of-fresh-local",
         category: Waste,
         analysis: Syntax,
-        metric: "a name introduced on one line and returned on the next",
+        metric: "a local variable assigned on one line and returned on the next",
         fixes: [InlineVariable],
         confidence: Verified,
         severity: Info,
-        why: "the name is read once, by the line under it, and says nothing the \
-              expression it holds did not already say",
+        why: "the name is read once, by the line below it, and says nothing the expression it \
+              holds does not already say",
     },
     DuplicateCondition {
         slug: "duplicate-condition",
         category: Flow,
         analysis: Syntax,
-        metric: "the same question asked twice in one chain of branches",
+        metric: "the same condition tested twice in one chain of branches",
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Error,
-        why: "the second arm cannot be reached, so whatever it was written to do has \
-              never run and nobody has noticed",
+        why: "the second branch cannot be reached, so whatever it was written to do has never run",
     },
     LoopConcatenation {
         slug: "loop-concatenation",
@@ -884,8 +881,8 @@ catalogue! {
         fixes: [ReplaceAlgorithm],
         confidence: Heuristic,
         severity: Warning,
-        why: "each pass copies everything written so far, so the work grows with the \
-              square of the number of pieces",
+        why: "each pass copies everything written so far, so the work grows with the square of \
+              the number of pieces",
     },
     AbstractNothing {
         slug: "abstract-nothing",
@@ -895,8 +892,8 @@ catalogue! {
         fixes: [CollapseHierarchy, InlineClass],
         confidence: Verified,
         severity: Info,
-        why: "the word says a subclass has work to do and there is none, so the only \
-              thing it stops is somebody constructing it",
+        why: "the `abstract` keyword implies that subclasses have work to do, but there is none, \
+              so the only effect is to prevent construction",
         not_applicable: [
             (Go, "there is no inheritance and no abstract keyword"),
             (Cpp, "abstractness is a member with no body, which the type never declares"),
@@ -908,12 +905,11 @@ catalogue! {
         slug: "silent-fallthrough",
         category: Flow,
         analysis: Syntax,
-        metric: "a switch arm that does work and then runs into the next one",
+        metric: "a switch arm that does work and then continues into the next one",
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Error,
-        why: "the arm below runs too, and nothing written here says whether that was \
-              wanted or forgotten",
+        why: "the arm below also runs, and nothing here says whether that was intended",
         not_applicable: [
             (Go, "an arm ends where the next begins unless it says otherwise"),
             (Python, "an arm ends where the next begins"),
@@ -927,8 +923,8 @@ catalogue! {
         fixes: [DecomposeConditional, ExtractVariable],
         confidence: Verified,
         severity: Warning,
-        why: "two conditions folded into one expression have to be unfolded in the \
-              reader's head before either can be checked",
+        why: "two conditions folded into one expression have to be unfolded by the reader before \
+              either can be checked",
         not_applicable: [(Go, "Go has no conditional expression")],
     },
     AmbiguousPrecedence {
@@ -940,8 +936,8 @@ catalogue! {
         fixes: [ExtractVariable, ConsolidateConditional],
         confidence: Verified,
         severity: Warning,
-        why: "the language knows which one binds tighter and the reader has to \
-              remember, so the parentheses cost nothing and settle it",
+        why: "the language defines which operator binds tighter but the reader has to remember \
+              it, and parentheses remove the question at no cost",
     },
     NegatedComparison {
         slug: "negated-comparison",
@@ -951,20 +947,20 @@ catalogue! {
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Info,
-        why: "the language already has the operator this spells out the long way, and \
-              the short one is read without inverting anything",
+        why: "the language already has an operator for this comparison, and the shorter form can \
+              be read without inverting anything",
     },
     NoDefaultBranch {
         slug: "no-default-branch",
         category: Flow,
         analysis: Syntax,
-        metric: "a switch with arms enough to be one and no arm for the values it \
-                 does not name",
+        metric: "a switch with enough arms to count as one and no arm for the values \
+                 it does not name",
         fixes: [ConsolidateConditional, ReplaceConditionalWithPolymorphism],
         confidence: Heuristic,
         severity: Warning,
-        why: "a value the switch never anticipated falls straight through it, and \
-              nothing in the code says whether that was the intent",
+        why: "a value the switch does not anticipate passes through it unhandled, and nothing in \
+              the code says whether that is intended",
     },
     LoopRunsOnce {
         slug: "loop-runs-once",
@@ -974,8 +970,8 @@ catalogue! {
         fixes: [RemoveDeadCode, ReplaceNestedConditionalWithGuardClauses],
         confidence: Verified,
         severity: Warning,
-        why: "it is written as repetition and runs once, so either the exit is \
-              misplaced or the loop is a lookup wearing a loop's clothes",
+        why: "it is written as repetition and runs once, so either the exit is misplaced or the \
+              loop is a lookup written as a loop",
     },
     RedundantJump {
         slug: "redundant-jump",
@@ -985,20 +981,20 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "control was going there anyway, so the keyword makes a reader stop and \
-              look for the condition that is not there",
+        why: "control reaches that point anyway, so the keyword makes a reader look for a \
+              condition that does not exist",
         autofix: Deletion,
     },
     TinySwitch {
         slug: "tiny-switch",
         category: Flow,
         analysis: Syntax,
-        metric: "arms in a switch, below the count that earns the shape",
+        metric: "arms in a switch, below the count that justifies a switch",
         fixes: [ConsolidateConditional],
         confidence: Heuristic,
         severity: Info,
-        why: "a switch is a table a reader scans, and one with two arms is an if \
-              spelled in four more lines",
+        why: "a switch is a table a reader scans, and a switch with two arms is an `if` written \
+              in four more lines",
         off_by_default: true,
     },
     EmptyMethod {
@@ -1009,9 +1005,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "a caller that reaches this gets silence and no way to tell it apart from \
-              work that succeeded, and the next reader cannot tell whether it is a stub \
-              or a decision",
+        why: "a caller receives no result and cannot distinguish it from work that succeeded, and \
+              a reader cannot tell whether the method is a stub or a decision",
     },
     ClosureOverLoopVariable {
         slug: "closure-over-loop-variable",
@@ -1021,8 +1016,8 @@ catalogue! {
         fixes: [ExtractMethod, IntroduceParameterObject],
         confidence: Heuristic,
         severity: Warning,
-        why: "whatever runs it later reads whichever value the loop stopped on, so \
-              every one of them sees the last element and none sees its own",
+        why: "the closure reads whichever value the loop variable holds when it runs, so every \
+              closure sees the last element instead of its own",
         not_applicable: [(Java, "a captured local must already be effectively final")],
     },
     MutatedWhileIterated {
@@ -1033,8 +1028,8 @@ catalogue! {
         fixes: [ReplaceAlgorithm],
         confidence: Verified,
         severity: Error,
-        why: "the walk and the change disagree about what is left, so elements are \
-              skipped or seen twice depending on where the change landed",
+        why: "the iteration and the mutation disagree about what remains, so elements are skipped \
+              or visited twice depending on where the change lands",
     },
     SequentialAwait {
         slug: "sequential-await",
@@ -1044,8 +1039,8 @@ catalogue! {
         fixes: [ReplaceAlgorithm],
         confidence: Heuristic,
         severity: Warning,
-        why: "nothing makes them an order, so the call takes the sum of two waits \
-              where it could have taken the longer one",
+        why: "nothing orders them, so the call takes the sum of two waits where it could take the \
+              longer one",
         not_applicable: [
             (Go, "waiting is a channel receive, which the language does not mark"),
             (Java, "waiting is a call like any other"),
@@ -1060,8 +1055,8 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Warning,
-        why: "the language is free to compile it away, so the check a reader is \
-              relying on may not be running where it matters most",
+        why: "the language may compile the assertion out, so the check a reader relies on may not \
+              run in production",
         not_applicable: [(Go, "there is no assert; a failure is a value that is returned")],
     },
     RealWorldTest {
@@ -1072,8 +1067,8 @@ catalogue! {
         fixes: [InvertDependency],
         confidence: Heuristic,
         severity: Warning,
-        why: "it fails for reasons that have nothing to do with the code, and it is \
-              slow enough that somebody eventually stops running it",
+        why: "it fails for reasons unrelated to the code under test, and it is slow enough that \
+              it tends to be skipped",
         off_by_default: true,
     },
     SleepInProduction {
@@ -1084,8 +1079,8 @@ catalogue! {
         fixes: [ReplaceAlgorithm],
         confidence: Heuristic,
         severity: Warning,
-        why: "it is waiting for a length of time rather than for the thing it needs, \
-              so it is either too short to work or too long to be worth it",
+        why: "it waits for a fixed length of time instead of for the condition it needs, so the \
+              delay is either too short to work or longer than necessary",
     },
     UnlabelledAssertions {
         slug: "unlabelled-assertions",
@@ -1095,8 +1090,8 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Info,
-        why: "a failing run prints two values and the reader has to count lines to \
-              find which check they came from",
+        why: "a failing run prints two values, and the reader has to count lines to find which \
+              assertion they came from",
         off_by_default: true,
     },
     SelfAssertingTest {
@@ -1107,8 +1102,8 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Error,
-        why: "it holds the code to whatever the code already does, so it passes \
-              through every change including the one that breaks it",
+        why: "it holds the code to whatever the code already does, so it keeps passing through \
+              every change, including a change that breaks the behaviour",
     },
     UnexplainedExpectedValue {
         slug: "unexplained-expected-value",
@@ -1118,8 +1113,8 @@ catalogue! {
         fixes: [ReplaceMagicNumberWithConstant],
         confidence: Heuristic,
         severity: Info,
-        why: "when it changes, nobody can tell whether the code is wrong or the \
-              number was, so the test is edited until it passes",
+        why: "when it changes, nobody can tell whether the code or the number is wrong, so the \
+              test tends to be edited until it passes",
         off_by_default: true,
     },
     GlobalAccessor {
@@ -1131,8 +1126,8 @@ catalogue! {
         fixes: [EncapsulateField, InvertDependency],
         confidence: Verified,
         severity: Info,
-        why: "it is the shared value wearing a function's clothes, and every caller \
-              is still reading the same one thing",
+        why: "it is a shared value behind a function call, and every caller still reads the same \
+              single instance",
     },
     BarrelModule {
         slug: "barrel-module",
@@ -1142,9 +1137,8 @@ catalogue! {
         fixes: [InlineClass, RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "it adds a name to every path through the project and answers no \
-              question of its own, while hiding from every tool which file a name \
-              really came from",
+        why: "it adds a name to every path through the project and answers no question of its \
+              own, while hiding from tools which file a name comes from",
         not_applicable: [
             (Go, "a package is the unit of import, and it has no index file"),
             (Java, "a class is imported by its own name"),
@@ -1160,8 +1154,8 @@ catalogue! {
         fixes: [RemoveDeadCode, CollapseHierarchy],
         confidence: Verified,
         severity: Info,
-        why: "it changes nothing and costs a reader a hop, while making the type look \
-              like it has an opinion about the member when it has none",
+        why: "it changes nothing and costs a reader a hop, and it suggests the type has its own \
+              behaviour for the member when it does not",
         not_applicable: [
             (Go, "there is no inheritance to override"),
             (Cpp, "a call to the base is written with the type's own name, which one \
@@ -1176,8 +1170,8 @@ catalogue! {
         fixes: [ExtractMethod, RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "one of them was copied from the other, and the next change to either \
-              has to find both or leave them disagreeing",
+        why: "one was copied from the other, and the next change to either has to find both or \
+              leave them inconsistent",
     },
     ShadowedHandler {
         slug: "shadowed-handler",
@@ -1187,8 +1181,8 @@ catalogue! {
         fixes: [DecomposeConditional],
         confidence: Verified,
         severity: Error,
-        why: "the one below it can never run, so whatever it was written to do about \
-              that failure has never been done",
+        why: "the handler below can never run, so whatever it was written to do about that \
+              failure has never been done",
         not_applicable: [
             (Go, "errors are values, so there is no handler to order"),
             (TypeScript, "the language allows one handler per block"),
@@ -1203,8 +1197,8 @@ catalogue! {
         fixes: [ExtractMethod, ReplaceAlgorithm],
         confidence: Verified,
         severity: Warning,
-        why: "the order is real and none of it is written as an order, so a reader \
-              follows it by tracing which callback holds which",
+        why: "the order is real but is not written as an order, so a reader follows it by tracing \
+              which callback holds which",
         not_applicable: [
             (Go, "waiting is a channel receive, not a callback"),
             (Python, "waiting is written as a statement"),
@@ -1215,12 +1209,11 @@ catalogue! {
         slug: "empty-test",
         category: Tests,
         analysis: Syntax,
-        metric: "a test with nothing in it",
+        metric: "a test with an empty body",
         fixes: [RemoveDeadCode, IntroduceAssertion],
         confidence: Verified,
         severity: Warning,
-        why: "it passes on every run and holds the code to nothing, while counting \
-              towards whatever number the team watches",
+        why: "it passes on every run and checks nothing, while counting towards the test total",
     },
     SplitCohesion {
         slug: "split-cohesion",
@@ -1230,8 +1223,8 @@ catalogue! {
         fixes: [ExtractClass, MoveMethod],
         confidence: Heuristic,
         severity: Warning,
-        why: "each group is a type nobody has separated yet, so a change to one of \
-              them is read against the fields of all of them",
+        why: "each group of fields is a type that has not been separated, so a change to one is \
+              read against the fields of all of them",
         not_applicable: [
             (Go, "methods are attached to a type from outside it"),
             (Python, "an attribute is written into the instance, not declared on the type"),
@@ -1245,8 +1238,8 @@ catalogue! {
         fixes: [MoveMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "it needs nothing the type holds, so the type is a namespace for it and \
-              every caller has to build one to reach it",
+        why: "it needs nothing the type holds, so the type acts as a namespace for it and every \
+              caller has to construct an instance to reach it",
         off_by_default: true,
         not_applicable: [(Go, "a method names its receiver, and one that does not is a function")],
     },
@@ -1254,12 +1247,12 @@ catalogue! {
         slug: "dropped-promise",
         category: Safety,
         analysis: Syntax,
-        metric: "work that answers later, started and then thrown away",
+        metric: "an asynchronous call whose result is discarded",
         fixes: [SeparateQueryFromModifier],
         confidence: Heuristic,
         severity: Error,
-        why: "nothing waits for it and nothing hears if it fails, so the failure \
-              arrives somewhere with no idea what asked for it",
+        why: "nothing waits for it and nothing observes its failure, so a failure surfaces \
+              elsewhere with no link to what started it",
         not_applicable: [
             (Go, "work started in the background is a goroutine, which the language marks"),
             (Java, "a future is a value, and dropping it is dropping a value"),
@@ -1270,12 +1263,12 @@ catalogue! {
         slug: "eager-test",
         category: Tests,
         analysis: Syntax,
-        metric: "distinct units one test drives",
+        metric: "distinct units one test exercises",
         fixes: [ExtractMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "it fails for any of them and the run says only that the test failed, so \
-              the name it prints does not narrow anything down",
+        why: "it fails if any of the assertions fail and the run reports only that the test \
+              failed, so the test name does not identify the cause",
         off_by_default: true,
     },
     StringShapeAssertion {
@@ -1286,19 +1279,19 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Info,
-        why: "it holds the code to how the answer prints rather than to what it is, \
-              so a change in spacing fails a test about behaviour",
+        why: "it checks how the result prints and not what it is, so a change in spacing fails a \
+              test about behaviour",
     },
     DeadStore {
         slug: "dead-store",
         category: Waste,
         analysis: Syntax,
-        metric: "a value written and written again with nothing reading the first",
+        metric: "a value assigned twice with no read of the first",
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "the first write did nothing, so either a line meant to read it is \
-              missing or the line that wrote it is",
+        why: "the first write has no effect, so either a line that should read it is missing or \
+              the line that wrote it is unnecessary",
     },
     NeverReassigned {
         slug: "never-reassigned",
@@ -1308,8 +1301,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "a reader has to hold open the possibility that it moves, and it never \
-              does, so the declaration is asking for attention it does not need",
+        why: "a reader has to allow for the possibility that the variable changes, and it never \
+              does, so the declaration draws attention it does not need",
         not_applicable: [
             (Python, "the language has no word for a name that cannot change"),
             (Go, "a short declaration says nothing about whether the name moves"),
@@ -1323,8 +1316,8 @@ catalogue! {
         fixes: [EncapsulateField],
         confidence: Heuristic,
         severity: Info,
-        why: "nothing after construction moves it, so every reader has to check that \
-              for themselves before they can rely on it",
+        why: "nothing after construction changes it, and every reader has to verify that for \
+              themselves before relying on it",
         off_by_default: true,
         not_applicable: [
             (Python, "an attribute is written into the instance, not declared on the type"),
@@ -1339,19 +1332,19 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "every case in the file pays for it and none of them wanted it, which is \
-              time on every run and a reader wondering what it is for",
+        why: "every case in the file pays for it and none uses it, which adds time to every run \
+              and leaves a reader wondering what it is for",
     },
     UncheckedStub {
         slug: "unchecked-stub",
         category: Tests,
         analysis: Syntax,
-        metric: "a stand-in built for a test and never asked what it saw",
+        metric: "a test double that is never checked for the calls it received",
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Info,
-        why: "it made the test run and held it to nothing, so the call it was standing \
-              in for could stop happening and the test would still pass",
+        why: "it let the test run and checked nothing, so the call it replaces could stop \
+              happening and the test would still pass",
     },
     BranchingTest {
         slug: "branching-test",
@@ -1361,8 +1354,8 @@ catalogue! {
         fixes: [ExtractMethod, DecomposeConditional],
         confidence: Verified,
         severity: Warning,
-        why: "a test that decides has paths of its own, and nothing says which one \
-              ran, so a green result no longer means the case was checked",
+        why: "a test that branches has paths of its own and nothing says which one ran, so a \
+              passing result no longer shows that the case was checked",
     },
     DuplicateAssertion {
         slug: "duplicate-assertion",
@@ -1372,8 +1365,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "the second one can never fail while the first passes, so it costs a \
-              reader a check they have already read",
+        why: "the second assertion cannot fail while the first passes, so it costs the reader a \
+              check they have already read",
     },
     HandRolledThrows {
         slug: "hand-rolled-throws",
@@ -1383,8 +1376,8 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Warning,
-        why: "when the call stops failing the handler never runs and the test still \
-              passes, which is the one outcome it was written to catch",
+        why: "when the call stops failing, the handler never runs and the test still passes, \
+              which is the outcome the test was written to catch",
         not_applicable: [(Go, "failure is a returned value the test compares directly")],
     },
     DebugOutputInTest {
@@ -1395,8 +1388,7 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "it was how somebody watched this test once, and it now prints on every \
-              run for people who are not watching",
+        why: "it was added to observe the test once, and it now prints on every run",
     },
     NegatedName {
         slug: "negated-name",
@@ -1406,8 +1398,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "every test of it that is itself negated has to be undone twice in the \
-              reader's head before the condition means anything",
+        why: "every test of the name that is itself negated has to be inverted twice by the \
+              reader before the condition has a meaning",
     },
     ShadowsBuiltin {
         slug: "shadows-builtin",
@@ -1417,8 +1409,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Verified,
         severity: Warning,
-        why: "the original is unreachable for the rest of the scope, and the next line \
-              that wanted it fails somewhere that names neither",
+        why: "the original is unreachable for the rest of the scope, and a later line that \
+              expects it fails in a place that names neither",
     },
     CommentPerLine {
         slug: "comment-per-line",
@@ -1428,8 +1420,8 @@ catalogue! {
         fixes: [RemoveDeadCode, RenameVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "the code is being read aloud rather than explained, so the reader now \
-              has two things to keep in step and only one of them is checked",
+        why: "the code is being read aloud and not explained, so the reader has two things to \
+              keep in step and only one of them is checked",
     },
     ExplanationLongerThanCode {
         slug: "explanation-longer-than-code",
@@ -1439,8 +1431,8 @@ catalogue! {
         fixes: [ExtractMethod, RenameMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "a body that needs more prose than code is a body whose names are not \
-              carrying it, and the prose is what goes stale",
+        why: "a body that needs more prose than code has names that do not carry its meaning, and \
+              the prose is what becomes outdated",
     },
     DocstringRestatesSignature {
         slug: "docstring-restates-signature",
@@ -1451,8 +1443,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "it is the signature written twice, so it costs a reader a second pass \
-              and goes wrong the first time the signature changes",
+        why: "it repeats the signature, so it costs a reader a second pass and becomes wrong when \
+              the signature changes",
     },
     GuardCascade {
         slug: "guard-cascade",
@@ -1462,8 +1454,8 @@ catalogue! {
         fixes: [IntroduceAssertion, IntroduceParameterObject],
         confidence: Heuristic,
         severity: Info,
-        why: "the body has not started and the reader has read several decisions, \
-              none of which says anything about what the function is for",
+        why: "the body has not started and the reader has already read several decisions, none of \
+              which says what the function is for",
     },
     BlanketTry {
         slug: "blanket-try",
@@ -1473,9 +1465,8 @@ catalogue! {
         fixes: [DecomposeConditional, ExtractMethod],
         confidence: Heuristic,
         severity: Warning,
-        why: "the handler is a net under the whole body rather than an answer to one \
-              failure, so a mistake anywhere inside arrives as the failure it was \
-              written for",
+        why: "the handler wraps the whole body instead of answering one failure, so a mistake \
+              anywhere inside arrives as the failure the handler was written for",
         not_applicable: [(Go, "failure is a returned value, so no block is guarded")],
     },
     CyclomaticComplexity {
@@ -1486,8 +1477,8 @@ catalogue! {
         fixes: [ExtractMethod, DecomposeConditional],
         confidence: Verified,
         severity: Warning,
-        why: "it is the number of tests it takes to cover the body, and past a point \
-              nobody writes them, so most of the paths have never run",
+        why: "it is the number of tests needed to cover the body, and past a point those tests \
+              are not written, so most paths have never run",
     },
     ManyResults {
         slug: "many-results",
@@ -1497,8 +1488,8 @@ catalogue! {
         fixes: [IntroduceParameterObject, ExtractClass],
         confidence: Heuristic,
         severity: Info,
-        why: "the caller has to know the order to read them, and nothing at either \
-              end says what any of them is",
+        why: "the caller has to know the order to read them, and nothing at either end says what \
+              each one is",
         not_applicable: [
             (Java, "a method answers with one value"),
             (Cpp, "a function answers with one value"),
@@ -1512,19 +1503,18 @@ catalogue! {
         fixes: [DecomposeConditional],
         confidence: Verified,
         severity: Error,
-        why: "there is nothing that can stop it, so the first call takes the stack \
-              down with it",
+        why: "nothing can stop the recursion, so the first call exhausts the stack",
     },
     BooleanNotAQuestion {
         slug: "boolean-not-a-question",
         category: Naming,
         analysis: Syntax,
-        metric: "something answering true or false under a name that is not a question",
+        metric: "a boolean-valued member whose name is not phrased as a question",
         fixes: [RenameMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "a reader has to open it to learn which way round the answer runs, and \
-              a name that asks the question says it in one word",
+        why: "a reader has to open the definition to learn which way round the answer runs, and a \
+              name phrased as a question says it in one word",
         not_applicable: [(JavaScript, "a function declares no return type, so nothing says it answers true or false")],
     },
     UnnamedTest {
@@ -1535,8 +1525,8 @@ catalogue! {
         fixes: [RenameMethod],
         confidence: Verified,
         severity: Info,
-        why: "a failing run names the test and nothing else, so the name is the whole \
-              of what the reader is given before they open the file",
+        why: "a failing run reports the test name and nothing else, so the name is all the reader \
+              has before opening the file",
     },
     NameRepeatsType {
         slug: "name-repeats-type",
@@ -1546,8 +1536,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "the declaration beside it already says what it is, so the word is read \
-              twice and goes wrong the day the type changes",
+        why: "the adjacent declaration already says what it is, so the word is read twice and \
+              becomes wrong when the type changes",
     },
     PluralMismatch {
         slug: "plural-mismatch",
@@ -1557,8 +1547,8 @@ catalogue! {
         fixes: [RenameVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "a reader counts on the name to say whether there is one of something \
-              or many, and here it says the opposite",
+        why: "a reader relies on the name to say whether there is one value or many, and here it \
+              says the opposite",
     },
     SingleMethodField {
         slug: "single-method-field",
@@ -1568,8 +1558,8 @@ catalogue! {
         fixes: [ExtractClass, InlineVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "it is that method's local kept where every other method can reach it, \
-              so every one of them has to be read before it can be changed",
+        why: "it is that method's local variable kept where every other method can reach it, so \
+              every method has to be read before it can be changed",
         not_applicable: [
             (Go, "a struct field is read by whatever holds the struct"),
             (Cpp, "the methods that read it are in another file"),
@@ -1580,12 +1570,12 @@ catalogue! {
         slug: "many-collaborators",
         category: Coupling,
         analysis: Syntax,
-        metric: "other types one type has to know about",
+        metric: "other types one type references",
         fixes: [ExtractClass, InvertDependency],
         confidence: Heuristic,
         severity: Warning,
-        why: "each one is a reason for this type to change, and a test of it has to \
-              stand up all of them first",
+        why: "each collaborator is a reason for this type to change, and a test of it has to set \
+              up all of them first",
         not_applicable: [(Go, "there are no types that hold behaviour to collect them")],
     },
     OverLogging {
@@ -1596,8 +1586,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "the body says more about what it is doing than it does, and the reader \
-              has to separate the work from the commentary on every line",
+        why: "the body says more about what it is doing than it does, and the reader has to \
+              separate the work from the commentary on every line",
     },
     DeepInheritance {
         slug: "deep-inheritance",
@@ -1607,8 +1597,8 @@ catalogue! {
         fixes: [ReplaceInheritanceWithComposition, CollapseHierarchy],
         confidence: Verified,
         severity: Warning,
-        why: "answering what one method does means reading every type above it, and \
-              a change to any of them reaches every type below",
+        why: "answering what one method does requires reading every type above it, and a change \
+              to any of them reaches every type below",
         not_applicable: [(Go, "there is no inheritance to climb")],
     },
     StaleTodo {
@@ -1620,8 +1610,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "a note nobody has touched in this long is not a plan, and every reader \
-              since has had to decide for themselves whether it still applies",
+        why: "a note that has not been touched for this long is not a plan, and every reader \
+              since has had to decide whether it still applies",
     },
     OrphanTodo {
         slug: "orphan-todo",
@@ -1631,8 +1621,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "there is no ticket to close and nobody to ask, so it stays until \
-              somebody deletes it without knowing what it was for",
+        why: "there is no ticket to close and no one to ask, so it stays until someone deletes it \
+              without knowing what it was for",
     },
     IntegerDivision {
         slug: "integer-division",
@@ -1642,8 +1632,8 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Warning,
-        why: "the remainder goes and nothing on the line says it was meant to, so a \
-              reader has to know the types to know whether the answer is right",
+        why: "the remainder is discarded and nothing on the line says that was intended, so a \
+              reader has to know the operand types to know whether the result is right",
     },
     DiscardedError {
         slug: "discarded-error",
@@ -1653,8 +1643,8 @@ catalogue! {
         fixes: [DecomposeConditional],
         confidence: Verified,
         severity: Warning,
-        why: "the author saw the answer and decided not to look at it, and nothing \
-              records what happens when the call fails",
+        why: "the code receives the result and ignores it, and nothing records what happens when \
+              the call fails",
     },
     ManyLocals {
         slug: "many-locals",
@@ -1664,8 +1654,8 @@ catalogue! {
         fixes: [ExtractMethod, ExtractVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "every one of them is a thing the reader has to keep in mind to the end \
-              of the body, and there is a number past which nobody does",
+        why: "each local variable is something the reader has to keep in mind to the end of the \
+              body, and there is a number past which readers cannot",
     },
     WideTry {
         slug: "wide-try",
@@ -1675,8 +1665,8 @@ catalogue! {
         fixes: [ExtractMethod, DecomposeConditional],
         confidence: Heuristic,
         severity: Warning,
-        why: "the handler is written for one of them and catches all of them, so a \
-              failure from any other line arrives somewhere that cannot answer it",
+        why: "the handler is written for one of the calls and catches failures from all of them, \
+              so a failure from any other line reaches a handler that cannot answer it",
         not_applicable: [(Go, "failure is a returned value, so no block is guarded")],
     },
     EmptySubclass {
@@ -1687,8 +1677,8 @@ catalogue! {
         fixes: [CollapseHierarchy, InlineClass],
         confidence: Verified,
         severity: Info,
-        why: "it is a second name for the thing it came from, and a reader has to \
-              open it to find that out",
+        why: "it is a second name for the class it extends, and a reader has to open it to find \
+              that out",
         not_applicable: [(Go, "there is no inheritance for a type to add nothing to")],
     },
     StaticOnlyClass {
@@ -1700,8 +1690,8 @@ catalogue! {
         fixes: [InlineClass, MoveMethod],
         confidence: Heuristic,
         severity: Info,
-        why: "nothing is ever built from it, so the type is a namespace wearing a \
-              class's syntax and nothing can be substituted for it in a test",
+        why: "nothing is constructed from it, so the type is a namespace written as a class, and \
+              nothing can be substituted for it in a test",
         not_applicable: [(Go, "there are no classes to hold the methods")],
     },
     WorkingConstructor {
@@ -1713,8 +1703,8 @@ catalogue! {
         fixes: [ExtractMethod, SeparateQueryFromModifier],
         confidence: Heuristic,
         severity: Warning,
-        why: "the object cannot exist without whatever that work needs, so every test \
-              of it has to stand the work up first",
+        why: "the object cannot exist without whatever that work needs, so every test of it has \
+              to set the work up first",
         not_applicable: [(Go, "a value is built by a literal, which can only assign")],
     },
     OversizedModule {
@@ -1725,8 +1715,8 @@ catalogue! {
         fixes: [ExtractSharedModule, ExtractClass],
         confidence: Heuristic,
         severity: Info,
-        why: "a file this long is several files that have not been separated yet, and \
-              every one of them is edited, reviewed and merged as though it were one",
+        why: "a file this long is several files that have not been separated, and all of them are \
+              edited, reviewed and merged as one",
     },
     DiscardedExpression {
         slug: "discarded-expression",
@@ -1736,8 +1726,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "either the line was meant to do something and does not, or it does \
-              nothing and should not be here, and a reader cannot tell which",
+        why: "either the line was meant to do something and does not, or it does nothing and \
+              should be removed, and a reader cannot tell which",
         not_applicable: [
             (Go, "the grammar allows only a call or a receive as a statement, so the compiler rejects this first"),
             (Java, "the grammar allows only a call, an assignment or an increment as a statement"),
@@ -1751,8 +1741,8 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Verified,
         severity: Warning,
-        why: "a binary float almost never lands on the decimal a person wrote, so the \
-              branch that depends on it is decided by rounding rather than by the value",
+        why: "a binary float rarely equals the decimal a person wrote, so a branch that depends \
+              on it is decided by rounding and not by the value",
     },
     DeepRelativeImport {
         slug: "deep-relative-import",
@@ -1762,8 +1752,8 @@ catalogue! {
         fixes: [ExtractSharedModule, InvertDependency],
         confidence: Heuristic,
         severity: Info,
-        why: "a path that climbs this far is reaching across the shape of the project \
-              rather than through it, and it breaks the moment either end is moved",
+        why: "a path that climbs this far reaches across the project's structure instead of \
+              through it, and it breaks when either end moves",
         not_applicable: [
             (Go, "an import is a module path, so there is nothing relative to climb"),
             (Java, "an import is a package name, and packages do not nest by path"),
@@ -1778,8 +1768,8 @@ catalogue! {
         fixes: [SeparateQueryFromModifier, DecomposeConditional],
         confidence: Verified,
         severity: Warning,
-        why: "a caller cannot write one line that handles both, so every call site \
-              carries a check for the path the author happened to think of",
+        why: "a caller cannot write one line that handles both kinds of result, so every call \
+              site carries a check for the case the author happened to consider",
         not_applicable: [
             (Go, "a naked return beside a named result is the language's own idiom"),
             (Java, "the compiler refuses a body that answers two shapes"),
@@ -1795,8 +1785,8 @@ catalogue! {
         fixes: [DecomposeConditional],
         confidence: Verified,
         severity: Error,
-        why: "it replaces whatever the block was leaving with, so a failure raised in \
-              the body disappears and nothing anywhere records that it happened",
+        why: "it replaces whatever the block was leaving with, so a failure raised in the body \
+              disappears and nothing records that it happened",
         not_applicable: [
             (Go, "cleanup is a deferred call, which cannot replace the return"),
             (Cpp, "there is no finally clause"),
@@ -1811,8 +1801,8 @@ catalogue! {
         fixes: [DecomposeConditional],
         confidence: Verified,
         severity: Warning,
-        why: "it takes the failures it was written for and every other one too, \
-              including the ones that mean the program is already wrong",
+        why: "it catches the failures it was written for and every other failure too, including \
+              failures that mean the program is already in an invalid state",
         not_applicable: [
             (Go, "errors are values, so there is no handler to widen"),
             (JavaScript, "a catch clause cannot name a type in JavaScript, so none can name the root of the hierarchy"),
@@ -1826,8 +1816,8 @@ catalogue! {
         fixes: [ReplaceDataValueWithObject],
         confidence: Verified,
         severity: Info,
-        why: "the only way to react to it is to catch everything, so a caller that \
-              wanted to handle this one failure cannot",
+        why: "the only way to react to it is to catch every failure, so a caller that wants to \
+              handle this one cannot",
         not_applicable: [(Go, "errors are values, and the language raises nothing")],
     },
     LibraryExit {
@@ -1838,8 +1828,8 @@ catalogue! {
         fixes: [SeparateQueryFromModifier],
         confidence: Heuristic,
         severity: Warning,
-        why: "it takes the decision away from every caller above it, and a test that \
-              reaches the line takes the runner down with it",
+        why: "it takes the decision away from every caller above it, and a test that reaches the \
+              line terminates the test runner",
     },
     BooleanLiteralArgument {
         slug: "boolean-literal-argument",
@@ -1849,8 +1839,8 @@ catalogue! {
         fixes: [ReplaceParameterWithExplicitMethods],
         confidence: Heuristic,
         severity: Info,
-        why: "nothing at the call site says what it turns on, so the reader has to \
-              open the callee to find out what they just asked for",
+        why: "nothing at the call site says what the argument turns on, so the reader has to open \
+              the callee to find out",
     },
     UnusedImport {
         slug: "unused-import",
@@ -1860,8 +1850,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "it makes the file look dependent on something it does not use, and the \
-              dependency survives every search for who needs that module",
+        why: "it makes the file appear to depend on something it does not use, and the dependency \
+              survives every search for who needs that module",
         not_applicable: [
             (Go, "the compiler refuses a file with one"),
             (Cpp, "an include may be there for a header that needs it"),
@@ -1875,9 +1865,8 @@ catalogue! {
         fixes: [EncapsulateField, ExtractClass],
         confidence: Heuristic,
         severity: Warning,
-        why: "every function that reads it takes an argument nobody passed, so two \
-              calls with the same arguments can answer differently and no signature \
-              says why",
+        why: "every function that reads it takes an argument that no caller passed, so two calls \
+              with the same arguments can return different results and no signature says why",
     },
     AmbientDependency {
         slug: "ambient-dependency",
@@ -1887,8 +1876,8 @@ catalogue! {
         fixes: [IntroduceParameterObject, InvertDependency],
         confidence: Heuristic,
         severity: Info,
-        why: "the answer depends on something no caller can set, so the only way to \
-              test the branch that reads it is to change the machine",
+        why: "the result depends on something no caller can set, so the only way to test the \
+              branch that reads it is to change the machine",
     },
     SelfBuiltCollaborators {
         slug: "self-built-collaborators",
@@ -1898,8 +1887,8 @@ catalogue! {
         fixes: [InvertDependency, IntroduceParameterObject],
         confidence: Verified,
         severity: Warning,
-        why: "nothing can be put in its place, so every test of the owner stands up \
-              the real collaborator and everything behind it",
+        why: "nothing can be substituted for them, so every test of the owner has to set up the \
+              real collaborator and everything behind it",
         not_applicable: [(Go, "a value is built by a literal, which names no type to \
                               stand in for")],
     },
@@ -1911,8 +1900,8 @@ catalogue! {
         fixes: [ExtractMethod, SeparateQueryFromModifier],
         confidence: Verified,
         severity: Warning,
-        why: "it happens before any caller has asked for anything, in whatever order \
-              the imports happen to resolve, and nothing can stop it",
+        why: "it runs before any caller has asked for anything, in whatever order the imports \
+              resolve, and nothing can prevent it",
         not_applicable: [
             (Go, "a file holds declarations, and only `init` runs on load"),
             (Java, "a file holds declarations, and only a static block runs on load"),
@@ -1923,12 +1912,12 @@ catalogue! {
         slug: "reaches-into-private",
         category: Coupling,
         analysis: Syntax,
-        metric: "reading a member another type marked as its own business",
+        metric: "reading a member another type marks as private",
         fixes: [EncapsulateDelegation, MoveMethod],
         confidence: Verified,
         severity: Warning,
-        why: "the other type is free to change it and has said so, so this line \
-              breaks on a change nobody could have known would reach it",
+        why: "the other type is free to change the member and has declared it private, so this \
+              line breaks on a change nobody could have known would reach it",
         off_by_default: true,
         not_applicable: [
             (Go, "the package boundary is the language's, and the compiler holds it"),
@@ -1944,9 +1933,9 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "nothing in the file says which names came from where, so a reader has \
-              to open the other module to find out and a new export there can shadow \
-              a local one silently",
+        why: "nothing in the file says which names come from where, so a reader has to open the \
+              other module to find out, and a new export there can shadow a local name without \
+              any warning",
     },
     RethrowOnlyCatch {
         slug: "rethrow-only-catch",
@@ -1956,20 +1945,20 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "it reads as a decision about the failure and makes none, while costing \
-              the stack trace in the languages that rebuild one on the way out",
+        why: "it reads as a decision about the failure and makes none, and in languages that \
+              rebuild the stack trace on rethrow it loses the original",
         not_applicable: [(Go, "errors are values, so there is no handler to empty")],
     },
     PlaceholderBody {
         slug: "placeholder-body",
         category: Waste,
         analysis: Syntax,
-        metric: "a body whose only statement raises to say the work is still to come",
+        metric: "a body whose only statement raises to signal that the implementation is not written",
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Warning,
-        why: "it is a callable promise with nothing behind it, and every caller that \
-              trusts the signature finds that out at runtime",
+        why: "it is a callable promise with nothing behind it, and every caller that trusts the \
+              signature finds out at run time",
         not_applicable: [(Go, "failure is a returned value, so no statement is a refusal")],
     },
     PassthroughFunction {
@@ -1980,8 +1969,8 @@ catalogue! {
         fixes: [InlineDelegation],
         confidence: Heuristic,
         severity: Info,
-        why: "it adds a name and a stack frame between a caller and the thing it \
-              wanted, and the indirection buys nothing while it forwards unchanged",
+        why: "it adds a name and a stack frame between a caller and the function it wanted, and \
+              the indirection has no effect because it forwards unchanged",
     },
     DebugOutput {
         slug: "debug-output",
@@ -1992,8 +1981,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "it was written to be read once by the person debugging, and it is still \
-              printing for everybody else",
+        why: "it was written to be read once by the person debugging, and it still prints for \
+              everyone else",
         off_by_default: true,
     },
     DuplicateImport {
@@ -2004,9 +1993,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Info,
-        why: "two statements bringing in one module means a reader has to check both \
-              to know what this file takes from it, and a merge put at least one there \
-              without anybody looking",
+        why: "two statements importing one module mean a reader has to check both to know what \
+              the file takes from it, and a merge can introduce one without anyone reviewing it",
     },
     WideFanOut {
         slug: "wide-fan-out",
@@ -2016,8 +2004,8 @@ catalogue! {
         fixes: [ExtractSharedModule, InvertDependency],
         confidence: Heuristic,
         severity: Info,
-        why: "a file that reaches into this many places cannot be read, moved or \
-              tested without most of the project coming with it",
+        why: "a file that reaches into this many places cannot be read, moved or tested without \
+              most of the project coming with it",
     },
     WideFanIn {
         slug: "wide-fan-in",
@@ -2027,8 +2015,8 @@ catalogue! {
         fixes: [ExtractInterface],
         confidence: Heuristic,
         severity: Info,
-        why: "every change here reaches this many places, so the module is load \
-              bearing whether or not anybody decided it should be",
+        why: "every change here reaches this many places, so the module is heavily depended on \
+              whether or not that was intended",
     },
     BannerComment {
         slug: "banner-comment",
@@ -2038,8 +2026,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "a table of contents for a file short enough not to need one, and it goes \
-              stale the moment a section moves",
+        why: "it is a table of contents in a file short enough not to need one, and it becomes \
+              outdated when a section moves",
         autofix: Deletion,
     },
     ChatResidue {
@@ -2050,8 +2038,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "it is the residue of a conversation that ended before the commit, and it \
-              tells the next reader nothing about the code it sits on",
+        why: "it is left over from a conversation that ended before the commit, and it tells the \
+              next reader nothing about the code it sits on",
         autofix: Deletion,
     },
     ApologyComment {
@@ -2062,8 +2050,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "somebody already knew this was wrong and left it, so the comment records \
-              the decision without the reason or the ticket that would let it be undone",
+        why: "someone knew this was wrong and left it, so the comment records the decision \
+              without the reason or the ticket that would allow it to be reversed",
     },
     EmojiInSource {
         slug: "emoji-in-source",
@@ -2073,8 +2061,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Heuristic,
         severity: Info,
-        why: "it survives grep, diffs and terminals badly, and it is decoration in a \
-              place where everything else has to earn its width",
+        why: "emoji display inconsistently in grep results, diffs and terminals, and they add \
+              decoration to source code",
         off_by_default: true,
     },
     ExampleValue {
@@ -2085,8 +2073,8 @@ catalogue! {
         fixes: [ReplaceMagicNumberWithConstant],
         confidence: Heuristic,
         severity: Warning,
-        why: "a stand-in that reads as real is the kind of value that ships, and the \
-              first person to notice is whoever it was sent to",
+        why: "a placeholder that looks real is a value that can ship, and the first person to \
+              notice is whoever receives it",
     },
     UnjustifiedSuppression {
         slug: "unjustified-suppression",
@@ -2096,8 +2084,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "the waiver is refused and the finding still stands, because a waiver \
-              nobody has to justify is how a rule gets switched off one line at a time",
+        why: "the waiver is refused and the finding still counts, because a waiver that needs no \
+              justification allows a rule to be switched off one line at a time",
     },
     SuppressedDiagnostic {
         slug: "suppressed-diagnostic",
@@ -2107,8 +2095,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "a check that would have caught the next mistake here has been turned off, \
-              and the comment turning it off outlives the reason for it",
+        why: "a check that would have caught the next mistake here has been turned off, and the \
+              comment that turns it off outlives the reason for it",
         autofix: Deletion,
     },
     FlagArgument {
@@ -2119,8 +2107,8 @@ catalogue! {
         fixes: [ReplaceParameterWithExplicitMethods],
         confidence: Heuristic,
         severity: Info,
-        why: "the function does two things and the caller picks which, so `f(x, true)` \
-              tells a reader nothing about what will happen",
+        why: "the function does two things and the caller selects which, so `f(x, true)` tells a \
+              reader nothing about what will happen",
         not_applicable: [(JavaScript, "a parameter declares no type, so nothing says it is a boolean")],
     },
     OutputParameter {
@@ -2131,8 +2119,8 @@ catalogue! {
         fixes: [RemoveAssignmentsToParameters, SeparateQueryFromModifier],
         confidence: Verified,
         severity: Warning,
-        why: "the caller's value changes without the call site saying so, which is the \
-              hardest kind of change to find when it turns out to be wrong",
+        why: "the caller's value changes without the call site saying so, which is hard to find \
+              when it turns out to be wrong",
     },
     ComplexCondition {
         slug: "complex-condition",
@@ -2142,8 +2130,8 @@ catalogue! {
         fixes: [ConsolidateConditional, ExtractVariable],
         confidence: Heuristic,
         severity: Info,
-        why: "nobody can hold this many clauses at once, so the reader takes the branch on \
-              trust and the bug in it survives every review",
+        why: "readers cannot hold this many clauses at once, so the branch is taken on trust and \
+              a bug in it survives review",
     },
     NegativeConditional {
         slug: "negative-conditional",
@@ -2153,8 +2141,8 @@ catalogue! {
         fixes: [DecomposeConditional],
         confidence: Heuristic,
         severity: Info,
-        why: "the reader has to invert it mentally to follow the else, and inverting a \
-              compound condition by hand is where off-by-one logic errors come from",
+        why: "the reader has to invert the condition mentally to follow the `else`, and inverting \
+              a compound condition by hand is a source of off-by-one logic errors",
         off_by_default: true,
     },
 
@@ -2167,8 +2155,7 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Warning,
-        why: "a skipped test is a question nobody answered; it reports green forever while \
-              the behaviour it named goes unchecked",
+        why: "a skipped test reports success while the behaviour it names goes unchecked",
         autofix: Deletion,
     },
     FocusedTest {
@@ -2179,8 +2166,8 @@ catalogue! {
         fixes: [RemoveDeadCode],
         confidence: Verified,
         severity: Error,
-        why: "this silently disables every other test in the file, so the suite goes green \
-              while almost nothing ran",
+        why: "this silently disables every other test in the file, so the suite passes while \
+              almost nothing runs",
         autofix: Deletion,
         not_applicable: [
             (Python, "pytest and unittest focus a run with `-k` on the command line; \
@@ -2198,8 +2185,8 @@ catalogue! {
         fixes: [IntroduceAssertion],
         confidence: Heuristic,
         severity: Warning,
-        why: "it passes as long as nothing throws, so it reports success for behaviour it \
-              never actually checked",
+        why: "it passes as long as nothing throws, so it reports success for behaviour it never \
+              checked",
     },
 
     // ---- Performance ----------------------------------------------------------
@@ -2211,9 +2198,9 @@ catalogue! {
         fixes: [ReplaceLoopWithLookup],
         confidence: Heuristic,
         severity: Warning,
-        why: "the inner scan runs once per pass of the outer loop, so the work grows with \
-              the product of the two sizes and a list that was fine at a hundred items \
-              stalls at ten thousand",
+        why: "the inner scan runs once per pass of the outer loop, so the work grows with the \
+              product of the two sizes and a list that is fast at a hundred items can stall at \
+              ten thousand",
     },
     DeepLoopNesting {
         slug: "deep-loop-nesting",
@@ -2223,8 +2210,8 @@ catalogue! {
         fixes: [ReplaceLoopWithLookup, ReplaceAlgorithm],
         confidence: Heuristic,
         severity: Warning,
-        why: "each level multiplies the passes of the one inside it, so the innermost body \
-              runs a number of times no test on small data will ever show",
+        why: "each level multiplies the passes of the one inside it, so the innermost body runs a \
+              number of times that tests on small data do not show",
     },
     QueryInLoop {
         slug: "query-in-loop",
@@ -2234,8 +2221,8 @@ catalogue! {
         fixes: [BatchTheWork],
         confidence: Heuristic,
         severity: Warning,
-        why: "every pass pays a round trip, so listing a hundred rows makes a hundred and \
-              one requests and the page waits for the sum of them",
+        why: "every pass pays a round trip, so listing a hundred rows makes a hundred and one \
+              requests and the page waits for the sum of them",
     },
     AwaitInLoop {
         slug: "await-in-loop",
@@ -2245,8 +2232,8 @@ catalogue! {
         fixes: [BatchTheWork, AwaitConcurrently],
         confidence: Heuristic,
         severity: Warning,
-        why: "each pass waits for the one before it to finish, so work that could overlap \
-              runs end to end and the loop takes as long as all of its waits added together",
+        why: "each pass waits for the previous one to finish, so work that could overlap runs end \
+              to end and the loop takes as long as all of its waits added together",
         not_applicable: [
             (Go, "a goroutine blocks by design, so there is no await here to serialise"),
             (Java, "Java has no await expression: a blocking call is a call, and futures compose by method"),
@@ -2272,7 +2259,7 @@ catalogue! {
         confidence: Heuristic,
         severity: Warning,
         why: "each step copies everything gathered so far, so building a result of n items \
-              touches half of n squared of them",
+              touches about half of n squared items",
     },
     BranchingRecursion {
         slug: "branching-recursion",
@@ -2282,8 +2269,8 @@ catalogue! {
         fixes: [Memoize, ReplaceAlgorithm],
         confidence: Heuristic,
         severity: Warning,
-        why: "two calls per level is an exponential number of calls, most of them \
-              recomputing an answer some other branch already found",
+        why: "two calls per level is an exponential number of calls, and most of them recompute \
+              an answer another branch already found",
     },
     BlockingCallInAsync {
         slug: "blocking-call-in-async",
@@ -2293,8 +2280,8 @@ catalogue! {
         fixes: [ReplaceBlockingCall],
         confidence: Heuristic,
         severity: Warning,
-        why: "an async function promises not to hold the thread and this call holds it, so \
-              everything else waiting on that loop queues behind one file read",
+        why: "an async function is expected not to hold the thread and this call holds it, so \
+              everything else waiting on that event loop queues behind one blocking call",
         not_applicable: [
             (Go, "blocking a goroutine is the intended model, not a mistake to report"),
             (Java, "Java has no async function marker, so there is no promise here to break"),
