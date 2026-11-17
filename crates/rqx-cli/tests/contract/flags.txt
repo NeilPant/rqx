@@ -294,6 +294,7 @@ check --threads
 check --threads [env RQX_THREADS]
 check --timings
 check --top
+check --trend
 check --verbose
 check --write
 check -h
@@ -1424,6 +1425,7 @@ scan --threads
 scan --threads [env RQX_THREADS]
 scan --timings
 scan --top
+scan --trend
 scan --verbose
 scan --watch
 scan -h

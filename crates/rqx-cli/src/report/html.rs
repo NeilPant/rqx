@@ -173,6 +173,11 @@ section h3{margin:24px 0 8px;font-weight:700}
 .bars th{padding:0 16px 0 0;white-space:nowrap}
 .bars td{padding:0 16px 0 0;white-space:nowrap}
 .bars .count{text-align:right;font-variant-numeric:tabular-nums}
+.trend{display:block;width:100%;max-width:640px;height:auto}
+.trend-axis{stroke:var(--rule);stroke-width:1}
+.trend-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}
+.trend-dot{fill:var(--accent)}
+.trend-label{fill:var(--muted);font-size:12px;font-family:inherit}
 .fill{color:var(--accent)}
 .rest{color:var(--rule)}
 details.file{min-width:0;margin:0 0 8px;border:1px solid var(--rule);border-radius:10px}
@@ -237,6 +242,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     writeln!(out, "<main>")?;
     write_summary(out, report)?;
     write_owners(out, report)?;
+    write_trend(out, report)?;
     write_tally(out, report)?;
     write_files(out, report)?;
     write_waived(out, report)?;
@@ -251,6 +257,9 @@ fn write_contents(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     let mut links = vec![("summary", "Summary")];
     if report.outcome.owners.is_some() {
         links.push(("owners", "Owners"));
+    }
+    if report.trend.is_some() {
+        links.push(("trend", "Trend"));
     }
     if !report.findings.is_empty() {
         links.extend([("families", "Families"), ("rules", "Rules")]);
@@ -471,6 +480,29 @@ fn write_owners(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
             )?;
         }
         writeln!(out, "</tbody>\n</table></div>")?;
+    }
+    writeln!(out, "</section>")?;
+    Ok(())
+}
+
+/// The health score over the recorded snapshots, when `--trend` named a file. A file
+/// with fewer than two snapshots has no line to draw, and the section says so rather
+/// than vanishing.
+fn write_trend(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
+    let Some(snapshots) = report.trend else {
+        return Ok(());
+    };
+    writeln!(
+        out,
+        "<section id=\"trend\" aria-labelledby=\"trend-heading\">\n<h2 id=\"trend-heading\">Trend</h2>"
+    )?;
+    if snapshots.len() < 2 {
+        writeln!(
+            out,
+            "<p class=\"muted\">A chart needs two snapshots; <code>rqx scan --record</code> adds one.</p>"
+        )?;
+    } else {
+        writeln!(out, "{}", super::trend::chart(snapshots))?;
     }
     writeln!(out, "</section>")?;
     Ok(())
@@ -1270,6 +1302,43 @@ mod tests {
         assert!(page.contains("<th scope=\"row\">@web</th>"), "{page}");
         assert!(page.contains("&lt;b&gt;"), "owners are escaped");
         assert_well_formed(&page);
+    }
+
+    #[test]
+    fn a_trend_file_adds_a_chart_after_the_summary_and_nothing_else_changes() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 1);
+        let snapshots: Vec<crate::trend::Snapshot> = (0..3)
+            .map(|day| crate::trend::Snapshot::of(&outcome, day * 86_400))
+            .collect();
+        let filter = crate::report::FindingFilter::default();
+        let report = Report::scan(&outcome, &filter).trended(Some(&snapshots));
+        let mut out = Vec::new();
+        render(&report, &mut out).expect("rendering to memory");
+        let page = String::from_utf8(out).expect("utf-8");
+
+        let summary = page.find("<section id=\"summary\"").expect("a summary");
+        let trend = page.find("<section id=\"trend\"").expect("a trend section");
+        let families = page.find("<section id=\"families\"").expect("families");
+        assert!(summary < trend && trend < families);
+        assert!(page.contains("href=\"#trend\"") && page.contains("<svg viewBox=\"0 0 640 180\""));
+        assert!(!page.contains("<script"));
+        assert_well_formed(&page);
+
+        let without = page_of(&outcome);
+        assert!(!without.contains("id=\"trend\""), "no --trend, no chart");
+    }
+
+    #[test]
+    fn a_trend_file_with_one_snapshot_says_a_chart_needs_two() {
+        let outcome = outcome_with(&[], 1);
+        let snapshots = [crate::trend::Snapshot::of(&outcome, 0)];
+        let filter = crate::report::FindingFilter::default();
+        let report = Report::scan(&outcome, &filter).trended(Some(&snapshots));
+        let mut out = Vec::new();
+        render(&report, &mut out).expect("rendering to memory");
+        let page = String::from_utf8(out).expect("utf-8");
+        assert!(page.contains("A chart needs two snapshots"), "{page}");
+        assert!(!page.contains("class=\"trend\""));
     }
 
     #[test]

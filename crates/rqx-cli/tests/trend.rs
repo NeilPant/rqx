@@ -182,3 +182,46 @@ fn recording_twice_then_reading_it_back_gives_two_snapshots() {
     assert!(text.contains("2 snapshots"), "{text}");
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn the_html_report_charts_the_trend_file_it_is_given() {
+    let root = project("html");
+    let file = history(&root);
+    let output = rqx(
+        &root,
+        &[
+            "scan",
+            ".",
+            "--reporter",
+            "html",
+            "--trend",
+            file.to_str().expect("utf-8"),
+        ],
+    );
+    let page = stdout(&output);
+    assert!(page.contains("<section id=\"trend\""), "{page}");
+    assert!(page.contains("class=\"trend\""), "{page}");
+
+    let plain = stdout(&rqx(&root, &["scan", ".", "--reporter", "html"]));
+    assert!(!plain.contains("<section id=\"trend\""));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_trend_file_that_does_not_exist_yet_is_not_an_error() {
+    let root = project("html-first-run");
+    let output = rqx(
+        &root,
+        &[
+            "scan",
+            ".",
+            "--reporter",
+            "html",
+            "--trend",
+            "absent.ndjson",
+        ],
+    );
+    assert!(output.status.code().is_some_and(|code| code < 2));
+    assert!(stdout(&output).contains("A chart needs two snapshots"));
+    let _ = std::fs::remove_dir_all(&root);
+}

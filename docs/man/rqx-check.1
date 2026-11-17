@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-check \- Analyze changed files against a base revision and fail if the gate is not met
 .SH SYNOPSIS
-\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-staged\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-tui\fR] [\fB\-\-profile\fR] [\fB\-\-color\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-record\fR] [\fB\-\-level\fR] [\fB\-\-progress\fR] [\fB\-\-threads\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-config\fR] [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-staged\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-tui\fR] [\fB\-\-profile\fR] [\fB\-\-color\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-record\fR] [\fB\-\-progress\fR] [\fB\-\-trend\fR] [\fB\-\-level\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze changed files against a base revision and fail if the gate is not met
 .SH OPTIONS
@@ -67,9 +67,6 @@ off
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it
 .TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
-.TP
 \fB\-\-progress\fR \fI<PROGRESS>\fR [default: auto]
 How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
 .br
@@ -87,14 +84,11 @@ plain: A line on stderr every two seconds and at each phase, for a job log
 none: Nothing
 .RE
 .TP
-\fB\-\-threads\fR \fI<N>\fR
-Worker threads. Defaults to the machine\*(Aqs parallelism
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
-.TP
-\fB\-\-config\fR \fI<FILE>\fR
-Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
 Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
@@ -110,6 +104,12 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)
@@ -304,6 +304,9 @@ Fail when a design pattern is half applied
 .TP
 \fB\-\-record\fR [\fI<PATH>\fR]
 Append a snapshot of this scan\*(Aqs health to a trend file. Without a path it writes to `.rqx/trend.ndjson`
+.TP
+\fB\-\-trend\fR \fI<PATH>\fR
+Draw the snapshots in this file as a chart in the HTML report. A file that does not exist yet draws nothing
 .SH EXTRA
 Examples:
   rqx check \-\-base main               review the branch against main

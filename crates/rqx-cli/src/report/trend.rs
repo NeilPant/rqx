@@ -6,6 +6,7 @@ use std::io::Write;
 use anyhow::Result;
 
 use crate::brand::{Ink, Palette, paint};
+use crate::report::escape::markup;
 use crate::report::{Align, column, plural};
 use crate::trend::{By, Direction, Series, Snapshot, movers, overall};
 
@@ -137,6 +138,96 @@ pub fn json(snapshots: &[Snapshot], by: By, out: &mut dyn Write) -> Result<()> {
     Ok(())
 }
 
+const CHART_WIDTH: f64 = 640.0;
+const CHART_HEIGHT: f64 = 180.0;
+const PLOT_LEFT: f64 = 40.0;
+const PLOT_RIGHT: f64 = 624.0;
+const PLOT_TOP: f64 = 16.0;
+const PLOT_BOTTOM: f64 = 148.0;
+/// Past this many snapshots the points merge into the line, and a dot on each only
+/// makes it lumpy.
+const MOST_DOTS: usize = 40;
+
+/// The health score over the snapshots as an inline SVG, 0 to 100 on the vertical axis
+/// and the snapshots evenly spaced across it. Colours are the page's own CSS classes,
+/// so the chart follows its light and dark themes. Needs at least two snapshots to
+/// have a line; the caller says so otherwise.
+pub fn chart(snapshots: &[Snapshot]) -> String {
+    let at = |index: usize, health: u32| {
+        let across = if snapshots.len() < 2 {
+            0.0
+        } else {
+            index as f64 / (snapshots.len() - 1) as f64
+        };
+        (
+            PLOT_LEFT + across * (PLOT_RIGHT - PLOT_LEFT),
+            PLOT_BOTTOM - f64::from(health.min(100)) / 100.0 * (PLOT_BOTTOM - PLOT_TOP),
+        )
+    };
+    let points: Vec<(f64, f64)> = snapshots
+        .iter()
+        .enumerate()
+        .map(|(index, snapshot)| at(index, snapshot.health))
+        .collect();
+    let line: Vec<String> = points
+        .iter()
+        .map(|(x, y)| format!("{x:.1},{y:.1}"))
+        .collect();
+
+    let mut svg = format!(
+        "<svg viewBox=\"0 0 {CHART_WIDTH} {CHART_HEIGHT}\" role=\"img\" aria-labelledby=\"trend-title trend-desc\" class=\"trend\">\n\
+         <title id=\"trend-title\">Health over time</title>\n\
+         <desc id=\"trend-desc\">{}</desc>\n",
+        markup(&description(snapshots))
+    );
+    for level in [0_u32, 50, 100] {
+        let (_, y) = at(0, level);
+        svg.push_str(&format!(
+            "<line class=\"trend-axis\" x1=\"{PLOT_LEFT}\" y1=\"{y:.1}\" x2=\"{PLOT_RIGHT}\" y2=\"{y:.1}\"/>\n\
+             <text class=\"trend-label\" x=\"{}\" y=\"{:.1}\" text-anchor=\"end\">{level}</text>\n",
+            PLOT_LEFT - 6.0,
+            y + 4.0
+        ));
+    }
+    svg.push_str(&format!(
+        "<polyline class=\"trend-line\" points=\"{}\"/>\n",
+        line.join(" ")
+    ));
+    if snapshots.len() <= MOST_DOTS {
+        for (x, y) in &points {
+            svg.push_str(&format!(
+                "<circle class=\"trend-dot\" cx=\"{x:.1}\" cy=\"{y:.1}\" r=\"3\"/>\n"
+            ));
+        }
+    }
+    if let (Some(first), Some(last)) = (snapshots.first(), snapshots.last()) {
+        let base = PLOT_BOTTOM + 20.0;
+        svg.push_str(&format!(
+            "<text class=\"trend-label\" x=\"{PLOT_LEFT}\" y=\"{base}\">{}</text>\n\
+             <text class=\"trend-label\" x=\"{PLOT_RIGHT}\" y=\"{base}\" text-anchor=\"end\">{}</text>\n",
+            markup(first.date()),
+            markup(last.date())
+        ));
+    }
+    svg.push_str("</svg>");
+    svg
+}
+
+/// What the chart says, for a reader who cannot see it.
+fn description(snapshots: &[Snapshot]) -> String {
+    match (snapshots.first(), snapshots.last()) {
+        (Some(first), Some(last)) => format!(
+            "Health across {}, from {} on {} to {} on {}.",
+            plural(snapshots.len() as u32, "snapshot", "snapshots"),
+            first.health,
+            first.date(),
+            last.health,
+            last.date()
+        ),
+        _ => "No snapshots.".to_owned(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rqx_core::finding::Severity;
@@ -204,5 +295,44 @@ mod tests {
         assert_eq!(lines[0]["direction"], "improving");
         assert_eq!(lines[2]["by"], "rule");
         assert_eq!(lines[3]["snapshots"], 3);
+    }
+
+    #[test]
+    fn the_chart_is_an_svg_with_a_line_through_every_snapshot() {
+        let svg = chart(&snapshots());
+        assert!(svg.starts_with("<svg viewBox="), "{svg}");
+        assert!(svg.ends_with("</svg>"));
+        assert!(svg.contains("role=\"img\""));
+        assert_eq!(svg.matches("<circle").count(), 3);
+        let points = svg
+            .split("<polyline class=\"trend-line\" points=\"")
+            .nth(1)
+            .and_then(|rest| rest.split('"').next())
+            .expect("a polyline");
+        assert_eq!(points.split(' ').count(), 3);
+        assert!(svg.contains(">1970-01-01</text>") && svg.contains(">1970-01-03</text>"));
+        assert!(
+            svg.contains("from 50 on 1970-01-01 to 70 on 1970-01-03"),
+            "{svg}"
+        );
+        assert!(!svg.contains("<script"));
+    }
+
+    #[test]
+    fn a_rising_score_is_drawn_rising() {
+        let svg = chart(&snapshots());
+        let ys: Vec<f64> = svg
+            .split("class=\"trend-dot\" cx=\"")
+            .skip(1)
+            .map(|dot| {
+                let cy = dot.split("cy=\"").nth(1).expect("a cy");
+                cy.split('"')
+                    .next()
+                    .expect("a value")
+                    .parse()
+                    .expect("a number")
+            })
+            .collect();
+        assert!(ys[0] > ys[1] && ys[1] > ys[2], "{ys:?}");
     }
 }

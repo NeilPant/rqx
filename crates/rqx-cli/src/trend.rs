@@ -341,19 +341,35 @@ pub struct Options {
         help_heading = "Trend"
     )]
     pub record: Option<PathBuf>,
+    /// Draw the snapshots in this file as a chart in the HTML report. A file that does
+    /// not exist yet draws nothing
+    #[arg(
+        long,
+        value_name = "PATH",
+        value_hint = clap::ValueHint::FilePath,
+        help_heading = "Trend"
+    )]
+    pub trend: Option<PathBuf>,
 }
 
 impl Options {
-    /// Takes the snapshot when one was asked for.
-    pub fn apply(&self, outcome: &ScanOutcome) -> Result<()> {
-        match &self.record {
-            Some(path) => record(path, &Snapshot::of(outcome, now())),
-            None => Ok(()),
+    /// Takes the snapshot when one was asked for, then reads the history a chart is
+    /// drawn from. In that order, so a run that records and charts shows itself. A
+    /// file that is not there yet is no history rather than an error: the first run of
+    /// a pipeline has nothing to read.
+    pub fn apply(&self, outcome: &ScanOutcome) -> Result<Option<Vec<Snapshot>>> {
+        if let Some(path) = &self.record {
+            record(path, &Snapshot::of(outcome, now()))?;
+        }
+        match self.trend.as_deref() {
+            Some(path) if path.exists() => read(path).map(Some),
+            Some(_) => Ok(Some(Vec::new())),
+            None => Ok(None),
         }
     }
 
     pub const fn is_set(&self) -> bool {
-        self.record.is_some()
+        self.record.is_some() || self.trend.is_some()
     }
 }
 
@@ -452,6 +468,35 @@ mod tests {
             serde_json::to_value(Snapshot::of(&outcome, 0)).expect("json");
         line["branch"] = "main".into();
         assert_eq!(parse(&line.to_string()).len(), 1);
+    }
+
+    #[test]
+    fn a_trend_file_that_is_not_there_yet_is_no_history() {
+        let options = Options {
+            record: None,
+            trend: Some(scratch("absent").join("trend.ndjson")),
+        };
+        let history = options.apply(&outcome_with(&[], 1)).expect("no error");
+        assert_eq!(history, Some(Vec::new()));
+        assert_eq!(
+            Options::default()
+                .apply(&outcome_with(&[], 1))
+                .expect("no error"),
+            None
+        );
+    }
+
+    #[test]
+    fn recording_and_charting_in_one_run_charts_the_new_snapshot() {
+        let folder = scratch("both");
+        let file = folder.join("trend.ndjson");
+        let options = Options {
+            record: Some(file.clone()),
+            trend: Some(file),
+        };
+        let history = options.apply(&outcome_with(&[], 1)).expect("no error");
+        let _ = std::fs::remove_dir_all(&folder);
+        assert_eq!(history.map(|snapshots| snapshots.len()), Some(1));
     }
 
     #[test]

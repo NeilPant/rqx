@@ -1893,14 +1893,14 @@ fn run() -> Result<Exit> {
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
                 let outcome = scan::scan_drawn(&path, settings, progress)?;
-                trending.apply(&outcome)?;
+                let history = trending.apply(&outcome)?;
 
                 // A bare `rqx scan` reports; it only gates when asked to, so adding a
                 // flag is the whole opt-in and no existing pipeline changes meaning.
                 let verdict = gate
                     .is_set()
                     .then(|| judge(&outcome, Scope::Project, &settings.config));
-                let report = Report::scan(&outcome, &filter);
+                let report = Report::scan(&outcome, &filter).trended(history.as_deref());
                 let report = match &verdict {
                     Some(verdict) => report.judged(verdict),
                     None => report,
@@ -2656,9 +2656,9 @@ fn run() -> Result<Exit> {
                     review = check::review_drawn(scan_root, &settings, source, progress)?;
                 }
             }
-            trending.apply(&review.outcome)?;
+            let history = trending.apply(&review.outcome)?;
             let verdict = review.judge(&settings.config);
-            let report = Report::review(&review, &verdict, &filter);
+            let report = Report::review(&review, &verdict, &filter).trended(history.as_deref());
             emit(&report, &sinks, &view, palette)?;
             update_notice(&view, &sinks, palette, settings.config.update.check);
             Ok(Exit::of(!verdict.passed()))

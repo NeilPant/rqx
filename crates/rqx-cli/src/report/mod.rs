@@ -202,6 +202,9 @@ pub struct Report<'a> {
     pub totals: Totals,
     /// What the change paid off. Present only on a review that scanned its base.
     pub credit: Option<&'a crate::credit::Credit>,
+    /// Snapshots to chart, when `--trend` named a file. `Some` and empty means the file
+    /// has no history yet.
+    pub trend: Option<&'a [crate::trend::Snapshot]>,
 }
 
 /// What is in scope before any display filter, so the summary can say how much the
@@ -231,6 +234,7 @@ impl<'a> Report<'a> {
                 by_severity: outcome.counts.by_severity.clone(),
                 rules_fired: outcome.counts.by_rule.len(),
             },
+            trend: None,
         }
     }
 
@@ -248,6 +252,12 @@ impl<'a> Report<'a> {
         self
     }
 
+    /// Attaches the history a chart is drawn from.
+    pub fn trended(mut self, snapshots: Option<&'a [crate::trend::Snapshot]>) -> Self {
+        self.trend = snapshots;
+        self
+    }
+
     /// The reviewed slice with no display filter, for the same reason as `everything`.
     pub fn reviewed(review: &'a Review, verdict: &'a Verdict) -> Self {
         Self::review(review, verdict, &FindingFilter::default())
@@ -262,6 +272,7 @@ impl<'a> Report<'a> {
             verdict: Some(verdict),
             credit: review.credit.as_ref(),
             totals: totals_of(review.findings()),
+            trend: None,
         }
     }
 
