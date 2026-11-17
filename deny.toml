@@ -24,6 +24,12 @@ allow = [
   "Unlicense",
   "Zlib",
 ]
+# terminfo reaches the graph through termwiz, one of ratatui's backends, and is the
+# only WTFPL crate. WTFPL places no conditions on use, so it is allowed for that crate
+# alone rather than for anything that might arrive under it later.
+exceptions = [
+  { allow = ["WTFPL"], crate = "terminfo" },
+]
 
 [bans]
 # Two versions of one crate compile twice and bloat the binary, but a transitive
