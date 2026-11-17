@@ -1,0 +1,817 @@
+--color
+--color =always
+--color =auto
+--color =never
+--help
+--motion
+--motion =off
+--motion =on
+--no-mouse
+--no-tui
+--version
+-V
+-h
+alias c -> check
+alias f -> fix
+alias s -> scan
+alias v -> verify
+baseline
+baseline --color
+baseline --color =always
+baseline --color =auto
+baseline --color =never
+baseline --config
+baseline --force
+baseline --help
+baseline --level
+baseline --level [env RQX_LEVEL]
+baseline --motion
+baseline --motion =off
+baseline --motion =on
+baseline --no-mouse
+baseline --no-tui
+baseline --threads
+baseline --threads [env RQX_THREADS]
+baseline --update
+baseline -h
+baseline <path>
+cache
+cache --color
+cache --color =always
+cache --color =auto
+cache --color =never
+cache --help
+cache --motion
+cache --motion =off
+cache --motion =on
+cache --no-mouse
+cache --no-tui
+cache -h
+cache clear
+cache clear --color
+cache clear --color =always
+cache clear --color =auto
+cache clear --color =never
+cache clear --help
+cache clear --motion
+cache clear --motion =off
+cache clear --motion =on
+cache clear --no-mouse
+cache clear --no-tui
+cache clear -h
+cache clear <path>
+cache help
+cache help clear
+cache help help
+cache help status
+cache status
+cache status --color
+cache status --color =always
+cache status --color =auto
+cache status --color =never
+cache status --config
+cache status --help
+cache status --motion
+cache status --motion =off
+cache status --motion =on
+cache status --no-mouse
+cache status --no-tui
+cache status -h
+cache status <path>
+check
+check --allow-findings
+check --base
+check --category
+check --changed
+check --color
+check --color =always
+check --color =auto
+check --color =never
+check --confidence
+check --confidence =heuristic
+check --confidence =verified
+check --config
+check --context
+check --detail
+check --detail =full
+check --detail =normal
+check --detail =terse
+check --fail-on
+check --fail-on =error
+check --fail-on =info
+check --fail-on =never
+check --fail-on =warning
+check --fail-on-incomplete
+check --fix
+check --fixable
+check --format
+check --format =github
+check --format =gitlab
+check --format =json
+check --format =junit
+check --format =markdown
+check --format =sarif
+check --format =terminal
+check --group-by
+check --group-by =family
+check --group-by =file
+check --group-by =rule
+check --group-by =severity
+check --help
+check --level
+check --level [env RQX_LEVEL]
+check --min-grade
+check --min-grade =clean
+check --min-grade =critical
+check --min-grade =fair
+check --min-grade =never
+check --min-grade =poor
+check --min-grade =pristine
+check --min-health
+check --motion
+check --motion =off
+check --motion =on
+check --no-mouse
+check --no-tui
+check --not-category
+check --not-path
+check --not-rule
+check --path
+check --quiet
+check --reporter
+check --rule
+check --search
+check --severity
+check --severity =error
+check --severity =info
+check --severity =warning
+check --show-passed
+check --show-suppressed
+check --since
+check --sort
+check --sort =file
+check --sort =line
+check --sort =severity
+check --stats
+check --timings
+check --top
+check --write
+check -h
+check -q
+check -w
+check <path>
+comment
+comment --allow-findings
+comment --base
+comment --color
+comment --color =always
+comment --color =auto
+comment --color =never
+comment --config
+comment --dry-run
+comment --fail-on
+comment --fail-on =error
+comment --fail-on =info
+comment --fail-on =never
+comment --fail-on =warning
+comment --fail-on-incomplete
+comment --help
+comment --level
+comment --level [env RQX_LEVEL]
+comment --marker
+comment --min-grade
+comment --min-grade =clean
+comment --min-grade =critical
+comment --min-grade =fair
+comment --min-grade =never
+comment --min-grade =poor
+comment --min-grade =pristine
+comment --min-health
+comment --motion
+comment --motion =off
+comment --motion =on
+comment --no-mouse
+comment --no-status
+comment --no-tui
+comment --threads
+comment --threads [env RQX_THREADS]
+comment -h
+comment <path>
+completions
+completions --color
+completions --color =always
+completions --color =auto
+completions --color =never
+completions --help
+completions --motion
+completions --motion =off
+completions --motion =on
+completions --no-mouse
+completions --no-tui
+completions -h
+completions <shell>
+complexity
+complexity --by
+complexity --by =dir
+complexity --by =file
+complexity --by =function
+complexity --color
+complexity --color =always
+complexity --color =auto
+complexity --color =never
+complexity --config
+complexity --help
+complexity --histogram
+complexity --json
+complexity --level
+complexity --level [env RQX_LEVEL]
+complexity --min
+complexity --motion
+complexity --motion =off
+complexity --motion =on
+complexity --no-mouse
+complexity --no-tui
+complexity --sort
+complexity --sort =complexity
+complexity --sort =nesting
+complexity --sort =params
+complexity --sort =statements
+complexity --threads
+complexity --threads [env RQX_THREADS]
+complexity --top
+complexity -h
+complexity <path>
+config
+config --color
+config --color =always
+config --color =auto
+config --color =never
+config --config
+config --help
+config --level
+config --level [env RQX_LEVEL]
+config --motion
+config --motion =off
+config --motion =on
+config --no-mouse
+config --no-tui
+config -h
+config <path>
+config files
+config files --color
+config files --color =always
+config files --color =auto
+config files --color =never
+config files --help
+config files --motion
+config files --motion =off
+config files --motion =on
+config files --no-mouse
+config files --no-tui
+config files -h
+config help
+config help files
+config help help
+config help set
+config help unset
+config set
+config set --color
+config set --color =always
+config set --color =auto
+config set --color =never
+config set --file
+config set --help
+config set --motion
+config set --motion =off
+config set --motion =on
+config set --no-mouse
+config set --no-tui
+config set --pick
+config set -h
+config set <key>
+config set <value>
+config unset
+config unset --color
+config unset --color =always
+config unset --color =auto
+config unset --color =never
+config unset --file
+config unset --help
+config unset --motion
+config unset --motion =off
+config unset --motion =on
+config unset --no-mouse
+config unset --no-tui
+config unset --pick
+config unset -h
+config unset <key>
+docs
+docs --color
+docs --color =always
+docs --color =auto
+docs --color =never
+docs --fixtures
+docs --help
+docs --motion
+docs --motion =off
+docs --motion =on
+docs --no-mouse
+docs --no-tui
+docs --out
+docs -h
+explain
+explain --color
+explain --color =always
+explain --color =auto
+explain --color =never
+explain --help
+explain --motion
+explain --motion =off
+explain --motion =on
+explain --no-mouse
+explain --no-tui
+explain -h
+explain <name>
+fix
+fix --color
+fix --color =always
+fix --color =auto
+fix --color =never
+fix --config
+fix --help
+fix --json
+fix --level
+fix --level [env RQX_LEVEL]
+fix --markdown
+fix --max-rounds
+fix --motion
+fix --motion =off
+fix --motion =on
+fix --no-mouse
+fix --no-tui
+fix --plan
+fix --threads
+fix --threads [env RQX_THREADS]
+fix --write
+fix -h
+fix -w
+fix <path>
+graph
+graph --color
+graph --color =always
+graph --color =auto
+graph --color =never
+graph --config
+graph --cycles
+graph --depth
+graph --focus
+graph --format
+graph --format =dot
+graph --format =json
+graph --format =mermaid
+graph --format =text
+graph --help
+graph --level
+graph --level [env RQX_LEVEL]
+graph --motion
+graph --motion =off
+graph --motion =on
+graph --no-mouse
+graph --no-tui
+graph --threads
+graph --threads [env RQX_THREADS]
+graph -h
+graph <path>
+health
+health --by
+health --by =dir
+health --by =family
+health --by =file
+health --by =rule
+health --color
+health --color =always
+health --color =auto
+health --color =never
+health --config
+health --help
+health --json
+health --level
+health --level [env RQX_LEVEL]
+health --motion
+health --motion =off
+health --motion =on
+health --no-mouse
+health --no-tui
+health --threads
+health --threads [env RQX_THREADS]
+health -h
+health <path>
+help
+help baseline
+help cache
+help cache clear
+help cache status
+help check
+help comment
+help completions
+help complexity
+help config
+help config files
+help config set
+help config unset
+help docs
+help explain
+help fix
+help graph
+help health
+help help
+help init
+help levels
+help lsp
+help mcp
+help patterns
+help perf
+help plan
+help query
+help recommend
+help rules
+help scan
+help setup
+help slop
+help suppressions
+help techniques
+help update
+help verify
+init
+init --color
+init --color =always
+init --color =auto
+init --color =never
+init --force
+init --help
+init --motion
+init --motion =off
+init --motion =on
+init --no-mouse
+init --no-tui
+init -h
+init <path>
+levels
+levels --color
+levels --color =always
+levels --color =auto
+levels --color =never
+levels --help
+levels --motion
+levels --motion =off
+levels --motion =on
+levels --no-mouse
+levels --no-tui
+levels -h
+lsp
+lsp --color
+lsp --color =always
+lsp --color =auto
+lsp --color =never
+lsp --config
+lsp --help
+lsp --motion
+lsp --motion =off
+lsp --motion =on
+lsp --no-mouse
+lsp --no-tui
+lsp -h
+lsp <path>
+mcp
+mcp --color
+mcp --color =always
+mcp --color =auto
+mcp --color =never
+mcp --config
+mcp --help
+mcp --http
+mcp --motion
+mcp --motion =off
+mcp --motion =on
+mcp --no-mouse
+mcp --no-tui
+mcp -h
+mcp <path>
+patterns
+patterns --color
+patterns --color =always
+patterns --color =auto
+patterns --color =never
+patterns --config
+patterns --coverage
+patterns --help
+patterns --json
+patterns --level
+patterns --level [env RQX_LEVEL]
+patterns --motion
+patterns --motion =off
+patterns --motion =on
+patterns --no-mouse
+patterns --no-tui
+patterns --threads
+patterns --threads [env RQX_THREADS]
+patterns -h
+patterns <path>
+perf
+perf --by
+perf --by =dir
+perf --by =file
+perf --by =function
+perf --color
+perf --color =always
+perf --color =auto
+perf --color =never
+perf --config
+perf --help
+perf --json
+perf --level
+perf --level [env RQX_LEVEL]
+perf --min-depth
+perf --motion
+perf --motion =off
+perf --motion =on
+perf --no-mouse
+perf --no-tui
+perf --profile
+perf --sort
+perf --sort =io
+perf --sort =order
+perf --sort =reach
+perf --sort =sampled
+perf --sort =weight
+perf --threads
+perf --threads [env RQX_THREADS]
+perf --top
+perf -h
+perf <path>
+plan
+plan --budget
+plan --color
+plan --color =always
+plan --color =auto
+plan --color =never
+plan --config
+plan --help
+plan --json
+plan --level
+plan --level [env RQX_LEVEL]
+plan --limit
+plan --motion
+plan --motion =off
+plan --motion =on
+plan --no-mouse
+plan --no-tui
+plan --simulate
+plan --threads
+plan --threads [env RQX_THREADS]
+plan -h
+plan <path>
+query
+query --captures
+query --color
+query --color =always
+query --color =auto
+query --color =never
+query --config
+query --help
+query --motion
+query --motion =off
+query --motion =on
+query --no-mouse
+query --no-tui
+query -h
+query <language>
+query <path>
+query <query>
+recommend
+recommend --color
+recommend --color =always
+recommend --color =auto
+recommend --color =never
+recommend --config
+recommend --help
+recommend --json
+recommend --level
+recommend --level [env RQX_LEVEL]
+recommend --motion
+recommend --motion =off
+recommend --motion =on
+recommend --no-mouse
+recommend --no-tui
+recommend --only
+recommend --only =config
+recommend --only =perf
+recommend --only =reading
+recommend --only =refactor
+recommend --threads
+recommend --threads [env RQX_THREADS]
+recommend -h
+recommend <path>
+rules
+rules --color
+rules --color =always
+rules --color =auto
+rules --color =never
+rules --help
+rules --language
+rules --motion
+rules --motion =off
+rules --motion =on
+rules --no-mouse
+rules --no-tui
+rules --slugs
+rules -h
+rules <category>
+scan
+scan --advice
+scan --allow-findings
+scan --category
+scan --changed
+scan --color
+scan --color =always
+scan --color =auto
+scan --color =never
+scan --confidence
+scan --confidence =heuristic
+scan --confidence =verified
+scan --config
+scan --context
+scan --coverage
+scan --detail
+scan --detail =full
+scan --detail =normal
+scan --detail =terse
+scan --fail-on
+scan --fail-on =error
+scan --fail-on =info
+scan --fail-on =never
+scan --fail-on =warning
+scan --fail-on-incomplete
+scan --fixable
+scan --format
+scan --format =github
+scan --format =gitlab
+scan --format =json
+scan --format =junit
+scan --format =markdown
+scan --format =sarif
+scan --format =terminal
+scan --group-by
+scan --group-by =family
+scan --group-by =file
+scan --group-by =rule
+scan --group-by =severity
+scan --help
+scan --level
+scan --level [env RQX_LEVEL]
+scan --max-findings
+scan --min-grade
+scan --min-grade =clean
+scan --min-grade =critical
+scan --min-grade =fair
+scan --min-grade =never
+scan --min-grade =poor
+scan --min-grade =pristine
+scan --min-health
+scan --motion
+scan --motion =off
+scan --motion =on
+scan --no-mouse
+scan --no-tui
+scan --not-category
+scan --not-path
+scan --not-rule
+scan --path
+scan --profile
+scan --quiet
+scan --reporter
+scan --rule
+scan --search
+scan --severity
+scan --severity =error
+scan --severity =info
+scan --severity =warning
+scan --show-passed
+scan --show-suppressed
+scan --since
+scan --sort
+scan --sort =file
+scan --sort =line
+scan --sort =severity
+scan --stats
+scan --threads
+scan --threads [env RQX_THREADS]
+scan --timings
+scan --top
+scan --watch
+scan -h
+scan -q
+scan <path>
+setup
+setup --color
+setup --color =always
+setup --color =auto
+setup --color =never
+setup --help
+setup --motion
+setup --motion =off
+setup --motion =on
+setup --no-mouse
+setup --no-tui
+setup --write
+setup -h
+setup -w
+setup <editor>
+slop
+slop --color
+slop --color =always
+slop --color =auto
+slop --color =never
+slop --config
+slop --help
+slop --json
+slop --level
+slop --level [env RQX_LEVEL]
+slop --min
+slop --motion
+slop --motion =off
+slop --motion =on
+slop --no-mouse
+slop --no-tui
+slop --threads
+slop --threads [env RQX_THREADS]
+slop --top
+slop -h
+slop <path>
+suppressions
+suppressions --color
+suppressions --color =always
+suppressions --color =auto
+suppressions --color =never
+suppressions --config
+suppressions --expiring
+suppressions --help
+suppressions --json
+suppressions --level
+suppressions --level [env RQX_LEVEL]
+suppressions --motion
+suppressions --motion =off
+suppressions --motion =on
+suppressions --no-mouse
+suppressions --no-tui
+suppressions --threads
+suppressions --threads [env RQX_THREADS]
+suppressions -h
+suppressions <path>
+techniques
+techniques --color
+techniques --color =always
+techniques --color =auto
+techniques --color =never
+techniques --help
+techniques --motion
+techniques --motion =off
+techniques --motion =on
+techniques --no-mouse
+techniques --no-tui
+techniques -h
+update
+update --check
+update --color
+update --color =always
+update --color =auto
+update --color =never
+update --help
+update --motion
+update --motion =off
+update --motion =on
+update --no-mouse
+update --no-tui
+update --notes
+update -h
+verify
+verify --base
+verify --color
+verify --color =always
+verify --color =auto
+verify --color =never
+verify --config
+verify --expect
+verify --help
+verify --json
+verify --level
+verify --level [env RQX_LEVEL]
+verify --motion
+verify --motion =off
+verify --motion =on
+verify --no-mouse
+verify --no-tui
+verify --threads
+verify --threads [env RQX_THREADS]
+verify -h
+verify <path>
