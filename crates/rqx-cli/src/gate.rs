@@ -102,36 +102,36 @@ pub fn judge(outcome: &ScanOutcome, scope: Scope<'_>, config: &RqxConfig) -> Ver
     }
 }
 
-/// What counts against the gate, and what a baseline already holds. A project is
-/// counted from `counts`, which is exact; a review from the findings kept for
-/// display, which the cap has already thinned.
+fn at_or_above(counts: &BTreeMap<Severity, u32>, threshold: Severity) -> u32 {
+    counts
+        .iter()
+        .filter(|(severity, _)| **severity >= threshold)
+        .map(|(_, count)| *count)
+        .sum()
+}
+
+/// What counts against the gate, and what a baseline already holds. Both scopes count
+/// from tallies kept before the display cap, never from the findings kept for display:
+/// a review that read those would pass a branch whose findings the cap had dropped.
+/// With a baseline, the gate is about what a change added; without one, every finding
+/// is new by definition, because nothing recorded otherwise.
 fn tally(outcome: &ScanOutcome, scope: &Scope<'_>, threshold: Severity) -> (u32, u32) {
-    match scope {
-        Scope::Project => {
-            let at_or_above = |counts: &BTreeMap<Severity, u32>| -> u32 {
-                counts
-                    .iter()
-                    .filter(|(severity, _)| **severity >= threshold)
-                    .map(|(_, count)| *count)
-                    .sum()
-            };
-            let total = at_or_above(&outcome.counts.by_severity);
-            let counted = at_or_above(&outcome.counts.new_by_severity);
-            (counted, total - counted)
-        }
-        Scope::Files(_) => {
-            let reviewed: Vec<_> = outcome
-                .findings
-                .iter()
-                .filter(|finding| scope.covers(&finding.location.file))
-                .filter(|finding| finding.severity >= threshold)
-                .collect();
-            // With a baseline, the gate is about what this change added; without one,
-            // every finding is new by definition, because nothing recorded otherwise.
-            let known = reviewed.iter().filter(|finding| finding.known).count() as u32;
-            (reviewed.len() as u32 - known, known)
-        }
-    }
+    let (total, counted) = match scope {
+        Scope::Project => (
+            at_or_above(&outcome.counts.by_severity, threshold),
+            at_or_above(&outcome.counts.new_by_severity, threshold),
+        ),
+        Scope::Files(files) => files
+            .iter()
+            .filter_map(|file| outcome.severity_by_file.get(file.as_str()))
+            .fold((0, 0), |(total, counted), file| {
+                (
+                    total + at_or_above(&file.by_severity, threshold),
+                    counted + at_or_above(&file.new_by_severity, threshold),
+                )
+            }),
+    };
+    (counted, total - counted)
 }
 
 const fn threshold(gate: &Gate) -> Option<Severity> {
@@ -359,6 +359,9 @@ mod gates {
             finding.known = finding.severity == Severity::Error;
         }
         outcome.counts.new_by_severity.remove(&Severity::Error);
+        for file in outcome.severity_by_file.values_mut() {
+            file.new_by_severity.remove(&Severity::Error);
+        }
     }
 
     fn with_half_applied_pattern(outcome: &mut ScanOutcome) {
@@ -672,6 +675,19 @@ mod gates {
 
         let elsewhere = reviewing(in_the_review.outcome, &["bad.ts"]);
         assert!(judge_review(&elsewhere, &config).passed());
+    }
+
+    #[test]
+    fn a_review_counts_every_finding_not_the_ones_kept_for_display() {
+        let mut outcome = scenario();
+        outcome.findings.clear();
+
+        let verdict = judge_review(
+            &reviewing(outcome, &["bad.ts"]),
+            &config(gate(Error, 0, NoGrade)),
+        );
+        assert_eq!(verdict.failures, [ERRORS]);
+        assert_eq!(verdict.counted, 10);
     }
 
     #[test]

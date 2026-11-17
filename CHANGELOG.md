@@ -40,6 +40,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **`check` counts every finding, not the 500 kept for display.** The review gate
+  counted the findings retained under `max_findings` (500 by default), so a branch
+  with more findings than that was counted as if it had 500, and a limit above 500
+  could never fail. `[gate] max_findings`, `--allow-findings` and `fail_on` now
+  count from a per-file tally taken before the cap, the way `rqx scan` already did.
+  A config such as `[gate] max_findings = 600` that used to pass `rqx check` on a large
+  change now fails when the change holds more than 600.
 - **`fail_on = "never"` no longer switches off the health and grade floors.** A
   project that set `fail_on = "never"` together with `min_health` or `min_grade` got a
   gate that enforced neither in `rqx check` and `rqx comment`, and not the health floor

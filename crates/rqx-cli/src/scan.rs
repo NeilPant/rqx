@@ -13,7 +13,7 @@ use ignore::types::TypesBuilder;
 use ignore::{WalkBuilder, WalkState};
 use rqx_core::Language;
 use rqx_core::config::RqxConfig;
-use rqx_core::finding::{Evidence, Finding, SourceRange};
+use rqx_core::finding::{Evidence, Finding, Severity, SourceRange};
 use rqx_core::impact::ImpactMap;
 use rqx_core::rule::RuleId;
 use rqx_core::score::FindingCounts;
@@ -78,6 +78,24 @@ pub struct ScanProgress {
     pub by_language: [u32; rqx_core::Language::ALL.len()],
 }
 
+/// How many findings one file holds at each severity, and how many of those a
+/// baseline has not already recorded. The same two tallies the project keeps in
+/// `FindingCounts`, kept per file so a subset of files can be summed.
+#[derive(Default, Clone)]
+pub struct SeverityTally {
+    pub by_severity: std::collections::BTreeMap<Severity, u32>,
+    pub new_by_severity: std::collections::BTreeMap<Severity, u32>,
+}
+
+impl SeverityTally {
+    pub fn record(&mut self, finding: &Finding) {
+        *self.by_severity.entry(finding.severity).or_default() += 1;
+        if !finding.known {
+            *self.new_by_severity.entry(finding.severity).or_default() += 1;
+        }
+    }
+}
+
 pub struct ScanOutcome {
     /// Findings name files relative to what was scanned, so reading one back needs
     /// the root they are relative to rather than whatever directory rqx was run in.
@@ -100,6 +118,10 @@ pub struct ScanOutcome {
     /// Findings per file before the display cap, so a file with nothing to report
     /// can be told from one whose findings the cap dropped.
     pub findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    /// Findings per file by severity, also before the display cap, so a review can
+    /// count what a set of files holds without depending on the findings kept for
+    /// display.
+    pub severity_by_file: std::collections::BTreeMap<Arc<str>, SeverityTally>,
     /// Code lines per file, so a file can be graded on its own density rather than
     /// on the project's.
     pub lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
@@ -198,6 +220,7 @@ struct Collector {
     retained: BinaryHeap<Reverse<Ranked>>,
     max_findings: usize,
     findings_by_file: std::collections::BTreeMap<Arc<str>, u32>,
+    severity_by_file: std::collections::BTreeMap<Arc<str>, SeverityTally>,
     lines_by_file: std::collections::BTreeMap<Arc<str>, u32>,
     suppressions: HashMap<Arc<str>, Vec<rqx_core::suppress::Suppression>>,
     /// Where each file records work still to do, so the history pass can ask how
@@ -260,6 +283,7 @@ impl Collector {
             retained: BinaryHeap::new(),
             max_findings,
             findings_by_file: std::collections::BTreeMap::new(),
+            severity_by_file: std::collections::BTreeMap::new(),
             lines_by_file: std::collections::BTreeMap::new(),
             suppressions: HashMap::new(),
             todos: HashMap::new(),
@@ -389,6 +413,10 @@ impl Collector {
             .findings_by_file
             .entry(Arc::clone(&finding.location.file))
             .or_default() += 1;
+        self.severity_by_file
+            .entry(Arc::clone(&finding.location.file))
+            .or_default()
+            .record(&finding);
         let candidate = Ranked(finding);
         if self.max_findings == 0 || self.retained.len() < self.max_findings {
             self.retained.push(Reverse(candidate));
@@ -1479,6 +1507,7 @@ impl Collector {
             findings,
             advice: self.advice,
             findings_by_file: self.findings_by_file,
+            severity_by_file: self.severity_by_file,
             lines_by_file: self.lines_by_file,
             shape_by_file: self.shape_by_file,
             suppressed: self.suppressed,

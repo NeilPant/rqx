@@ -417,6 +417,11 @@ pub mod tests {
                 .findings_by_file
                 .entry(Arc::clone(&finding.location.file))
                 .or_default() += 1;
+            outcome
+                .severity_by_file
+                .entry(Arc::clone(&finding.location.file))
+                .or_default()
+                .record(&finding);
             outcome.analyzed.insert((*file).to_owned());
             outcome.findings.push(finding);
         }
@@ -437,6 +442,7 @@ pub mod tests {
             findings: Vec::new(),
             advice: Vec::new(),
             findings_by_file: BTreeMap::new(),
+            severity_by_file: BTreeMap::new(),
             lines_by_file: BTreeMap::new(),
             shape_by_file: BTreeMap::new(),
             suppressed: Vec::new(),
@@ -475,6 +481,11 @@ pub mod tests {
                 .findings_by_file
                 .entry(Arc::clone(&finding.location.file))
                 .or_default() += 1;
+            outcome
+                .severity_by_file
+                .entry(Arc::clone(&finding.location.file))
+                .or_default()
+                .record(&finding);
             outcome.analyzed.insert((*file).to_owned());
             outcome.findings.push(finding);
         }
