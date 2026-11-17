@@ -49,6 +49,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   answers were collected without the crashed one, so the files after it picked up the
   neighbouring file's blame: `TODO` ages and waiver ages could land on the wrong
   file. A file whose blame failed now reports no dates and the rest stay in place.
+- **A comma or colon no longer cuts a GitHub annotation short.** A path or title with
+  a `,` or `:` in it ended the annotation's properties early, so GitHub dropped the
+  line number or pinned the warning to the wrong file. Properties now escape both, and
+  a rule the project wrote is titled with its own name instead of `custom`.
 
 ## 0.1.1 — 2026-09-06
 
