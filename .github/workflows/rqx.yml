@@ -63,3 +63,34 @@ jobs:
         with:
           sarif_file: rqx.sarif
           category: rqx
+
+  # install.sh and install.ps1 are the first thing a new user runs, so a broken one is
+  # the worst first impression. Their dry runs need no build, only GitHub.
+  install-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint the shell installer and its test
+        run: shellcheck install.sh tools/install-test.sh
+
+      - name: Installer checks
+        run: tools/install-test.sh
+
+  # The PowerShell installer runs on Windows, so it is linted and dry-run there.
+  install-scripts-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+
+      - name: Lint install.ps1
+        shell: pwsh
+        run: Invoke-ScriptAnalyzer -Path install.ps1 -Severity Warning,Error -EnableExit
+
+      - name: Dry run install.ps1
+        shell: pwsh
+        run: ./install.ps1 -DryRun
