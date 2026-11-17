@@ -1955,20 +1955,20 @@ impl Positions {
 
     fn relative(&self, path: &Path) -> String {
         if let Ok(relative) = path.strip_prefix(&self.root) {
-            return relative.display().to_string();
+            return rqx_core::paths::display_path(relative);
         }
         if let Some(root) = &self.canonical_root
             && let Ok(relative) = path.strip_prefix(root)
         {
-            return relative.display().to_string();
+            return rqx_core::paths::display_path(relative);
         }
         if let (Some(root), Ok(canonical)) =
             (&self.canonical_root, rqx_core::paths::canonicalize(path))
             && let Ok(relative) = canonical.strip_prefix(root)
         {
-            return relative.display().to_string();
+            return rqx_core::paths::display_path(relative);
         }
-        path.display().to_string()
+        rqx_core::paths::display_path(path)
     }
 
     fn range(&mut self, path: &Path, span: Span) -> Option<SourceRange> {
@@ -2018,7 +2018,7 @@ fn generated_by(source: &str) -> Option<&'static str> {
 
 pub(crate) fn relative_to(root: &Path, path: &Path) -> String {
     if let Ok(relative) = path.strip_prefix(root) {
-        return relative.display().to_string();
+        return rqx_core::paths::display_path(relative);
     }
     // The graph works in canonical paths while the walker yields them as given, so
     // the two only line up after both are resolved.
@@ -2027,9 +2027,9 @@ pub(crate) fn relative_to(root: &Path, path: &Path) -> String {
         rqx_core::paths::canonicalize(path),
     ) && let Ok(relative) = canonical.strip_prefix(&canonical_root)
     {
-        return relative.display().to_string();
+        return rqx_core::paths::display_path(relative);
     }
-    path.display().to_string()
+    rqx_core::paths::display_path(path)
 }
 
 /// The cross-file half: clones, the module graph and the churn rules, which no
@@ -2913,6 +2913,25 @@ mod tests {
         assert_eq!(first.cmp(&second), Ordering::Greater);
     }
     use super::generated_by;
+
+    #[test]
+    fn a_nested_finding_path_uses_forward_slashes_whatever_the_platform() {
+        let root = Path::new("repo");
+        let nested = root.join("domain").join("billing").join("invoice.ts");
+
+        assert_eq!(
+            Positions::new(root).relative(&nested),
+            "domain/billing/invoice.ts"
+        );
+        assert_eq!(relative_to(root, &nested), "domain/billing/invoice.ts");
+    }
+
+    #[test]
+    fn a_path_outside_the_root_is_still_written_with_forward_slashes() {
+        let elsewhere = Path::new("other").join("pkg").join("a.ts");
+
+        assert_eq!(relative_to(Path::new("repo"), &elsewhere), "other/pkg/a.ts");
+    }
 
     #[test]
     fn a_file_is_read_and_indexed_once_however_many_findings_land_in_it() {

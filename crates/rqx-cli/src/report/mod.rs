@@ -403,7 +403,7 @@ fn prefix_below(root: &Path, cwd: Option<&Path>) -> String {
         .map(rqx_core::paths::canonical_or_same)
         .and_then(|cwd| absolute.strip_prefix(cwd).ok().map(Path::to_path_buf))
         .unwrap_or(absolute);
-    match shown.to_string_lossy().replace('\\', "/") {
+    match rqx_core::paths::display_path(&shown) {
         text if text.is_empty() => String::new(),
         text => format!("{text}/"),
     }

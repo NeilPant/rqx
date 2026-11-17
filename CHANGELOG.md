@@ -190,6 +190,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   `\\?\` prefix Windows adds when it resolves a path, because the working directory
   never carries it. Every path rqx resolves now drops that prefix first.
 
+- **Finding paths use `/` on Windows.** A file in a nested directory was reported as
+  `domain\billing\invoice.ts`, so an architecture glob such as `domain/**` never
+  matched it and the same scan printed different paths on Windows and elsewhere. Paths
+  in findings, reports, glob matches and the cache are now always written with `/`.
+
 ## 0.2.1 — 2026-11-17
 
 ### Added

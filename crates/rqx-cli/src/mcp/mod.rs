@@ -68,7 +68,7 @@ impl Rqx {
     fn relative(&self, path: &Path) -> String {
         path.strip_prefix(self.root.as_path())
             .ok()
-            .map(|path| path.to_string_lossy().into_owned())
+            .map(rqx_core::paths::display_path)
             .filter(|path| !path.is_empty())
             .unwrap_or_else(|| ".".to_owned())
     }

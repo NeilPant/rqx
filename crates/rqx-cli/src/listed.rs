@@ -93,7 +93,7 @@ fn under(canonical_root: &Path, root: &Path, named: &str) -> Option<String> {
         return None;
     }
     let relative = found.strip_prefix(canonical_root).ok()?;
-    Some(relative.display().to_string())
+    Some(rqx_core::paths::display_path(relative))
 }
 
 #[cfg(test)]
