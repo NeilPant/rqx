@@ -2240,19 +2240,21 @@ pub(crate) fn analyze_file(
     }
     let cached = match cache.and_then(|cache| cache.get(&display, &source, stamp)) {
         Some(cached) => cached,
-        None => match rqx_lang::analyze(path, &display, &source, config) {
-            Ok(analysis) => {
-                let identities = identities_of(&analysis.findings, &source);
-                if let Some(cache) = cache {
-                    cache.put(&display, &source, stamp, &analysis, &identities);
+        None => {
+            match rqx_lang::analyze_with(path, &display, &source, config, &settings.cost_tables) {
+                Ok(analysis) => {
+                    let identities = identities_of(&analysis.findings, &source);
+                    if let Some(cache) = cache {
+                        cache.put(&display, &source, stamp, &analysis, &identities);
+                    }
+                    Cached {
+                        analysis,
+                        identities,
+                    }
                 }
-                Cached {
-                    analysis,
-                    identities,
-                }
+                Err(error) => return skipped(path, error.to_string()),
             }
-            Err(error) => return skipped(path, error.to_string()),
-        },
+        }
     };
     analyzed(path, display, cached, settings)
 }

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <vector>
 
-// @complexity time=O(n) space=O(1) conf=verified
+// @complexity time=O(n) space=O(1) conf=verified scope=local
 long long sum_all(const std::vector<int>& values) {
     long long total = 0;
     for (int value : values) {
@@ -12,7 +12,7 @@ long long sum_all(const std::vector<int>& values) {
     return total;
 }
 
-// @complexity time=O(n^2) space=O(1) conf=verified
+// @complexity time=O(n^2) space=O(1) conf=verified scope=local
 bool has_duplicate(const std::vector<int>& values) {
     for (std::size_t i = 0; i < values.size(); ++i) {
         for (std::size_t j = i + 1; j < values.size(); ++j) {
@@ -24,7 +24,7 @@ bool has_duplicate(const std::vector<int>& values) {
     return false;
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified
+// @complexity time=O(n*m) space=O(1) conf=verified scope=local
 int count_matches(const std::vector<int>& left, const std::vector<int>& right) {
     int matches = 0;
     for (int a : left) {
@@ -37,7 +37,7 @@ int count_matches(const std::vector<int>& left, const std::vector<int>& right) {
     return matches;
 }
 
-// @complexity time=O(n log n) space=O(n) conf=verified
+// @complexity time=O(n log n) space=O(n) conf=verified scope=local
 int median(const std::vector<int>& values) {
     std::vector<int> ordered = values;
     std::sort(ordered.begin(), ordered.end());

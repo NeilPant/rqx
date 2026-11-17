@@ -40,12 +40,19 @@ pub enum Bound {
 }
 
 /// The size of what is passed to a callee, as far as the caller knows it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ArgSize {
     Param(u8),
     Local(u16),
+    #[default]
     Const,
     Unknown,
+}
+
+impl ArgSize {
+    pub const fn is_const(&self) -> bool {
+        matches!(self, Self::Const)
+    }
 }
 
 /// The cost of a piece of a function body, before the sizes are known. A function's
@@ -65,11 +72,16 @@ pub enum Cost {
     Branch(Vec<Cost>),
     /// A call, by index into [`FunctionCost::calls`].
     Call(u16),
-    /// A call into a library function whose cost a table knows.
+    /// A call into a library function whose cost a table knows. In a function's time
+    /// this is the entry's time and in its space the entry's space, with the entry's
+    /// `n` being `size` and its `m` being `arg`.
     Lib {
         entry: u16,
         size: ArgSize,
         line: u32,
+        /// The size of the first argument, which the entries written in `m` use.
+        #[serde(default, skip_serializing_if = "ArgSize::is_const")]
+        arg: ArgSize,
     },
 }
 
@@ -229,6 +241,11 @@ pub struct FunctionCost {
     pub rec: Option<Recurrence>,
     #[serde(default, skip_serializing_if = "Indicators::is_empty")]
     pub ind: Indicators,
+    /// How sure the function's own cost is, before its callees are folded in. A loop
+    /// whose bound is not known, or a cost taken from a method name alone, makes it
+    /// less than verified.
+    #[serde(default, skip_serializing_if = "is_verified")]
+    pub conf: Conf,
     /// The name under which another file imports this function.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exported_as: Option<String>,
@@ -267,6 +284,10 @@ pub struct Summary {
     pub conf: Conf,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trace: Vec<TraceStep>,
+}
+
+fn is_verified(conf: &Conf) -> bool {
+    *conf == Conf::Verified
 }
 
 fn is_false(value: &bool) -> bool {
@@ -337,6 +358,7 @@ mod tests {
                 static_growth: vec!["REGISTRY".to_owned()],
                 ..Indicators::default()
             },
+            conf: Conf::Heuristic,
             exported_as: Some("find".to_owned()),
         };
         let file = FileCost {
@@ -344,6 +366,28 @@ mod tests {
         };
         let json = serde_json::to_string(&file).unwrap();
         assert_eq!(serde_json::from_str::<FileCost>(&json).unwrap(), file);
+    }
+
+    #[test]
+    fn a_library_call_leaves_out_the_argument_size_it_does_not_use() {
+        let uses_one = Cost::Lib {
+            entry: 3,
+            size: ArgSize::Param(0),
+            line: 8,
+            arg: ArgSize::Const,
+        };
+        let json = serde_json::to_string(&uses_one).unwrap();
+        assert!(!json.contains("arg"), "{json}");
+        assert_eq!(serde_json::from_str::<Cost>(&json).unwrap(), uses_one);
+
+        let uses_both = Cost::Lib {
+            entry: 3,
+            size: ArgSize::Param(0),
+            line: 8,
+            arg: ArgSize::Param(1),
+        };
+        let json = serde_json::to_string(&uses_both).unwrap();
+        assert_eq!(serde_json::from_str::<Cost>(&json).unwrap(), uses_both);
     }
 
     #[test]

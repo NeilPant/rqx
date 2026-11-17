@@ -1,0 +1,12 @@
+# Library costs only TypeScript has: the typed arrays and `Buffer` that its declarations
+# name. Everything else TypeScript writes is in javascript.yaml, which TypeScript reads
+# as well; `T[]`, `Array<T>` and `ReadonlyArray<T>` are all `Array` there.
+
+- {id: ts.typed.indexOf, receiver: [Uint8Array, Int32Array, Float64Array, Buffer], method: indexOf, cost: n, pure: true}
+- {id: ts.typed.includes, receiver: [Uint8Array, Int32Array, Float64Array, Buffer], method: includes, cost: n, pure: true}
+- {id: ts.typed.slice, receiver: [Uint8Array, Int32Array, Float64Array, Buffer], method: slice, cost: n, space: n, pure: true}
+- {id: ts.typed.sort, receiver: [Uint8Array, Int32Array, Float64Array], method: sort, cost: n log n}
+- {id: ts.typed.fill, receiver: [Uint8Array, Int32Array, Float64Array, Buffer], method: fill, cost: n}
+- {id: ts.typed.set, receiver: [Uint8Array, Int32Array, Float64Array], method: set, size_of: arg0, cost: n}
+- {id: ts.buffer.concat, fn: Buffer.concat, size_of: arg0, cost: n, space: n, pure: true}
+- {id: ts.buffer.toString, receiver: [Buffer], method: toString, cost: n, space: n, pure: true}

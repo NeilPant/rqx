@@ -1,7 +1,7 @@
 // Seed functions for the complexity precision corpus. Each annotation is the
 // ground truth the inference is scored against; `space` counts the call stack.
 
-// @complexity time=O(n) space=O(1) conf=verified
+// @complexity time=O(n) space=O(1) conf=verified scope=local
 export function sumAll(values) {
   let total = 0;
   for (const value of values) {
@@ -10,7 +10,7 @@ export function sumAll(values) {
   return total;
 }
 
-// @complexity time=O(1) space=O(1) conf=verified
+// @complexity time=O(1) space=O(1) conf=verified scope=local
 export function firstThree(values) {
   const picked = [];
   for (let i = 0; i < 3; i++) {
@@ -30,7 +30,7 @@ export function countShared(left, right) {
   return shared;
 }
 
-// @complexity time=O(n) space=O(1) conf=verified
+// @complexity time=O(n) space=O(1) conf=verified scope=local
 function contains(items, wanted) {
   for (const item of items) {
     if (item === wanted) {

@@ -126,6 +126,7 @@ fn analysis_version_of_format(format: u32, settings: &Resolved) -> u64 {
     env!("CARGO_PKG_VERSION").hash(&mut hasher);
     settings.signature().hash(&mut hasher);
     catalogue_version().hash(&mut hasher);
+    settings.cost_signature().hash(&mut hasher);
     hasher.finish()
 }
 
@@ -506,9 +507,71 @@ mod tests {
         assert_ne!(hasher.finish(), catalogue_version());
     }
 
-    use rqx_core::config::RqxConfig;
+    use rqx_core::config::{Performance, RqxConfig};
 
     use super::*;
+
+    fn with_performance(yaml: &str) -> Resolved {
+        let performance: Performance = serde_saphyr::from_str(yaml).unwrap();
+        Resolved::of(RqxConfig {
+            performance,
+            ..RqxConfig::default()
+        })
+    }
+
+    /// An entry the cost extraction read a call through is baked into the cached
+    /// analysis as an index into the tables, so a table that changed makes every cached
+    /// analysis wrong, not only the files that call the entry.
+    #[test]
+    fn a_change_to_performance_costs_changes_the_key() {
+        let none = analysis_version(&Resolved::of(RqxConfig::default()));
+        let linear = "costs:\n  - {id: mine.scan, receiver: [list], method: scan, cost: n}\n";
+        let constant = "costs:\n  - {id: mine.scan, receiver: [list], method: scan, cost: 1}\n";
+        let renamed = "costs:\n  - {id: mine.look, receiver: [list], method: scan, cost: n}\n";
+        let versions: Vec<u64> = [linear, constant, renamed]
+            .iter()
+            .map(|yaml| analysis_version(&with_performance(yaml)))
+            .collect();
+        for version in &versions {
+            assert_ne!(*version, none);
+        }
+        assert_ne!(versions[0], versions[1]);
+        assert_ne!(versions[0], versions[2]);
+        assert_eq!(versions[0], analysis_version(&with_performance(linear)));
+    }
+
+    #[test]
+    fn performance_max_order_and_client_names_change_the_key() {
+        let base = analysis_version(&Resolved::of(RqxConfig::default()));
+        for yaml in [
+            "max_order: O(n log n)\n",
+            "receivers: [gateway]\n",
+            "methods: [pull]\n",
+        ] {
+            assert_ne!(base, analysis_version(&with_performance(yaml)), "{yaml}");
+        }
+    }
+
+    #[test]
+    fn a_cache_written_before_performance_costs_changed_is_a_miss() {
+        let root = a_scratch_project("costs-changed");
+        let before = Resolved::of(RqxConfig::default());
+        write_cache(
+            &root,
+            &before,
+            BTreeMap::from([("a.ts".to_owned(), packed(SOURCE, Some(stamped(SETTLED))))]),
+        );
+        assert!(stored(&root, &before).unwrap().current);
+
+        let after = with_performance(
+            "costs:\n  - {id: mine.scan, receiver: [list], method: scan, cost: n}\n",
+        );
+        assert!(!stored(&root, &after).unwrap().current);
+        let cache = Cache::open(&root, &after);
+        assert!(cache.get("a.ts", SOURCE, None).is_none());
+        assert_eq!(cache.miss_count(), 1);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 
     /// This used to name `cognitive_complexity`, one of the eight thresholds the
     /// hand-written hash covered, so it passed while the other nine went unhashed and

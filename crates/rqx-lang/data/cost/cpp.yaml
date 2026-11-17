@@ -1,0 +1,97 @@
+# Library costs for C++. See javascript.yaml for how an entry reads. An algorithm is
+# sized by the container its first iterator belongs to: `std::find(v.begin(), v.end(), x)`
+# is over the size of `v`. A name used without `std::` reads the same.
+
+# Vectors and deques.
+- {id: cpp.vector.push_back, receiver: [vector, deque], method: push_back, cost: 1}
+- {id: cpp.vector.emplace_back, receiver: [vector, deque], method: emplace_back, cost: 1}
+- {id: cpp.vector.pop_back, receiver: [vector, deque], method: pop_back, cost: 1}
+- {id: cpp.vector.insert, receiver: [vector], method: insert, cost: n}
+- {id: cpp.vector.erase, receiver: [vector], method: erase, cost: n}
+- {id: cpp.vector.clear, receiver: [vector, deque, list], method: clear, cost: n}
+- {id: cpp.vector.resize, receiver: [vector, deque], method: resize, cost: n}
+- {id: cpp.vector.assign, receiver: [vector, deque], method: assign, cost: n}
+- {id: cpp.vector.at, receiver: [vector, deque], method: at, cost: 1}
+- {id: cpp.vector.size, receiver: [vector, deque, list, set, map, unordered_set, unordered_map, string], method: size, cost: 1}
+- {id: cpp.deque.push_front, receiver: [deque, list], method: push_front, cost: 1}
+- {id: cpp.deque.pop_front, receiver: [deque, list], method: pop_front, cost: 1}
+- {id: cpp.deque.insert, receiver: [deque], method: insert, cost: n}
+- {id: cpp.deque.erase, receiver: [deque], method: erase, cost: n}
+
+# Linked lists.
+- {id: cpp.list.push_back, receiver: [list], method: push_back, cost: 1}
+- {id: cpp.list.insert, receiver: [list], method: insert, cost: 1}
+- {id: cpp.list.erase, receiver: [list], method: erase, cost: 1}
+- {id: cpp.list.remove, receiver: [list], method: remove, cost: n}
+- {id: cpp.list.sort, receiver: [list], method: sort, cost: n log n}
+- {id: cpp.list.unique, receiver: [list], method: unique, cost: n}
+- {id: cpp.list.reverse, receiver: [list], method: reverse, cost: n}
+
+# Ordered containers.
+- {id: cpp.tree.find, receiver: [map, set, multimap, multiset], method: find, cost: log n}
+- {id: cpp.tree.count, receiver: [map, set, multimap, multiset], method: count, cost: log n}
+- {id: cpp.tree.contains, receiver: [map, set, multimap, multiset], method: contains, cost: log n}
+- {id: cpp.tree.insert, receiver: [map, set, multimap, multiset], method: insert, cost: log n}
+- {id: cpp.tree.emplace, receiver: [map, set, multimap, multiset], method: emplace, cost: log n}
+- {id: cpp.tree.erase, receiver: [map, set, multimap, multiset], method: erase, cost: log n}
+- {id: cpp.tree.at, receiver: [map], method: at, cost: log n}
+- {id: cpp.tree.lower_bound, receiver: [map, set], method: lower_bound, cost: log n}
+- {id: cpp.tree.upper_bound, receiver: [map, set], method: upper_bound, cost: log n}
+
+# Hashed containers.
+- {id: cpp.hash.find, receiver: [unordered_map, unordered_set], method: find, cost: 1}
+- {id: cpp.hash.count, receiver: [unordered_map, unordered_set], method: count, cost: 1}
+- {id: cpp.hash.contains, receiver: [unordered_map, unordered_set], method: contains, cost: 1}
+- {id: cpp.hash.insert, receiver: [unordered_map, unordered_set], method: insert, cost: 1}
+- {id: cpp.hash.emplace, receiver: [unordered_map, unordered_set], method: emplace, cost: 1}
+- {id: cpp.hash.erase, receiver: [unordered_map, unordered_set], method: erase, cost: 1}
+- {id: cpp.hash.at, receiver: [unordered_map], method: at, cost: 1}
+
+# Heaps.
+- {id: cpp.heap.push, receiver: [priority_queue], method: push, cost: log n}
+- {id: cpp.heap.pop, receiver: [priority_queue], method: pop, cost: log n}
+- {id: cpp.heap.top, receiver: [priority_queue], method: top, cost: 1}
+
+# Strings.
+- {id: cpp.string.find, receiver: [string], method: find, cost: n, pure: true}
+- {id: cpp.string.rfind, receiver: [string], method: rfind, cost: n, pure: true}
+- {id: cpp.string.find_first_of, receiver: [string], method: find_first_of, cost: n, pure: true}
+- {id: cpp.string.substr, receiver: [string], method: substr, cost: n, space: n, pure: true}
+- {id: cpp.string.compare, receiver: [string], method: compare, cost: n, pure: true}
+- {id: cpp.string.insert, receiver: [string], method: insert, cost: n}
+- {id: cpp.string.erase, receiver: [string], method: erase, cost: n}
+- {id: cpp.string.replace, receiver: [string], method: replace, cost: n}
+- {id: cpp.string.append, receiver: [string], method: append, cost: 1}
+- {id: cpp.string.push_back, receiver: [string], method: push_back, cost: 1}
+
+# Algorithms.
+- {id: cpp.sort, fn: std::sort, cost: n log n}
+- {id: cpp.stable_sort, fn: std::stable_sort, cost: n log n}
+- {id: cpp.partial_sort, fn: std::partial_sort, cost: n log n}
+- {id: cpp.nth_element, fn: std::nth_element, cost: n}
+- {id: cpp.find, fn: std::find, cost: n, pure: true}
+- {id: cpp.find_if, fn: std::find_if, cost: n, pure: true}
+- {id: cpp.count, fn: std::count, cost: n, pure: true}
+- {id: cpp.count_if, fn: std::count_if, cost: n, pure: true}
+- {id: cpp.accumulate, fn: std::accumulate, cost: n, pure: true}
+- {id: cpp.reverse, fn: std::reverse, cost: n}
+- {id: cpp.max_element, fn: std::max_element, cost: n, pure: true}
+- {id: cpp.min_element, fn: std::min_element, cost: n, pure: true}
+- {id: cpp.all_of, fn: std::all_of, cost: n, pure: true}
+- {id: cpp.any_of, fn: std::any_of, cost: n, pure: true}
+- {id: cpp.none_of, fn: std::none_of, cost: n, pure: true}
+- {id: cpp.equal, fn: std::equal, cost: n, pure: true}
+- {id: cpp.copy, fn: std::copy, cost: n}
+- {id: cpp.fill, fn: std::fill, cost: n}
+- {id: cpp.unique, fn: std::unique, cost: n}
+- {id: cpp.remove, fn: std::remove, cost: n}
+- {id: cpp.remove_if, fn: std::remove_if, cost: n}
+- {id: cpp.iota, fn: std::iota, cost: n}
+- {id: cpp.next_permutation, fn: std::next_permutation, cost: n}
+- {id: cpp.binary_search, fn: std::binary_search, cost: log n, pure: true}
+- {id: cpp.lower_bound, fn: std::lower_bound, cost: log n, pure: true}
+- {id: cpp.upper_bound, fn: std::upper_bound, cost: log n, pure: true}
+- {id: cpp.make_heap, fn: std::make_heap, cost: n}
+- {id: cpp.push_heap, fn: std::push_heap, cost: log n}
+- {id: cpp.pop_heap, fn: std::pop_heap, cost: log n}
+- {id: cpp.sort_heap, fn: std::sort_heap, cost: n log n}

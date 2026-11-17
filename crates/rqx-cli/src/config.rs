@@ -7,6 +7,7 @@ use ignore::overrides::{Override, OverrideBuilder};
 use rqx_core::config::{
     CONFIG_FILE_NAME, Level, RqxConfig, SCOPED_TABLES, SubtreeOverride, TABLES, UnknownName,
 };
+use rqx_lang::cost::tables::CostTables;
 use serde_json::{Map, Value};
 
 mod extends;
@@ -92,6 +93,9 @@ pub struct Resolved {
     pub baseline: Option<Arc<HashSet<rqx_core::identity::Identity>>>,
     /// How many findings the baseline was taken over, for the ratchet.
     pub baseline_findings: Option<u32>,
+    /// What library calls cost: the built-in tables and the project's own entries,
+    /// built once for the run. Shared because every worker reads it and none writes it.
+    pub cost_tables: Arc<CostTables>,
 }
 
 impl Clone for Resolved {
@@ -118,6 +122,7 @@ impl Clone for Resolved {
             modules: self.modules,
             baseline: self.baseline.clone(),
             baseline_findings: self.baseline_findings,
+            cost_tables: Arc::clone(&self.cost_tables),
         }
     }
 }
@@ -134,6 +139,7 @@ impl Resolved {
     pub fn of(config: RqxConfig) -> Self {
         let modules = config.needs_modules();
         Self {
+            cost_tables: CostTables::for_performance(&config.performance),
             config,
             sources: Vec::new(),
             provenance: BTreeMap::new(),
@@ -207,6 +213,20 @@ impl Resolved {
                     )
                 })
                 .collect::<Vec<_>>(),
+        )
+    }
+
+    /// Everything that shapes what the cost extraction records: the tables the library
+    /// calls were costed against, the client names that make a call a round trip, and the
+    /// order a reviewed function may not pass. A cached analysis holds indexes into the
+    /// tables, so it is only as good as the tables it was made with.
+    pub fn cost_signature(&self) -> impl std::hash::Hash + '_ {
+        let performance = &self.config.performance;
+        (
+            self.cost_tables.version(),
+            &performance.receivers,
+            &performance.methods,
+            &performance.max_order,
         )
     }
 
@@ -297,6 +317,7 @@ impl Resolved {
             scopes,
             baseline: self.baseline.clone(),
             baseline_findings: self.baseline_findings,
+            cost_tables: Arc::clone(&self.cost_tables),
             modules: self.modules,
         })
     }
@@ -527,6 +548,7 @@ fn resolve_with(
     };
 
     Ok(Resolved {
+        cost_tables: CostTables::for_performance(&config.performance),
         config,
         sources,
         provenance,

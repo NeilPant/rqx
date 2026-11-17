@@ -1,0 +1,80 @@
+# Library costs for JavaScript, and for TypeScript, which reads this table too.
+#
+# `n` is the size of the receiver (or of the argument `size_of` names), `m` the size of
+# the first argument. `space` is the extra space the call allocates and defaults to 1.
+# `pure` marks calls with no side effects, so repeating one with the same arguments in a
+# loop is repeated work. A receiver of "*" stands for any type that has the method, and
+# is used, at lower confidence, only when the receiver's type is not known.
+
+# Arrays. `find`, `some`, `every`, `filter` and `map` take a callback, which makes them
+# loops of their own; they are read as loops, not looked up here.
+- {id: js.array.includes, receiver: [Array], method: includes, cost: n, pure: true}
+- {id: js.array.indexOf, receiver: [Array], method: indexOf, cost: n, pure: true}
+- {id: js.array.lastIndexOf, receiver: [Array], method: lastIndexOf, cost: n, pure: true}
+- {id: js.array.slice, receiver: [Array], method: slice, cost: n, space: n, pure: true}
+- {id: js.array.concat, receiver: [Array], method: concat, cost: n, space: n, pure: true}
+- {id: js.array.flat, receiver: [Array], method: flat, cost: n, space: n, pure: true}
+- {id: js.array.join, receiver: [Array], method: join, cost: n, space: n, pure: true}
+- {id: js.array.reverse, receiver: [Array], method: reverse, cost: n}
+- {id: js.array.sort, receiver: [Array], method: sort, cost: n log n}
+- {id: js.array.toSorted, receiver: [Array], method: toSorted, cost: n log n, space: n, pure: true}
+- {id: js.array.toReversed, receiver: [Array], method: toReversed, cost: n, space: n, pure: true}
+- {id: js.array.splice, receiver: [Array], method: splice, cost: n}
+- {id: js.array.shift, receiver: [Array], method: shift, cost: n}
+- {id: js.array.unshift, receiver: [Array], method: unshift, cost: n}
+- {id: js.array.fill, receiver: [Array], method: fill, cost: n}
+- {id: js.array.copyWithin, receiver: [Array], method: copyWithin, cost: n}
+- {id: js.array.push, receiver: [Array], method: push, cost: 1}
+- {id: js.array.pop, receiver: [Array], method: pop, cost: 1}
+- {id: js.array.at, receiver: [Array], method: at, cost: 1}
+- {id: js.array.from, fn: Array.from, size_of: arg0, cost: n, space: n, pure: true}
+
+# Strings.
+- {id: js.string.includes, receiver: [string, String], method: includes, cost: n, pure: true}
+- {id: js.string.indexOf, receiver: [string, String], method: indexOf, cost: n, pure: true}
+- {id: js.string.lastIndexOf, receiver: [string, String], method: lastIndexOf, cost: n, pure: true}
+- {id: js.string.slice, receiver: [string, String], method: slice, cost: n, space: n, pure: true}
+- {id: js.string.substring, receiver: [string, String], method: substring, cost: n, space: n, pure: true}
+- {id: js.string.split, receiver: [string, String], method: split, cost: n, space: n, pure: true}
+- {id: js.string.replace, receiver: [string, String], method: replace, cost: n, space: n, pure: true}
+- {id: js.string.replaceAll, receiver: [string, String], method: replaceAll, cost: n, space: n, pure: true}
+- {id: js.string.trim, receiver: [string, String], method: trim, cost: n, space: n, pure: true}
+- {id: js.string.toLowerCase, receiver: [string, String], method: toLowerCase, cost: n, space: n, pure: true}
+- {id: js.string.toUpperCase, receiver: [string, String], method: toUpperCase, cost: n, space: n, pure: true}
+- {id: js.string.match, receiver: [string, String], method: match, cost: n, pure: true}
+- {id: js.string.padStart, receiver: [string, String], method: padStart, cost: n, space: n, pure: true}
+- {id: js.string.repeat, receiver: [string, String], method: repeat, cost: n, space: n, pure: true}
+- {id: js.string.localeCompare, receiver: [string, String], method: localeCompare, cost: n, pure: true}
+- {id: js.string.charAt, receiver: [string, String], method: charAt, cost: 1}
+
+# Keyed collections answer by key, so a lookup in one costs the same however large it is.
+- {id: js.keyed.has, receiver: [Set, Map, WeakSet, WeakMap], method: has, cost: 1}
+- {id: js.keyed.get, receiver: [Map, WeakMap], method: get, cost: 1}
+- {id: js.keyed.set, receiver: [Map, WeakMap], method: set, cost: 1}
+- {id: js.keyed.add, receiver: [Set, WeakSet], method: add, cost: 1}
+- {id: js.keyed.delete, receiver: [Set, Map, WeakSet, WeakMap], method: delete, cost: 1}
+- {id: js.keyed.clear, receiver: [Set, Map], method: clear, cost: n}
+
+# Free functions.
+- {id: js.object.keys, fn: Object.keys, size_of: arg0, cost: n, space: n, pure: true}
+- {id: js.object.values, fn: Object.values, size_of: arg0, cost: n, space: n, pure: true}
+- {id: js.object.entries, fn: Object.entries, size_of: arg0, cost: n, space: n, pure: true}
+- {id: js.object.assign, fn: Object.assign, size_of: arg1, cost: n}
+- {id: js.json.stringify, fn: JSON.stringify, size_of: arg0, cost: n, space: n, pure: true}
+- {id: js.json.parse, fn: JSON.parse, size_of: arg0, cost: n, space: n, pure: true}
+- {id: js.structuredClone, fn: structuredClone, size_of: arg0, cost: n, space: n, pure: true}
+
+# Names that mean one thing on every type that has them.
+- {id: js.any.includes, receiver: ["*"], method: includes, cost: n, pure: true}
+- {id: js.any.indexOf, receiver: ["*"], method: indexOf, cost: n, pure: true}
+- {id: js.any.lastIndexOf, receiver: ["*"], method: lastIndexOf, cost: n, pure: true}
+- {id: js.any.splice, receiver: ["*"], method: splice, cost: n}
+- {id: js.any.shift, receiver: ["*"], method: shift, cost: n}
+- {id: js.any.unshift, receiver: ["*"], method: unshift, cost: n}
+- {id: js.any.sort, receiver: ["*"], method: sort, cost: n log n}
+- {id: js.any.toSorted, receiver: ["*"], method: toSorted, cost: n log n, space: n, pure: true}
+- {id: js.any.reverse, receiver: ["*"], method: reverse, cost: n}
+- {id: js.any.join, receiver: ["*"], method: join, cost: n, space: n, pure: true}
+- {id: js.any.concat, receiver: ["*"], method: concat, cost: n, space: n, pure: true}
+- {id: js.any.flat, receiver: ["*"], method: flat, cost: n, space: n, pure: true}
+- {id: js.any.localeCompare, receiver: ["*"], method: localeCompare, cost: n, pure: true}

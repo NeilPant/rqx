@@ -4,6 +4,7 @@ use rqx_core::facts::{Hygiene, Limits, Spot};
 use rqx_core::span::Span;
 use tree_sitter::Node;
 
+use crate::names::Names;
 use crate::profile::LanguageProfile;
 use crate::scope::{Binding, BindingKind, Scopes};
 use crate::tree::{
@@ -51,75 +52,28 @@ struct Walker<'a> {
 }
 
 impl<'a> Walker<'a> {
+    fn names(&self) -> Names<'a> {
+        Names::new(self.profile, self.source)
+    }
+
     fn text(&self, node: Node<'a>) -> &'a str {
         text_of(node, self.source)
     }
 
     fn see_through(&self, node: Node<'a>) -> Node<'a> {
-        let mut current = node;
-        while self.profile.transparent_kinds.contains(&kind_of(current)) {
-            match current.named_child(0) {
-                Some(inner) => current = inner,
-                None => break,
-            }
-        }
-        current
+        self.names().see_through(node)
     }
 
-    /// The dotted name a call is written with, so `describe.skip` and `t.Skip` are
-    /// one string a vocabulary can match.
     fn callee_name(&self, node: Node<'a>) -> Option<String> {
-        let node = self.see_through(node);
-        if self.profile.is_identifier(node) {
-            return Some(self.text(node).to_owned());
-        }
-        // `super` and `this` are keywords with nodes of their own in most grammars,
-        // and both name the receiver a call is written on.
-        let word = self.text(node);
-        if self.profile.super_names.contains(&word) || self.profile.self_names.contains(&word) {
-            return Some(word.to_owned());
-        }
-        if self.profile.is_member_access(node)
-            && let Some(object) = node
-                .child_by_field_name(self.profile.object_field)
-                .and_then(|object| self.callee_name(object))
-            && let Some(property) = self.member_property(node)
-        {
-            return Some(format!("{object}.{}", self.text(property)));
-        }
-        if self.profile.qualified_name_kinds.contains(&kind_of(node)) {
-            return Some(self.text(node).replace("::", "."));
-        }
-        // A call written on the answer of another call. Read from the callee rather
-        // than from the whole call, so a grammar that gives a call and a member reach
-        // the same node kind cannot send this round in a circle.
-        if self.profile.is_call(node)
-            && let Some(callee) = node.child_by_field_name(self.profile.callee_field)
-            && callee.id() != node.id()
-        {
-            return self.callee_name(callee);
-        }
-        None
+        self.names().callee_name(node)
     }
 
-    /// The member half of a reach: `a.b` and `a.b()` name it in different fields in
-    /// some grammars, and both mean the same thing here.
     fn member_property(&self, node: Node<'a>) -> Option<Node<'a>> {
-        node.child_by_field_name(self.profile.property_field)
-            .or_else(|| node.child_by_field_name(self.profile.callee_field))
+        self.names().member_property(node)
     }
 
     fn called_name(&self, call: Node<'a>) -> Option<String> {
-        // A grammar that splits the receiver from the method name leaves the call
-        // node itself as the only thing spelling the whole dotted name — but the same
-        // node kind is used for a call with no receiver at all, which spells nothing.
-        let callee = call.child_by_field_name(self.profile.callee_field)?;
-        if self.profile.is_member_access(call)
-            && let Some(dotted) = self.callee_name(call)
-        {
-            return Some(dotted);
-        }
-        self.callee_name(callee)
+        self.names().called_name(call)
     }
 
     /// How many separate decisions one condition holds. A run of the same operator is
@@ -235,32 +189,12 @@ impl<'a> Walker<'a> {
         }
     }
 
-    /// A function may name itself directly or through a declarator wrapper, and its
-    /// body may be the braces themselves or a list inside them.
     fn function_name(&self, node: Node<'a>) -> Option<Node<'a>> {
-        if let Some(name) = node.child_by_field_name("name") {
-            return Some(name);
-        }
-        let declarator = find_within(
-            node,
-            self.profile.declarator_wrapper_kinds,
-            self.profile.block_kinds,
-        )
-        .into_iter()
-        .next()?;
-        let mut cursor = declarator.walk();
-        declarator.named_children(&mut cursor).find(|child| {
-            self.profile.is_identifier(*child)
-                || self.profile.property_kinds.contains(&kind_of(child))
-        })
+        self.names().function_name(node)
     }
 
     fn function_body(&self, node: Node<'a>) -> Option<Node<'a>> {
-        node.child_by_field_name("body").or_else(|| {
-            let mut cursor = node.walk();
-            node.named_children(&mut cursor)
-                .find(|child| self.profile.is_block(*child))
-        })
+        self.names().function_body(node)
     }
 
     fn note_flag_parameters(&mut self, function: Node<'a>) {
@@ -2813,69 +2747,15 @@ impl<'a> Walker<'a> {
             .named_children(&mut body.walk())
             .find(|child| profile.is_block(*child))
             .unwrap_or(body);
-        let mut cursor = holder.walk();
-        let statements: Vec<Node<'a>> = holder.named_children(&mut cursor).collect();
-        for pair in statements.windows(2) {
-            let [first, second] = pair else { continue };
-            // Both have to be taking an answer: two awaited calls written for their
-            // effects are in that order because the author put them there.
-            if !self.waits(*first) || !self.waits(*second) {
-                continue;
-            }
-            if !self.takes_an_answer(*first) || !self.takes_an_answer(*second) {
-                continue;
-            }
-            // The second reading a name the first introduced is the reason they are
-            // in series.
-            let introduced: Vec<&str> = descendants(*first)
-                .into_iter()
-                .filter(|node| {
-                    profile.is_identifier(*node)
-                        && crate::tree::is_binding_position(
-                            *node,
-                            &[],
-                            profile.borrowed_name_kinds,
-                            profile.local_declaring_kinds,
-                            profile.expression_list_kinds,
-                        )
-                })
-                .map(|node| self.text(node))
-                .collect();
-            let depends = descendants(*second)
-                .into_iter()
-                .any(|node| profile.is_identifier(node) && introduced.contains(&self.text(node)));
-            if depends {
-                continue;
-            }
+        if let Some((_, second)) =
+            crate::cost::indicators::independent_awaits(&self.names(), holder).first()
+        {
             self.out.sequential_awaits.push(Spot {
                 span: span_of(*second),
                 detail: self.snippet(*second),
                 count: 2,
             });
-            return;
         }
-    }
-
-    /// Whether a statement keeps what it waited for, rather than waiting for the
-    /// effect alone.
-    fn takes_an_answer(&self, statement: Node<'a>) -> bool {
-        let profile = self.profile;
-        descendants(statement).into_iter().any(|node| {
-            profile.is_identifier(node)
-                && crate::tree::is_binding_position(
-                    node,
-                    &[],
-                    profile.borrowed_name_kinds,
-                    profile.local_declaring_kinds,
-                    profile.expression_list_kinds,
-                )
-        })
-    }
-
-    fn waits(&self, statement: Node<'a>) -> bool {
-        descendants(statement)
-            .into_iter()
-            .any(|node| self.profile.await_kinds.contains(&kind_of(node)))
     }
 
     /// A check that the language is free to compile away, standing where a real one
@@ -4086,20 +3966,11 @@ impl<'a> Walker<'a> {
     }
 
     fn receiver_of<'d>(&self, dotted: &'d str) -> Option<&'d str> {
-        dotted.rsplit_once('.').map(|(head, _)| head)
-    }
-
-    /// A vocabulary entry spelling a receiver has to match one; an entry that is a
-    /// bare name matches any call whose last segment is it.
-    fn answers_to(&self, dotted: &str, entry: &str) -> bool {
-        if entry.contains('.') {
-            return dotted == entry || dotted.ends_with(&format!(".{entry}"));
-        }
-        dotted.rsplit('.').next() == Some(entry)
+        self.names().receiver_of(dotted)
     }
 
     fn matches_any(&self, dotted: &str, entries: &[&str]) -> bool {
-        entries.iter().any(|entry| self.answers_to(dotted, entry))
+        self.names().matches_any(dotted, entries)
     }
 
     /// Everything known about how a name was introduced: its declared type and the
@@ -4161,14 +4032,7 @@ impl<'a> Walker<'a> {
     }
 
     fn arguments(&self, call: Node<'a>) -> Vec<Node<'a>> {
-        let Some(list) = (0..call.named_child_count())
-            .filter_map(|index| call.named_child(index))
-            .find(|child| self.profile.argument_list_kinds.contains(&kind_of(child)))
-        else {
-            return Vec::new();
-        };
-        let mut cursor = list.walk();
-        list.named_children(&mut cursor).collect()
+        self.names().arguments(call)
     }
 
     fn is_literal(&self, node: Node<'a>) -> bool {
@@ -4259,19 +4123,7 @@ impl<'a> Walker<'a> {
             return;
         }
 
-        if self.in_async()
-            && perf.blocking.iter().any(|entry| {
-                if entry.contains('.') {
-                    self.answers_to(&dotted, entry)
-                } else {
-                    tail == *entry
-                        && (receiver.is_empty()
-                            || perf
-                                .blocking_receivers
-                                .contains(&receiver.rsplit('.').next().unwrap_or(&receiver)))
-                }
-            })
-        {
+        if self.in_async() && self.names().is_blocking(&dotted) {
             self.out.blocking_in_async.push(Spot {
                 span,
                 detail: dotted,
