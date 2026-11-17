@@ -22,7 +22,7 @@ One JSON object per setting, then a summary, instead of the table
 Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -73,17 +73,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -110,10 +110,10 @@ rqx\-config\-schema(1)
 Print the JSON Schema of a config file, for an editor or a validator
 .TP
 rqx\-config\-explain(1)
-What one setting is, what it defaults to, and what it is now and why
+Describe one setting: its meaning, its default, its current value and where that value comes from
 .TP
 rqx\-config\-validate(1)
-Check that the config loads, and say where it does not
+Check that the configuration loads, and report where it does not
 .TP
 rqx\-config\-migrate(1)
 Convert RQX.toml files, the policies they point at and the user config to YAML

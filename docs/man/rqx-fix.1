@@ -2,27 +2,27 @@
 .el .ds Aq '
 .TH rqx-fix 1  "fix " 
 .SH NAME
-rqx\-fix \- Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
+rqx\-fix \- Apply the fixes that have a single correct result, proving each one before it is written. Previews by default
 .SH SYNOPSIS
 \fBrqx fix\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
-Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
+Apply the fixes that have a single correct result, proving each one before it is written. Previews by default
 .SH OPTIONS
 .TP
 \fB\-w\fR, \fB\-\-write\fR
-Write the fixes. Without it nothing on disk changes
+Write the fixes. Without it no file changes
 .TP
 \fB\-\-max\-rounds\fR \fI<MAX_ROUNDS>\fR
-One fix can make the next one possible, so fixing repeats until a round finds nothing. Overrides `[fix] max_rounds`
+Maximum number of rounds. One fix can enable another, so fixing repeats until a round finds nothing. Overrides `fix.max_rounds`
 .TP
 \fB\-\-json\fR
-Emit one JSON object per fixed file instead of the reader\*(Aqs preview
+Emit one JSON object per fixed file instead of the text preview
 .TP
 \fB\-\-plan\fR
-Report the findings `fix` will not touch, with the span, the source, the metric and the named refactoring, for a person or an agent to act on
+Report the findings `fix` does not change, with the span, the source, the metric and the named refactoring
 .TP
 \fB\-\-markdown\fR
-With \-\-plan, emit markdown a person can paste rather than a report to read
+With \-\-plan, emit Markdown for pasting instead of the terminal report
 .TP
 \fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
 Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`
@@ -37,7 +37,7 @@ Worker threads. Defaults to the machine\*(Aqs parallelism
 Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -88,17 +88,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -113,5 +113,5 @@ Print help (see a summary with \*(Aq\-h\*(Aq)
 .SH EXTRA
 Examples:
   rqx fix                             show what would change
-  rqx fix \-w                          write it
-  rqx fix \-\-plan                      the edits as a list, not a diff
+  rqx fix \-w                          write the fixes
+  rqx fix \-\-plan                      list the edits instead of a diff

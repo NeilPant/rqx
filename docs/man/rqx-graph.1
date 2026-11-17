@@ -2,15 +2,15 @@
 .el .ds Aq '
 .TH rqx-graph 1  "graph " 
 .SH NAME
-rqx\-graph \- Print the import graph — as text, Graphviz, Mermaid or data
+rqx\-graph \- Print the import graph as text, Graphviz, Mermaid or JSON
 .SH SYNOPSIS
 \fBrqx graph\fR [\fB\-\-format\fR] [\fB\-\-reporter\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
-Print the import graph — as text, Graphviz, Mermaid or data
+Print the import graph as text, Graphviz, Mermaid or JSON
 .SH OPTIONS
 .TP
 \fB\-\-format\fR \fI<FORMAT>\fR
-text, dot, mermaid or json. Text unless a `\-\-reporter` says otherwise
+text, dot, mermaid or json. Defaults to text unless a `\-\-reporter` is given
 .br
 
 .br
@@ -21,22 +21,22 @@ text: One line per edge, grouped by importer
 .IP \(bu 2
 dot: Graphviz, for `dot \-Tsvg`
 .IP \(bu 2
-mermaid: A fenced block GitHub and most wikis render on the spot
+mermaid: A fenced block that GitHub and most wikis render inline
 .IP \(bu 2
-json: Nodes and edges as data
+json: Nodes and edges as JSON
 .RE
 .TP
 \fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
-Where the graph goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are the formats, and `terminal` is `text`
+Output destination: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are the formats, and `terminal` is `text`
 .TP
 \fB\-\-cycles\fR
 Only the edges that close a cycle
 .TP
 \fB\-\-focus\fR \fI<FILE>\fR
-Only what this file reaches, and what reaches it
+Only the files this file reaches and the files that reach it
 .TP
 \fB\-\-depth\fR \fI<DEPTH>\fR [default: 2]
-How far from `\-\-focus` to follow
+Distance from `\-\-focus` to follow
 .TP
 \fB\-\-level\fR \fI<LEVEL>\fR
 relaxed, standard, strict or pristine
@@ -48,7 +48,7 @@ Worker threads. Defaults to the machine\*(Aqs parallelism
 Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -99,17 +99,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -123,6 +123,6 @@ Print help (see a summary with \*(Aq\-h\*(Aq)
 
 .SH EXTRA
 Examples:
-  rqx graph \-\-cycles                  only the rings
-  rqx graph \-\-format mermaid          paste it into a design doc
-  rqx graph \-\-focus src/api.ts        what it reaches, and what reaches it
+  rqx graph \-\-cycles                  only the edges that close a cycle
+  rqx graph \-\-format mermaid          Mermaid output for documentation
+  rqx graph \-\-focus src/api.ts        files it reaches and files that reach it

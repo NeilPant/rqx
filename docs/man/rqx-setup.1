@@ -2,18 +2,18 @@
 .el .ds Aq '
 .TH rqx-setup 1  "setup " 
 .SH NAME
-rqx\-setup \- Print the configuration one editor needs to talk to rqx, or list them all
+rqx\-setup \- Print the configuration an editor needs to connect to rqx, or list the supported editors
 .SH SYNOPSIS
 \fBrqx setup\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIEDITOR\fR] 
 .SH DESCRIPTION
-Print the configuration one editor needs to talk to rqx, or list them all
+Print the configuration an editor needs to connect to rqx, or list the supported editors
 .SH OPTIONS
 .TP
 \fB\-w\fR, \fB\-\-write\fR
-Append it to the editor\*(Aqs config, after showing what will be added
+Append the configuration to the editor\*(Aqs configuration file, after showing what will be added
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -64,17 +64,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -85,4 +85,4 @@ never: Never
 Print help (see a summary with \*(Aq\-h\*(Aq)
 .TP
 [\fIEDITOR\fR]
-Which editor. Omit to list every one rqx knows
+Editor name. Omit to list the supported editors

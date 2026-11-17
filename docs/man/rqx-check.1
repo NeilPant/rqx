@@ -13,13 +13,13 @@ Analyze changed files against a base revision and fail if the gate is not met
 Revision to compare against
 .TP
 \fB\-\-fix\fR
-Apply the mechanical fixes to what the branch touched before gating, so a branch whose only failures were mechanical passes
+Apply the mechanical fixes to the files the branch changed before gating, so a branch whose only failures are mechanical passes
 .TP
 \fB\-w\fR, \fB\-\-write\fR
-With \-\-fix, write the fixes. Without it nothing on disk changes
+With \-\-fix, write the fixes. Without it no file changes
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -37,7 +37,7 @@ never
 .RE
 .TP
 \fB\-\-coverage\fR \fI<FILE>\fR
-A coverage file, so a test run can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are read by content
+A coverage file that can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content
 .TP
 \fB\-\-motion\fR \fI<MOTION>\fR [default: on]
 Animation in the interactive interface
@@ -56,10 +56,10 @@ off
 Do not draw the progress bar on stderr; `\-\-quiet` implies it
 .TP
 \fB\-\-profile\fR \fI<FILE>\fR
-A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content
+A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
 .TP
 \fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
-Display cap; 0 shows every finding. Never affects the health score
+Maximum number of findings listed; 0 lists every finding. Does not affect the health score
 .TP
 \fB\-\-progress\fR \fI<PROGRESS>\fR [default: auto]
 How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
@@ -82,17 +82,17 @@ none: Nothing
 relaxed, standard, strict or pristine
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -146,7 +146,7 @@ Hide this smell family; repeatable
 Hide findings in files matching this glob; repeatable
 .TP
 \fB\-\-confidence\fR \fI<CONFIDENCE>\fR
-Show only findings rqx is certain of, or only the ones it is guessing at
+Show only verified findings, or only heuristic ones
 .br
 
 .br
@@ -171,11 +171,11 @@ Show only findings in files this revision changed
 Show only findings in files not yet committed
 .TP
 \fB\-\-files\-from\fR \fI<FILE>\fR
-Show only findings in the files this list names, one path per line, or separated by NUL when the input holds one (`git diff \-z \-\-name\-only`); `\-` reads standard input. Paths are relative to the scanned directory, or absolute. The whole project is still analysed, so cross\-file findings stay right. On `check` the list replaces the git diff as the files under review
+Show only findings in the files this list names, one path per line, or separated by NUL when the input holds one (`git diff \-z \-\-name\-only`); `\-` reads standard input. Paths are relative to the scanned directory, or absolute. The whole project is still analysed, so cross\-file findings remain correct. On `check` the list replaces the git diff as the files under review
 .SH DISPLAY
 .TP
 \fB\-\-show\-passed\fR
-List files that have no findings as well
+Also list files with no findings
 .TP
 \fB\-q\fR, \fB\-\-quiet\fR
 Print the summary without the findings
@@ -184,10 +184,10 @@ Print the summary without the findings
 Print how long each stage of the scan took, and what it did
 .TP
 \fB\-\-stats\fR
-Counts only: which rules and families fired, and how often
+Counts only: the number of findings per rule and per family
 .TP
 \fB\-\-group\-by\fR \fI<GROUPING>\fR [default: file]
-What the listing is a list of
+What findings are grouped by
 .br
 
 .br
@@ -204,7 +204,7 @@ severity
 .RE
 .TP
 \fB\-\-sort\fR \fI<ORDER>\fR [default: line]
-What decides the order inside each group
+Sort order inside each group
 .br
 
 .br
@@ -222,10 +222,10 @@ file
 List only this many groups; the rest are counted
 .TP
 \fB\-\-show\-suppressed\fR
-List the findings a comment waives, alongside the ones it does not
+Also list the findings a source comment waives
 .TP
 \fB\-\-context\fR \fI<N>\fR
-Lines of code shown either side of a finding. Two under `\-\-detail full`, none otherwise, unless this says
+Lines of code shown on each side of a finding. Defaults to 2 under `\-\-detail full` and 0 otherwise
 .TP
 \fB\-\-detail\fR \fI<DETAIL>\fR [default: normal]
 How much of each finding to print
@@ -237,9 +237,9 @@ How much of each finding to print
 .IP \(bu 2
 terse: One line per finding
 .IP \(bu 2
-normal: The reason once per rule, the cost once per file
+normal: The reason once per rule and the cost once per file
 .IP \(bu 2
-full: Every line on every finding
+full: Every line for every finding
 .RE
 .TP
 \fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
@@ -296,7 +296,7 @@ Fail when a design pattern is half applied
 Examples:
   rqx check \-\-base main               review the branch against main
   rqx check \-\-base main \-\-fail\-on error
-                                      and fail CI on any error
+                                      and exit 1 on any error
   rqx check \-\-fix \-w                  apply the proven fixes first
   git diff \-z \-\-name\-only main... | rqx check \-\-files\-from \-
-                                      review without git history to diff against
+                                      review from a file list, without git history

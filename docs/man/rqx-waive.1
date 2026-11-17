@@ -2,30 +2,30 @@
 .el .ds Aq '
 .TH rqx-waive 1  "waive " 
 .SH NAME
-rqx\-waive \- Waive one finding with a comment in the source, and the reason a reviewer reads
+rqx\-waive \- Waive one finding with a comment in the source that states a reason
 .SH SYNOPSIS
 \fBrqx waive\fR [\fB\-\-reason\fR] [\fB\-\-until\fR] [\fB\-\-whole\-file\fR] [\fB\-\-dry\-run\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIFILE:LINE\fR> <\fIRULE\fR> 
 .SH DESCRIPTION
-Waive one finding with a comment in the source, and the reason a reviewer reads
+Waive one finding with a comment in the source that states a reason
 .SH OPTIONS
 .TP
 \fB\-\-reason\fR \fI<TEXT>\fR
-Why the finding stands. A waiver without one is not honoured, so this is required; the interactive session asks for it when it is left out
+Why the finding is kept. A waiver without a reason is not honoured, so this option is required; the interactive session prompts for it when omitted
 .TP
 \fB\-\-until\fR \fI<YYYY\-MM\-DD>\fR
-The waiver stops being honoured after this date
+Date after which the waiver is no longer honoured
 .TP
 \fB\-\-whole\-file\fR
-Waive the rule for the whole file, not the line
+Waive the rule for the whole file instead of one line
 .TP
 \fB\-\-dry\-run\fR
-Print the diff the waiver would make and change nothing
+Print the diff the waiver would make, and change no file
 .TP
 \fB\-\-config\fR \fI<FILE>\fR
 Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -76,17 +76,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2

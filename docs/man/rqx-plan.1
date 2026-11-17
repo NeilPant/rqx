@@ -2,24 +2,24 @@
 .el .ds Aq '
 .TH rqx-plan 1  "plan " 
 .SH NAME
-rqx\-plan \- Rank the work by what it buys against what it costs, and say what the health score would be after it
+rqx\-plan \- Rank the work by value against effort, and report the health score after it
 .SH SYNOPSIS
 \fBrqx plan\fR [\fB\-\-budget\fR] [\fB\-\-limit\fR] [\fB\-\-simulate\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
-Rank the work by what it buys against what it costs, and say what the health score would be after it
+Rank the work by value against effort, and report the health score after it
 .SH OPTIONS
 .TP
 \fB\-\-budget\fR \fI<BUDGET>\fR
-Effort points to spend. Without it the plan is the top items by value
+Effort points to spend. Without it the plan lists the top items by value
 .TP
 \fB\-\-limit\fR \fI<LIMIT>\fR [default: 20]
 How many items to rank when no budget is given
 .TP
 \fB\-\-simulate\fR
-Also print what the plan does to the grade of every file
+Also print the effect of the plan on the grade of each file
 .TP
 \fB\-\-json\fR
-Emit one JSON object per item instead of the reader\*(Aqs plan
+Emit one JSON object per item instead of the text plan
 .TP
 \fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
 Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`
@@ -34,7 +34,7 @@ Worker threads. Defaults to the machine\*(Aqs parallelism
 Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -85,17 +85,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -109,5 +109,5 @@ Print help (see a summary with \*(Aq\-h\*(Aq)
 
 .SH EXTRA
 Examples:
-  rqx plan \-\-budget 20                the best twenty points of work
-  rqx plan \-\-simulate                 the score each step would leave
+  rqx plan \-\-budget 20                the highest\-value work within 20 effort points
+  rqx plan \-\-simulate                 the health score after each step

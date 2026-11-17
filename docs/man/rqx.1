@@ -2,15 +2,15 @@
 .el .ds Aq '
 .TH rqx 1  "rqx " 
 .SH NAME
-rqx \- Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says why it matters
+rqx \- Reports dead code, duplication, complexity and architectural drift in TypeScript, JavaScript, Python, Go, Java and C++, with the reason each finding matters
 .SH SYNOPSIS
 \fBrqx\fR [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
-Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says why it matters
+Reports dead code, duplication, complexity and architectural drift in TypeScript, JavaScript, Python, Go, Java and C++, with the reason each finding matters
 .SH OPTIONS
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -61,17 +61,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -86,67 +86,67 @@ rqx\-scan(1)
 Analyze a project and report every finding
 .TP
 rqx\-fix(1)
-Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
+Apply the fixes that have a single correct result, proving each one before it is written. Previews by default
 .TP
 rqx\-verify(1)
-Compare the working tree against a base revision and say what happened to each finding: resolved, improved, relocated, or introduced
+Compare the working tree against a base revision and classify each finding as resolved, improved, relocated or introduced
 .TP
 rqx\-setup(1)
-Print the configuration one editor needs to talk to rqx, or list them all
+Print the configuration an editor needs to connect to rqx, or list the supported editors
 .TP
 rqx\-plan(1)
-Rank the work by what it buys against what it costs, and say what the health score would be after it
+Rank the work by value against effort, and report the health score after it
 .TP
 rqx\-explain(1)
-Print a rule\*(Aqs or a pattern\*(Aqs taxonomy entry: what it maps to, what decides it, and what fixes it
+Print the catalogue entry for a rule or a pattern: what it maps to, what decides it and what fixes it
 .TP
 rqx\-rules(1)
-List every rule Rqx can report, grouped by family
+List every rule rqx can report, grouped by family
 .TP
 rqx\-baseline(1)
-Record the findings this project already has, so a gate can judge only what a change adds
+Record the findings this project already has, so the gate evaluates only what a change adds
 .TP
 rqx\-suppressions(1)
-List every finding a comment in the source waives, with the reason given
+List every finding waived by a comment in the source, with its reason
 .TP
 rqx\-waive(1)
-Waive one finding with a comment in the source, and the reason a reviewer reads
+Waive one finding with a comment in the source that states a reason
 .TP
 rqx\-complexity(1)
-What the analyser measured, as a distribution rather than only its tail
+Report the complexity distribution, with the highest values
 .TP
 rqx\-perf(1)
-Where the work grows faster than the data, ranked by reach
+Report code whose work grows faster than its input, ranked by reach
 .TP
 rqx\-update(1)
-Install the newest release, or say what it would change
+Install the newest release, or report what it would change
 .TP
 rqx\-completions(1)
 Print a shell completion script
 .TP
 rqx\-recommend(1)
-What to do about this project, as distinct from what is wrong with it
+Recommend actions for the project: configuration thresholds, refactorings, files to read and performance work
 .TP
 rqx\-slop(1)
-Which files read as written rather than read
+Score files that show signs of not having been reviewed after they were written
 .TP
 rqx\-health(1)
-Where the health score comes from, and what removing each part would buy
+Break the health score down by component and report what removing each would gain
 .TP
 rqx\-graph(1)
-Print the import graph — as text, Graphviz, Mermaid or data
+Print the import graph as text, Graphviz, Mermaid or JSON
 .TP
 rqx\-cache(1)
-Show what the analysis cache holds, or throw it away
+Show what the analysis cache holds, or delete it
 .TP
 rqx\-query(1)
-Run a tree\-sitter query over a project, to try one out before writing it into a `[[rule]]`
+Run a tree\-sitter query over a project, to test it before adding it to a `rule` entry in `rqx.yaml`
 .TP
 rqx\-techniques(1)
-List every refactoring Rqx prescribes, and which rules ask for it
+List every refactoring rqx prescribes and the rules that prescribe it
 .TP
 rqx\-levels(1)
-Print what each cleanliness level changes, as the settings it would take to write it by hand
+Print what each cleanliness level sets, as the equivalent configuration settings
 .TP
 rqx\-patterns(1)
 Report which design patterns a project uses, which are half applied, and where one would fit
@@ -155,7 +155,7 @@ rqx\-check(1)
 Analyze changed files against a base revision and fail if the gate is not met
 .TP
 rqx\-comment(1)
-Post the review onto the merge request it is reviewing, and grade the commit
+Post the review as a comment on its merge request, and grade the commit
 .TP
 rqx\-init(1)
 Write a commented rqx.yaml with every setting at its default
@@ -164,7 +164,7 @@ rqx\-config(1)
 Print the settings a run will use, and the file each one came from
 .TP
 rqx\-mcp(1)
-Run as an MCP server, so an AI agent can ask what a project\*(Aqs problems are
+Run as an MCP server, so an AI agent can query a project\*(Aqs findings
 .TP
 rqx\-lsp(1)
 Run as a Language Server over stdio, for editor integration
