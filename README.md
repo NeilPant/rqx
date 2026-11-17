@@ -100,14 +100,17 @@ cargo install --git https://github.com/jadhamwi21/rqx --locked rqx
 ```
 
 ```bash
-rqx update            # build and install the newest tagged version
+rqx update            # install the newest release
 rqx update --check    # say whether one exists, install nothing
 rqx update --notes    # read what changed
 ```
 
-An install a package manager owns marks itself with `RQX_MANAGED`, and `rqx update`
-then reads the notes and points at that manager rather than building over a file it
-does not own.
+How it installs follows from how rqx was installed. A binary from the installer or a
+release download is replaced by the new release's binary, after its SHA-256 matches
+the release's `SHA256SUMS`; any mismatch installs nothing and exits 2. A copy under
+`~/.cargo/bin` (or `$CARGO_HOME/bin`) is rebuilt with `cargo install`. An install a
+package manager owns marks itself with `RQX_MANAGED`, and `rqx update` then reads the
+notes and points at that manager rather than replacing a file it does not own.
 
 A scan prints one dim line when a newer version has been tagged, and nothing when it
 has not. The check starts when the scan does, on a thread the report waits a quarter

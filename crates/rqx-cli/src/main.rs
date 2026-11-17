@@ -30,6 +30,7 @@ mod progress;
 mod project;
 mod query;
 mod recommend;
+mod release;
 mod report;
 mod scan;
 mod setup;
@@ -2202,62 +2203,7 @@ fn run() -> Result<Exit> {
             }
             report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
         }
-        Command::Update { check, notes } => {
-            let dim = palette.style(brand::Ink::Muted);
-            // Asked for directly, so the cached answer is not good enough and the
-            // environment's opinion about CI does not apply.
-            let found = update::fetch()?;
-            let Some(newer) = found else {
-                anstream::println!(
-                    "\n  rqx {} is the newest release.\n",
-                    env!("CARGO_PKG_VERSION")
-                );
-                return Ok(Exit::Clean);
-            };
-
-            anstream::println!(
-                "\n  {}",
-                brand::paint(
-                    palette.bold(brand::Ink::Accent),
-                    format!("rqx {} is out", newer.version)
-                )
-            );
-            anstream::println!(
-                "  {}\n",
-                brand::paint(dim, format!("running {}", env!("CARGO_PKG_VERSION")))
-            );
-            if notes || check {
-                for line in newer.notes.lines() {
-                    anstream::println!("  {line}");
-                }
-                anstream::println!();
-            }
-            if check || notes {
-                return Ok(Exit::Clean);
-            }
-
-            if let Some(manager) = update::managed() {
-                anstream::println!(
-                    "  {}\n",
-                    brand::paint(dim, update::managed_update(&manager))
-                );
-                return Ok(Exit::Clean);
-            }
-
-            anstream::println!(
-                "  {}\n",
-                brand::paint(dim, "building it with cargo; this takes a minute")
-            );
-            update::install(&newer.version)?;
-            anstream::println!(
-                "\n  {}\n",
-                brand::paint(
-                    palette.bold(brand::Ink::Good),
-                    format!("installed rqx {}", newer.version)
-                )
-            );
-            Ok(Exit::Clean)
-        }
+        Command::Update { check, notes } => update_command(check, notes, palette),
         Command::Techniques => {
             report::techniques(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
         }
@@ -2265,6 +2211,76 @@ fn run() -> Result<Exit> {
             report::levels(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
         }
     }
+}
+
+/// `rqx update`: reports what is newer, and installs it the way this copy was installed.
+fn update_command(check: bool, notes: bool, palette: Palette) -> Result<Exit> {
+    let dim = palette.style(brand::Ink::Muted);
+    // Asked for directly, so the cached answer is not good enough and the
+    // environment's opinion about CI does not apply.
+    let found = update::fetch()?;
+    let Some(newer) = found else {
+        anstream::println!(
+            "\n  rqx {} is the newest release.\n",
+            env!("CARGO_PKG_VERSION")
+        );
+        return Ok(Exit::Clean);
+    };
+
+    anstream::println!(
+        "\n  {}",
+        brand::paint(
+            palette.bold(brand::Ink::Accent),
+            format!("rqx {} is out", newer.version)
+        )
+    );
+    anstream::println!(
+        "  {}\n",
+        brand::paint(dim, format!("running {}", env!("CARGO_PKG_VERSION")))
+    );
+    if notes || check {
+        for line in newer.notes.lines() {
+            anstream::println!("  {line}");
+        }
+        anstream::println!();
+    }
+    if check || notes {
+        return Ok(Exit::Clean);
+    }
+
+    let installation = update::detect()?;
+    match installation.method {
+        update::Method::Managed(manager) => {
+            anstream::println!(
+                "  {}\n",
+                brand::paint(dim, update::managed_update(&manager))
+            );
+            return Ok(Exit::Clean);
+        }
+        update::Method::CargoBuild => {
+            anstream::println!(
+                "  {}\n",
+                brand::paint(dim, "building it with cargo; this takes a minute")
+            );
+            update::install(&newer.version)?;
+        }
+        update::Method::Download => {
+            anstream::println!(
+                "  {}\n",
+                brand::paint(dim, "downloading it and checking it against SHA256SUMS")
+            );
+            let release = release::Release::published(&newer.version)?;
+            release::install(&release, &installation.executable)?;
+        }
+    }
+    anstream::println!(
+        "\n  {}\n",
+        brand::paint(
+            palette.bold(brand::Ink::Good),
+            format!("installed rqx {}", newer.version)
+        )
+    );
+    Ok(Exit::Clean)
 }
 
 #[cfg(test)]
