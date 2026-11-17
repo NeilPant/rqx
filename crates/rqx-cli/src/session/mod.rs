@@ -717,7 +717,7 @@ fn health_of(outcome: &ScanOutcome) -> u32 {
 /// The directory the session is looking at, as a person would write it: relative to
 /// their home when it is under it.
 fn display_root(path: &Path) -> String {
-    let absolute = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let absolute = rqx_core::paths::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let home = std::env::var_os("HOME").map(PathBuf::from);
     match home.and_then(|home| absolute.strip_prefix(&home).ok().map(Path::to_path_buf)) {
         Some(rest) if rest.as_os_str().is_empty() => "~".to_owned(),

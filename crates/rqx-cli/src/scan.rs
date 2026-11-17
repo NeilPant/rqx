@@ -1949,7 +1949,7 @@ impl Positions {
         Self {
             files: HashMap::new(),
             root: root.to_path_buf(),
-            canonical_root: root.canonicalize().ok(),
+            canonical_root: rqx_core::paths::canonicalize(root).ok(),
         }
     }
 
@@ -1962,7 +1962,8 @@ impl Positions {
         {
             return relative.display().to_string();
         }
-        if let (Some(root), Ok(canonical)) = (&self.canonical_root, path.canonicalize())
+        if let (Some(root), Ok(canonical)) =
+            (&self.canonical_root, rqx_core::paths::canonicalize(path))
             && let Ok(relative) = canonical.strip_prefix(root)
         {
             return relative.display().to_string();
@@ -2021,8 +2022,10 @@ pub(crate) fn relative_to(root: &Path, path: &Path) -> String {
     }
     // The graph works in canonical paths while the walker yields them as given, so
     // the two only line up after both are resolved.
-    if let (Ok(canonical_root), Ok(canonical)) = (root.canonicalize(), path.canonicalize())
-        && let Ok(relative) = canonical.strip_prefix(&canonical_root)
+    if let (Ok(canonical_root), Ok(canonical)) = (
+        rqx_core::paths::canonicalize(root),
+        rqx_core::paths::canonicalize(path),
+    ) && let Ok(relative) = canonical.strip_prefix(&canonical_root)
     {
         return relative.display().to_string();
     }
@@ -2236,7 +2239,7 @@ fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -
     ScanMessage::File(Box::new(Analyzed {
         canonical: settings
             .needs_modules()
-            .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
+            .then(|| rqx_core::paths::canonicalize(path).unwrap_or_else(|_| path.to_owned())),
         display,
         language: analysis.language,
         findings: analysis.findings,

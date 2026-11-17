@@ -13,6 +13,7 @@ description = "The rule catalogue, findings, scoring and configuration behind rq
 documentation = "https://docs.rs/rqx-core"
 
 [dependencies]
+dunce = "1.0.5"
 flate2 = "1.1.10"
 globset = "0.4"
 schemars = "1.2.3"

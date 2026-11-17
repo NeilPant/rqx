@@ -539,7 +539,7 @@ pub fn init(directory: &Path, force: bool) -> Result<PathBuf> {
 /// A scanned file has no ancestors of its own worth searching; the directory holding
 /// it does.
 fn anchor_of(root: &Path) -> PathBuf {
-    let absolute = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let absolute = rqx_core::paths::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
     if absolute.is_file() {
         return absolute
             .parent()

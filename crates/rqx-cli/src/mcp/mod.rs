@@ -115,8 +115,7 @@ impl ServerHandler for Rqx {
 }
 
 pub fn serve(path: &Path, settings: Resolved, http: Option<SocketAddr>) -> Result<()> {
-    let root = path
-        .canonicalize()
+    let root = rqx_core::paths::canonicalize(path)
         .with_context(|| format!("`{}` cannot be read", path.display()))?;
     let token = std::env::var(TOKEN_ENV)
         .ok()

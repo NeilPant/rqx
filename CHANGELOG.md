@@ -185,6 +185,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   a log filled it with escape characters. It now clears only on a terminal, and
   anywhere else prints a `── rescanned after HH:MM:SS ──` line between reports.
 
+- **Windows reports no longer print `//?/C:/…` paths.** Scanning a subdirectory made
+  the SARIF, GitLab, HTML, Markdown and terminal reports name files with the
+  `\\?\` prefix Windows adds when it resolves a path, because the working directory
+  never carries it. Every path rqx resolves now drops that prefix first.
+
 ## 0.2.1 — 2026-11-17
 
 ### Added

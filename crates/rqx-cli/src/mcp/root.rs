@@ -7,10 +7,8 @@ pub fn within(root: &Path, asked: Option<&str>) -> Result<PathBuf, String> {
     let Some(asked) = asked.map(str::trim).filter(|asked| !asked.is_empty()) else {
         return Ok(root.to_path_buf());
     };
-    let real = root
-        .join(asked)
-        .canonicalize()
-        .map_err(|_| outside(root, asked))?;
+    let real =
+        rqx_core::paths::canonicalize(&root.join(asked)).map_err(|_| outside(root, asked))?;
     if real.starts_with(root) {
         Ok(real)
     } else {
@@ -69,7 +67,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("rqx mcp {name}"));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("src")).expect("a sandbox");
-        root.canonicalize().expect("a real path")
+        rqx_core::paths::canonicalize(&root).expect("a real path")
     }
 
     #[test]

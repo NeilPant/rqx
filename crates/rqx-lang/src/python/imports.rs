@@ -118,7 +118,7 @@ impl Resolver for PythonResolver {
             }
         }
         for entry in configured {
-            if let Ok(canonical) = root.join(entry).canonicalize()
+            if let Ok(canonical) = rqx_core::paths::canonicalize(&root.join(entry))
                 && known.contains(&canonical)
             {
                 entries.insert(canonical);
@@ -128,7 +128,7 @@ impl Resolver for PythonResolver {
             // `package.module:function` — only the module half names a file.
             let module = script.split(':').next().unwrap_or(&script);
             if let Some(found) = self.module_of(&WalkedFiles::new(known), root, module)
-                && let Ok(canonical) = found.canonicalize()
+                && let Ok(canonical) = rqx_core::paths::canonicalize(&found)
                 && known.contains(&canonical)
             {
                 entries.insert(canonical);

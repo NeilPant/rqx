@@ -266,7 +266,7 @@ fn write_contents(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
 /// What the scanned directory is called, since `.` names nothing.
 fn project_name(report: &Report<'_>) -> String {
     let root = &report.outcome.root;
-    root.canonicalize()
+    rqx_core::paths::canonicalize(root)
         .ok()
         .and_then(|absolute| {
             absolute
