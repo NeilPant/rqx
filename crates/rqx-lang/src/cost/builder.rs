@@ -1037,6 +1037,7 @@ impl<'a> Visitor<'a, '_> {
             self.weaken(Conf::Heuristic);
         }
         let charge = self.charge(index, entry, Some(subject), &[], line_of(comparison));
+        self.note_library_site(comparison, "in", entry, Some(subject), charge.size);
         Parts::sequence(vec![
             parts,
             Parts {

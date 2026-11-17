@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class Library {
-    // @complexity time=O(n*m) space=O(1) conf=verified rule=linear-op-in-loop scope=local
+    // @complexity time=O(n*m) space=O(1) conf=verified rule=scan-in-loop scope=local
     public static int containsAny(List<Integer> values, List<Integer> wanted) {
         int hits = 0;
         for (int value : values) {

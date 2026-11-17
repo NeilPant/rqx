@@ -293,3 +293,14 @@ fn a_container_parameter_taken_by_value_and_only_read_is_reported() {
     let by_reference = "std::size_t f(const std::vector<int>& xs) {\n  return xs.size();\n}\n";
     assert!(reported(Language::Cpp, by_reference, &[RuleId::LargeByValue]).is_empty());
 }
+
+#[test]
+fn membership_in_a_list_the_source_types_is_a_linear_op_in_a_loop() {
+    let list = "def f(values: list[int], wanted: list[int]):\n    for value in values:\n        if value in wanted:\n            pass\n";
+    assert_eq!(
+        reported(Language::Python, list, &[RuleId::LinearOpInLoop]),
+        [(RuleId::LinearOpInLoop, 3)]
+    );
+    let keyed = "def f(values: list[int], wanted: set[int]):\n    for value in values:\n        if value in wanted:\n            pass\n";
+    assert!(reported(Language::Python, keyed, &[RuleId::LinearOpInLoop]).is_empty());
+}
