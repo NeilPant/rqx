@@ -177,8 +177,7 @@ pub fn json(outcome: &ScanOutcome, out: &mut dyn Write) -> Result<()> {
     Ok(())
 }
 
-pub fn explain(pattern: Pattern, palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
+pub fn explain(pattern: Pattern, palette: Palette, out: &mut dyn Write) -> Result<()> {
     let dim = palette.style(Ink::Muted);
     writeln!(
         out,
@@ -256,15 +255,13 @@ pub fn explain(pattern: Pattern, palette: Palette) -> Result<()> {
 /// Every pattern in the book, and what Rqx does about it. The point is the entries it
 /// declines: a catalogue that listed only what it detects would make the gaps
 /// invisible, which is the claim this table exists to prevent.
-pub fn coverage(palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
-
+pub fn coverage(palette: Palette, out: &mut dyn Write) -> Result<()> {
     writeln!(
         out,
         "\n  {}\n",
         paint(palette.bold(Ink::Accent), "Design patterns")
     )?;
-    write_tally(&mut out, palette, "Gang of Four patterns", Pattern::tally())?;
+    write_tally(out, palette, "Gang of Four patterns", Pattern::tally())?;
 
     for family in PatternFamily::ALL {
         writeln!(
@@ -274,7 +271,7 @@ pub fn coverage(palette: Palette) -> Result<()> {
         )?;
         for pattern in family.patterns() {
             write_entry(
-                &mut out,
+                out,
                 palette,
                 &format!("{}  {}", pattern.section(), pattern.name()),
                 pattern.coverage(),

@@ -9,6 +9,9 @@ use std::path::Path;
 
 use anyhow::Result;
 
+use rqx_core::Language;
+use rqx_core::rule::{Category, RuleId};
+
 use crate::brand::Palette;
 use crate::config::Resolved;
 use crate::scan::ScanOutcome;
@@ -148,4 +151,91 @@ pub fn suppressions(
         return report::waivers_json(root, outcome, out);
     }
     report::waivers(root, outcome, expiring, palette, out)
+}
+
+/// A rule's entry, or a pattern's, whichever `name` is.
+pub fn explain(name: &str, palette: Palette, out: &mut dyn Write) -> Result<()> {
+    if let Some(rule) = RuleId::parse(name) {
+        return report::explain(rule, palette, out);
+    }
+    // An advisory slug resolves to its pattern: `strategy-fits` and `strategy`
+    // are the same question asked two ways.
+    let pattern = rqx_core::Pattern::parse(name)
+        .or_else(|| rqx_core::AdviceId::parse(name).map(rqx_core::AdviceId::pattern));
+    let Some(pattern) = pattern else {
+        let mut names: Vec<&str> = RuleId::ALL.iter().map(|rule| rule.slug()).collect();
+        names.extend(rqx_core::Pattern::ALL.iter().map(|p| p.slug()));
+        names.extend(rqx_core::AdviceId::ALL.iter().map(|a| a.slug()));
+        return Err(report::unknown(
+            "rule or pattern",
+            name,
+            &names,
+            "Run `rqx rules` for the rules and `rqx patterns --coverage` for the patterns.",
+        ));
+    };
+    report::explain_pattern(pattern, palette, out)
+}
+
+pub fn rules(
+    category: Option<&str>,
+    language: Option<&str>,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    report::rules(category, language, palette, out)
+}
+
+/// One slug per line and nothing else, for a script or a shell completion. The same
+/// narrowing the printed listing does: without it a script asking for one family's
+/// slugs got all of them and no sign it had been ignored.
+pub fn rule_slugs(
+    category: Option<&str>,
+    language: Option<&str>,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let only = category
+        .map(|name| {
+            Category::parse(name).ok_or_else(|| {
+                report::unknown(
+                    "family",
+                    name,
+                    &Category::ALL.map(Category::slug),
+                    &format!(
+                        "The families are: {}.",
+                        Category::ALL.map(Category::slug).join(", ")
+                    ),
+                )
+            })
+        })
+        .transpose()?;
+    let spoken = language
+        .map(|name| {
+            Language::parse(name).ok_or_else(|| {
+                report::unknown(
+                    "language",
+                    name,
+                    &Language::ALL.map(Language::slug),
+                    &format!(
+                        "rqx reads: {}.",
+                        Language::ALL.map(Language::slug).join(", ")
+                    ),
+                )
+            })
+        })
+        .transpose()?;
+    // `writeln!` rather than `println!`, which panics when the reader closes the
+    // pipe. `rqx rules --slugs | head` is the shape a shell completion uses, and
+    // `reader_went_away` can only forgive an error that is returned to it.
+    for rule in RuleId::ALL {
+        let spec = rule.spec();
+        if only.is_some_and(|family| spec.category != family) {
+            continue;
+        }
+        if spoken.is_some_and(|language| !rule.applies_to(language)) {
+            continue;
+        }
+        writeln!(out, "{}", spec.slug)?;
+    }
+    out.flush()?;
+    Ok(())
 }

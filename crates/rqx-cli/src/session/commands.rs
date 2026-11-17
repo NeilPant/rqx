@@ -1,0 +1,883 @@
+//! Slash commands, which are the command line's own commands.
+//!
+//! `/plan --budget 20` is parsed by the same clap definition as `rqx plan --budget 20`,
+//! then run against the scan the session already holds and printed by the same
+//! functions the command line calls. Only the commands that need something a scan
+//! does not hold (a base revision, a rescan with other rules on, a write to disk) go
+//! back to the files.
+
+use std::path::{Path, PathBuf};
+
+use anyhow::{Result, bail};
+use clap::FromArgMatches;
+
+use crate::brand::Palette;
+use crate::config::Resolved;
+use crate::report::{self, Report};
+use crate::scan::{self, ScanOutcome};
+use crate::{Cli, Command, Standard, check, complexity, fix, graph, parser, perf, render, verify};
+
+/// What a typed line turned out to be.
+pub enum Parsed {
+    Nothing,
+    Help,
+    Clear,
+    Exit,
+    Rescan,
+    Watch,
+    /// Text a command's own `--help` printed, ready to show as it is.
+    Printed(Vec<u8>),
+    Command(Box<Invocation>),
+}
+
+/// A command line command, with the name it was typed under for the messages that
+/// have to say it.
+pub struct Invocation {
+    pub name: String,
+    pub command: Command,
+}
+
+/// Commands that only exist in the session.
+pub const SESSION_ONLY: [(&str, &str); 5] = [
+    ("rescan", "scan the project again"),
+    ("watch", "scan again whenever a file changes: on or off"),
+    ("clear", "clear the screen"),
+    ("help", "list the commands"),
+    ("exit", "leave the session"),
+];
+
+/// The command line commands the session runs against its own scan. `findings` is
+/// `scan`, named for what it shows.
+pub const TWINS: [&str; 17] = [
+    "findings",
+    "plan",
+    "health",
+    "complexity",
+    "perf",
+    "graph",
+    "recommend",
+    "slop",
+    "patterns",
+    "suppressions",
+    "explain",
+    "rules",
+    "techniques",
+    "levels",
+    "fix",
+    "check",
+    "verify",
+];
+
+/// The clap subcommand a slash name stands for.
+pub fn subcommand_of(name: &str) -> &str {
+    if name == "findings" { "scan" } else { name }
+}
+
+/// Every command with a line on what it is for, in the order `/help` lists them. The
+/// sentence comes from the command line's own help so the two cannot drift.
+pub fn help_rows() -> Vec<(String, String)> {
+    let parser = parser();
+    let twins = TWINS.iter().map(|name| {
+        let about = parser
+            .find_subcommand(subcommand_of(name))
+            .and_then(clap::Command::get_about)
+            .map(ToString::to_string)
+            .unwrap_or_default();
+        let about = about.split_whitespace().collect::<Vec<_>>().join(" ");
+        let first = about
+            .split_once(". ")
+            .map_or(about.as_str(), |(head, _)| head);
+        ((*name).to_owned(), first.trim_end_matches('.').to_owned())
+    });
+    let own = SESSION_ONLY
+        .iter()
+        .map(|(name, about)| ((*name).to_owned(), (*about).to_owned()));
+    twins.chain(own).collect()
+}
+
+pub fn parse(line: &str) -> std::result::Result<Parsed, String> {
+    let line = line.trim();
+    if line.is_empty() {
+        return Ok(Parsed::Nothing);
+    }
+    let Some(typed) = line.strip_prefix('/') else {
+        return invoke("scan", &[format!("--search={line}")]);
+    };
+    let words = split_words(typed)?;
+    let Some((name, rest)) = words.split_first() else {
+        return Ok(Parsed::Help);
+    };
+    match name.as_str() {
+        "help" | "?" => Ok(Parsed::Help),
+        "clear" => Ok(Parsed::Clear),
+        "exit" | "quit" => Ok(Parsed::Exit),
+        "rescan" => Ok(Parsed::Rescan),
+        "watch" => watch(rest),
+        other => invoke(subcommand_of(other), rest),
+    }
+}
+
+fn watch(arguments: &[String]) -> std::result::Result<Parsed, String> {
+    match arguments {
+        [] => Ok(Parsed::Watch),
+        [state] if state == "on" || state == "off" => Ok(Parsed::Watch),
+        _ => Err("/watch takes `on` or `off`".to_owned()),
+    }
+}
+
+fn invoke(name: &str, arguments: &[String]) -> std::result::Result<Parsed, String> {
+    let mut words = vec!["rqx".to_owned(), name.to_owned()];
+    words.extend(arguments.iter().cloned());
+    match parser().try_get_matches_from(words) {
+        Ok(matches) => {
+            let cli = Cli::from_arg_matches(&matches).map_err(|error| short(&error))?;
+            let command = cli.command.ok_or_else(|| "nothing to run".to_owned())?;
+            Ok(Parsed::Command(Box::new(Invocation {
+                name: name.to_owned(),
+                command,
+            })))
+        }
+        Err(error) if error.use_stderr() => Err(short(&error)),
+        Err(help) => Ok(Parsed::Printed(
+            help.render().ansi().to_string().into_bytes(),
+        )),
+    }
+}
+
+/// The first line of what clap said, without its `error:` label, which is all a
+/// prompt has room for.
+fn short(error: &clap::Error) -> String {
+    let text = error.render().to_string();
+    let first = text.lines().next().unwrap_or_default();
+    first.trim_start_matches("error: ").to_owned()
+}
+
+/// Shell-style words: whitespace separates, quotes group, a backslash escapes.
+pub fn split_words(line: &str) -> std::result::Result<Vec<String>, String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut started = false;
+    let mut quote: Option<char> = None;
+    let mut characters = line.chars();
+    while let Some(character) = characters.next() {
+        match (character, quote) {
+            ('\\', _) => {
+                word.push(characters.next().unwrap_or('\\'));
+                started = true;
+            }
+            (open, Some(close)) if open == close => quote = None,
+            (other, Some(_)) => word.push(other),
+            ('\'' | '"', None) => {
+                quote = Some(character);
+                started = true;
+            }
+            (space, None) if space.is_whitespace() => {
+                if started {
+                    words.push(std::mem::take(&mut word));
+                    started = false;
+                }
+            }
+            (other, None) => {
+                word.push(other);
+                started = true;
+            }
+        }
+    }
+    if quote.is_some() {
+        return Err("a quote was never closed".to_owned());
+    }
+    if started {
+        words.push(word);
+    }
+    Ok(words)
+}
+
+/// Everything a command may read from the session.
+pub struct Context<'a> {
+    pub outcome: Option<&'a ScanOutcome>,
+    pub settings: &'a Resolved,
+    pub palette: Palette,
+    /// The level the session's scan ran under, so a command that asks for another one
+    /// can be told it needs its own scan.
+    pub level: Option<&'a str>,
+}
+
+impl<'a> Context<'a> {
+    fn scanned(&self) -> Result<&'a ScanOutcome> {
+        self.outcome
+            .ok_or_else(|| anyhow::anyhow!("there is no scan yet; /rescan runs one"))
+    }
+
+    /// The session reads one directory with one set of settings. A flag that would
+    /// change either belongs to a scan of its own, which is `rqx` run in a shell.
+    fn same_scan(&self, path: &Path, standard: &Standard, config: Option<&PathBuf>) -> Result<()> {
+        if path != Path::new(".") {
+            bail!(
+                "the session reads the working directory; run `rqx` on {} from a shell",
+                path.display()
+            );
+        }
+        if config.is_some() {
+            bail!("`--config` changes the scan; run it from a shell");
+        }
+        if standard.level.as_deref() != self.level {
+            bail!("`--level` changes the scan; run it from a shell");
+        }
+        Ok(())
+    }
+}
+
+/// What running a command asks the session to do.
+pub enum Action {
+    Print(Vec<u8>),
+    /// Work that scans or writes, so it runs off the input thread. `rescan` says the
+    /// scan the session holds is out of date once it is done.
+    Background {
+        work: Box<dyn FnOnce() -> Result<Vec<u8>> + Send>,
+        rescan: bool,
+    },
+}
+
+fn print(render: impl FnOnce(&mut Vec<u8>) -> Result<()>) -> Result<Action> {
+    let mut out = Vec::new();
+    render(&mut out)?;
+    Ok(Action::Print(out))
+}
+
+pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
+    let palette = context.palette;
+    match invocation.command {
+        Command::Scan {
+            path,
+            standard,
+            view,
+            gate,
+            advice,
+            coverage,
+            profile,
+            max_findings,
+            watch,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            if !coverage.is_empty() || !profile.is_empty() || max_findings.is_some() {
+                bail!(
+                    "`--coverage`, `--profile` and `--max-findings` change the scan; run them from a shell"
+                );
+            }
+            if watch {
+                bail!("use /watch on");
+            }
+            let outcome = context.scanned()?;
+            let mut settings = context.settings.clone();
+            gate.apply(&mut settings.config);
+            let verdict = gate
+                .is_set()
+                .then(|| check::judge_scan(outcome, &settings.config));
+            let sinks = crate::sinks(&view)?;
+            let filter = crate::filter_of(&view, &path)?;
+            let report = Report::scan(outcome, &filter);
+            let report = match &verdict {
+                Some(verdict) => report.judged(verdict),
+                None => report,
+            };
+            print(|out| {
+                if view.timings {
+                    crate::emit_timed(&report, &sinks, &view, palette, out)?;
+                } else {
+                    for sink in &sinks {
+                        crate::write_sink(&report, sink, &view, palette, out)?;
+                    }
+                }
+                if advice {
+                    report::advice(outcome, palette, out)?;
+                }
+                Ok(())
+            })
+        }
+        Command::Plan {
+            path,
+            standard,
+            budget,
+            limit,
+            simulate,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let request = render::Plan {
+                budget,
+                limit,
+                simulate,
+                json,
+            };
+            let outcome = context.scanned()?;
+            print(|out| render::plan(outcome, &request, palette, out))
+        }
+        Command::Health {
+            path,
+            standard,
+            by,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let outcome = context.scanned()?;
+            print(|out| render::health(outcome, by, json, palette, out))
+        }
+        Command::Complexity {
+            path,
+            standard,
+            by,
+            sort,
+            top,
+            min,
+            histogram,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let view = complexity::View {
+                by,
+                sort,
+                top,
+                min,
+                histogram,
+            };
+            let outcome = context.scanned()?;
+            print(|out| render::complexity(outcome, &view, json, context.settings, palette, out))
+        }
+        Command::Perf {
+            path,
+            standard,
+            by,
+            sort,
+            top,
+            min_depth,
+            profile,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            if !profile.is_empty() {
+                bail!("`--profile` changes the scan; run it from a shell");
+            }
+            let view = perf::View {
+                by,
+                sort,
+                top,
+                min_depth,
+            };
+            let outcome = context.scanned()?;
+            print(|out| render::perf(outcome, &view, json, context.settings, palette, out))
+        }
+        Command::Graph {
+            path,
+            standard,
+            format,
+            cycles,
+            focus,
+            depth,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let view = graph::View {
+                shape: format,
+                cycles_only: cycles,
+                focus: focus.as_deref(),
+                depth,
+            };
+            let outcome = context.scanned()?;
+            print(|out| graph::render(outcome, &view, palette, out))
+        }
+        Command::Recommend {
+            path,
+            standard,
+            only,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let outcome = context.scanned()?;
+            print(|out| render::recommend(outcome, context.settings, only, json, palette, out))
+        }
+        Command::Patterns {
+            path,
+            standard,
+            coverage,
+            json,
+            threads: _,
+            config,
+        } => {
+            if coverage {
+                return print(|out| report::pattern_coverage(palette, out));
+            }
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let outcome = context.scanned()?;
+            print(|out| render::patterns(outcome, json, palette, out))
+        }
+        Command::Suppressions {
+            path,
+            standard,
+            expiring,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let outcome = context.scanned()?;
+            print(|out| render::suppressions(&path, outcome, expiring, json, palette, out))
+        }
+        Command::Explain { name } => print(|out| render::explain(&name, palette, out)),
+        Command::Rules {
+            category,
+            language,
+            slugs,
+        } => print(|out| {
+            if slugs {
+                render::rule_slugs(category.as_deref(), language.as_deref(), out)
+            } else {
+                render::rules(category.as_deref(), language.as_deref(), palette, out)
+            }
+        }),
+        Command::Techniques => print(|out| report::techniques(palette, out)),
+        Command::Levels => print(|out| report::levels(palette, out)),
+        Command::Slop {
+            path,
+            standard,
+            top,
+            min,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            // The signals are Info rules that ship off, which the session's scan did not
+            // run, so this one scans again with its own family on.
+            let mut settings = context.settings.clone();
+            render::slop_settings(&mut settings);
+            let request = render::Slop { top, min, json };
+            background(false, move || {
+                let outcome = scan::scan(&path, &settings)?;
+                let mut out = Vec::new();
+                render::slop(&outcome, &request, palette, &mut out)?;
+                Ok(out)
+            })
+        }
+        Command::Fix {
+            path,
+            standard,
+            write,
+            max_rounds,
+            json,
+            plan,
+            markdown,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            if plan {
+                let outcome = context.scanned()?;
+                return print(|out| {
+                    if json {
+                        report::brief_json(outcome, context.settings, out)
+                    } else if markdown {
+                        report::brief_markdown(outcome, context.settings, out)
+                    } else {
+                        report::brief(outcome, context.settings, palette, out)
+                    }
+                });
+            }
+            let settings = context.settings.clone();
+            let rounds = max_rounds.unwrap_or(settings.config.fix.max_rounds).max(1);
+            background(write, move || {
+                let options = fix::Options {
+                    write,
+                    max_rounds: rounds,
+                    ..fix::Options::default()
+                };
+                let outcome = fix::run(&path, &settings, options)?;
+                let mut out = Vec::new();
+                if json {
+                    report::fixes_json(&outcome, &mut out)?;
+                } else {
+                    report::fixes(&outcome, palette, "/fix --write", &mut out)?;
+                }
+                Ok(out)
+            })
+        }
+        Command::Check {
+            path,
+            standard,
+            base,
+            fix,
+            write: _,
+            view,
+            gate,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            if fix {
+                bail!("`--fix` writes files; run `rqx check --fix` from a shell, or /fix");
+            }
+            let mut settings = context.settings.clone();
+            gate.apply(&mut settings.config);
+            let sinks = crate::sinks(&view)?;
+            background(false, move || {
+                let filter = crate::filter_of(&view, &path)?;
+                let review = check::review(&path, &settings, &base)?;
+                let verdict = check::judge(&review, &settings.config);
+                let report = Report::review(&review, &verdict, &filter);
+                let mut out = Vec::new();
+                for sink in &sinks {
+                    crate::write_sink(&report, sink, &view, palette, &mut out)?;
+                }
+                Ok(out)
+            })
+        }
+        Command::Verify {
+            path,
+            standard,
+            base,
+            expect,
+            json,
+            threads: _,
+            config,
+        } => {
+            context.same_scan(&path, &standard, config.as_ref())?;
+            let settings = context.settings.clone();
+            background(false, move || {
+                verify::ensure_repository(&path, &base)?;
+                let verified = verify::verify(&path, &settings, &base, &expect)?;
+                let mut out = Vec::new();
+                if json {
+                    report::verify_json(&verified, &mut out)?;
+                } else {
+                    report::verify(&verified, palette, &mut out)?;
+                }
+                Ok(out)
+            })
+        }
+        _ => bail!(
+            "`/{}` is not part of the session; run `rqx {}` from a shell",
+            invocation.name,
+            invocation.name
+        ),
+    }
+}
+
+fn background(
+    rescan: bool,
+    work: impl FnOnce() -> Result<Vec<u8>> + Send + 'static,
+) -> Result<Action> {
+    Ok(Action::Background {
+        work: Box::new(work),
+        rescan,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn command(line: &str) -> Command {
+        match parse(line) {
+            Ok(Parsed::Command(invocation)) => invocation.command,
+            Ok(_) => panic!("{line} did not parse to a command"),
+            Err(message) => panic!("{line}: {message}"),
+        }
+    }
+
+    #[test]
+    fn a_slash_command_is_parsed_by_the_command_lines_own_definition() {
+        let Command::Plan { budget, limit, .. } = command("/plan --budget 20") else {
+            panic!("not a plan");
+        };
+        assert_eq!(budget, Some(20));
+        assert_eq!(limit, 20, "an unspoken flag keeps its default");
+    }
+
+    #[test]
+    fn findings_is_scan_and_its_flags_come_with_it() {
+        let Command::Scan { view, .. } = command("/findings --severity error --rule empty-catch")
+        else {
+            panic!("not a scan");
+        };
+        assert_eq!(view.rules, ["empty-catch"]);
+        assert!(view.severity.is_some());
+    }
+
+    #[test]
+    fn text_without_a_slash_searches_the_findings() {
+        let Command::Scan { view, .. } = command("dead export") else {
+            panic!("not a scan");
+        };
+        assert_eq!(view.search.as_deref(), Some("dead export"));
+    }
+
+    #[test]
+    fn text_that_looks_like_a_flag_is_still_only_text() {
+        let Command::Scan { view, .. } = command("--weird") else {
+            panic!("not a scan");
+        };
+        assert_eq!(view.search.as_deref(), Some("--weird"));
+    }
+
+    #[test]
+    fn quotes_group_words_and_a_backslash_escapes() {
+        assert_eq!(
+            split_words(r#"graph --focus "src/a b.ts" x\ y 'z'"#).unwrap(),
+            ["graph", "--focus", "src/a b.ts", "x y", "z"]
+        );
+        assert!(split_words("graph --focus 'oops").is_err());
+        assert_eq!(split_words("a ''").unwrap(), ["a", ""]);
+    }
+
+    #[test]
+    fn the_session_only_commands_are_recognised() {
+        assert!(matches!(parse("/exit"), Ok(Parsed::Exit)));
+        assert!(matches!(parse("/quit"), Ok(Parsed::Exit)));
+        assert!(matches!(parse("/rescan"), Ok(Parsed::Rescan)));
+        assert!(matches!(parse("/clear"), Ok(Parsed::Clear)));
+        assert!(matches!(parse("/help"), Ok(Parsed::Help)));
+        assert!(matches!(parse("/"), Ok(Parsed::Help)));
+        assert!(matches!(parse("  "), Ok(Parsed::Nothing)));
+        assert!(matches!(parse("/watch on"), Ok(Parsed::Watch)));
+        assert!(matches!(parse("/watch"), Ok(Parsed::Watch)));
+        assert!(parse("/watch sideways").is_err());
+    }
+
+    #[test]
+    fn a_clap_error_is_one_short_line() {
+        let Err(message) = parse("/plan --nonsense") else {
+            panic!("an unknown flag parsed");
+        };
+        assert!(message.contains("--nonsense"), "{message}");
+        assert!(!message.contains('\n'));
+        assert!(!message.starts_with("error"));
+        let Err(unknown) = parse("/nothing-like-this") else {
+            panic!("an unknown command parsed");
+        };
+        assert!(unknown.contains("nothing-like-this"), "{unknown}");
+    }
+
+    #[test]
+    fn help_for_a_command_is_printed_rather_than_refused() {
+        let Ok(Parsed::Printed(text)) = parse("/plan --help") else {
+            panic!("--help was not printed");
+        };
+        assert!(String::from_utf8_lossy(&text).contains("--budget"));
+    }
+
+    /// The point of slash commands being the command line's own: the same arguments,
+    /// run against the same scan, print the same bytes by either route.
+    mod parity {
+        use super::*;
+        use crate::View;
+        use crate::brand::ColorDepth;
+        use crate::report::FindingFilter;
+        use crate::report::tests::outcome_of;
+        use rqx_core::rule::RuleId;
+
+        type Direct = fn(&ScanOutcome, &Resolved, Palette, &mut Vec<u8>) -> Result<()>;
+
+        fn fixture() -> ScanOutcome {
+            outcome_of(&[
+                (RuleId::LongFunction, "src/api/client.ts"),
+                (RuleId::LongFunction, "src/api/client.ts"),
+                (RuleId::LongFunction, "src/billing/invoice.ts"),
+                (RuleId::UnusedExport, "src/billing/totals.ts"),
+            ])
+        }
+
+        fn via_session(line: &str, outcome: &ScanOutcome, settings: &Resolved) -> Vec<u8> {
+            let palette = Palette::with_depth(ColorDepth::Truecolor);
+            let Ok(Parsed::Command(invocation)) = parse(line) else {
+                panic!("{line} is not a command");
+            };
+            let context = Context {
+                outcome: Some(outcome),
+                settings,
+                palette,
+                level: None,
+            };
+            match run(*invocation, &context) {
+                Ok(Action::Print(bytes)) => bytes,
+                Ok(Action::Background { .. }) => panic!("{line} ran in the background"),
+                Err(error) => panic!("{line}: {error:#}"),
+            }
+        }
+
+        fn terminal(
+            outcome: &ScanOutcome,
+            view: &View,
+            palette: Palette,
+            out: &mut Vec<u8>,
+        ) -> Result<()> {
+            let report = Report::scan(outcome, &FindingFilter::default());
+            let sink = crate::Sink {
+                reporter: report::Reporter::Terminal,
+                path: None,
+            };
+            crate::write_sink(&report, &sink, view, palette, out)
+        }
+
+        #[test]
+        fn each_slash_command_prints_what_its_command_line_twin_prints() {
+            let outcome = fixture();
+            let settings = Resolved::default();
+            let palette = Palette::with_depth(ColorDepth::Truecolor);
+            let cases: [(&str, Direct); 9] = [
+                ("/findings", |outcome, _, palette, out| {
+                    terminal(outcome, &View::default(), palette, out)
+                }),
+                ("/plan --budget 20", |outcome, _, palette, out| {
+                    let request = render::Plan {
+                        budget: Some(20),
+                        limit: 20,
+                        simulate: false,
+                        json: false,
+                    };
+                    render::plan(outcome, &request, palette, out)
+                }),
+                ("/plan --simulate --json", |outcome, _, palette, out| {
+                    let request = render::Plan {
+                        budget: None,
+                        limit: 20,
+                        simulate: true,
+                        json: true,
+                    };
+                    render::plan(outcome, &request, palette, out)
+                }),
+                ("/health", |outcome, _, palette, out| {
+                    render::health(outcome, crate::health::By::Family, false, palette, out)
+                }),
+                ("/complexity --top 5", |outcome, settings, palette, out| {
+                    let view = complexity::View {
+                        by: complexity::By::Function,
+                        sort: complexity::Sort::Complexity,
+                        top: 5,
+                        min: 0,
+                        histogram: false,
+                    };
+                    render::complexity(outcome, &view, false, settings, palette, out)
+                }),
+                ("/perf", |outcome, settings, palette, out| {
+                    let view = perf::View {
+                        by: perf::By::Function,
+                        sort: perf::Sort::Weight,
+                        top: 20,
+                        min_depth: 0,
+                    };
+                    render::perf(outcome, &view, false, settings, palette, out)
+                }),
+                ("/patterns", |outcome, _, palette, out| {
+                    render::patterns(outcome, false, palette, out)
+                }),
+                ("/suppressions --expiring", |outcome, _, palette, out| {
+                    render::suppressions(Path::new("."), outcome, true, false, palette, out)
+                }),
+                ("/explain long-function", |_, _, palette, out| {
+                    render::explain("long-function", palette, out)
+                }),
+            ];
+            for (line, direct) in cases {
+                let mut expected = Vec::new();
+                direct(&outcome, &settings, palette, &mut expected).expect(line);
+                assert!(!expected.is_empty(), "{line} printed nothing");
+                assert_eq!(
+                    String::from_utf8_lossy(&via_session(line, &outcome, &settings)),
+                    String::from_utf8_lossy(&expected),
+                    "{line} differs from its command line twin"
+                );
+            }
+        }
+
+        #[test]
+        fn a_command_that_needs_a_scan_says_so_when_there_is_none() {
+            let settings = Resolved::default();
+            let Ok(Parsed::Command(invocation)) = parse("/plan") else {
+                panic!("not a command");
+            };
+            let context = Context {
+                outcome: None,
+                settings: &settings,
+                palette: Palette::with_depth(ColorDepth::Monochrome),
+                level: None,
+            };
+            let Err(error) = run(*invocation, &context) else {
+                panic!("ran without a scan");
+            };
+            assert!(error.to_string().contains("no scan yet"));
+        }
+
+        #[test]
+        fn a_flag_that_would_change_the_scan_is_refused_rather_than_ignored() {
+            let outcome = fixture();
+            let settings = Resolved::default();
+            for line in [
+                "/plan src",
+                "/health --level strict",
+                "/findings --coverage x.lcov",
+            ] {
+                let Ok(Parsed::Command(invocation)) = parse(line) else {
+                    panic!("{line} is not a command");
+                };
+                let context = Context {
+                    outcome: Some(&outcome),
+                    settings: &settings,
+                    palette: Palette::with_depth(ColorDepth::Monochrome),
+                    level: None,
+                };
+                assert!(run(*invocation, &context).is_err(), "{line} was accepted");
+            }
+        }
+
+        #[test]
+        fn a_command_the_session_does_not_host_names_the_one_to_run() {
+            let outcome = fixture();
+            let settings = Resolved::default();
+            let Ok(Parsed::Command(invocation)) = parse("/init") else {
+                panic!("not a command");
+            };
+            let context = Context {
+                outcome: Some(&outcome),
+                settings: &settings,
+                palette: Palette::with_depth(ColorDepth::Monochrome),
+                level: None,
+            };
+            let Err(error) = run(*invocation, &context) else {
+                panic!("init ran");
+            };
+            assert!(error.to_string().contains("rqx init"));
+        }
+    }
+
+    #[test]
+    fn help_lists_every_command_on_one_line_each() {
+        let rows = help_rows();
+        assert_eq!(rows.len(), TWINS.len() + SESSION_ONLY.len());
+        for (name, about) in rows {
+            assert!(!about.is_empty(), "/{name} has no description");
+            assert!(!about.contains('\n'), "/{name}: {about}");
+        }
+    }
+
+    #[test]
+    fn every_twin_names_a_subcommand_the_parser_has() {
+        let parser = parser();
+        for name in TWINS {
+            assert!(
+                parser.find_subcommand(subcommand_of(name)).is_some(),
+                "/{name} has no command behind it"
+            );
+        }
+    }
+}

@@ -814,13 +814,14 @@ fn the_readme_counts_the_commands_correctly() {
 /// a runtime test passes with the bug still in place. It did.
 #[test]
 fn the_slug_listing_writes_through_a_handle_rather_than_println() {
-    let source = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/main.rs"))
-        .expect("main.rs");
+    let source =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/render.rs"))
+            .expect("render.rs");
     let listing = source
-        .split_once("if slugs {")
-        .expect("the --slugs branch")
+        .split_once("pub fn rule_slugs(")
+        .expect("the --slugs listing")
         .1
-        .split_once("\n            }")
+        .split_once("\n}\n")
         .expect("its end")
         .0;
 

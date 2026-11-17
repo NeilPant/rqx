@@ -8,9 +8,9 @@
 
 use std::io::{self, Stdout};
 
-use crossterm::cursor::Show;
+use crossterm::cursor::{MoveTo, Show};
 use crossterm::execute;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode};
 use ratatui::backend::CrosstermBackend;
 use ratatui::text::Line;
 use ratatui::widgets::{Paragraph, Widget};
@@ -49,6 +49,14 @@ impl Viewport {
         self.screen.clear()?;
         self.screen = screen(height)?;
         self.height = height;
+        Ok(())
+    }
+
+    /// Wipes what is visible and puts the viewport back at the top. The terminal's
+    /// scrollback is left alone: that is the user's, not the session's.
+    pub fn clear_screen(&mut self) -> io::Result<()> {
+        execute!(io::stdout(), Clear(ClearType::All), MoveTo(0, 0))?;
+        self.screen = screen(self.height)?;
         Ok(())
     }
 

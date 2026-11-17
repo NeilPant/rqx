@@ -9,8 +9,7 @@ use crate::brand::{Ink, Palette, coverage_ink, paint};
 
 /// The rule catalogue prints itself the same way whether or not anything was
 /// scanned, so it takes a palette rather than a report.
-pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
+pub fn explain(rule: RuleId, palette: Palette, out: &mut dyn Write) -> Result<()> {
     let RuleSpec {
         slug,
         metric,
@@ -74,8 +73,12 @@ pub fn explain(rule: RuleId, palette: Palette) -> Result<()> {
     Ok(())
 }
 
-pub fn rules(only: Option<&str>, language: Option<&str>, palette: Palette) -> Result<()> {
-    let mut out = anstream::stdout().lock();
+pub fn rules(
+    only: Option<&str>,
+    language: Option<&str>,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
     if let Some(name) = only
         && Category::parse(name).is_none()
     {
@@ -151,7 +154,7 @@ pub fn rules(only: Option<&str>, language: Option<&str>, palette: Palette) -> Re
 }
 
 pub fn write_entry<Answer: Copy + std::fmt::Display + 'static>(
-    out: &mut impl Write,
+    out: &mut dyn Write,
     palette: Palette,
     name: &str,
     coverage: Coverage<Answer>,
@@ -174,12 +177,7 @@ pub fn write_entry<Answer: Copy + std::fmt::Display + 'static>(
     Ok(())
 }
 
-pub fn write_tally(
-    out: &mut impl Write,
-    palette: Palette,
-    label: &str,
-    tally: Tally,
-) -> Result<()> {
+pub fn write_tally(out: &mut dyn Write, palette: Palette, label: &str, tally: Tally) -> Result<()> {
     let mut parts = vec![format!("{} implemented", tally.implemented)];
     for (count, name) in [
         (tally.absent, "not yet"),

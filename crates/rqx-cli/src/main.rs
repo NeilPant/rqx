@@ -6,7 +6,6 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint};
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
-use rqx_core::rule::RuleId;
 
 mod baseline;
 mod brand;
@@ -1188,16 +1187,25 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
         }
         return Ok(());
     }
-    // Held back so rendering can be timed and still printed beneath the stages it
-    // is one of, which come above the report.
+    emit_timed(report, sinks, view, palette, &mut anstream::stdout().lock())
+}
+
+/// Held back so rendering can be timed and still printed beneath the stages it is one
+/// of, which come above the report.
+fn emit_timed(
+    report: &Report<'_>,
+    sinks: &[Sink],
+    view: &View,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
     let mut held = Vec::new();
     let rendering = std::time::Instant::now();
     for sink in sinks {
         write_sink(report, sink, view, palette, &mut held)?;
     }
     let render = rendering.elapsed().as_millis();
-    let mut out = anstream::stdout().lock();
-    report::timings(report.outcome, &[("render", render)], palette, &mut out)?;
+    report::timings(report.outcome, &[("render", render)], palette, out)?;
     out.write_all(&held)?;
     Ok(())
 }
@@ -1326,6 +1334,7 @@ fn open_session(motion: Motion) -> Result<Option<Exit>> {
     let options = session::Launch {
         path,
         config: &settings,
+        level: standard.level.as_deref(),
         reduced_motion: matches!(motion, Motion::Off),
     };
     match session::launch(options) {
@@ -1635,25 +1644,7 @@ fn run() -> Result<Exit> {
                 .map(|()| Exit::Clean)
         }
         Command::Explain { name } => {
-            if let Some(rule) = RuleId::parse(&name) {
-                return report::explain(rule, palette).map(|()| Exit::Clean);
-            }
-            // An advisory slug resolves to its pattern: `strategy-fits` and `strategy`
-            // are the same question asked two ways.
-            let pattern = rqx_core::Pattern::parse(&name)
-                .or_else(|| rqx_core::AdviceId::parse(&name).map(rqx_core::AdviceId::pattern));
-            let Some(pattern) = pattern else {
-                let mut names: Vec<&str> = RuleId::ALL.iter().map(|rule| rule.slug()).collect();
-                names.extend(rqx_core::Pattern::ALL.iter().map(|p| p.slug()));
-                names.extend(rqx_core::AdviceId::ALL.iter().map(|a| a.slug()));
-                return Err(report::unknown(
-                    "rule or pattern",
-                    &name,
-                    &names,
-                    "Run `rqx rules` for the rules and `rqx patterns --coverage` for the patterns.",
-                ));
-            };
-            report::explain_pattern(pattern, palette).map(|()| Exit::Clean)
+            render::explain(&name, palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
         }
         Command::Patterns {
             path,
@@ -1664,7 +1655,8 @@ fn run() -> Result<Exit> {
             config,
         } => {
             if coverage {
-                return report::pattern_coverage(palette).map(|()| Exit::Clean);
+                return report::pattern_coverage(palette, &mut anstream::stdout().lock())
+                    .map(|()| Exit::Clean);
             }
             if !path.exists() {
                 bail!(
@@ -2116,66 +2108,13 @@ fn run() -> Result<Exit> {
             language,
             slugs,
         } => {
+            let mut out = anstream::stdout().lock();
             if slugs {
-                // The same narrowing the printed listing does. Without this a script
-                // asking for one family's slugs got all 185 and no sign it had been
-                // ignored.
-                let only = category
-                    .as_deref()
-                    .map(|name| {
-                        rqx_core::rule::Category::parse(name).ok_or_else(|| {
-                            report::unknown(
-                                "family",
-                                name,
-                                &rqx_core::rule::Category::ALL.map(rqx_core::rule::Category::slug),
-                                &format!(
-                                    "The families are: {}.",
-                                    rqx_core::rule::Category::ALL
-                                        .map(rqx_core::rule::Category::slug)
-                                        .join(", ")
-                                ),
-                            )
-                        })
-                    })
-                    .transpose()?;
-                let spoken = language
-                    .as_deref()
-                    .map(|name| {
-                        rqx_core::Language::parse(name).ok_or_else(|| {
-                            report::unknown(
-                                "language",
-                                name,
-                                &rqx_core::Language::ALL.map(rqx_core::Language::slug),
-                                &format!(
-                                    "rqx reads: {}.",
-                                    rqx_core::Language::ALL
-                                        .map(rqx_core::Language::slug)
-                                        .join(", ")
-                                ),
-                            )
-                        })
-                    })
-                    .transpose()?;
-                // `writeln!` rather than `println!`, which panics when the reader
-                // closes the pipe. `rqx rules --slugs | head` is the shape a shell
-                // completion uses, and `reader_went_away` can only forgive an error
-                // that is returned to it.
-                use std::io::Write;
-                let mut out = std::io::stdout().lock();
-                for rule in rqx_core::rule::RuleId::ALL {
-                    let spec = rule.spec();
-                    if only.is_some_and(|family| spec.category != family) {
-                        continue;
-                    }
-                    if spoken.is_some_and(|language| !rule.applies_to(language)) {
-                        continue;
-                    }
-                    writeln!(out, "{}", spec.slug)?;
-                }
-                out.flush()?;
-                return Ok(Exit::Clean);
+                render::rule_slugs(category.as_deref(), language.as_deref(), &mut out)
+            } else {
+                render::rules(category.as_deref(), language.as_deref(), palette, &mut out)
             }
-            report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
+            .map(|()| Exit::Clean)
         }
         Command::Update { check, notes } => {
             let dim = palette.style(brand::Ink::Muted);

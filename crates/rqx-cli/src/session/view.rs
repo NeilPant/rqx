@@ -43,35 +43,51 @@ impl Look {
     }
 }
 
-/// The owl on the left and what the scan is doing beside it.
-pub fn scanning(
+/// The owl on the left and what the session is busy with beside it. `text` is built
+/// for the room `text_width` says there is.
+pub fn working(
     frame: &mut Frame<'_>,
     look: &Look,
     owl: Vec<Line<'static>>,
-    spinner: char,
-    progress: &ScanProgress,
+    text: Vec<Line<'static>>,
 ) {
     let [body, hints] =
         Layout::vertical([Constraint::Length(SCANNING_ROWS - 1), Constraint::Length(1)])
             .areas(frame.area());
-    let width = owl.first().map_or(0, Line::width);
-    let [art, text] = Layout::horizontal([
-        Constraint::Length(width as u16 + OWL_GAP.len() as u16),
+    let [art, beside] = Layout::horizontal([
+        Constraint::Length(owl_columns(&owl) + OWL_GAP.len() as u16),
         Constraint::Min(0),
     ])
     .areas(body);
     frame.render_widget(Paragraph::new(owl), art);
+    frame.render_widget(Paragraph::new(text), beside);
     frame.render_widget(
-        Paragraph::new(progress_lines(look, spinner, progress, text.width as usize)),
-        text,
-    );
-    frame.render_widget(
-        Paragraph::new(Line::styled(" ctrl-c cancels the scan", look.dim())),
+        Paragraph::new(Line::styled(" ctrl-c cancels", look.dim())),
         hints,
     );
 }
 
-fn progress_lines(
+fn owl_columns(owl: &[Line<'static>]) -> u16 {
+    owl.first().map_or(0, |line| line.width() as u16)
+}
+
+/// How many columns are left beside the owl on a window `width` wide.
+pub fn text_width(owl: &[Line<'static>], width: u16) -> usize {
+    usize::from(width.saturating_sub(owl_columns(owl) + OWL_GAP.len() as u16))
+}
+
+/// What a command that is not a scan shows while it runs.
+pub fn busy_lines(look: &Look, spinner: char, doing: &str) -> Vec<Line<'static>> {
+    vec![
+        Line::raw(""),
+        Line::from(vec![
+            Span::styled(format!("{spinner} "), look.bold(Ink::Accent)),
+            Span::styled(doing.to_owned(), look.bold(Ink::Accent)),
+        ]),
+    ]
+}
+
+pub fn progress_lines(
     look: &Look,
     spinner: char,
     progress: &ScanProgress,
@@ -320,6 +336,47 @@ fn finding_line(look: &Look, finding: &Finding, slug_width: usize) -> Line<'stat
     ])
 }
 
+/// What was typed, kept in scrollback above whatever it produced.
+pub fn echo(look: &Look, line: &str) -> Line<'static> {
+    Line::from(vec![
+        Span::styled("> ", look.bold(Ink::Accent)),
+        Span::styled(line.to_owned(), look.style(Ink::Text)),
+    ])
+}
+
+/// A line that did not work, short enough to read at a glance.
+pub fn failure(look: &Look, message: &str) -> Line<'static> {
+    Line::styled(format!(" \u{2717} {message}"), look.style(Ink::Danger))
+}
+
+pub fn note(look: &Look, message: &str) -> Line<'static> {
+    Line::styled(format!(" {message}"), look.dim())
+}
+
+/// Every command and what it is for, in the order they are offered.
+pub fn help(look: &Look, rows: &[(String, String)], width: u16) -> Vec<Line<'static>> {
+    let name_width = rows.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
+    let mut lines = vec![
+        Line::styled(
+            " Slash commands are the rqx commands, run on the scan above.",
+            look.style(Ink::Text),
+        ),
+        Line::styled(
+            " Text without a slash searches the findings. `/<command> --help` lists its flags.",
+            look.dim(),
+        ),
+        Line::raw(""),
+    ];
+    let room = usize::from(width).saturating_sub(name_width + 6);
+    for (name, about) in rows {
+        lines.push(Line::from(vec![
+            Span::styled(format!("   /{name:<name_width$}  "), look.bold(Ink::Accent)),
+            Span::styled(clip(about, room), look.style(Ink::Text)),
+        ]));
+    }
+    lines
+}
+
 /// The last line printed when the session ends.
 pub fn farewell(outcome: &ScanOutcome, health: u32) -> String {
     format!(
@@ -464,7 +521,11 @@ mod tests {
             ..ScanProgress::default()
         };
         terminal
-            .draw(|frame| scanning(frame, &look, owl(&look), '\u{280b}', &progress))
+            .draw(|frame| {
+                let art = owl(&look);
+                let text = progress_lines(&look, '\u{280b}', &progress, text_width(&art, 60));
+                working(frame, &look, art, text);
+            })
             .unwrap();
         let text = screen(&terminal).join("\n");
         assert!(text.contains("1,204 of 3,456 files"), "{text}");
