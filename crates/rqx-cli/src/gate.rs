@@ -9,12 +9,9 @@ use rqx_core::config::{Gate, GateSeverity, OwnerGate, RegressionGate, RqxConfig}
 use rqx_core::cost::{Conf, Order};
 use rqx_core::finding::Severity;
 
-use crate::regressions::{Regression, exceeds};
+use crate::regressions::{Regression, exceeds, named};
 use crate::report::plural;
 use crate::scan::ScanOutcome;
-
-/// How many functions a failure names before it says how many more there are.
-const NAMED: usize = 3;
 
 pub struct Verdict {
     pub failures: Vec<String>,
@@ -314,37 +311,11 @@ fn half_applied(outcome: &ScanOutcome, scope: &Scope<'_>, gate: &Gate) -> Option
     ))
 }
 
-/// The first few of `items`, and how many were left out.
-fn listed(items: &[String]) -> String {
-    let shown = items
-        .iter()
-        .take(NAMED)
-        .cloned()
-        .collect::<Vec<_>>()
-        .join(", ");
-    match items.len().checked_sub(NAMED).filter(|extra| *extra > 0) {
-        Some(extra) => format!("{shown} and {extra} more"),
-        None => shown,
-    }
-}
-
 fn regression_failure(regressions: &[Regression]) -> Option<String> {
     if regressions.is_empty() {
         return None;
     }
-    let described: Vec<String> = regressions
-        .iter()
-        .map(|regression| {
-            format!(
-                "`{}` {} \u{2192} {} ({}:{})",
-                regression.qual,
-                regression.before,
-                regression.after,
-                regression.file,
-                regression.line
-            )
-        })
-        .collect();
+    let described: Vec<String> = regressions.iter().map(ToString::to_string).collect();
     Some(format!(
         "{}: {}",
         plural(
@@ -352,7 +323,7 @@ fn regression_failure(regressions: &[Regression]) -> Option<String> {
             "complexity regression",
             "complexity regressions"
         ),
-        listed(&described)
+        named(&described)
     ))
 }
 
@@ -415,7 +386,7 @@ fn order_failure(outcome: &ScanOutcome, scope: &Scope<'_>, config: &RqxConfig) -
     Some(format!(
         "{} above `performance.max_order` of {limit}: {}",
         plural(over.len() as u32, "function", "functions"),
-        listed(&described)
+        named(&described)
     ))
 }
 

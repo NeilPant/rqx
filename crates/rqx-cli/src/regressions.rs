@@ -4,6 +4,7 @@
 //! against what its callee cost then, and nothing is scanned or checked out.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::path::Path;
 
 use rqx_core::config::RegressionGate;
@@ -34,6 +35,34 @@ pub struct Regression {
     pub after: Order,
     /// How the function gets to `after`, from its loop or call down to the cost.
     pub trace: Vec<TraceStep>,
+}
+
+impl fmt::Display for Regression {
+    /// `reconcileBatch` O(n) → O(n²) (src/x.ts:90)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "`{}` {} \u{2192} {} ({}:{})",
+            self.qual, self.before, self.after, self.file, self.line
+        )
+    }
+}
+
+/// How many functions a line names before it says how many more there are.
+const NAMED: usize = 3;
+
+/// The first few of `items`, and how many were left out.
+pub fn named(items: &[String]) -> String {
+    let shown = items
+        .iter()
+        .take(NAMED)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    match items.len().checked_sub(NAMED).filter(|extra| *extra > 0) {
+        Some(extra) => format!("{shown} and {extra} more"),
+        None => shown,
+    }
 }
 
 /// What a review found out about complexity, and how loudly the gate says it.

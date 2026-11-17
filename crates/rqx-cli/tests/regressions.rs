@@ -334,3 +334,30 @@ fn a_function_within_max_order_passes() {
 
     assert_eq!(code, Some(0), "{summary}");
 }
+
+#[test]
+fn the_terminal_summary_names_the_functions_that_got_slower() {
+    let repository = callee_got_slower("regress-terminal");
+
+    let output = repository.rqx_output(&["check", ".", "--base", "HEAD~1", "--regressions"]);
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let row = text
+        .lines()
+        .find(|line| line.trim_start().starts_with("Complexity"))
+        .unwrap_or_else(|| panic!("no Complexity row in:\n{text}"));
+    assert!(row.contains("2 functions got slower"), "{row}");
+    assert!(
+        row.contains("`reconcileBatch` O(n) \u{2192} O(n\u{b2}) (src/caller.ts:3)"),
+        "{row}"
+    );
+}
+
+#[test]
+fn the_terminal_summary_has_no_row_when_regressions_were_not_asked_for() {
+    let repository = callee_got_slower("regress-terminal-silent");
+
+    let output = repository.rqx_output(&["check", ".", "--base", "HEAD~1"]);
+
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("Complexity"));
+}
