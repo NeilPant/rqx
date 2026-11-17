@@ -9,6 +9,7 @@ pub mod impact;
 pub mod language;
 pub mod line_index;
 pub mod naming;
+pub mod ownership;
 pub mod paths;
 pub mod pattern;
 pub mod presets;
