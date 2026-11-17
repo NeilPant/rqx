@@ -195,6 +195,14 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   matched it and the same scan printed different paths on Windows and elsewhere. Paths
   in findings, reports, glob matches and the cache are now always written with `/`.
 
+- **`overrides` apply however the files are reached.** An override's `paths` were
+  compared with the path as the scan wrote it, so they missed when `rqx scan` was given
+  a directory other than the one holding `rqx.yaml`, when it ran from inside the
+  subtree, and when the project was reached through a symlink (macOS temp directories
+  are one). The path is now resolved first and matched relative to the config file's
+  directory, which `docs/configuration.md` now states. `rqx verify` rebases the same
+  way for a relative scan root.
+
 ## 0.2.1 — 2026-11-17
 
 ### Added

@@ -231,12 +231,74 @@ fn an_override_can_hold_a_subtree_to_its_own_rule_settings() {
             ),
         ],
     );
-    // Override globs are matched against the canonical path of the config's directory,
-    // and a temp directory on macOS is reached through a symlink.
-    let root = created.canonicalize().expect("a real path");
+    let root = created;
     assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 0);
     std::fs::write(root.join("fresh.ts"), DIRTY).expect("a file outside the subtree");
     assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+fn project_with_a_legacy_override(name: &str) -> PathBuf {
+    project(
+        name,
+        &[
+            ("legacy/a.ts", DIRTY),
+            ("legacy/index.ts", "export * from './a'\n"),
+            (
+                "rqx.yaml",
+                "overrides:\n  - paths: [\"legacy/**\"]\n    rules:\n      unreachable-code:\n        enabled: false\n",
+            ),
+        ],
+    )
+}
+
+fn rqx_from(directory: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .current_dir(directory)
+        .args(args)
+        .output()
+        .expect("failed to run rqx")
+}
+
+#[test]
+fn an_override_holds_when_only_its_subtree_is_scanned() {
+    let root = project_with_a_legacy_override("override-subtree");
+    let absolute = root.join("legacy");
+    let absolute = absolute.to_str().expect("a utf-8 path");
+
+    for target in ["legacy", "./legacy", absolute] {
+        let output = rqx_from(&root, &["scan", target, "--fail-on", "info"]);
+        assert_eq!(code(&output), 0, "scan {target}");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_override_holds_when_rqx_runs_from_inside_the_subtree() {
+    let root = project_with_a_legacy_override("override-inside");
+    let inside = root.join("legacy");
+
+    for target in [".", ".."] {
+        let output = rqx_from(&inside, &["scan", target, "--fail-on", "info"]);
+        assert_eq!(code(&output), 0, "scan {target}");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_override_holds_when_the_project_is_reached_through_a_symlink() {
+    let root = project_with_a_legacy_override("override-symlink");
+    let link = std::env::temp_dir().join(format!("rqx-ci-link-{}", std::process::id()));
+    let _ = std::fs::remove_file(&link);
+    std::os::unix::fs::symlink(&root, &link).expect("a symlink to the project");
+
+    assert_eq!(code(&rqx(&link, &["scan", "--fail-on", "info"])), 0);
+    assert_eq!(
+        code(&rqx(&link.join("legacy"), &["scan", "--fail-on", "info"])),
+        0
+    );
+    let _ = std::fs::remove_file(link);
     let _ = std::fs::remove_dir_all(root);
 }
 

@@ -632,6 +632,10 @@ fn configuration_page() -> String {
          \x20   rules:\n\
          \x20     disabled: [waste]\n\
          ```\n\n\
+         **An override's `paths` are matched against paths relative to the directory the config \
+         file is in**, however the files were reached: `rqx scan legacy`, `rqx scan .` from inside \
+         `legacy`, and a scan through a symlink all see `legacy/**` the same way. A file outside \
+         that directory is never covered.\n\n\
          An override may set `thresholds`, `rules`, `patterns` and `level` and nothing else. Every other \
          table describes the run as a whole — the file walker is built once and the gate \
          reaches one verdict — so naming one in an override is an error rather than a \

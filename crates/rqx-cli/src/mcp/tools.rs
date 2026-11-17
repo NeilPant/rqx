@@ -694,7 +694,7 @@ impl Rqx {
             })?,
         };
 
-        let config = self.settings.for_file(std::path::Path::new(display));
+        let config = self.settings.for_file(&self.root.join(display));
         let analysis = rqx_lang::analyze_as(language, display, &buffer.source, config)
             .map_err(|error| refused(error.to_string()))?;
 
