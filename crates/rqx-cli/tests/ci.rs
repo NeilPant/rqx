@@ -14,7 +14,9 @@ fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("a temp project");
     for (path, text) in files {
-        std::fs::write(root.join(path), text).expect("a file");
+        let file = root.join(path);
+        std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
+        std::fs::write(file, text).expect("a file");
     }
     root
 }
@@ -135,6 +137,132 @@ fn the_config_schema_prints_without_a_config_and_matches_the_checked_in_one() {
     ))
     .expect("docs/rqx.schema.json");
     assert_eq!(printed.trim_end(), checked_in.trim_end());
+}
+
+/// `unreachable-code` is an error by default and fires on `DIRTY`; these show what a
+/// project can say about one rule without touching the rest of the catalogue.
+fn one_rule(name: &str, config: &str) -> PathBuf {
+    project(
+        name,
+        &[
+            ("a.ts", DIRTY),
+            ("index.ts", "export * from './a'\n"),
+            ("rqx.yaml", config),
+        ],
+    )
+}
+
+#[test]
+fn a_rules_severity_can_be_set_in_the_config() {
+    let lowered = one_rule(
+        "severity",
+        "rules:\n  unreachable-code:\n    severity: info\n",
+    );
+    assert_eq!(code(&rqx(&lowered, &["scan", "--fail-on", "error"])), 0);
+    assert_eq!(code(&rqx(&lowered, &["scan", "--fail-on", "info"])), 1);
+    let _ = std::fs::remove_dir_all(lowered);
+}
+
+#[test]
+fn a_rule_restricted_to_paths_stays_quiet_elsewhere() {
+    let elsewhere = one_rule(
+        "paths-elsewhere",
+        "rules:\n  unreachable-code:\n    paths: [\"lib/**\"]\n",
+    );
+    assert_eq!(code(&rqx(&elsewhere, &["scan", "--fail-on", "info"])), 0);
+
+    let here = one_rule(
+        "paths-here",
+        "rules:\n  unreachable-code:\n    paths: [\"*.ts\"]\n",
+    );
+    assert_eq!(code(&rqx(&here, &["scan", "--fail-on", "info"])), 1);
+    for root in [elsewhere, here] {
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[test]
+fn a_rule_can_be_switched_off_and_a_threshold_set_where_it_is_read() {
+    let off = one_rule(
+        "switch",
+        "rules:\n  unreachable-code:\n    enabled: false\n",
+    );
+    assert_eq!(code(&rqx(&off, &["scan", "--fail-on", "info"])), 0);
+
+    let two_parameters = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
+    let tuned = project(
+        "tuned",
+        &[
+            ("a.ts", two_parameters),
+            ("index.ts", "export * from './a'\n"),
+            (
+                "rqx.yaml",
+                "rules:\n  long-parameter-list:\n    max_params: 1\n",
+            ),
+        ],
+    );
+    assert_eq!(code(&rqx(&tuned, &["scan", "--fail-on", "info"])), 1);
+    let untuned = project(
+        "untuned",
+        &[
+            ("a.ts", two_parameters),
+            ("index.ts", "export * from './a'\n"),
+        ],
+    );
+    assert_eq!(code(&rqx(&untuned, &["scan", "--fail-on", "info"])), 0);
+    for root in [off, tuned, untuned] {
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[test]
+fn an_override_can_hold_a_subtree_to_its_own_rule_settings() {
+    let created = project(
+        "override-rule",
+        &[
+            ("legacy/a.ts", DIRTY),
+            ("legacy/index.ts", "export * from './a'\n"),
+            (
+                "rqx.yaml",
+                "overrides:\n  - paths: [\"legacy/**\"]\n    rules:\n      unreachable-code:\n        enabled: false\n",
+            ),
+        ],
+    );
+    // Override globs are matched against the canonical path of the config's directory,
+    // and a temp directory on macOS is reached through a symlink.
+    let root = created.canonicalize().expect("a real path");
+    assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 0);
+    std::fs::write(root.join("fresh.ts"), DIRTY).expect("a file outside the subtree");
+    assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_unknown_rule_or_option_is_refused_with_what_it_could_have_been() {
+    let rule = one_rule(
+        "typo-rule",
+        "rules:\n  unreachable-cod:\n    severity: info\n",
+    );
+    let output = rqx(&rule, &["scan"]);
+    assert_eq!(code(&output), 2);
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(said.contains("Did you mean `unreachable-code`?"), "{said}");
+
+    let option = one_rule(
+        "typo-option",
+        "rules:\n  unreachable-code:\n    severty: info\n",
+    );
+    let output = rqx(&option, &["scan"]);
+    assert_eq!(code(&output), 2);
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(said.contains("Did you mean `severity`?"), "{said}");
+    assert!(
+        said.contains("rqx.yaml:"),
+        "the file and line are named: {said}"
+    );
+    for root in [rule, option] {
+        let _ = std::fs::remove_dir_all(root);
+    }
 }
 
 /// A bare scan reports; it gates only when asked. A pipeline that added a config file

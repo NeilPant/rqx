@@ -600,6 +600,37 @@ fn configuration_page() -> String {
          is an error, not a silent no-op, because a `categories` allowlist naming only \
          unknown families would otherwise turn every rule off. `rqx rules` lists every \
          name that is valid.\n\n\
+         ## One rule, on its own terms\n\n\
+         A rule's slug is a key under `rules`, and it takes the settings that belong to \
+         that rule alone.\n\n\
+         ```yaml\n\
+         rules:\n\
+         \x20 long-parameter-list:\n\
+         \x20   severity: error\n\
+         \x20   max_params: 6\n\
+         \x20   paths: [\"src/domain/**\"]\n\
+         \x20 magic-number:\n\
+         \x20   enabled: false\n\
+         ```\n\n\
+         | Key | Meaning |\n\
+         |---|---|\n\
+         | `severity` | `info`, `warning` or `error`: what the rule's findings are reported as, \
+         and so what `gate.fail_on` and the health score make of them. |\n\
+         | `enabled` | `false` switches the rule off; `true` switches it on even when it ships off. \
+         It is the most specific word on the rule, so it wins over `disabled`, `enabled` and \
+         `categories`. |\n\
+         | `paths` | Globs relative to the scanned directory. When given, the rule only reports in \
+         files they match. |\n\
+         | `confidence` | `low`, `heuristic` or `verified`. Only verified findings count towards the \
+         health score. |\n\
+         | a threshold | Any threshold the rule reads, by its key. The table \
+         below says which. It is the same setting as `thresholds.<key>`, written next to the rule; \
+         naming both with different values is an error. |\n\n\
+         A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule slug is \
+         an error that suggests the closest name, and so is an option the rule does not have. \
+         The same settings work inside an entry of `overrides`, which is how one subtree gets a \
+         stricter rule than the rest. A rule *you* wrote under `rule` carries its own `severity` \
+         and `confidence`, so it is not a key here.\n\n\
          ## Levels\n\n\
          `level: strict` in `rqx.yaml`, or `--level strict` on the command line, \
          picks a named set of defaults. A level is merged *under* everything you wrote, \

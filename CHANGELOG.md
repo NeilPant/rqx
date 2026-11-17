@@ -26,6 +26,15 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   The tarballs are on the GitHub release with a `SHA256SUMS` beside them, and the npm
   packages publish with Sigstore provenance.
 
+- **Per-rule options.** A rule's slug is a key under `rules`, with `severity`,
+  `enabled`, `paths`, `confidence` and the thresholds that rule reads:
+  `rules: {long-parameter-list: {severity: error, max_params: 6, paths: ["src/domain/**"]}}`.
+  The same keys work inside an entry of `overrides`. A threshold written under a rule
+  is moved into `thresholds` as the file is read, so layering, policy locks and the
+  `from` column treat it as the setting it is. A key under `rules` that is not a rule,
+  a list name or an option of that rule is refused with the closest name; the JSON
+  Schema lists every rule and its own thresholds. The `perf` preset now reports every
+  performance rule as an error.
 - **Presets and `extends`.** `extends: [legacy-adoption, ci-gate]` builds a config on
   named sets of settings: `recommended`, `strict`, `legacy-adoption` (relaxed
   thresholds, a gate that fails only on errors, the ratchet on), `ci-gate` (no errors,

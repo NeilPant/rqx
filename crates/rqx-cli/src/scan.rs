@@ -326,9 +326,10 @@ impl Collector {
     }
 
     fn accept_if_enabled(&mut self, config: &RqxConfig, mut finding: Finding) {
-        if !config.rules.enabled(finding.rule) {
+        if !config.rules.admits(finding.rule, &finding.location.file) {
             return;
         }
+        config.rules.adjust(&mut finding);
         // A run that reached the code contradicts the graph that called it dead. The
         // finding is kept and shown — the graph may still be right about the import —
         // but at a confidence that keeps it out of the health score.

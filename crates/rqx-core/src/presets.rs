@@ -99,6 +99,20 @@ mod tests {
     }
 
     #[test]
+    fn perf_raises_every_performance_rule_and_nothing_else() {
+        use crate::rule::{Category, RuleId};
+        let perf: RqxConfig = serde_saphyr::from_str(lookup("perf").expect("perf")).unwrap();
+        let raised: Vec<&str> = perf.rules.options.keys().map(String::as_str).collect();
+        for rule in Category::Performance.rules() {
+            assert!(raised.contains(&rule.spec().slug), "{rule} is not raised");
+        }
+        for slug in raised {
+            let rule = RuleId::parse(slug).expect("a rule");
+            assert_eq!(rule.spec().category, Category::Performance, "{slug}");
+        }
+    }
+
+    #[test]
     fn ci_gate_gates_and_recommended_does_not_move_anything() {
         let gate: RqxConfig = serde_saphyr::from_str(lookup("ci-gate").expect("ci-gate")).unwrap();
         assert_eq!(gate.gate.min_health, 70);

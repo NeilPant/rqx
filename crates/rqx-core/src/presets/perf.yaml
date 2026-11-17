@@ -1,5 +1,18 @@
-# Puts the performance family first: nested loops and callbacks are reported at a
-# shallower depth than the defaults allow. Everything else is left as it is.
+# Puts the performance family first. Every performance rule reports as an error, so
+# the default gate fails on one, and nested loops and nested callbacks are reported at
+# a shallower depth than the defaults allow. Everything else is left as it is.
 thresholds:
   loop_nesting: 1
   callback_depth: 2
+
+rules:
+  loop-concatenation: { severity: error }
+  sequential-await: { severity: error }
+  scan-in-loop: { severity: error }
+  deep-loop-nesting: { severity: error }
+  query-in-loop: { severity: error }
+  await-in-loop: { severity: error }
+  invariant-in-loop: { severity: error }
+  accumulate-by-copy: { severity: error }
+  branching-recursion: { severity: error }
+  blocking-call-in-async: { severity: error }

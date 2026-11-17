@@ -12,6 +12,7 @@ pub mod naming;
 pub mod pattern;
 pub mod presets;
 pub mod rule;
+pub mod rule_options;
 pub mod rules;
 pub mod runtime;
 pub mod score;

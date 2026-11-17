@@ -31,6 +31,12 @@ rules:
   enabled: []
   # When non-empty, only these families run.
   categories: []
+  # A single rule can be given its own settings under its slug: severity, enabled,
+  # paths, confidence, and the thresholds it reads.
+  # long-parameter-list:
+  #   severity: error
+  #   max_params: 6
+  #   paths: ["src/domain/**"]
 
 patterns:
   # Design-pattern advice: which patterns are in use, which are half applied, and where

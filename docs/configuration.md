@@ -40,6 +40,30 @@ An override may set `thresholds`, `rules`, `patterns` and `level` and nothing el
 
 The same holds for names: a rule, family, pattern or stance that does not exist is an error, not a silent no-op, because a `categories` allowlist naming only unknown families would otherwise turn every rule off. `rqx rules` lists every name that is valid.
 
+## One rule, on its own terms
+
+A rule's slug is a key under `rules`, and it takes the settings that belong to that rule alone.
+
+```yaml
+rules:
+  long-parameter-list:
+    severity: error
+    max_params: 6
+    paths: ["src/domain/**"]
+  magic-number:
+    enabled: false
+```
+
+| Key | Meaning |
+|---|---|
+| `severity` | `info`, `warning` or `error`: what the rule's findings are reported as, and so what `gate.fail_on` and the health score make of them. |
+| `enabled` | `false` switches the rule off; `true` switches it on even when it ships off. It is the most specific word on the rule, so it wins over `disabled`, `enabled` and `categories`. |
+| `paths` | Globs relative to the scanned directory. When given, the rule only reports in files they match. |
+| `confidence` | `low`, `heuristic` or `verified`. Only verified findings count towards the health score. |
+| a threshold | Any threshold the rule reads, by its key. The table below says which. It is the same setting as `thresholds.<key>`, written next to the rule; naming both with different values is an error. |
+
+A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule slug is an error that suggests the closest name, and so is an option the rule does not have. The same settings work inside an entry of `overrides`, which is how one subtree gets a stricter rule than the rest. A rule *you* wrote under `rule` carries its own `severity` and `confidence`, so it is not a key here.
+
 ## Levels
 
 `level: strict` in `rqx.yaml`, or `--level strict` on the command line, picks a named set of defaults. A level is merged *under* everything you wrote, so it moves the defaults and never overrides a value you stated; `rqx config` shows `level:strict` in the `from` column for a value the level moved. An entry of `overrides` may name its own `level`, so a project can be strict in its domain and relaxed in its scripts. `rqx levels` prints each one as the settings it would take to write by hand.

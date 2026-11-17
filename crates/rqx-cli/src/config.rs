@@ -11,6 +11,7 @@ use serde_json::{Map, Value};
 
 mod extends;
 mod files;
+mod hoist;
 mod origin;
 mod quickfix;
 
@@ -326,9 +327,11 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
             Origin::Flag(_) => continue,
         };
         extends::take_extends(&mut value);
-        for entry in take_overrides(&mut value, &path)? {
+        for mut entry in take_overrides(&mut value, &path)? {
+            hoist::thresholds(&mut entry, &format!("an entry of `overrides` in {origin}"))?;
             raw_overrides.push((path.clone(), entry));
         }
+        hoist::thresholds(&mut value, &origin.to_string())?;
         let is_policy =
             matches!(&origin, Origin::File(file) if policy.as_deref() == Some(file.as_path()));
         locked.extend(take_locked(&mut value, &path, is_policy)?);

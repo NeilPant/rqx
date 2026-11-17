@@ -8,6 +8,7 @@ use crate::finding::{Confidence, Severity};
 use crate::language::Language;
 use crate::pattern::{Pattern, PatternFamily};
 use crate::rule::{Analysis, Autofix, Category, RuleId};
+use crate::rule_options::RuleOptions;
 use crate::score::Cleanliness;
 
 /// The name `rqx init` writes. Lowercase, because YAML tooling and editors recognise
@@ -35,8 +36,35 @@ pub fn json_schema() -> serde_json::Value {
     if let Some(root) = schema.as_object_mut() {
         root.insert("title".to_owned(), "rqx configuration".into());
     }
+    describe_rules(&mut schema);
     unwrap_descriptions(&mut schema);
     schema
+}
+
+/// `rules` takes a key per rule, so the derived schema can only say "any key holding
+/// rule options". Naming each rule lets an editor complete the slugs, refuse a
+/// misspelt one, and offer exactly the thresholds that rule reads.
+fn describe_rules(schema: &mut serde_json::Value) {
+    let defs = &mut schema["$defs"];
+    let options = defs["RuleOptions"].clone();
+    let thresholds = defs["Thresholds"]["properties"].clone();
+    let Some(rules) = defs["Rules"].as_object_mut() else {
+        return;
+    };
+    rules.insert("additionalProperties".to_owned(), false.into());
+    let properties = rules
+        .entry("properties")
+        .or_insert_with(|| serde_json::json!({}));
+    for rule in RuleId::ALL.iter().copied() {
+        let spec = rule.spec();
+        let mut one = options.clone();
+        one["description"] = format!("Settings for `{}`. {}", spec.slug, spec.why).into();
+        one["additionalProperties"] = false.into();
+        for key in Thresholds::tuned_by(rule) {
+            one["properties"][key] = thresholds[key].clone();
+        }
+        properties[spec.slug] = one;
+    }
 }
 
 /// Doc comments are wrapped at the width of the source, which a hover tooltip is not.
@@ -793,9 +821,11 @@ impl Default for Thresholds {
 
 /// Rules and whole families can be switched on or off by name. A rule marked
 /// `off_by_default` in the catalogue stays off unless it is named in `enabled`,
-/// which keeps the noisy-but-real rules available without inflicting them.
-#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
-#[serde(default, deny_unknown_fields)]
+/// which keeps the noisy-but-real rules available without inflicting them. A single
+/// rule can also be given its own settings by writing its slug as a key, which is
+/// why `Rules` is read by hand: see `rule_options`.
+#[derive(Clone, Debug, Default, Hash, schemars::JsonSchema, Serialize)]
+#[serde(default)]
 pub struct Rules {
     /// Rule slugs or family slugs to switch off. `rqx rules` lists both.
     pub disabled: BTreeSet<String>,
@@ -803,10 +833,17 @@ pub struct Rules {
     pub enabled: BTreeSet<String>,
     /// When non-empty, only these families run.
     pub categories: BTreeSet<String>,
+    /// Settings for one rule, keyed by its slug: its severity, whether it runs, the
+    /// paths it applies to, its confidence, and the thresholds it reads.
+    #[serde(flatten)]
+    pub options: BTreeMap<String, RuleOptions>,
 }
 
 impl Rules {
     pub fn enabled(&self, rule: RuleId) -> bool {
+        if let Some(switched) = self.switched(rule) {
+            return switched;
+        }
         let spec = rule.spec();
         if self.disabled.contains(spec.slug) || self.disabled.contains(spec.category.slug()) {
             return false;
@@ -1129,6 +1166,21 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn the_schema_names_every_rule_and_the_thresholds_it_reads() {
+        let schema = json_schema();
+        let rules = property(&schema, &["rules"]);
+        assert_eq!(rules["additionalProperties"], false);
+        for rule in RuleId::ALL.iter().copied() {
+            let one = &rules["properties"][rule.spec().slug];
+            assert!(one["properties"]["severity"].is_object(), "{rule}");
+            for key in Thresholds::tuned_by(rule) {
+                assert!(one["properties"][key].is_object(), "{rule} lacks {key}");
+            }
+        }
+        assert!(rules["properties"]["disabled"].is_object());
     }
 
     #[test]
