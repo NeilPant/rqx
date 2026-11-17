@@ -3,6 +3,8 @@ use std::path::Path;
 
 use crate::rule::RuleId;
 
+mod speedscope;
+
 /// Which lines of a file a test run actually executed. rqx decides dead code from the
 /// import graph, which cannot see a dynamic import, a container wiring things up by
 /// name, or reflection — so a symbol the graph called dead and a test ran is not a
@@ -542,13 +544,16 @@ impl Samples {
         }
         let body = String::from_utf8(bytes)
             .map_err(|_| format!("{}: neither a pprof nor text", path.display()))?;
+        if speedscope::claims(&body) {
+            return speedscope::read(&body).map_err(|error| format!("{}: {error}", path.display()));
+        }
         if body.trim_start().starts_with('{') && body.contains("\"nodes\"") {
             return read_cpuprofile(&body).map_err(|error| format!("{}: {error}", path.display()));
         }
         let stacks = read_collapsed(&body);
         if stacks.is_empty() {
             return Err(format!(
-                "{}: not a V8 .cpuprofile, a pprof, or collapsed stacks",
+                "{}: not a V8 .cpuprofile, a speedscope file, a pprof, or collapsed stacks",
                 path.display()
             ));
         }

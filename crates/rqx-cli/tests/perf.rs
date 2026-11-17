@@ -50,15 +50,18 @@ fn project(name: &str) -> PathBuf {
     root
 }
 
-fn rows(root: &Path, args: &[&str]) -> Vec<serde_json::Value> {
-    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+fn perf(root: &Path, args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
         .arg("perf")
         .arg(root)
         .args(args)
         .arg("--json")
         .output()
-        .expect("failed to run rqx");
-    String::from_utf8(output.stdout)
+        .expect("failed to run rqx")
+}
+
+fn rows(root: &Path, args: &[&str]) -> Vec<serde_json::Value> {
+    String::from_utf8(perf(root, args).stdout)
         .expect("utf-8")
         .lines()
         .map(|line| serde_json::from_str(line).expect("a row"))
@@ -119,5 +122,52 @@ fn a_finding_the_profile_never_reached_drops_to_low() {
         "the profile put this one on the stack"
     );
     assert_eq!(nested["evidence"]["sampled"], 1000);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A speedscope file names a frame by file and line, and a file that stops halfway is
+/// reported and skipped without costing the scan the profiles that did read.
+#[test]
+fn a_speedscope_profile_is_read_and_a_truncated_one_is_skipped() {
+    let root = project("speedscope");
+    std::fs::write(
+        root.join("run.speedscope.json"),
+        r#"{"$schema": "https://www.speedscope.app/file-format-schema.json",
+        "shared": {"frames": [{"name": "sumCube", "file": "hot.ts", "line": 5}]},
+        "profiles": [{"type": "sampled", "unit": "none", "samples": [[0], [0]]}]}"#,
+    )
+    .expect("the speedscope profile");
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/profiles/truncated.speedscope.json"),
+        root.join("truncated.speedscope.json"),
+    )
+    .expect("the truncated profile");
+
+    let output = perf(
+        &root,
+        &[
+            "--profile",
+            "truncated.speedscope.json",
+            "--profile",
+            "run.speedscope.json",
+        ],
+    );
+    let stderr = String::from_utf8(output.stderr).expect("utf-8");
+    assert!(
+        stderr.contains("skipping profile") && stderr.contains("truncated.speedscope.json"),
+        "{stderr}"
+    );
+    let with = rows(
+        &root,
+        &[
+            "--profile",
+            "truncated.speedscope.json",
+            "--profile",
+            "run.speedscope.json",
+        ],
+    );
+    assert_eq!(with[0]["name"], "sumCube");
+    assert_eq!(with[0]["sampled"]["inclusive"], 1000);
     let _ = std::fs::remove_dir_all(&root);
 }
