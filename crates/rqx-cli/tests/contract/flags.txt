@@ -383,6 +383,7 @@ complexity --progress =bar
 complexity --progress =none
 complexity --progress =plain
 complexity --progress [env RQX_PROGRESS]
+complexity --reporter
 complexity --sort
 complexity --sort =complexity
 complexity --sort =nesting
@@ -423,6 +424,7 @@ config --progress =bar
 config --progress =none
 config --progress =plain
 config --progress [env RQX_PROGRESS]
+config --reporter
 config --verbose
 config -h
 config -v
@@ -636,6 +638,7 @@ config validate --progress =bar
 config validate --progress =none
 config validate --progress =plain
 config validate --progress [env RQX_PROGRESS]
+config validate --reporter
 config validate --strict
 config validate --verbose
 config validate -h
@@ -729,6 +732,7 @@ fix --progress =bar
 fix --progress =none
 fix --progress =plain
 fix --progress [env RQX_PROGRESS]
+fix --reporter
 fix --threads
 fix --threads [env RQX_THREADS]
 fix --verbose
@@ -772,6 +776,7 @@ graph --progress =bar
 graph --progress =none
 graph --progress =plain
 graph --progress [env RQX_PROGRESS]
+graph --reporter
 graph --threads
 graph --threads [env RQX_THREADS]
 graph --verbose
@@ -811,6 +816,7 @@ health --progress =bar
 health --progress =none
 health --progress =plain
 health --progress [env RQX_PROGRESS]
+health --reporter
 health --threads
 health --threads [env RQX_THREADS]
 health --verbose
@@ -1002,6 +1008,7 @@ patterns --progress =bar
 patterns --progress =none
 patterns --progress =plain
 patterns --progress [env RQX_PROGRESS]
+patterns --reporter
 patterns --threads
 patterns --threads [env RQX_THREADS]
 patterns --verbose
@@ -1042,6 +1049,7 @@ perf --progress =bar
 perf --progress =none
 perf --progress =plain
 perf --progress [env RQX_PROGRESS]
+perf --reporter
 perf --sort
 perf --sort =io
 perf --sort =order
@@ -1085,6 +1093,7 @@ plan --progress =bar
 plan --progress =none
 plan --progress =plain
 plan --progress [env RQX_PROGRESS]
+plan --reporter
 plan --simulate
 plan --threads
 plan --threads [env RQX_THREADS]
@@ -1157,6 +1166,7 @@ recommend --progress =bar
 recommend --progress =none
 recommend --progress =plain
 recommend --progress [env RQX_PROGRESS]
+recommend --reporter
 recommend --threads
 recommend --threads [env RQX_THREADS]
 recommend --verbose
@@ -1359,6 +1369,7 @@ slop --progress =bar
 slop --progress =none
 slop --progress =plain
 slop --progress [env RQX_PROGRESS]
+slop --reporter
 slop --threads
 slop --threads [env RQX_THREADS]
 slop --top
@@ -1395,6 +1406,7 @@ suppressions --progress =bar
 suppressions --progress =none
 suppressions --progress =plain
 suppressions --progress [env RQX_PROGRESS]
+suppressions --reporter
 suppressions --threads
 suppressions --threads [env RQX_THREADS]
 suppressions --verbose
@@ -1489,6 +1501,7 @@ verify --progress =bar
 verify --progress =none
 verify --progress =plain
 verify --progress [env RQX_PROGRESS]
+verify --reporter
 verify --threads
 verify --threads [env RQX_THREADS]
 verify --verbose

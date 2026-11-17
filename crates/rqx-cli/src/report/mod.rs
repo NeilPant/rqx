@@ -170,17 +170,6 @@ pub enum Reporter {
 }
 
 impl Reporter {
-    pub const ALL: [Self; 8] = [
-        Self::Terminal,
-        Self::Json,
-        Self::Sarif,
-        Self::Junit,
-        Self::Gitlab,
-        Self::Github,
-        Self::Markdown,
-        Self::Html,
-    ];
-
     /// Only the console report is written for a person to read; anything else is a
     /// document a machine parses, and an escape sequence in it is corruption.
     pub const fn is_coloured(self) -> bool {
@@ -192,19 +181,6 @@ impl Reporter {
     /// run and the annotations that mark it up.
     pub const fn is_document(self) -> bool {
         !matches!(self, Self::Terminal | Self::Github)
-    }
-
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::Terminal => "terminal",
-            Self::Json => "json",
-            Self::Sarif => "sarif",
-            Self::Junit => "junit",
-            Self::Gitlab => "gitlab",
-            Self::Github => "github",
-            Self::Markdown => "markdown",
-            Self::Html => "html",
-        }
     }
 }
 
@@ -635,8 +611,8 @@ mod plainness {
             width: None,
             links: None,
         };
-        for reporter in Reporter::ALL {
-            rendered(reporter.name(), |out| {
+        for reporter in Reporter::value_variants().iter().copied() {
+            rendered(&crate::sink::Format::label(reporter), |out| {
                 emit(&report, reporter, &layout, out).expect("a report");
             });
         }

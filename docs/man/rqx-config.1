@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-config \- Print the settings a run will use, and the file each one came from
 .SH SYNOPSIS
-\fBrqx config\fR [\fB\-\-level\fR] [\fB\-\-config\fR] [\fB\-\-json\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
+\fBrqx config\fR [\fB\-\-level\fR] [\fB\-\-config\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 Print the settings a run will use, and the file each one came from
 .SH OPTIONS
@@ -17,6 +17,9 @@ Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-json\fR
 One JSON object per setting, then a summary, instead of the table
+.TP
+\fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
+Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`
 .TP
 \fB\-\-no\-tui\fR
 Never open the interactive interface; bare `rqx` prints the report instead

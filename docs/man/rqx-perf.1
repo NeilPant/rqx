@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-perf \- Where the work grows faster than the data, ranked by reach
 .SH SYNOPSIS
-\fBrqx perf\fR [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\-depth\fR] [\fB\-\-profile\fR] [\fB\-\-json\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx perf\fR [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\-depth\fR] [\fB\-\-profile\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Where the work grows faster than the data, ranked by reach
 .SH OPTIONS
@@ -52,6 +52,9 @@ A CPU profile, so a finding nothing ran stops counting. A V8 .cpuprofile, a Go p
 .TP
 \fB\-\-json\fR
 Emit one JSON object per row
+.TP
+\fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
+Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`
 .TP
 \fB\-\-level\fR \fI<LEVEL>\fR
 relaxed, standard, strict or pristine

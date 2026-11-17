@@ -286,6 +286,13 @@ impl<'a> Context<'a> {
     }
 }
 
+fn refuse_reporter(given: bool) -> Result<()> {
+    if given {
+        bail!("`--reporter` writes outside the session; `--json` prints here");
+    }
+    Ok(())
+}
+
 fn refuse_scan_changes(evidence: &Evidence, cap: &DisplayCap) -> Result<()> {
     if evidence.is_empty() && !cap.is_set() {
         return Ok(());
@@ -364,9 +371,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             limit,
             simulate,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let request = render::Plan {
                 budget,
                 limit,
@@ -380,9 +389,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             path,
             by,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::health(outcome, by, json, palette, out))
         }
@@ -394,9 +405,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             min,
             histogram,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let view = complexity::View {
                 by,
                 sort,
@@ -415,9 +428,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             min_depth,
             profile,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             if !profile.is_empty() {
                 bail!("`--profile` changes the scan; run it from a shell");
             }
@@ -436,11 +451,13 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             cycles,
             focus,
             depth,
+            reporters,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(!reporters.is_empty())?;
             let view = graph::View {
-                shape: format,
+                shape: format.unwrap_or_default(),
                 cycles_only: cycles,
                 focus: focus.as_deref(),
                 depth,
@@ -452,9 +469,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             path,
             only,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::recommend(outcome, context.settings, only, json, palette, out))
         }
@@ -462,12 +481,14 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             path,
             coverage,
             json,
+            printing,
             run,
         } => {
             if coverage {
                 return print(|out| report::pattern_coverage(palette, out));
             }
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::patterns(outcome, json, palette, out))
         }
@@ -475,9 +496,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             path,
             expiring,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::suppressions(&path, outcome, expiring, json, palette, out))
         }
@@ -523,9 +546,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             top,
             min,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             // The signals are Info rules that ship off, which the session's scan did not
             // run, so this one scans again with its own family on.
             let mut settings = context.settings.clone();
@@ -545,9 +570,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             json,
             plan,
             markdown,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             if plan {
                 let outcome = context.scanned()?;
                 return print(|out| {
@@ -614,9 +641,11 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             base,
             expect,
             json,
+            printing,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
             let settings = context.settings.clone();
             background(false, move || {
                 verify::ensure_repository(&path, &base)?;

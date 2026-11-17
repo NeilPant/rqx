@@ -4,12 +4,14 @@
 .SH NAME
 rqx\-graph \- Print the import graph — as text, Graphviz, Mermaid or data
 .SH SYNOPSIS
-\fBrqx graph\fR [\fB\-\-format\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx graph\fR [\fB\-\-format\fR] [\fB\-\-reporter\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Print the import graph — as text, Graphviz, Mermaid or data
 .SH OPTIONS
 .TP
-\fB\-\-format\fR \fI<FORMAT>\fR [default: text]
+\fB\-\-format\fR \fI<FORMAT>\fR
+text, dot, mermaid or json. Text unless a `\-\-reporter` says otherwise
+.br
 
 .br
 \fIPossible values:\fR
@@ -23,6 +25,9 @@ mermaid: A fenced block GitHub and most wikis render on the spot
 .IP \(bu 2
 json: Nodes and edges as data
 .RE
+.TP
+\fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
+Where the graph goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are the formats, and `terminal` is `text`
 .TP
 \fB\-\-cycles\fR
 Only the edges that close a cycle

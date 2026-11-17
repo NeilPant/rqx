@@ -12,6 +12,14 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`--reporter` on every command that prints.** `fix`, `verify`, `plan`,
+  `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`, `patterns`,
+  `graph`, `config` and `config validate` take `--reporter terminal|json`, and
+  `--reporter json=out.json` writes the document to a file while the console keeps the
+  readable form. `--json` still works and prints exactly what it did. `graph` also
+  takes `text`, `dot` and `mermaid`; `--format` is unchanged. As on `scan`, a JSON
+  document cannot share stdout with another reporter, and the run says so before
+  writing anything.
 - **The gate can be set from the environment.** `RQX_FAIL_ON`, `RQX_ALLOW_FINDINGS`,
   `RQX_MIN_HEALTH`, `RQX_MIN_GRADE` and `RQX_FAIL_ON_INCOMPLETE` stand in for the
   flags of the same names on `scan`, `check` and `comment`. A flag beats its variable

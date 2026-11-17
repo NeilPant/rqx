@@ -9,10 +9,13 @@ use clap::ValueEnum;
 
 use crate::brand::{Ink, Palette, paint};
 use crate::scan::ScanOutcome;
+use crate::sink::Format;
 
-#[derive(Copy, Clone, Debug, ValueEnum)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum Shape {
     /// One line per edge, grouped by importer
+    #[default]
+    #[value(alias = "terminal")]
     Text,
     /// Graphviz, for `dot -Tsvg`
     Dot,
@@ -20,6 +23,18 @@ pub enum Shape {
     Mermaid,
     /// Nodes and edges as data
     Json,
+}
+
+impl Format for Shape {
+    const CONSOLE: Self = Self::Text;
+
+    fn is_document(self) -> bool {
+        !matches!(self, Self::Text)
+    }
+
+    fn is_coloured(self) -> bool {
+        matches!(self, Self::Text)
+    }
 }
 
 pub struct View<'a> {

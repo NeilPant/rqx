@@ -78,6 +78,14 @@ rqx scan . \
 `terminal` and `github` can share stdout; anything else is a document and has to
 have the stream, or a file, to itself.
 
+The commands that print their own view instead of the findings — `fix`, `verify`,
+`plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`,
+`patterns`, `graph` and `config` — take `--reporter` too, with two names: `terminal`
+and `json`. `rqx health --reporter terminal --reporter json=health.json` prints the
+table and writes the document. `--json` on those commands is short for `--reporter
+json`. `graph` also takes `text`, `dot` and `mermaid`, which are its `--format`
+values.
+
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.
 

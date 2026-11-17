@@ -1,6 +1,5 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint};
@@ -39,6 +38,7 @@ mod report;
 mod scan;
 mod session;
 mod setup;
+mod sink;
 mod slop;
 mod stats;
 mod term;
@@ -50,6 +50,7 @@ mod watch;
 use brand::{ColorDepth, Palette};
 use gate::{Scope, judge};
 use report::{FindingFilter, Layout, Report, Reporter};
+use sink::{Rendering, Sink};
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -293,6 +294,8 @@ enum Command {
         #[arg(long)]
         markdown: bool,
         #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
         run: Run,
     },
     /// Compare the working tree against a base revision and say what happened to
@@ -310,6 +313,8 @@ enum Command {
         /// Emit one JSON object per change instead of the reader's report
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        printing: Printing,
         #[command(flatten)]
         run: Run,
     },
@@ -341,6 +346,8 @@ enum Command {
         /// Emit one JSON object per item instead of the reader's plan
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        printing: Printing,
         #[command(flatten)]
         run: Run,
     },
@@ -386,6 +393,8 @@ enum Command {
         /// Emit one JSON object per waiver instead of the reader's report
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        printing: Printing,
         #[command(flatten)]
         run: Run,
     },
@@ -441,6 +450,8 @@ enum Command {
         #[arg(long)]
         json: bool,
         #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
         run: Run,
     },
     /// Where the work grows faster than the data, ranked by reach
@@ -465,6 +476,8 @@ enum Command {
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        printing: Printing,
         #[command(flatten)]
         run: Run,
     },
@@ -504,6 +517,8 @@ enum Command {
         #[arg(long)]
         json: bool,
         #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
         run: Run,
     },
     /// Which files read as written rather than read
@@ -518,6 +533,8 @@ enum Command {
         #[arg(long)]
         json: bool,
         #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
         run: Run,
     },
     /// Where the health score comes from, and what removing each part would buy
@@ -530,6 +547,8 @@ enum Command {
         #[arg(long)]
         json: bool,
         #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
         run: Run,
     },
     /// Print the import graph — as text, Graphviz, Mermaid or data
@@ -539,8 +558,13 @@ enum Command {
     Graph {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[arg(long, value_enum, default_value_t = graph::Shape::Text)]
-        format: graph::Shape,
+        /// text, dot, mermaid or json. Text unless a `--reporter` says otherwise
+        #[arg(long, value_enum)]
+        format: Option<graph::Shape>,
+        /// Where the graph goes: `<name>` for stdout, `<name>=<path>` for a file;
+        /// repeatable. The names are the formats, and `terminal` is `text`
+        #[arg(long = "reporter", value_name = "NAME[=PATH]")]
+        reporters: Vec<Sink<graph::Shape>>,
         /// Only the edges that close a cycle
         #[arg(long)]
         cycles: bool,
@@ -590,6 +614,8 @@ enum Command {
         /// Emit one JSON object per advisory instead of the reader's report
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        printing: Printing,
         #[command(flatten)]
         run: Run,
     },
@@ -682,6 +708,8 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         /// One JSON object per setting, then a summary, instead of the table
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        printing: Printing,
         #[command(subcommand)]
         action: Option<ConfigAction>,
     },
@@ -753,6 +781,33 @@ struct Run {
     /// Read settings from this file, layered over any `rqx.yaml` found
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     config: Option<PathBuf>,
+}
+
+/// Where a command that prints its own view writes it. `--json` stays as the short
+/// way to say `--reporter json`.
+#[derive(Args, Default)]
+struct Printing {
+    /// Where the output goes: `<name>` for stdout, `<name>=<path>` for a file;
+    /// repeatable. The names are `terminal` and `json`
+    #[arg(long = "reporter", value_name = "NAME[=PATH]")]
+    reporters: Vec<Sink<Rendering>>,
+}
+
+impl Printing {
+    fn sinks(&self, json: bool) -> Result<Vec<Sink<Rendering>>> {
+        let mut sinks = self.reporters.clone();
+        if json {
+            sinks.push(Sink {
+                reporter: Rendering::Json,
+                path: None,
+            });
+        }
+        sink::settle(sinks)
+    }
+
+    fn is_given(&self) -> bool {
+        !self.reporters.is_empty()
+    }
 }
 
 /// What a test run or a profile saw, so a finding about code nothing ran can be
@@ -1029,6 +1084,8 @@ nothing: a rule name not in the catalogue, a threshold no enabled rule reads, an
         /// One JSON object per problem, then a summary, instead of the reader's report
         #[arg(long)]
         json: bool,
+        #[command(flatten)]
+        printing: Printing,
         /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
@@ -1238,43 +1295,6 @@ impl Color {
     }
 }
 
-/// Pairing a rendering with its destination in one value is what lets a single scan
-/// produce the console output and every file CI wants.
-#[derive(Clone)]
-struct Sink {
-    reporter: Reporter,
-    path: Option<PathBuf>,
-}
-
-impl FromStr for Sink {
-    type Err = String;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        // Split on the first `=` so a Windows path keeps its drive letter.
-        let (name, path) = match text.split_once('=') {
-            Some((name, path)) => (name, Some(PathBuf::from(path))),
-            None => (text, None),
-        };
-        let reporter = Reporter::from_str(name, true).map_err(|_| {
-            let known: Vec<&str> = Reporter::ALL
-                .iter()
-                .map(|reporter| reporter.name())
-                .collect();
-            report::unknown(
-                "reporter",
-                name,
-                &known,
-                &format!("Pick one of: {}.", known.join(", ")),
-            )
-            .to_string()
-        })?;
-        Ok(Self { reporter, path })
-    }
-}
-
-/// A document interleaved with anything else on one stream is silent corruption, so
-/// it is rejected before a byte is written rather than discovered by whatever tries
-/// to parse the result.
 impl View {
     /// What the run itself knows and a flag cannot say: how chatty it was asked to be
     /// and how wide the screen is. Only the command line sets these; a view built any
@@ -1300,34 +1320,7 @@ fn sinks(view: &View) -> Result<Vec<Sink>> {
             path: None,
         });
     }
-    // A run that writes only files would otherwise print nothing at all, which
-    // reads as a hang in CI and as a failure locally.
-    if sinks.iter().all(|sink| sink.path.is_some()) {
-        sinks.push(Sink {
-            reporter: Reporter::Terminal,
-            path: None,
-        });
-    }
-
-    let to_stdout: Vec<Reporter> = sinks
-        .iter()
-        .filter(|sink| sink.path.is_none())
-        .map(|sink| sink.reporter)
-        .collect();
-    if let Some(document) = to_stdout.iter().find(|reporter| reporter.is_document())
-        && to_stdout.len() > 1
-    {
-        let other = to_stdout
-            .iter()
-            .find(|reporter| *reporter != document)
-            .expect("more than one sink writes to stdout");
-        bail!(
-            "`{}` is a document and cannot share stdout with `{}`; give one of them a path",
-            document.name(),
-            other.name()
-        );
-    }
-    Ok(sinks)
+    sink::settle(sinks)
 }
 
 impl From<ConfigAction> for edit_config::Change {
@@ -1576,17 +1569,15 @@ fn validate_config(
     explicit: Option<&Path>,
     standard: &Standard,
     strict: bool,
-    json: bool,
+    sinks: &[Sink<Rendering>],
     palette: Palette,
 ) -> Result<Exit> {
     let validation = config::validate(path, explicit, standard.chosen()?);
     let passes = validation.passes(strict);
-    let mut out = anstream::stdout().lock();
-    if json {
-        report::validation_json(&validation, passes, &mut out)?;
-    } else {
-        report::validation(&validation, strict, palette, &mut out)?;
-    }
+    sink::deliver(sinks, palette, |rendering, palette, out| match rendering {
+        Rendering::Json => report::validation_json(&validation, passes, out),
+        Rendering::Terminal => report::validation(&validation, strict, palette, out),
+    })?;
     Ok(if validation.count(config::Severity::Error) > 0 {
         Exit::Failed
     } else {
@@ -1770,6 +1761,7 @@ fn run() -> Result<Exit> {
             json,
             plan,
             markdown,
+            printing,
             run,
         } => {
             if !path.exists() {
@@ -1779,16 +1771,16 @@ fn run() -> Result<Exit> {
                 );
             }
             let settings = run.resolve(&path)?;
-            let mut out = anstream::stdout().lock();
+            let sinks = printing.sinks(json)?;
             if plan {
                 let scanned = scan::scan_drawn(&path, &settings, progress)?;
-                return if json {
-                    report::brief_json(&scanned, &settings, &mut out)
-                } else if markdown {
-                    report::brief_markdown(&scanned, &settings, &mut out)
-                } else {
-                    report::brief(&scanned, &settings, palette, &mut out)
-                }
+                return sink::deliver(&sinks, palette, |rendering, palette, out| match rendering {
+                    Rendering::Json => report::brief_json(&scanned, &settings, out),
+                    Rendering::Terminal if markdown => {
+                        report::brief_markdown(&scanned, &settings, out)
+                    }
+                    Rendering::Terminal => report::brief(&scanned, &settings, palette, out),
+                })
                 .map(|()| Exit::Clean);
             }
             let rounds = max_rounds.unwrap_or(settings.config.fix.max_rounds).max(1);
@@ -1802,16 +1794,18 @@ fn run() -> Result<Exit> {
                 },
                 progress,
             )?;
-            if json {
-                return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
-            }
-            report::fixes(&outcome, palette, "rqx fix --write", &mut out).map(|()| Exit::Clean)
+            sink::deliver(&sinks, palette, |rendering, palette, out| match rendering {
+                Rendering::Json => report::fixes_json(&outcome, out),
+                Rendering::Terminal => report::fixes(&outcome, palette, "rqx fix --write", out),
+            })
+            .map(|()| Exit::Clean)
         }
         Command::Verify {
             path,
             base,
             expect,
             json,
+            printing,
             run,
         } => {
             if !path.exists() {
@@ -1822,14 +1816,13 @@ fn run() -> Result<Exit> {
             }
             let mut settings = run.resolve(&path)?;
             settings.config.scan.max_findings = 0;
+            let sinks = printing.sinks(json)?;
             verify::ensure_repository(&path, &base)?;
             let verified = verify::verify_drawn(&path, &settings, &base, &expect, progress)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                report::verify_json(&verified, &mut out)?;
-            } else {
-                report::verify(&verified, palette, &mut out)?;
-            }
+            sink::deliver(&sinks, palette, |rendering, palette, out| match rendering {
+                Rendering::Json => report::verify_json(&verified, out),
+                Rendering::Terminal => report::verify(&verified, palette, out),
+            })?;
             Ok(Exit::of(!verified.passed()))
         }
         Command::Setup { editor, write } => {
@@ -1858,6 +1851,7 @@ fn run() -> Result<Exit> {
             limit,
             simulate,
             json,
+            printing,
             run,
         } => {
             if !path.exists() {
@@ -1870,15 +1864,18 @@ fn run() -> Result<Exit> {
             // The display cap keeps the highest-ranked findings, and the plan is a
             // ranking of its own: capping first would hide the cheap work entirely.
             settings.config.scan.max_findings = 0;
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
-            let request = render::Plan {
-                budget,
-                limit,
-                simulate,
-                json,
-            };
-            render::plan(&outcome, &request, palette, &mut anstream::stdout().lock())
-                .map(|()| Exit::Clean)
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                let request = render::Plan {
+                    budget,
+                    limit,
+                    simulate,
+                    json: rendering.is_json(),
+                };
+                render::plan(&outcome, &request, palette, out)
+            })
+            .map(|()| Exit::Clean)
         }
         Command::Explain { name } => {
             render::explain(&name, palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
@@ -1887,6 +1884,7 @@ fn run() -> Result<Exit> {
             path,
             coverage,
             json,
+            printing,
             run,
         } => {
             if coverage {
@@ -1900,9 +1898,12 @@ fn run() -> Result<Exit> {
                 );
             }
             let settings = run.resolve(&path)?;
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
-            render::patterns(&outcome, json, palette, &mut anstream::stdout().lock())
-                .map(|()| Exit::Clean)
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::patterns(&outcome, rendering.is_json(), palette, out)
+            })
+            .map(|()| Exit::Clean)
         }
         Command::Baseline {
             path,
@@ -1933,21 +1934,18 @@ fn run() -> Result<Exit> {
             path,
             expiring,
             json,
+            printing,
             run,
         } => {
             let mut settings = run.resolve(&path)?;
             // A waiver is only visible when the finding it covers was found, and the
             // display cap drops findings before anything can read them.
             settings.config.scan.max_findings = 0;
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
-            render::suppressions(
-                &path,
-                &outcome,
-                expiring,
-                json,
-                palette,
-                &mut anstream::stdout().lock(),
-            )
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::suppressions(&path, &outcome, expiring, rendering.is_json(), palette, out)
+            })
             .map(|()| Exit::Clean)
         }
         Command::Waive {
@@ -1979,9 +1977,11 @@ fn run() -> Result<Exit> {
             min,
             histogram,
             json,
+            printing,
             run,
         } => {
             let settings = run.resolve(&path)?;
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = complexity::View {
                 by,
@@ -1990,14 +1990,16 @@ fn run() -> Result<Exit> {
                 min,
                 histogram,
             };
-            render::complexity(
-                &outcome,
-                &view,
-                json,
-                &settings,
-                palette,
-                &mut anstream::stdout().lock(),
-            )
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::complexity(
+                    &outcome,
+                    &view,
+                    rendering.is_json(),
+                    &settings,
+                    palette,
+                    out,
+                )
+            })
             .map(|()| Exit::Clean)
         }
         Command::Perf {
@@ -2008,6 +2010,7 @@ fn run() -> Result<Exit> {
             min_depth,
             profile,
             json,
+            printing,
             run,
         } => {
             let mut settings = run.resolve(&path)?;
@@ -2019,6 +2022,7 @@ fn run() -> Result<Exit> {
                     .map(|path| path.display().to_string())
                     .collect();
             }
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = perf::View {
                 by,
@@ -2026,14 +2030,16 @@ fn run() -> Result<Exit> {
                 top,
                 min_depth,
             };
-            render::perf(
-                &outcome,
-                &view,
-                json,
-                &settings,
-                palette,
-                &mut anstream::stdout().lock(),
-            )
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::perf(
+                    &outcome,
+                    &view,
+                    rendering.is_json(),
+                    &settings,
+                    palette,
+                    out,
+                )
+            })
             .map(|()| Exit::Clean)
         }
         Command::Completions { shell } => {
@@ -2048,19 +2054,16 @@ fn run() -> Result<Exit> {
             path,
             only,
             json,
+            printing,
             run,
         } => {
             let mut settings = run.resolve(&path)?;
             settings.config.scan.max_findings = 0;
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
-            render::recommend(
-                &outcome,
-                &settings,
-                only,
-                json,
-                palette,
-                &mut anstream::stdout().lock(),
-            )
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::recommend(&outcome, &settings, only, rendering.is_json(), palette, out)
+            })
             .map(|()| Exit::Clean)
         }
         Command::Slop {
@@ -2068,48 +2071,72 @@ fn run() -> Result<Exit> {
             top,
             min,
             json,
+            printing,
             run,
         } => {
             let mut settings = run.resolve(&path)?;
             settings.config.scan.max_findings = 0;
             render::slop_settings(&mut settings);
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
-            let request = render::Slop { top, min, json };
-            render::slop(&outcome, &request, palette, &mut anstream::stdout().lock())
-                .map(|()| Exit::Clean)
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                let request = render::Slop {
+                    top,
+                    min,
+                    json: rendering.is_json(),
+                };
+                render::slop(&outcome, &request, palette, out)
+            })
+            .map(|()| Exit::Clean)
         }
         Command::Health {
             path,
             by,
             json,
+            printing,
             run,
         } => {
             let mut settings = run.resolve(&path)?;
             // Every finding, not the first five hundred: a bucket judged on a capped
             // list would understate whichever rule fires most.
             settings.config.scan.max_findings = 0;
+            let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
-            render::health(&outcome, by, json, palette, &mut anstream::stdout().lock())
-                .map(|()| Exit::Clean)
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::health(&outcome, by, rendering.is_json(), palette, out)
+            })
+            .map(|()| Exit::Clean)
         }
         Command::Graph {
             path,
             format,
+            reporters,
             cycles,
             focus,
             depth,
             run,
         } => {
             let settings = run.resolve(&path)?;
+            let sinks = sink::settle(
+                reporters
+                    .into_iter()
+                    .chain(format.map(|reporter| Sink {
+                        reporter,
+                        path: None,
+                    }))
+                    .collect(),
+            )?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
-            let view = graph::View {
-                shape: format,
-                cycles_only: cycles,
-                focus: focus.as_deref(),
-                depth,
-            };
-            let mut out = anstream::stdout().lock();
-            graph::render(&outcome, &view, palette, &mut out).map(|()| Exit::Clean)
+            sink::deliver(&sinks, palette, |shape, palette, out| {
+                let view = graph::View {
+                    shape,
+                    cycles_only: cycles,
+                    focus: focus.as_deref(),
+                    depth,
+                };
+                graph::render(&outcome, &view, palette, out)
+            })
+            .map(|()| Exit::Clean)
         }
         Command::Cache { action } => {
             match action {
@@ -2230,13 +2257,14 @@ fn run() -> Result<Exit> {
             standard,
             config,
             json,
+            printing,
             action,
         } => {
-            if json && action.is_some() {
+            if (json || printing.is_given()) && action.is_some() {
                 bail!(
-                    "`--json` goes after `rqx config` to print the settings, or after \
-                     `rqx config validate` to print the problems; the other subcommands \
-                     have no JSON form"
+                    "`--json` and `--reporter` go after `rqx config` to print the settings, \
+                     or after `rqx config validate` to print the problems; the other \
+                     subcommands have no JSON form"
                 );
             }
             // A TOML file stops the config from loading, and converting it is the way
@@ -2259,14 +2287,16 @@ fn run() -> Result<Exit> {
                     standard,
                     strict,
                     json,
+                    printing,
                     config,
                 }) => {
+                    let sinks = printing.sinks(json)?;
                     return validate_config(
                         &path,
                         config.as_deref(),
                         &standard,
                         strict,
-                        json,
+                        &sinks,
                         palette,
                     );
                 }
@@ -2274,11 +2304,15 @@ fn run() -> Result<Exit> {
             }
             let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
             match action {
-                None if json => {
-                    let mut out = anstream::stdout().lock();
-                    report::config_json(&settings?, &mut out).map(|()| Exit::Clean)
+                None => {
+                    let sinks = printing.sinks(json)?;
+                    let settings = settings?;
+                    sink::deliver(&sinks, palette, |rendering, palette, out| match rendering {
+                        Rendering::Json => report::config_json(&settings, out),
+                        Rendering::Terminal => report::config(&settings, palette, out),
+                    })
+                    .map(|()| Exit::Clean)
                 }
-                None => report::config(&settings?, palette).map(|()| Exit::Clean),
                 Some(ConfigAction::Explain { key }) => {
                     let mut out = anstream::stdout().lock();
                     explain::run(&key, &settings?, palette, &mut out).map(|()| Exit::Clean)
