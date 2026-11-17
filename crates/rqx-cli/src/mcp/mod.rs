@@ -29,8 +29,9 @@ that fixes each one. Call `scan` to analyse the project; every other project too
 reads that scan, running one first if none has happened yet. `scan` answers with a \
 summary — health, grades, what to open first — and never with the findings \
 themselves: page those out of `findings`, narrowed by rule, severity or path. Every \
-tool is read-only; rqx never edits your source, and the fix it names is a refactoring \
-for you to make.";
+tool is read-only; rqx never edits your source. `fix_preview` returns the edits rqx \
+has proven safe for a file as unified diffs, without writing them; any other fix it \
+names is a refactoring for you to make.";
 
 /// Kept so the drill-down tools do not each pay for a scan of their own, and numbered
 /// because a cursor into one is meaningless once the project has been scanned again.
