@@ -10,6 +10,8 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+## 0.2.0 — 2026-11-17
+
 ### Added
 
 - **Prebuilt binaries on every release.** Each GitHub release now carries a binary
