@@ -66,6 +66,14 @@ have the stream, or a file, to itself.
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.
 
+On a terminal that opens links (iTerm2, WezTerm, VS Code, Ghostty, kitty, Windows
+Terminal, VTE 0.50 and later) the report makes each `file:line` clickable. `--hyperlinks
+auto|always|never`, or `RQX_HYPERLINKS`, overrides the guess; `always` is for a log viewer
+that understands OSC 8 links, and still needs colour. A link opens the file by default;
+`RQX_EDITOR_URL` swaps in an editor's own scheme, with `{path}`, `{line}` and `{column}`
+filled in, such as `vscode://file/{path}:{line}:{column}`. A report written to a file or
+a pipe never holds a link unless colour is forced on.
+
 The progress bar draws only when stderr is a terminal and the run is not in CI, so a
 CI log never holds it. `--progress` (or `RQX_PROGRESS`) chooses what a scan reports:
 

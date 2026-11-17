@@ -107,6 +107,15 @@ pub struct Cli {
     /// Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr
     #[arg(short = 'v', long, action = clap::ArgAction::Count, global = true)]
     verbose: u8,
+    /// Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = term::LinkChoice::Auto,
+        global = true,
+        env = "RQX_HYPERLINKS"
+    )]
+    hyperlinks: term::LinkChoice,
 }
 
 /// `--no-progress` is the older spelling of `--progress none`, and a request for
@@ -838,6 +847,9 @@ struct View {
     /// Columns to wrap prose to; set when stdout is a terminal, so a pipe is never wrapped
     #[arg(skip)]
     width: Option<usize>,
+    /// Set when the terminal opens links and `--hyperlinks` allows them
+    #[arg(skip)]
+    links: Option<report::Links>,
     /// Show only findings at or above this severity
     #[arg(long, value_enum, help_heading = "Filtering")]
     severity: Option<SeverityArg>,
@@ -1233,10 +1245,14 @@ impl View {
     /// What the run itself knows and a flag cannot say: how chatty it was asked to be
     /// and how wide the screen is. Only the command line sets these; a view built any
     /// other way keeps the plain, unwrapped report.
-    fn on_terminal(self, verbose: u8) -> Self {
+    fn on_terminal(self, verbose: u8, hyperlinks: term::LinkChoice) -> Self {
+        let on_screen = term::is_terminal(term::Stream::Stdout);
         Self {
             verbose,
             width: term::terminal_width(term::Stream::Stdout),
+            links: hyperlinks
+                .wanted(on_screen)
+                .then(report::Links::from_environment),
             ..self
         }
     }
@@ -1409,6 +1425,7 @@ fn write_sink(
         quiet: view.quiet,
         verbose: view.verbose > 0,
         width: None,
+        links: None,
         // Full is the level that shows everything, so it is the one that pays
         // for surrounding lines; at 285 findings they are most of the scroll.
         context: view.context.unwrap_or(match view.detail {
@@ -1427,6 +1444,7 @@ fn write_sink(
             let layout = Layout {
                 palette,
                 width: view.width,
+                links: view.links.clone().filter(|_| !palette.is_monochrome()),
                 ..plain
             };
             report::emit(report, sink.reporter, &layout, stdout)?;
@@ -1641,6 +1659,7 @@ fn run() -> Result<Exit> {
     cli.color.choice().write_global();
     let animated = !matches!(cli.motion, Motion::Off);
     let (requested, no_progress, verbosity) = (cli.progress, cli.no_progress, cli.verbose);
+    let hyperlinks = cli.hyperlinks;
     let progress_for =
         |quiet| progress::Mode::new(progress_style(requested, no_progress, quiet), animated);
     let progress = progress_for(false);
@@ -1707,7 +1726,7 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let progress = progress_for(view.quiet);
-            let view = view.on_terminal(verbosity);
+            let view = view.on_terminal(verbosity, hyperlinks);
             let sinks = sinks(&view)?;
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
@@ -2342,7 +2361,7 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let progress = progress_for(view.quiet);
-            let view = view.on_terminal(verbosity);
+            let view = view.on_terminal(verbosity, hyperlinks);
             let sinks = sinks(&view)?;
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.

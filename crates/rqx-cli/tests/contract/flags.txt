@@ -3,6 +3,11 @@
 --color =auto
 --color =never
 --help
+--hyperlinks
+--hyperlinks =always
+--hyperlinks =auto
+--hyperlinks =never
+--hyperlinks [env RQX_HYPERLINKS]
 --motion
 --motion =off
 --motion =on
@@ -33,6 +38,11 @@ baseline --color =never
 baseline --config
 baseline --force
 baseline --help
+baseline --hyperlinks
+baseline --hyperlinks =always
+baseline --hyperlinks =auto
+baseline --hyperlinks =never
+baseline --hyperlinks [env RQX_HYPERLINKS]
 baseline --level
 baseline --level [env RQX_LEVEL]
 baseline --motion
@@ -61,6 +71,11 @@ cache --color =always
 cache --color =auto
 cache --color =never
 cache --help
+cache --hyperlinks
+cache --hyperlinks =always
+cache --hyperlinks =auto
+cache --hyperlinks =never
+cache --hyperlinks [env RQX_HYPERLINKS]
 cache --motion
 cache --motion =off
 cache --motion =on
@@ -83,6 +98,11 @@ cache clear --color =always
 cache clear --color =auto
 cache clear --color =never
 cache clear --help
+cache clear --hyperlinks
+cache clear --hyperlinks =always
+cache clear --hyperlinks =auto
+cache clear --hyperlinks =never
+cache clear --hyperlinks [env RQX_HYPERLINKS]
 cache clear --motion
 cache clear --motion =off
 cache clear --motion =on
@@ -111,6 +131,11 @@ cache status --color =auto
 cache status --color =never
 cache status --config
 cache status --help
+cache status --hyperlinks
+cache status --hyperlinks =always
+cache status --hyperlinks =auto
+cache status --hyperlinks =never
+cache status --hyperlinks [env RQX_HYPERLINKS]
 cache status --motion
 cache status --motion =off
 cache status --motion =on
@@ -170,6 +195,11 @@ check --group-by =file
 check --group-by =rule
 check --group-by =severity
 check --help
+check --hyperlinks
+check --hyperlinks =always
+check --hyperlinks =auto
+check --hyperlinks =never
+check --hyperlinks [env RQX_HYPERLINKS]
 check --level
 check --level [env RQX_LEVEL]
 check --min-grade
@@ -238,6 +268,11 @@ comment --fail-on =never
 comment --fail-on =warning
 comment --fail-on-incomplete
 comment --help
+comment --hyperlinks
+comment --hyperlinks =always
+comment --hyperlinks =auto
+comment --hyperlinks =never
+comment --hyperlinks [env RQX_HYPERLINKS]
 comment --level
 comment --level [env RQX_LEVEL]
 comment --marker
@@ -275,6 +310,11 @@ completions --color =always
 completions --color =auto
 completions --color =never
 completions --help
+completions --hyperlinks
+completions --hyperlinks =always
+completions --hyperlinks =auto
+completions --hyperlinks =never
+completions --hyperlinks [env RQX_HYPERLINKS]
 completions --motion
 completions --motion =off
 completions --motion =on
@@ -304,6 +344,11 @@ complexity --color =never
 complexity --config
 complexity --help
 complexity --histogram
+complexity --hyperlinks
+complexity --hyperlinks =always
+complexity --hyperlinks =auto
+complexity --hyperlinks =never
+complexity --hyperlinks [env RQX_HYPERLINKS]
 complexity --json
 complexity --level
 complexity --level [env RQX_LEVEL]
@@ -340,6 +385,11 @@ config --color =auto
 config --color =never
 config --config
 config --help
+config --hyperlinks
+config --hyperlinks =always
+config --hyperlinks =auto
+config --hyperlinks =never
+config --hyperlinks [env RQX_HYPERLINKS]
 config --json
 config --level
 config --level [env RQX_LEVEL]
@@ -366,6 +416,11 @@ config explain --color =always
 config explain --color =auto
 config explain --color =never
 config explain --help
+config explain --hyperlinks
+config explain --hyperlinks =always
+config explain --hyperlinks =auto
+config explain --hyperlinks =never
+config explain --hyperlinks [env RQX_HYPERLINKS]
 config explain --motion
 config explain --motion =off
 config explain --motion =on
@@ -389,6 +444,11 @@ config files --color =always
 config files --color =auto
 config files --color =never
 config files --help
+config files --hyperlinks
+config files --hyperlinks =always
+config files --hyperlinks =auto
+config files --hyperlinks =never
+config files --hyperlinks [env RQX_HYPERLINKS]
 config files --motion
 config files --motion =off
 config files --motion =on
@@ -421,6 +481,11 @@ config migrate --color =auto
 config migrate --color =never
 config migrate --dry-run
 config migrate --help
+config migrate --hyperlinks
+config migrate --hyperlinks =always
+config migrate --hyperlinks =auto
+config migrate --hyperlinks =never
+config migrate --hyperlinks [env RQX_HYPERLINKS]
 config migrate --motion
 config migrate --motion =off
 config migrate --motion =on
@@ -444,6 +509,11 @@ config schema --color =always
 config schema --color =auto
 config schema --color =never
 config schema --help
+config schema --hyperlinks
+config schema --hyperlinks =always
+config schema --hyperlinks =auto
+config schema --hyperlinks =never
+config schema --hyperlinks [env RQX_HYPERLINKS]
 config schema --motion
 config schema --motion =off
 config schema --motion =on
@@ -467,6 +537,11 @@ config set --color =auto
 config set --color =never
 config set --file
 config set --help
+config set --hyperlinks
+config set --hyperlinks =always
+config set --hyperlinks =auto
+config set --hyperlinks =never
+config set --hyperlinks [env RQX_HYPERLINKS]
 config set --motion
 config set --motion =off
 config set --motion =on
@@ -493,6 +568,11 @@ config unset --color =auto
 config unset --color =never
 config unset --file
 config unset --help
+config unset --hyperlinks
+config unset --hyperlinks =always
+config unset --hyperlinks =auto
+config unset --hyperlinks =never
+config unset --hyperlinks [env RQX_HYPERLINKS]
 config unset --motion
 config unset --motion =off
 config unset --motion =on
@@ -518,6 +598,11 @@ config validate --color =auto
 config validate --color =never
 config validate --config
 config validate --help
+config validate --hyperlinks
+config validate --hyperlinks =always
+config validate --hyperlinks =auto
+config validate --hyperlinks =never
+config validate --hyperlinks [env RQX_HYPERLINKS]
 config validate --json
 config validate --level
 config validate --level [env RQX_LEVEL]
@@ -546,6 +631,11 @@ docs --color =auto
 docs --color =never
 docs --fixtures
 docs --help
+docs --hyperlinks
+docs --hyperlinks =always
+docs --hyperlinks =auto
+docs --hyperlinks =never
+docs --hyperlinks [env RQX_HYPERLINKS]
 docs --motion
 docs --motion =off
 docs --motion =on
@@ -569,6 +659,11 @@ explain --color =always
 explain --color =auto
 explain --color =never
 explain --help
+explain --hyperlinks
+explain --hyperlinks =always
+explain --hyperlinks =auto
+explain --hyperlinks =never
+explain --hyperlinks [env RQX_HYPERLINKS]
 explain --motion
 explain --motion =off
 explain --motion =on
@@ -593,6 +688,11 @@ fix --color =auto
 fix --color =never
 fix --config
 fix --help
+fix --hyperlinks
+fix --hyperlinks =always
+fix --hyperlinks =auto
+fix --hyperlinks =never
+fix --hyperlinks [env RQX_HYPERLINKS]
 fix --json
 fix --level
 fix --level [env RQX_LEVEL]
@@ -635,6 +735,11 @@ graph --format =json
 graph --format =mermaid
 graph --format =text
 graph --help
+graph --hyperlinks
+graph --hyperlinks =always
+graph --hyperlinks =auto
+graph --hyperlinks =never
+graph --hyperlinks [env RQX_HYPERLINKS]
 graph --level
 graph --level [env RQX_LEVEL]
 graph --motion
@@ -668,6 +773,11 @@ health --color =auto
 health --color =never
 health --config
 health --help
+health --hyperlinks
+health --hyperlinks =always
+health --hyperlinks =auto
+health --hyperlinks =never
+health --hyperlinks [env RQX_HYPERLINKS]
 health --json
 health --level
 health --level [env RQX_LEVEL]
@@ -737,6 +847,11 @@ init --color =auto
 init --color =never
 init --force
 init --help
+init --hyperlinks
+init --hyperlinks =always
+init --hyperlinks =auto
+init --hyperlinks =never
+init --hyperlinks [env RQX_HYPERLINKS]
 init --motion
 init --motion =off
 init --motion =on
@@ -760,6 +875,11 @@ levels --color =always
 levels --color =auto
 levels --color =never
 levels --help
+levels --hyperlinks
+levels --hyperlinks =always
+levels --hyperlinks =auto
+levels --hyperlinks =never
+levels --hyperlinks [env RQX_HYPERLINKS]
 levels --motion
 levels --motion =off
 levels --motion =on
@@ -783,6 +903,11 @@ lsp --color =auto
 lsp --color =never
 lsp --config
 lsp --help
+lsp --hyperlinks
+lsp --hyperlinks =always
+lsp --hyperlinks =auto
+lsp --hyperlinks =never
+lsp --hyperlinks [env RQX_HYPERLINKS]
 lsp --motion
 lsp --motion =off
 lsp --motion =on
@@ -808,6 +933,11 @@ mcp --color =never
 mcp --config
 mcp --help
 mcp --http
+mcp --hyperlinks
+mcp --hyperlinks =always
+mcp --hyperlinks =auto
+mcp --hyperlinks =never
+mcp --hyperlinks [env RQX_HYPERLINKS]
 mcp --motion
 mcp --motion =off
 mcp --motion =on
@@ -833,6 +963,11 @@ patterns --color =never
 patterns --config
 patterns --coverage
 patterns --help
+patterns --hyperlinks
+patterns --hyperlinks =always
+patterns --hyperlinks =auto
+patterns --hyperlinks =never
+patterns --hyperlinks [env RQX_HYPERLINKS]
 patterns --json
 patterns --level
 patterns --level [env RQX_LEVEL]
@@ -866,6 +1001,11 @@ perf --color =auto
 perf --color =never
 perf --config
 perf --help
+perf --hyperlinks
+perf --hyperlinks =always
+perf --hyperlinks =auto
+perf --hyperlinks =never
+perf --hyperlinks [env RQX_HYPERLINKS]
 perf --json
 perf --level
 perf --level [env RQX_LEVEL]
@@ -905,6 +1045,11 @@ plan --color =auto
 plan --color =never
 plan --config
 plan --help
+plan --hyperlinks
+plan --hyperlinks =always
+plan --hyperlinks =auto
+plan --hyperlinks =never
+plan --hyperlinks [env RQX_HYPERLINKS]
 plan --json
 plan --level
 plan --level [env RQX_LEVEL]
@@ -937,6 +1082,11 @@ query --color =auto
 query --color =never
 query --config
 query --help
+query --hyperlinks
+query --hyperlinks =always
+query --hyperlinks =auto
+query --hyperlinks =never
+query --hyperlinks [env RQX_HYPERLINKS]
 query --motion
 query --motion =off
 query --motion =on
@@ -963,6 +1113,11 @@ recommend --color =auto
 recommend --color =never
 recommend --config
 recommend --help
+recommend --hyperlinks
+recommend --hyperlinks =always
+recommend --hyperlinks =auto
+recommend --hyperlinks =never
+recommend --hyperlinks [env RQX_HYPERLINKS]
 recommend --json
 recommend --level
 recommend --level [env RQX_LEVEL]
@@ -996,6 +1151,11 @@ rules --color =always
 rules --color =auto
 rules --color =never
 rules --help
+rules --hyperlinks
+rules --hyperlinks =always
+rules --hyperlinks =auto
+rules --hyperlinks =never
+rules --hyperlinks [env RQX_HYPERLINKS]
 rules --language
 rules --motion
 rules --motion =off
@@ -1057,6 +1217,11 @@ scan --group-by =file
 scan --group-by =rule
 scan --group-by =severity
 scan --help
+scan --hyperlinks
+scan --hyperlinks =always
+scan --hyperlinks =auto
+scan --hyperlinks =never
+scan --hyperlinks [env RQX_HYPERLINKS]
 scan --level
 scan --level [env RQX_LEVEL]
 scan --max-findings
@@ -1118,6 +1283,11 @@ setup --color =always
 setup --color =auto
 setup --color =never
 setup --help
+setup --hyperlinks
+setup --hyperlinks =always
+setup --hyperlinks =auto
+setup --hyperlinks =never
+setup --hyperlinks [env RQX_HYPERLINKS]
 setup --motion
 setup --motion =off
 setup --motion =on
@@ -1144,6 +1314,11 @@ slop --color =auto
 slop --color =never
 slop --config
 slop --help
+slop --hyperlinks
+slop --hyperlinks =always
+slop --hyperlinks =auto
+slop --hyperlinks =never
+slop --hyperlinks [env RQX_HYPERLINKS]
 slop --json
 slop --level
 slop --level [env RQX_LEVEL]
@@ -1176,6 +1351,11 @@ suppressions --color =never
 suppressions --config
 suppressions --expiring
 suppressions --help
+suppressions --hyperlinks
+suppressions --hyperlinks =always
+suppressions --hyperlinks =auto
+suppressions --hyperlinks =never
+suppressions --hyperlinks [env RQX_HYPERLINKS]
 suppressions --json
 suppressions --level
 suppressions --level [env RQX_LEVEL]
@@ -1204,6 +1384,11 @@ techniques --color =always
 techniques --color =auto
 techniques --color =never
 techniques --help
+techniques --hyperlinks
+techniques --hyperlinks =always
+techniques --hyperlinks =auto
+techniques --hyperlinks =never
+techniques --hyperlinks [env RQX_HYPERLINKS]
 techniques --motion
 techniques --motion =off
 techniques --motion =on
@@ -1228,6 +1413,11 @@ update --color =auto
 update --color =never
 update --dry-run
 update --help
+update --hyperlinks
+update --hyperlinks =always
+update --hyperlinks =auto
+update --hyperlinks =never
+update --hyperlinks [env RQX_HYPERLINKS]
 update --motion
 update --motion =off
 update --motion =on
@@ -1255,6 +1445,11 @@ verify --color =never
 verify --config
 verify --expect
 verify --help
+verify --hyperlinks
+verify --hyperlinks =always
+verify --hyperlinks =auto
+verify --hyperlinks =never
+verify --hyperlinks [env RQX_HYPERLINKS]
 verify --json
 verify --level
 verify --level [env RQX_LEVEL]

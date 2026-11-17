@@ -990,6 +990,7 @@ fn markdown(report: &Report<'_>) -> Result<String, McpError> {
         context: 0,
         verbose: false,
         width: None,
+        links: None,
     };
     let mut rendered = Vec::new();
     report::emit(report, Reporter::Markdown, &layout, &mut rendered)

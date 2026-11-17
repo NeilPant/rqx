@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-explain \- Print a rule\*(Aqs or a pattern\*(Aqs taxonomy entry: what it maps to, what decides it, and what fixes it
 .SH SYNOPSIS
-\fBrqx explain\fR [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-h\fR|\fB\-\-help\fR] <\fINAME\fR> 
+\fBrqx explain\fR [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fINAME\fR> 
 .SH DESCRIPTION
 Print a rule\*(Aqs or a pattern\*(Aqs taxonomy entry: what it maps to, what decides it, and what fixes it
 .SH OPTIONS
@@ -65,6 +65,21 @@ none: Nothing
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+.TP
+\fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
+Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto: On a terminal that is known to open them
+.IP \(bu 2
+always: Whenever the report is coloured
+.IP \(bu 2
+never: Never
+.RE
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

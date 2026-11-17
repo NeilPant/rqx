@@ -12,6 +12,12 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **Clickable `file:line` in the terminal report.** On iTerm2, WezTerm, VS Code,
+  Ghostty, kitty, Windows Terminal and newer VTE terminals, the file and the line of each
+  finding open in your editor. `--hyperlinks auto|always|never` (or `RQX_HYPERLINKS`)
+  overrides the guess, and `RQX_EDITOR_URL`, such as
+  `vscode://file/{path}:{line}:{column}`, picks where a click goes. Nothing changes in a
+  pipe, a file or a report without colour.
 - **The terminal report wraps its prose to the window.** The evidence, the reason, the
   fix and the cost of a finding break at word boundaries with the same hanging indent
   they had, and never run wider than 100 columns. Only a report written to a terminal

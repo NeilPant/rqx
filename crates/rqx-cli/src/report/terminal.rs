@@ -9,7 +9,7 @@ use rqx_core::rule::RuleId;
 use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
 use crate::preview::{self, HEAD_LINES};
 use crate::report::tally::{RuleCount, Tally};
-use crate::report::{Report, plural, wrap};
+use crate::report::{Links, Report, plural, wrap};
 use crate::scan::ScanOutcome;
 
 /// How much of the report a person asked for. Only the console report reads it;
@@ -75,6 +75,9 @@ pub struct Layout {
     /// it there. Prose is wrapped to it; a file or a pipe has none, and its lines run
     /// as long as they always have.
     pub width: Option<usize>,
+    /// Present only when the terminal this is written to opens OSC 8 links, so a file,
+    /// a pipe and a terminal that would print the escape as text never see one.
+    pub links: Option<Links>,
 }
 
 impl Layout {
@@ -88,6 +91,20 @@ impl Layout {
     fn prose_room(&self, hang: usize) -> Option<usize> {
         let columns = self.width?.min(Self::MOST_PROSE_COLUMNS);
         Some(columns.saturating_sub(hang)).filter(|room| *room >= Self::LEAST_PROSE_ROOM)
+    }
+}
+
+/// `text`, as a link to the file at the line and column when the terminal opens them.
+fn linked(
+    layout: &Layout,
+    outcome: &ScanOutcome,
+    at: (&str, u32, u32),
+    text: impl std::fmt::Display,
+) -> String {
+    let (file, line, column) = at;
+    match &layout.links {
+        Some(links) => links.wrap(text, &outcome.root.join(file), line, column),
+        None => text.to_string(),
     }
 }
 
@@ -383,9 +400,18 @@ fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<
                 "     {}",
                 paint(
                     layout.palette.style(Ink::Muted),
-                    format!(
-                        "{prefix}{}:{}",
-                        finding.location.file, finding.location.line
+                    linked(
+                        layout,
+                        report.outcome,
+                        (
+                            &finding.location.file,
+                            finding.location.line,
+                            finding.location.column
+                        ),
+                        format_args!(
+                            "{prefix}{}:{}",
+                            finding.location.file, finding.location.line
+                        )
                     )
                 )
             )?;
@@ -489,7 +515,12 @@ fn write_file(
         out,
         "\n {}  {}  {} {}",
         paint(layout.palette.badge(grade_ink(grade)), " FAIL "),
-        format_args!("{prefix}{file}"),
+        linked(
+            layout,
+            report.outcome,
+            (file, 1, 1),
+            format_args!("{prefix}{file}")
+        ),
         paint(layout.palette.style(grade_ink(grade)), grade.label()),
         paint(layout.palette.style(Ink::Muted), format!("\u{b7} {tally}"))
     )?;
@@ -529,15 +560,26 @@ fn write_finding(
     let ink = severity_ink(finding.severity);
     let dim = palette.style(Ink::Muted);
 
+    let at = (
+        &*finding.location.file,
+        finding.location.line,
+        finding.location.column,
+    );
+    let place = || {
+        linked(
+            layout,
+            listing.report.outcome,
+            at,
+            format!("{}:{}", finding.location.line, finding.location.column),
+        )
+    };
+
     if layout.detail == Detail::Terse {
         return writeln!(
             out,
             "   {} {}  {}  {}",
             paint(palette.style(ink), finding.severity.label()),
-            paint(
-                palette.style(Ink::Muted),
-                format!("{}:{}", finding.location.line, finding.location.column)
-            ),
+            paint(palette.style(Ink::Muted), place()),
             paint(palette.style(Ink::Accent), finding.slug()),
             finding.evidence
         )
@@ -549,10 +591,7 @@ fn write_finding(
         "\n   {} {}  {}  {}",
         paint(palette.style(ink), "\u{25cf}"),
         paint(palette.style(Ink::Accent), finding.slug()),
-        paint(
-            palette.style(Ink::Muted),
-            format!("{}:{}", finding.location.line, finding.location.column)
-        ),
+        paint(palette.style(Ink::Muted), place()),
         paint(palette.style(ink), finding.severity.label())
     )?;
 
@@ -1152,6 +1191,7 @@ mod tests {
             context: 1,
             verbose: false,
             width: None,
+            links: None,
         }
     }
 
@@ -1400,5 +1440,40 @@ mod tests {
 
         let why = RuleId::LongFunction.spec().why;
         assert!(text.contains(&format!("Why:  {why}")), "{text}");
+    }
+
+    #[test]
+    fn a_place_becomes_a_link_only_when_the_layout_carries_links() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let plain = rendered_text(&outcome, &layout());
+        assert!(!plain.contains("\u{1b}]8"), "{plain:?}");
+
+        let linked = rendered_text(
+            &outcome,
+            &Layout {
+                links: Some(Links::default()),
+                ..layout()
+            },
+        );
+        assert!(linked.contains("\u{1b}]8;;file://"), "{linked:?}");
+        assert!(linked.contains("a.ts"), "{linked:?}");
+    }
+
+    #[test]
+    fn every_grouping_links_the_place_of_a_finding() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        for grouping in [Grouping::File, Grouping::Rule, Grouping::Severity] {
+            let text = rendered_text(
+                &outcome,
+                &Layout {
+                    grouping,
+                    links: Some(Links::default()),
+                    ..layout()
+                },
+            );
+            assert!(text.contains("\u{1b}]8;;file://"), "{text:?}");
+        }
     }
 }

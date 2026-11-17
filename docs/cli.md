@@ -15,6 +15,7 @@ Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says w
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 | `--version` | Print version |
 
@@ -36,6 +37,7 @@ Record the findings this project already has, so a gate can judge only what a ch
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx cache`
@@ -51,6 +53,7 @@ Show what the analysis cache holds, or throw it away
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx check`
@@ -100,6 +103,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx comment`
@@ -127,6 +131,7 @@ Post the review onto the merge request it is reviewing, and grade the commit
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx completions`
@@ -143,6 +148,7 @@ Print a shell completion script
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx complexity`
@@ -166,6 +172,7 @@ What the analyser measured, as a distribution rather than only its tail
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx config`
@@ -184,6 +191,7 @@ Print the settings a run will use, and the file each one came from
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx explain`
@@ -199,6 +207,7 @@ Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it, 
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx fix`
@@ -222,6 +231,7 @@ Apply the fixes a finding decides on its own, proving each one before it is writ
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx graph`
@@ -243,6 +253,7 @@ Print the import graph — as text, Graphviz, Mermaid or data
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx health`
@@ -262,6 +273,7 @@ Where the health score comes from, and what removing each part would buy
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx help`
@@ -283,6 +295,7 @@ Write a commented rqx.yaml with every setting at its default
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx levels`
@@ -298,6 +311,7 @@ Print what each cleanliness level changes, as the settings it would take to writ
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx lsp`
@@ -314,6 +328,7 @@ Run as a Language Server over stdio, for editor integration
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx mcp`
@@ -331,6 +346,7 @@ Run as an MCP server, so an AI agent can ask what a project's problems are
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx patterns`
@@ -351,6 +367,7 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx perf`
@@ -374,6 +391,7 @@ Where the work grows faster than the data, ranked by reach
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx plan`
@@ -396,6 +414,7 @@ Rank the work by what it buys against what it costs, and say what the health sco
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx query`
@@ -415,6 +434,7 @@ Run a tree-sitter query over a project, to try one out before writing it into a 
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx recommend`
@@ -434,6 +454,7 @@ What to do about this project, as distinct from what is wrong with it
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx rules`
@@ -452,6 +473,7 @@ List every rule Rqx can report, grouped by family
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx scan`
@@ -504,6 +526,7 @@ Analyze a project and report every finding
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx setup`
@@ -521,6 +544,7 @@ Print the configuration one editor needs to talk to rqx, or list them all
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx slop`
@@ -540,6 +564,7 @@ Which files read as written rather than read
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx suppressions`
@@ -560,6 +585,7 @@ List every finding a comment in the source waives, with the reason given
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx techniques`
@@ -575,6 +601,7 @@ List every refactoring Rqx prescribes, and which rules ask for it
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx update`
@@ -594,6 +621,7 @@ Install the newest release, or say what it would change
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx verify`
@@ -615,4 +643,5 @@ Compare the working tree against a base revision and say what happened to each f
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it |
 | `--help` | Print help (see more with '--help') |
