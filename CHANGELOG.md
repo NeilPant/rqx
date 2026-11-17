@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs that
+  release instead of the newest, which also lets you step back to an older one.
+  `--dry-run` prints how the update would be done, the download URLs and the file it
+  would replace, and changes nothing.
 - **JavaScript is analysed.** `.js`, `.jsx`, `.mjs` and `.cjs` files are now read, and
   176 of the 185 rules apply to them. This changes what a scan reports: a repository
   that contains JavaScript will show more findings after upgrading, and `rqx check` can

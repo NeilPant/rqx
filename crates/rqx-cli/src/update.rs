@@ -22,6 +22,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+use crate::release::Release;
 use crate::term::{self, Stream};
 
 const REPOSITORY: &str = "https://github.com/jadhamwi21/rqx";
@@ -337,20 +338,59 @@ pub fn settle(within: Duration) -> Option<Newer> {
 /// `--locked` so the build uses the versions the tag was tested with rather than
 /// whatever has been published since.
 pub fn install(version: &str) -> Result<()> {
-    let mut cargo = Command::new("cargo");
-    cargo
-        .args(["install", "--git", REPOSITORY])
-        .args(["--tag", &format!("v{version}")])
-        .args(["--locked", "--force", "rqx"]);
-
-    let status = cargo.status().context(
-        "could not run `cargo`. rqx updates by building the tagged version, so the toolchain \
-         that installed it has to still be there; otherwise install from source by hand.",
-    )?;
+    let status = Command::new("cargo")
+        .args(cargo_install_arguments(version))
+        .status()
+        .context(
+            "could not run `cargo`. rqx updates by building the tagged version, so the toolchain \
+             that installed it has to still be there; otherwise install from source by hand.",
+        )?;
     if !status.success() {
         bail!("`cargo install` did not finish; rqx is unchanged");
     }
     Ok(())
+}
+
+fn cargo_install_arguments(version: &str) -> Vec<String> {
+    let mut arguments = ["install", "--git", REPOSITORY, "--tag"]
+        .map(str::to_owned)
+        .to_vec();
+    arguments.push(format!("v{version}"));
+    arguments.extend(["--locked", "--force", "rqx"].map(str::to_owned));
+    arguments
+}
+
+/// What updating to `version` would do here, as label and value pairs, for
+/// `--dry-run`. `source` is the test override for where releases are downloaded from.
+pub fn plan(
+    installation: &Installation,
+    version: &str,
+    source: Option<String>,
+) -> Result<Vec<(&'static str, String)>> {
+    let mut lines = vec![("version", version.to_owned())];
+    match &installation.method {
+        Method::Managed(manager) => {
+            lines.push(("method", format!("hand back to {manager}")));
+            lines.push(("note", managed_update(manager)));
+            return Ok(lines);
+        }
+        Method::CargoBuild => {
+            lines.push(("method", "build from source with cargo".to_owned()));
+            let command = cargo_install_arguments(version).join(" ");
+            lines.push(("command", format!("cargo {command}")));
+        }
+        Method::Download => {
+            let release = Release::new(version, source)?;
+            lines.push((
+                "method",
+                "download the release binary and check its SHA-256".to_owned(),
+            ));
+            lines.push(("archive", release.archive_url()));
+            lines.push(("checksums", release.checksums_url()));
+        }
+    }
+    lines.push(("target", installation.executable.display().to_string()));
+    Ok(lines)
 }
 
 fn request(url: &str) -> Result<String> {
@@ -488,6 +528,44 @@ mod tests {
             Method::Managed("npm".to_owned()),
             "a package manager outranks where the file sits"
         );
+    }
+
+    #[test]
+    fn a_plan_names_the_method_the_addresses_and_the_file_it_would_replace() {
+        let installation = |method| Installation {
+            method,
+            executable: PathBuf::from("/usr/local/bin/rqx"),
+        };
+        let text = |lines: Vec<(&str, String)>| {
+            lines
+                .iter()
+                .map(|(label, value)| format!("{label} {value}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+
+        let download = plan(&installation(Method::Download), "1.2.3", None).expect("a plan");
+        let download = text(download);
+        assert!(download.contains("/v1.2.3/rqx-1.2.3-"), "{download}");
+        assert!(download.contains("/v1.2.3/SHA256SUMS"), "{download}");
+        assert!(download.contains("target /usr/local/bin/rqx"), "{download}");
+
+        let cargo = text(plan(&installation(Method::CargoBuild), "1.2.3", None).expect("a plan"));
+        assert!(
+            cargo.contains("--tag v1.2.3 --locked --force rqx"),
+            "{cargo}"
+        );
+
+        let managed = text(
+            plan(
+                &installation(Method::Managed("npm".to_owned())),
+                "1.2.3",
+                None,
+            )
+            .expect("a plan"),
+        );
+        assert!(managed.contains("hand back to npm"), "{managed}");
+        assert!(!managed.contains("target"), "{managed}");
     }
 
     #[test]

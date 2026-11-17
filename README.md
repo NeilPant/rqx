@@ -100,9 +100,11 @@ cargo install --git https://github.com/jadhamwi21/rqx --locked rqx
 ```
 
 ```bash
-rqx update            # install the newest release
-rqx update --check    # say whether one exists, install nothing
-rqx update --notes    # read what changed
+rqx update                  # install the newest release
+rqx update --check          # say whether one exists, install nothing
+rqx update --notes          # read what changed
+rqx update --version 0.2.1  # install that release instead, newer or older
+rqx update --dry-run        # show the method, the URLs and the file it would replace
 ```
 
 How it installs follows from how rqx was installed. A binary from the installer or a

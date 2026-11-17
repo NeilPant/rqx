@@ -26,6 +26,11 @@ const DOWNLOADS: &str = "https://github.com/jadhamwi21/rqx/releases/download";
 /// It is the only way a non-HTTPS source is ever accepted.
 const SOURCE_OVERRIDE: &str = "RQX_RELEASE_URL";
 
+/// The source a test pointed downloads at, if any.
+pub fn source_override() -> Option<String> {
+    std::env::var(SOURCE_OVERRIDE).ok()
+}
+
 /// One published version for this platform, and where its files are.
 pub struct Release {
     version: String,
@@ -37,7 +42,7 @@ pub struct Release {
 impl Release {
     /// The release at GitHub, unless the environment names another source.
     pub fn published(version: &str) -> Result<Self> {
-        Self::new(version, std::env::var(SOURCE_OVERRIDE).ok())
+        Self::new(version, source_override())
     }
 
     pub fn new(version: &str, source: Option<String>) -> Result<Self> {
