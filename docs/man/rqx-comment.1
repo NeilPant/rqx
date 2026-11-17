@@ -2,30 +2,30 @@
 .el .ds Aq '
 .TH rqx-comment 1  "comment " 
 .SH NAME
-rqx\-comment \- Post the review onto the merge request it is reviewing, and grade the commit
+rqx\-comment \- Post the review as a comment on its merge request, and grade the commit
 .SH SYNOPSIS
 \fBrqx comment\fR [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
-Post the review onto the merge request it is reviewing, and grade the commit
+Post the review as a comment on its merge request, and grade the commit
 .SH OPTIONS
 .TP
 \fB\-\-base\fR \fI<REF>\fR
-Review against this revision. Defaults to the merge request\*(Aqs own base, which the pipeline already knows
+Review against this revision. Defaults to the merge request\*(Aqs own base, as reported by the pipeline
 .TP
 \fB\-\-dry\-run\fR
-Print the comment and where it would go, and post nothing
+Print the comment and its destination, and post nothing
 .TP
 \fB\-\-marker\fR \fI<ID>\fR [default: results]
-Which comment to keep. Two jobs on one merge request each keep their own
+Identifier of the comment to update. Jobs with different markers keep separate comments on one merge request
 .TP
 \fB\-\-no\-status\fR
-Comment, but leave the commit ungraded
+Post the comment and leave the commit ungraded
 .TP
 \fB\-\-coverage\fR \fI<FILE>\fR
-A coverage file, so a test run can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are read by content
+A coverage file that can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content
 .TP
 \fB\-\-profile\fR \fI<FILE>\fR
-A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content
+A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
 .TP
 \fB\-\-level\fR \fI<LEVEL>\fR
 relaxed, standard, strict or pristine
@@ -37,7 +37,7 @@ Worker threads. Defaults to the machine\*(Aqs parallelism
 Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -88,17 +88,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -160,10 +160,10 @@ never
 Fail when a design pattern is half applied
 .SH EXTRA
 Examples:
-  rqx comment \-\-base main             one sticky comment, edited on every re\-run
-  rqx comment \-\-dry\-run               print what would be posted, post nothing
-  rqx comment \-\-marker api            a second comment for a second job
+  rqx comment \-\-base main             one comment, edited on every re\-run
+  rqx comment \-\-dry\-run               print the comment and its destination; post nothing
+  rqx comment \-\-marker api            a separate comment for a second job
 
-GitLab needs RQX_TOKEN or GITLAB_TOKEN with `api` scope: CI_JOB_TOKEN cannot write
-merge\-request notes. GitHub needs `permissions: pull\-requests: write`, and
+GitLab requires RQX_TOKEN or GITLAB_TOKEN with `api` scope: CI_JOB_TOKEN cannot write
+merge request notes. GitHub requires `permissions: pull\-requests: write`, and
 `statuses: write` for the commit grade.

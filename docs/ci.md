@@ -1,43 +1,45 @@
 # rqx in CI
 
-One binary, one analysis pass, one exit code. Everything below is the same tool
-with a different `--reporter`.
+rqx runs one analysis pass per invocation and reports the result through an exit code
+and one or more reporters. Every integration below uses the same command with a
+different `--reporter`.
 
-## The contract
+## Exit codes
 
 | Exit code | Meaning |
 |---|---|
-| `0` | ran, gate satisfied |
-| `1` | ran, gate failed |
-| `2` | rqx could not run — bad path, bad config, unresolvable revision |
-| `101` | rqx hit a bug; please report it |
+| `0` | The run completed and the gate passed. |
+| `1` | The run completed and the gate failed. |
+| `2` | rqx could not run: bad path, invalid configuration or unresolvable revision. |
+| `101` | rqx hit an internal error. Report it as a bug. |
 
-A closed pipe is not a failure. `rqx scan . | head` exits `0`: the scan did what it was
-asked, and the reader going away is the reader's decision, not a broken run.
+A closed output pipe is not a failure. `rqx scan . | head` exits `0`.
 
-`rqx scan` never fails on its own. It gates only when you pass one of the gate
-flags. `rqx check` always gates, using `gate` from `rqx.yaml` unless a flag
-overrides it.
+## Gating
+
+`rqx scan` gates only when a gate flag is passed. `rqx check` always gates, using the
+`gate` mapping from `rqx.yaml` unless a flag overrides it.
 
 | Flag | Fails when |
 |---|---|
-| `--fail-on <severity>` | any finding at or above that severity |
-| `--allow-findings <n>` | more than `n` of them |
-| `--min-health <n>` | the project score drops below `n` |
-| `--min-grade <grade>` | any single file grades below that floor |
+| `--fail-on <severity>` | Any finding is at or above that severity. |
+| `--allow-findings <n>` | More than `n` such findings exist. |
+| `--min-health <n>` | The project score is below `n`. |
+| `--min-grade <grade>` | Any single file grades below that floor. |
 
-`--min-grade` is the one that catches a file rotting on its own: a project-wide
-score averages it away, and severity is per finding rather than per file. Grades
-run `pristine`, `clean`, `fair`, `poor`, `critical`, and `never` turns the gate off.
+`--min-grade` evaluates each file separately. A project-wide score averages a
+low-graded file with the rest, and severity applies per finding. Grades, from best to
+worst, are `pristine`, `clean`, `fair`, `poor` and `critical`. The value `never` turns
+the grade floor off.
 
-Passing any gate flag opts a scan into gating, so the rest of `[gate]` applies too
-— `--min-grade poor` on a repo with `fail_on = "error"` gates on both.
+Passing any gate flag makes the scan gate, and the other `gate` keys from `rqx.yaml`
+then apply as well. `--min-grade poor` on a project with `gate.fail_on: error` gates
+on both.
 
-`fail_on = "never"` turns off only the count of findings by severity. The health floor,
-the grade floor, the ratchet and `fail_on_incomplete` still apply when they are set.
+`fail_on: never` disables only the severity count. The health floor, the grade floor,
+the ratchet and `fail_on_incomplete` still apply when they are set.
 
-Each flag has an environment variable, so a pipeline can set its standard once for
-every job:
+Each flag has an environment variable:
 
 | Variable | Same as |
 |---|---|
@@ -45,17 +47,18 @@ every job:
 | `RQX_ALLOW_FINDINGS` | `--allow-findings` |
 | `RQX_MIN_HEALTH` | `--min-health` |
 | `RQX_MIN_GRADE` | `--min-grade` |
-| `RQX_FAIL_ON_INCOMPLETE` | `--fail-on-incomplete`; `1`, `true` or `yes` turns it on, and `0`, `false` or an empty value leaves it off |
+| `RQX_FAIL_ON_INCOMPLETE` | `--fail-on-incomplete`. `1`, `true` or `yes` turns it on. `0`, `false` or an empty value leaves it off. |
 
-A flag beats its variable, and a variable beats `rqx.yaml`. Like a flag, setting any of
-them makes `rqx scan` gate, so a variable left in a shared runner image changes what
-every scan on it returns. A variable set to an empty string counts as not set, which is
-what a workflow passes for an input nobody filled in.
+Precedence is flag, then environment variable, then `rqx.yaml`. Setting any of these
+variables makes `rqx scan` gate, as a flag does, so a variable set in a shared runner
+image changes the exit code of every scan on that runner. A variable set to an empty
+string counts as unset. A workflow passes an empty string for an input that has no
+value.
 
 ## Reporters
 
 `--reporter <name>` writes to stdout. `--reporter <name>=<path>` writes to a file.
-Both are repeatable, and one run can serve every consumer at once:
+Both forms are repeatable, so one run can produce every output a pipeline needs:
 
 ```sh
 rqx scan . \
@@ -67,48 +70,49 @@ rqx scan . \
 
 | Reporter | Consumer |
 |---|---|
-| `terminal` | the job log |
-| `json` | newline-delimited JSON, one object per finding then a summary; [what it promises](json.md) |
-| `sarif` | GitHub code scanning, Azure DevOps advanced security |
-| `junit` | GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket, Buildkite |
-| `gitlab` | GitLab Code Quality — inline merge-request annotations |
-| `github` | GitHub Actions annotations on the diff |
-| `markdown` | job summaries, MR comments, chat |
-| `html` | a report a person opens from a pipeline's artifacts; [below](#html-report) |
+| `terminal` | The job log. |
+| `json` | Newline-delimited JSON: one object per finding, then a summary. See [json.md](json.md) for the stability guarantees. |
+| `sarif` | GitHub code scanning, Azure DevOps advanced security. |
+| `junit` | GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket, Buildkite. |
+| `gitlab` | GitLab Code Quality, which shows findings as merge request annotations. |
+| `github` | GitHub Actions annotations on the diff. |
+| `markdown` | Job summaries, merge request comments, chat. |
+| `html` | A report opened from a pipeline's artifacts. See [HTML report](#html-report). |
 
-`terminal` and `github` can share stdout; anything else is a document and has to
-have the stream, or a file, to itself.
+`terminal` and `github` can share stdout. Every other reporter writes a document and
+needs stdout, or a file, to itself.
 
-The commands that print their own view instead of the findings — `fix`, `verify`,
+The commands that print their own view instead of the findings (`fix`, `verify`,
 `plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`,
-`patterns`, `graph` and `config` — take `--reporter` too, with two names: `terminal`
+`patterns`, `graph` and `config`) also take `--reporter`, with two names: `terminal`
 and `json`. `rqx health --reporter terminal --reporter json=health.json` prints the
-table and writes the document. `--json` on those commands is short for `--reporter
-json`. `graph` also takes `text`, `dot` and `mermaid`, which are its `--format`
-values.
+table and writes the document. On these commands `--json` is short for `--reporter
+json`. `graph` additionally accepts `text`, `dot` and `mermaid`, which are its
+`--format` values.
 
-Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
-forces it off, `--color always` forces it on for a log viewer that renders ANSI.
+Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never` turns it
+off. `--color always` turns it on, for log viewers that render ANSI.
 
-On a terminal that opens links (iTerm2, WezTerm, VS Code, Ghostty, kitty, Windows
-Terminal, VTE 0.50 and later) the report makes each `file:line` clickable. `--hyperlinks
-auto|always|never`, or `RQX_HYPERLINKS`, overrides the guess; `always` is for a log viewer
-that understands OSC 8 links, and still needs colour. A link opens the file by default;
-`RQX_EDITOR_URL` swaps in an editor's own scheme, with `{path}`, `{line}` and `{column}`
-filled in, such as `vscode://file/{path}:{line}:{column}`. A report written to a file or
-a pipe never holds a link unless colour is forced on.
+On a terminal that supports hyperlinks (iTerm2, WezTerm, VS Code, Ghostty, kitty,
+Windows Terminal, VTE 0.50 and later) the report makes each `file:line` clickable.
+`--hyperlinks auto|always|never`, or `RQX_HYPERLINKS`, overrides the detection.
+`always` is for a log viewer that supports OSC 8 links, and it still requires colour.
+A link opens the file by default. `RQX_EDITOR_URL` substitutes an editor's own URL
+scheme, with `{path}`, `{line}` and `{column}` filled in, such as
+`vscode://file/{path}:{line}:{column}`. A report written to a file or a pipe contains
+no links unless colour is forced on.
 
-The progress bar draws only when stderr is a terminal and the run is not in CI, so a
-CI log never holds it. `--progress` (or `RQX_PROGRESS`) chooses what a scan reports:
+The progress bar is drawn only when stderr is a terminal and the run is not in CI.
+`--progress` (or `RQX_PROGRESS`) selects what a scan reports:
 
-| `--progress` | |
+| `--progress` | Behaviour |
 | --- | --- |
-| `auto` | the bar on a terminal outside CI, nothing otherwise; the default |
-| `bar` | the bar whenever stderr is a terminal, CI included |
-| `plain` | one line on stderr every two seconds and at each phase, with or without a terminal |
-| `none` | nothing |
+| `auto` | The bar on a terminal outside CI, nothing otherwise. Default. |
+| `bar` | The bar whenever stderr is a terminal, CI included. |
+| `plain` | One line on stderr every two seconds and at each phase, with or without a terminal. |
+| `none` | Nothing. |
 
-`plain` is for a long job, where a log that stays silent for minutes looks like a hang:
+`plain` suits a long job whose log would otherwise stay silent for minutes:
 
 ```
 rqx: scanning 1,204/3,456 files · 31 findings · 4.2s
@@ -116,48 +120,46 @@ rqx: grouping duplicates · 3,456 files · 31 findings · 9.0s
 ```
 
 `--no-progress`, or `RQX_NO_PROGRESS=1`, is the same as `--progress none`, and `--quiet`
-implies it. Progress goes to stderr only, so stdout and every report file are the same
-whichever you pick.
+implies it. Progress goes to stderr only, so stdout and report files are identical for
+every setting.
 
-### Where the verdict lives
+### Where the verdict is reported
 
-The exit code is the contract, but a report is often read somewhere the exit code
-does not reach. A gated run writes its verdict into the document too:
+A gated run writes its verdict into each report as well as into the exit code:
 
-| Reporter | Where to read it |
+| Reporter | Location |
 |---|---|
-| `terminal` | the `gate passed` or `gate failed` line, with each failure under it |
-| `json` | `gate` on the summary line: `{ "passed": bool, "failures": [...] }` |
-| `junit` | a `<testsuite name="rqx gate">` with one test, failing when the gate fails; the totals on `<testsuites>` count it |
-| `github` | the last annotation: `::error title=rqx gate::` with the failures, or `::notice title=rqx gate::gate passed` |
-| `sarif` | `runs[0].invocations[0].exitCode`, one `toolExecutionNotifications` entry per failure at level `error`, and `runs[0].properties.rqx.gate` |
+| `terminal` | The `gate passed` or `gate failed` line, with each failure listed under it. |
+| `json` | `gate` on the summary line: `{ "passed": bool, "failures": [...] }`. |
+| `junit` | A `<testsuite name="rqx gate">` with one test, which fails when the gate fails. The totals on `<testsuites>` include it. |
+| `github` | The last annotation: `::error title=rqx gate::` with the failures, or `::notice title=rqx gate::gate passed`. |
+| `sarif` | `runs[0].invocations[0].exitCode`, one `toolExecutionNotifications` entry per failure at level `error`, and `runs[0].properties.rqx.gate`. |
 
-A scan that was not gated has no verdict, so these are absent rather than reading
-`passed`. `rqx check` and `rqx comment` always have one.
+A scan that was not gated has no verdict, so these fields are absent instead of
+reading `passed`. `rqx check` and `rqx comment` always have one.
 
 ### SARIF and GitHub code scanning
 
-Code scanning matches the alerts in a new upload against the ones it already holds.
-Two things change that matching, so both are off until you ask:
+Code scanning matches the alerts in a new upload against the alerts it already holds.
+Two variables change that matching, and both are off by default:
 
 | Variable | Effect |
 |---|---|
-| `RQX_SARIF_FINGERPRINTS=1` | adds `partialFingerprints` to every result, built from the finding's identity (the same one the GitLab report uses), so an alert follows its finding when code above it moves |
-| `RQX_SARIF_CATEGORY=<id>` | adds `automationDetails.id`, which files the run under that category |
+| `RQX_SARIF_FINGERPRINTS=1` | Adds `partialFingerprints` to every result. The fingerprint is built from the finding's identity, the same one the GitLab report uses, so an alert stays attached to its finding when code above it moves. |
+| `RQX_SARIF_CATEGORY=<id>` | Adds `automationDetails.id`, which files the run under that category. |
 
-Turning either on for a repository that already has open alerts re-keys them: GitHub
-sees new fingerprints or a new category, closes the old alerts and opens the same
-findings again. Set them once, deliberately, on a repository whose alert history you
-can afford to reset. Set a category when one repository uploads several SARIF runs
+Enabling either variable on a repository that already has open alerts re-keys them.
+GitHub sees new fingerprints or a new category, closes the old alerts and opens the
+same findings again. Set a category when one repository uploads several SARIF runs
 that would otherwise overwrite each other.
 
 ### HTML report
 
-`html` writes one self-contained file: the findings by family and rule, then every
-file worst grade first with its code frames, and the gate's verdict when there is
-one. It carries its own styles, loads nothing from the network and works without
-JavaScript, so it opens from an artifact download as it is. It follows the system's
-light or dark setting.
+`html` writes one self-contained file: findings grouped by family and rule, then every
+file, worst grade first, with its code frames, then the gate's verdict when there is
+one.
+The file embeds its styles, loads nothing from the network and works without
+JavaScript. It follows the system's light or dark setting.
 
 GitHub Actions:
 
@@ -170,7 +172,7 @@ GitHub Actions:
     path: rqx.html
 ```
 
-GitLab CI, beside the other reports:
+GitLab CI, alongside the other reports:
 
 ```yaml
   script:
@@ -186,35 +188,34 @@ GitLab CI, beside the other reports:
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0          # `check` diffs against a base
-- uses: jadhamwi21/rqx@v1
+- uses: jadhamwi21/rqx@v0.2.1
   with:
     base: ${{ github.base_ref }}
     fail-on: error
 ```
 
-The action runs the analysis once and produces the log, inline annotations, the
-SARIF upload and a job summary from that single pass. It installs rqx by downloading
-the binary its own tag was released with and checking it against `SHA256SUMS`; a ref
-with no published binary — a fork, or `@main` ahead of the last release — compiles
+The action runs the analysis once and produces the log, inline annotations, the SARIF
+upload and a job summary from that pass. It installs rqx by downloading the binary
+released with its own tag and verifying it against `SHA256SUMS`. A ref with no
+published binary, such as a fork or `@main` ahead of the last release, compiles rqx
 from the checkout instead.
 
 ### The scan cache
 
-rqx keeps one analysis per file in `.rqx/cache.bin`, and a run that finds the file
-unchanged skips it. The action carries that file from one run to the next with
-`actions/cache`, so a pull request re-analyses only what it touched. It is on by
-default; `cache: "false"` turns it off.
+rqx stores one analysis per file in `.rqx/cache.bin` and skips a file whose entry is
+still valid. The action restores this file between runs with `actions/cache`, so a
+pull request re-analyses only the files it changed. The cache is on by default.
+`cache: "false"` turns it off.
 
-A fresh clone still hits. The cache looks a file up by its path and its modification
-time first, and a clone has new modification times, but when they do not match it reads
-the file and compares a hash of the contents, which are the same. The cache is keyed on
-the rqx version, a hash of the `rqx.yaml` files and the OS, with the commit on the end
-so every run saves a cache of its own; a run starts from the newest one with the same
-version, configuration and OS. A cache written under another rqx version or other
-settings is not used, whatever the key says, so a stale restore costs a full scan and
-nothing more.
+A fresh clone can still use the cache. A lookup matches on path and modification time
+first. A clone has new modification times, so on a mismatch rqx reads the file and
+compares a hash of its contents. The cache key combines the rqx version, a hash of the
+`rqx.yaml` files, the OS and the commit. The commit makes every run save its own
+cache, and a run restores the newest cache with the same version, configuration and
+OS. A cache written under another rqx version or other settings is ignored whatever
+the key says, so a stale restore costs a full scan.
 
-Without the action, cache `.rqx/cache.bin` yourself. The GitLab form:
+Without the action, cache `.rqx/cache.bin` directly. GitLab form:
 
 ```yaml
 rqx:
@@ -226,9 +227,9 @@ rqx:
     when: always              # saved when the gate fails too
 ```
 
-Put a pinned rqx version in the prefix (`prefix: rqx-0.2.1`) if the job installs a
-specific one. The cache is a best-effort speedup: a missing, old or damaged file is
-rebuilt on the next scan, and nothing in a report depends on it.
+When the job installs a specific rqx version, include it in the prefix
+(`prefix: rqx-0.2.1`). The cache only affects speed. A missing, outdated or damaged
+file is rebuilt on the next scan, and no report depends on it.
 
 ## GitLab CI
 
@@ -248,17 +249,17 @@ rqx:
       junit: rqx-junit.xml
 ```
 
-Fingerprints in the Code Quality report deliberately exclude the line number, so
-editing the top of a file does not re-report everything below it as new. A file
-holding the same finding more than once disambiguates the repeats by ordinal rather
-than by position: GitLab shows one annotation per fingerprint, so without it the
-second and third empty catch in a file would never reach the merge request.
+Fingerprints in the Code Quality report exclude the line number, so a change at the
+top of a file does not report every finding below it as new. When a file holds the
+same finding more than once, the repeats are distinguished by ordinal and not by
+position. GitLab shows one annotation per fingerprint, so without the ordinal only the
+first of several identical findings in a file would reach the merge request.
 
-## Running a job before you push
+## Running a job locally
 
-`gitlab-runner exec` was removed in GitLab 16, and `run-single` polls a real instance
-for work, so neither runs a pipeline from a checkout. `tools/ci-local.sh` reads a
-job's `script:` out of `.gitlab-ci.yml` and runs it here:
+`gitlab-runner exec` was removed in GitLab 16, and `run-single` polls a real GitLab
+instance for work, so neither runs a pipeline from a checkout. `tools/ci-local.sh`
+reads a job's `script:` from `.gitlab-ci.yml` and runs it locally:
 
 ```bash
 tools/ci-local.sh                 # the jobs in the file
@@ -266,10 +267,9 @@ tools/ci-local.sh lint            # run one
 tools/ci-local.sh rqx --in ../app # run it against another checkout
 ```
 
-It is not a runner — no image, no cache, no artifacts, no `rules:` — so a job that
-passes locally can still fail in CI for a reason the container would have shown. What
-it does check is the part that usually breaks: the commands, their order, and the exit
-code.
+The script is not a runner. It applies no image, cache, artifacts or `rules:`, so a job
+that passes locally can still fail in CI because of the container. It checks the
+commands, their order and the exit code.
 
 ## CircleCI
 
@@ -289,8 +289,8 @@ sh 'rqx scan . --reporter terminal --reporter junit=rqx-junit.xml --fail-on erro
 junit testResults: 'rqx-junit.xml', allowEmptyResults: true
 ```
 
-Wrap the `sh` step in `catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE')`
-if a failed gate should mark the build unstable rather than failed.
+To mark the build unstable instead of failed when the gate fails, wrap the `sh` step
+in `catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE')`.
 
 ## Azure Pipelines
 
@@ -312,127 +312,125 @@ if a failed gate should mark the build unstable rather than failed.
       - rqx scan . --reporter terminal --reporter junit=test-reports/rqx.xml --fail-on error
 ```
 
-Bitbucket picks up anything under `test-reports/` automatically.
+Bitbucket collects results under `test-reports/` automatically.
 
-## Anywhere else
+## Other providers
 
-If a provider reads JUnit XML — and they all do — this works:
+A provider that reads JUnit XML can use the `junit` reporter:
 
 ```sh
 rqx scan . --reporter terminal --reporter junit=rqx.xml --fail-on error
 ```
 
-If it does not, parse the NDJSON:
+Otherwise, parse the NDJSON output:
 
 ```sh
 rqx scan . --reporter json \
   | jq -c 'select(.kind != "summary") | {file: .location.file, rule, severity}'
 ```
 
-## Checking the config in CI
+## Validating the configuration
 
-A typo in `rqx.yaml` stops a scan with one error at a time. `rqx config validate`
-reports every problem in the config before any code is read:
+A scan with an invalid `rqx.yaml` stops at the first error. `rqx config validate`
+reports every problem in the configuration before any code is read:
 
 ```sh
 rqx config validate --strict
 ```
 
-An error exits 2, the same as a run that could not start. A warning, such as a rule
-name that is not in the catalogue, exits 0 on its own and 1 under `--strict`, so a
-pipeline that wants a clean config fails on it. `--json` prints one line per problem
-with its file, line and column; see [json.md](json.md).
+An error exits `2`, the same code as a run that could not start. A warning, such as a
+rule name that is not in the catalogue, exits `0` by default and `1` under `--strict`.
+With `--json`, the command prints one line per problem with its file, line and column.
+See [json.md](json.md).
 
 ## Review without git history
 
 `rqx check` normally asks git which files differ from `--base`. A shallow clone has no
-common commit to diff from, and some pipelines already know which files changed. Pass
-the list instead:
+common commit to diff from, and some pipelines already know which files changed.
+`--files-from` accepts the list instead:
 
 ```sh
 git diff -z --name-only origin/main... | rqx check --files-from -
 ```
 
-`-z` separates the names with NUL, which `--files-from` detects, so a file name with a
-space or a newline in it survives. Without `-z`, one path per line works too. The
-list replaces the diff as the files under review. Whatever imports a listed file is
-reviewed as well, and the whole project is still analysed, so a finding that depends
-on another file stays correct. Paths that are not files under the scanned directory
-are named once on stderr and skipped.
+`-z` separates names with NUL, which `--files-from` detects, so a file name that
+contains a space or a newline is read correctly. Without `-z`, one path per line also
+works. The list replaces the diff as the set of files under review. Files that import
+a listed file are reviewed as well, and the whole project is still analysed, so a
+finding that depends on another file stays correct. A path that is not a file under
+the scanned directory is reported once on stderr and skipped.
 
-Any program can write the list, such as a changed-files API call or a build tool's
-affected-projects output. `--base` and `--files-from` cannot be combined.
+Any program can produce the list, for example a changed-files API call or the
+affected-projects output of a build tool. `--base` and `--files-from` cannot be
+combined.
 
 ## Adopting a gate on an existing codebase
 
-A gate that fails on day one gets disabled on day one. Start where you already
-are and tighten from there:
+A gate that fails on the first run is often disabled. To avoid that, start from the
+current state and tighten the gate gradually:
 
 ```yaml
 # rqx.yaml
 gate:
-  fail_on: error        # only the three rules that are never a false positive
+  fail_on: error        # error-severity findings only
   max_findings: 0
   min_health: 0
 ```
 
-Then move to `rqx check --base main`, which reviews the changed files plus
-everything that imports them, so the gate applies to new work rather than to the
-history you inherited.
+Then use `rqx check --base main`, which reviews the changed files and the files that
+import them, so the gate applies to new work and not to existing findings.
 
 ## Failing on a half-applied pattern
 
-`[gate] fail_on_incomplete = true`, or `--fail-on-incomplete`, is the only way design
-pattern advice reaches an exit code. It sees the half-applied stance and nothing else:
-a decorator that cannot substitute for what it wraps, a subscribe with no unsubscribe.
-A pattern that is merely in use, or would merely fit, can never fail a run, and none
-of the advice moves the health score in any configuration. `rqx check` and
-`rqx comment` apply it to the files they review; `rqx scan` applies it to all of them.
+`gate.fail_on_incomplete: true` in `rqx.yaml`, or `--fail-on-incomplete`, is the only
+way design pattern advice affects the exit code. It considers half-applied patterns
+only: a decorator that cannot substitute for the object it wraps, or a subscribe with
+no matching unsubscribe. A pattern that is in use or that would fit does not affect
+the exit code, and pattern advice does not change the health score in any
+configuration. `rqx check` and `rqx comment` apply the option to the files they
+review. `rqx scan` applies it to all files.
 
 ## Commenting on the merge request
 
-`rqx comment` posts the review onto the merge request it is reviewing: one comment,
-edited on every re-run rather than repeated, and a commit status carrying the grade
-so the branch shows it without anyone opening a log.
+`rqx comment` posts the review on the merge request under review. It writes one
+comment, which later runs edit in place, and a commit status that carries the grade.
 
 ```sh
 rqx comment --fail-on error
 ```
 
-It reads the pipeline's own variables to find the merge request — GitLab's
-`CI_MERGE_REQUEST_IID` and `CI_PROJECT_ID`, GitHub's `GITHUB_REPOSITORY` and event
-payload — and exits 2 with an explanation when it is not running on one.
+It finds the merge request from the pipeline's own variables: GitLab's
+`CI_MERGE_REQUEST_IID` and `CI_PROJECT_ID`, and GitHub's `GITHUB_REPOSITORY` and event
+payload. Outside a merge request it exits `2` with an explanation.
 
-**`--base` defaults to the merge request's own base**, which the pipeline already
-knows: GitLab's `CI_MERGE_REQUEST_DIFF_BASE_SHA`, GitHub's
-`pull_request.base.sha`. Both are commits that exist in the clone, unlike
-`origin/HEAD`, which a CI clone leaves pointing at nothing. Pass `--base` to
-override it.
+`--base` defaults to the merge request's own base: GitLab's
+`CI_MERGE_REQUEST_DIFF_BASE_SHA` or GitHub's `pull_request.base.sha`. Both are commits
+present in the clone. `origin/HEAD` is not, because a CI clone does not set it. Pass
+`--base` to override the default.
 
-The commit the grade lands on is the head of the branch, not the merge commit the
-runner built: on a `pull_request` event `GITHUB_SHA` names a commit that belongs to
-no branch, so a status posted there would show on nothing.
+The commit that receives the grade is the head of the branch, not the merge commit the
+runner built. On a `pull_request` event `GITHUB_SHA` names a commit that belongs to no
+branch, so a status posted there would not be shown.
 
-| Flag | Does |
+| Flag | Effect |
 |---|---|
-| `--dry-run` | print the comment and where it would go; post nothing |
-| `--marker <id>` | which comment to keep, so two jobs each keep their own |
-| `--no-status` | comment, but leave the commit ungraded |
-| `--base <ref>` | what the review compares against |
+| `--dry-run` | Print the comment and its destination. Post nothing. |
+| `--marker <id>` | Identify which comment to update, so two jobs can each keep their own. |
+| `--no-status` | Post the comment and leave the commit without a grade. |
+| `--base <ref>` | The revision the review compares against. |
 
-**Tokens.** GitLab needs `RQX_TOKEN` or `GITLAB_TOKEN` with `api` scope —
-`CI_JOB_TOKEN` can read merge-request notes but not write them, which is a GitLab
-limitation and not something rqx can work around. GitHub needs
-`permissions: pull-requests: write`, and `statuses: write` for the commit grade.
+**Tokens.** GitLab requires `RQX_TOKEN` or `GITLAB_TOKEN` with `api` scope.
+`CI_JOB_TOKEN` can read merge request notes but not write them, which is a GitLab
+restriction. GitHub requires `permissions: pull-requests: write`, and `statuses: write`
+for the commit grade.
 
-Requests go through `curl`. rqx already requires `git`; every CI image has `curl`,
-and the alternative is a TLS stack in a binary whose claim is that it has no runtime
-dependencies. Certificates and proxies stay the system's, which on a self-hosted
-GitLab is where they belong. Alpine images need `apk add curl`. Any curl will do —
-the token and the payload go through a `0600` config file rather than the command
-line, where `ps` would show the token to every other job on the runner, and the
-status code comes back through `--write-out` rather than through an option that
-only exists from 7.76.
+Requests go through `curl`. rqx already requires `git`, CI images generally include
+`curl`, and using it avoids a TLS stack in a binary that has no runtime dependencies.
+Certificates and proxies come from the system configuration. Alpine images need
+`apk add curl`. Any curl version works. The token and payload are passed through a `0600`
+configuration file and not on the command line, where `ps` would expose the token to
+other jobs on the runner. The status code is read with `--write-out`, not with an
+option that exists only from curl 7.76.
 
 ### GitLab
 
@@ -453,13 +451,13 @@ rqx:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 ```
 
-`GIT_DEPTH: 0` matters for the same reason `fetch-depth: 0` does below: a review
-diffs `base...HEAD`, and GitLab's default shallow clone may hold no commit the two
-branches share. rqx says so by name when it happens rather than reporting a missing
-revision.
+`GIT_DEPTH: 0` is required for the same reason as `fetch-depth: 0` below. A review
+diffs `base...HEAD`, and GitLab's default shallow clone may contain no commit that the
+two branches share. In that case rqx reports the shallow clone by name and not a
+missing revision.
 
-The `gitlab` reporter is the other half: GitLab reads it as a Code Quality report and
-draws each finding inline on the diff, where the comment is the summary above it.
+The `gitlab` reporter supplies the inline part: GitLab reads it as a Code Quality
+report and draws each finding on the diff, below the summary comment.
 
 ### GitHub
 
@@ -480,5 +478,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-`fetch-depth: 0` matters: a review compares against a revision, and a shallow clone
-does not have one.
+`fetch-depth: 0` is required because a review compares against a revision, and a
+shallow clone does not contain one.

@@ -63,7 +63,7 @@ static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[command(
     name = "rqx",
     version,
-    about = "Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says why it matters",
+    about = "Reports dead code, duplication, complexity and architectural drift in TypeScript, JavaScript, Python, Go, Java and C++, with the reason each finding matters",
     // `{subcommands}` is left out and the grouped list put in `after_help` instead:
     // clap has no heading for a subcommand, and twenty-seven of them in one block is
     // a wall that gets worse with every one added. They stay visible to the parser
@@ -80,7 +80,7 @@ static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 pub struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
-    /// Never open the interactive interface; bare `rqx` prints the report instead
+    /// Do not open the interactive interface; bare `rqx` prints the report instead
     #[arg(long, global = true)]
     no_tui: bool,
     /// Accepted and ignored: the session never captures the mouse, so there is
@@ -106,10 +106,10 @@ pub struct Cli {
         env = "RQX_PROGRESS"
     )]
     progress: progress::Style,
-    /// Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr
+    /// Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr
     #[arg(short = 'v', long, action = clap::ArgAction::Count, global = true)]
     verbose: u8,
-    /// Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+    /// Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
     #[arg(
         long,
         value_enum,
@@ -220,24 +220,24 @@ fn grouped_help(command: &clap::Command) -> String {
     }
     out.push_str(
         "\
-Run on its own in a terminal, `rqx` opens the interactive session on the working
-directory; anywhere else it scans the working directory, as `rqx scan` does.
-`scan` already reports import cycles, layer violations against a declared
-[architecture], dead code, duplication and churn; the commands under Look closer
-narrow that same scan to one question.
+Run without a subcommand in a terminal, `rqx` opens the interactive session on the
+working directory. In any other context it scans the working directory, as `rqx scan`
+does. `rqx scan` reports import cycles, layer violations against a configured
+`architecture`, dead code, duplication and churn. The commands under Look closer
+present the same scan for one question.
 
 Examples:
   rqx                              the session in a terminal, the scan elsewhere
-  rqx scan .                       print the whole report
-  rqx scan . --fail-on error       report, and exit 1 if anything is an error
-  rqx check --base main            review only what changed, and gate on it
+  rqx scan .                       print the full report
+  rqx scan . --fail-on error       report, and exit 1 if any finding is an error
+  rqx check --base main            review the changed files and apply the gate
   rqx explain unused-export        what one rule measures and how to fix it
 
 Exit codes:
-  0   ran, nothing failed the gate
-  1   ran, the gate failed
-  2   rqx could not run: bad path, bad config, unreadable revision
-  101 rqx hit a bug; please report it
+  0   completed; no gate failed
+  1   completed; the gate failed
+  2   rqx could not run: bad path, invalid configuration, unresolvable revision
+  101 internal error; please report it
 ",
     );
     out
@@ -248,7 +248,7 @@ enum Command {
     /// Analyze a project and report every finding
     #[command(visible_alias = "s")]
     #[command(
-        after_help = "Examples:\n  rqx scan .                          the whole report\n  rqx scan . --rule empty-catch       only one rule\n  rqx scan . --not-path 'test/**'     everything except the tests\n  rqx scan . --fixable                only what `rqx fix` can act on\n  rqx scan . --stats                  which rules fired, and how often"
+        after_help = "Examples:\n  rqx scan .                          the full report\n  rqx scan . --rule empty-catch       one rule only\n  rqx scan . --not-path 'test/**'     all files except tests\n  rqx scan . --fixable                only findings `rqx fix` can apply\n  rqx scan . --stats                  finding counts per rule"
     )]
     Scan {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -257,43 +257,43 @@ enum Command {
         view: View,
         #[command(flatten)]
         gate: Gate,
-        /// Append what the design-pattern catalogue makes of the same files
+        /// Append design pattern advice for the same files
         #[arg(long)]
         advice: bool,
         #[command(flatten)]
         evidence: Evidence,
         #[command(flatten)]
         cap: DisplayCap,
-        /// Scan again whenever a file changes, until interrupted
+        /// Rescan whenever a file changes, until interrupted
         #[arg(long)]
         watch: bool,
         #[command(flatten)]
         run: Run,
     },
-    /// Apply the fixes a finding decides on its own, proving each one before it is
-    /// written. Previews by default.
+    /// Apply the fixes that have a single correct result, proving each one before it
+    /// is written. Previews by default.
     #[command(visible_alias = "f")]
     #[command(
-        after_help = "Examples:\n  rqx fix                             show what would change\n  rqx fix -w                          write it\n  rqx fix --plan                      the edits as a list, not a diff"
+        after_help = "Examples:\n  rqx fix                             show what would change\n  rqx fix -w                          write the fixes\n  rqx fix --plan                      list the edits instead of a diff"
     )]
     Fix {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Write the fixes. Without it nothing on disk changes.
+        /// Write the fixes. Without it no file changes.
         #[arg(long, short)]
         write: bool,
-        /// One fix can make the next one possible, so fixing repeats until a round
-        /// finds nothing. Overrides `[fix] max_rounds`.
+        /// Maximum number of rounds. One fix can enable another, so fixing repeats
+        /// until a round finds nothing. Overrides `fix.max_rounds`.
         #[arg(long)]
         max_rounds: Option<u32>,
-        /// Emit one JSON object per fixed file instead of the reader's preview
+        /// Emit one JSON object per fixed file instead of the text preview
         #[arg(long)]
         json: bool,
-        /// Report the findings `fix` will not touch, with the span, the source, the
-        /// metric and the named refactoring, for a person or an agent to act on
+        /// Report the findings `fix` does not change, with the span, the source, the
+        /// metric and the named refactoring
         #[arg(long)]
         plan: bool,
-        /// With --plan, emit markdown a person can paste rather than a report to read
+        /// With --plan, emit Markdown for pasting instead of the terminal report
         #[arg(long)]
         markdown: bool,
         #[command(flatten)]
@@ -301,8 +301,8 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Compare the working tree against a base revision and say what happened to
-    /// each finding: resolved, improved, relocated, or introduced
+    /// Compare the working tree against a base revision and classify each finding
+    /// as resolved, improved, relocated or introduced
     #[command(visible_alias = "v")]
     Verify {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -313,7 +313,7 @@ enum Command {
         /// Rules that must be resolved, as `rule` or `rule@file`. Repeatable.
         #[arg(long)]
         expect: Vec<String>,
-        /// Emit one JSON object per change instead of the reader's report
+        /// Emit one JSON object per change instead of the text report
         #[arg(long)]
         json: bool,
         #[command(flatten)]
@@ -321,32 +321,31 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Print the configuration one editor needs to talk to rqx, or list them all
+    /// Print the configuration an editor needs to connect to rqx, or list the supported editors
     Setup {
-        /// Which editor. Omit to list every one rqx knows.
+        /// Editor name. Omit to list the supported editors.
         editor: Option<String>,
-        /// Append it to the editor's config, after showing what will be added
+        /// Append the configuration to the editor's configuration file, after showing what will be added
         #[arg(long, short)]
         write: bool,
     },
-    /// Rank the work by what it buys against what it costs, and say what the health
-    /// score would be after it
+    /// Rank the work by value against effort, and report the health score after it
     #[command(
-        after_help = "Examples:\n  rqx plan --budget 20                the best twenty points of work\n  rqx plan --simulate                 the score each step would leave"
+        after_help = "Examples:\n  rqx plan --budget 20                the highest-value work within 20 effort points\n  rqx plan --simulate                 the health score after each step"
     )]
     Plan {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Effort points to spend. Without it the plan is the top items by value.
+        /// Effort points to spend. Without it the plan lists the top items by value.
         #[arg(long)]
         budget: Option<u32>,
         /// How many items to rank when no budget is given
         #[arg(long, default_value_t = 20)]
         limit: usize,
-        /// Also print what the plan does to the grade of every file
+        /// Also print the effect of the plan on the grade of each file
         #[arg(long)]
         simulate: bool,
-        /// Emit one JSON object per item instead of the reader's plan
+        /// Emit one JSON object per item instead of the text plan
         #[arg(long)]
         json: bool,
         #[command(flatten)]
@@ -354,46 +353,46 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it,
-    /// and what fixes it
+    /// Print the catalogue entry for a rule or a pattern: what it maps to, what decides
+    /// it and what fixes it
     Explain { name: String },
-    /// List every rule Rqx can report, grouped by family
+    /// List every rule rqx can report, grouped by family
     Rules {
         /// Show only one family
         category: Option<String>,
         /// Show only the rules that apply to one language
         #[arg(long)]
         language: Option<String>,
-        /// One slug per line and nothing else, for a script or a shell completion
+        /// Print one slug per line and nothing else, for scripts and shell completion
         #[arg(long)]
         slugs: bool,
     },
-    /// Record the findings this project already has, so a gate can judge only what a
+    /// Record the findings this project already has, so the gate evaluates only what a
     /// change adds
     #[command(
-        after_help = "Examples:\n  rqx baseline                        snapshot today's debt\n  rqx baseline --update               after a cleanup, record the new floor"
+        after_help = "Examples:\n  rqx baseline                        record the current findings\n  rqx baseline --update               record the reduced set after a cleanup"
     )]
     Baseline {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Take it again over the current findings. Refuses to record more than the
-        /// last one did unless --force.
+        /// Record the baseline again from the current findings. Refuses to record more
+        /// findings than the previous baseline held unless --force is given.
         #[arg(long)]
         update: bool,
-        /// Record a larger set than the last one held
+        /// Record a larger set than the previous baseline held
         #[arg(long)]
         force: bool,
         #[command(flatten)]
         run: Run,
     },
-    /// List every finding a comment in the source waives, with the reason given
+    /// List every finding waived by a comment in the source, with its reason
     Suppressions {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         /// Show only the waivers that carry an `until` date
         #[arg(long)]
         expiring: bool,
-        /// Emit one JSON object per waiver instead of the reader's report
+        /// Emit one JSON object per waiver instead of the text report
         #[arg(long)]
         json: bool,
         #[command(flatten)]
@@ -401,7 +400,7 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Waive one finding with a comment in the source, and the reason a reviewer reads
+    /// Waive one finding with a comment in the source that states a reason
     #[command(
         after_help = "Examples:\n  rqx waive src/api.ts:42 unused-export --reason \"called from the plugin host\"\n  rqx waive src/api.ts:42 unused-export --reason kept --until 2027-03-01\n  rqx waive src/gen.ts unused-export --reason generated --whole-file\n  rqx waive src/api.ts:42 unused-export --reason kept --dry-run"
     )]
@@ -411,26 +410,26 @@ enum Command {
         at: String,
         /// The rule to waive, as `rqx rules` lists it
         rule: String,
-        /// Why the finding stands. A waiver without one is not honoured, so this is
-        /// required; the interactive session asks for it when it is left out
+        /// Why the finding is kept. A waiver without a reason is not honoured, so this
+        /// option is required; the interactive session prompts for it when omitted
         #[arg(long, value_name = "TEXT")]
         reason: Option<String>,
-        /// The waiver stops being honoured after this date
+        /// Date after which the waiver is no longer honoured
         #[arg(long, value_name = "YYYY-MM-DD")]
         until: Option<String>,
-        /// Waive the rule for the whole file, not the line
+        /// Waive the rule for the whole file instead of one line
         #[arg(long)]
         whole_file: bool,
-        /// Print the diff the waiver would make and change nothing
+        /// Print the diff the waiver would make, and change no file
         #[arg(long)]
         dry_run: bool,
         /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
-    /// What the analyser measured, as a distribution rather than only its tail
+    /// Report the complexity distribution, with the highest values
     #[command(
-        after_help = "Examples:\n  rqx complexity --top 20             the twenty worst functions\n  rqx complexity --by dir             the worst of each directory\n  rqx complexity --histogram          where the codebase actually sits"
+        after_help = "Examples:\n  rqx complexity --top 20             the 20 highest-scoring functions\n  rqx complexity --by dir             the highest-scoring entry of each directory\n  rqx complexity --histogram          the distribution across the codebase"
     )]
     Complexity {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -443,10 +442,10 @@ enum Command {
         /// How many rows
         #[arg(long, default_value_t = 20)]
         top: usize,
-        /// Skip anything below this, on whatever `--sort` measures
+        /// Skip rows below this value of the measure `--sort` selects
         #[arg(long, default_value_t = 0)]
         min: u32,
-        /// Draw the distribution as well as the worst of it
+        /// Draw the distribution as well as the highest values
         #[arg(long)]
         histogram: bool,
         /// Emit one JSON object per row
@@ -457,7 +456,7 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Where the work grows faster than the data, ranked by reach
+    /// Report code whose work grows faster than its input, ranked by reach
     Perf {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
@@ -469,11 +468,11 @@ enum Command {
         /// How many rows
         #[arg(long, default_value_t = 20)]
         top: usize,
-        /// Skip anything whose loops nest less deeply than this
+        /// Skip entries whose loops nest less deeply than this
         #[arg(long, default_value_t = 0)]
         min_depth: u32,
-        /// A CPU profile, so a finding nothing ran stops counting. A V8
-        /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
+        /// A CPU profile; a finding in code that nothing ran stops counting. A V8
+        /// .cpuprofile, a Go pprof and collapsed stacks are detected by content.
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         profile: Vec<PathBuf>,
         /// Emit one JSON object per row
@@ -484,9 +483,9 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Install the newest release, or say what it would change
+    /// Install the newest release, or report what it would change
     #[command(
-        after_help = "Examples:\n  rqx update                          install the newest release\n  rqx update --check                  say whether one exists, install nothing\n  rqx update --notes                  read what changed\n  rqx update --version 1.2.3          install that release, newer or older\n  rqx update --dry-run                show how and from where, change nothing"
+        after_help = "Examples:\n  rqx update                          install the newest release\n  rqx update --check                  report whether a newer release exists; install nothing\n  rqx update --notes                  print the release notes\n  rqx update --version 1.2.3          install that release, newer or older\n  rqx update --dry-run                show the method and source; change nothing"
     )]
     Update {
         /// Report whether a newer release exists and stop
@@ -507,14 +506,14 @@ enum Command {
         /// bash, zsh, fish, elvish or powershell
         shell: clap_complete::Shell,
     },
-    /// What to do about this project, as distinct from what is wrong with it
+    /// Recommend actions for the project: configuration thresholds, refactorings, files to read and performance work
     #[command(
-        after_help = "Examples:\n  rqx recommend                       all four answers\n  rqx recommend --only config         thresholds this codebase would fit"
+        after_help = "Examples:\n  rqx recommend                       all four sections\n  rqx recommend --only config         thresholds that fit this codebase"
     )]
     Recommend {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Just one section
+        /// Only this section
         #[arg(long, value_enum)]
         only: Option<recommend::Only>,
         #[arg(long)]
@@ -524,7 +523,7 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Which files read as written rather than read
+    /// Score files that show signs of not having been reviewed after they were written
     Slop {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
@@ -540,7 +539,7 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Where the health score comes from, and what removing each part would buy
+    /// Break the health score down by component and report what removing each would gain
     Health {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
@@ -554,39 +553,39 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Print the import graph — as text, Graphviz, Mermaid or data
+    /// Print the import graph as text, Graphviz, Mermaid or JSON
     #[command(
-        after_help = "Examples:\n  rqx graph --cycles                  only the rings\n  rqx graph --format mermaid          paste it into a design doc\n  rqx graph --focus src/api.ts        what it reaches, and what reaches it"
+        after_help = "Examples:\n  rqx graph --cycles                  only the edges that close a cycle\n  rqx graph --format mermaid          Mermaid output for documentation\n  rqx graph --focus src/api.ts        files it reaches and files that reach it"
     )]
     Graph {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// text, dot, mermaid or json. Text unless a `--reporter` says otherwise
+        /// text, dot, mermaid or json. Defaults to text unless a `--reporter` is given
         #[arg(long, value_enum)]
         format: Option<graph::Shape>,
-        /// Where the graph goes: `<name>` for stdout, `<name>=<path>` for a file;
+        /// Output destination: `<name>` for stdout, `<name>=<path>` for a file;
         /// repeatable. The names are the formats, and `terminal` is `text`
         #[arg(long = "reporter", value_name = "NAME[=PATH]")]
         reporters: Vec<Sink<graph::Shape>>,
         /// Only the edges that close a cycle
         #[arg(long)]
         cycles: bool,
-        /// Only what this file reaches, and what reaches it
+        /// Only the files this file reaches and the files that reach it
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         focus: Option<String>,
-        /// How far from `--focus` to follow
+        /// Distance from `--focus` to follow
         #[arg(long, default_value_t = 2)]
         depth: u32,
         #[command(flatten)]
         run: Run,
     },
-    /// Show what the analysis cache holds, or throw it away
+    /// Show what the analysis cache holds, or delete it
     Cache {
         #[command(subcommand)]
         action: CacheAction,
     },
-    /// Run a tree-sitter query over a project, to try one out before writing it into
-    /// a `[[rule]]`
+    /// Run a tree-sitter query over a project, to test it before adding it to a `rule`
+    /// entry in `rqx.yaml`
     Query {
         /// typescript, javascript, python, go, java or cpp
         language: String,
@@ -601,20 +600,20 @@ enum Command {
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
-    /// List every refactoring Rqx prescribes, and which rules ask for it
+    /// List every refactoring rqx prescribes and the rules that prescribe it
     Techniques,
-    /// Print what each cleanliness level changes, as the settings it would take to
-    /// write it by hand
+    /// Print what each cleanliness level sets, as the equivalent configuration
+    /// settings
     Levels,
     /// Report which design patterns a project uses, which are half applied, and where
     /// one would fit
     Patterns {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Print what rqx does about every pattern in the book, without scanning
+        /// Print how rqx handles each pattern in its catalogue, without scanning
         #[arg(long)]
         coverage: bool,
-        /// Emit one JSON object per advisory instead of the reader's report
+        /// Emit one JSON object per advisory instead of the text report
         #[arg(long)]
         json: bool,
         #[command(flatten)]
@@ -625,7 +624,7 @@ enum Command {
     /// Analyze changed files against a base revision and fail if the gate is not met
     #[command(visible_alias = "c")]
     #[command(
-        after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and fail CI on any error\n  rqx check --fix -w                  apply the proven fixes first\n  git diff -z --name-only main... | rqx check --files-from -\n                                      review without git history to diff against"
+        after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and exit 1 on any error\n  rqx check --fix -w                  apply the proven fixes first\n  git diff -z --name-only main... | rqx check --files-from -\n                                      review from a file list, without git history"
     )]
     Check {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -633,11 +632,11 @@ enum Command {
         /// Revision to compare against
         #[arg(long, default_value = "origin/HEAD", conflicts_with = "files_from")]
         base: String,
-        /// Apply the mechanical fixes to what the branch touched before gating, so a
-        /// branch whose only failures were mechanical passes
+        /// Apply the mechanical fixes to the files the branch changed before gating, so
+        /// a branch whose only failures are mechanical passes
         #[arg(long)]
         fix: bool,
-        /// With --fix, write the fixes. Without it nothing on disk changes.
+        /// With --fix, write the fixes. Without it no file changes.
         #[arg(long, short)]
         write: bool,
         #[command(flatten)]
@@ -659,29 +658,29 @@ enum Command {
         #[arg(long, default_value = "fixtures", value_hint = ValueHint::DirPath)]
         fixtures: PathBuf,
     },
-    /// Post the review onto the merge request it is reviewing, and grade the commit
+    /// Post the review as a comment on its merge request, and grade the commit
     #[command(after_help = "Examples:
-  rqx comment --base main             one sticky comment, edited on every re-run
-  rqx comment --dry-run               print what would be posted, post nothing
-  rqx comment --marker api            a second comment for a second job
+  rqx comment --base main             one comment, edited on every re-run
+  rqx comment --dry-run               print the comment and its destination; post nothing
+  rqx comment --marker api            a separate comment for a second job
 
-GitLab needs RQX_TOKEN or GITLAB_TOKEN with `api` scope: CI_JOB_TOKEN cannot write
-merge-request notes. GitHub needs `permissions: pull-requests: write`, and
+GitLab requires RQX_TOKEN or GITLAB_TOKEN with `api` scope: CI_JOB_TOKEN cannot write
+merge request notes. GitHub requires `permissions: pull-requests: write`, and
 `statuses: write` for the commit grade.")]
     Comment {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Review against this revision. Defaults to the merge request's own base,
-        /// which the pipeline already knows
+        /// Review against this revision. Defaults to the merge request's own base, as
+        /// reported by the pipeline
         #[arg(long, value_name = "REF")]
         base: Option<String>,
-        /// Print the comment and where it would go, and post nothing
+        /// Print the comment and its destination, and post nothing
         #[arg(long)]
         dry_run: bool,
-        /// Which comment to keep. Two jobs on one merge request each keep their own
+        /// Identifier of the comment to update. Jobs with different markers keep separate comments on one merge request
         #[arg(long, default_value = "results", value_name = "ID")]
         marker: String,
-        /// Comment, but leave the commit ungraded
+        /// Post the comment and leave the commit ungraded
         #[arg(long)]
         no_status: bool,
         #[command(flatten)]
@@ -716,11 +715,11 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         #[command(subcommand)]
         action: Option<ConfigAction>,
     },
-    /// Run as an MCP server, so an AI agent can ask what a project's problems are
+    /// Run as an MCP server, so an AI agent can query a project's findings
     Mcp {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Serve Streamable HTTP on this address instead of speaking over stdio
+        /// Serve Streamable HTTP on this address instead of stdio
         #[arg(long, value_name = "ADDR")]
         http: Option<std::net::SocketAddr>,
         /// Read settings from this file, layered over any `rqx.yaml` found
@@ -817,12 +816,12 @@ impl Printing {
 /// contradicted by the run that says otherwise.
 #[derive(Args, Default)]
 struct Evidence {
-    /// A coverage file, so a test run can contradict a dead-code finding.
-    /// lcov, a Go cover profile and coverage.py JSON are read by content.
+    /// A coverage file that can contradict a dead-code finding.
+    /// lcov, a Go cover profile and coverage.py JSON are detected by content.
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     coverage: Vec<PathBuf>,
-    /// A CPU profile, so a run can contradict a performance finding. A V8
-    /// .cpuprofile, a Go pprof and collapsed stacks are read by content.
+    /// A CPU profile that can contradict a performance finding. A V8
+    /// .cpuprofile, a Go pprof and collapsed stacks are detected by content.
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     profile: Vec<PathBuf>,
 }
@@ -854,7 +853,7 @@ fn display_all(paths: &[PathBuf]) -> Vec<String> {
 /// finding whatever this says.
 #[derive(Args, Default)]
 struct DisplayCap {
-    /// Display cap; 0 shows every finding. Never affects the health score.
+    /// Maximum number of findings listed; 0 lists every finding. Does not affect the health score.
     #[arg(long)]
     max_findings: Option<usize>,
 }
@@ -959,7 +958,7 @@ struct View {
     /// Hide findings in files matching this glob; repeatable
     #[arg(long = "not-path", value_name = "GLOB", help_heading = "Filtering")]
     not_paths: Vec<String>,
-    /// Show only findings rqx is certain of, or only the ones it is guessing at
+    /// Show only verified findings, or only heuristic ones
     #[arg(long, value_enum, help_heading = "Filtering")]
     confidence: Option<ConfidenceArg>,
     /// Show only findings `rqx fix` can act on
@@ -977,7 +976,7 @@ struct View {
     /// Show only findings in the files this list names, one path per line, or
     /// separated by NUL when the input holds one (`git diff -z --name-only`); `-` reads
     /// standard input. Paths are relative to the scanned directory, or absolute. The
-    /// whole project is still analysed, so cross-file findings stay right. On `check`
+    /// whole project is still analysed, so cross-file findings remain correct. On `check`
     /// the list replaces the git diff as the files under review
     #[arg(
         long = "files-from",
@@ -987,7 +986,7 @@ struct View {
     )]
     files_from: Option<String>,
 
-    /// List files that have no findings as well
+    /// Also list files with no findings
     #[arg(long, help_heading = "Display")]
     show_passed: bool,
     /// Print the summary without the findings
@@ -996,23 +995,23 @@ struct View {
     /// Print how long each stage of the scan took, and what it did
     #[arg(long, help_heading = "Display")]
     timings: bool,
-    /// Counts only: which rules and families fired, and how often
+    /// Counts only: the number of findings per rule and per family
     #[arg(long, help_heading = "Display")]
     stats: bool,
-    /// What the listing is a list of
+    /// What findings are grouped by
     #[arg(long = "group-by", value_enum, default_value_t = GroupArg::File, help_heading = "Display")]
     grouping: GroupArg,
-    /// What decides the order inside each group
+    /// Sort order inside each group
     #[arg(long = "sort", value_enum, default_value_t = OrderArg::Line, help_heading = "Display")]
     order: OrderArg,
     /// List only this many groups; the rest are counted
     #[arg(long, value_name = "N", help_heading = "Display")]
     top: Option<usize>,
-    /// List the findings a comment waives, alongside the ones it does not
+    /// Also list the findings a source comment waives
     #[arg(long, help_heading = "Display")]
     show_suppressed: bool,
-    /// Lines of code shown either side of a finding. Two under `--detail full`,
-    /// none otherwise, unless this says
+    /// Lines of code shown on each side of a finding. Defaults to 2 under `--detail
+    /// full` and 0 otherwise
     #[arg(long, value_name = "N", help_heading = "Display")]
     context: Option<u32>,
     /// How much of each finding to print
@@ -1036,11 +1035,11 @@ struct View {
 enum ConfigAction {
     /// Write one setting, keeping the file's comments and layout
     Set {
-        /// The setting, as `table.key` — `thresholds.max_params`, `gate.fail_on`
+        /// The setting, as `table.key`, such as `thresholds.max_params` or `gate.fail_on`
         key: String,
         value: String,
-        /// Which file to write. Without it, the file that already holds the setting,
-        /// else the nearest `rqx.yaml`.
+        /// File to write. Defaults to the file that already holds the setting,
+        /// otherwise the nearest `rqx.yaml`.
         #[arg(long)]
         file: Option<PathBuf>,
         /// Choose the file from the ones this project reads
@@ -1059,22 +1058,22 @@ enum ConfigAction {
     Files,
     /// Print the JSON Schema of a config file, for an editor or a validator
     Schema,
-    /// What one setting is, what it defaults to, and what it is now and why
+    /// Describe one setting: its meaning, its default, its current value and where that value comes from
     Explain {
         /// The setting, dotted: `thresholds.max_params`, `gate.fail_on`,
         /// `rules.long-function.severity`
         key: String,
     },
-    /// Check that the config loads, and say where it does not
+    /// Check that the configuration loads, and report where it does not
     #[command(after_help = "Examples:
   rqx config validate                 exit 2 on an error, 0 otherwise
   rqx config validate --strict        exit 1 when there are warnings too
   rqx config validate --json          one line per problem, then a summary
 
-The config is resolved the way a scan resolves it: presets and `extends`, the user
-config, the policy, every `rqx.yaml` up to the repository root, RQX_CONFIG and --config.
-An error is anything that stops a run. A warning is something that loads but does
-nothing: a rule name not in the catalogue, a threshold no enabled rule reads, an
+The configuration is resolved the way a scan resolves it: presets and `extends`, the
+user config, the policy, every `rqx.yaml` up to the repository root, RQX_CONFIG and
+--config. An error is anything that stops a run. A warning is a setting that loads but
+has no effect: a rule name not in the catalogue, a threshold no enabled rule reads, an
 `overrides` entry with no `paths`.")]
     Validate {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -1084,7 +1083,7 @@ nothing: a rule name not in the catalogue, a threshold no enabled rule reads, an
         /// Exit 1 when the config has warnings, not only when it has errors
         #[arg(long)]
         strict: bool,
-        /// One JSON object per problem, then a summary, instead of the reader's report
+        /// One JSON object per problem, then a summary, instead of the text report
         #[arg(long)]
         json: bool,
         #[command(flatten)]
@@ -1106,7 +1105,7 @@ nothing: a rule name not in the catalogue, a threshold no enabled rule reads, an
 
 #[derive(Subcommand)]
 enum CacheAction {
-    /// What the cache holds, and whether the next scan can use it
+    /// Show what the cache holds and whether the next scan can use it
     Status {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
@@ -1114,7 +1113,7 @@ enum CacheAction {
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
-    /// Throw the cache away, leaving everything else under `.rqx` alone
+    /// Delete the cache. Other files under `.rqx` are not changed
     Clear {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
@@ -1250,10 +1249,10 @@ enum SeverityArg {
 enum DetailArg {
     /// One line per finding
     Terse,
-    /// The reason once per rule, the cost once per file
+    /// The reason once per rule and the cost once per file
     #[default]
     Normal,
-    /// Every line on every finding
+    /// Every line for every finding
     Full,
 }
 
@@ -2196,7 +2195,7 @@ fn run() -> Result<Exit> {
                         None => println!("  nothing cached yet"),
                     }
                     if !settings.config.scan.cache {
-                        println!("  the cache is off; `[scan] cache = true` turns it on");
+                        println!("  the cache is off; setting `scan.cache: true` turns it on");
                     }
                 }
                 CacheAction::Clear { path } => {

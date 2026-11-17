@@ -25,7 +25,7 @@ Suggested fix: collect the pieces and join them once
 
 ## `sequential-await`
 
-nothing makes them an order, so the call takes the sum of two waits where it could have taken the longer one
+nothing orders them, so the call takes the sum of two waits where it could take the longer one
 
 | | |
 |---|---|
@@ -45,11 +45,11 @@ From `fixtures/typescript/performance.ts`, line 93:
   return first + second;
 ```
 
-Suggested fix: start both and wait for the pair
+Suggested fix: start both and wait for both together
 
 ## `scan-in-loop`
 
-the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that was fine at a hundred items stalls at ten thousand
+the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that is fast at a hundred items can stall at ten thousand
 
 | | |
 |---|---|
@@ -70,7 +70,7 @@ Suggested fix: build a set or a map of what the scan looks for once, above the l
 
 ## `deep-loop-nesting`
 
-each level multiplies the passes of the one inside it, so the innermost body runs a number of times no test on small data will ever show
+each level multiplies the passes of the one inside it, so the innermost body runs a number of times that tests on small data do not show
 
 | | |
 |---|---|
@@ -113,7 +113,7 @@ Suggested fix: gather the keys first and ask for all of them in one call
 
 ## `await-in-loop`
 
-each pass waits for the one before it to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together
+each pass waits for the previous one to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together
 
 | | |
 |---|---|
@@ -157,7 +157,7 @@ Suggested fix: compile it once above the loop and reuse it
 
 ## `accumulate-by-copy`
 
-each step copies everything gathered so far, so building a result of n items touches half of n squared of them
+each step copies everything gathered so far, so building a result of n items touches about half of n squared items
 
 | | |
 |---|---|
@@ -178,7 +178,7 @@ Suggested fix: add to the accumulator in place instead of rebuilding it
 
 ## `branching-recursion`
 
-two calls per level is an exponential number of calls, most of them recomputing an answer some other branch already found
+two calls per level is an exponential number of calls, and most of them recompute an answer another branch already found
 
 | | |
 |---|---|
@@ -195,11 +195,11 @@ export function fibonacci(step: number): number {
   if (step < 2) {
 ```
 
-Suggested fix: keep what `fibonacci` has already answered, or rewrite it as a loop over a table
+Suggested fix: cache the results of `fibonacci`, or rewrite it as a loop over a table
 
 ## `blocking-call-in-async`
 
-an async function promises not to hold the thread and this call holds it, so everything else waiting on that loop queues behind one file read
+an async function is expected not to hold the thread and this call holds it, so everything else waiting on that event loop queues behind one blocking call
 
 | | |
 |---|---|

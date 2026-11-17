@@ -2,11 +2,11 @@
 .el .ds Aq '
 .TH rqx-complexity 1  "complexity " 
 .SH NAME
-rqx\-complexity \- What the analyser measured, as a distribution rather than only its tail
+rqx\-complexity \- Report the complexity distribution, with the highest values
 .SH SYNOPSIS
 \fBrqx complexity\fR [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\fR] [\fB\-\-histogram\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
-What the analyser measured, as a distribution rather than only its tail
+Report the complexity distribution, with the highest values
 .SH OPTIONS
 .TP
 \fB\-\-by\fR \fI<BY>\fR [default: function]
@@ -43,10 +43,10 @@ params
 How many rows
 .TP
 \fB\-\-min\fR \fI<MIN>\fR [default: 0]
-Skip anything below this, on whatever `\-\-sort` measures
+Skip rows below this value of the measure `\-\-sort` selects
 .TP
 \fB\-\-histogram\fR
-Draw the distribution as well as the worst of it
+Draw the distribution as well as the highest values
 .TP
 \fB\-\-json\fR
 Emit one JSON object per row
@@ -64,7 +64,7 @@ Worker threads. Defaults to the machine\*(Aqs parallelism
 Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -115,17 +115,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -139,6 +139,6 @@ Print help (see a summary with \*(Aq\-h\*(Aq)
 
 .SH EXTRA
 Examples:
-  rqx complexity \-\-top 20             the twenty worst functions
-  rqx complexity \-\-by dir             the worst of each directory
-  rqx complexity \-\-histogram          where the codebase actually sits
+  rqx complexity \-\-top 20             the 20 highest\-scoring functions
+  rqx complexity \-\-by dir             the highest\-scoring entry of each directory
+  rqx complexity \-\-histogram          the distribution across the codebase

@@ -10,8 +10,8 @@ advisories! {
         signature: "a switch or chain whose every branch does nothing but call one function of the same shape",
         techniques: [ReplaceConditionalWithPolymorphism, ReplaceParameterWithExplicitMethods],
         confidence: Heuristic,
-        why: "the branches already agree on a shape, so the switch is a lookup table \
-              written as control flow, and nothing can queue, log or undo what it picks",
+        why: "the branches already share a shape, so the switch is a lookup table written as \
+              control flow, and nothing can queue, log or undo the chosen call",
     },
     FacadeFits {
         slug: "facade-fits",
@@ -21,8 +21,8 @@ advisories! {
         signature: "three or more first-party files importing the same third-party package directly",
         techniques: [ExtractSharedModule, EncapsulateDelegation],
         confidence: Heuristic,
-        why: "every one of those files is written against someone else's API, so the \
-              blast radius of that dependency changing is the number of files, not one",
+        why: "every one of those files is written against the package's API, so a change in the \
+              dependency affects every one of them",
     },
     MediatorFits {
         slug: "mediator-fits",
@@ -43,8 +43,8 @@ advisories! {
         signature: "the same value switched on in more than one place, where no branch reassigns it",
         techniques: [ReplaceConditionalWithPolymorphism, ReplaceTypeCodeWithPolymorphicState],
         confidence: Heuristic,
-        why: "the cases are spelled out in several places, so a new one is found by \
-              searching rather than by the compiler refusing to build",
+        why: "the cases are written out in several places, so adding a case means searching for \
+              them, and the compiler does not report a missed one",
     },
     ChainOfResponsibilityFits {
         slug: "chain-of-responsibility-fits",
@@ -108,8 +108,8 @@ advisories! {
         signature: "a class implementing an interface it also holds, where every method forwards and none adds anything",
         techniques: [],
         confidence: Heuristic,
-        why: "it controls reaching the thing it stands for without changing what the \
-              thing does, which is the whole of what a proxy is",
+        why: "it controls access to the thing it stands for without changing what the thing \
+              does, which is what a proxy does",
         not_applicable: [
             (Go, "a type here declares no interface, so nothing says what it can stand in for"),
             (JavaScript, "JavaScript declares no types, so nothing says what this class can stand in for"),
@@ -186,8 +186,8 @@ advisories! {
         signature: "a non-public constructor beside a static field of the class's own type",
         techniques: [],
         confidence: Verified,
-        why: "one instance exists and the constructor enforces it, which is also why \
-              nothing that depends on it can be tested against a different one",
+        why: "one instance exists and the constructor enforces it, so code that depends on it \
+              cannot be tested against a different instance",
         not_applicable: [
             (Go, "there are no constructors to make private; a single instance is a package-level variable"),
             (Python, "nothing in the language stops a second call to the constructor"),
@@ -202,8 +202,8 @@ advisories! {
         signature: "a static field of the class's own type beside a constructor anything can still call",
         techniques: [HideMethod],
         confidence: Heuristic,
-        why: "the shared instance is a convention rather than a guarantee, so some code \
-              is using the one and some is making its own",
+        why: "the shared instance is a convention and is not enforced, so some code uses the \
+              shared instance and some creates its own",
         not_applicable: [
             (Go, "there are no constructors to make private; a single instance is a package-level variable"),
             (Python, "nothing in the language stops a second call to the constructor"),
@@ -286,8 +286,8 @@ advisories! {
         signature: "a method with a body that calls two or more members the same class leaves abstract",
         techniques: [],
         confidence: Verified,
-        why: "the order of the steps is fixed in one place and only the steps vary, so \
-              a subclass cannot get the sequence wrong",
+        why: "the order of the steps is fixed in one place and only the steps vary, so a \
+              subclass cannot change the sequence",
         not_applicable: [
             (Go, "there are no abstract members for a base to leave unimplemented"),
             (JavaScript, "JavaScript has no abstract keyword to leave a member for a subclass"),

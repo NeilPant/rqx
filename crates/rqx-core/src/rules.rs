@@ -172,9 +172,7 @@ pub fn check_function(
                 found: metrics.cyclomatic_complexity,
                 limit: thresholds.cyclomatic_complexity,
             },
-            format!(
-                "split {name} so each part has a number of paths somebody would write tests for"
-            ),
+            format!("split {name} so each part has a number of paths that tests can cover"),
         );
     }
 
@@ -201,7 +199,7 @@ pub fn check_function(
                 calls: metrics.self_calls,
                 sampled: None,
             },
-            format!("keep what {name} has already answered, or rewrite it as a loop over a table"),
+            format!("cache the results of {name}, or rewrite it as a loop over a table"),
         );
     }
 
@@ -444,8 +442,7 @@ pub fn check_hygiene(
             RuleId::CommentedOutCode,
             spot,
             Evidence::CommentedCode { lines: spot.count },
-            "delete it; git already has it, and a comment cannot say why it is still here"
-                .to_owned(),
+            "delete it; version control already preserves it".to_owned(),
         );
     }
     for spot in &hygiene.magic_numbers {
@@ -484,9 +481,9 @@ pub fn check_hygiene(
             },
             match spot.detail.as_str() {
                 "any" => {
-                    "name the shape you actually accept, or `unknown` and narrow it".to_owned()
+                    "name the shape the code accepts, or use `unknown` and narrow it".to_owned()
                 }
-                "!" => "check for the absence and handle it, so the guarantee is real".to_owned(),
+                "!" => "check for the absent case and handle it".to_owned(),
                 _ => "narrow the value with a check the checker can follow".to_owned(),
             },
         );
@@ -504,7 +501,7 @@ pub fn check_hygiene(
             RuleId::WideSwitch,
             "arms",
             limits.max_cases,
-            "give the thing being switched on a type, and let it answer for itself",
+            "give the value being switched on a type that provides the behaviour for each case",
         ),
         (
             &hygiene.callback_nesting,
@@ -652,7 +649,7 @@ pub fn check_hygiene(
             Evidence::JournalComment {
                 marker: spot.detail.clone(),
             },
-            "delete it; `git log` and `git blame` answer this and stay correct".to_owned(),
+            "delete it; `git log` and `git blame` record this and stay accurate".to_owned(),
         );
     }
     for spot in &hygiene.redundant_comments {
@@ -678,7 +675,7 @@ pub fn check_hygiene(
                 call: spot.detail.clone(),
                 pause: spot.count,
             },
-            "wait on the thing itself rather than on the clock, or fake the timer".to_owned(),
+            "wait for the condition itself instead of a fixed time, or fake the timer".to_owned(),
         );
     }
     for spot in &hygiene.mixed_languages {
@@ -744,7 +741,10 @@ pub fn check_hygiene(
             Evidence::VagueName {
                 name: spot.detail.clone(),
             },
-            format!("rename `{}` after what it does to what", spot.detail),
+            format!(
+                "rename `{}` with a verb and the object it acts on",
+                spot.detail
+            ),
         );
     }
     for spot in &hygiene.distant_declarations {
@@ -768,8 +768,7 @@ pub fn check_hygiene(
                 operations: spot.count,
                 limit: builder.config.thresholds.expression_operations,
             },
-            "lift the steps into named locals, so the expression reads as its own summary"
-                .to_owned(),
+            "extract the steps into named locals, so each step has a name".to_owned(),
         );
     }
     for spot in &hygiene.buried_configuration {
@@ -815,7 +814,7 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("`{}` is compared for exact equality", spot.detail),
             },
-            "compare the difference against a tolerance the domain decides".to_owned(),
+            "compare the difference against a tolerance chosen for the domain".to_owned(),
         );
     }
     for spot in &hygiene.redundant_jumps {
@@ -826,7 +825,7 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("`{}` is the last statement of the loop", spot.detail),
             },
-            "delete it; control was going there anyway".to_owned(),
+            "delete it; control reaches that point without it".to_owned(),
         );
     }
     for spot in &hygiene.loop_variable_captures {
@@ -864,7 +863,7 @@ pub fn check_hygiene(
                     spot.detail
                 ),
             },
-            "start both and wait for the pair".to_owned(),
+            "start both and wait for both together".to_owned(),
         );
     }
     for spot in &hygiene.production_asserts {
@@ -875,7 +874,7 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("`{}` outside a test", spot.detail),
             },
-            "raise the failure this is checking for, so it is checked wherever it \
+            "raise the failure this check guards against, so it is enforced wherever the code \
              runs"
                 .to_owned(),
         );
@@ -889,7 +888,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "reaches something outside the process".to_owned(),
             },
-            "hand the test something standing in for it, and test the real one once".to_owned(),
+            "pass the test a test double, and test the real dependency once".to_owned(),
         );
     }
     for spot in &hygiene.many_results {
@@ -902,7 +901,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: limits.max_results,
             },
-            "give them a name apiece by handing back one thing that holds them".to_owned(),
+            "return one object that holds the values, so each has a name".to_owned(),
         );
     }
     for spot in &hygiene.unquestioning_names {
@@ -938,9 +937,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "waits for a length of time".to_owned(),
             },
-            "wait for the thing itself, and give up on it after a time nobody has to \
-             guess"
-                .to_owned(),
+            "wait for the condition itself, with an explicit timeout".to_owned(),
         );
     }
     for spot in &hygiene.unlabelled_assertions {
@@ -953,8 +950,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: 3,
             },
-            "say what each one is holding to, or split them into tests that say it \
-             in their names"
+            "state what each check verifies, or split them into tests named for what they verify"
                 .to_owned(),
         );
     }
@@ -966,7 +962,8 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("`{}` has the same expression on both sides", spot.detail),
             },
-            "write the answer the test expects, not the call that produces it".to_owned(),
+            "write the expected value as a literal, instead of the call that produces it"
+                .to_owned(),
         );
     }
     for spot in &hygiene.unexplained_values {
@@ -990,7 +987,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is the shared value with a function around it".to_owned(),
             },
-            "hand the value to whoever needs it, so a caller can decide what it is".to_owned(),
+            "pass the value to the code that needs it, so a caller can choose it".to_owned(),
         );
     }
     for spot in &hygiene.barrel_modules {
@@ -1003,7 +1000,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: spot.count,
             },
-            "let the callers name the file they mean".to_owned(),
+            "let callers import from the file that defines the name".to_owned(),
         );
     }
     for spot in &hygiene.passthrough_overrides {
@@ -1015,7 +1012,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "overrides and then calls what it overrode".to_owned(),
             },
-            "delete it, and let the inherited one answer".to_owned(),
+            "delete it, so the inherited member is used".to_owned(),
         );
     }
     for spot in &hygiene.duplicate_functions {
@@ -1041,7 +1038,9 @@ pub fn check_hygiene(
                     spot.detail
                 ),
             },
-            "put the narrow handler first, so the wide one only takes what is left".to_owned(),
+            "put the narrower handler first, so the wider one handles only the remaining \
+             failures"
+                .to_owned(),
         );
     }
     for spot in &hygiene.nested_continuations {
@@ -1052,7 +1051,7 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("a `{}` inside a `{}`", spot.detail, spot.detail),
             },
-            "wait for each in turn where the language lets you, so the order is the \
+            "await each in turn where the language allows it, so the order of execution is the \
              order of the lines"
                 .to_owned(),
         );
@@ -1066,7 +1065,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "holds the code to nothing".to_owned(),
             },
-            "write what it was going to check, or delete it".to_owned(),
+            "write the check it was meant to contain, or delete it".to_owned(),
         );
     }
     for spot in &hygiene.split_cohesion {
@@ -1079,7 +1078,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: 1,
             },
-            "give each group its own type, and let one of them hold the other".to_owned(),
+            "give each group its own type, and have one type hold the other".to_owned(),
         );
     }
     for spot in &hygiene.instance_free_methods {
@@ -1103,7 +1102,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "answers later and nothing takes the answer".to_owned(),
             },
-            "wait for it, or say in the code who is going to".to_owned(),
+            "await it, or state in the code what handles its result".to_owned(),
         );
     }
     for spot in &hygiene.eager_tests {
@@ -1116,7 +1115,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: 5,
             },
-            "hold one of them to one thing, so a failing run names what broke".to_owned(),
+            "make each test check one unit, so a failing run names what broke".to_owned(),
         );
     }
     for spot in &hygiene.shape_assertions {
@@ -1140,7 +1139,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is written again before anything reads it".to_owned(),
             },
-            "delete the write nobody reads, or read it".to_owned(),
+            "delete the unread assignment, or read it".to_owned(),
         );
     }
     for spot in &hygiene.never_reassigned {
@@ -1152,7 +1151,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is declared changeable and never changes".to_owned(),
             },
-            "declare it as fixed, and let the compiler hold it there".to_owned(),
+            "declare it as constant, so the compiler enforces it".to_owned(),
         );
     }
     for spot in &hygiene.assign_once_fields {
@@ -1164,7 +1163,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is written only while the object is built".to_owned(),
             },
-            "make it final, so every reader can see it cannot move".to_owned(),
+            "make it final, so readers can see it never changes".to_owned(),
         );
     }
     for spot in &hygiene.unused_fixtures {
@@ -1188,7 +1187,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is built and never asked what it saw".to_owned(),
             },
-            "check what it was called with, or let the real thing run".to_owned(),
+            "assert on the calls it received, or use the real implementation".to_owned(),
         );
     }
     for spot in &hygiene.branching_tests {
@@ -1201,7 +1200,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: 0,
             },
-            "write one test per path, so a green run says which case held".to_owned(),
+            "write one test per path, so a passing run shows which case was checked".to_owned(),
         );
     }
     for spot in &hygiene.duplicate_assertions {
@@ -1213,7 +1212,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: format!("asserted {} times in one test", spot.count),
             },
-            "delete the repeat, or assert the thing the second one meant to".to_owned(),
+            "delete the repeat, or assert what the second one was meant to check".to_owned(),
         );
     }
     for spot in &hygiene.hand_rolled_throws {
@@ -1224,8 +1223,8 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("`{}` catches the failure itself", spot.detail),
             },
-            "use whatever this framework spells as \"expect it to fail\", so a call \
-             that stops failing fails the test"
+            "use the framework's expected-failure assertion, so a call that stops failing fails \
+             the test"
                 .to_owned(),
         );
     }
@@ -1238,7 +1237,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "prints on every run".to_owned(),
             },
-            "assert what you were reading, or delete the line".to_owned(),
+            "assert the value that was being inspected, or delete the line".to_owned(),
         );
     }
     for spot in &hygiene.negated_names {
@@ -1262,7 +1261,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is already the language's".to_owned(),
             },
-            "give it a name of this project's own".to_owned(),
+            "give it a name specific to this project".to_owned(),
         );
     }
     for spot in &hygiene.narrated_runs {
@@ -1275,7 +1274,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: limits.narrated_run,
             },
-            "let the names say it, and keep the one comment that gives a reason".to_owned(),
+            "let the names carry the meaning, and keep the comment that gives a reason".to_owned(),
         );
     }
     for spot in &hygiene.long_explanations {
@@ -1288,8 +1287,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: limits.explanation_ratio,
             },
-            "put what the prose is explaining into the names, and keep the part that \
-             says why"
+            "express in names what the prose explains, and keep the part that gives the reason"
                 .to_owned(),
         );
     }
@@ -1315,7 +1313,9 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: limits.guard_cascade,
             },
-            "take a type that cannot be wrong, or check once where the values enter".to_owned(),
+            "accept a type that cannot hold an invalid value, or validate once where the values \
+             enter"
+                .to_owned(),
         );
     }
     for spot in &hygiene.blanket_tries {
@@ -1328,7 +1328,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: 0,
             },
-            "guard the line that can fail, and let the rest raise".to_owned(),
+            "guard only the line that can fail, and let the rest propagate".to_owned(),
         );
     }
     for spot in &hygiene.typed_names {
@@ -1379,7 +1379,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: limits.class_collaborators,
             },
-            "give one of them the work that needs the rest".to_owned(),
+            "give one collaborator the work that needs the others".to_owned(),
         );
     }
     for spot in &hygiene.over_logging {
@@ -1392,7 +1392,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: limits.log_percent,
             },
-            "log the decision and the failure; the steps between are the code".to_owned(),
+            "log decisions and failures, and leave the steps between them to the code".to_owned(),
         );
     }
     for spot in &hygiene.orphan_todos {
@@ -1404,7 +1404,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "names nobody and no ticket".to_owned(),
             },
-            "put a ticket or a name on it, or do the thing and delete it".to_owned(),
+            "add a ticket or an owner, or do the work and delete the note".to_owned(),
         );
     }
     for spot in &hygiene.integer_divisions {
@@ -1415,8 +1415,8 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("`{}` divides one whole number by another", spot.detail),
             },
-            "say what happens to the remainder, by rounding on purpose or dividing \
-             as a fraction"
+            "state what happens to the remainder, by rounding explicitly or dividing as a \
+             fraction"
                 .to_owned(),
         );
     }
@@ -1429,7 +1429,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "answers something the line throws away".to_owned(),
             },
-            "handle what it answered, or say in the code why there is nothing to do".to_owned(),
+            "handle the result, or state in the code why nothing needs to be done".to_owned(),
         );
     }
     for spot in &hygiene.crowded_functions {
@@ -1442,7 +1442,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: limits.function_locals,
             },
-            "pull the run that uses one group of them into a function of its own".to_owned(),
+            "extract the run that uses one group of them into its own function".to_owned(),
         );
     }
     for spot in &hygiene.wide_tries {
@@ -1467,7 +1467,9 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "inherits and adds nothing".to_owned(),
             },
-            "use what it inherits from, or give it the difference that justifies it".to_owned(),
+            "use the class it inherits from, or give it the difference that justifies the \
+             subclass"
+                .to_owned(),
         );
     }
     for spot in &hygiene.static_only_classes {
@@ -1480,9 +1482,8 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: spot.count,
             },
-            "make them functions in a module, or give the type the state that earns \
-             it"
-            .to_owned(),
+            "make them functions in a module, or give the type the state that justifies a class"
+                .to_owned(),
         );
     }
     for spot in &hygiene.working_constructors {
@@ -1495,8 +1496,8 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: 0,
             },
-            "take what it needs as an argument, and do the work in a method a caller \
-             chooses to call"
+            "accept what it needs as an argument, and do the work in a method the caller calls \
+             explicitly"
                 .to_owned(),
         );
     }
@@ -1508,8 +1509,7 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("{} returns: {}", spot.count, spot.detail),
             },
-            "answer with the same shape on every path, or split the two answers into \
-             two functions"
+            "return the same shape on every path, or split the two cases into two functions"
                 .to_owned(),
         );
     }
@@ -1524,7 +1524,7 @@ pub fn check_hygiene(
                     spot.detail
                 ),
             },
-            "move it after the block, so what the block was leaving with survives".to_owned(),
+            "move it after the block, so the block's own exit is preserved".to_owned(),
         );
     }
     for spot in &hygiene.catch_all_handlers {
@@ -1535,9 +1535,7 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("catches `{}`", spot.detail),
             },
-            "name the failures this level knows what to do about, and let the rest \
-             through"
-                .to_owned(),
+            "name the failures this level handles, and let the rest propagate".to_owned(),
         );
     }
     for spot in &hygiene.generic_throws {
@@ -1561,7 +1559,8 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "ends the process".to_owned(),
             },
-            "return or raise, and let whatever owns the process decide to stop".to_owned(),
+            "return or raise, and let the code that owns the process decide whether to stop"
+                .to_owned(),
         );
     }
     for spot in &hygiene.boolean_arguments {
@@ -1585,9 +1584,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is writable from anywhere in the file".to_owned(),
             },
-            "fix it at its declaration, or give it an owner that decides who writes \
-             it"
-            .to_owned(),
+            "declare it constant, or give it an owner that controls who writes it".to_owned(),
         );
     }
     for spot in &hygiene.ambient_dependencies {
@@ -1635,7 +1632,8 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "belongs to the other type".to_owned(),
             },
-            "ask the other type for what this line wanted, and let it decide how".to_owned(),
+            "ask the other type for what this line needs, and let it decide how to provide it"
+                .to_owned(),
         );
     }
     for spot in &hygiene.unused_imports {
@@ -1659,7 +1657,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "takes every name the module offers".to_owned(),
             },
-            "name the handful of things this file actually uses".to_owned(),
+            "import only the names this file uses".to_owned(),
         );
     }
     for spot in &hygiene.rethrow_only_catches {
@@ -1670,8 +1668,8 @@ pub fn check_hygiene(
             Evidence::BranchShape {
                 shape: format!("the handler is only `{}`", spot.detail),
             },
-            "delete the handler and let it propagate, or add what this level knows \
-             about the failure"
+            "delete the handler so the failure propagates, or add handling specific to this \
+             level"
                 .to_owned(),
         );
     }
@@ -1696,7 +1694,9 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "forwards its arguments unchanged".to_owned(),
             },
-            "let the caller call the thing directly, unless this name is the seam".to_owned(),
+            "let the caller call the target directly, unless this name marks a deliberate \
+             boundary"
+                .to_owned(),
         );
     }
     for spot in &hygiene.debug_output {
@@ -1720,9 +1720,9 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is introduced and returned in two lines".to_owned(),
             },
-            "return the expression, or keep the name because it says something the \
-             expression does not"
-                .to_owned(),
+            "return the expression, or keep the name if it says something the expression does \
+             not"
+            .to_owned(),
         );
     }
     for spot in &hygiene.duplicate_conditions {
@@ -1757,7 +1757,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "is abstract and leaves nothing unfinished".to_owned(),
             },
-            "drop the word, or give it the member a subclass has to write".to_owned(),
+            "drop the keyword, or give it a member that a subclass has to implement".to_owned(),
         );
     }
     for spot in &hygiene.silent_fallthroughs {
@@ -1816,9 +1816,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: spot.count,
             },
-            "add the arm that says what an unnamed value means, even if it only \
-             raises"
-                .to_owned(),
+            "add a default arm that handles unnamed values, even if it only raises".to_owned(),
         );
     }
     for spot in &hygiene.single_pass_loops {
@@ -1844,7 +1842,7 @@ pub fn check_hygiene(
                 found: spot.count,
                 limit: 0,
             },
-            "write it as an if, or give the switch the arms that justify it".to_owned(),
+            "write it as an `if`, or add the arms that justify a switch".to_owned(),
         );
     }
     for spot in &hygiene.empty_methods {
@@ -1856,8 +1854,7 @@ pub fn check_hygiene(
                 identifier: spot.detail.clone(),
                 reason: "has an empty body".to_owned(),
             },
-            "give it a body, delete it, or make it explicit that doing nothing is the \
-             answer here"
+            "give it a body, delete it, or state explicitly that doing nothing is intended"
                 .to_owned(),
         );
     }
@@ -1865,7 +1862,7 @@ pub fn check_hygiene(
         (
             &hygiene.banner_comments,
             RuleId::BannerComment,
-            "delete it; if the file needs sections, it needs splitting",
+            "delete it; if the file needs sections, split it",
         ),
         (
             &hygiene.chat_residue,
@@ -1875,13 +1872,13 @@ pub fn check_hygiene(
         (
             &hygiene.apologies,
             RuleId::ApologyComment,
-            "fix it, or record why it stays and what would let it go",
+            "fix it, or record why it stays and what would allow its removal",
         ),
-        (&hygiene.emoji, RuleId::EmojiInSource, "write it in words"),
+        (&hygiene.emoji, RuleId::EmojiInSource, "use words instead"),
         (
             &hygiene.example_values,
             RuleId::ExampleValue,
-            "name it as configuration, or move it to a test where a stand-in belongs",
+            "name it as configuration, or move it to a test, where a placeholder is appropriate",
         ),
     ] {
         for spot in spots {
@@ -1933,8 +1930,8 @@ pub fn check_hygiene(
                 position: spot.count,
             },
             format!(
-                "split into two functions named for what each does, so no call site reads \
-                 `(…, true)` and leaves `{}` a mystery",
+                "split into two functions named for what each does, so no call site reads `(…, \
+                 true)` and leaves `{}` unexplained",
                 spot.detail
             ),
         );
@@ -1983,7 +1980,7 @@ pub fn check_hygiene(
                 depth: spot.count,
                 limit: builder.config.thresholds.message_chain_depth,
             },
-            "ask the nearest object for what you need and let it do the reaching".to_owned(),
+            "ask the nearest object for what is needed, and let it do the reaching".to_owned(),
         );
     }
     for spot in &hygiene.skipped_tests {
@@ -1994,8 +1991,7 @@ pub fn check_hygiene(
             Evidence::TestDirective {
                 directive: spot.detail.clone(),
             },
-            "fix it and re-enable it, or delete it and record the question it was asking"
-                .to_owned(),
+            "fix the test and enable it, or delete it and record what it was checking".to_owned(),
         );
     }
     for spot in &hygiene.focused_tests {
@@ -2006,7 +2002,7 @@ pub fn check_hygiene(
             Evidence::TestDirective {
                 directive: spot.detail.clone(),
             },
-            "remove the focus before this lands; it is almost never meant to be committed"
+            "remove the focus before merging; a focused test is rarely meant to be committed"
                 .to_owned(),
         );
     }
@@ -2020,7 +2016,7 @@ pub fn check_hygiene(
                 reason: format!("lives across {} lines", spot.count),
             },
             format!(
-                "give `{}` a name that survives the distance to its last use",
+                "give `{}` a name that stays meaningful at its last use",
                 spot.detail
             ),
         );
@@ -2033,7 +2029,8 @@ pub fn check_hygiene(
             Evidence::NoAssertion {
                 name: spot.detail.clone(),
             },
-            "assert the behaviour it names, or delete it so the suite stops claiming coverage"
+            "assert the behaviour it names, or delete it so the suite does not report coverage \
+             it lacks"
                 .to_owned(),
         );
     }
@@ -2058,8 +2055,8 @@ pub fn check_class_shape(
                 limit: builder.config.thresholds.class_public_members,
             },
             format!(
-                "narrow what `{name}` promises: an interface for what callers use, and \
-                 the rest kept inside"
+                "narrow what `{name}` exposes: an interface for what callers use, with the rest \
+                 kept private"
             ),
         );
     }
@@ -2111,8 +2108,8 @@ pub fn check_class_shape(
                 name: refused.name.clone(),
             },
             format!(
-                "if `{name}` cannot honour `{}`, it is not a subtype — split the interface \
-                 so it only promises what it can do",
+                "if `{name}` cannot honour `{}`, it is not a subtype; split the interface so it \
+                 only promises what it can do",
                 refused.name
             ),
         );
@@ -2191,7 +2188,7 @@ pub fn check_class_shape(
                 methods: report.methods,
                 trivial: report.trivial,
             },
-            format!("fold `{name}` into its only caller until it earns its own file"),
+            format!("fold `{name}` into its only caller until it justifies its own file"),
         );
     } else if report.real_methods > 0 && report.delegating * 2 > report.real_methods {
         builder.emit(

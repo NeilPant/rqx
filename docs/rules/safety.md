@@ -4,7 +4,7 @@
 
 ## `imprecise-type`
 
-each of these tells the checker to stop checking, so the guarantee the rest of the file is written against quietly stops holding here
+each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
 
 | | |
 |---|---|
@@ -22,11 +22,11 @@ From `fixtures/typescript/hygiene.ts`, line 89:
     return error ? 0 : 0;
 ```
 
-Suggested fix: name the shape you actually accept, or `unknown` and narrow it
+Suggested fix: name the shape the code accepts, or use `unknown` and narrow it
 
 ## `boundary-arithmetic`
 
-every place the boundary is recomputed is a place it can be recomputed wrongly, and off-by-one errors are found by readers rather than types
+each place that recomputes the boundary can compute it wrongly, and off-by-one errors are found by readers, not by types
 
 | | |
 |---|---|
@@ -48,7 +48,7 @@ Suggested fix: name the boundary once, so `cursor` is adjusted in one place
 
 ## `query-with-side-effect`
 
-callers assume asking is free, so they ask twice, order the calls freely, and are surprised when that changes the answer
+callers assume a query has no effect, so they call it more than once, reorder calls, and are surprised when the answer changes
 
 | | |
 |---|---|
@@ -69,7 +69,7 @@ Suggested fix: split `getTotal` into the question and the change, or rename it f
 
 ## `assignment-in-condition`
 
-it reads as a comparison and behaves as a write, which is why it is the typo that survives review
+it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review
 
 | | |
 |---|---|
@@ -92,7 +92,7 @@ Suggested fix: assign above the branch, or compare if that is what was meant
 
 ## `closure-over-loop-variable`
 
-whatever runs it later reads whichever value the loop stopped on, so every one of them sees the last element and none sees its own
+the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own
 
 | | |
 |---|---|
@@ -116,7 +116,7 @@ Suggested fix: pass the value in, so each function keeps the one it was made wit
 
 ## `mutated-while-iterated`
 
-the walk and the change disagree about what is left, so elements are skipped or seen twice depending on where the change landed
+the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands
 
 | | |
 |---|---|
@@ -137,7 +137,7 @@ Suggested fix: collect what to change, and change it after the walk
 
 ## `production-assert`
 
-the language is free to compile it away, so the check a reader is relying on may not be running where it matters most
+the language may compile the assertion out, so the check a reader relies on may not run in production
 
 | | |
 |---|---|
@@ -155,11 +155,11 @@ export function guards(value: number): number {
   return value;
 ```
 
-Suggested fix: raise the failure this is checking for, so it is checked wherever it runs
+Suggested fix: raise the failure this check guards against, so it is enforced wherever the code runs
 
 ## `sleep-in-production`
 
-it is waiting for a length of time rather than for the thing it needs, so it is either too short to work or too long to be worth it
+it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary
 
 | | |
 |---|---|
@@ -176,11 +176,11 @@ export async function paced(): Promise<number> {
   return openTabs;
 ```
 
-Suggested fix: wait for the thing itself, and give up on it after a time nobody has to guess
+Suggested fix: wait for the condition itself, with an explicit timeout
 
 ## `shadowed-handler`
 
-the one below it can never run, so whatever it was written to do about that failure has never been done
+the handler below can never run, so whatever it was written to do about that failure has never been done
 
 | | |
 |---|---|
@@ -201,15 +201,15 @@ From `fixtures/python/hygiene.py`, line 156:
     except ValueError:
 ```
 
-Suggested fix: put the narrow handler first, so the wide one only takes what is left
+Suggested fix: put the narrower handler first, so the wider one handles only the remaining failures
 
 ## `dropped-promise`
 
-nothing waits for it and nothing hears if it fails, so the failure arrives somewhere with no idea what asked for it
+nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
 
 | | |
 |---|---|
-| Measures | work that answers later, started and then thrown away |
+| Measures | an asynchronous call whose result is discarded |
 | Reported as | error, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Separate Query from Modifier |
@@ -225,11 +225,11 @@ export async function fires(rows: number[]): Promise<number> {
   return rows.length;
 ```
 
-Suggested fix: wait for it, or say in the code who is going to
+Suggested fix: await it, or state in the code what handles its result
 
 ## `guard-cascade`
 
-the body has not started and the reader has read several decisions, none of which says anything about what the function is for
+the body has not started and the reader has already read several decisions, none of which says what the function is for
 
 | | |
 |---|---|
@@ -247,11 +247,11 @@ export function manyPaths(kind: string, rows: number[]): number {
   if (kind === "a") return 1;
 ```
 
-Suggested fix: take a type that cannot be wrong, or check once where the values enter
+Suggested fix: accept a type that cannot hold an invalid value, or validate once where the values enter
 
 ## `blanket-try`
 
-the handler is a net under the whole body rather than an answer to one failure, so a mistake anywhere inside arrives as the failure it was written for
+the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for
 
 | | |
 |---|---|
@@ -274,11 +274,11 @@ export function widelyGuarded(seed: number): number {
     return 0;
 ```
 
-Suggested fix: guard the line that can fail, and let the rest raise
+Suggested fix: guard only the line that can fail, and let the rest propagate
 
 ## `no-base-case`
 
-there is nothing that can stop it, so the first call takes the stack down with it
+nothing can stop the recursion, so the first call exhausts the stack
 
 | | |
 |---|---|
@@ -299,7 +299,7 @@ Suggested fix: give `loops` the case that answers without calling itself
 
 ## `integer-division`
 
-the remainder goes and nothing on the line says it was meant to, so a reader has to know the types to know whether the answer is right
+the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right
 
 | | |
 |---|---|
@@ -316,11 +316,11 @@ From `fixtures/typescript/hierarchy.ts`, line 44:
 }
 ```
 
-Suggested fix: say what happens to the remainder, by rounding on purpose or dividing as a fraction
+Suggested fix: state what happens to the remainder, by rounding explicitly or dividing as a fraction
 
 ## `discarded-error`
 
-the author saw the answer and decided not to look at it, and nothing records what happens when the call fails
+the code receives the result and ignores it, and nothing records what happens when the call fails
 
 | | |
 |---|---|
@@ -337,11 +337,11 @@ export function ignored(rows: number[]): number {
   return rows.length;
 ```
 
-Suggested fix: handle what it answered, or say in the code why there is nothing to do
+Suggested fix: handle the result, or state in the code why nothing needs to be done
 
 ## `float-equality`
 
-a binary float almost never lands on the decimal a person wrote, so the branch that depends on it is decided by rounding rather than by the value
+a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value
 
 | | |
 |---|---|
@@ -358,11 +358,11 @@ export function settled(balance: number): boolean {
 }
 ```
 
-Suggested fix: compare the difference against a tolerance the domain decides
+Suggested fix: compare the difference against a tolerance chosen for the domain
 
 ## `mixed-return`
 
-a caller cannot write one line that handles both, so every call site carries a check for the path the author happened to think of
+a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider
 
 | | |
 |---|---|
@@ -382,11 +382,11 @@ From `fixtures/typescript/hygiene.ts`, line 69:
   }
 ```
 
-Suggested fix: answer with the same shape on every path, or split the two answers into two functions
+Suggested fix: return the same shape on every path, or split the two cases into two functions
 
 ## `exit-from-finally`
 
-it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing anywhere records that it happened
+it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened
 
 | | |
 |---|---|
@@ -405,11 +405,11 @@ From `fixtures/typescript/hygiene.ts`, line 78:
   }
 ```
 
-Suggested fix: move it after the block, so what the block was leaving with survives
+Suggested fix: move it after the block, so the block's own exit is preserved
 
 ## `catch-all-handler`
 
-it takes the failures it was written for and every other one too, including the ones that mean the program is already wrong
+it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state
 
 | | |
 |---|---|
@@ -430,11 +430,11 @@ From `fixtures/typescript/hygiene.ts`, line 89:
 }
 ```
 
-Suggested fix: name the failures this level knows what to do about, and let the rest through
+Suggested fix: name the failures this level handles, and let the rest propagate
 
 ## `generic-throw`
 
-the only way to react to it is to catch everything, so a caller that wanted to handle this one failure cannot
+the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot
 
 | | |
 |---|---|
@@ -456,7 +456,7 @@ Suggested fix: raise a type named for the failure, so a caller can catch this on
 
 ## `library-exit`
 
-it takes the decision away from every caller above it, and a test that reaches the line takes the runner down with it
+it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner
 
 | | |
 |---|---|
@@ -473,11 +473,11 @@ export function stops(code: number): void {
 }
 ```
 
-Suggested fix: return or raise, and let whatever owns the process decide to stop
+Suggested fix: return or raise, and let the code that owns the process decide whether to stop
 
 ## `boolean-literal-argument`
 
-nothing at the call site says what it turns on, so the reader has to open the callee to find out what they just asked for
+nothing at the call site says what the argument turns on, so the reader has to open the callee to find out
 
 | | |
 |---|---|
@@ -498,7 +498,7 @@ Suggested fix: name the value at the call site, or give the callee two methods
 
 ## `unjustified-suppression`
 
-the waiver is refused and the finding still stands, because a waiver nobody has to justify is how a rule gets switched off one line at a time
+the waiver is refused and the finding still counts, because a waiver that needs no justification allows a rule to be switched off one line at a time
 
 | | |
 |---|---|
@@ -519,7 +519,7 @@ Suggested fix: say why the finding is acceptable here, or fix it
 
 ## `suppressed-diagnostic`
 
-a check that would have caught the next mistake here has been turned off, and the comment turning it off outlives the reason for it
+a check that would have caught the next mistake here has been turned off, and the comment that turns it off outlives the reason for it
 
 | | |
 |---|---|
@@ -541,7 +541,7 @@ Suggested fix: fix what the check is reporting, or record why suppressing it is 
 
 ## `flag-argument`
 
-the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen
+the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen
 
 | | |
 |---|---|
@@ -558,11 +558,11 @@ export function endpoint(region: string, secure: boolean, retries: number): stri
   if (region.length > 0) {
 ```
 
-Suggested fix: split into two functions named for what each does, so no call site reads `(…, true)` and leaves `secure` a mystery
+Suggested fix: split into two functions named for what each does, so no call site reads `(…, true)` and leaves `secure` unexplained
 
 ## `output-parameter`
 
-the caller's value changes without the call site saying so, which is the hardest kind of change to find when it turns out to be wrong
+the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong
 
 | | |
 |---|---|
@@ -583,7 +583,7 @@ Suggested fix: assign to a local instead of `total`, and return the result
 
 ## `complex-condition`
 
-nobody can hold this many clauses at once, so the reader takes the branch on trust and the bug in it survives every review
+readers cannot hold this many clauses at once, so the branch is taken on trust and a bug in it survives review
 
 | | |
 |---|---|
@@ -605,7 +605,7 @@ Suggested fix: name the condition in a variable or a predicate that says what it
 
 ## `negative-conditional`
 
-the reader has to invert it mentally to follow the else, and inverting a compound condition by hand is where off-by-one logic errors come from
+the reader has to invert the condition mentally to follow the `else`, and inverting a compound condition by hand is a source of off-by-one logic errors
 
 | | |
 |---|---|

@@ -1,7 +1,7 @@
 [
   {
     "check_name": "focused-test",
-    "description": "Declared with `only`. — this silently disables every other test in the file, so the suite goes green while almost nothing ran",
+    "description": "Declared with `only`. — this silently disables every other test in the file, so the suite passes while almost nothing runs",
     "fingerprint": "91bc7f67cd31a4d6",
     "location": {
       "lines": {
@@ -13,7 +13,7 @@
   },
   {
     "check_name": "exit-from-finally",
-    "description": "`return` inside the clause that runs on the way out — it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing anywhere records that it happened",
+    "description": "`return` inside the clause that runs on the way out — it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened",
     "fingerprint": "7e9f56fbb350bf92",
     "location": {
       "lines": {
@@ -25,7 +25,7 @@
   },
   {
     "check_name": "no-base-case",
-    "description": "Calls itself 1 times per invocation with no memo in sight. — there is nothing that can stop it, so the first call takes the stack down with it",
+    "description": "Calls itself 1 times per invocation with no memo in sight. — nothing can stop the recursion, so the first call exhausts the stack",
     "fingerprint": "3d76d686f6062eb5",
     "location": {
       "lines": {
@@ -37,7 +37,7 @@
   },
   {
     "check_name": "mutated-while-iterated",
-    "description": "`rows` is changed while it is being walked. — the walk and the change disagree about what is left, so elements are skipped or seen twice depending on where the change landed",
+    "description": "`rows` is changed while it is being walked. — the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands",
     "fingerprint": "c760077446060ba7",
     "location": {
       "lines": {
@@ -49,7 +49,7 @@
   },
   {
     "check_name": "silent-fallthrough",
-    "description": "`case 1:` runs on into the arm below — the arm below runs too, and nothing written here says whether that was wanted or forgotten",
+    "description": "`case 1:` runs on into the arm below — the arm below also runs, and nothing here says whether that was intended",
     "fingerprint": "5cd0c5442b9a8d34",
     "location": {
       "lines": {
@@ -61,7 +61,7 @@
   },
   {
     "check_name": "duplicate-condition",
-    "description": "`(kind === \"a\")` is asked twice in one chain — the second arm cannot be reached, so whatever it was written to do has never run and nobody has noticed",
+    "description": "`(kind === \"a\")` is asked twice in one chain — the second branch cannot be reached, so whatever it was written to do has never run",
     "fingerprint": "736ab31eab4b28ae",
     "location": {
       "lines": {
@@ -73,7 +73,7 @@
   },
   {
     "check_name": "identical-branches",
-    "description": "Both arms of this branch do the same thing. — the decision changes nothing, so either it is not a decision or one arm was meant to differ and does not",
+    "description": "Both arms of this branch do the same thing. — the decision changes nothing, so either it is not a decision or one branch was meant to differ",
     "fingerprint": "2c24e971368d85bf",
     "location": {
       "lines": {
@@ -85,7 +85,7 @@
   },
   {
     "check_name": "self-comparison",
-    "description": "`count` is compared against itself. — the answer is decided before it runs, so either the comparison does nothing or one side was meant to be something else",
+    "description": "`count` is compared against itself. — the result is decided before the comparison runs, so either it does nothing or one side was meant to be a different expression",
     "fingerprint": "fcd0587594db51b0",
     "location": {
       "lines": {
@@ -97,7 +97,7 @@
   },
   {
     "check_name": "assignment-in-condition",
-    "description": "`found = a + b` assigns where a condition is expected. — it reads as a comparison and behaves as a write, which is why it is the typo that survives review",
+    "description": "`found = a + b` assigns where a condition is expected. — it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review",
     "fingerprint": "a9b3b3c442b5b041",
     "location": {
       "lines": {
@@ -109,7 +109,7 @@
   },
   {
     "check_name": "empty-catch",
-    "description": "This catch clause has an empty body. — the failure is swallowed silently, so the first sign of it is wrong data somewhere far away with nothing in the logs to connect the two",
+    "description": "This catch clause has an empty body. — the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two",
     "fingerprint": "3fd603e3777b4a5c",
     "location": {
       "lines": {
@@ -121,7 +121,7 @@
   },
   {
     "check_name": "unreachable-code",
-    "description": "This statement cannot run: the block always returns before reaching it. — this code cannot run, so whatever it was meant to do is not happening and has not been happening",
+    "description": "This statement cannot run: the block always returns before reaching it. — this code cannot run, so whatever it was written to do is not happening",
     "fingerprint": "947abd0eca5b4825",
     "location": {
       "lines": {
@@ -133,7 +133,7 @@
   },
   {
     "check_name": "dropped-promise",
-    "description": "`loadOne` answers later and nothing takes the answer. — nothing waits for it and nothing hears if it fails, so the failure arrives somewhere with no idea what asked for it",
+    "description": "`loadOne` answers later and nothing takes the answer. — nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it",
     "fingerprint": "980af3f52c117f0a",
     "location": {
       "lines": {
@@ -145,7 +145,7 @@
   },
   {
     "check_name": "self-asserting-test",
-    "description": "`expect(add(1, 1)).toBe(add(1, 1));` has the same expression on both sides — it holds the code to whatever the code already does, so it passes through every change including the one that breaks it",
+    "description": "`expect(add(1, 1)).toBe(add(1, 1));` has the same expression on both sides — it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour",
     "fingerprint": "655eedc1852d6297",
     "location": {
       "lines": {
@@ -169,7 +169,7 @@
   },
   {
     "check_name": "skipped-test",
-    "description": "Declared with `skip`. — a skipped test is a question nobody answered; it reports green forever while the behaviour it named goes unchecked",
+    "description": "Declared with `skip`. — a skipped test reports success while the behaviour it names goes unchecked",
     "fingerprint": "0f9941d95a2bb2f8",
     "location": {
       "lines": {
@@ -181,7 +181,7 @@
   },
   {
     "check_name": "output-parameter",
-    "description": "Parameter `total` is reassigned inside the function. — the caller's value changes without the call site saying so, which is the hardest kind of change to find when it turns out to be wrong",
+    "description": "Parameter `total` is reassigned inside the function. — the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
     "fingerprint": "a16eb9f8aae542e6",
     "location": {
       "lines": {
@@ -193,7 +193,7 @@
   },
   {
     "check_name": "output-parameter",
-    "description": "Parameter `value` is reassigned inside the function. — the caller's value changes without the call site saying so, which is the hardest kind of change to find when it turns out to be wrong",
+    "description": "Parameter `value` is reassigned inside the function. — the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
     "fingerprint": "c583c0e9e6173144",
     "location": {
       "lines": {
@@ -205,7 +205,7 @@
   },
   {
     "check_name": "suppressed-diagnostic",
-    "description": "`@ts-ignore` turns off a check that covers this code. — a check that would have caught the next mistake here has been turned off, and the comment turning it off outlives the reason for it",
+    "description": "`@ts-ignore` turns off a check that covers this code. — a check that would have caught the next mistake here has been turned off, and the comment that turns it off outlives the reason for it",
     "fingerprint": "2bdb8d98ff9f611b",
     "location": {
       "lines": {
@@ -217,7 +217,7 @@
   },
   {
     "check_name": "unjustified-suppression",
-    "description": "`rqx-ignore with no reason` turns off a check that covers this code. — the waiver is refused and the finding still stands, because a waiver nobody has to justify is how a rule gets switched off one line at a time",
+    "description": "`rqx-ignore with no reason` turns off a check that covers this code. — the waiver is refused and the finding still counts, because a waiver that needs no justification allows a rule to be switched off one line at a time",
     "fingerprint": "f4b7789babfeeac6",
     "location": {
       "lines": {
@@ -229,7 +229,7 @@
   },
   {
     "check_name": "rethrow-only-catch",
-    "description": "the handler is only `throw error;` — it reads as a decision about the failure and makes none, while costing the stack trace in the languages that rebuild one on the way out",
+    "description": "the handler is only `throw error;` — it reads as a decision about the failure and makes none, and in languages that rebuild the stack trace on rethrow it loses the original",
     "fingerprint": "5cc2752b81632e5d",
     "location": {
       "lines": {
@@ -241,7 +241,7 @@
   },
   {
     "check_name": "import-time-work",
-    "description": "`warmTheCache` runs when the file is loaded. — it happens before any caller has asked for anything, in whatever order the imports happen to resolve, and nothing can stop it",
+    "description": "`warmTheCache` runs when the file is loaded. — it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it",
     "fingerprint": "d3b403a23e12085f",
     "location": {
       "lines": {
@@ -253,7 +253,7 @@
   },
   {
     "check_name": "self-built-collaborators",
-    "description": "`CsvWriter` is built by the object that holds it. — nothing can be put in its place, so every test of the owner stands up the real collaborator and everything behind it",
+    "description": "`CsvWriter` is built by the object that holds it. — nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it",
     "fingerprint": "dd76c12c19e31c5b",
     "location": {
       "lines": {
@@ -265,7 +265,7 @@
   },
   {
     "check_name": "unused-import",
-    "description": "The import `Far` is declared and never read. — it makes the file look dependent on something it does not use, and the dependency survives every search for who needs that module",
+    "description": "The import `Far` is declared and never read. — it makes the file appear to depend on something it does not use, and the dependency survives every search for who needs that module",
     "fingerprint": "86bb71f660d72d6f",
     "location": {
       "lines": {
@@ -277,7 +277,7 @@
   },
   {
     "check_name": "unused-import",
-    "description": "The import `spinAgain` is declared and never read. — it makes the file look dependent on something it does not use, and the dependency survives every search for who needs that module",
+    "description": "The import `spinAgain` is declared and never read. — it makes the file appear to depend on something it does not use, and the dependency survives every search for who needs that module",
     "fingerprint": "0b5b2352b78e2658",
     "location": {
       "lines": {
@@ -289,7 +289,7 @@
   },
   {
     "check_name": "catch-all-handler",
-    "description": "catches `any` — it takes the failures it was written for and every other one too, including the ones that mean the program is already wrong",
+    "description": "catches `any` — it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state",
     "fingerprint": "b4a0ca27ca7c1854",
     "location": {
       "lines": {
@@ -301,7 +301,7 @@
   },
   {
     "check_name": "mixed-return",
-    "description": "2 returns: 1 with a value, 1 without — a caller cannot write one line that handles both, so every call site carries a check for the path the author happened to think of",
+    "description": "2 returns: 1 with a value, 1 without — a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider",
     "fingerprint": "4ea19556d03a48e2",
     "location": {
       "lines": {
@@ -313,7 +313,7 @@
   },
   {
     "check_name": "float-equality",
-    "description": "`0.1` is compared for exact equality — a binary float almost never lands on the decimal a person wrote, so the branch that depends on it is decided by rounding rather than by the value",
+    "description": "`0.1` is compared for exact equality — a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value",
     "fingerprint": "0db4ed3773f311d3",
     "location": {
       "lines": {
@@ -325,7 +325,7 @@
   },
   {
     "check_name": "discarded-expression",
-    "description": "`total === other` is computed and dropped — either the line was meant to do something and does not, or it does nothing and should not be here, and a reader cannot tell which",
+    "description": "`total === other` is computed and dropped — either the line was meant to do something and does not, or it does nothing and should be removed, and a reader cannot tell which",
     "fingerprint": "d682df4353955d85",
     "location": {
       "lines": {
@@ -337,7 +337,7 @@
   },
   {
     "check_name": "discarded-error",
-    "description": "`countRows` answers something the line throws away. — the author saw the answer and decided not to look at it, and nothing records what happens when the call fails",
+    "description": "`countRows` answers something the line throws away. — the code receives the result and ignores it, and nothing records what happens when the call fails",
     "fingerprint": "a89dda66bea0e7b4",
     "location": {
       "lines": {
@@ -349,7 +349,7 @@
   },
   {
     "check_name": "deep-inheritance",
-    "description": "4 types above `Level4` (limit 3). — answering what one method does means reading every type above it, and a change to any of them reaches every type below",
+    "description": "4 types above `Level4` (limit 3). — answering what one method does requires reading every type above it, and a change to any of them reaches every type below",
     "fingerprint": "afafd1a946029ad1",
     "location": {
       "lines": {
@@ -361,7 +361,7 @@
   },
   {
     "check_name": "cyclomatic-complexity",
-    "description": "15 paths through the body (limit 12). — it is the number of tests it takes to cover the body, and past a point nobody writes them, so most of the paths have never run",
+    "description": "15 paths through the body (limit 12). — it is the number of tests needed to cover the body, and past a point those tests are not written, so most paths have never run",
     "fingerprint": "0a22eebc37f124c8",
     "location": {
       "lines": {
@@ -373,7 +373,7 @@
   },
   {
     "check_name": "shadows-builtin",
-    "description": "`Promise` is already the language's. — the original is unreachable for the rest of the scope, and the next line that wanted it fails somewhere that names neither",
+    "description": "`Promise` is already the language's. — the original is unreachable for the rest of the scope, and a later line that expects it fails in a place that names neither",
     "fingerprint": "dde45aaec788e0bf",
     "location": {
       "lines": {
@@ -385,7 +385,7 @@
   },
   {
     "check_name": "branching-test",
-    "description": "1 decisions inside the test (limit 0). — a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked",
+    "description": "1 decisions inside the test (limit 0). — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
     "fingerprint": "ed93ff199cf7bdae",
     "location": {
       "lines": {
@@ -397,7 +397,7 @@
   },
   {
     "check_name": "dead-store",
-    "description": "`found` is written again before anything reads it. — the first write did nothing, so either a line meant to read it is missing or the line that wrote it is",
+    "description": "`found` is written again before anything reads it. — the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary",
     "fingerprint": "db34701aa4ba9684",
     "location": {
       "lines": {
@@ -409,7 +409,7 @@
   },
   {
     "check_name": "empty-test",
-    "description": "`is not written yet` holds the code to nothing. — it passes on every run and holds the code to nothing, while counting towards whatever number the team watches",
+    "description": "`is not written yet` holds the code to nothing. — it passes on every run and checks nothing, while counting towards the test total",
     "fingerprint": "68d97fe6dab50edc",
     "location": {
       "lines": {
@@ -421,7 +421,7 @@
   },
   {
     "check_name": "nested-then",
-    "description": "a `then` inside a `then` — the order is real and none of it is written as an order, so a reader follows it by tracing which callback holds which",
+    "description": "a `then` inside a `then` — the order is real but is not written as an order, so a reader follows it by tracing which callback holds which",
     "fingerprint": "b168dbc404bae542",
     "location": {
       "lines": {
@@ -433,7 +433,7 @@
   },
   {
     "check_name": "duplicate-function",
-    "description": "`secondWay and firstWay` are written the same way. — one of them was copied from the other, and the next change to either has to find both or leave them disagreeing",
+    "description": "`secondWay and firstWay` are written the same way. — one was copied from the other, and the next change to either has to find both or leave them inconsistent",
     "fingerprint": "ec4fc4d65223112f",
     "location": {
       "lines": {
@@ -445,7 +445,7 @@
   },
   {
     "check_name": "loop-runs-once",
-    "description": "the body always `return` before the next pass — it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup wearing a loop's clothes",
+    "description": "the body always `return` before the next pass — it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup written as a loop",
     "fingerprint": "d75bbe7a709114cf",
     "location": {
       "lines": {
@@ -457,7 +457,7 @@
   },
   {
     "check_name": "ambiguous-precedence",
-    "description": "`&& inside ||` with nothing to say which binds first — the language knows which one binds tighter and the reader has to remember, so the parentheses cost nothing and settle it",
+    "description": "`&& inside ||` with nothing to say which binds first — the language defines which operator binds tighter but the reader has to remember it, and parentheses remove the question at no cost",
     "fingerprint": "adb5560990c66e09",
     "location": {
       "lines": {
@@ -469,7 +469,7 @@
   },
   {
     "check_name": "nested-ternary",
-    "description": "`score > 50 ? \"silver\" : \"bronze\"` is the inner half of another conditional — two conditions folded into one expression have to be unfolded in the reader's head before either can be checked",
+    "description": "`score > 50 ? \"silver\" : \"bronze\"` is the inner half of another conditional — two conditions folded into one expression have to be unfolded by the reader before either can be checked",
     "fingerprint": "630b11f0cef95f36",
     "location": {
       "lines": {
@@ -481,7 +481,7 @@
   },
   {
     "check_name": "empty-block",
-    "description": "This if statement has an empty body. — a decision was written and then nothing was done about it, which reads as unfinished work or as a condition somebody inverted by accident",
+    "description": "This if statement has an empty body. — a decision was written and no action was taken, which reads as unfinished work or an accidentally inverted condition",
     "fingerprint": "e76d5f7cad40f791",
     "location": {
       "lines": {
@@ -493,7 +493,7 @@
   },
   {
     "check_name": "boolean-from-branch",
-    "description": "Both arms return a boolean literal, so the branch restates the condition. — the condition is already the answer, and branching on it to restate it is four lines saying what one says",
+    "description": "Both arms return a boolean literal, so the branch restates the condition. — the condition is already the result, so branching on it to produce the same boolean takes four lines to say what one says",
     "fingerprint": "e757de480ff40240",
     "location": {
       "lines": {
@@ -505,7 +505,7 @@
   },
   {
     "check_name": "collapsible-if",
-    "description": "This `if` is the only statement inside another one. — it is one condition written as two, so a reader holds a branch that never branches",
+    "description": "This `if` is the only statement inside another one. — this is one condition written as two, so a reader has to follow a branch that never branches",
     "fingerprint": "d5cce70f243a1c64",
     "location": {
       "lines": {
@@ -517,7 +517,7 @@
   },
   {
     "check_name": "collapsible-if",
-    "description": "This `if` is the only statement inside another one. — it is one condition written as two, so a reader holds a branch that never branches",
+    "description": "This `if` is the only statement inside another one. — this is one condition written as two, so a reader has to follow a branch that never branches",
     "fingerprint": "d5cce70f243a1c640001",
     "location": {
       "lines": {
@@ -529,7 +529,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "4e50f68e0077e0de",
     "location": {
       "lines": {
@@ -541,7 +541,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "4e50f68e0077e0de0001",
     "location": {
       "lines": {
@@ -553,7 +553,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "4e50f68e0077e0de0002",
     "location": {
       "lines": {
@@ -565,7 +565,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "4e50f68e0077e0de0003",
     "location": {
       "lines": {
@@ -577,7 +577,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "f73f948188f02f43",
     "location": {
       "lines": {
@@ -589,7 +589,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "6e9fa022f579eb85",
     "location": {
       "lines": {
@@ -601,7 +601,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "6e9fa022f579eb850001",
     "location": {
       "lines": {
@@ -613,7 +613,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "6e9fa022f579eb850002",
     "location": {
       "lines": {
@@ -625,7 +625,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "6e9fa022f579eb850003",
     "location": {
       "lines": {
@@ -637,7 +637,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "26e4432017261a68",
     "location": {
       "lines": {
@@ -649,7 +649,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "26e4432017261a680001",
     "location": {
       "lines": {
@@ -661,7 +661,7 @@
   },
   {
     "check_name": "redundant-else",
-    "description": "The branch above always returns, so this `else` is not a decision. — the branch already left, so everything after it is indented one level deeper than the logic actually is",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
     "fingerprint": "26e4432017261a680002",
     "location": {
       "lines": {
@@ -673,7 +673,7 @@
   },
   {
     "check_name": "circular-dependency",
-    "description": "cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts. — no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that makes it work today is accidental",
+    "description": "cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts. — no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that works today is accidental",
     "fingerprint": "ba40308e8c48ffe6",
     "location": {
       "lines": {
@@ -685,7 +685,7 @@
   },
   {
     "check_name": "slow-test",
-    "description": "`setTimeout` pauses this test for 2000ms on every run. — a suite slow enough to skip stops being run, and a test nobody runs is worth less than the time it took to write",
+    "description": "`setTimeout` pauses this test for 2000ms on every run. — a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection",
     "fingerprint": "1c3098edb55a9dca",
     "location": {
       "lines": {
@@ -697,7 +697,7 @@
   },
   {
     "check_name": "imprecise-type",
-    "description": "`any` throws away what the type checker had already worked out. — each of these tells the checker to stop checking, so the guarantee the rest of the file is written against quietly stops holding here",
+    "description": "`any` throws away what the type checker had already worked out. — each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here",
     "fingerprint": "d690dac435340165",
     "location": {
       "lines": {
@@ -709,7 +709,7 @@
   },
   {
     "check_name": "imprecise-type",
-    "description": "`any` throws away what the type checker had already worked out. — each of these tells the checker to stop checking, so the guarantee the rest of the file is written against quietly stops holding here",
+    "description": "`any` throws away what the type checker had already worked out. — each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here",
     "fingerprint": "716e7ba61b59da78",
     "location": {
       "lines": {
@@ -721,7 +721,7 @@
   },
   {
     "check_name": "imprecise-type",
-    "description": "`as` throws away what the type checker had already worked out. — each of these tells the checker to stop checking, so the guarantee the rest of the file is written against quietly stops holding here",
+    "description": "`as` throws away what the type checker had already worked out. — each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here",
     "fingerprint": "139a3b4709fae40e",
     "location": {
       "lines": {
@@ -733,7 +733,7 @@
   },
   {
     "check_name": "imprecise-type",
-    "description": "`!` throws away what the type checker had already worked out. — each of these tells the checker to stop checking, so the guarantee the rest of the file is written against quietly stops holding here",
+    "description": "`!` throws away what the type checker had already worked out. — each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here",
     "fingerprint": "5dfdbea49c87b7cb",
     "location": {
       "lines": {
@@ -745,7 +745,7 @@
   },
   {
     "check_name": "unused-private-member",
-    "description": "The private member `instance` is declared and never read. — a private member can only be used from inside its class, so one nothing in the class touches is unreachable by construction",
+    "description": "The private member `instance` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
     "fingerprint": "fe9812d8440fc6cc",
     "location": {
       "lines": {
@@ -757,7 +757,7 @@
   },
   {
     "check_name": "unused-private-member",
-    "description": "The private member `current` is declared and never read. — a private member can only be used from inside its class, so one nothing in the class touches is unreachable by construction",
+    "description": "The private member `current` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
     "fingerprint": "9648d96118a7e052",
     "location": {
       "lines": {
@@ -769,7 +769,7 @@
   },
   {
     "check_name": "unused-private-member",
-    "description": "The private member `pool` is declared and never read. — a private member can only be used from inside its class, so one nothing in the class touches is unreachable by construction",
+    "description": "The private member `pool` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
     "fingerprint": "87a5e87df16bbc93",
     "location": {
       "lines": {
@@ -781,7 +781,7 @@
   },
   {
     "check_name": "unused-private-member",
-    "description": "The private member `ledger` is declared and never read. — a private member can only be used from inside its class, so one nothing in the class touches is unreachable by construction",
+    "description": "The private member `ledger` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
     "fingerprint": "ffda1bdbedf378d5",
     "location": {
       "lines": {
@@ -793,7 +793,7 @@
   },
   {
     "check_name": "unused-private-member",
-    "description": "The private member `unusedSecret` is declared and never read. — a private member can only be used from inside its class, so one nothing in the class touches is unreachable by construction",
+    "description": "The private member `unusedSecret` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
     "fingerprint": "bbd843078bdd18cc",
     "location": {
       "lines": {
@@ -805,7 +805,7 @@
   },
   {
     "check_name": "unused-local",
-    "description": "The local `neverRead` is declared and never read. — the value is computed and thrown away, which either wastes the work or hides the fact that somebody meant to use it",
+    "description": "The local `neverRead` is declared and never read. — the value is computed and discarded, which either wastes the work or hides a missing use",
     "fingerprint": "89ea5e890915d9ee",
     "location": {
       "lines": {
@@ -817,7 +817,7 @@
   },
   {
     "check_name": "unused-local",
-    "description": "The local `value` is declared and never read. — the value is computed and thrown away, which either wastes the work or hides the fact that somebody meant to use it",
+    "description": "The local `value` is declared and never read. — the value is computed and discarded, which either wastes the work or hides a missing use",
     "fingerprint": "e8084371118d4f80",
     "location": {
       "lines": {
@@ -829,7 +829,7 @@
   },
   {
     "check_name": "unused-local",
-    "description": "The local `client` is declared and never read. — the value is computed and thrown away, which either wastes the work or hides the fact that somebody meant to use it",
+    "description": "The local `client` is declared and never read. — the value is computed and discarded, which either wastes the work or hides a missing use",
     "fingerprint": "2db4ae58fe9803ee",
     "location": {
       "lines": {
@@ -841,7 +841,7 @@
   },
   {
     "check_name": "unused-file",
-    "description": "No module imports this file, and none of its 2 exports are used. — nothing in the build reaches this file, so every hour spent maintaining it buys nothing",
+    "description": "No module imports this file, and none of its 2 exports are used. — nothing in the build reaches this file, so the effort of maintaining it has no effect on the program",
     "fingerprint": "c985d89bca236d52",
     "location": {
       "lines": {
@@ -853,7 +853,7 @@
   },
   {
     "check_name": "unused-export",
-    "description": "Exported function `neverImported` is imported nowhere in the project. — an export nobody imports still has to be read, typechecked and kept working during every refactor that touches it",
+    "description": "Exported function `neverImported` is imported nowhere in the project. — an export that nothing imports still has to be read, type-checked and kept working during every refactoring that touches it",
     "fingerprint": "34b6ccda3d031744",
     "location": {
       "lines": {
@@ -865,7 +865,7 @@
   },
   {
     "check_name": "unused-export",
-    "description": "Exported interface `AlsoNeverImported` is imported nowhere in the project. — an export nobody imports still has to be read, typechecked and kept working during every refactor that touches it",
+    "description": "Exported interface `AlsoNeverImported` is imported nowhere in the project. — an export that nothing imports still has to be read, type-checked and kept working during every refactoring that touches it",
     "fingerprint": "e2b44c904b2e25d2",
     "location": {
       "lines": {
@@ -877,7 +877,7 @@
   },
   {
     "check_name": "duplicate-code",
-    "description": "10-statement block (27 AST nodes) repeated at 2 sites. — a fix applied to one copy leaves the others wrong, and nothing in the code points from the copy you edited to the ones you did not",
+    "description": "10-statement block (27 AST nodes) repeated at 2 sites. — a fix applied to one copy leaves the others unfixed, and nothing in the code links the edited copy to the others",
     "fingerprint": "dd9fa2ee91ffc4f3",
     "location": {
       "lines": {
@@ -889,7 +889,7 @@
   },
   {
     "check_name": "duplicate-code",
-    "description": "3-statement block (16 AST nodes) repeated at 2 sites. — a fix applied to one copy leaves the others wrong, and nothing in the code points from the copy you edited to the ones you did not",
+    "description": "3-statement block (16 AST nodes) repeated at 2 sites. — a fix applied to one copy leaves the others unfixed, and nothing in the code links the edited copy to the others",
     "fingerprint": "e6479788978ecf0a",
     "location": {
       "lines": {
@@ -901,7 +901,7 @@
   },
   {
     "check_name": "duplicate-code",
-    "description": "4-statement block (19 AST nodes) repeated at 2 sites. — a fix applied to one copy leaves the others wrong, and nothing in the code points from the copy you edited to the ones you did not",
+    "description": "4-statement block (19 AST nodes) repeated at 2 sites. — a fix applied to one copy leaves the others unfixed, and nothing in the code links the edited copy to the others",
     "fingerprint": "d4089cc76a71fd47",
     "location": {
       "lines": {
@@ -913,7 +913,7 @@
   },
   {
     "check_name": "base-depends-on-derived",
-    "description": "This base class names its own subclass `CachedRegistry`. — the base cannot be deployed, tested or understood without its children, which is the entire benefit of having a base class given away",
+    "description": "This base class names its own subclass `CachedRegistry`. — the base cannot be deployed, tested or understood without its subclasses, which removes the benefit of having a base class",
     "fingerprint": "ff0eb9f033d08ce7",
     "location": {
       "lines": {
@@ -925,7 +925,7 @@
   },
   {
     "check_name": "refused-bequest",
-    "description": "`run` overrides an inherited member only to refuse it. — the subclass is inheriting an interface it cannot honour, so a caller holding the base type has no safe way to know which methods actually work",
+    "description": "`run` overrides an inherited member only to refuse it. — the subclass inherits an interface it cannot honour, so a caller holding the base type cannot tell which methods work",
     "fingerprint": "02a80cbd46c8a86f",
     "location": {
       "lines": {
@@ -937,7 +937,7 @@
   },
   {
     "check_name": "blocking-call-in-async",
-    "description": "`readFileSync` blocks the thread inside an `async` function. — an async function promises not to hold the thread and this call holds it, so everything else waiting on that loop queues behind one file read",
+    "description": "`readFileSync` blocks the thread inside an `async` function. — an async function is expected not to hold the thread and this call holds it, so everything else waiting on that event loop queues behind one blocking call",
     "fingerprint": "086c9515e08b7396",
     "location": {
       "lines": {
@@ -949,7 +949,7 @@
   },
   {
     "check_name": "branching-recursion",
-    "description": "Calls itself 2 times per invocation with no memo in sight. — two calls per level is an exponential number of calls, most of them recomputing an answer some other branch already found",
+    "description": "Calls itself 2 times per invocation with no memo in sight. — two calls per level is an exponential number of calls, and most of them recompute an answer another branch already found",
     "fingerprint": "ece2ca87ef1d5421",
     "location": {
       "lines": {
@@ -961,7 +961,7 @@
   },
   {
     "check_name": "accumulate-by-copy",
-    "description": "`out` runs on every pass of the loop. — each step copies everything gathered so far, so building a result of n items touches half of n squared of them",
+    "description": "`out` runs on every pass of the loop. — each step copies everything gathered so far, so building a result of n items touches about half of n squared items",
     "fingerprint": "a4b29acb24027269",
     "location": {
       "lines": {
@@ -973,7 +973,7 @@
   },
   {
     "check_name": "accumulate-by-copy",
-    "description": "`flat` runs on every pass of the loop. — each step copies everything gathered so far, so building a result of n items touches half of n squared of them",
+    "description": "`flat` runs on every pass of the loop. — each step copies everything gathered so far, so building a result of n items touches about half of n squared items",
     "fingerprint": "5228b3cceb5d68fa",
     "location": {
       "lines": {
@@ -985,7 +985,7 @@
   },
   {
     "check_name": "await-in-loop",
-    "description": "`reader.read` runs on every pass of the loop. — each pass waits for the one before it to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together",
+    "description": "`reader.read` runs on every pass of the loop. — each pass waits for the previous one to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together",
     "fingerprint": "abbfaeb6f8eeb6e7",
     "location": {
       "lines": {
@@ -1009,7 +1009,7 @@
   },
   {
     "check_name": "deep-loop-nesting",
-    "description": "Loops nest 3 deep (threshold 2), so the innermost body runs O(n^3) times. — each level multiplies the passes of the one inside it, so the innermost body runs a number of times no test on small data will ever show",
+    "description": "Loops nest 3 deep (threshold 2), so the innermost body runs O(n^3) times. — each level multiplies the passes of the one inside it, so the innermost body runs a number of times that tests on small data do not show",
     "fingerprint": "4d7edbfb3d130c1f",
     "location": {
       "lines": {
@@ -1021,7 +1021,7 @@
   },
   {
     "check_name": "scan-in-loop",
-    "description": "`wanted.indexOf` runs on every pass of the loop. — the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that was fine at a hundred items stalls at ten thousand",
+    "description": "`wanted.indexOf` runs on every pass of the loop. — the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that is fast at a hundred items can stall at ten thousand",
     "fingerprint": "87df3494dda9c23d",
     "location": {
       "lines": {
@@ -1033,7 +1033,7 @@
   },
   {
     "check_name": "assertionless-test",
-    "description": "The test `checks nothing` makes no assertion. — it passes as long as nothing throws, so it reports success for behaviour it never actually checked",
+    "description": "The test `checks nothing` makes no assertion. — it passes as long as nothing throws, so it reports success for behaviour it never checked",
     "fingerprint": "db7721aad0e3b1fb",
     "location": {
       "lines": {
@@ -1045,7 +1045,7 @@
   },
   {
     "check_name": "assertionless-test",
-    "description": "The test `is not written yet` makes no assertion. — it passes as long as nothing throws, so it reports success for behaviour it never actually checked",
+    "description": "The test `is not written yet` makes no assertion. — it passes as long as nothing throws, so it reports success for behaviour it never checked",
     "fingerprint": "6e20f6d689a0b7b7",
     "location": {
       "lines": {
@@ -1057,7 +1057,7 @@
   },
   {
     "check_name": "example-value",
-    "description": "`example.com` reads as something other than the code. — a stand-in that reads as real is the kind of value that ships, and the first person to notice is whoever it was sent to",
+    "description": "`example.com` reads as something other than the code. — a placeholder that looks real is a value that can ship, and the first person to notice is whoever receives it",
     "fingerprint": "c21d139a569998d5",
     "location": {
       "lines": {
@@ -1069,7 +1069,7 @@
   },
   {
     "check_name": "placeholder-body",
-    "description": "`stillToWrite: not implemented` promises work it does not do. — it is a callable promise with nothing behind it, and every caller that trusts the signature finds that out at runtime",
+    "description": "`stillToWrite: not implemented` promises work it does not do. — it is a callable promise with nothing behind it, and every caller that trusts the signature finds out at run time",
     "fingerprint": "4eae563569bc2ca1",
     "location": {
       "lines": {
@@ -1081,7 +1081,7 @@
   },
   {
     "check_name": "mutable-module-state",
-    "description": "`openSessions` is writable from anywhere in the file. — every function that reads it takes an argument nobody passed, so two calls with the same arguments can answer differently and no signature says why",
+    "description": "`openSessions` is writable from anywhere in the file. — every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why",
     "fingerprint": "f3c45cef8aef6103",
     "location": {
       "lines": {
@@ -1093,7 +1093,7 @@
   },
   {
     "check_name": "mutable-module-state",
-    "description": "`openTabs` is writable from anywhere in the file. — every function that reads it takes an argument nobody passed, so two calls with the same arguments can answer differently and no signature says why",
+    "description": "`openTabs` is writable from anywhere in the file. — every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why",
     "fingerprint": "ccebc19e372f6cb4",
     "location": {
       "lines": {
@@ -1105,7 +1105,7 @@
   },
   {
     "check_name": "mutable-module-state",
-    "description": "`spare` is writable from anywhere in the file. — every function that reads it takes an argument nobody passed, so two calls with the same arguments can answer differently and no signature says why",
+    "description": "`spare` is writable from anywhere in the file. — every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why",
     "fingerprint": "76d472649c28ea1f",
     "location": {
       "lines": {
@@ -1117,7 +1117,7 @@
   },
   {
     "check_name": "library-exit",
-    "description": "`process.exit` ends the process. — it takes the decision away from every caller above it, and a test that reaches the line takes the runner down with it",
+    "description": "`process.exit` ends the process. — it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner",
     "fingerprint": "a461ca2285eb630a",
     "location": {
       "lines": {
@@ -1129,7 +1129,7 @@
   },
   {
     "check_name": "working-constructor",
-    "description": "1 statements doing work while the object is built (limit 0). — the object cannot exist without whatever that work needs, so every test of it has to stand the work up first",
+    "description": "1 statements doing work while the object is built (limit 0). — the object cannot exist without whatever that work needs, so every test of it has to set the work up first",
     "fingerprint": "553a1b7fc5df3b66",
     "location": {
       "lines": {
@@ -1141,7 +1141,7 @@
   },
   {
     "check_name": "working-constructor",
-    "description": "1 statements doing work while the object is built (limit 0). — the object cannot exist without whatever that work needs, so every test of it has to stand the work up first",
+    "description": "1 statements doing work while the object is built (limit 0). — the object cannot exist without whatever that work needs, so every test of it has to set the work up first",
     "fingerprint": "6e72d2ccea26cdfa",
     "location": {
       "lines": {
@@ -1153,7 +1153,7 @@
   },
   {
     "check_name": "wide-try",
-    "description": "12 statements under one handler (limit 10). — the handler is written for one of them and catches all of them, so a failure from any other line arrives somewhere that cannot answer it",
+    "description": "12 statements under one handler (limit 10). — the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it",
     "fingerprint": "4073a74a948020cb",
     "location": {
       "lines": {
@@ -1165,7 +1165,7 @@
   },
   {
     "check_name": "integer-division",
-    "description": "`7 / 2` divides one whole number by another — the remainder goes and nothing on the line says it was meant to, so a reader has to know the types to know whether the answer is right",
+    "description": "`7 / 2` divides one whole number by another — the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right",
     "fingerprint": "e88de9bab6a72eef",
     "location": {
       "lines": {
@@ -1177,7 +1177,7 @@
   },
   {
     "check_name": "blanket-try",
-    "description": "12 statements under one handler (limit 0). — the handler is a net under the whole body rather than an answer to one failure, so a mistake anywhere inside arrives as the failure it was written for",
+    "description": "12 statements under one handler (limit 0). — the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for",
     "fingerprint": "1ab98021d31da132",
     "location": {
       "lines": {
@@ -1189,7 +1189,7 @@
   },
   {
     "check_name": "blanket-try",
-    "description": "4 statements under one handler (limit 0). — the handler is a net under the whole body rather than an answer to one failure, so a mistake anywhere inside arrives as the failure it was written for",
+    "description": "4 statements under one handler (limit 0). — the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for",
     "fingerprint": "48493ddefb23a5c4",
     "location": {
       "lines": {
@@ -1201,7 +1201,7 @@
   },
   {
     "check_name": "hand-rolled-throws",
-    "description": "`catches the failure itself` catches the failure itself — when the call stops failing the handler never runs and the test still passes, which is the one outcome it was written to catch",
+    "description": "`catches the failure itself` catches the failure itself — when the call stops failing, the handler never runs and the test still passes, which is the outcome the test was written to catch",
     "fingerprint": "a964fc8fcb39f7fc",
     "location": {
       "lines": {
@@ -1213,7 +1213,7 @@
   },
   {
     "check_name": "split-cohesion",
-    "description": "2 groups of methods sharing no state (limit 1). — each group is a type nobody has separated yet, so a change to one of them is read against the fields of all of them",
+    "description": "2 groups of methods sharing no state (limit 1). — each group of fields is a type that has not been separated, so a change to one is read against the fields of all of them",
     "fingerprint": "1bb5a7a90deeb04b",
     "location": {
       "lines": {
@@ -1225,7 +1225,7 @@
   },
   {
     "check_name": "sleep-in-production",
-    "description": "`sleep` waits for a length of time. — it is waiting for a length of time rather than for the thing it needs, so it is either too short to work or too long to be worth it",
+    "description": "`sleep` waits for a length of time. — it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary",
     "fingerprint": "dde78e0ec86cf300",
     "location": {
       "lines": {
@@ -1237,7 +1237,7 @@
   },
   {
     "check_name": "production-assert",
-    "description": "`globalThis.console.assert(value > 0)` outside a test — the language is free to compile it away, so the check a reader is relying on may not be running where it matters most",
+    "description": "`globalThis.console.assert(value > 0)` outside a test — the language may compile the assertion out, so the check a reader relies on may not run in production",
     "fingerprint": "974cff9346024030",
     "location": {
       "lines": {
@@ -1249,7 +1249,7 @@
   },
   {
     "check_name": "sequential-await",
-    "description": "`const second = await loadTwo();` waits again for nothing the first answered — nothing makes them an order, so the call takes the sum of two waits where it could have taken the longer one",
+    "description": "`const second = await loadTwo();` waits again for nothing the first answered — nothing orders them, so the call takes the sum of two waits where it could take the longer one",
     "fingerprint": "360b2b58b77f7806",
     "location": {
       "lines": {
@@ -1261,7 +1261,7 @@
   },
   {
     "check_name": "closure-over-loop-variable",
-    "description": "`at` is the name the loop moves. — whatever runs it later reads whichever value the loop stopped on, so every one of them sees the last element and none sees its own",
+    "description": "`at` is the name the loop moves. — the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own",
     "fingerprint": "24108222ff95fc36",
     "location": {
       "lines": {
@@ -1273,7 +1273,7 @@
   },
   {
     "check_name": "no-default-branch",
-    "description": "3 arms, none of them the last resort (limit 3). — a value the switch never anticipated falls straight through it, and nothing in the code says whether that was the intent",
+    "description": "3 arms, none of them the last resort (limit 3). — a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended",
     "fingerprint": "bd9265eea1cb6e70",
     "location": {
       "lines": {
@@ -1285,7 +1285,7 @@
   },
   {
     "check_name": "no-default-branch",
-    "description": "3 arms, none of them the last resort (limit 3). — a value the switch never anticipated falls straight through it, and nothing in the code says whether that was the intent",
+    "description": "3 arms, none of them the last resort (limit 3). — a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended",
     "fingerprint": "11772a709c373359",
     "location": {
       "lines": {
@@ -1309,7 +1309,7 @@
   },
   {
     "check_name": "callback-nesting",
-    "description": "4 levels deep (limit 3). — the order the steps run in is the opposite of the order they are written in, so following the sequence means reading inside out",
+    "description": "4 levels deep (limit 3). — the steps run in the reverse of the order in which they are written, so following the sequence means reading from the inside out",
     "fingerprint": "3d6bdbb4b3b07876",
     "location": {
       "lines": {
@@ -1321,7 +1321,7 @@
   },
   {
     "check_name": "wide-switch",
-    "description": "14 arms (limit 12). — past a certain width the arms stop being a table a reader scans and become a list they have to search",
+    "description": "14 arms (limit 12). — past a certain width the arms are no longer a table a reader scans, and become a list the reader has to search",
     "fingerprint": "6f9601e15d90f8ef",
     "location": {
       "lines": {
@@ -1333,7 +1333,7 @@
   },
   {
     "check_name": "many-exits",
-    "description": "6 ways out (limit 4). — a reader has to find every way out before they can say what the function answers, and the ones written deep in the body are the easy ones to miss",
+    "description": "6 ways out (limit 4). — a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss",
     "fingerprint": "aadb993d9188b943",
     "location": {
       "lines": {
@@ -1345,7 +1345,7 @@
   },
   {
     "check_name": "many-exits",
-    "description": "14 ways out (limit 4). — a reader has to find every way out before they can say what the function answers, and the ones written deep in the body are the easy ones to miss",
+    "description": "14 ways out (limit 4). — a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss",
     "fingerprint": "8cca9a9b6378a07a",
     "location": {
       "lines": {
@@ -1357,7 +1357,7 @@
   },
   {
     "check_name": "many-exits",
-    "description": "6 ways out (limit 4). — a reader has to find every way out before they can say what the function answers, and the ones written deep in the body are the easy ones to miss",
+    "description": "6 ways out (limit 4). — a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss",
     "fingerprint": "058deba4118dc1bd",
     "location": {
       "lines": {
@@ -1369,7 +1369,7 @@
   },
   {
     "check_name": "wide-surface",
-    "description": "22 members exposed (limit 20). — every public member is a promise to keep working, so the surface is what the type costs to change rather than what it does",
+    "description": "22 members exposed (limit 20). — every public member is a commitment to keep working, so the surface determines what the type costs to change",
     "fingerprint": "d6ba7b34cd9998ce",
     "location": {
       "lines": {
@@ -1381,7 +1381,7 @@
   },
   {
     "check_name": "inappropriate-intimacy",
-    "description": "Cart and Checkout each reach for the other by name. — neither class can be read, tested or moved without the other coming with it, so the pair behaves as one class written in two places",
+    "description": "Cart and Checkout each reach for the other by name. — neither class can be read, tested or moved without the other, so the pair behaves as one class written in two places",
     "fingerprint": "4bccc8a3d7591980",
     "location": {
       "lines": {
@@ -1393,7 +1393,7 @@
   },
   {
     "check_name": "query-with-side-effect",
-    "description": "`getTotal` reads as a question but writes to the object it was asked about. — callers assume asking is free, so they ask twice, order the calls freely, and are surprised when that changes the answer",
+    "description": "`getTotal` reads as a question but writes to the object it was asked about. — callers assume a query has no effect, so they call it more than once, reorder calls, and are surprised when the answer changes",
     "fingerprint": "eba198f9afdb9e26",
     "location": {
       "lines": {
@@ -1405,7 +1405,7 @@
   },
   {
     "check_name": "temporal-coupling",
-    "description": "`opened` is tested before acting by send, close, and no constructor sets it. — the order the methods must be called in is real but unwritten, so the only way to learn it is to call them wrongly first",
+    "description": "`opened` is tested before acting by send, close, and no constructor sets it. — the order in which the methods must be called is required but not written down, so it is learned by calling them in the wrong order",
     "fingerprint": "8591bb701abeae64",
     "location": {
       "lines": {
@@ -1417,7 +1417,7 @@
   },
   {
     "check_name": "commented-out-code",
-    "description": "2 lines of commented-out code, which version control already remembers. — nobody dares delete it because nobody knows if it matters, so it sits there rotting while version control already remembers it perfectly",
+    "description": "2 lines of commented-out code, which version control already remembers. — readers cannot tell whether the code still matters, so it is left in place, and version control already preserves it",
     "fingerprint": "8cd9dcd5c6850b52",
     "location": {
       "lines": {
@@ -1429,7 +1429,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `node` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `node` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "bfb7155fd03af79d",
     "location": {
       "lines": {
@@ -1441,7 +1441,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `node` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `node` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "bfb7155fd03af79d0001",
     "location": {
       "lines": {
@@ -1453,7 +1453,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `node` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `node` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "bfb7155fd03af79d0002",
     "location": {
       "lines": {
@@ -1465,7 +1465,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `dead` (2 of 2, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `dead` (2 of 2, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "e568957e281f0537",
     "location": {
       "lines": {
@@ -1477,7 +1477,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `dead` (1 of 2) is never read, but 1 follow it. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `dead` (1 of 2) is never read, but 1 follow it. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "b17fc96e55a7f462",
     "location": {
       "lines": {
@@ -1489,7 +1489,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `deadA` (2 of 3) is never read, and nothing after it is either. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `deadA` (2 of 3) is never read, and nothing after it is either. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "a550c5c42afb1ed5",
     "location": {
       "lines": {
@@ -1501,7 +1501,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `deadB` (3 of 3, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `deadB` (3 of 3, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "e621473a98dcbe39",
     "location": {
       "lines": {
@@ -1513,7 +1513,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `rows` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `rows` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "b1d27fb6872df141",
     "location": {
       "lines": {
@@ -1525,7 +1525,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `footer` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `footer` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "41a8543ed0dabe87",
     "location": {
       "lines": {
@@ -1537,7 +1537,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `field` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `field` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "f99d8c4383f0410e",
     "location": {
       "lines": {
@@ -1549,7 +1549,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `field` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `field` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "f99d8c4383f0410e0001",
     "location": {
       "lines": {
@@ -1561,7 +1561,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `count` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `count` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "c9900a10b194d4f3",
     "location": {
       "lines": {
@@ -1573,7 +1573,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `handler` (1 of 1, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `handler` (1 of 1, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "398d59071c49440e",
     "location": {
       "lines": {
@@ -1585,7 +1585,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `dryRun` (3 of 5) is never read, but 2 follow it. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `dryRun` (3 of 5) is never read, but 2 follow it. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "44b8c056a86e9cb2",
     "location": {
       "lines": {
@@ -1597,7 +1597,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `channel` (2 of 3) is never read, and nothing after it is either. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `channel` (2 of 3) is never read, and nothing after it is either. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "ab2e6b4c38e21bd7",
     "location": {
       "lines": {
@@ -1609,7 +1609,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `locale` (3 of 3, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `locale` (3 of 3, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "df667d91239f4efd",
     "location": {
       "lines": {
@@ -1621,7 +1621,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `userId` (1 of 3) is never read, but 2 follow it. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `userId` (1 of 3) is never read, but 2 follow it. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "e61a8314444a1088",
     "location": {
       "lines": {
@@ -1633,7 +1633,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `locale` (3 of 3, last in the list) is never read. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `locale` (3 of 3, last in the list) is never read. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "df667d91239f4efd0001",
     "location": {
       "lines": {
@@ -1645,7 +1645,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `userId` (1 of 3) is never read, but 2 follow it. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `userId` (1 of 3) is never read, but 2 follow it. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "e61a8314444a10880001",
     "location": {
       "lines": {
@@ -1657,7 +1657,7 @@
   },
   {
     "check_name": "unused-parameter",
-    "description": "Parameter `channel` (2 of 3) is never read, but 1 follow it. — every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+    "description": "Parameter `channel` (2 of 3) is never read, but 1 follow it. — every caller passes a value that is never read, so the parameter list misdescribes the function",
     "fingerprint": "1a9b8b893be34071",
     "location": {
       "lines": {
@@ -1669,7 +1669,7 @@
   },
   {
     "check_name": "type-code-switch",
-    "description": "Branches on `kind` in 5 places, 14 cases at the widest. — the same set of cases is now spelled out in several places, so adding a case means finding all of them and the compiler will not remind you",
+    "description": "Branches on `kind` in 5 places, 14 cases at the widest. — the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one",
     "fingerprint": "0b90499afc41c5e4",
     "location": {
       "lines": {
@@ -1681,7 +1681,7 @@
   },
   {
     "check_name": "type-code-switch",
-    "description": "Branches on `this.state` in 3 places, 4 cases at the widest. — the same set of cases is now spelled out in several places, so adding a case means finding all of them and the compiler will not remind you",
+    "description": "Branches on `this.state` in 3 places, 4 cases at the widest. — the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one",
     "fingerprint": "9087c7e6ea81e985",
     "location": {
       "lines": {
@@ -1693,7 +1693,7 @@
   },
   {
     "check_name": "type-code-switch",
-    "description": "Branches on `action.kind` in 2 places, 3 cases at the widest. — the same set of cases is now spelled out in several places, so adding a case means finding all of them and the compiler will not remind you",
+    "description": "Branches on `action.kind` in 2 places, 3 cases at the widest. — the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one",
     "fingerprint": "944e4121bd8e7b52",
     "location": {
       "lines": {
@@ -1705,7 +1705,7 @@
   },
   {
     "check_name": "type-code-switch",
-    "description": "Branches on `kind` in 3 places, 4 cases at the widest. — the same set of cases is now spelled out in several places, so adding a case means finding all of them and the compiler will not remind you",
+    "description": "Branches on `kind` in 3 places, 4 cases at the widest. — the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one",
     "fingerprint": "1216d85ab7c6357b",
     "location": {
       "lines": {
@@ -1717,7 +1717,7 @@
   },
   {
     "check_name": "large-class",
-    "description": "22 members: 19 fields and 3 methods (threshold 20). — a class this size has more than one reason to change, so unrelated work lands in the same file and the same merge conflicts",
+    "description": "22 members: 19 fields and 3 methods (threshold 20). — a class this size usually has more than one reason to change, so unrelated changes land in the same file and produce the same merge conflicts",
     "fingerprint": "84c7fb9bdfb3737a",
     "location": {
       "lines": {
@@ -1729,7 +1729,7 @@
   },
   {
     "check_name": "long-parameter-list",
-    "description": "5 parameters (threshold 4). — callers have to remember an order this long, and same-typed neighbours make a silent transposition possible at every call site",
+    "description": "5 parameters (threshold 4). — callers have to remember a long argument order, and adjacent parameters of the same type allow an undetected transposition at every call site",
     "fingerprint": "422d81a32964b880",
     "location": {
       "lines": {
@@ -1741,7 +1741,7 @@
   },
   {
     "check_name": "long-parameter-list",
-    "description": "5 parameters (threshold 4). — callers have to remember an order this long, and same-typed neighbours make a silent transposition possible at every call site",
+    "description": "5 parameters (threshold 4). — callers have to remember a long argument order, and adjacent parameters of the same type allow an undetected transposition at every call site",
     "fingerprint": "7b1ed264d889e9ca",
     "location": {
       "lines": {
@@ -1753,7 +1753,7 @@
   },
   {
     "check_name": "deep-nesting",
-    "description": "Nesting reaches 4 levels (threshold 3). — at this depth the conditions that led here are off-screen, so the preconditions of the innermost code are invisible where it matters",
+    "description": "Nesting reaches 4 levels (threshold 3). — at this depth the conditions that led to the innermost code are off screen, so its preconditions are hard to see",
     "fingerprint": "8bfe874ef25e19aa",
     "location": {
       "lines": {
@@ -1765,7 +1765,7 @@
   },
   {
     "check_name": "deep-nesting",
-    "description": "Nesting reaches 6 levels (threshold 3). — at this depth the conditions that led here are off-screen, so the preconditions of the innermost code are invisible where it matters",
+    "description": "Nesting reaches 6 levels (threshold 3). — at this depth the conditions that led to the innermost code are off screen, so its preconditions are hard to see",
     "fingerprint": "066ece429f08275a",
     "location": {
       "lines": {
@@ -1777,7 +1777,7 @@
   },
   {
     "check_name": "cognitive-complexity",
-    "description": "Cognitive complexity 16 (threshold 15), max nesting depth 2. — every nested decision point multiplies the paths a reader has to trace, and untraced paths are where regressions survive review",
+    "description": "Cognitive complexity 16 (threshold 15), max nesting depth 2. — each nested decision point multiplies the paths a reader has to trace, and paths that go untraced are where regressions pass review",
     "fingerprint": "b878355da0c35047",
     "location": {
       "lines": {
@@ -1789,7 +1789,7 @@
   },
   {
     "check_name": "cognitive-complexity",
-    "description": "Cognitive complexity 17 (threshold 15), max nesting depth 3. — every nested decision point multiplies the paths a reader has to trace, and untraced paths are where regressions survive review",
+    "description": "Cognitive complexity 17 (threshold 15), max nesting depth 3. — each nested decision point multiplies the paths a reader has to trace, and paths that go untraced are where regressions pass review",
     "fingerprint": "594fb2e8f683762f",
     "location": {
       "lines": {
@@ -1801,7 +1801,7 @@
   },
   {
     "check_name": "cognitive-complexity",
-    "description": "Cognitive complexity 25 (threshold 15), max nesting depth 6. — every nested decision point multiplies the paths a reader has to trace, and untraced paths are where regressions survive review",
+    "description": "Cognitive complexity 25 (threshold 15), max nesting depth 6. — each nested decision point multiplies the paths a reader has to trace, and paths that go untraced are where regressions pass review",
     "fingerprint": "093e1d9b8ecbb847",
     "location": {
       "lines": {
@@ -1813,7 +1813,7 @@
   },
   {
     "check_name": "long-function",
-    "description": "47 statements in one body (threshold 40). — a body this long is doing several things, so a reader has to hold all of them at once to change any one of them",
+    "description": "47 statements in one body (threshold 40). — a long body usually does several things, and a reader has to hold all of them in mind to change any one",
     "fingerprint": "8383af22497bcd79",
     "location": {
       "lines": {
@@ -1825,7 +1825,7 @@
   },
   {
     "check_name": "long-function",
-    "description": "48 statements in one body (threshold 40). — a body this long is doing several things, so a reader has to hold all of them at once to change any one of them",
+    "description": "48 statements in one body (threshold 40). — a long body usually does several things, and a reader has to hold all of them in mind to change any one",
     "fingerprint": "015b66775c945602",
     "location": {
       "lines": {
@@ -1837,7 +1837,7 @@
   },
   {
     "check_name": "duplicate-import",
-    "description": "`./cycle-a` imported more than once. — two statements bringing in one module means a reader has to check both to know what this file takes from it, and a merge put at least one there without anybody looking",
+    "description": "`./cycle-a` imported more than once. — two statements importing one module mean a reader has to check both to know what the file takes from it, and a merge can introduce one without anyone reviewing it",
     "fingerprint": "74f2c58361c15a0c",
     "location": {
       "lines": {
@@ -1849,7 +1849,7 @@
   },
   {
     "check_name": "wildcard-import",
-    "description": "`* as everything` takes every name the module offers. — nothing in the file says which names came from where, so a reader has to open the other module to find out and a new export there can shadow a local one silently",
+    "description": "`* as everything` takes every name the module offers. — nothing in the file says which names come from where, so a reader has to open the other module to find out, and a new export there can shadow a local name without any warning",
     "fingerprint": "82cc14287a5e29f0",
     "location": {
       "lines": {
@@ -1861,7 +1861,7 @@
   },
   {
     "check_name": "generic-throw",
-    "description": "`Error` is the root of the hierarchy. — the only way to react to it is to catch everything, so a caller that wanted to handle this one failure cannot",
+    "description": "`Error` is the root of the hierarchy. — the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot",
     "fingerprint": "b1e1c92677da9497",
     "location": {
       "lines": {
@@ -1873,7 +1873,7 @@
   },
   {
     "check_name": "generic-throw",
-    "description": "`Error` is the root of the hierarchy. — the only way to react to it is to catch everything, so a caller that wanted to handle this one failure cannot",
+    "description": "`Error` is the root of the hierarchy. — the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot",
     "fingerprint": "b1e1c92677da94970001",
     "location": {
       "lines": {
@@ -1885,7 +1885,7 @@
   },
   {
     "check_name": "generic-throw",
-    "description": "`Error` is the root of the hierarchy. — the only way to react to it is to catch everything, so a caller that wanted to handle this one failure cannot",
+    "description": "`Error` is the root of the hierarchy. — the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot",
     "fingerprint": "7e57dd2f69726778",
     "location": {
       "lines": {
@@ -1897,7 +1897,7 @@
   },
   {
     "check_name": "empty-subclass",
-    "description": "`SameAsFeeder` inherits and adds nothing. — it is a second name for the thing it came from, and a reader has to open it to find that out",
+    "description": "`SameAsFeeder` inherits and adds nothing. — it is a second name for the class it extends, and a reader has to open it to find that out",
     "fingerprint": "606965b0dd0c130b",
     "location": {
       "lines": {
@@ -1909,7 +1909,7 @@
   },
   {
     "check_name": "empty-subclass",
-    "description": "`Level2` inherits and adds nothing. — it is a second name for the thing it came from, and a reader has to open it to find that out",
+    "description": "`Level2` inherits and adds nothing. — it is a second name for the class it extends, and a reader has to open it to find that out",
     "fingerprint": "ab50d658931171ed",
     "location": {
       "lines": {
@@ -1921,7 +1921,7 @@
   },
   {
     "check_name": "empty-subclass",
-    "description": "`Level3` inherits and adds nothing. — it is a second name for the thing it came from, and a reader has to open it to find that out",
+    "description": "`Level3` inherits and adds nothing. — it is a second name for the class it extends, and a reader has to open it to find that out",
     "fingerprint": "0c78188d32aabe7e",
     "location": {
       "lines": {
@@ -1933,7 +1933,7 @@
   },
   {
     "check_name": "empty-subclass",
-    "description": "`Level4` inherits and adds nothing. — it is a second name for the thing it came from, and a reader has to open it to find that out",
+    "description": "`Level4` inherits and adds nothing. — it is a second name for the class it extends, and a reader has to open it to find that out",
     "fingerprint": "a04b568c5de5677b",
     "location": {
       "lines": {
@@ -1945,7 +1945,7 @@
   },
   {
     "check_name": "empty-subclass",
-    "description": "`CachedRegistry` inherits and adds nothing. — it is a second name for the thing it came from, and a reader has to open it to find that out",
+    "description": "`CachedRegistry` inherits and adds nothing. — it is a second name for the class it extends, and a reader has to open it to find that out",
     "fingerprint": "a12090f3e347fe63",
     "location": {
       "lines": {
@@ -1957,7 +1957,7 @@
   },
   {
     "check_name": "orphan-todo",
-    "description": "`TODO` names nobody and no ticket. — there is no ticket to close and nobody to ask, so it stays until somebody deletes it without knowing what it was for",
+    "description": "`TODO` names nobody and no ticket. — there is no ticket to close and no one to ask, so it stays until someone deletes it without knowing what it was for",
     "fingerprint": "212bed66432d6229",
     "location": {
       "lines": {
@@ -1969,7 +1969,7 @@
   },
   {
     "check_name": "unnamed-test",
-    "description": "`works` says nothing about what it checks. — a failing run names the test and nothing else, so the name is the whole of what the reader is given before they open the file",
+    "description": "`works` says nothing about what it checks. — a failing run reports the test name and nothing else, so the name is all the reader has before opening the file",
     "fingerprint": "ce24641e5802b5bd",
     "location": {
       "lines": {
@@ -1981,7 +1981,7 @@
   },
   {
     "check_name": "debug-output-in-test",
-    "description": "`console.log` prints on every run. — it was how somebody watched this test once, and it now prints on every run for people who are not watching",
+    "description": "`console.log` prints on every run. — it was added to observe the test once, and it now prints on every run",
     "fingerprint": "46b19201974b98a2",
     "location": {
       "lines": {
@@ -1993,7 +1993,7 @@
   },
   {
     "check_name": "duplicate-assertion",
-    "description": "`expect(add(1, 1)).toBe(2);` asserted 2 times in one test. — the second one can never fail while the first passes, so it costs a reader a check they have already read",
+    "description": "`expect(add(1, 1)).toBe(2);` asserted 2 times in one test. — the second assertion cannot fail while the first passes, so it costs the reader a check they have already read",
     "fingerprint": "c87036a3a763eddc",
     "location": {
       "lines": {
@@ -2005,7 +2005,7 @@
   },
   {
     "check_name": "unused-fixture",
-    "description": "`spare` is prepared before every case and read by none. — every case in the file pays for it and none of them wanted it, which is time on every run and a reader wondering what it is for",
+    "description": "`spare` is prepared before every case and read by none. — every case in the file pays for it and none uses it, which adds time to every run and leaves a reader wondering what it is for",
     "fingerprint": "3f30376aab22d876",
     "location": {
       "lines": {
@@ -2017,7 +2017,7 @@
   },
   {
     "check_name": "passthrough-override",
-    "description": "`feed` overrides and then calls what it overrode. — it changes nothing and costs a reader a hop, while making the type look like it has an opinion about the member when it has none",
+    "description": "`feed` overrides and then calls what it overrode. — it changes nothing and costs a reader a hop, and it suggests the type has its own behaviour for the member when it does not",
     "fingerprint": "480641aa68b74535",
     "location": {
       "lines": {
@@ -2029,7 +2029,7 @@
   },
   {
     "check_name": "barrel-module",
-    "description": "35 imports, every one of them passed straight back out (limit 35). — it adds a name to every path through the project and answers no question of its own, while hiding from every tool which file a name really came from",
+    "description": "35 imports, every one of them passed straight back out (limit 35). — it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
     "fingerprint": "a31847da5ff5e364",
     "location": {
       "lines": {
@@ -2041,7 +2041,7 @@
   },
   {
     "check_name": "global-accessor",
-    "description": "`openTabs` is the shared value with a function around it. — it is the shared value wearing a function's clothes, and every caller is still reading the same one thing",
+    "description": "`openTabs` is the shared value with a function around it. — it is a shared value behind a function call, and every caller still reads the same single instance",
     "fingerprint": "5f330f38ff45b895",
     "location": {
       "lines": {
@@ -2053,7 +2053,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`m1` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`m1` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "2b45eb30ccb252b1",
     "location": {
       "lines": {
@@ -2065,7 +2065,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`m2` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`m2` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "6c559679be186af8",
     "location": {
       "lines": {
@@ -2077,7 +2077,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`m3` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`m3` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "0f0f79b9745603e7",
     "location": {
       "lines": {
@@ -2089,7 +2089,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`nothingHappens` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`nothingHappens` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "25e1b918aa7eb0d6",
     "location": {
       "lines": {
@@ -2101,7 +2101,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`close` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`close` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "f1a3d147032595d7",
     "location": {
       "lines": {
@@ -2113,7 +2113,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`finish` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`finish` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "35723e70e42c89ae",
     "location": {
       "lines": {
@@ -2125,7 +2125,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "ae2b1baa040b774a",
     "location": {
       "lines": {
@@ -2137,7 +2137,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "ae2b1baa040b774a0001",
     "location": {
       "lines": {
@@ -2149,7 +2149,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "ae2b1baa040b774a0002",
     "location": {
       "lines": {
@@ -2161,7 +2161,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "ae2b1baa040b774a0003",
     "location": {
       "lines": {
@@ -2173,7 +2173,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "ae2b1baa040b774a0004",
     "location": {
       "lines": {
@@ -2185,7 +2185,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "ae2b1baa040b774a0005",
     "location": {
       "lines": {
@@ -2197,7 +2197,7 @@
   },
   {
     "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
     "fingerprint": "2a54bb93073a9e87",
     "location": {
       "lines": {
@@ -2209,7 +2209,7 @@
   },
   {
     "check_name": "redundant-jump",
-    "description": "`continue` is the last statement of the loop — control was going there anyway, so the keyword makes a reader stop and look for the condition that is not there",
+    "description": "`continue` is the last statement of the loop — control reaches that point anyway, so the keyword makes a reader look for a condition that does not exist",
     "fingerprint": "387911f591c89445",
     "location": {
       "lines": {
@@ -2221,7 +2221,7 @@
   },
   {
     "check_name": "negated-comparison",
-    "description": "a negation wrapped around `===` — the language already has the operator this spells out the long way, and the short one is read without inverting anything",
+    "description": "a negation wrapped around `===` — the language already has an operator for this comparison, and the shorter form can be read without inverting anything",
     "fingerprint": "28ef8da0c5202469",
     "location": {
       "lines": {
@@ -2233,7 +2233,7 @@
   },
   {
     "check_name": "abstract-nothing",
-    "description": "`Settled` is abstract and leaves nothing unfinished. — the word says a subclass has work to do and there is none, so the only thing it stops is somebody constructing it",
+    "description": "`Settled` is abstract and leaves nothing unfinished. — the `abstract` keyword implies that subclasses have work to do, but there is none, so the only effect is to prevent construction",
     "fingerprint": "c782d1d0be831eb8",
     "location": {
       "lines": {
@@ -2245,7 +2245,7 @@
   },
   {
     "check_name": "return-of-fresh-local",
-    "description": "`total` is introduced and returned in two lines. — the name is read once, by the line under it, and says nothing the expression it holds did not already say",
+    "description": "`total` is introduced and returned in two lines. — the name is read once, by the line below it, and says nothing the expression it holds does not already say",
     "fingerprint": "a3b10cf7bec5f012",
     "location": {
       "lines": {
@@ -2257,7 +2257,7 @@
   },
   {
     "check_name": "return-of-fresh-local",
-    "description": "`temp2` is introduced and returned in two lines. — the name is read once, by the line under it, and says nothing the expression it holds did not already say",
+    "description": "`temp2` is introduced and returned in two lines. — the name is read once, by the line below it, and says nothing the expression it holds does not already say",
     "fingerprint": "7c6e696c36f0ea76",
     "location": {
       "lines": {
@@ -2269,7 +2269,7 @@
   },
   {
     "check_name": "literal-comparison",
-    "description": "Compared against the literal `true`. — comparing a boolean to a boolean asks a question that was already answered, and reads as though the value might be something else",
+    "description": "Compared against the literal `true`. — comparing a boolean to a boolean literal asks a question the value already answers, and suggests the value might be something other than a boolean",
     "fingerprint": "26e15891b3383cc7",
     "location": {
       "lines": {
@@ -2281,7 +2281,7 @@
   },
   {
     "check_name": "journal-comment",
-    "description": "This comment carries `@author`, which version control already records. — version control already answers who and when, and unlike the comment it is not left behind by the next edit",
+    "description": "This comment carries `@author`, which version control already records. — version control already records who changed the code and when, and unlike the comment it is not left behind by later edits",
     "fingerprint": "8f5bdf2da50c2b44",
     "location": {
       "lines": {
@@ -2293,7 +2293,7 @@
   },
   {
     "check_name": "speculative-generality",
-    "description": "The class with no implementer `Settled` is declared and never read. — it was built for a case that never arrived, and until it does it is only an extra indirection every reader has to step through. Interfaces are not reported: TypeScript's are structural, so nothing implementing one says nothing about whether it is speculative",
+    "description": "The class with no implementer `Settled` is declared and never read. — it was built for a case that has not occurred, and until it does it is an extra indirection every reader has to follow. Interfaces are not reported: TypeScript interfaces are structural, so the absence of implementers says nothing about whether one is speculative",
     "fingerprint": "e9499dcdedb1da92",
     "location": {
       "lines": {
@@ -2305,7 +2305,7 @@
   },
   {
     "check_name": "speculative-generality",
-    "description": "The class with no implementer `Importer` is declared and never read. — it was built for a case that never arrived, and until it does it is only an extra indirection every reader has to step through. Interfaces are not reported: TypeScript's are structural, so nothing implementing one says nothing about whether it is speculative",
+    "description": "The class with no implementer `Importer` is declared and never read. — it was built for a case that has not occurred, and until it does it is an extra indirection every reader has to follow. Interfaces are not reported: TypeScript interfaces are structural, so the absence of implementers says nothing about whether one is speculative",
     "fingerprint": "e494c54e5c5aa458",
     "location": {
       "lines": {
@@ -2317,7 +2317,7 @@
   },
   {
     "check_name": "speculative-generality",
-    "description": "The class with no implementer `Vehicle` is declared and never read. — it was built for a case that never arrived, and until it does it is only an extra indirection every reader has to step through. Interfaces are not reported: TypeScript's are structural, so nothing implementing one says nothing about whether it is speculative",
+    "description": "The class with no implementer `Vehicle` is declared and never read. — it was built for a case that has not occurred, and until it does it is an extra indirection every reader has to follow. Interfaces are not reported: TypeScript interfaces are structural, so the absence of implementers says nothing about whether one is speculative",
     "fingerprint": "c7b4dad209cb21af",
     "location": {
       "lines": {
@@ -2329,7 +2329,7 @@
   },
   {
     "check_name": "complex-condition",
-    "description": "4 boolean operands in one condition (limit 3). — nobody can hold this many clauses at once, so the reader takes the branch on trust and the bug in it survives every review",
+    "description": "4 boolean operands in one condition (limit 3). — readers cannot hold this many clauses at once, so the branch is taken on trust and a bug in it survives review",
     "fingerprint": "cd8a24b044a1a9d2",
     "location": {
       "lines": {
@@ -2341,7 +2341,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `secure` (2 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `secure` (2 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "bd77305862843694",
     "location": {
       "lines": {
@@ -2353,7 +2353,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `ready` (1 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `ready` (1 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "f7d7dbb0e78b1605",
     "location": {
       "lines": {
@@ -2365,7 +2365,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `ready` (1 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `ready` (1 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "f7d7dbb0e78b16050001",
     "location": {
       "lines": {
@@ -2377,7 +2377,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `applyDiscount` (2 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `applyDiscount` (2 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "28a491955081f36b",
     "location": {
       "lines": {
@@ -2389,7 +2389,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `retry` (2 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `retry` (2 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "cd842ca985ae4fe8",
     "location": {
       "lines": {
@@ -2401,7 +2401,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `dryRun` (3 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `dryRun` (3 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "6d0fa981f25208c6",
     "location": {
       "lines": {
@@ -2413,7 +2413,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `verbose` (5 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `verbose` (5 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "40e5747aa3933942",
     "location": {
       "lines": {
@@ -2425,7 +2425,7 @@
   },
   {
     "check_name": "flag-argument",
-    "description": "Boolean parameter `ready` (1 in the list) selects between behaviours. — the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+    "description": "Boolean parameter `ready` (1 in the list) selects between behaviours. — the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
     "fingerprint": "a0713ca186c1126f",
     "location": {
       "lines": {
@@ -2437,7 +2437,7 @@
   },
   {
     "check_name": "apology-comment",
-    "description": "`sorry` reads as something other than the code. — somebody already knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would let it be undone",
+    "description": "`sorry` reads as something other than the code. — someone knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would allow it to be reversed",
     "fingerprint": "f2e00eb4c81b517d",
     "location": {
       "lines": {
@@ -2449,7 +2449,7 @@
   },
   {
     "check_name": "chat-residue",
-    "description": "`here's` reads as something other than the code. — it is the residue of a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on",
+    "description": "`here's` reads as something other than the code. — it is left over from a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on",
     "fingerprint": "b216eb49cfe6aa8d",
     "location": {
       "lines": {
@@ -2461,7 +2461,7 @@
   },
   {
     "check_name": "banner-comment",
-    "description": "This comment says nothing about the code. — a table of contents for a file short enough not to need one, and it goes stale the moment a section moves",
+    "description": "This comment says nothing about the code. — it is a table of contents in a file short enough not to need one, and it becomes outdated when a section moves",
     "fingerprint": "ff1d9235c905a9b8",
     "location": {
       "lines": {
@@ -2485,7 +2485,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`loops to loops` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`loops to loops` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "5ff9639621db8df9",
     "location": {
       "lines": {
@@ -2497,7 +2497,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`record to this.entryList.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`record to this.entryList.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "eb69bf80f6d2b44e",
     "location": {
       "lines": {
@@ -2509,7 +2509,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`collectA to charge` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`collectA to charge` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "9f192de50145b584",
     "location": {
       "lines": {
@@ -2521,7 +2521,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`collectB to charge` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`collectB to charge` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "a4d00a4545820e66",
     "location": {
       "lines": {
@@ -2533,7 +2533,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`collectC to charge` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`collectC to charge` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "a6b882d2ffe06040",
     "location": {
       "lines": {
@@ -2545,7 +2545,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`forwardOrbit to orbit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`forwardOrbit to orbit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "09ece1f1639c6b61",
     "location": {
       "lines": {
@@ -2557,7 +2557,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`stops to process.exit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`stops to process.exit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "ecbc487df6b38f04",
     "location": {
       "lines": {
@@ -2569,7 +2569,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`add to this.rows.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`add to this.rows.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "2c12e9317f0244b9",
     "location": {
       "lines": {
@@ -2581,7 +2581,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`send to this.inner.send` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`send to this.inner.send` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "f078e6a28e3fc1d0",
     "location": {
       "lines": {
@@ -2593,7 +2593,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`send to this.inner.send` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`send to this.inner.send` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "f078e6a28e3fc1d00001",
     "location": {
       "lines": {
@@ -2605,7 +2605,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`send to this.gateway.transmit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`send to this.gateway.transmit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "d295cdbae1bf64dc",
     "location": {
       "lines": {
@@ -2617,7 +2617,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`attach to this.items.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`attach to this.items.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "a427a0fabe6fcc4d",
     "location": {
       "lines": {
@@ -2629,7 +2629,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`addListener to this.listeners.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`addListener to this.listeners.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "2f6da02907b5603a",
     "location": {
       "lines": {
@@ -2641,7 +2641,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`onTick to this.handlers.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`onTick to this.handlers.push` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "4cc0c98b05c00dff",
     "location": {
       "lines": {
@@ -2653,7 +2653,7 @@
   },
   {
     "check_name": "passthrough-function",
-    "description": "`transmit to this.gateway.transmit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+    "description": "`transmit to this.gateway.transmit` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
     "fingerprint": "60ed7f6fc1494636",
     "location": {
       "lines": {
@@ -2665,7 +2665,7 @@
   },
   {
     "check_name": "ambient-dependency",
-    "description": "`globalThis` answers with something no caller set. — the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
+    "description": "`globalThis` answers with something no caller set. — the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
     "fingerprint": "613b859aaa4d5dc2",
     "location": {
       "lines": {
@@ -2677,7 +2677,7 @@
   },
   {
     "check_name": "ambient-dependency",
-    "description": "`globalThis` answers with something no caller set. — the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
+    "description": "`globalThis` answers with something no caller set. — the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
     "fingerprint": "613b859aaa4d5dc20001",
     "location": {
       "lines": {
@@ -2689,7 +2689,7 @@
   },
   {
     "check_name": "ambient-dependency",
-    "description": "`Date.now` answers with something no caller set. — the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
+    "description": "`Date.now` answers with something no caller set. — the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
     "fingerprint": "952cc7c34fc7844f",
     "location": {
       "lines": {
@@ -2701,7 +2701,7 @@
   },
   {
     "check_name": "ambient-dependency",
-    "description": "`globalThis` answers with something no caller set. — the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
+    "description": "`globalThis` answers with something no caller set. — the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
     "fingerprint": "f32d61ae0cc3e68c",
     "location": {
       "lines": {
@@ -2713,7 +2713,7 @@
   },
   {
     "check_name": "ambient-dependency",
-    "description": "`globalThis` answers with something no caller set. — the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
+    "description": "`globalThis` answers with something no caller set. — the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
     "fingerprint": "f32d61ae0cc3e68c0001",
     "location": {
       "lines": {
@@ -2725,7 +2725,7 @@
   },
   {
     "check_name": "boolean-literal-argument",
-    "description": "`fetchPage` is handed a bare true or false. — nothing at the call site says what it turns on, so the reader has to open the callee to find out what they just asked for",
+    "description": "`fetchPage` is handed a bare true or false. — nothing at the call site says what the argument turns on, so the reader has to open the callee to find out",
     "fingerprint": "6c0fcc0fda3e67fb",
     "location": {
       "lines": {
@@ -2737,7 +2737,7 @@
   },
   {
     "check_name": "deep-relative-import",
-    "description": "3 levels up (limit 2). — a path that climbs this far is reaching across the shape of the project rather than through it, and it breaks the moment either end is moved",
+    "description": "3 levels up (limit 2). — a path that climbs this far reaches across the project's structure instead of through it, and it breaks when either end moves",
     "fingerprint": "57d3b8c6fc3a0695",
     "location": {
       "lines": {
@@ -2749,7 +2749,7 @@
   },
   {
     "check_name": "static-only-class",
-    "description": "2 methods, none of them on an instance (limit 2). — nothing is ever built from it, so the type is a namespace wearing a class's syntax and nothing can be substituted for it in a test",
+    "description": "2 methods, none of them on an instance (limit 2). — nothing is constructed from it, so the type is a namespace written as a class, and nothing can be substituted for it in a test",
     "fingerprint": "31273bf036ca2028",
     "location": {
       "lines": {
@@ -2761,7 +2761,7 @@
   },
   {
     "check_name": "many-locals",
-    "description": "16 names introduced in one body (limit 15). — every one of them is a thing the reader has to keep in mind to the end of the body, and there is a number past which nobody does",
+    "description": "16 names introduced in one body (limit 15). — each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot",
     "fingerprint": "b2b3bbcf6a2d475f",
     "location": {
       "lines": {
@@ -2785,7 +2785,7 @@
   },
   {
     "check_name": "single-method-field",
-    "description": "`title` is read by one method and no other. — it is that method's local kept where every other method can reach it, so every one of them has to be read before it can be changed",
+    "description": "`title` is read by one method and no other. — it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed",
     "fingerprint": "704215d3c9d9ace6",
     "location": {
       "lines": {
@@ -2797,7 +2797,7 @@
   },
   {
     "check_name": "plural-mismatch",
-    "description": "`tier` disagrees in number with what it holds. — a reader counts on the name to say whether there is one of something or many, and here it says the opposite",
+    "description": "`tier` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
     "fingerprint": "5ddaf09caf0e5155",
     "location": {
       "lines": {
@@ -2809,7 +2809,7 @@
   },
   {
     "check_name": "name-repeats-type",
-    "description": "`entryList (List)` spells its type into its name. — the declaration beside it already says what it is, so the word is read twice and goes wrong the day the type changes",
+    "description": "`entryList (List)` spells its type into its name. — the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes",
     "fingerprint": "9e79a0b69ca5a42a",
     "location": {
       "lines": {
@@ -2821,7 +2821,7 @@
   },
   {
     "check_name": "boolean-not-a-question",
-    "description": "`restated` answers true or false without asking anything. — a reader has to open it to learn which way round the answer runs, and a name that asks the question says it in one word",
+    "description": "`restated` answers true or false without asking anything. — a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word",
     "fingerprint": "a9f2e0bcb2272f09",
     "location": {
       "lines": {
@@ -2833,7 +2833,7 @@
   },
   {
     "check_name": "boolean-not-a-question",
-    "description": "`settled` answers true or false without asking anything. — a reader has to open it to learn which way round the answer runs, and a name that asks the question says it in one word",
+    "description": "`settled` answers true or false without asking anything. — a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word",
     "fingerprint": "d7f112f6320a9758",
     "location": {
       "lines": {
@@ -2845,7 +2845,7 @@
   },
   {
     "check_name": "boolean-not-a-question",
-    "description": "`admits` answers true or false without asking anything. — a reader has to open it to learn which way round the answer runs, and a name that asks the question says it in one word",
+    "description": "`admits` answers true or false without asking anything. — a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word",
     "fingerprint": "560b30a3880ba335",
     "location": {
       "lines": {
@@ -2857,7 +2857,7 @@
   },
   {
     "check_name": "boolean-not-a-question",
-    "description": "`changed` answers true or false without asking anything. — a reader has to open it to learn which way round the answer runs, and a name that asks the question says it in one word",
+    "description": "`changed` answers true or false without asking anything. — a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word",
     "fingerprint": "6cbca3036b161ad9",
     "location": {
       "lines": {
@@ -2869,7 +2869,7 @@
   },
   {
     "check_name": "many-results",
-    "description": "4 values handed back at once (limit 3). — the caller has to know the order to read them, and nothing at either end says what any of them is",
+    "description": "4 values handed back at once (limit 3). — the caller has to know the order to read them, and nothing at either end says what each one is",
     "fingerprint": "79f6148295cf513c",
     "location": {
       "lines": {
@@ -2881,7 +2881,7 @@
   },
   {
     "check_name": "guard-cascade",
-    "description": "9 checks before the body starts (limit 3). — the body has not started and the reader has read several decisions, none of which says anything about what the function is for",
+    "description": "9 checks before the body starts (limit 3). — the body has not started and the reader has already read several decisions, none of which says what the function is for",
     "fingerprint": "e21613b3fd90cb52",
     "location": {
       "lines": {
@@ -2893,7 +2893,7 @@
   },
   {
     "check_name": "guard-cascade",
-    "description": "3 checks before the body starts (limit 3). — the body has not started and the reader has read several decisions, none of which says anything about what the function is for",
+    "description": "3 checks before the body starts (limit 3). — the body has not started and the reader has already read several decisions, none of which says what the function is for",
     "fingerprint": "960298225ebc87d5",
     "location": {
       "lines": {
@@ -2905,7 +2905,7 @@
   },
   {
     "check_name": "docstring-restates-signature",
-    "description": "`scoreOfUser` is described in the words of its own signature. — it is the signature written twice, so it costs a reader a second pass and goes wrong the first time the signature changes",
+    "description": "`scoreOfUser` is described in the words of its own signature. — it repeats the signature, so it costs a reader a second pass and becomes wrong when the signature changes",
     "fingerprint": "57044fcc0004093c",
     "location": {
       "lines": {
@@ -2917,7 +2917,7 @@
   },
   {
     "check_name": "explanation-longer-than-code",
-    "description": "7 lines of comment above the body (limit 2). — a body that needs more prose than code is a body whose names are not carrying it, and the prose is what goes stale",
+    "description": "7 lines of comment above the body (limit 2). — a body that needs more prose than code has names that do not carry its meaning, and the prose is what becomes outdated",
     "fingerprint": "bbe1926a22a30972",
     "location": {
       "lines": {
@@ -2929,7 +2929,7 @@
   },
   {
     "check_name": "comment-per-line",
-    "description": "4 statements in a row, each with its own comment (limit 4). — the code is being read aloud rather than explained, so the reader now has two things to keep in step and only one of them is checked",
+    "description": "4 statements in a row, each with its own comment (limit 4). — the code is being read aloud and not explained, so the reader has two things to keep in step and only one of them is checked",
     "fingerprint": "14cecadc594b7c35",
     "location": {
       "lines": {
@@ -2941,7 +2941,7 @@
   },
   {
     "check_name": "negated-name",
-    "description": "`notReady (not_)` says what the thing is not. — every test of it that is itself negated has to be undone twice in the reader's head before the condition means anything",
+    "description": "`notReady (not_)` says what the thing is not. — every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning",
     "fingerprint": "bd062a1b351baba3",
     "location": {
       "lines": {
@@ -2953,7 +2953,7 @@
   },
   {
     "check_name": "negated-name",
-    "description": "`noOneImportsThisFile (no_)` says what the thing is not. — every test of it that is itself negated has to be undone twice in the reader's head before the condition means anything",
+    "description": "`noOneImportsThisFile (no_)` says what the thing is not. — every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning",
     "fingerprint": "e9c4476ba9732066",
     "location": {
       "lines": {
@@ -2965,7 +2965,7 @@
   },
   {
     "check_name": "unchecked-stub",
-    "description": "`client` is built and never asked what it saw. — it made the test run and held it to nothing, so the call it was standing in for could stop happening and the test would still pass",
+    "description": "`client` is built and never asked what it saw. — it let the test run and checked nothing, so the call it replaces could stop happening and the test would still pass",
     "fingerprint": "fabf3829efd74a0d",
     "location": {
       "lines": {
@@ -2977,7 +2977,7 @@
   },
   {
     "check_name": "never-reassigned",
-    "description": "`n` is declared changeable and never changes. — a reader has to hold open the possibility that it moves, and it never does, so the declaration is asking for attention it does not need",
+    "description": "`n` is declared changeable and never changes. — a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need",
     "fingerprint": "8046c3c669625b30",
     "location": {
       "lines": {
@@ -2989,7 +2989,7 @@
   },
   {
     "check_name": "string-shape-assertion",
-    "description": "`'{\"two\":4,\"spare\":\"padding here\"}'` is a shape written out as text. — it holds the code to how the answer prints rather than to what it is, so a change in spacing fails a test about behaviour",
+    "description": "`'{\"two\":4,\"spare\":\"padding here\"}'` is a shape written out as text. — it checks how the result prints and not what it is, so a change in spacing fails a test about behaviour",
     "fingerprint": "29eae64de9d5dce0",
     "location": {
       "lines": {
@@ -3001,7 +3001,7 @@
   },
   {
     "check_name": "vague-function-name",
-    "description": "`process` names the act of running, not what is done. — the name has to be read past to learn anything, so every call site forces a trip to the definition",
+    "description": "`process` names the act of running, not what is done. — the name does not say what the function does, so each call site requires reading the definition",
     "fingerprint": "c7856b4a28d168d8",
     "location": {
       "lines": {
@@ -3013,7 +3013,7 @@
   },
   {
     "check_name": "vague-function-name",
-    "description": "`handle` names the act of running, not what is done. — the name has to be read past to learn anything, so every call site forces a trip to the definition",
+    "description": "`handle` names the act of running, not what is done. — the name does not say what the function does, so each call site requires reading the definition",
     "fingerprint": "f1161e5247e981fb",
     "location": {
       "lines": {
@@ -3025,7 +3025,7 @@
   },
   {
     "check_name": "redundant-comment",
-    "description": "This comment says no more than the name `scoreOfUser` below it. — it takes space and attention to say what the name has already said, and it is one more thing to keep true when the name changes",
+    "description": "This comment says no more than the name `scoreOfUser` below it. — it takes space and attention to repeat what the name already says, and it has to be kept accurate when the name changes",
     "fingerprint": "8a14dd5aa46694da",
     "location": {
       "lines": {
@@ -3037,7 +3037,7 @@
   },
   {
     "check_name": "redundant-comment",
-    "description": "This comment says no more than the name `userName` below it. — it takes space and attention to say what the name has already said, and it is one more thing to keep true when the name changes",
+    "description": "This comment says no more than the name `userName` below it. — it takes space and attention to repeat what the name already says, and it has to be kept accurate when the name changes",
     "fingerprint": "12959b9be69c9311",
     "location": {
       "lines": {
@@ -3049,7 +3049,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "1 of 1 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "1 of 1 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "7b0c1ec2fdf1ea5a",
     "location": {
       "lines": {
@@ -3061,7 +3061,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "2 of 3 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "2 of 3 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "cc8d2ab0ff6180fc",
     "location": {
       "lines": {
@@ -3073,7 +3073,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "d7d857a9c7a1e699",
     "location": {
       "lines": {
@@ -3085,7 +3085,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "d7d857a9c7a1e6990001",
     "location": {
       "lines": {
@@ -3097,7 +3097,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "d7d857a9c7a1e6990002",
     "location": {
       "lines": {
@@ -3109,7 +3109,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "1 of 1 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "1 of 1 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "fa6ce057d661563f",
     "location": {
       "lines": {
@@ -3121,7 +3121,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "3 of 3 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "3 of 3 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "508ed48f46646957",
     "location": {
       "lines": {
@@ -3133,7 +3133,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "d7d857a9c7a1e6990003",
     "location": {
       "lines": {
@@ -3145,7 +3145,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "d7d857a9c7a1e6990004",
     "location": {
       "lines": {
@@ -3157,7 +3157,7 @@
   },
   {
     "check_name": "middle-man",
-    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+    "description": "2 of 2 methods do nothing but forward the call. — every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
     "fingerprint": "180851d991e41b56",
     "location": {
       "lines": {
@@ -3169,7 +3169,7 @@
   },
   {
     "check_name": "feature-envy",
-    "description": "Touches `row` 5 times and its own members 0 times. — the method wants to live on the other class, and while it does not, both classes have to stay in step for it to keep working",
+    "description": "Touches `row` 5 times and its own members 0 times. — the method belongs on the other class, and while it stays here both classes have to change together to keep it working",
     "fingerprint": "71f066ba4f40ec1b",
     "location": {
       "lines": {
@@ -3181,7 +3181,7 @@
   },
   {
     "check_name": "feature-envy",
-    "description": "Touches `basket` 4 times and its own members 0 times. — the method wants to live on the other class, and while it does not, both classes have to stay in step for it to keep working",
+    "description": "Touches `basket` 4 times and its own members 0 times. — the method belongs on the other class, and while it stays here both classes have to change together to keep it working",
     "fingerprint": "34fd44e5818a2c08",
     "location": {
       "lines": {
@@ -3193,7 +3193,7 @@
   },
   {
     "check_name": "message-chain",
-    "description": "Reaches 4 objects deep in one expression (limit 3). — this line depends on the shape of every object along the chain, so a change to any one of them breaks a caller that never mentioned it",
+    "description": "Reaches 4 objects deep in one expression (limit 3). — the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it",
     "fingerprint": "32c329b3b4ebcdd1",
     "location": {
       "lines": {
@@ -3205,7 +3205,7 @@
   },
   {
     "check_name": "message-chain",
-    "description": "Reaches 5 objects deep in one expression (limit 3). — this line depends on the shape of every object along the chain, so a change to any one of them breaks a caller that never mentioned it",
+    "description": "Reaches 5 objects deep in one expression (limit 3). — the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it",
     "fingerprint": "634fa37cd67d22d2",
     "location": {
       "lines": {
@@ -3217,7 +3217,7 @@
   },
   {
     "check_name": "buried-configuration",
-    "description": "a URL written 3 blocks deep, where nothing configures it. — changing where the program points means finding this line first, and nothing about its position suggests it is a setting",
+    "description": "a URL written 3 blocks deep, where nothing configures it. — changing the program's target requires finding this line first, and nothing about its position indicates that it is a setting",
     "fingerprint": "7912c20fe3f9c924",
     "location": {
       "lines": {
@@ -3229,7 +3229,7 @@
   },
   {
     "check_name": "obscured-expression",
-    "description": "9 operations in one unnamed expression (limit 6). — nothing in the expression is named, so a reader has to re-derive every intermediate step the author already worked out",
+    "description": "9 operations in one unnamed expression (limit 6). — no part of the expression is named, so a reader has to re-derive each intermediate step the author already worked out",
     "fingerprint": "87e48e053f84a536",
     "location": {
       "lines": {
@@ -3241,7 +3241,7 @@
   },
   {
     "check_name": "distant-declaration",
-    "description": "`separator` is declared 21 lines above the line that first reads it. — everything in between has to be read while still holding this name in mind, and the reader has no way to know it will matter",
+    "description": "`separator` is declared 21 lines above the line that first reads it. — a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter",
     "fingerprint": "0c1128e787b2cebc",
     "location": {
       "lines": {
@@ -3253,7 +3253,7 @@
   },
   {
     "check_name": "distant-declaration",
-    "description": "`n` is declared 48 lines above the line that first reads it. — everything in between has to be read while still holding this name in mind, and the reader has no way to know it will matter",
+    "description": "`n` is declared 48 lines above the line that first reads it. — a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter",
     "fingerprint": "f8f7e8b3b4c57c7a",
     "location": {
       "lines": {
@@ -3265,7 +3265,7 @@
   },
   {
     "check_name": "mixed-conventions",
-    "description": "1 name in this file use snake_case while the rest do not. — a reader who has to guess which convention a name follows cannot skim, and the mixture spreads every time somebody copies a neighbouring line",
+    "description": "1 name in this file use snake_case while the rest do not. — a reader who has to guess which convention a name follows cannot skim, and the mixture spreads each time a neighbouring line is copied",
     "fingerprint": "641639c2279801db",
     "location": {
       "lines": {
@@ -3277,7 +3277,7 @@
   },
   {
     "check_name": "boundary-arithmetic",
-    "description": "`cursor` is adjusted by one in 3 places, each of them a chance to be off by one. — every place the boundary is recomputed is a place it can be recomputed wrongly, and off-by-one errors are found by readers rather than types",
+    "description": "`cursor` is adjusted by one in 3 places, each of them a chance to be off by one. — each place that recomputes the boundary can compute it wrongly, and off-by-one errors are found by readers, not by types",
     "fingerprint": "dc3aa2c964a04877",
     "location": {
       "lines": {
@@ -3289,7 +3289,7 @@
   },
   {
     "check_name": "mixed-language-file",
-    "description": "A template literal in this file holds SQL. — a second language in the file gets none of the tooling the first one has, so nothing checks it until it fails at run time",
+    "description": "A template literal in this file holds SQL. — a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time",
     "fingerprint": "669e148377e15e12",
     "location": {
       "lines": {
@@ -3301,7 +3301,7 @@
   },
   {
     "check_name": "magic-number",
-    "description": "Unnamed literal `3`, repeated 4 times in this file. — the number encodes a decision nobody wrote down, so the next reader cannot tell whether changing it is safe or what else shares it",
+    "description": "Unnamed literal `3`, repeated 4 times in this file. — the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value",
     "fingerprint": "b4194a7bf328e140",
     "location": {
       "lines": {
@@ -3313,7 +3313,7 @@
   },
   {
     "check_name": "magic-number",
-    "description": "Unnamed literal `4999`, repeated 3 times in this file. — the number encodes a decision nobody wrote down, so the next reader cannot tell whether changing it is safe or what else shares it",
+    "description": "Unnamed literal `4999`, repeated 3 times in this file. — the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value",
     "fingerprint": "db043b28107117ac",
     "location": {
       "lines": {
@@ -3325,7 +3325,7 @@
   },
   {
     "check_name": "magic-number",
-    "description": "Unnamed literal `3`, repeated 4 times in this file. — the number encodes a decision nobody wrote down, so the next reader cannot tell whether changing it is safe or what else shares it",
+    "description": "Unnamed literal `3`, repeated 4 times in this file. — the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value",
     "fingerprint": "81667e7682ef18ee",
     "location": {
       "lines": {
@@ -3337,7 +3337,7 @@
   },
   {
     "check_name": "magic-number",
-    "description": "Unnamed literal `7331`, repeated 3 times in this file. — the number encodes a decision nobody wrote down, so the next reader cannot tell whether changing it is safe or what else shares it",
+    "description": "Unnamed literal `7331`, repeated 3 times in this file. — the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value",
     "fingerprint": "5a992431af8797f2",
     "location": {
       "lines": {
@@ -3349,7 +3349,7 @@
   },
   {
     "check_name": "magic-number",
-    "description": "Unnamed literal `3`, repeated 3 times in this file. — the number encodes a decision nobody wrote down, so the next reader cannot tell whether changing it is safe or what else shares it",
+    "description": "Unnamed literal `3`, repeated 3 times in this file. — the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value",
     "fingerprint": "b536856faf05ef57",
     "location": {
       "lines": {
@@ -3361,7 +3361,7 @@
   },
   {
     "check_name": "data-class",
-    "description": "Holds data but no behaviour: 2 fields, 1 methods, 1 of them trivial. — the behaviour that belongs with this data lives somewhere else, so the rules about the data are enforced everywhere except where the data is",
+    "description": "Holds data but no behaviour: 2 fields, 1 methods, 1 of them trivial. — the behaviour that belongs with this data is implemented elsewhere, so the rules about the data are enforced everywhere except where the data is defined",
     "fingerprint": "f8628b0306e0dd5f",
     "location": {
       "lines": {
@@ -3373,7 +3373,7 @@
   },
   {
     "check_name": "lazy-class",
-    "description": "Does almost nothing: 1 fields, 0 methods, 0 of them trivial. — the class costs a file, an import and a name, and does not yet do enough to earn any of them",
+    "description": "Does almost nothing: 1 fields, 0 methods, 0 of them trivial. — the class costs a file, an import and a name, and does not do enough to justify them",
     "fingerprint": "0d897f32ce086b5b",
     "location": {
       "lines": {
@@ -3385,7 +3385,7 @@
   },
   {
     "check_name": "inappropriate-static",
-    "description": "`build` is static but takes an instance of its own class as its first parameter. — a static can never be overridden, so behaviour that clearly belongs to the instance is frozen for every subclass and every test that wants to fake it",
+    "description": "`build` is static but takes an instance of its own class as its first parameter. — a static member cannot be overridden, so behaviour that belongs to the instance cannot vary in subclasses or be replaced by a test double",
     "fingerprint": "3e3c7d94e53668e4",
     "location": {
       "lines": {
@@ -3397,7 +3397,7 @@
   },
   {
     "check_name": "temporary-field",
-    "description": "Field `scratch` is only ever used by `run`, and never set in the constructor. — the field is empty for most of the object's life, so every other method has to know it must not look at it",
+    "description": "Field `scratch` is only ever used by `run`, and never set in the constructor. — the field is empty for most of the object's lifetime, so every other method has to know it must not read it",
     "fingerprint": "e34e754f3e901712",
     "location": {
       "lines": {
@@ -3409,7 +3409,7 @@
   },
   {
     "check_name": "data-clump",
-    "description": "The group (channel, locale, userId) appears in 3 signatures. — these values already travel together everywhere, so they are a concept the code has not named yet, and every new use has to rediscover it",
+    "description": "The group (channel, locale, userId) appears in 3 signatures. — these values are passed together in several signatures, which indicates a concept the code has not named, and each new use has to rediscover it",
     "fingerprint": "3d67a8dec81a82b7",
     "location": {
       "lines": {

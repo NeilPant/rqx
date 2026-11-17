@@ -19,9 +19,9 @@ pub enum Shape {
     Text,
     /// Graphviz, for `dot -Tsvg`
     Dot,
-    /// A fenced block GitHub and most wikis render on the spot
+    /// A fenced block that GitHub and most wikis render inline
     Mermaid,
-    /// Nodes and edges as data
+    /// Nodes and edges as JSON
     Json,
 }
 

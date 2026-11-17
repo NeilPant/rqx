@@ -4,7 +4,7 @@
 
 ## `duplicate-code`
 
-a fix applied to one copy leaves the others wrong, and nothing in the code points from the copy you edited to the ones you did not
+a fix applied to one copy leaves the others unfixed, and nothing in the code links the edited copy to the others
 
 | | |
 |---|---|
@@ -33,7 +33,7 @@ Suggested fix: extract the shared block into one function and call it from all 2
 
 ## `unused-export`
 
-an export nobody imports still has to be read, typechecked and kept working during every refactor that touches it
+an export that nothing imports still has to be read, type-checked and kept working during every refactoring that touches it
 
 | | |
 |---|---|
@@ -54,7 +54,7 @@ Suggested fix: delete `neverImported`, or add its module to `entrypoints` if som
 
 ## `unused-file`
 
-nothing in the build reaches this file, so every hour spent maintaining it buys nothing
+nothing in the build reaches this file, so the effort of maintaining it has no effect on the program
 
 | | |
 |---|---|
@@ -74,7 +74,7 @@ Suggested fix: delete the file, or add it to `entrypoints` if it is reached from
 
 ## `unused-parameter`
 
-every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function
+every caller passes a value that is never read, so the parameter list misdescribes the function
 
 | | |
 |---|---|
@@ -96,7 +96,7 @@ Suggested fix: drop `node` from `visitLiteral` and from its call sites
 
 ## `unused-local`
 
-the value is computed and thrown away, which either wastes the work or hides the fact that somebody meant to use it
+the value is computed and discarded, which either wastes the work or hides a missing use
 
 | | |
 |---|---|
@@ -118,7 +118,7 @@ Suggested fix: delete `neverRead`, or use it if the work computing it still matt
 
 ## `unused-private-member`
 
-a private member can only be used from inside its class, so one nothing in the class touches is unreachable by construction
+a private member can be used only from inside its class, so one that nothing in the class references cannot be reached
 
 | | |
 |---|---|
@@ -141,7 +141,7 @@ Suggested fix: delete `instance`; nothing inside `Settings` can reach it
 
 ## `unreachable-code`
 
-this code cannot run, so whatever it was meant to do is not happening and has not been happening
+this code cannot run, so whatever it was written to do is not happening
 
 | | |
 |---|---|
@@ -163,7 +163,7 @@ Suggested fix: delete it, or move it above the exit if it was meant to run
 
 ## `commented-out-code`
 
-nobody dares delete it because nobody knows if it matters, so it sits there rotting while version control already remembers it perfectly
+readers cannot tell whether the code still matters, so it is left in place, and version control already preserves it
 
 | | |
 |---|---|
@@ -183,11 +183,11 @@ From `fixtures/typescript/hygiene.ts`, line 11:
 
 ```
 
-Suggested fix: delete it; git already has it, and a comment cannot say why it is still here
+Suggested fix: delete it; version control already preserves it
 
 ## `lazy-class`
 
-the class costs a file, an import and a name, and does not yet do enough to earn any of them
+the class costs a file, an import and a name, and does not do enough to justify them
 
 | | |
 |---|---|
@@ -204,11 +204,11 @@ export class Marker { label = "x"; }
 export class Facade {
 ```
 
-Suggested fix: fold `Marker` into its only caller until it earns its own file
+Suggested fix: fold `Marker` into its only caller until it justifies its own file
 
 ## `data-class`
 
-the behaviour that belongs with this data lives somewhere else, so the rules about the data are enforced everywhere except where the data is
+the behaviour that belongs with this data is implemented elsewhere, so the rules about the data are enforced everywhere except where the data is defined
 
 | | |
 |---|---|
@@ -229,7 +229,7 @@ Suggested fix: move the logic that operates on `Coordinate`'s fields onto `Coord
 
 ## `speculative-generality`
 
-it was built for a case that never arrived, and until it does it is only an extra indirection every reader has to step through. Interfaces are not reported: TypeScript's are structural, so nothing implementing one says nothing about whether it is speculative
+it was built for a case that has not occurred, and until it does it is an extra indirection every reader has to follow. Interfaces are not reported: TypeScript interfaces are structural, so the absence of implementers says nothing about whether one is speculative
 
 | | |
 |---|---|
@@ -251,7 +251,7 @@ Suggested fix: inline `Settled` into its single user until a second one arrives
 
 ## `empty-catch`
 
-the failure is swallowed silently, so the first sign of it is wrong data somewhere far away with nothing in the logs to connect the two
+the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two
 
 | | |
 |---|---|
@@ -274,7 +274,7 @@ Suggested fix: log it, rethrow it, or write the reason ignoring it is correct
 
 ## `magic-number`
 
-the number encodes a decision nobody wrote down, so the next reader cannot tell whether changing it is safe or what else shares it
+the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value
 
 | | |
 |---|---|
@@ -296,7 +296,7 @@ Suggested fix: name `3` once and refer to the name at all 4 sites
 
 ## `mixed-language-file`
 
-a second language in the file gets none of the tooling the first one has, so nothing checks it until it fails at run time
+a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time
 
 | | |
 |---|---|
@@ -317,7 +317,7 @@ Suggested fix: move the SQL into its own file, where its own tooling can read it
 
 ## `distant-declaration`
 
-everything in between has to be read while still holding this name in mind, and the reader has no way to know it will matter
+a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter
 
 | | |
 |---|---|
@@ -339,7 +339,7 @@ Suggested fix: move `separator` down to where it is first used
 
 ## `buried-configuration`
 
-changing where the program points means finding this line first, and nothing about its position suggests it is a setting
+changing the program's target requires finding this line first, and nothing about its position indicates that it is a setting
 
 | | |
 |---|---|
@@ -361,7 +361,7 @@ Suggested fix: lift it to a named constant at the top of the module, or into con
 
 ## `journal-comment`
 
-version control already answers who and when, and unlike the comment it is not left behind by the next edit
+version control already records who changed the code and when, and unlike the comment it is not left behind by later edits
 
 | | |
 |---|---|
@@ -381,11 +381,11 @@ From `fixtures/typescript/precision.ts`, line 1:
 export function widen(input: any): string {
 ```
 
-Suggested fix: delete it; `git log` and `git blame` answer this and stay correct
+Suggested fix: delete it; `git log` and `git blame` record this and stay accurate
 
 ## `redundant-comment`
 
-it takes space and attention to say what the name has already said, and it is one more thing to keep true when the name changes
+it takes space and attention to repeat what the name already says, and it has to be kept accurate when the name changes
 
 | | |
 |---|---|
@@ -407,7 +407,7 @@ Suggested fix: delete it, or say why `scoreOfUser` exists rather than what it is
 
 ## `cross-language-duplicate`
 
-the same rule is written twice in two languages, so the day it changes it changes in one of them and the two quietly disagree
+the same rule is written twice in two languages, so a change is likely to be made in only one and the two diverge
 
 | | |
 |---|---|
@@ -419,11 +419,11 @@ the same rule is written twice in two languages, so the day it changes it change
 
 ## `return-of-fresh-local`
 
-the name is read once, by the line under it, and says nothing the expression it holds did not already say
+the name is read once, by the line below it, and says nothing the expression it holds does not already say
 
 | | |
 |---|---|
-| Measures | a name introduced on one line and returned on the next |
+| Measures | a local variable assigned on one line and returned on the next |
 | Reported as | info, verified |
 | Reads | the syntax tree alone |
 | Fix | Inline Variable |
@@ -436,11 +436,11 @@ export function freshTotal(rows: number[]): number {
   return total;
 ```
 
-Suggested fix: return the expression, or keep the name because it says something the expression does not
+Suggested fix: return the expression, or keep the name if it says something the expression does not
 
 ## `empty-method`
 
-a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision
+a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision
 
 | | |
 |---|---|
@@ -457,11 +457,11 @@ From `fixtures/typescript/bloat.ts`, line 21:
 }
 ```
 
-Suggested fix: give it a body, delete it, or make it explicit that doing nothing is the answer here
+Suggested fix: give it a body, delete it, or state explicitly that doing nothing is intended
 
 ## `barrel-module`
 
-it adds a name to every path through the project and answers no question of its own, while hiding from every tool which file a name really came from
+it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from
 
 | | |
 |---|---|
@@ -481,11 +481,11 @@ export { add, describe } from "./clean";
 export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
 ```
 
-Suggested fix: let the callers name the file they mean
+Suggested fix: let callers import from the file that defines the name
 
 ## `passthrough-override`
 
-it changes nothing and costs a reader a hop, while making the type look like it has an opinion about the member when it has none
+it changes nothing and costs a reader a hop, and it suggests the type has its own behaviour for the member when it does not
 
 | | |
 |---|---|
@@ -504,11 +504,11 @@ export class QuietFeeder extends Feeder {
     return super.feed();
 ```
 
-Suggested fix: delete it, and let the inherited one answer
+Suggested fix: delete it, so the inherited member is used
 
 ## `duplicate-function`
 
-one of them was copied from the other, and the next change to either has to find both or leave them disagreeing
+one was copied from the other, and the next change to either has to find both or leave them inconsistent
 
 | | |
 |---|---|
@@ -533,11 +533,11 @@ Suggested fix: keep one and call it from the other, or delete the copy
 
 ## `dead-store`
 
-the first write did nothing, so either a line meant to read it is missing or the line that wrote it is
+the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary
 
 | | |
 |---|---|
-| Measures | a value written and written again with nothing reading the first |
+| Measures | a value assigned twice with no read of the first |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
 | Fix | Remove Dead Code |
@@ -550,11 +550,11 @@ export function assigns(a: number, b: number): number {
   if ((found = a + b)) {
 ```
 
-Suggested fix: delete the write nobody reads, or read it
+Suggested fix: delete the unread assignment, or read it
 
 ## `never-reassigned`
 
-a reader has to hold open the possibility that it moves, and it never does, so the declaration is asking for attention it does not need
+a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need
 
 | | |
 |---|---|
@@ -573,11 +573,11 @@ export function sweep(rows: number[]) {
   const seen: number[] = [];
 ```
 
-Suggested fix: declare it as fixed, and let the compiler hold it there
+Suggested fix: declare it as constant, so the compiler enforces it
 
 ## `discarded-expression`
 
-either the line was meant to do something and does not, or it does nothing and should not be here, and a reader cannot tell which
+either the line was meant to do something and does not, or it does nothing and should be removed, and a reader cannot tell which
 
 | | |
 |---|---|
@@ -600,7 +600,7 @@ Suggested fix: use the value, or delete the line
 
 ## `unused-import`
 
-it makes the file look dependent on something it does not use, and the dependency survives every search for who needs that module
+it makes the file appear to depend on something it does not use, and the dependency survives every search for who needs that module
 
 | | |
 |---|---|
@@ -623,7 +623,7 @@ Suggested fix: delete it; the module it names is not one this file depends on
 
 ## `rethrow-only-catch`
 
-it reads as a decision about the failure and makes none, while costing the stack trace in the languages that rebuild one on the way out
+it reads as a decision about the failure and makes none, and in languages that rebuild the stack trace on rethrow it loses the original
 
 | | |
 |---|---|
@@ -643,15 +643,15 @@ From `fixtures/typescript/hygiene.ts`, line 58:
 }
 ```
 
-Suggested fix: delete the handler and let it propagate, or add what this level knows about the failure
+Suggested fix: delete the handler so the failure propagates, or add handling specific to this level
 
 ## `placeholder-body`
 
-it is a callable promise with nothing behind it, and every caller that trusts the signature finds that out at runtime
+it is a callable promise with nothing behind it, and every caller that trusts the signature finds out at run time
 
 | | |
 |---|---|
-| Measures | a body whose only statement raises to say the work is still to come |
+| Measures | a body whose only statement raises to signal that the implementation is not written |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Remove Dead Code |
@@ -671,7 +671,7 @@ Suggested fix: write it, or delete it until there is a caller that needs it
 
 ## `passthrough-function`
 
-it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged
+it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged
 
 | | |
 |---|---|
@@ -690,11 +690,11 @@ export function loops(rows: number[]): number {
 
 ```
 
-Suggested fix: let the caller call the thing directly, unless this name is the seam
+Suggested fix: let the caller call the target directly, unless this name marks a deliberate boundary
 
 ## `debug-output`
 
-it was written to be read once by the person debugging, and it is still printing for everybody else
+it was written to be read once by the person debugging, and it still prints for everyone else
 
 | | |
 |---|---|
@@ -716,7 +716,7 @@ Suggested fix: delete it, or route it through whatever this project logs with
 
 ## `duplicate-import`
 
-two statements bringing in one module means a reader has to check both to know what this file takes from it, and a merge put at least one there without anybody looking
+two statements importing one module mean a reader has to check both to know what the file takes from it, and a merge can introduce one without anyone reviewing it
 
 | | |
 |---|---|

@@ -2182,7 +2182,7 @@ pub(crate) fn analyze_file(
     {
         return skipped(
             path,
-            format!("{tool} (set `scan.skip_generated = false` to include it)"),
+            format!("{tool} (set `scan.skip_generated: false` to include it)"),
         );
     }
     let cached = match cache.and_then(|cache| cache.get(&display, &source, stamp)) {

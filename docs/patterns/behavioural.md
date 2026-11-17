@@ -50,7 +50,7 @@ make a request an object, so it can be queued, logged or undone
 
 ### `command-fits`
 
-the branches already agree on a shape, so the switch is a lookup table written as control flow, and nothing can queue, log or undo what it picks
+the branches already share a shape, so the switch is a lookup table written as control flow, and nothing can queue, log or undo the chosen call
 
 | | |
 |---|---|
@@ -307,7 +307,7 @@ make a family of algorithms interchangeable behind one interface
 
 ### `strategy-fits`
 
-the cases are spelled out in several places, so a new one is found by searching rather than by the compiler refusing to build
+the cases are written out in several places, so adding a case means searching for them, and the compiler does not report a missed one
 
 | | |
 |---|---|
@@ -346,7 +346,7 @@ fix the shape of an algorithm and let subclasses fill in the steps
 
 ### `template-method-found`
 
-the order of the steps is fixed in one place and only the steps vary, so a subclass cannot get the sequence wrong
+the order of the steps is fixed in one place and only the steps vary, so a subclass cannot change the sequence
 
 | | |
 |---|---|

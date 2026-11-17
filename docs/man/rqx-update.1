@@ -2,11 +2,11 @@
 .el .ds Aq '
 .TH rqx-update 1  "update " 
 .SH NAME
-rqx\-update \- Install the newest release, or say what it would change
+rqx\-update \- Install the newest release, or report what it would change
 .SH SYNOPSIS
 \fBrqx update\fR [\fB\-\-check\fR] [\fB\-\-notes\fR] [\fB\-\-version\fR] [\fB\-\-dry\-run\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] 
 .SH DESCRIPTION
-Install the newest release, or say what it would change
+Install the newest release, or report what it would change
 .SH OPTIONS
 .TP
 \fB\-\-check\fR
@@ -22,7 +22,7 @@ Install this release, such as 1.2.3, instead of the newest
 Print the method, the URLs and the file that would be replaced, and change nothing
 .TP
 \fB\-\-no\-tui\fR
-Never open the interactive interface; bare `rqx` prints the report instead
+Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -73,17 +73,17 @@ none: Nothing
 .RE
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
-Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
-Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
 .br
 
 .br
 \fIPossible values:\fR
 .RS 14
 .IP \(bu 2
-auto: On a terminal that is known to open them
+auto: On a terminal known to support them
 .IP \(bu 2
 always: Whenever the report is coloured
 .IP \(bu 2
@@ -95,7 +95,7 @@ Print help (see a summary with \*(Aq\-h\*(Aq)
 .SH EXTRA
 Examples:
   rqx update                          install the newest release
-  rqx update \-\-check                  say whether one exists, install nothing
-  rqx update \-\-notes                  read what changed
+  rqx update \-\-check                  report whether a newer release exists; install nothing
+  rqx update \-\-notes                  print the release notes
   rqx update \-\-version 1.2.3          install that release, newer or older
-  rqx update \-\-dry\-run                show how and from where, change nothing
+  rqx update \-\-dry\-run                show the method and source; change nothing

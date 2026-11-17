@@ -4,7 +4,7 @@
 
 ## `slow-test`
 
-a suite slow enough to skip stops being run, and a test nobody runs is worth less than the time it took to write
+a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection
 
 | | |
 |---|---|
@@ -22,11 +22,11 @@ it("waits on the clock", async () => {
   expect(add(1, 1)).toBe(2);
 ```
 
-Suggested fix: wait on the thing itself rather than on the clock, or fake the timer
+Suggested fix: wait for the condition itself instead of a fixed time, or fake the timer
 
 ## `real-world-test`
 
-it fails for reasons that have nothing to do with the code, and it is slow enough that somebody eventually stops running it
+it fails for reasons unrelated to the code under test, and it is slow enough that it tends to be skipped
 
 | | |
 |---|---|
@@ -44,11 +44,11 @@ it("reads the store", async () => {
   expect(rows).toBeDefined();
 ```
 
-Suggested fix: hand the test something standing in for it, and test the real one once
+Suggested fix: pass the test a test double, and test the real dependency once
 
 ## `unlabelled-assertions`
 
-a failing run prints two values and the reader has to count lines to find which check they came from
+a failing run prints two values, and the reader has to count lines to find which assertion they came from
 
 | | |
 |---|---|
@@ -69,11 +69,11 @@ it("asserts the same thing twice", () => {
 
 ```
 
-Suggested fix: say what each one is holding to, or split them into tests that say it in their names
+Suggested fix: state what each check verifies, or split them into tests named for what they verify
 
 ## `self-asserting-test`
 
-it holds the code to whatever the code already does, so it passes through every change including the one that breaks it
+it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour
 
 | | |
 |---|---|
@@ -90,11 +90,11 @@ it("holds the code to itself", () => {
 });
 ```
 
-Suggested fix: write the answer the test expects, not the call that produces it
+Suggested fix: write the expected value as a literal, instead of the call that produces it
 
 ## `unexplained-expected-value`
 
-when it changes, nobody can tell whether the code is wrong or the number was, so the test is edited until it passes
+when it changes, nobody can tell whether the code or the number is wrong, so the test tends to be edited until it passes
 
 | | |
 |---|---|
@@ -116,11 +116,11 @@ Suggested fix: name it, or work it out in the test from the inputs it came from
 
 ## `empty-test`
 
-it passes on every run and holds the code to nothing, while counting towards whatever number the team watches
+it passes on every run and checks nothing, while counting towards the test total
 
 | | |
 |---|---|
-| Measures | a test with nothing in it |
+| Measures | a test with an empty body |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
 | Fix | Remove Dead Code / Introduce Assertion |
@@ -133,15 +133,15 @@ it("is not written yet", () => {});
 
 ```
 
-Suggested fix: write what it was going to check, or delete it
+Suggested fix: write the check it was meant to contain, or delete it
 
 ## `eager-test`
 
-it fails for any of them and the run says only that the test failed, so the name it prints does not narrow anything down
+it fails if any of the assertions fail and the run reports only that the test failed, so the test name does not identify the cause
 
 | | |
 |---|---|
-| Measures | distinct units one test drives |
+| Measures | distinct units one test exercises |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Extract Method |
@@ -162,11 +162,11 @@ it("drives five units", () => {
 
 ```
 
-Suggested fix: hold one of them to one thing, so a failing run names what broke
+Suggested fix: make each test check one unit, so a failing run names what broke
 
 ## `string-shape-assertion`
 
-it holds the code to how the answer prints rather than to what it is, so a change in spacing fails a test about behaviour
+it checks how the result prints and not what it is, so a change in spacing fails a test about behaviour
 
 | | |
 |---|---|
@@ -187,7 +187,7 @@ Suggested fix: check the parts that matter, so spacing cannot fail the test
 
 ## `unused-fixture`
 
-every case in the file pays for it and none of them wanted it, which is time on every run and a reader wondering what it is for
+every case in the file pays for it and none uses it, which adds time to every run and leaves a reader wondering what it is for
 
 | | |
 |---|---|
@@ -208,11 +208,11 @@ Suggested fix: delete it, or move it into the one case that wanted it
 
 ## `unchecked-stub`
 
-it made the test run and held it to nothing, so the call it was standing in for could stop happening and the test would still pass
+it let the test run and checked nothing, so the call it replaces could stop happening and the test would still pass
 
 | | |
 |---|---|
-| Measures | a stand-in built for a test and never asked what it saw |
+| Measures | a test double that is never checked for the calls it received |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Introduce Assertion |
@@ -225,11 +225,11 @@ it("stands something in", () => {
   expect(add(1, 1)).toBe(2);
 ```
 
-Suggested fix: check what it was called with, or let the real thing run
+Suggested fix: assert on the calls it received, or use the real implementation
 
 ## `branching-test`
 
-a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked
+a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked
 
 | | |
 |---|---|
@@ -250,11 +250,11 @@ it("branches on the input", () => {
 
 ```
 
-Suggested fix: write one test per path, so a green run says which case held
+Suggested fix: write one test per path, so a passing run shows which case was checked
 
 ## `duplicate-assertion`
 
-the second one can never fail while the first passes, so it costs a reader a check they have already read
+the second assertion cannot fail while the first passes, so it costs the reader a check they have already read
 
 | | |
 |---|---|
@@ -274,11 +274,11 @@ it("asserts the same thing twice", () => {
 
 ```
 
-Suggested fix: delete the repeat, or assert the thing the second one meant to
+Suggested fix: delete the repeat, or assert what the second one was meant to check
 
 ## `hand-rolled-throws`
 
-when the call stops failing the handler never runs and the test still passes, which is the one outcome it was written to catch
+when the call stops failing, the handler never runs and the test still passes, which is the outcome the test was written to catch
 
 | | |
 |---|---|
@@ -300,11 +300,11 @@ it("catches the failure itself", () => {
 });
 ```
 
-Suggested fix: use whatever this framework spells as "expect it to fail", so a call that stops failing fails the test
+Suggested fix: use the framework's expected-failure assertion, so a call that stops failing fails the test
 
 ## `debug-output-in-test`
 
-it was how somebody watched this test once, and it now prints on every run for people who are not watching
+it was added to observe the test once, and it now prints on every run
 
 | | |
 |---|---|
@@ -321,11 +321,11 @@ it("prints while it runs", () => {
   expect(add(1, 1)).toBe(2);
 ```
 
-Suggested fix: assert what you were reading, or delete the line
+Suggested fix: assert the value that was being inspected, or delete the line
 
 ## `unnamed-test`
 
-a failing run names the test and nothing else, so the name is the whole of what the reader is given before they open the file
+a failing run reports the test name and nothing else, so the name is all the reader has before opening the file
 
 | | |
 |---|---|
@@ -348,7 +348,7 @@ Suggested fix: name the behaviour it holds to, so a failing run says what broke
 
 ## `skipped-test`
 
-a skipped test is a question nobody answered; it reports green forever while the behaviour it named goes unchecked
+a skipped test reports success while the behaviour it names goes unchecked
 
 | | |
 |---|---|
@@ -368,11 +368,11 @@ describe.skip("pricing", () => {
 
 ```
 
-Suggested fix: fix it and re-enable it, or delete it and record the question it was asking
+Suggested fix: fix the test and enable it, or delete it and record what it was checking
 
 ## `focused-test`
 
-this silently disables every other test in the file, so the suite goes green while almost nothing ran
+this silently disables every other test in the file, so the suite passes while almost nothing runs
 
 | | |
 |---|---|
@@ -394,11 +394,11 @@ it.only("ships", () => { expect(add(1, 1)).toBe(2); });
 
 ```
 
-Suggested fix: remove the focus before this lands; it is almost never meant to be committed
+Suggested fix: remove the focus before merging; a focused test is rarely meant to be committed
 
 ## `assertionless-test`
 
-it passes as long as nothing throws, so it reports success for behaviour it never actually checked
+it passes as long as nothing throws, so it reports success for behaviour it never checked
 
 | | |
 |---|---|
@@ -415,5 +415,5 @@ it("checks nothing", () => { const value = add(1, 1); });
 
 ```
 
-Suggested fix: assert the behaviour it names, or delete it so the suite stops claiming coverage
+Suggested fix: assert the behaviour it names, or delete it so the suite does not report coverage it lacks
 

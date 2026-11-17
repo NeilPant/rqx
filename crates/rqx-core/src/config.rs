@@ -119,9 +119,9 @@ impl Level {
 
     pub const fn summary(self) -> &'static str {
         match self {
-            Self::Relaxed => "legacy code that has to stay shippable while it is cleaned up",
-            Self::Standard => "the catalogue as it stands",
-            Self::Strict => "held to what a reader can follow without effort",
+            Self::Relaxed => "legacy code that must stay shippable while it is cleaned up",
+            Self::Standard => "the catalogue's default settings",
+            Self::Strict => "thresholds set so a reader can follow the code without effort",
             Self::Pristine => "every rule, including the ones that are off by default",
         }
     }

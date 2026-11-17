@@ -4,7 +4,7 @@
 
 ## `mixed-conventions`
 
-a reader who has to guess which convention a name follows cannot skim, and the mixture spreads every time somebody copies a neighbouring line
+a reader who has to guess which convention a name follows cannot skim, and the mixture spreads each time a neighbouring line is copied
 
 | | |
 |---|---|
@@ -24,7 +24,7 @@ Suggested fix: pick the convention the rest of the project uses and rename to ma
 
 ## `vague-function-name`
 
-the name has to be read past to learn anything, so every call site forces a trip to the definition
+the name does not say what the function does, so each call site requires reading the definition
 
 | | |
 |---|---|
@@ -40,11 +40,11 @@ export function process(rows: number[]) {
   const data = rows.filter(Boolean);
 ```
 
-Suggested fix: rename `process` after what it does to what
+Suggested fix: rename `process` with a verb and the object it acts on
 
 ## `misleading-pattern-name`
 
-a pattern name is a promise about the interface, and a reader who trusts it goes looking for members that are not there
+a pattern name describes an interface, and a reader who trusts it looks for members that do not exist
 
 | | |
 |---|---|
@@ -66,7 +66,7 @@ Suggested fix: rename `ReportFactory` after what it holds, or give it the member
 
 ## `inconsistent-vocabulary`
 
-a reader who has met `fetchUser` cannot tell whether `getUser` is the same thing or a second one, so both have to be read before either is used
+a reader who has seen `fetchUser` cannot tell whether `getUser` is the same operation or a different one, so both have to be read before either is used
 
 | | |
 |---|---|
@@ -87,11 +87,11 @@ Suggested fix: pick one verb for the idea and rename the rest to match
 
 ## `meaningless-name`
 
-a name that describes nothing forces every reader to re-derive the value's purpose from its uses
+a name that describes nothing requires each reader to work out the value's purpose from its uses
 
 | | |
 |---|---|
-| Measures | identifier matched against a curated non-name set |
+| Measures | identifier matching a fixed list of non-descriptive names |
 | Reported as | info, low confidence |
 | Reads | the syntax tree alone |
 | Fix | Rename Variable |
@@ -109,7 +109,7 @@ Suggested fix: rename `data` to what it holds
 
 ## `short-name-wide-scope`
 
-a one-letter name is readable while its whole life fits on screen, and stops being readable the moment it does not
+a one-letter name is readable while its whole lifetime fits on screen, and stops being readable when it does not
 
 | | |
 |---|---|
@@ -128,11 +128,11 @@ export function sweep(rows: number[]) {
   const seen: number[] = [];
 ```
 
-Suggested fix: give `n` a name that survives the distance to its last use
+Suggested fix: give `n` a name that stays meaningful at its last use
 
 ## `hungarian-notation`
 
-the type is already in the declaration and checked by the compiler, so the prefix is a second copy that nothing keeps honest
+the type is already in the declaration and checked by the compiler, so the prefix is a second copy that nothing keeps accurate
 
 | | |
 |---|---|
@@ -154,7 +154,7 @@ Suggested fix: drop the prefix; the declaration already states the type and the 
 
 ## `negated-name`
 
-every test of it that is itself negated has to be undone twice in the reader's head before the condition means anything
+every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning
 
 | | |
 |---|---|
@@ -175,7 +175,7 @@ Suggested fix: name the positive and let the call sites negate it
 
 ## `shadows-builtin`
 
-the original is unreachable for the rest of the scope, and the next line that wanted it fails somewhere that names neither
+the original is unreachable for the rest of the scope, and a later line that expects it fails in a place that names neither
 
 | | |
 |---|---|
@@ -192,15 +192,15 @@ From `fixtures/typescript/names.ts`, line 9:
   return notReady ? 0 : Promise;
 ```
 
-Suggested fix: give it a name of this project's own
+Suggested fix: give it a name specific to this project
 
 ## `boolean-not-a-question`
 
-a reader has to open it to learn which way round the answer runs, and a name that asks the question says it in one word
+a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word
 
 | | |
 |---|---|
-| Measures | something answering true or false under a name that is not a question |
+| Measures | a boolean-valued member whose name is not phrased as a question |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Rename Method |
@@ -217,7 +217,7 @@ Suggested fix: name it as the question it answers, so a condition reads as one
 
 ## `name-repeats-type`
 
-the declaration beside it already says what it is, so the word is read twice and goes wrong the day the type changes
+the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes
 
 | | |
 |---|---|
@@ -238,7 +238,7 @@ Suggested fix: name what it is for, and let the declaration say what it is
 
 ## `plural-mismatch`
 
-a reader counts on the name to say whether there is one of something or many, and here it says the opposite
+a reader relies on the name to say whether there is one value or many, and here it says the opposite
 
 | | |
 |---|---|

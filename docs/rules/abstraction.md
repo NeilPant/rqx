@@ -4,7 +4,7 @@
 
 ## `type-code-switch`
 
-the same set of cases is now spelled out in several places, so adding a case means finding all of them and the compiler will not remind you
+the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one
 
 | | |
 |---|---|
@@ -33,7 +33,7 @@ Suggested fix: give `kind` a type per case and let each one carry its own behavi
 
 ## `temporary-field`
 
-the field is empty for most of the object's life, so every other method has to know it must not look at it
+the field is empty for most of the object's lifetime, so every other method has to know it must not read it
 
 | | |
 |---|---|
@@ -54,7 +54,7 @@ Suggested fix: make `scratch` a local in `run`, or move both into a class that o
 
 ## `refused-bequest`
 
-the subclass is inheriting an interface it cannot honour, so a caller holding the base type has no safe way to know which methods actually work
+the subclass inherits an interface it cannot honour, so a caller holding the base type cannot tell which methods work
 
 | | |
 |---|---|
@@ -72,11 +72,11 @@ export class Broken extends Engine { run(): string { throw new Error("no"); } }
 export class Totals {
 ```
 
-Suggested fix: if `Broken` cannot honour `run`, it is not a subtype — split the interface so it only promises what it can do
+Suggested fix: if `Broken` cannot honour `run`, it is not a subtype; split the interface so it only promises what it can do
 
 ## `base-depends-on-derived`
 
-the base cannot be deployed, tested or understood without its children, which is the entire benefit of having a base class given away
+the base cannot be deployed, tested or understood without its subclasses, which removes the benefit of having a base class
 
 | | |
 |---|---|
@@ -98,7 +98,7 @@ Suggested fix: move what the base needs from `CachedRegistry` behind a method th
 
 ## `inappropriate-static`
 
-a static can never be overridden, so behaviour that clearly belongs to the instance is frozen for every subclass and every test that wants to fake it
+a static member cannot be overridden, so behaviour that belongs to the instance cannot vary in subclasses or be replaced by a test double
 
 | | |
 |---|---|
@@ -121,7 +121,7 @@ Suggested fix: make `build` an instance method on `Engine`
 
 ## `temporal-coupling`
 
-the order the methods must be called in is real but unwritten, so the only way to learn it is to call them wrongly first
+the order in which the methods must be called is required but not written down, so it is learned by calling them in the wrong order
 
 | | |
 |---|---|
@@ -141,7 +141,7 @@ Suggested fix: set `opened` in the constructor, or split the stages into objects
 
 ## `alternative-classes`
 
-callers have to learn both interfaces to do one job, and a fix applied to one of them silently leaves the other wrong
+callers have to learn both interfaces to do one job, and a fix applied to one class leaves the other unfixed
 
 | | |
 |---|---|
@@ -163,7 +163,7 @@ Suggested fix: give `CsvWriter` and `JsonEmitter` one interface, or one supercla
 
 ## `wide-surface`
 
-every public member is a promise to keep working, so the surface is what the type costs to change rather than what it does
+every public member is a commitment to keep working, so the surface determines what the type costs to change
 
 | | |
 |---|---|
@@ -181,11 +181,11 @@ export class Overgrown {
   a1 = 1; a2 = 1; a3 = 1; a4 = 1; a5 = 1; a6 = 1; a7 = 1; a8 = 1; a9 = 1; a10 = 1;
 ```
 
-Suggested fix: narrow what `Overgrown` promises: an interface for what callers use, and the rest kept inside
+Suggested fix: narrow what `Overgrown` exposes: an interface for what callers use, with the rest kept private
 
 ## `abstract-nothing`
 
-the word says a subclass has work to do and there is none, so the only thing it stops is somebody constructing it
+the `abstract` keyword implies that subclasses have work to do, but there is none, so the only effect is to prevent construction
 
 | | |
 |---|---|
@@ -210,11 +210,11 @@ export abstract class Settled {
 
 ```
 
-Suggested fix: drop the word, or give it the member a subclass has to write
+Suggested fix: drop the keyword, or give it a member that a subclass has to implement
 
 ## `split-cohesion`
 
-each group is a type nobody has separated yet, so a change to one of them is read against the fields of all of them
+each group of fields is a type that has not been separated, so a change to one is read against the fields of all of them
 
 | | |
 |---|---|
@@ -241,11 +241,11 @@ export class Ledger {
 
 ```
 
-Suggested fix: give each group its own type, and let one of them hold the other
+Suggested fix: give each group its own type, and have one type hold the other
 
 ## `method-ignores-instance`
 
-it needs nothing the type holds, so the type is a namespace for it and every caller has to build one to reach it
+it needs nothing the type holds, so the type acts as a namespace for it and every caller has to construct an instance to reach it
 
 | | |
 |---|---|
@@ -268,7 +268,7 @@ Suggested fix: move it to whatever it is about, or make it a function of its own
 
 ## `assign-once-field`
 
-nothing after construction moves it, so every reader has to check that for themselves before they can rely on it
+nothing after construction changes it, and every reader has to verify that for themselves before relying on it
 
 | | |
 |---|---|
@@ -288,11 +288,11 @@ export class Overgrown {
   a11 = 1; a12 = 1; a13 = 1; a14 = 1; a15 = 1; a16 = 1; a17 = 1; a18 = 1; a19 = 1;
 ```
 
-Suggested fix: make it final, so every reader can see it cannot move
+Suggested fix: make it final, so readers can see it never changes
 
 ## `single-method-field`
 
-it is that method's local kept where every other method can reach it, so every one of them has to be read before it can be changed
+it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed
 
 | | |
 |---|---|
@@ -316,7 +316,7 @@ Suggested fix: make it that method's own, or move the method to whatever the fie
 
 ## `deep-inheritance`
 
-answering what one method does means reading every type above it, and a change to any of them reaches every type below
+answering what one method does requires reading every type above it, and a change to any of them reaches every type below
 
 | | |
 |---|---|
@@ -339,7 +339,7 @@ Suggested fix: give it what it needs as a collaborator, so the answer is one obj
 
 ## `empty-subclass`
 
-it is a second name for the thing it came from, and a reader has to open it to find that out
+it is a second name for the class it extends, and a reader has to open it to find that out
 
 | | |
 |---|---|
@@ -357,11 +357,11 @@ export class SameAsFeeder extends Overgrown {}
 
 ```
 
-Suggested fix: use what it inherits from, or give it the difference that justifies it
+Suggested fix: use the class it inherits from, or give it the difference that justifies the subclass
 
 ## `static-only-class`
 
-nothing is ever built from it, so the type is a namespace wearing a class's syntax and nothing can be substituted for it in a test
+nothing is constructed from it, so the type is a namespace written as a class, and nothing can be substituted for it in a test
 
 | | |
 |---|---|
@@ -382,11 +382,11 @@ export class Formatting {
 
 ```
 
-Suggested fix: make them functions in a module, or give the type the state that earns it
+Suggested fix: make them functions in a module, or give the type the state that justifies a class
 
 ## `working-constructor`
 
-the object cannot exist without whatever that work needs, so every test of it has to stand the work up first
+the object cannot exist without whatever that work needs, so every test of it has to set the work up first
 
 | | |
 |---|---|
@@ -406,5 +406,5 @@ From `fixtures/typescript/bloat.ts`, line 33:
   size(): number { return this.rows.length; }
 ```
 
-Suggested fix: take what it needs as an argument, and do the work in a method a caller chooses to call
+Suggested fix: accept what it needs as an argument, and do the work in a method the caller calls explicitly
 

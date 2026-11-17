@@ -4,253 +4,248 @@ Notable changes, newest first, in the shape
 [keep a changelog](https://keepachangelog.com/en/1.1.0/) suggests: Added, Changed,
 Removed, Fixed. Dates are when the release was tagged.
 
-Anything user-visible goes under `## Unreleased` in the same pull request that
-changes it. `tools/release.sh` turns that section into the release, and the pipeline
-posts it as the release notes.
-
-## Unreleased
+Anything user-visible goes under `## Unreleased
 
 ### Added
 
 - **The GitHub Action keeps the scan cache between runs.** A new `cache` input, on by
-  default, restores and saves `.rqx/cache.bin` with `actions/cache`, keyed on the rqx
-  version, the `rqx.yaml` files and the OS, so a pull request analyses only the files it
-  changed. `cache: "false"` turns it off. `docs/ci.md` has the GitLab `cache:` recipe.
+  default, restores and saves `.rqx/cache.bin` with `actions/cache`. The cache key
+  combines the rqx version, the `rqx.yaml` files and the OS, so a pull request analyses
+  only the files it changed. `cache: "false"` turns it off. `docs/ci.md` has the GitLab
+  `cache:` recipe.
 - **`--reporter` on every command that prints.** `fix`, `verify`, `plan`,
   `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`, `patterns`,
-  `graph`, `config` and `config validate` take `--reporter terminal|json`, and
+  `graph`, `config` and `config validate` accept `--reporter terminal|json`.
   `--reporter json=out.json` writes the document to a file while the console keeps the
-  readable form. `--json` still works and prints exactly what it did. `graph` also
-  takes `text`, `dot` and `mermaid`; `--format` is unchanged. As on `scan`, a JSON
-  document cannot share stdout with another reporter, and the run says so before
+  readable form. `--json` still works and prints the same output. `graph` also accepts
+  `text`, `dot` and `mermaid`, and `--format` is unchanged. As on `scan`, a JSON
+  document cannot share stdout with another reporter, and the run reports this before
   writing anything.
 - **The gate can be set from the environment.** `RQX_FAIL_ON`, `RQX_ALLOW_FINDINGS`,
-  `RQX_MIN_HEALTH`, `RQX_MIN_GRADE` and `RQX_FAIL_ON_INCOMPLETE` stand in for the
-  flags of the same names on `scan`, `check` and `comment`. A flag beats its variable
-  and a variable beats `rqx.yaml`. As with a flag, setting one makes `rqx scan` gate; a variable set to an empty string
-  counts as not set.
-- **`rqx check` takes the scan's options.** `--threads` (or `RQX_THREADS`),
+  `RQX_MIN_HEALTH`, `RQX_MIN_GRADE` and `RQX_FAIL_ON_INCOMPLETE` correspond to the flags
+  of the same names on `scan`, `check` and `comment`. A flag takes precedence over its
+  variable, and a variable takes precedence over `rqx.yaml`. As with a flag, setting
+  one makes `rqx scan` gate. A variable set to an empty string counts as not set.
+- **`rqx check` accepts the scan's options.** `--threads` (or `RQX_THREADS`),
   `--coverage` and `--profile` work as they do on `rqx scan`, and `rqx comment`
-  takes `--coverage` and `--profile`. `rqx check --max-findings N` shortens the
-  listing only: the gate counts every finding, so a cap never lets a branch through.
+  accepts `--coverage` and `--profile`. `rqx check --max-findings N` shortens the
+  listing only. The gate counts every finding, so a cap never lets a branch through.
 - **`/waive`, `/watch` and `/open` in the session.** `/waive src/a.ts:42 rule` is
-  `rqx waive`, and asks on the prompt for the reason when `--reason` is missing.
-  `/watch on` re-analyses files as they are saved and prints what moved, such as
+  `rqx waive`, and prompts for the reason when `--reason` is missing. `/watch on`
+  re-analyses files as they are saved and prints what changed, such as
   `src/a.ts  −1 finding · health 82 → 83`, with `watching` in the status line.
   `/open 2` or `/open src/a.ts:42` opens a finding in `$VISUAL` or `$EDITOR` at its
-  line, and the session comes back when the editor exits.
+  line, and the session resumes when the editor exits.
 - **`rqx waive FILE:LINE RULE --reason TEXT`.** Writes the `rqx-ignore` comment above
-  the line for you, with the file's indentation and comment style. `--until
-  YYYY-MM-DD` dates it, `--whole-file` waives the rule for the file, and `--dry-run`
+  the line, using the file's indentation and comment style. `--until YYYY-MM-DD` sets
+  an expiry date, `--whole-file` waives the rule for the whole file, and `--dry-run`
   prints the diff and changes nothing. An unknown rule is refused with the closest
-  real one, and so is a blank reason, since the scan would not honour either.
+  known rule, and a blank reason is refused, since the scan would not honour either.
 - **Clickable `file:line` in the terminal report.** On iTerm2, WezTerm, VS Code,
-  Ghostty, kitty, Windows Terminal and newer VTE terminals, the file and the line of each
-  finding open in your editor. `--hyperlinks auto|always|never` (or `RQX_HYPERLINKS`)
-  overrides the guess, and `RQX_EDITOR_URL`, such as
-  `vscode://file/{path}:{line}:{column}`, picks where a click goes. Nothing changes in a
-  pipe, a file or a report without colour.
+  Ghostty, kitty, Windows Terminal and newer VTE terminals, the file and line of each
+  finding open in the editor. `--hyperlinks auto|always|never` (or `RQX_HYPERLINKS`)
+  overrides the detection, and `RQX_EDITOR_URL`, such as
+  `vscode://file/{path}:{line}:{column}`, sets where a click goes. Output to a pipe, a
+  file or a report without colour is unchanged.
 - **The terminal report wraps its prose to the window.** The evidence, the reason, the
   fix and the cost of a finding break at word boundaries with the same hanging indent
-  they had, and never run wider than 100 columns. Only a report written to a terminal
-  is wrapped; a file or a pipe is byte for byte what it was.
+  as before, and never run wider than 100 columns. Only a report written to a terminal
+  is wrapped. A file or a pipe receives the same bytes as before.
 - **`-v` and `-vv`.** `-v` adds a short block to the end of the terminal report: the
-  configuration files that were in effect, cache hits and misses, and the time the run
-  took. It also lists every skipped file instead of the first ten. `-vv` also prints the
-  stage timings and every `git` command the scan ran, on stderr, so a document on
-  stdout stays parseable.
+  configuration files in effect, cache hits and misses, and the run time. It also lists
+  every skipped file instead of the first ten. `-vv` also prints the stage timings and
+  every `git` command the scan ran, on stderr, so a document on stdout stays
+  parseable.
 - **`--progress auto|bar|plain|none`** (or `RQX_PROGRESS`). `plain` prints a line to
   stderr every two seconds and when the scan moves to its next phase, such as
-  `rqx: scanning 1,204/3,456 files · 31 findings · 4.2s`, so a long CI job does not sit
-  silent. `auto` is the old behaviour with one change: it also stays quiet under CI when
-  stderr happens to be a terminal. `--no-progress` still works and means `none`.
-- **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs that
-  release instead of the newest, which also lets you step back to an older one.
+  `rqx: scanning 1,204/3,456 files · 31 findings · 4.2s`, so a long CI job does not stay
+  silent. `auto` keeps the previous behaviour with one change: it also stays quiet under
+  CI when stderr is a terminal. `--no-progress` still works and means `none`.
+- **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs the
+  given release instead of the newest, which also allows moving to an older release.
   `--dry-run` prints how the update would be done, the download URLs and the file it
   would replace, and changes nothing.
 - **Man pages.** `man rqx` and one page per command, such as `man rqx-scan`, are
   generated from the same parser as `docs/cli.md` and checked in under `docs/man`.
-  Release archives carry them in a `man/` directory beside the binary, which stays at
-  the archive root, so the installers and the action extract it as before.
-- **`--reporter html=PATH` writes a report you can open in a browser.** One file with
-  its own styles and no scripts or network requests, laid out like an rqx terminal
-  session: the owl and the gate's verdict at the top, a summary with the grade
-  distribution and findings by family and by rule drawn as block bars, then every file
-  worst grade first with each finding's syntax-highlighted code frame, why it matters
-  and the technique that fixes it, and waived findings listed separately. The page is
-  dark, like the CLI, and prints in a light theme. Like `json` and `sarif` it is a
-  document, so on stdout it cannot share the stream with another report.
-  `docs/ci.md` has the artifact upload for GitHub Actions and GitLab.
+  Release archives include them in a `man/` directory beside the binary, which stays at
+  the archive root, so the installers and the action extract the archive as before.
+- **`--reporter html=PATH` writes a report that opens in a browser.** The output is one
+  file with its own styles and no scripts or network requests, laid out like an rqx
+  terminal session: the owl and the gate's verdict at the top, a summary with the grade
+  distribution and the findings by family and by rule as block bars, then every file,
+  worst grade first, with each finding's syntax-highlighted code frame, its reason and
+  the technique that fixes it, and waived findings listed separately. The page is dark,
+  like the CLI, and prints in a light theme. Like `json` and `sarif` it is a document,
+  so on stdout it cannot share the stream with another report. `docs/ci.md` has the
+  artifact upload for GitHub Actions and GitLab.
 - **JavaScript is analysed.** `.js`, `.jsx`, `.mjs` and `.cjs` files are now read, and
   176 of the 185 rules apply to them. This changes what a scan reports: a repository
-  that contains JavaScript will show more findings after upgrading, and `rqx check` can
-  fail on code it never looked at before. JavaScript is read as TypeScript without its
+  that contains JavaScript shows more findings after upgrading, and `rqx check` can
+  fail on code it did not read before. JavaScript is read as TypeScript without its
   types, so the eight rules that read type syntax (`imprecise-type`, `flag-argument`,
   `boolean-not-a-question`, `catch-all-handler`, `primitive-obsession`,
   `abstract-nothing`, `speculative-generality` and `inappropriate-static`) and the
-  pattern advisories that decide from a declared type do not apply. TypeScript and
-  JavaScript share one module graph. An import written `./util.js` now finds `util.ts`,
-  which also fixes TypeScript projects that use that convention being told the module
-  is unused. To keep the old behaviour, name the languages you want with
-  `languages.enabled: [typescript, python, go, java, cpp]` in `rqx.yaml`, or skip the
-  files with `ignore.patterns: ["**/*.js"]`.
-- **`--timings` says what the scan did.** Beneath the stage times it now prints
+  pattern advisories that depend on a declared type do not apply. TypeScript and
+  JavaScript share one module graph. An import written `./util.js` now resolves to
+  `util.ts`, which also fixes TypeScript projects that use that convention being
+  reported as having an unused module. To keep the previous behaviour, list the
+  languages in `languages.enabled: [typescript, python, go, java, cpp]` in `rqx.yaml`,
+  or skip the files with `ignore.patterns: ["**/*.js"]`.
+- **`--timings` reports what the scan did.** Beneath the stage times it now prints
   counts: files read, cache hits and misses, walks of the tree, `git` processes and
   blames. A count is the same on every machine, so a warm run that stopped using the
-  cache shows up as a number rather than as noise in a timing. The stages gain cache
+  cache appears as a changed number and not as timing noise. The stages gain cache
   load, cache save and render.
-- **`rqx config validate [PATH] [--strict]`.** Resolves the config the way a scan does
-  and reports what is wrong with it, with the file, line and column. An error (bad
+- **`rqx config validate [PATH] [--strict]`.** Resolves the configuration the way a
+  scan does and reports its problems with the file, line and column. An error (bad
   YAML, an unknown key, a key the policy locks, a retired `RQX.toml`) exits 2. A
   warning (a rule name that is not in the catalogue, a threshold that only disabled
   rules read, an `overrides` entry with no `paths`) prints and exits 0, or 1 under
-  `--strict`. A scan still refuses the unknown names, so a warning here is a scan that
-  would stop. It prints `✓ config is valid (N files)` when nothing stops it.
+  `--strict`. A scan still refuses unknown names, so a warning here describes a scan
+  that would stop. It prints `✓ config is valid (N files)` when nothing stops it.
 - **`rqx config --json` and `rqx config validate --json`.** `rqx config --json` writes
   one line per setting (`key`, `value`, `from`, `default`) and a summary line listing
   the files read, so a script can assert on the settings a run will use.
   `config validate --json` writes one line per problem (`severity`, `file`, `line`,
-  `column`, `message`) and a summary whose `valid` is the answer the exit code gives.
-  Both formats are in `docs/json.md`.
-- **`--files-from FILE` on `scan` and `check`.** Names the files to look at, one path
-  per line, or separated by NUL when the input holds one, so `git diff -z --name-only`
-  works; `-` reads standard input. Paths are relative to the scanned directory or
-  absolute, and paths that are not files under it are said once on stderr and
-  ignored. On `scan` it narrows the report the way `--since` and `--changed` do, and
-  combines with them; the whole project is still analysed, so cross-file findings stay
-  right. On `check` the list replaces the git diff as the files under review (what
-  imports them is still added), so a review works in a clone with no history to diff
-  against. `--base` and `--files-from` cannot be given together.
+  `column`, `message`) and a summary whose `valid` field matches the exit code. Both
+  formats are in `docs/json.md`.
+- **`--files-from FILE` on `scan` and `check`.** Names the files to examine, one path
+  per line, or separated by NUL when the input contains one, so `git diff -z
+  --name-only` works. `-` reads standard input. Paths are relative to the scanned
+  directory or absolute, and a path that is not a file under it is reported once on
+  stderr and ignored. On `scan` it narrows the report the way `--since` and `--changed`
+  do, and combines with them. The whole project is still analysed, so cross-file
+  findings remain correct. On `check` the list replaces the git diff as the files under
+  review (files that import them are still added), so a review works in a clone with no
+  history to diff against. `--base` and `--files-from` cannot be given together.
 
 ### Changed
 
-- **`rqx scan` always prints the report.** In a terminal it used to open the
-  interactive interface, which silently dropped `--severity`, `--not-*`,
-  `--confidence`, `--fixable`, `--search`, `--since`, `--changed`, `--group-by`,
-  `--sort`, `--top`, `--detail` and `--context`. They now apply there as they do
+- **Rule explanations and fix hints were reworded.** The `why` text of all 185 rules,
+  the `metric` text of some, the fix hints of many and the pattern advisory text now
+  use a plainer, more technical wording. The new text appears in `rqx explain`,
+  `docs/rules`, the terminal report, `docs/rqx.schema.json` and the `why`, `metric` and
+  `fix_hint` fields of the JSON, SARIF, GitLab, JUnit and GitHub reports. Field names,
+  rule ids, severities, locations, counts and evidence text are unchanged, so finding
+  identities and GitLab fingerprints do not change.
+- **Help text and runtime messages use the YAML configuration syntax.** The `rqx query`
+  help and the notices about generated files, a disabled cache, an empty scan, a policy
+  lock and custom rules name keys as they are written in `rqx.yaml`, such as
+  `scan.skip_generated: false`, instead of the retired TOML form.
+- **`rqx scan` always prints the report.** In a terminal it previously opened the
+  interactive interface, which dropped `--severity`, `--not-*`, `--confidence`,
+  `--fixable`, `--search`, `--since`, `--changed`, `--group-by`, `--sort`, `--top`,
+  `--detail` and `--context` without a message. They now apply there as they do
   everywhere else. `--no-tui`, `--no-mouse` and `--motion` are still accepted.
 - **Behaviour change: bare `rqx` outside a terminal scans the working directory and
-  exits with the scan's code.** It used to print help and exit 0, which made a
-  misconfigured CI job look green. Piped, redirected, under CI, on a dumb terminal or
-  with `--no-tui`, `rqx` now means `rqx scan`, including the defaults `RQX_LEVEL` and
-  `RQX_THREADS` set. In a terminal it still opens the interface.
-- **`rqx update` downloads the release instead of building it.** A binary installed with
-  `install.sh`, `install.ps1` or from a release page is now replaced by the new
-  release's binary, which takes seconds rather than the minute a build did. The archive
-  is checked against the release's `SHA256SUMS` first; if the checksum is missing or
+  exits with the scan's code.** It previously printed help and exited 0, which made a
+  misconfigured CI job appear to pass. When piped, redirected, under CI, on a dumb
+  terminal or with `--no-tui`, `rqx` now means `rqx scan`, including the defaults set
+  by `RQX_LEVEL` and `RQX_THREADS`. In a terminal it still opens the interface.
+- **`rqx update` downloads the release instead of building it.** A binary installed
+  with `install.sh`, `install.ps1` or from a release page is now replaced by the new
+  release's binary, which takes seconds where a build took about a minute. The archive
+  is checked against the release's `SHA256SUMS` first. If the checksum is missing or
   does not match, nothing is installed and the exit code is 2. Installs under
   `~/.cargo/bin` (or `$CARGO_HOME/bin`) are still rebuilt with `cargo install`, and
-  installs marked `RQX_MANAGED` are still handed back to their package manager.
-  Downloading needs `curl` and `tar`, which Windows 10 and later include.
-
-### Changed
-
+  installs marked `RQX_MANAGED` are still handed to their package manager. Downloading
+  requires `curl` and `tar`, which Windows 10 and later include.
 - **Import resolution is faster.** Resolving an import now checks the files the scan
-  already walked instead of asking the filesystem about each candidate, and a
+  already walked instead of querying the filesystem for each candidate, and a
   specifier that many files in one directory write is resolved once. The graph and
   every finding are unchanged.
 - **Per-file analysis reads the syntax tree once for its hygiene checks.** Twelve checks
-  each walked the whole tree and built their own list of its nodes; they now share one
+  each walked the whole tree and built their own list of its nodes. They now share one
   list per file. Findings are unchanged.
 - **rqx uses the mimalloc allocator.** A scan allocates many small short-lived values
   on every worker thread, and mimalloc handles that with about 4% less processor time
   and about 3% more peak memory on a synthetic 4,400-file corpus. It is the `mimalloc`
-  cargo feature, on by default; `cargo install rqx --no-default-features` builds with
+  cargo feature, on by default. `cargo install rqx --no-default-features` builds with
   the system allocator.
 - **Bare `rqx` opens an inline session instead of the full-screen interface.** It
-  scans the working directory, prints a header and the worst findings into your
-  terminal's own scrollback, and keeps a prompt at the bottom. Nothing takes over the
-  screen or captures the mouse, so selecting and scrolling work as usual and what it
-  printed is still there after you exit. It needs a window of at least 50x14; a
-  smaller one, a pipe, CI or `--no-tui` still gets the plain scan. `--no-mouse` is
-  still accepted and does nothing.
-- **The terminal library is built with only what rqx draws.** `ratatui` came with
-  its calendar widget, its macros and a layout cache, none of which rqx uses, and the
-  `time` crates the calendar needs. Building rqx now compiles 9 fewer crates (255 to
-  246), and `termwiz` and `terminfo`, the one dependency under the WTFPL licence, no
-  longer appear in `Cargo.lock`.
-
-### Removed
-
-- **The full-screen interface.** The tabbed screens, the command palette and the
-  mouse handling are gone, replaced by the inline session that bare `rqx` opens,
-  which prints into your terminal's scrollback instead of taking the window over.
-  Nothing a pipeline reads changes: `rqx scan` and every other command printed their
-  reports without it. `--no-mouse` is still accepted, hidden from `--help`, and does
-  nothing.
-
-### Changed
-
-- **A scan starts reading files straight away.** Counting the files for the progress
-  bar used to finish before the first file was opened. It now runs beside the scan, so
+  scans the working directory, prints a header and the worst findings into the
+  terminal's own scrollback, and keeps a prompt at the bottom. The session does not take
+  over the screen or capture the mouse, so selecting and scrolling work as usual and the
+  printed output remains after exit. It needs a window of at least 50x14. A smaller
+  window, a pipe, CI or `--no-tui` gets the plain scan. `--no-mouse` is still accepted
+  and has no effect.
+- **The terminal library is built with only the features rqx uses.** `ratatui` was
+  built with its calendar widget, its macros and a layout cache, none of which rqx uses,
+  and with the `time` crates the calendar needs. Building rqx now compiles 9 fewer
+  crates (255 to 246), and `termwiz` and `terminfo`, the one dependency under the WTFPL
+  licence, no longer appear in `Cargo.lock`.
+- **A scan starts reading files immediately.** Counting the files for the progress bar
+  used to finish before the first file was opened. It now runs alongside the scan, so
   the bar shows no percentage until the count arrives and the scan no longer waits for
   it.
-
 - **The cache is under a quarter of the size.** It was one JSON document of 37 MB on a
-  4,440-file tree; each file's entry is now compressed on its own and the cache is
+  4,440-file tree. Each file's entry is now compressed separately, and the cache is
   8.4 MB, in `.rqx/cache.bin`. A cache from an earlier version is not read, so the
   first scan after upgrading is a cold one, and it removes the old `.rqx/cache.json`.
   A warm scan decodes only the entries it uses, on the threads that walk the tree,
   instead of reading the whole document before the first file is opened.
-
 - **A warm scan does not open unchanged files.** The cache now records each file's
   length and modification time, and a file that still has both is served from the
   cache without being read. On a 4,440-file tree a warm scan reads no files where it
-  read all of them. A file edited in the two seconds before the cache was written is
-  still read and compared by content, because an edit that keeps the length cannot be
-  told apart by its time. Baselines are applied to cached files without their text.
-  `scan.skip_generated` now counts as a setting for the cache, so changing it
-  rebuilds the cache.
-
-- **Blame no longer runs when `stale-todo` is off, and it does not wait in batches.**
-  `git blame` costs a process per file with a note in it; a project that has switched
-  `stale-todo` off was paying for it and discarding the answer. When it is on, the
-  blames now run eight at a time as each one finishes, instead of in groups of eight
-  where one slow file held the other seven.
-
+  previously read all of them. A file edited in the two seconds before the cache was
+  written is still read and compared by content, because an edit that keeps the length
+  cannot be distinguished by its time. Baselines are applied to cached files without
+  their text. `scan.skip_generated` now counts as a setting for the cache, so changing
+  it rebuilds the cache.
+- **Blame does not run when `stale-todo` is off, and it no longer waits in batches.**
+  `git blame` costs one process per file that contains a note. A project that had
+  switched `stale-todo` off still paid for it and discarded the result. When the rule is
+  on, blames now run eight at a time as each one finishes, instead of in groups of eight
+  where one slow file delayed the other seven.
 - **Each file's line index is built once.** Placing a project-wide finding rebuilt the
-  line index of its file every time, so a module with dozens of dead exports paid for
-  the same index dozens of times.
-
-- **The stages after the walk run side by side.** Duplicate detection, the import
-  graph and git history no longer wait for one another, so the 250 ms a scan spent
-  reading history on a 4,440-file tree now overlaps the import graph. Results are
-  unchanged and come out in the same order. With `--timings`, the stage times show
-  what the scan was waiting on at that point, so a stage that finished while an earlier
-  one was still running shows no time of its own.
-
+  line index of its file every time, so a module with dozens of dead exports built the
+  same index dozens of times.
+- **The stages after the walk run in parallel.** Duplicate detection, the import graph
+  and git history no longer wait for one another, so the 250 ms a scan spent reading
+  history on a 4,440-file tree now overlaps the import graph. Results are unchanged and
+  come out in the same order. With `--timings`, the stage times show what the scan was
+  waiting on at that point, so a stage that finished while an earlier one was still
+  running shows no time of its own.
 - **`--group-by rule|family|severity` opens with the same header as the default
   listing.** The directory, the file count, the finding count and the health score now
   head every arrangement instead of only the one grouped by file.
 
+### Removed
+
+- **The full-screen interface.** The tabbed screens, the command palette and the
+  mouse handling are removed, replaced by the inline session that bare `rqx` opens,
+  which prints into the terminal's scrollback instead of taking over the window.
+  Nothing a pipeline reads changes: `rqx scan` and every other command printed their
+  reports without it. `--no-mouse` is still accepted, hidden from `--help`, and has no
+  effect.
+
 ### Fixed
 
-- **The GitHub Action no longer fails when `config` is left blank.** It handed its
+- **The GitHub Action no longer fails when `config` is left blank.** It passed its
   inputs to rqx in `RQX_CONFIG` and `RQX_FAIL_ON`, so a blank `config` arrived as an
-  `RQX_CONFIG` pointing at nothing, and rqx refused to run. The inputs now travel under
+  `RQX_CONFIG` that pointed at nothing, and rqx refused to run. The inputs now use
   names rqx does not read.
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
-  It cleared the screen before every run whatever stdout was, so a watch redirected to
-  a log filled it with escape characters. It now clears only on a terminal, and
-  anywhere else prints a `── rescanned after HH:MM:SS ──` line between reports.
-
+  It cleared the screen before every run regardless of where stdout went, so a watch
+  redirected to a log filled it with escape characters. It now clears only on a
+  terminal, and otherwise prints a `── rescanned after HH:MM:SS ──` line between
+  reports.
 - **Windows reports no longer print `//?/C:/…` paths.** Scanning a subdirectory made
-  the SARIF, GitLab, HTML, Markdown and terminal reports name files with the
-  `\\?\` prefix Windows adds when it resolves a path, because the working directory
-  never carries it. Every path rqx resolves now drops that prefix first.
-
+  the SARIF, GitLab, HTML, Markdown and terminal reports name files with the `\\?\`
+  prefix that Windows adds when it resolves a path, because the working directory never
+  carries it. Every path rqx resolves now drops that prefix first.
 - **Finding paths use `/` on Windows.** A file in a nested directory was reported as
   `domain\billing\invoice.ts`, so an architecture glob such as `domain/**` never
-  matched it and the same scan printed different paths on Windows and elsewhere. Paths
-  in findings, reports, glob matches and the cache are now always written with `/`.
-
+  matched it, and the same scan printed different paths on Windows and elsewhere.
+  Paths in findings, reports, glob matches and the cache are now always written with
+  `/`.
 - **`overrides` apply however the files are reached.** An override's `paths` were
   compared with the path as the scan wrote it, so they missed when `rqx scan` was given
   a directory other than the one holding `rqx.yaml`, when it ran from inside the
-  subtree, and when the project was reached through a symlink (macOS temp directories
-  are one). The path is now resolved first and matched relative to the config file's
-  directory, which `docs/configuration.md` now states. `rqx verify` rebases the same
-  way for a relative scan root.
+  subtree, and when the project was reached through a symlink (macOS temporary
+  directories are symlinks). The path is now resolved first and matched relative to the
+  config file's directory, which `docs/configuration.md` now states. `rqx verify`
+  rebases the same way for a relative scan root.
 
 ## 0.2.1 — 2026-11-17
 

@@ -4,7 +4,7 @@
 
 ## `hotspot`
 
-the cost of what is wrong here is paid on every change, and this file changes more than any other, so it is where cleaning up buys the most
+the cost of the problems in this file is paid on every change, and this file changes more often than any other, so cleaning it up has the largest effect
 
 | | |
 |---|---|
@@ -25,11 +25,11 @@ Suggested fix: clean this one first: whatever is wrong here is paid for on every
 
 ## `single-author-file`
 
-nobody else has read it closely enough to change it, so whatever it knows leaves with the person who wrote it
+no one else has read the file closely enough to change it, so its knowledge is lost when its author leaves
 
 | | |
 |---|---|
-| Measures | a file with a history of its own and only one name in it |
+| Measures | a file with its own history and a single author |
 | Reported as | info, verified |
 | Reads | the syntax tree alone |
 | Fix | Extract Method |
@@ -46,7 +46,7 @@ Suggested fix: get a second reader onto it before the first one moves on
 
 ## `shotgun-surgery`
 
-one decision is spread across files that must be edited in lockstep, and nothing in the code says so, so the day someone edits four of the five is the day it breaks
+one decision is spread across files that must be edited together, and nothing in the code says so, so an edit to only some of them breaks the behaviour
 
 | | |
 |---|---|
@@ -57,7 +57,7 @@ one decision is spread across files that must be edited in lockstep, and nothing
 
 ## `divergent-change`
 
-this file is edited for many unrelated reasons, which is the observable signature of more than one responsibility living in it
+the file is edited for many unrelated reasons, which indicates that more than one responsibility lives in it
 
 | | |
 |---|---|
@@ -69,7 +69,7 @@ this file is edited for many unrelated reasons, which is the observable signatur
 
 ## `parallel-inheritance`
 
-every new case means a new subclass in both trees, and the day someone adds only one the two hierarchies quietly stop lining up
+each new case needs a new subclass in both hierarchies, and adding only one leaves the two hierarchies out of step
 
 | | |
 |---|---|
@@ -92,7 +92,7 @@ Suggested fix: fold what varies into one hierarchy, so adding a case means one s
 
 ## `stale-todo`
 
-a note nobody has touched in this long is not a plan, and every reader since has had to decide for themselves whether it still applies
+a note that has not been touched for this long is not a plan, and every reader since has had to decide whether it still applies
 
 | | |
 |---|---|
@@ -104,7 +104,7 @@ a note nobody has touched in this long is not a plan, and every reader since has
 
 ## `orphan-todo`
 
-there is no ticket to close and nobody to ask, so it stays until somebody deletes it without knowing what it was for
+there is no ticket to close and no one to ask, so it stays until someone deletes it without knowing what it was for
 
 | | |
 |---|---|
@@ -121,5 +121,5 @@ export function halved(total: number): number {
   return 7 / 2 + total;
 ```
 
-Suggested fix: put a ticket or a name on it, or do the thing and delete it
+Suggested fix: add a ticket or an owner, or do the work and delete the note
 

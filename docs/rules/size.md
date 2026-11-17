@@ -4,7 +4,7 @@
 
 ## `long-function`
 
-a body this long is doing several things, so a reader has to hold all of them at once to change any one of them
+a long body usually does several things, and a reader has to hold all of them in mind to change any one
 
 | | |
 |---|---|
@@ -25,7 +25,7 @@ Suggested fix: split `manySteps` into named steps, each one nameable without the
 
 ## `cognitive-complexity`
 
-every nested decision point multiplies the paths a reader has to trace, and untraced paths are where regressions survive review
+each nested decision point multiplies the paths a reader has to trace, and paths that go untraced are where regressions pass review
 
 | | |
 |---|---|
@@ -47,7 +47,7 @@ Suggested fix: lift the conditions in `manyPaths` into named predicates, then ex
 
 ## `deep-nesting`
 
-at this depth the conditions that led here are off-screen, so the preconditions of the innermost code are invisible where it matters
+at this depth the conditions that led to the innermost code are off screen, so its preconditions are hard to see
 
 | | |
 |---|---|
@@ -69,7 +69,7 @@ Suggested fix: invert the outer conditions of `deeplyNested` into early returns 
 
 ## `long-parameter-list`
 
-callers have to remember an order this long, and same-typed neighbours make a silent transposition possible at every call site
+callers have to remember a long argument order, and adjacent parameters of the same type allow an undetected transposition at every call site
 
 | | |
 |---|---|
@@ -90,7 +90,7 @@ Suggested fix: group the 5 parameters of `tooManyParameters` into one options ob
 
 ## `large-class`
 
-a class this size has more than one reason to change, so unrelated work lands in the same file and the same merge conflicts
+a class this size usually has more than one reason to change, so unrelated changes land in the same file and produce the same merge conflicts
 
 | | |
 |---|---|
@@ -112,7 +112,7 @@ Suggested fix: extract the fields of `Overgrown` that only a subset of its 3 met
 
 ## `data-clump`
 
-these values already travel together everywhere, so they are a concept the code has not named yet, and every new use has to rediscover it
+these values are passed together in several signatures, which indicates a concept the code has not named, and each new use has to rediscover it
 
 | | |
 |---|---|
@@ -134,7 +134,7 @@ Suggested fix: give (channel, locale, userId) a name and pass that object instea
 
 ## `primitive-obsession`
 
-a raw string or number carries no rules of its own, so every place that uses it re-implements the same validation, and one of them gets it wrong
+a raw string or number carries no rules of its own, so each place that uses it repeats the same validation and one of them can be wrong
 
 | | |
 |---|---|
@@ -159,7 +159,7 @@ Suggested fix: give `Channel` a type that owns its rules, so validation lives wi
 
 ## `obscured-expression`
 
-nothing in the expression is named, so a reader has to re-derive every intermediate step the author already worked out
+no part of the expression is named, so a reader has to re-derive each intermediate step the author already worked out
 
 | | |
 |---|---|
@@ -177,11 +177,11 @@ export function score(a: number, b: number, c: number, d: number): number {
 }
 ```
 
-Suggested fix: lift the steps into named locals, so the expression reads as its own summary
+Suggested fix: extract the steps into named locals, so each step has a name
 
 ## `many-exits`
 
-a reader has to find every way out before they can say what the function answers, and the ones written deep in the body are the easy ones to miss
+a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss
 
 | | |
 |---|---|
@@ -203,7 +203,7 @@ Suggested fix: give the function one exit, or extract the branches that end earl
 
 ## `wide-switch`
 
-past a certain width the arms stop being a table a reader scans and become a list they have to search
+past a certain width the arms are no longer a table a reader scans, and become a list the reader has to search
 
 | | |
 |---|---|
@@ -229,11 +229,11 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-Suggested fix: give the thing being switched on a type, and let it answer for itself
+Suggested fix: give the value being switched on a type that provides the behaviour for each case
 
 ## `callback-nesting`
 
-the order the steps run in is the opposite of the order they are written in, so following the sequence means reading inside out
+the steps run in the reverse of the order in which they are written, so following the sequence means reading from the inside out
 
 | | |
 |---|---|
@@ -257,7 +257,7 @@ Suggested fix: name the inner steps and call them, so the order they run in is t
 
 ## `cyclomatic-complexity`
 
-it is the number of tests it takes to cover the body, and past a point nobody writes them, so most of the paths have never run
+it is the number of tests needed to cover the body, and past a point those tests are not written, so most paths have never run
 
 | | |
 |---|---|
@@ -275,11 +275,11 @@ export function manyPaths(kind: string, rows: number[]): number {
   if (kind === "a") return 1;
 ```
 
-Suggested fix: split `manyPaths` so each part has a number of paths somebody would write tests for
+Suggested fix: split `manyPaths` so each part has a number of paths that tests can cover
 
 ## `many-results`
 
-the caller has to know the order to read them, and nothing at either end says what any of them is
+the caller has to know the order to read them, and nothing at either end says what each one is
 
 | | |
 |---|---|
@@ -299,11 +299,11 @@ export function spreadOut(rows: number[]): [number, number, number, number] {
 }
 ```
 
-Suggested fix: give them a name apiece by handing back one thing that holds them
+Suggested fix: return one object that holds the values, so each has a name
 
 ## `many-locals`
 
-every one of them is a thing the reader has to keep in mind to the end of the body, and there is a number past which nobody does
+each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot
 
 | | |
 |---|---|
@@ -321,11 +321,11 @@ export function crowdedScope(seed: number): number {
   const c1 = seed; const c2 = seed; const c3 = seed; const c4 = seed;
 ```
 
-Suggested fix: pull the run that uses one group of them into a function of its own
+Suggested fix: extract the run that uses one group of them into its own function
 
 ## `wide-try`
 
-the handler is written for one of them and catches all of them, so a failure from any other line arrives somewhere that cannot answer it
+the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it
 
 | | |
 |---|---|
@@ -353,7 +353,7 @@ Suggested fix: guard the line that can fail, and leave the rest outside
 
 ## `oversized-module`
 
-a file this long is several files that have not been separated yet, and every one of them is edited, reviewed and merged as though it were one
+a file this long is several files that have not been separated, and all of them are edited, reviewed and merged as one
 
 | | |
 |---|---|

@@ -56,7 +56,7 @@ struct Checks {
     ratchet: bool,
 }
 
-/// `fail_on = "never"` says no finding fails the run by its severity. It does not
+/// `fail_on: never` says no finding fails the run by its severity. It does not
 /// say the health floor, the grade floor, the ratchet or half applied patterns are
 /// off; each has its own setting, and a gate that goes quiet because an unrelated one
 /// was relaxed checks nothing.

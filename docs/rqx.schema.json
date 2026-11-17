@@ -465,7 +465,7 @@
       "properties": {
         "abstract-nothing": {
           "additionalProperties": false,
-          "description": "Settings for `abstract-nothing`. the word says a subclass has work to do and there is none, so the only thing it stops is somebody constructing it",
+          "description": "Settings for `abstract-nothing`. the `abstract` keyword implies that subclasses have work to do, but there is none, so the only effect is to prevent construction",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -511,7 +511,7 @@
         },
         "accumulate-by-copy": {
           "additionalProperties": false,
-          "description": "Settings for `accumulate-by-copy`. each step copies everything gathered so far, so building a result of n items touches half of n squared of them",
+          "description": "Settings for `accumulate-by-copy`. each step copies everything gathered so far, so building a result of n items touches about half of n squared items",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -557,7 +557,7 @@
         },
         "alternative-classes": {
           "additionalProperties": false,
-          "description": "Settings for `alternative-classes`. callers have to learn both interfaces to do one job, and a fix applied to one of them silently leaves the other wrong",
+          "description": "Settings for `alternative-classes`. callers have to learn both interfaces to do one job, and a fix applied to one class leaves the other unfixed",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -603,7 +603,7 @@
         },
         "ambient-dependency": {
           "additionalProperties": false,
-          "description": "Settings for `ambient-dependency`. the answer depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
+          "description": "Settings for `ambient-dependency`. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -649,7 +649,7 @@
         },
         "ambiguous-precedence": {
           "additionalProperties": false,
-          "description": "Settings for `ambiguous-precedence`. the language knows which one binds tighter and the reader has to remember, so the parentheses cost nothing and settle it",
+          "description": "Settings for `ambiguous-precedence`. the language defines which operator binds tighter but the reader has to remember it, and parentheses remove the question at no cost",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -695,7 +695,7 @@
         },
         "apology-comment": {
           "additionalProperties": false,
-          "description": "Settings for `apology-comment`. somebody already knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would let it be undone",
+          "description": "Settings for `apology-comment`. someone knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would allow it to be reversed",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -741,7 +741,7 @@
         },
         "assertionless-test": {
           "additionalProperties": false,
-          "description": "Settings for `assertionless-test`. it passes as long as nothing throws, so it reports success for behaviour it never actually checked",
+          "description": "Settings for `assertionless-test`. it passes as long as nothing throws, so it reports success for behaviour it never checked",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -787,7 +787,7 @@
         },
         "assign-once-field": {
           "additionalProperties": false,
-          "description": "Settings for `assign-once-field`. nothing after construction moves it, so every reader has to check that for themselves before they can rely on it",
+          "description": "Settings for `assign-once-field`. nothing after construction changes it, and every reader has to verify that for themselves before relying on it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -833,7 +833,7 @@
         },
         "assignment-in-condition": {
           "additionalProperties": false,
-          "description": "Settings for `assignment-in-condition`. it reads as a comparison and behaves as a write, which is why it is the typo that survives review",
+          "description": "Settings for `assignment-in-condition`. it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -879,7 +879,7 @@
         },
         "await-in-loop": {
           "additionalProperties": false,
-          "description": "Settings for `await-in-loop`. each pass waits for the one before it to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together",
+          "description": "Settings for `await-in-loop`. each pass waits for the previous one to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -925,7 +925,7 @@
         },
         "banner-comment": {
           "additionalProperties": false,
-          "description": "Settings for `banner-comment`. a table of contents for a file short enough not to need one, and it goes stale the moment a section moves",
+          "description": "Settings for `banner-comment`. it is a table of contents in a file short enough not to need one, and it becomes outdated when a section moves",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -971,7 +971,7 @@
         },
         "barrel-module": {
           "additionalProperties": false,
-          "description": "Settings for `barrel-module`. it adds a name to every path through the project and answers no question of its own, while hiding from every tool which file a name really came from",
+          "description": "Settings for `barrel-module`. it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1017,7 +1017,7 @@
         },
         "base-depends-on-derived": {
           "additionalProperties": false,
-          "description": "Settings for `base-depends-on-derived`. the base cannot be deployed, tested or understood without its children, which is the entire benefit of having a base class given away",
+          "description": "Settings for `base-depends-on-derived`. the base cannot be deployed, tested or understood without its subclasses, which removes the benefit of having a base class",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1063,7 +1063,7 @@
         },
         "blanket-try": {
           "additionalProperties": false,
-          "description": "Settings for `blanket-try`. the handler is a net under the whole body rather than an answer to one failure, so a mistake anywhere inside arrives as the failure it was written for",
+          "description": "Settings for `blanket-try`. the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1109,7 +1109,7 @@
         },
         "blocking-call-in-async": {
           "additionalProperties": false,
-          "description": "Settings for `blocking-call-in-async`. an async function promises not to hold the thread and this call holds it, so everything else waiting on that loop queues behind one file read",
+          "description": "Settings for `blocking-call-in-async`. an async function is expected not to hold the thread and this call holds it, so everything else waiting on that event loop queues behind one blocking call",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1155,7 +1155,7 @@
         },
         "boolean-from-branch": {
           "additionalProperties": false,
-          "description": "Settings for `boolean-from-branch`. the condition is already the answer, and branching on it to restate it is four lines saying what one says",
+          "description": "Settings for `boolean-from-branch`. the condition is already the result, so branching on it to produce the same boolean takes four lines to say what one says",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1201,7 +1201,7 @@
         },
         "boolean-literal-argument": {
           "additionalProperties": false,
-          "description": "Settings for `boolean-literal-argument`. nothing at the call site says what it turns on, so the reader has to open the callee to find out what they just asked for",
+          "description": "Settings for `boolean-literal-argument`. nothing at the call site says what the argument turns on, so the reader has to open the callee to find out",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1247,7 +1247,7 @@
         },
         "boolean-not-a-question": {
           "additionalProperties": false,
-          "description": "Settings for `boolean-not-a-question`. a reader has to open it to learn which way round the answer runs, and a name that asks the question says it in one word",
+          "description": "Settings for `boolean-not-a-question`. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1293,7 +1293,7 @@
         },
         "boundary-arithmetic": {
           "additionalProperties": false,
-          "description": "Settings for `boundary-arithmetic`. every place the boundary is recomputed is a place it can be recomputed wrongly, and off-by-one errors are found by readers rather than types",
+          "description": "Settings for `boundary-arithmetic`. each place that recomputes the boundary can compute it wrongly, and off-by-one errors are found by readers, not by types",
           "properties": {
             "boundary_repeats": {
               "default": 3,
@@ -1346,7 +1346,7 @@
         },
         "branching-recursion": {
           "additionalProperties": false,
-          "description": "Settings for `branching-recursion`. two calls per level is an exponential number of calls, most of them recomputing an answer some other branch already found",
+          "description": "Settings for `branching-recursion`. two calls per level is an exponential number of calls, and most of them recompute an answer another branch already found",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1392,7 +1392,7 @@
         },
         "branching-test": {
           "additionalProperties": false,
-          "description": "Settings for `branching-test`. a test that decides has paths of its own, and nothing says which one ran, so a green result no longer means the case was checked",
+          "description": "Settings for `branching-test`. a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1438,7 +1438,7 @@
         },
         "buried-configuration": {
           "additionalProperties": false,
-          "description": "Settings for `buried-configuration`. changing where the program points means finding this line first, and nothing about its position suggests it is a setting",
+          "description": "Settings for `buried-configuration`. changing the program's target requires finding this line first, and nothing about its position indicates that it is a setting",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1491,7 +1491,7 @@
         },
         "callback-nesting": {
           "additionalProperties": false,
-          "description": "Settings for `callback-nesting`. the order the steps run in is the opposite of the order they are written in, so following the sequence means reading inside out",
+          "description": "Settings for `callback-nesting`. the steps run in the reverse of the order in which they are written, so following the sequence means reading from the inside out",
           "properties": {
             "callback_depth": {
               "default": 3,
@@ -1544,7 +1544,7 @@
         },
         "catch-all-handler": {
           "additionalProperties": false,
-          "description": "Settings for `catch-all-handler`. it takes the failures it was written for and every other one too, including the ones that mean the program is already wrong",
+          "description": "Settings for `catch-all-handler`. it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1599,7 +1599,7 @@
         },
         "chat-residue": {
           "additionalProperties": false,
-          "description": "Settings for `chat-residue`. it is the residue of a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on",
+          "description": "Settings for `chat-residue`. it is left over from a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1645,7 +1645,7 @@
         },
         "circular-dependency": {
           "additionalProperties": false,
-          "description": "Settings for `circular-dependency`. no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that makes it work today is accidental",
+          "description": "Settings for `circular-dependency`. no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that works today is accidental",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1691,7 +1691,7 @@
         },
         "closure-over-loop-variable": {
           "additionalProperties": false,
-          "description": "Settings for `closure-over-loop-variable`. whatever runs it later reads whichever value the loop stopped on, so every one of them sees the last element and none sees its own",
+          "description": "Settings for `closure-over-loop-variable`. the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1737,7 +1737,7 @@
         },
         "cognitive-complexity": {
           "additionalProperties": false,
-          "description": "Settings for `cognitive-complexity`. every nested decision point multiplies the paths a reader has to trace, and untraced paths are where regressions survive review",
+          "description": "Settings for `cognitive-complexity`. each nested decision point multiplies the paths a reader has to trace, and paths that go untraced are where regressions pass review",
           "properties": {
             "cognitive_complexity": {
               "default": 15,
@@ -1790,7 +1790,7 @@
         },
         "collapsible-if": {
           "additionalProperties": false,
-          "description": "Settings for `collapsible-if`. it is one condition written as two, so a reader holds a branch that never branches",
+          "description": "Settings for `collapsible-if`. this is one condition written as two, so a reader has to follow a branch that never branches",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1836,7 +1836,7 @@
         },
         "comment-per-line": {
           "additionalProperties": false,
-          "description": "Settings for `comment-per-line`. the code is being read aloud rather than explained, so the reader now has two things to keep in step and only one of them is checked",
+          "description": "Settings for `comment-per-line`. the code is being read aloud and not explained, so the reader has two things to keep in step and only one of them is checked",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -1889,7 +1889,7 @@
         },
         "commented-out-code": {
           "additionalProperties": false,
-          "description": "Settings for `commented-out-code`. nobody dares delete it because nobody knows if it matters, so it sits there rotting while version control already remembers it perfectly",
+          "description": "Settings for `commented-out-code`. readers cannot tell whether the code still matters, so it is left in place, and version control already preserves it",
           "properties": {
             "commented_code_lines": {
               "default": 2,
@@ -1942,7 +1942,7 @@
         },
         "complex-condition": {
           "additionalProperties": false,
-          "description": "Settings for `complex-condition`. nobody can hold this many clauses at once, so the reader takes the branch on trust and the bug in it survives every review",
+          "description": "Settings for `complex-condition`. readers cannot hold this many clauses at once, so the branch is taken on trust and a bug in it survives review",
           "properties": {
             "condition_operands": {
               "default": 3,
@@ -1995,7 +1995,7 @@
         },
         "cross-language-duplicate": {
           "additionalProperties": false,
-          "description": "Settings for `cross-language-duplicate`. the same rule is written twice in two languages, so the day it changes it changes in one of them and the two quietly disagree",
+          "description": "Settings for `cross-language-duplicate`. the same rule is written twice in two languages, so a change is likely to be made in only one and the two diverge",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2041,7 +2041,7 @@
         },
         "cyclomatic-complexity": {
           "additionalProperties": false,
-          "description": "Settings for `cyclomatic-complexity`. it is the number of tests it takes to cover the body, and past a point nobody writes them, so most of the paths have never run",
+          "description": "Settings for `cyclomatic-complexity`. it is the number of tests needed to cover the body, and past a point those tests are not written, so most paths have never run",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2094,7 +2094,7 @@
         },
         "data-class": {
           "additionalProperties": false,
-          "description": "Settings for `data-class`. the behaviour that belongs with this data lives somewhere else, so the rules about the data are enforced everywhere except where the data is",
+          "description": "Settings for `data-class`. the behaviour that belongs with this data is implemented elsewhere, so the rules about the data are enforced everywhere except where the data is defined",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2140,7 +2140,7 @@
         },
         "data-clump": {
           "additionalProperties": false,
-          "description": "Settings for `data-clump`. these values already travel together everywhere, so they are a concept the code has not named yet, and every new use has to rediscover it",
+          "description": "Settings for `data-clump`. these values are passed together in several signatures, which indicates a concept the code has not named, and each new use has to rediscover it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2200,7 +2200,7 @@
         },
         "dead-store": {
           "additionalProperties": false,
-          "description": "Settings for `dead-store`. the first write did nothing, so either a line meant to read it is missing or the line that wrote it is",
+          "description": "Settings for `dead-store`. the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2246,7 +2246,7 @@
         },
         "debug-output": {
           "additionalProperties": false,
-          "description": "Settings for `debug-output`. it was written to be read once by the person debugging, and it is still printing for everybody else",
+          "description": "Settings for `debug-output`. it was written to be read once by the person debugging, and it still prints for everyone else",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2292,7 +2292,7 @@
         },
         "debug-output-in-test": {
           "additionalProperties": false,
-          "description": "Settings for `debug-output-in-test`. it was how somebody watched this test once, and it now prints on every run for people who are not watching",
+          "description": "Settings for `debug-output-in-test`. it was added to observe the test once, and it now prints on every run",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2338,7 +2338,7 @@
         },
         "deep-inheritance": {
           "additionalProperties": false,
-          "description": "Settings for `deep-inheritance`. answering what one method does means reading every type above it, and a change to any of them reaches every type below",
+          "description": "Settings for `deep-inheritance`. answering what one method does requires reading every type above it, and a change to any of them reaches every type below",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2391,7 +2391,7 @@
         },
         "deep-loop-nesting": {
           "additionalProperties": false,
-          "description": "Settings for `deep-loop-nesting`. each level multiplies the passes of the one inside it, so the innermost body runs a number of times no test on small data will ever show",
+          "description": "Settings for `deep-loop-nesting`. each level multiplies the passes of the one inside it, so the innermost body runs a number of times that tests on small data do not show",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2444,7 +2444,7 @@
         },
         "deep-nesting": {
           "additionalProperties": false,
-          "description": "Settings for `deep-nesting`. at this depth the conditions that led here are off-screen, so the preconditions of the innermost code are invisible where it matters",
+          "description": "Settings for `deep-nesting`. at this depth the conditions that led to the innermost code are off screen, so its preconditions are hard to see",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2497,7 +2497,7 @@
         },
         "deep-relative-import": {
           "additionalProperties": false,
-          "description": "Settings for `deep-relative-import`. a path that climbs this far is reaching across the shape of the project rather than through it, and it breaks the moment either end is moved",
+          "description": "Settings for `deep-relative-import`. a path that climbs this far reaches across the project's structure instead of through it, and it breaks when either end moves",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2559,7 +2559,7 @@
         },
         "discarded-error": {
           "additionalProperties": false,
-          "description": "Settings for `discarded-error`. the author saw the answer and decided not to look at it, and nothing records what happens when the call fails",
+          "description": "Settings for `discarded-error`. the code receives the result and ignores it, and nothing records what happens when the call fails",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2605,7 +2605,7 @@
         },
         "discarded-expression": {
           "additionalProperties": false,
-          "description": "Settings for `discarded-expression`. either the line was meant to do something and does not, or it does nothing and should not be here, and a reader cannot tell which",
+          "description": "Settings for `discarded-expression`. either the line was meant to do something and does not, or it does nothing and should be removed, and a reader cannot tell which",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2651,7 +2651,7 @@
         },
         "distant-declaration": {
           "additionalProperties": false,
-          "description": "Settings for `distant-declaration`. everything in between has to be read while still holding this name in mind, and the reader has no way to know it will matter",
+          "description": "Settings for `distant-declaration`. a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2704,7 +2704,7 @@
         },
         "divergent-change": {
           "additionalProperties": false,
-          "description": "Settings for `divergent-change`. this file is edited for many unrelated reasons, which is the observable signature of more than one responsibility living in it",
+          "description": "Settings for `divergent-change`. the file is edited for many unrelated reasons, which indicates that more than one responsibility lives in it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2750,7 +2750,7 @@
         },
         "docstring-restates-signature": {
           "additionalProperties": false,
-          "description": "Settings for `docstring-restates-signature`. it is the signature written twice, so it costs a reader a second pass and goes wrong the first time the signature changes",
+          "description": "Settings for `docstring-restates-signature`. it repeats the signature, so it costs a reader a second pass and becomes wrong when the signature changes",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2796,7 +2796,7 @@
         },
         "dropped-promise": {
           "additionalProperties": false,
-          "description": "Settings for `dropped-promise`. nothing waits for it and nothing hears if it fails, so the failure arrives somewhere with no idea what asked for it",
+          "description": "Settings for `dropped-promise`. nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2842,7 +2842,7 @@
         },
         "duplicate-assertion": {
           "additionalProperties": false,
-          "description": "Settings for `duplicate-assertion`. the second one can never fail while the first passes, so it costs a reader a check they have already read",
+          "description": "Settings for `duplicate-assertion`. the second assertion cannot fail while the first passes, so it costs the reader a check they have already read",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2888,7 +2888,7 @@
         },
         "duplicate-code": {
           "additionalProperties": false,
-          "description": "Settings for `duplicate-code`. a fix applied to one copy leaves the others wrong, and nothing in the code points from the copy you edited to the ones you did not",
+          "description": "Settings for `duplicate-code`. a fix applied to one copy leaves the others unfixed, and nothing in the code links the edited copy to the others",
           "properties": {
             "clone_min_nodes": {
               "default": 12,
@@ -2948,7 +2948,7 @@
         },
         "duplicate-condition": {
           "additionalProperties": false,
-          "description": "Settings for `duplicate-condition`. the second arm cannot be reached, so whatever it was written to do has never run and nobody has noticed",
+          "description": "Settings for `duplicate-condition`. the second branch cannot be reached, so whatever it was written to do has never run",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -2994,7 +2994,7 @@
         },
         "duplicate-function": {
           "additionalProperties": false,
-          "description": "Settings for `duplicate-function`. one of them was copied from the other, and the next change to either has to find both or leave them disagreeing",
+          "description": "Settings for `duplicate-function`. one was copied from the other, and the next change to either has to find both or leave them inconsistent",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3040,7 +3040,7 @@
         },
         "duplicate-import": {
           "additionalProperties": false,
-          "description": "Settings for `duplicate-import`. two statements bringing in one module means a reader has to check both to know what this file takes from it, and a merge put at least one there without anybody looking",
+          "description": "Settings for `duplicate-import`. two statements importing one module mean a reader has to check both to know what the file takes from it, and a merge can introduce one without anyone reviewing it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3086,7 +3086,7 @@
         },
         "eager-test": {
           "additionalProperties": false,
-          "description": "Settings for `eager-test`. it fails for any of them and the run says only that the test failed, so the name it prints does not narrow anything down",
+          "description": "Settings for `eager-test`. it fails if any of the assertions fail and the run reports only that the test failed, so the test name does not identify the cause",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3132,7 +3132,7 @@
         },
         "emoji-in-source": {
           "additionalProperties": false,
-          "description": "Settings for `emoji-in-source`. it survives grep, diffs and terminals badly, and it is decoration in a place where everything else has to earn its width",
+          "description": "Settings for `emoji-in-source`. emoji display inconsistently in grep results, diffs and terminals, and they add decoration to source code",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3178,7 +3178,7 @@
         },
         "empty-block": {
           "additionalProperties": false,
-          "description": "Settings for `empty-block`. a decision was written and then nothing was done about it, which reads as unfinished work or as a condition somebody inverted by accident",
+          "description": "Settings for `empty-block`. a decision was written and no action was taken, which reads as unfinished work or an accidentally inverted condition",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3224,7 +3224,7 @@
         },
         "empty-catch": {
           "additionalProperties": false,
-          "description": "Settings for `empty-catch`. the failure is swallowed silently, so the first sign of it is wrong data somewhere far away with nothing in the logs to connect the two",
+          "description": "Settings for `empty-catch`. the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3270,7 +3270,7 @@
         },
         "empty-method": {
           "additionalProperties": false,
-          "description": "Settings for `empty-method`. a caller that reaches this gets silence and no way to tell it apart from work that succeeded, and the next reader cannot tell whether it is a stub or a decision",
+          "description": "Settings for `empty-method`. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3316,7 +3316,7 @@
         },
         "empty-subclass": {
           "additionalProperties": false,
-          "description": "Settings for `empty-subclass`. it is a second name for the thing it came from, and a reader has to open it to find that out",
+          "description": "Settings for `empty-subclass`. it is a second name for the class it extends, and a reader has to open it to find that out",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3362,7 +3362,7 @@
         },
         "empty-test": {
           "additionalProperties": false,
-          "description": "Settings for `empty-test`. it passes on every run and holds the code to nothing, while counting towards whatever number the team watches",
+          "description": "Settings for `empty-test`. it passes on every run and checks nothing, while counting towards the test total",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3417,7 +3417,7 @@
         },
         "example-value": {
           "additionalProperties": false,
-          "description": "Settings for `example-value`. a stand-in that reads as real is the kind of value that ships, and the first person to notice is whoever it was sent to",
+          "description": "Settings for `example-value`. a placeholder that looks real is a value that can ship, and the first person to notice is whoever receives it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3463,7 +3463,7 @@
         },
         "exit-from-finally": {
           "additionalProperties": false,
-          "description": "Settings for `exit-from-finally`. it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing anywhere records that it happened",
+          "description": "Settings for `exit-from-finally`. it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3509,7 +3509,7 @@
         },
         "explanation-longer-than-code": {
           "additionalProperties": false,
-          "description": "Settings for `explanation-longer-than-code`. a body that needs more prose than code is a body whose names are not carrying it, and the prose is what goes stale",
+          "description": "Settings for `explanation-longer-than-code`. a body that needs more prose than code has names that do not carry its meaning, and the prose is what becomes outdated",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3562,7 +3562,7 @@
         },
         "feature-envy": {
           "additionalProperties": false,
-          "description": "Settings for `feature-envy`. the method wants to live on the other class, and while it does not, both classes have to stay in step for it to keep working",
+          "description": "Settings for `feature-envy`. the method belongs on the other class, and while it stays here both classes have to change together to keep it working",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3615,7 +3615,7 @@
         },
         "flag-argument": {
           "additionalProperties": false,
-          "description": "Settings for `flag-argument`. the function does two things and the caller picks which, so `f(x, true)` tells a reader nothing about what will happen",
+          "description": "Settings for `flag-argument`. the function does two things and the caller selects which, so `f(x, true)` tells a reader nothing about what will happen",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3661,7 +3661,7 @@
         },
         "float-equality": {
           "additionalProperties": false,
-          "description": "Settings for `float-equality`. a binary float almost never lands on the decimal a person wrote, so the branch that depends on it is decided by rounding rather than by the value",
+          "description": "Settings for `float-equality`. a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3707,7 +3707,7 @@
         },
         "focused-test": {
           "additionalProperties": false,
-          "description": "Settings for `focused-test`. this silently disables every other test in the file, so the suite goes green while almost nothing ran",
+          "description": "Settings for `focused-test`. this silently disables every other test in the file, so the suite passes while almost nothing runs",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3753,7 +3753,7 @@
         },
         "forbidden-import": {
           "additionalProperties": false,
-          "description": "Settings for `forbidden-import`. the boundary was written down and this import crosses it, which is the one kind of architectural drift a reader cannot infer from the code",
+          "description": "Settings for `forbidden-import`. the project declared this boundary and the import crosses it, which is a kind of architectural drift a reader cannot infer from the code",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3799,7 +3799,7 @@
         },
         "generic-throw": {
           "additionalProperties": false,
-          "description": "Settings for `generic-throw`. the only way to react to it is to catch everything, so a caller that wanted to handle this one failure cannot",
+          "description": "Settings for `generic-throw`. the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3845,7 +3845,7 @@
         },
         "global-accessor": {
           "additionalProperties": false,
-          "description": "Settings for `global-accessor`. it is the shared value wearing a function's clothes, and every caller is still reading the same one thing",
+          "description": "Settings for `global-accessor`. it is a shared value behind a function call, and every caller still reads the same single instance",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3891,7 +3891,7 @@
         },
         "guard-cascade": {
           "additionalProperties": false,
-          "description": "Settings for `guard-cascade`. the body has not started and the reader has read several decisions, none of which says anything about what the function is for",
+          "description": "Settings for `guard-cascade`. the body has not started and the reader has already read several decisions, none of which says what the function is for",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3944,7 +3944,7 @@
         },
         "hand-rolled-throws": {
           "additionalProperties": false,
-          "description": "Settings for `hand-rolled-throws`. when the call stops failing the handler never runs and the test still passes, which is the one outcome it was written to catch",
+          "description": "Settings for `hand-rolled-throws`. when the call stops failing, the handler never runs and the test still passes, which is the outcome the test was written to catch",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -3990,7 +3990,7 @@
         },
         "hotspot": {
           "additionalProperties": false,
-          "description": "Settings for `hotspot`. the cost of what is wrong here is paid on every change, and this file changes more than any other, so it is where cleaning up buys the most",
+          "description": "Settings for `hotspot`. the cost of the problems in this file is paid on every change, and this file changes more often than any other, so cleaning it up has the largest effect",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4043,7 +4043,7 @@
         },
         "hungarian-notation": {
           "additionalProperties": false,
-          "description": "Settings for `hungarian-notation`. the type is already in the declaration and checked by the compiler, so the prefix is a second copy that nothing keeps honest",
+          "description": "Settings for `hungarian-notation`. the type is already in the declaration and checked by the compiler, so the prefix is a second copy that nothing keeps accurate",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4089,7 +4089,7 @@
         },
         "identical-branches": {
           "additionalProperties": false,
-          "description": "Settings for `identical-branches`. the decision changes nothing, so either it is not a decision or one arm was meant to differ and does not",
+          "description": "Settings for `identical-branches`. the decision changes nothing, so either it is not a decision or one branch was meant to differ",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4135,7 +4135,7 @@
         },
         "import-time-work": {
           "additionalProperties": false,
-          "description": "Settings for `import-time-work`. it happens before any caller has asked for anything, in whatever order the imports happen to resolve, and nothing can stop it",
+          "description": "Settings for `import-time-work`. it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4181,7 +4181,7 @@
         },
         "imprecise-type": {
           "additionalProperties": false,
-          "description": "Settings for `imprecise-type`. each of these tells the checker to stop checking, so the guarantee the rest of the file is written against quietly stops holding here",
+          "description": "Settings for `imprecise-type`. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4227,7 +4227,7 @@
         },
         "inappropriate-intimacy": {
           "additionalProperties": false,
-          "description": "Settings for `inappropriate-intimacy`. neither class can be read, tested or moved without the other coming with it, so the pair behaves as one class written in two places",
+          "description": "Settings for `inappropriate-intimacy`. neither class can be read, tested or moved without the other, so the pair behaves as one class written in two places",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4273,7 +4273,7 @@
         },
         "inappropriate-static": {
           "additionalProperties": false,
-          "description": "Settings for `inappropriate-static`. a static can never be overridden, so behaviour that clearly belongs to the instance is frozen for every subclass and every test that wants to fake it",
+          "description": "Settings for `inappropriate-static`. a static member cannot be overridden, so behaviour that belongs to the instance cannot vary in subclasses or be replaced by a test double",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4319,7 +4319,7 @@
         },
         "inconsistent-vocabulary": {
           "additionalProperties": false,
-          "description": "Settings for `inconsistent-vocabulary`. a reader who has met `fetchUser` cannot tell whether `getUser` is the same thing or a second one, so both have to be read before either is used",
+          "description": "Settings for `inconsistent-vocabulary`. a reader who has seen `fetchUser` cannot tell whether `getUser` is the same operation or a different one, so both have to be read before either is used",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4365,7 +4365,7 @@
         },
         "integer-division": {
           "additionalProperties": false,
-          "description": "Settings for `integer-division`. the remainder goes and nothing on the line says it was meant to, so a reader has to know the types to know whether the answer is right",
+          "description": "Settings for `integer-division`. the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4457,7 +4457,7 @@
         },
         "journal-comment": {
           "additionalProperties": false,
-          "description": "Settings for `journal-comment`. version control already answers who and when, and unlike the comment it is not left behind by the next edit",
+          "description": "Settings for `journal-comment`. version control already records who changed the code and when, and unlike the comment it is not left behind by later edits",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4503,7 +4503,7 @@
         },
         "large-class": {
           "additionalProperties": false,
-          "description": "Settings for `large-class`. a class this size has more than one reason to change, so unrelated work lands in the same file and the same merge conflicts",
+          "description": "Settings for `large-class`. a class this size usually has more than one reason to change, so unrelated changes land in the same file and produce the same merge conflicts",
           "properties": {
             "class_members": {
               "default": 20,
@@ -4563,7 +4563,7 @@
         },
         "layer-violation": {
           "additionalProperties": false,
-          "description": "Settings for `layer-violation`. the layer the project put underneath now depends on the one above it, so the thing it was separated from cannot be replaced without changing it",
+          "description": "Settings for `layer-violation`. a lower layer depends on a layer above it, so what the lower layer was separated from cannot be replaced without changing it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4609,7 +4609,7 @@
         },
         "lazy-class": {
           "additionalProperties": false,
-          "description": "Settings for `lazy-class`. the class costs a file, an import and a name, and does not yet do enough to earn any of them",
+          "description": "Settings for `lazy-class`. the class costs a file, an import and a name, and does not do enough to justify them",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4655,7 +4655,7 @@
         },
         "library-exit": {
           "additionalProperties": false,
-          "description": "Settings for `library-exit`. it takes the decision away from every caller above it, and a test that reaches the line takes the runner down with it",
+          "description": "Settings for `library-exit`. it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4701,7 +4701,7 @@
         },
         "literal-comparison": {
           "additionalProperties": false,
-          "description": "Settings for `literal-comparison`. comparing a boolean to a boolean asks a question that was already answered, and reads as though the value might be something else",
+          "description": "Settings for `literal-comparison`. comparing a boolean to a boolean literal asks a question the value already answers, and suggests the value might be something other than a boolean",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4747,7 +4747,7 @@
         },
         "long-function": {
           "additionalProperties": false,
-          "description": "Settings for `long-function`. a body this long is doing several things, so a reader has to hold all of them at once to change any one of them",
+          "description": "Settings for `long-function`. a long body usually does several things, and a reader has to hold all of them in mind to change any one",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4800,7 +4800,7 @@
         },
         "long-parameter-list": {
           "additionalProperties": false,
-          "description": "Settings for `long-parameter-list`. callers have to remember an order this long, and same-typed neighbours make a silent transposition possible at every call site",
+          "description": "Settings for `long-parameter-list`. callers have to remember a long argument order, and adjacent parameters of the same type allow an undetected transposition at every call site",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4899,7 +4899,7 @@
         },
         "loop-runs-once": {
           "additionalProperties": false,
-          "description": "Settings for `loop-runs-once`. it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup wearing a loop's clothes",
+          "description": "Settings for `loop-runs-once`. it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup written as a loop",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4945,7 +4945,7 @@
         },
         "magic-number": {
           "additionalProperties": false,
-          "description": "Settings for `magic-number`. the number encodes a decision nobody wrote down, so the next reader cannot tell whether changing it is safe or what else shares it",
+          "description": "Settings for `magic-number`. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -4998,7 +4998,7 @@
         },
         "many-collaborators": {
           "additionalProperties": false,
-          "description": "Settings for `many-collaborators`. each one is a reason for this type to change, and a test of it has to stand up all of them first",
+          "description": "Settings for `many-collaborators`. each collaborator is a reason for this type to change, and a test of it has to set up all of them first",
           "properties": {
             "class_collaborators": {
               "default": 8,
@@ -5051,7 +5051,7 @@
         },
         "many-exits": {
           "additionalProperties": false,
-          "description": "Settings for `many-exits`. a reader has to find every way out before they can say what the function answers, and the ones written deep in the body are the easy ones to miss",
+          "description": "Settings for `many-exits`. a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5104,7 +5104,7 @@
         },
         "many-locals": {
           "additionalProperties": false,
-          "description": "Settings for `many-locals`. every one of them is a thing the reader has to keep in mind to the end of the body, and there is a number past which nobody does",
+          "description": "Settings for `many-locals`. each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5157,7 +5157,7 @@
         },
         "many-results": {
           "additionalProperties": false,
-          "description": "Settings for `many-results`. the caller has to know the order to read them, and nothing at either end says what any of them is",
+          "description": "Settings for `many-results`. the caller has to know the order to read them, and nothing at either end says what each one is",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5210,7 +5210,7 @@
         },
         "meaningless-name": {
           "additionalProperties": false,
-          "description": "Settings for `meaningless-name`. a name that describes nothing forces every reader to re-derive the value's purpose from its uses",
+          "description": "Settings for `meaningless-name`. a name that describes nothing requires each reader to work out the value's purpose from its uses",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5256,7 +5256,7 @@
         },
         "message-chain": {
           "additionalProperties": false,
-          "description": "Settings for `message-chain`. this line depends on the shape of every object along the chain, so a change to any one of them breaks a caller that never mentioned it",
+          "description": "Settings for `message-chain`. the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5309,7 +5309,7 @@
         },
         "method-ignores-instance": {
           "additionalProperties": false,
-          "description": "Settings for `method-ignores-instance`. it needs nothing the type holds, so the type is a namespace for it and every caller has to build one to reach it",
+          "description": "Settings for `method-ignores-instance`. it needs nothing the type holds, so the type acts as a namespace for it and every caller has to construct an instance to reach it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5355,7 +5355,7 @@
         },
         "middle-man": {
           "additionalProperties": false,
-          "description": "Settings for `middle-man`. every call pays for a hop that adds nothing, and every new method on the delegate needs a twin here before anyone can reach it",
+          "description": "Settings for `middle-man`. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5401,7 +5401,7 @@
         },
         "misleading-pattern-name": {
           "additionalProperties": false,
-          "description": "Settings for `misleading-pattern-name`. a pattern name is a promise about the interface, and a reader who trusts it goes looking for members that are not there",
+          "description": "Settings for `misleading-pattern-name`. a pattern name describes an interface, and a reader who trusts it looks for members that do not exist",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5447,7 +5447,7 @@
         },
         "mixed-conventions": {
           "additionalProperties": false,
-          "description": "Settings for `mixed-conventions`. a reader who has to guess which convention a name follows cannot skim, and the mixture spreads every time somebody copies a neighbouring line",
+          "description": "Settings for `mixed-conventions`. a reader who has to guess which convention a name follows cannot skim, and the mixture spreads each time a neighbouring line is copied",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5493,7 +5493,7 @@
         },
         "mixed-language-file": {
           "additionalProperties": false,
-          "description": "Settings for `mixed-language-file`. a second language in the file gets none of the tooling the first one has, so nothing checks it until it fails at run time",
+          "description": "Settings for `mixed-language-file`. a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5539,7 +5539,7 @@
         },
         "mixed-return": {
           "additionalProperties": false,
-          "description": "Settings for `mixed-return`. a caller cannot write one line that handles both, so every call site carries a check for the path the author happened to think of",
+          "description": "Settings for `mixed-return`. a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5585,7 +5585,7 @@
         },
         "mutable-module-state": {
           "additionalProperties": false,
-          "description": "Settings for `mutable-module-state`. every function that reads it takes an argument nobody passed, so two calls with the same arguments can answer differently and no signature says why",
+          "description": "Settings for `mutable-module-state`. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5631,7 +5631,7 @@
         },
         "mutated-while-iterated": {
           "additionalProperties": false,
-          "description": "Settings for `mutated-while-iterated`. the walk and the change disagree about what is left, so elements are skipped or seen twice depending on where the change landed",
+          "description": "Settings for `mutated-while-iterated`. the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5677,7 +5677,7 @@
         },
         "name-repeats-type": {
           "additionalProperties": false,
-          "description": "Settings for `name-repeats-type`. the declaration beside it already says what it is, so the word is read twice and goes wrong the day the type changes",
+          "description": "Settings for `name-repeats-type`. the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5723,7 +5723,7 @@
         },
         "negated-comparison": {
           "additionalProperties": false,
-          "description": "Settings for `negated-comparison`. the language already has the operator this spells out the long way, and the short one is read without inverting anything",
+          "description": "Settings for `negated-comparison`. the language already has an operator for this comparison, and the shorter form can be read without inverting anything",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5769,7 +5769,7 @@
         },
         "negated-name": {
           "additionalProperties": false,
-          "description": "Settings for `negated-name`. every test of it that is itself negated has to be undone twice in the reader's head before the condition means anything",
+          "description": "Settings for `negated-name`. every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5815,7 +5815,7 @@
         },
         "negative-conditional": {
           "additionalProperties": false,
-          "description": "Settings for `negative-conditional`. the reader has to invert it mentally to follow the else, and inverting a compound condition by hand is where off-by-one logic errors come from",
+          "description": "Settings for `negative-conditional`. the reader has to invert the condition mentally to follow the `else`, and inverting a compound condition by hand is a source of off-by-one logic errors",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5861,7 +5861,7 @@
         },
         "nested-ternary": {
           "additionalProperties": false,
-          "description": "Settings for `nested-ternary`. two conditions folded into one expression have to be unfolded in the reader's head before either can be checked",
+          "description": "Settings for `nested-ternary`. two conditions folded into one expression have to be unfolded by the reader before either can be checked",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5907,7 +5907,7 @@
         },
         "nested-then": {
           "additionalProperties": false,
-          "description": "Settings for `nested-then`. the order is real and none of it is written as an order, so a reader follows it by tracing which callback holds which",
+          "description": "Settings for `nested-then`. the order is real but is not written as an order, so a reader follows it by tracing which callback holds which",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5953,7 +5953,7 @@
         },
         "never-reassigned": {
           "additionalProperties": false,
-          "description": "Settings for `never-reassigned`. a reader has to hold open the possibility that it moves, and it never does, so the declaration is asking for attention it does not need",
+          "description": "Settings for `never-reassigned`. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -5999,7 +5999,7 @@
         },
         "no-base-case": {
           "additionalProperties": false,
-          "description": "Settings for `no-base-case`. there is nothing that can stop it, so the first call takes the stack down with it",
+          "description": "Settings for `no-base-case`. nothing can stop the recursion, so the first call exhausts the stack",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6045,7 +6045,7 @@
         },
         "no-default-branch": {
           "additionalProperties": false,
-          "description": "Settings for `no-default-branch`. a value the switch never anticipated falls straight through it, and nothing in the code says whether that was the intent",
+          "description": "Settings for `no-default-branch`. a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6091,7 +6091,7 @@
         },
         "obscured-expression": {
           "additionalProperties": false,
-          "description": "Settings for `obscured-expression`. nothing in the expression is named, so a reader has to re-derive every intermediate step the author already worked out",
+          "description": "Settings for `obscured-expression`. no part of the expression is named, so a reader has to re-derive each intermediate step the author already worked out",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6144,7 +6144,7 @@
         },
         "orphan-todo": {
           "additionalProperties": false,
-          "description": "Settings for `orphan-todo`. there is no ticket to close and nobody to ask, so it stays until somebody deletes it without knowing what it was for",
+          "description": "Settings for `orphan-todo`. there is no ticket to close and no one to ask, so it stays until someone deletes it without knowing what it was for",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6190,7 +6190,7 @@
         },
         "output-parameter": {
           "additionalProperties": false,
-          "description": "Settings for `output-parameter`. the caller's value changes without the call site saying so, which is the hardest kind of change to find when it turns out to be wrong",
+          "description": "Settings for `output-parameter`. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6289,7 +6289,7 @@
         },
         "oversized-module": {
           "additionalProperties": false,
-          "description": "Settings for `oversized-module`. a file this long is several files that have not been separated yet, and every one of them is edited, reviewed and merged as though it were one",
+          "description": "Settings for `oversized-module`. a file this long is several files that have not been separated, and all of them are edited, reviewed and merged as one",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6342,7 +6342,7 @@
         },
         "parallel-inheritance": {
           "additionalProperties": false,
-          "description": "Settings for `parallel-inheritance`. every new case means a new subclass in both trees, and the day someone adds only one the two hierarchies quietly stop lining up",
+          "description": "Settings for `parallel-inheritance`. each new case needs a new subclass in both hierarchies, and adding only one leaves the two hierarchies out of step",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6388,7 +6388,7 @@
         },
         "passthrough-function": {
           "additionalProperties": false,
-          "description": "Settings for `passthrough-function`. it adds a name and a stack frame between a caller and the thing it wanted, and the indirection buys nothing while it forwards unchanged",
+          "description": "Settings for `passthrough-function`. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6434,7 +6434,7 @@
         },
         "passthrough-override": {
           "additionalProperties": false,
-          "description": "Settings for `passthrough-override`. it changes nothing and costs a reader a hop, while making the type look like it has an opinion about the member when it has none",
+          "description": "Settings for `passthrough-override`. it changes nothing and costs a reader a hop, and it suggests the type has its own behaviour for the member when it does not",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6480,7 +6480,7 @@
         },
         "placeholder-body": {
           "additionalProperties": false,
-          "description": "Settings for `placeholder-body`. it is a callable promise with nothing behind it, and every caller that trusts the signature finds that out at runtime",
+          "description": "Settings for `placeholder-body`. it is a callable promise with nothing behind it, and every caller that trusts the signature finds out at run time",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6526,7 +6526,7 @@
         },
         "plural-mismatch": {
           "additionalProperties": false,
-          "description": "Settings for `plural-mismatch`. a reader counts on the name to say whether there is one of something or many, and here it says the opposite",
+          "description": "Settings for `plural-mismatch`. a reader relies on the name to say whether there is one value or many, and here it says the opposite",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6572,7 +6572,7 @@
         },
         "primitive-obsession": {
           "additionalProperties": false,
-          "description": "Settings for `primitive-obsession`. a raw string or number carries no rules of its own, so every place that uses it re-implements the same validation, and one of them gets it wrong",
+          "description": "Settings for `primitive-obsession`. a raw string or number carries no rules of its own, so each place that uses it repeats the same validation and one of them can be wrong",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6618,7 +6618,7 @@
         },
         "production-assert": {
           "additionalProperties": false,
-          "description": "Settings for `production-assert`. the language is free to compile it away, so the check a reader is relying on may not be running where it matters most",
+          "description": "Settings for `production-assert`. the language may compile the assertion out, so the check a reader relies on may not run in production",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6710,7 +6710,7 @@
         },
         "query-with-side-effect": {
           "additionalProperties": false,
-          "description": "Settings for `query-with-side-effect`. callers assume asking is free, so they ask twice, order the calls freely, and are surprised when that changes the answer",
+          "description": "Settings for `query-with-side-effect`. callers assume a query has no effect, so they call it more than once, reorder calls, and are surprised when the answer changes",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6756,7 +6756,7 @@
         },
         "reaches-into-private": {
           "additionalProperties": false,
-          "description": "Settings for `reaches-into-private`. the other type is free to change it and has said so, so this line breaks on a change nobody could have known would reach it",
+          "description": "Settings for `reaches-into-private`. the other type is free to change the member and has declared it private, so this line breaks on a change nobody could have known would reach it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6802,7 +6802,7 @@
         },
         "real-world-test": {
           "additionalProperties": false,
-          "description": "Settings for `real-world-test`. it fails for reasons that have nothing to do with the code, and it is slow enough that somebody eventually stops running it",
+          "description": "Settings for `real-world-test`. it fails for reasons unrelated to the code under test, and it is slow enough that it tends to be skipped",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6848,7 +6848,7 @@
         },
         "redundant-comment": {
           "additionalProperties": false,
-          "description": "Settings for `redundant-comment`. it takes space and attention to say what the name has already said, and it is one more thing to keep true when the name changes",
+          "description": "Settings for `redundant-comment`. it takes space and attention to repeat what the name already says, and it has to be kept accurate when the name changes",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6894,7 +6894,7 @@
         },
         "redundant-else": {
           "additionalProperties": false,
-          "description": "Settings for `redundant-else`. the branch already left, so everything after it is indented one level deeper than the logic actually is",
+          "description": "Settings for `redundant-else`. the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6940,7 +6940,7 @@
         },
         "redundant-jump": {
           "additionalProperties": false,
-          "description": "Settings for `redundant-jump`. control was going there anyway, so the keyword makes a reader stop and look for the condition that is not there",
+          "description": "Settings for `redundant-jump`. control reaches that point anyway, so the keyword makes a reader look for a condition that does not exist",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -6986,7 +6986,7 @@
         },
         "refused-bequest": {
           "additionalProperties": false,
-          "description": "Settings for `refused-bequest`. the subclass is inheriting an interface it cannot honour, so a caller holding the base type has no safe way to know which methods actually work",
+          "description": "Settings for `refused-bequest`. the subclass inherits an interface it cannot honour, so a caller holding the base type cannot tell which methods work",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7032,7 +7032,7 @@
         },
         "rethrow-only-catch": {
           "additionalProperties": false,
-          "description": "Settings for `rethrow-only-catch`. it reads as a decision about the failure and makes none, while costing the stack trace in the languages that rebuild one on the way out",
+          "description": "Settings for `rethrow-only-catch`. it reads as a decision about the failure and makes none, and in languages that rebuild the stack trace on rethrow it loses the original",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7078,7 +7078,7 @@
         },
         "return-of-fresh-local": {
           "additionalProperties": false,
-          "description": "Settings for `return-of-fresh-local`. the name is read once, by the line under it, and says nothing the expression it holds did not already say",
+          "description": "Settings for `return-of-fresh-local`. the name is read once, by the line below it, and says nothing the expression it holds does not already say",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7124,7 +7124,7 @@
         },
         "scan-in-loop": {
           "additionalProperties": false,
-          "description": "Settings for `scan-in-loop`. the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that was fine at a hundred items stalls at ten thousand",
+          "description": "Settings for `scan-in-loop`. the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that is fast at a hundred items can stall at ten thousand",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7170,7 +7170,7 @@
         },
         "self-asserting-test": {
           "additionalProperties": false,
-          "description": "Settings for `self-asserting-test`. it holds the code to whatever the code already does, so it passes through every change including the one that breaks it",
+          "description": "Settings for `self-asserting-test`. it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7216,7 +7216,7 @@
         },
         "self-built-collaborators": {
           "additionalProperties": false,
-          "description": "Settings for `self-built-collaborators`. nothing can be put in its place, so every test of the owner stands up the real collaborator and everything behind it",
+          "description": "Settings for `self-built-collaborators`. nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7262,7 +7262,7 @@
         },
         "self-comparison": {
           "additionalProperties": false,
-          "description": "Settings for `self-comparison`. the answer is decided before it runs, so either the comparison does nothing or one side was meant to be something else",
+          "description": "Settings for `self-comparison`. the result is decided before the comparison runs, so either it does nothing or one side was meant to be a different expression",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7308,7 +7308,7 @@
         },
         "sequential-await": {
           "additionalProperties": false,
-          "description": "Settings for `sequential-await`. nothing makes them an order, so the call takes the sum of two waits where it could have taken the longer one",
+          "description": "Settings for `sequential-await`. nothing orders them, so the call takes the sum of two waits where it could take the longer one",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7354,7 +7354,7 @@
         },
         "shadowed-handler": {
           "additionalProperties": false,
-          "description": "Settings for `shadowed-handler`. the one below it can never run, so whatever it was written to do about that failure has never been done",
+          "description": "Settings for `shadowed-handler`. the handler below can never run, so whatever it was written to do about that failure has never been done",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7400,7 +7400,7 @@
         },
         "shadows-builtin": {
           "additionalProperties": false,
-          "description": "Settings for `shadows-builtin`. the original is unreachable for the rest of the scope, and the next line that wanted it fails somewhere that names neither",
+          "description": "Settings for `shadows-builtin`. the original is unreachable for the rest of the scope, and a later line that expects it fails in a place that names neither",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7446,7 +7446,7 @@
         },
         "short-name-wide-scope": {
           "additionalProperties": false,
-          "description": "Settings for `short-name-wide-scope`. a one-letter name is readable while its whole life fits on screen, and stops being readable the moment it does not",
+          "description": "Settings for `short-name-wide-scope`. a one-letter name is readable while its whole lifetime fits on screen, and stops being readable when it does not",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7499,7 +7499,7 @@
         },
         "shotgun-surgery": {
           "additionalProperties": false,
-          "description": "Settings for `shotgun-surgery`. one decision is spread across files that must be edited in lockstep, and nothing in the code says so, so the day someone edits four of the five is the day it breaks",
+          "description": "Settings for `shotgun-surgery`. one decision is spread across files that must be edited together, and nothing in the code says so, so an edit to only some of them breaks the behaviour",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7545,7 +7545,7 @@
         },
         "silent-fallthrough": {
           "additionalProperties": false,
-          "description": "Settings for `silent-fallthrough`. the arm below runs too, and nothing written here says whether that was wanted or forgotten",
+          "description": "Settings for `silent-fallthrough`. the arm below also runs, and nothing here says whether that was intended",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7591,7 +7591,7 @@
         },
         "single-author-file": {
           "additionalProperties": false,
-          "description": "Settings for `single-author-file`. nobody else has read it closely enough to change it, so whatever it knows leaves with the person who wrote it",
+          "description": "Settings for `single-author-file`. no one else has read the file closely enough to change it, so its knowledge is lost when its author leaves",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7644,7 +7644,7 @@
         },
         "single-method-field": {
           "additionalProperties": false,
-          "description": "Settings for `single-method-field`. it is that method's local kept where every other method can reach it, so every one of them has to be read before it can be changed",
+          "description": "Settings for `single-method-field`. it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7690,7 +7690,7 @@
         },
         "skipped-test": {
           "additionalProperties": false,
-          "description": "Settings for `skipped-test`. a skipped test is a question nobody answered; it reports green forever while the behaviour it named goes unchecked",
+          "description": "Settings for `skipped-test`. a skipped test reports success while the behaviour it names goes unchecked",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7736,7 +7736,7 @@
         },
         "sleep-in-production": {
           "additionalProperties": false,
-          "description": "Settings for `sleep-in-production`. it is waiting for a length of time rather than for the thing it needs, so it is either too short to work or too long to be worth it",
+          "description": "Settings for `sleep-in-production`. it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7782,7 +7782,7 @@
         },
         "slow-test": {
           "additionalProperties": false,
-          "description": "Settings for `slow-test`. a suite slow enough to skip stops being run, and a test nobody runs is worth less than the time it took to write",
+          "description": "Settings for `slow-test`. a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7835,7 +7835,7 @@
         },
         "speculative-generality": {
           "additionalProperties": false,
-          "description": "Settings for `speculative-generality`. it was built for a case that never arrived, and until it does it is only an extra indirection every reader has to step through. Interfaces are not reported: TypeScript's are structural, so nothing implementing one says nothing about whether it is speculative",
+          "description": "Settings for `speculative-generality`. it was built for a case that has not occurred, and until it does it is an extra indirection every reader has to follow. Interfaces are not reported: TypeScript interfaces are structural, so the absence of implementers says nothing about whether one is speculative",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7881,7 +7881,7 @@
         },
         "split-cohesion": {
           "additionalProperties": false,
-          "description": "Settings for `split-cohesion`. each group is a type nobody has separated yet, so a change to one of them is read against the fields of all of them",
+          "description": "Settings for `split-cohesion`. each group of fields is a type that has not been separated, so a change to one is read against the fields of all of them",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7927,7 +7927,7 @@
         },
         "stale-todo": {
           "additionalProperties": false,
-          "description": "Settings for `stale-todo`. a note nobody has touched in this long is not a plan, and every reader since has had to decide for themselves whether it still applies",
+          "description": "Settings for `stale-todo`. a note that has not been touched for this long is not a plan, and every reader since has had to decide whether it still applies",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -7980,7 +7980,7 @@
         },
         "static-only-class": {
           "additionalProperties": false,
-          "description": "Settings for `static-only-class`. nothing is ever built from it, so the type is a namespace wearing a class's syntax and nothing can be substituted for it in a test",
+          "description": "Settings for `static-only-class`. nothing is constructed from it, so the type is a namespace written as a class, and nothing can be substituted for it in a test",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8026,7 +8026,7 @@
         },
         "string-shape-assertion": {
           "additionalProperties": false,
-          "description": "Settings for `string-shape-assertion`. it holds the code to how the answer prints rather than to what it is, so a change in spacing fails a test about behaviour",
+          "description": "Settings for `string-shape-assertion`. it checks how the result prints and not what it is, so a change in spacing fails a test about behaviour",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8072,7 +8072,7 @@
         },
         "suppressed-diagnostic": {
           "additionalProperties": false,
-          "description": "Settings for `suppressed-diagnostic`. a check that would have caught the next mistake here has been turned off, and the comment turning it off outlives the reason for it",
+          "description": "Settings for `suppressed-diagnostic`. a check that would have caught the next mistake here has been turned off, and the comment that turns it off outlives the reason for it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8118,7 +8118,7 @@
         },
         "temporal-coupling": {
           "additionalProperties": false,
-          "description": "Settings for `temporal-coupling`. the order the methods must be called in is real but unwritten, so the only way to learn it is to call them wrongly first",
+          "description": "Settings for `temporal-coupling`. the order in which the methods must be called is required but not written down, so it is learned by calling them in the wrong order",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8164,7 +8164,7 @@
         },
         "temporary-field": {
           "additionalProperties": false,
-          "description": "Settings for `temporary-field`. the field is empty for most of the object's life, so every other method has to know it must not look at it",
+          "description": "Settings for `temporary-field`. the field is empty for most of the object's lifetime, so every other method has to know it must not read it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8210,7 +8210,7 @@
         },
         "tiny-switch": {
           "additionalProperties": false,
-          "description": "Settings for `tiny-switch`. a switch is a table a reader scans, and one with two arms is an if spelled in four more lines",
+          "description": "Settings for `tiny-switch`. a switch is a table a reader scans, and a switch with two arms is an `if` written in four more lines",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8263,7 +8263,7 @@
         },
         "type-code-switch": {
           "additionalProperties": false,
-          "description": "Settings for `type-code-switch`. the same set of cases is now spelled out in several places, so adding a case means finding all of them and the compiler will not remind you",
+          "description": "Settings for `type-code-switch`. the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8309,7 +8309,7 @@
         },
         "unchecked-stub": {
           "additionalProperties": false,
-          "description": "Settings for `unchecked-stub`. it made the test run and held it to nothing, so the call it was standing in for could stop happening and the test would still pass",
+          "description": "Settings for `unchecked-stub`. it let the test run and checked nothing, so the call it replaces could stop happening and the test would still pass",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8355,7 +8355,7 @@
         },
         "unexplained-expected-value": {
           "additionalProperties": false,
-          "description": "Settings for `unexplained-expected-value`. when it changes, nobody can tell whether the code is wrong or the number was, so the test is edited until it passes",
+          "description": "Settings for `unexplained-expected-value`. when it changes, nobody can tell whether the code or the number is wrong, so the test tends to be edited until it passes",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8401,7 +8401,7 @@
         },
         "unjustified-suppression": {
           "additionalProperties": false,
-          "description": "Settings for `unjustified-suppression`. the waiver is refused and the finding still stands, because a waiver nobody has to justify is how a rule gets switched off one line at a time",
+          "description": "Settings for `unjustified-suppression`. the waiver is refused and the finding still counts, because a waiver that needs no justification allows a rule to be switched off one line at a time",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8447,7 +8447,7 @@
         },
         "unlabelled-assertions": {
           "additionalProperties": false,
-          "description": "Settings for `unlabelled-assertions`. a failing run prints two values and the reader has to count lines to find which check they came from",
+          "description": "Settings for `unlabelled-assertions`. a failing run prints two values, and the reader has to count lines to find which assertion they came from",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8493,7 +8493,7 @@
         },
         "unnamed-test": {
           "additionalProperties": false,
-          "description": "Settings for `unnamed-test`. a failing run names the test and nothing else, so the name is the whole of what the reader is given before they open the file",
+          "description": "Settings for `unnamed-test`. a failing run reports the test name and nothing else, so the name is all the reader has before opening the file",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8539,7 +8539,7 @@
         },
         "unreachable-code": {
           "additionalProperties": false,
-          "description": "Settings for `unreachable-code`. this code cannot run, so whatever it was meant to do is not happening and has not been happening",
+          "description": "Settings for `unreachable-code`. this code cannot run, so whatever it was written to do is not happening",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8585,7 +8585,7 @@
         },
         "unused-export": {
           "additionalProperties": false,
-          "description": "Settings for `unused-export`. an export nobody imports still has to be read, typechecked and kept working during every refactor that touches it",
+          "description": "Settings for `unused-export`. an export that nothing imports still has to be read, type-checked and kept working during every refactoring that touches it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8631,7 +8631,7 @@
         },
         "unused-file": {
           "additionalProperties": false,
-          "description": "Settings for `unused-file`. nothing in the build reaches this file, so every hour spent maintaining it buys nothing",
+          "description": "Settings for `unused-file`. nothing in the build reaches this file, so the effort of maintaining it has no effect on the program",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8677,7 +8677,7 @@
         },
         "unused-fixture": {
           "additionalProperties": false,
-          "description": "Settings for `unused-fixture`. every case in the file pays for it and none of them wanted it, which is time on every run and a reader wondering what it is for",
+          "description": "Settings for `unused-fixture`. every case in the file pays for it and none uses it, which adds time to every run and leaves a reader wondering what it is for",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8723,7 +8723,7 @@
         },
         "unused-import": {
           "additionalProperties": false,
-          "description": "Settings for `unused-import`. it makes the file look dependent on something it does not use, and the dependency survives every search for who needs that module",
+          "description": "Settings for `unused-import`. it makes the file appear to depend on something it does not use, and the dependency survives every search for who needs that module",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8769,7 +8769,7 @@
         },
         "unused-local": {
           "additionalProperties": false,
-          "description": "Settings for `unused-local`. the value is computed and thrown away, which either wastes the work or hides the fact that somebody meant to use it",
+          "description": "Settings for `unused-local`. the value is computed and discarded, which either wastes the work or hides a missing use",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8815,7 +8815,7 @@
         },
         "unused-parameter": {
           "additionalProperties": false,
-          "description": "Settings for `unused-parameter`. every caller is passing a value that is read nowhere, so the argument list is teaching readers something untrue about the function",
+          "description": "Settings for `unused-parameter`. every caller passes a value that is never read, so the parameter list misdescribes the function",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8861,7 +8861,7 @@
         },
         "unused-private-member": {
           "additionalProperties": false,
-          "description": "Settings for `unused-private-member`. a private member can only be used from inside its class, so one nothing in the class touches is unreachable by construction",
+          "description": "Settings for `unused-private-member`. a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8907,7 +8907,7 @@
         },
         "vague-function-name": {
           "additionalProperties": false,
-          "description": "Settings for `vague-function-name`. the name has to be read past to learn anything, so every call site forces a trip to the definition",
+          "description": "Settings for `vague-function-name`. the name does not say what the function does, so each call site requires reading the definition",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -8953,7 +8953,7 @@
         },
         "wide-fan-in": {
           "additionalProperties": false,
-          "description": "Settings for `wide-fan-in`. every change here reaches this many places, so the module is load bearing whether or not anybody decided it should be",
+          "description": "Settings for `wide-fan-in`. every change here reaches this many places, so the module is heavily depended on whether or not that was intended",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -9059,7 +9059,7 @@
         },
         "wide-surface": {
           "additionalProperties": false,
-          "description": "Settings for `wide-surface`. every public member is a promise to keep working, so the surface is what the type costs to change rather than what it does",
+          "description": "Settings for `wide-surface`. every public member is a commitment to keep working, so the surface determines what the type costs to change",
           "properties": {
             "class_public_members": {
               "default": 20,
@@ -9112,7 +9112,7 @@
         },
         "wide-switch": {
           "additionalProperties": false,
-          "description": "Settings for `wide-switch`. past a certain width the arms stop being a table a reader scans and become a list they have to search",
+          "description": "Settings for `wide-switch`. past a certain width the arms are no longer a table a reader scans, and become a list the reader has to search",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -9165,7 +9165,7 @@
         },
         "wide-try": {
           "additionalProperties": false,
-          "description": "Settings for `wide-try`. the handler is written for one of them and catches all of them, so a failure from any other line arrives somewhere that cannot answer it",
+          "description": "Settings for `wide-try`. the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -9218,7 +9218,7 @@
         },
         "wildcard-import": {
           "additionalProperties": false,
-          "description": "Settings for `wildcard-import`. nothing in the file says which names came from where, so a reader has to open the other module to find out and a new export there can shadow a local one silently",
+          "description": "Settings for `wildcard-import`. nothing in the file says which names come from where, so a reader has to open the other module to find out, and a new export there can shadow a local name without any warning",
           "properties": {
             "confidence": {
               "anyOf": [
@@ -9264,7 +9264,7 @@
         },
         "working-constructor": {
           "additionalProperties": false,
-          "description": "Settings for `working-constructor`. the object cannot exist without whatever that work needs, so every test of it has to stand the work up first",
+          "description": "Settings for `working-constructor`. the object cannot exist without whatever that work needs, so every test of it has to set the work up first",
           "properties": {
             "confidence": {
               "anyOf": [

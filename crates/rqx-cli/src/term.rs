@@ -65,7 +65,7 @@ pub fn terminal_width(stream: Stream) -> Option<usize> {
 /// What `--hyperlinks` asks for.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, ValueEnum)]
 pub enum LinkChoice {
-    /// On a terminal that is known to open them
+    /// On a terminal known to support them
     Auto,
     /// Whenever the report is coloured
     Always,
