@@ -1,0 +1,1158 @@
+{
+  "$defs": {
+    "Architecture": {
+      "additionalProperties": false,
+      "description": "The direction dependencies are allowed to point. `layers` is ordered inner to outer, and a file may import its own layer and any layer before it — so the domain cannot reach for an adapter, whatever the import graph would otherwise allow.\n\nSilent until a project declares it: an architecture nobody stated is not one rqx should invent.",
+      "properties": {
+        "layers": {
+          "default": [],
+          "description": "Layer names, ordered inner to outer. A file may import its own layer and any layer before it.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "paths": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Assignment"
+          },
+          "default": {},
+          "description": "Glob to what it belongs to. A sub-table because `flatten` and `deny_unknown_fields` cannot both apply to one struct, and losing the typo check would cost more than the extra line of YAML.",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "Assignment": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "default": null,
+          "description": "The layer this subtree belongs to; it must be named in `architecture.layers`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "may_not_import": {
+          "default": [],
+          "description": "Globs this subtree may not import from.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "may_only_import": {
+          "default": [],
+          "description": "The only globs this subtree may import from.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Category": {
+      "description": "The top-level organisation, because eight axes are what a reader can hold in their head where sixty rules are not.",
+      "oneOf": [
+        {
+          "enum": [
+            "size",
+            "abstraction",
+            "change",
+            "waste",
+            "coupling",
+            "flow",
+            "naming",
+            "safety",
+            "tests"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "noise",
+          "description": "Text that costs a reader and buys nothing.",
+          "type": "string"
+        },
+        {
+          "const": "performance",
+          "description": "Work that grows faster than the data it runs on.",
+          "type": "string"
+        }
+      ]
+    },
+    "Confidence": {
+      "enum": [
+        "low",
+        "heuristic",
+        "verified"
+      ],
+      "type": "string"
+    },
+    "CustomRule": {
+      "additionalProperties": false,
+      "description": "A rule written as a tree-sitter query. The query is not compiled here — core has no grammars — but every other field is checked the moment the config parses.",
+      "properties": {
+        "confidence": {
+          "$ref": "#/$defs/Confidence",
+          "default": "verified",
+          "description": "Defaults to `verified`: a query either matched or it did not."
+        },
+        "family": {
+          "$ref": "#/$defs/Category",
+          "description": "The family the rule is filed under."
+        },
+        "hint": {
+          "default": "",
+          "description": "What to do about it, shown beside the finding.",
+          "type": "string"
+        },
+        "id": {
+          "description": "The rule's slug, used to disable it and to waive it.",
+          "type": "string"
+        },
+        "languages": {
+          "description": "Languages the query runs against.",
+          "items": {
+            "$ref": "#/$defs/Language"
+          },
+          "type": "array"
+        },
+        "message": {
+          "description": "What the finding says.",
+          "type": "string"
+        },
+        "query": {
+          "description": "A tree-sitter query. Name the capture to report `@site`; without one the first capture is used.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Defaults to `warning`."
+        }
+      },
+      "required": [
+        "id",
+        "languages",
+        "query",
+        "message",
+        "family"
+      ],
+      "type": "object"
+    },
+    "Entrypoints": {
+      "additionalProperties": false,
+      "description": "Modules the project is entered through. Anything reachable from one is live by definition, so these are read before an export is called unused.",
+      "properties": {
+        "paths": {
+          "default": [],
+          "description": "Globs of the modules the project is entered through.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Fix": {
+      "additionalProperties": false,
+      "description": "Which mechanical fixes `rqx fix` may apply. A project that keeps commented-out code as documentation should not have it deleted, and naming the rule here beats remembering a flag per run.",
+      "properties": {
+        "apply": {
+          "default": [],
+          "description": "Autofix kinds, or individual rule slugs. Empty applies every kind.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "disabled": {
+          "default": [],
+          "description": "Fixes to leave alone even when their kind is applied: kinds or rule slugs.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "max_rounds": {
+          "default": 3,
+          "description": "One fix can make the next possible, so fixing repeats. A cap rather than a fixed point, because a rule pair that undid each other would never settle.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Gate": {
+      "additionalProperties": false,
+      "description": "What makes `rqx check` fail. Defaults are deliberately permissive: a gate that fails on day one gets disabled on day one, and a disabled gate checks nothing.",
+      "properties": {
+        "baseline": {
+          "default": null,
+          "description": "Where the recorded debt lives. When it is set, only findings the baseline does not already hold count against `fail_on` and `max_findings` — which is what lets a codebase with ten years of history turn the gate on at all. `min_health` and `min_grade` still see everything.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fail_on": {
+          "$ref": "#/$defs/GateSeverity",
+          "default": "error",
+          "description": "Lowest severity that counts against the gate."
+        },
+        "fail_on_incomplete": {
+          "default": false,
+          "description": "Fail on a design pattern that is half applied. Off by default and the only way advice reaches an exit code: a pattern that would merely fit is not a defect, and turning this on for everyone would change what every existing pipeline returns.",
+          "type": "boolean"
+        },
+        "max_findings": {
+          "default": 0,
+          "description": "Findings allowed in the reviewed set before the check fails.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "min_grade": {
+          "$ref": "#/$defs/GateGrade",
+          "default": "never",
+          "description": "Lowest grade any single file may carry. Catches a file rotting on its own, which a project-wide score averages away."
+        },
+        "min_health": {
+          "default": 0,
+          "description": "Health score below which the check fails; 0 disables the score gate.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ratchet": {
+          "default": false,
+          "description": "Fail when the total number of findings is above what the baseline recorded. A baseline says which debt is tolerated; this says it may not grow.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "GateGrade": {
+      "enum": [
+        "pristine",
+        "clean",
+        "fair",
+        "poor",
+        "critical",
+        "never"
+      ],
+      "type": "string"
+    },
+    "GateSeverity": {
+      "enum": [
+        "error",
+        "warning",
+        "info",
+        "never"
+      ],
+      "type": "string"
+    },
+    "Ignore": {
+      "additionalProperties": false,
+      "properties": {
+        "patterns": {
+          "default": [
+            "**/*.d.ts",
+            "**/generated/**",
+            "**/*.generated.*",
+            "**/*.gen.ts",
+            "**/*_pb2.py",
+            "**/*_pb2.pyi",
+            "**/*.pb.go",
+            "**/*_gen.go",
+            "**/*.pb.h",
+            "**/*.pb.cc"
+          ],
+          "description": "Globs of files rqx does not read, matched against paths relative to the scanned directory.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Language": {
+      "description": "The languages Rqx can analyze. A finding carries one so that a rule which cannot exist in a language is a declared exemption rather than a silent absence.",
+      "oneOf": [
+        {
+          "enum": [
+            "python",
+            "cpp",
+            "java",
+            "go"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "typescript",
+          "description": "Spelled out, because kebab-case would make it `type-script` in `rqx.yaml` while `rqx rules --language` takes the slug — one name, two spellings.",
+          "type": "string"
+        }
+      ]
+    },
+    "Languages": {
+      "additionalProperties": false,
+      "description": "Which languages a scan reads. Empty means all of them: a project that only holds one language pays nothing for the others, because the file walker never yields a path no language claims.",
+      "properties": {
+        "enabled": {
+          "default": [],
+          "description": "Language names. Empty means all five.",
+          "items": {
+            "$ref": "#/$defs/Language"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Level": {
+      "description": "How much a project asks of itself. A level is a layer of settings merged *under* everything written by hand, so naming one changes the defaults and never overrides a value the project stated.",
+      "enum": [
+        "relaxed",
+        "standard",
+        "strict",
+        "pristine"
+      ],
+      "type": "string"
+    },
+    "Locked": {
+      "additionalProperties": false,
+      "description": "Keys a policy forbids a project to change, as `table.key`.",
+      "properties": {
+        "keys": {
+          "default": [],
+          "description": "Keys, as `table.key`, that a project may not set to a different value.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Patterns": {
+      "additionalProperties": false,
+      "description": "Addressable four ways because the useful question differs: by advisory when one claim is wrong for this project, by pattern when the whole pattern is, by family, and by stance when a project wants the half-applied patterns and not the suggestions.",
+      "properties": {
+        "disabled": {
+          "default": [],
+          "description": "Advisory slugs, pattern slugs or families to switch off.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "enabled": {
+          "default": [],
+          "description": "Advisories that ship off, switched on by advisory, pattern or family.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "families": {
+          "default": [],
+          "description": "When non-empty, only these families run.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "stances": {
+          "default": [],
+          "description": "When non-empty, only these stances are reported.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "type": "object"
+    },
+    "Performance": {
+      "additionalProperties": false,
+      "description": "Client names and call names the I/O rules should recognise on top of the ones rqx ships. Added to the built-in vocabulary rather than replacing it, because a project that names its own gateway still has a `fetch` somewhere.",
+      "properties": {
+        "methods": {
+          "default": [],
+          "description": "Call names the I/O rules should recognise, one segment each.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "receivers": {
+          "default": [],
+          "description": "Client names the I/O rules should recognise, one segment each.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Rules": {
+      "additionalProperties": false,
+      "description": "Rules and whole families can be switched on or off by name. A rule marked `off_by_default` in the catalogue stays off unless it is named in `enabled`, which keeps the noisy-but-real rules available without inflicting them.",
+      "properties": {
+        "categories": {
+          "default": [],
+          "description": "When non-empty, only these families run.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "disabled": {
+          "default": [],
+          "description": "Rule slugs or family slugs to switch off. `rqx rules` lists both.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "enabled": {
+          "default": [],
+          "description": "Rules that ship off, switched on by slug or family.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "type": "object"
+    },
+    "Scan": {
+      "additionalProperties": false,
+      "description": "`prune_dirs` exists separately from `Ignore::patterns` because a glob still requires descending into a directory to produce the paths it then rejects, which on a populated `node_modules` is the difference between skipping a directory and walking every file in it.",
+      "properties": {
+        "cache": {
+          "default": true,
+          "description": "Reuse `.rqx/cache.json` for files whose contents have not changed. It was off because a warm run was no faster than a cold one, but that was measured while the collector joined the git thread before draining the channel: the wait, not the parsing, was what a cache could not beat. With that gone a warm scan of 3,440 files costs 298ms against 2,023ms cold.",
+          "type": "boolean"
+        },
+        "churn_days": {
+          "default": 90,
+          "description": "Days of git history to read for churn; 0 turns the signal off.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coverage": {
+          "default": [],
+          "description": "Coverage files to read, so a test run can contradict a dead-code finding.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "max_filesize": {
+          "default": 1048576,
+          "description": "Bytes. A larger file is reported as skipped.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_findings": {
+          "default": 500,
+          "description": "How many findings the report shows. 0 shows every one. Never moves the score.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "profile": {
+          "default": [],
+          "description": "CPU profiles to read, so a run can say which performance findings are on a path that executes.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "prune_dirs": {
+          "default": [
+            "node_modules",
+            "dist",
+            "build",
+            "out",
+            "coverage",
+            ".git",
+            "vendor",
+            "__pycache__",
+            ".venv",
+            "venv",
+            ".tox",
+            ".mypy_cache",
+            ".pytest_cache",
+            "target",
+            ".gradle",
+            ".mvn",
+            "bin",
+            "obj",
+            "cmake-build-debug",
+            "cmake-build-release",
+            "third_party"
+          ],
+          "description": "Directory names never descended into.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "skip_generated": {
+          "default": true,
+          "description": "Skip files carrying a generator's marker, and list them as skipped.",
+          "type": "boolean"
+        },
+        "threads": {
+          "default": 0,
+          "description": "Worker threads. 0 lets rqx pick from the machine.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "SubtreeOverride": {
+      "additionalProperties": false,
+      "description": "What a subtree may say differently. Only thresholds, rules and patterns, because the walker is built once and the gate reaches one verdict: honouring a scoped `scan` would mean walking the tree twice.",
+      "properties": {
+        "level": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Level"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A subtree can be held to a different level: strict in the domain, relaxed in the scripts. The gate is not moved by it."
+        },
+        "paths": {
+          "default": [],
+          "description": "Globs, relative to the directory of the file that wrote them.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "patterns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Patterns"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pattern advice switches for this subtree, merged over the project's."
+        },
+        "rules": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rules"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Rule switches for this subtree, merged over the project's."
+        },
+        "thresholds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Thresholds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Thresholds for this subtree, merged over the project's."
+        }
+      },
+      "type": "object"
+    },
+    "Thresholds": {
+      "additionalProperties": false,
+      "description": "Every threshold is the highest acceptable value: a finding fires strictly above it. Mixing `>` and `>=` across rules makes a configured number mean different things depending on which rule reads it.",
+      "properties": {
+        "boundary_repeats": {
+          "default": 3,
+          "description": "Times the same off-by-one boundary arithmetic may repeat. Tunes `boundary-arithmetic`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "callback_depth": {
+          "default": 3,
+          "description": "Function literals nested inside other function literals. Tunes `callback-nesting`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "class_collaborators": {
+          "default": 8,
+          "description": "Other classes one class may depend on. Tunes `many-collaborators`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "class_members": {
+          "default": 20,
+          "description": "Members one class may declare. Tunes `large-class`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "class_public_members": {
+          "default": 20,
+          "description": "Public members one class may expose. Tunes `wide-surface`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "class_statements": {
+          "default": 200,
+          "description": "Statements across all the methods of one class. Tunes `large-class`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "clone_min_nodes": {
+          "default": 12,
+          "description": "Tunes `duplicate-code`. A floor on AST nodes rather than statements, to reject a block of three bare identifiers. Statement count is the primary filter: candidates are only taken at extractable block boundaries, where a real three-statement block runs to roughly twenty nodes.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "clone_min_statements": {
+          "default": 3,
+          "description": "Smallest repeated block, in statements, that is reported as duplicate code. Tunes `duplicate-code`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cognitive_complexity": {
+          "default": 15,
+          "description": "Cognitive complexity of one function, which counts nesting as well as branches. Tunes `cognitive-complexity`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "commented_code_lines": {
+          "default": 2,
+          "description": "Consecutive lines of commented-out code. Tunes `commented-out-code`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "condition_operands": {
+          "default": 3,
+          "description": "Operands in one boolean condition. Tunes `complex-condition`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "configuration_depth": {
+          "default": 3,
+          "description": "Block nesting at which a configuration literal counts as buried. Tunes `buried-configuration`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cyclomatic_complexity": {
+          "default": 12,
+          "description": "Independent paths through one function. Tunes `cyclomatic-complexity`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "data_clump_sites": {
+          "default": 3,
+          "description": "Functions that must share the same group of parameters before it is a data clump. Tunes `data-clump`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "data_clump_size": {
+          "default": 3,
+          "description": "Parameters that travel together before they are a data clump. Tunes `data-clump`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "declaration_distance_lines": {
+          "default": 20,
+          "description": "Lines a reader must hold a binding in mind before its first use is too far. Tunes `distant-declaration`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "explanation_ratio": {
+          "default": 2,
+          "description": "How many times longer than the code it describes a comment may be. Tunes `explanation-longer-than-code`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expression_operations": {
+          "default": 6,
+          "description": "Operations packed into one unnamed expression before it stops being readable. Tunes `obscured-expression`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fan_in": {
+          "default": 20,
+          "description": "Modules that may import one file. Tunes `wide-fan-in`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fan_out": {
+          "default": 20,
+          "description": "Modules one file may import. Tunes `wide-fan-out`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "feature_envy_ratio": {
+          "default": 3,
+          "description": "How many times more a method uses another class's members than its own. Tunes `feature-envy`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "function_locals": {
+          "default": 15,
+          "description": "Local variables one function may declare. Tunes `many-locals`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "guard_cascade": {
+          "default": 3,
+          "description": "Guard clauses stacked at the top of one function. Tunes `guard-cascade`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hotspot_commits": {
+          "default": 12,
+          "description": "Commits to one file within `scan.churn_days` before it is a hotspot. Tunes `hotspot`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "inheritance_depth": {
+          "default": 3,
+          "description": "Levels of inheritance above one class. Tunes `deep-inheritance`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "log_percent": {
+          "default": 40,
+          "description": "Percentage of a function's statements that are logging. Tunes `over-logging`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "long_function_statements": {
+          "default": 40,
+          "description": "Statements in one function. Tunes `long-function`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "loop_nesting": {
+          "default": 2,
+          "description": "Loops inside loops before the body's cost is a power of the input. Tunes `deep-loop-nesting`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "magic_number_repeats": {
+          "default": 3,
+          "description": "Times one unnamed number may repeat before it wants a name. Tunes `magic-number`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_cases": {
+          "default": 12,
+          "description": "Arms in one switch before it stops being a table a reader scans. Tunes `wide-switch`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_exits": {
+          "default": 4,
+          "description": "Ways out of one function body, past the guard clauses at the top. Tunes `many-exits`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_params": {
+          "default": 4,
+          "description": "Parameters one function may take. Tunes `long-parameter-list`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_results": {
+          "default": 3,
+          "description": "Results one function may return. Tunes `many-results`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "message_chain_depth": {
+          "default": 3,
+          "description": "Calls chained on one object before the chain reaches too far. Tunes `message-chain`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "min_cases": {
+          "default": 3,
+          "description": "Arms below which a switch is an if spelled in more lines. Tunes `tiny-switch`, which is off by default.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "module_statements": {
+          "default": 400,
+          "description": "Statements in one file across all its functions. Tunes `oversized-module`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "narrated_run": {
+          "default": 4,
+          "description": "Consecutive lines each narrated by its own comment. Tunes `comment-per-line`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nesting_depth": {
+          "default": 3,
+          "description": "Levels of nested control flow in one function. Tunes `deep-nesting`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "relative_climb": {
+          "default": 2,
+          "description": "Levels a relative import may climb. Tunes `deep-relative-import`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "short_name_scope_lines": {
+          "default": 25,
+          "description": "Lines a short name may stay in scope. Tunes `short-name-wide-scope`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "slow_test_ms": {
+          "default": 100,
+          "description": "Milliseconds a test may pause: a longer pause is wall clock on every run. Tunes `slow-test`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sole_author_commits": {
+          "default": 6,
+          "description": "Commits by one author, and no one else, before a file counts as single-author. Tunes `single-author-file`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "todo_age_days": {
+          "default": 180,
+          "description": "Days a TODO may stand before it is stale. Tunes `stale-todo`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "try_statements": {
+          "default": 10,
+          "description": "Statements inside one try block. Tunes `wide-try`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Update": {
+      "additionalProperties": false,
+      "description": "Whether rqx may ask GitHub if a newer release exists. The check runs on a thread nobody waits for, caches its answer for a day, and never runs in CI — but a tool that reaches the network at all should be answerable to a line in a config file.",
+      "properties": {
+        "check": {
+          "default": true,
+          "description": "Ask GitHub whether a newer release exists.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "architecture": {
+      "$ref": "#/$defs/Architecture",
+      "default": {
+        "layers": [],
+        "paths": {}
+      }
+    },
+    "entrypoints": {
+      "$ref": "#/$defs/Entrypoints",
+      "default": {
+        "paths": []
+      }
+    },
+    "fix": {
+      "$ref": "#/$defs/Fix",
+      "default": {
+        "apply": [],
+        "disabled": [],
+        "max_rounds": 3
+      }
+    },
+    "gate": {
+      "$ref": "#/$defs/Gate",
+      "default": {
+        "baseline": null,
+        "fail_on": "error",
+        "fail_on_incomplete": false,
+        "max_findings": 0,
+        "min_grade": "never",
+        "min_health": 0,
+        "ratchet": false
+      }
+    },
+    "ignore": {
+      "$ref": "#/$defs/Ignore",
+      "default": {
+        "patterns": [
+          "**/*.d.ts",
+          "**/generated/**",
+          "**/*.generated.*",
+          "**/*.gen.ts",
+          "**/*_pb2.py",
+          "**/*_pb2.pyi",
+          "**/*.pb.go",
+          "**/*_gen.go",
+          "**/*.pb.h",
+          "**/*.pb.cc"
+        ]
+      }
+    },
+    "languages": {
+      "$ref": "#/$defs/Languages",
+      "default": {
+        "enabled": []
+      }
+    },
+    "level": {
+      "$ref": "#/$defs/Level",
+      "default": "standard",
+      "description": "How much this project asks of itself: relaxed, standard, strict or pristine. A level is merged under everything written by hand, so it moves the defaults and never overrides a stated value."
+    },
+    "locked": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Locked"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Only meaningful in a policy: the keys a project may not change."
+    },
+    "overrides": {
+      "default": [],
+      "description": "Settings for a subtree, matched by glob against this file's directory. Read by the loader, which turns each entry into its own resolved config.",
+      "items": {
+        "$ref": "#/$defs/SubtreeOverride"
+      },
+      "type": "array"
+    },
+    "patterns": {
+      "$ref": "#/$defs/Patterns",
+      "default": {
+        "disabled": [],
+        "enabled": [],
+        "families": [],
+        "stances": []
+      }
+    },
+    "performance": {
+      "$ref": "#/$defs/Performance",
+      "default": {
+        "methods": [],
+        "receivers": []
+      }
+    },
+    "policy": {
+      "default": null,
+      "description": "A shared policy file, relative to this one, that every repository pointing at it inherits. Read by the loader; it never reaches a resolved config.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "root": {
+      "default": false,
+      "description": "Stops the search for further config files above this one, for a repository checked out inside another one.",
+      "type": "boolean"
+    },
+    "rule": {
+      "default": [],
+      "description": "Rules this project wrote, as `[[rule]]` blocks. The grammars are already in the binary; this is what lets a team ask a question rqx will never ship.",
+      "items": {
+        "$ref": "#/$defs/CustomRule"
+      },
+      "type": "array"
+    },
+    "rules": {
+      "$ref": "#/$defs/Rules",
+      "default": {
+        "categories": [],
+        "disabled": [],
+        "enabled": []
+      }
+    },
+    "scan": {
+      "$ref": "#/$defs/Scan",
+      "default": {
+        "cache": true,
+        "churn_days": 90,
+        "coverage": [],
+        "max_filesize": 1048576,
+        "max_findings": 500,
+        "profile": [],
+        "prune_dirs": [
+          "node_modules",
+          "dist",
+          "build",
+          "out",
+          "coverage",
+          ".git",
+          "vendor",
+          "__pycache__",
+          ".venv",
+          "venv",
+          ".tox",
+          ".mypy_cache",
+          ".pytest_cache",
+          "target",
+          ".gradle",
+          ".mvn",
+          "bin",
+          "obj",
+          "cmake-build-debug",
+          "cmake-build-release",
+          "third_party"
+        ],
+        "skip_generated": true,
+        "threads": 0
+      }
+    },
+    "thresholds": {
+      "$ref": "#/$defs/Thresholds",
+      "default": {
+        "boundary_repeats": 3,
+        "callback_depth": 3,
+        "class_collaborators": 8,
+        "class_members": 20,
+        "class_public_members": 20,
+        "class_statements": 200,
+        "clone_min_nodes": 12,
+        "clone_min_statements": 3,
+        "cognitive_complexity": 15,
+        "commented_code_lines": 2,
+        "condition_operands": 3,
+        "configuration_depth": 3,
+        "cyclomatic_complexity": 12,
+        "data_clump_sites": 3,
+        "data_clump_size": 3,
+        "declaration_distance_lines": 20,
+        "explanation_ratio": 2,
+        "expression_operations": 6,
+        "fan_in": 20,
+        "fan_out": 20,
+        "feature_envy_ratio": 3,
+        "function_locals": 15,
+        "guard_cascade": 3,
+        "hotspot_commits": 12,
+        "inheritance_depth": 3,
+        "log_percent": 40,
+        "long_function_statements": 40,
+        "loop_nesting": 2,
+        "magic_number_repeats": 3,
+        "max_cases": 12,
+        "max_exits": 4,
+        "max_params": 4,
+        "max_results": 3,
+        "message_chain_depth": 3,
+        "min_cases": 3,
+        "module_statements": 400,
+        "narrated_run": 4,
+        "nesting_depth": 3,
+        "relative_climb": 2,
+        "short_name_scope_lines": 25,
+        "slow_test_ms": 100,
+        "sole_author_commits": 6,
+        "todo_age_days": 180,
+        "try_statements": 10
+      }
+    },
+    "update": {
+      "$ref": "#/$defs/Update",
+      "default": {
+        "check": true
+      }
+    }
+  },
+  "title": "rqx configuration",
+  "type": "object"
+}

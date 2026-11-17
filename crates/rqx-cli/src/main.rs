@@ -890,6 +890,8 @@ enum ConfigAction {
     },
     /// List the files this project's settings come from, nearest last
     Files,
+    /// Print the JSON Schema of a config file, for an editor or a validator
+    Schema,
     /// Convert RQX.toml files, the policies they point at and the user config to YAML
     Migrate {
         /// A directory to search for RQX.toml, or one TOML file to convert
@@ -1178,8 +1180,8 @@ impl From<ConfigAction> for edit_config::Change {
             },
             ConfigAction::Unset { key, file, pick } => Self::Unset { key, file, pick },
             ConfigAction::Files => Self::Files,
-            ConfigAction::Migrate { .. } => {
-                unreachable!("migrate is answered before settings load")
+            ConfigAction::Migrate { .. } | ConfigAction::Schema => {
+                unreachable!("answered before settings load")
             }
         }
     }
@@ -2071,14 +2073,20 @@ fn run() -> Result<Exit> {
         } => {
             // A TOML file stops the config from loading, and converting it is the way
             // out, so this has to run before anything reads the configuration.
-            if let Some(ConfigAction::Migrate {
-                path: named,
-                dry_run,
-            }) = action
-            {
-                let mut out = anstream::stdout().lock();
-                migrate::run(named.as_ref().unwrap_or(&path), dry_run, palette, &mut out)?;
-                return Ok(Exit::Clean);
+            match action {
+                Some(ConfigAction::Migrate {
+                    path: named,
+                    dry_run,
+                }) => {
+                    let mut out = anstream::stdout().lock();
+                    migrate::run(named.as_ref().unwrap_or(&path), dry_run, palette, &mut out)?;
+                    return Ok(Exit::Clean);
+                }
+                Some(ConfigAction::Schema) => {
+                    println!("{}", report::config_schema());
+                    return Ok(Exit::Clean);
+                }
+                _ => {}
             }
             let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
             match action {

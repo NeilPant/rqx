@@ -31,6 +31,7 @@ pub fn pages(fixtures: &Path) -> Vec<(PathBuf, String)> {
     let mut pages = vec![
         (PathBuf::from("cli.md"), cli_page()),
         (PathBuf::from("configuration.md"), configuration_page()),
+        (PathBuf::from("rqx.schema.json"), schema_text() + "\n"),
         (PathBuf::from("rules/README.md"), index()),
     ];
     for family in Category::ALL {
@@ -48,6 +49,12 @@ pub fn pages(fixtures: &Path) -> Vec<(PathBuf, String)> {
         ));
     }
     pages
+}
+
+/// The config schema as pretty JSON. Checked in as `docs/rqx.schema.json`, which the
+/// config files `rqx init` writes point their editor at.
+pub fn schema_text() -> String {
+    serde_json::to_string_pretty(&rqx_core::config::json_schema()).expect("a schema is always JSON")
 }
 
 /// Every command and every flag, read off the parser rather than written out. A

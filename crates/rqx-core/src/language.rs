@@ -4,7 +4,19 @@ use serde::{Deserialize, Serialize};
 
 /// The languages Rqx can analyze. A finding carries one so that a rule which cannot
 /// exist in a language is a declared exemption rather than a silent absence.
-#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Deserialize,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    Serialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum Language {
     /// Spelled out, because kebab-case would make it `type-script` in `rqx.yaml`

@@ -32,6 +32,7 @@ use crate::scan::ScanOutcome;
 pub use brief::{json as brief_json, markdown as brief_markdown, render as brief};
 pub use catalogue::{explain, levels, rules, techniques};
 pub use clients::{matrix as editors, render as editor, write as write_editor};
+pub use docs::schema_text as config_schema;
 pub use docs::write as docs;
 pub use fixes::{json as fixes_json, render as fixes};
 pub use graded::{json as verify_json, render as verify};

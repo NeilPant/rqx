@@ -121,6 +121,22 @@ fn a_toml_config_stops_the_run_until_it_is_migrated() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+/// The schema is derived from the config types, so it can be printed without a config
+/// and is the file an editor reads from `docs/`.
+#[test]
+fn the_config_schema_prints_without_a_config_and_matches_the_checked_in_one() {
+    let printed = rqx_bare(&["config", "schema"]);
+    let schema: serde_json::Value = serde_json::from_str(&printed).expect("JSON");
+    assert_eq!(schema["title"], "rqx configuration");
+    assert!(schema["properties"]["thresholds"].is_object(), "{printed}");
+    let checked_in = std::fs::read_to_string(format!(
+        "{}/../../docs/rqx.schema.json",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("docs/rqx.schema.json");
+    assert_eq!(printed.trim_end(), checked_in.trim_end());
+}
+
 /// A bare scan reports; it gates only when asked. A pipeline that added a config file
 /// above its checkout would otherwise start failing without anyone changing a rule.
 #[test]

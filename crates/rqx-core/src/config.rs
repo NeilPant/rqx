@@ -26,10 +26,48 @@ pub const RETIRED_CONFIG_FILE_NAMES: [&str; 2] = ["RQX.toml", "rqx.toml"];
 /// editors with a YAML language server read to offer completion and validation.
 pub const SCHEMA_DIRECTIVE: &str = "# yaml-language-server: $schema=https://raw.githubusercontent.com/jadhamwi21/rqx/main/docs/rqx.schema.json";
 
+/// The JSON Schema of a config file, derived from the same types the loader reads, so
+/// the schema an editor validates against cannot disagree with what rqx accepts. A
+/// field's doc comment is its description.
+pub fn json_schema() -> serde_json::Value {
+    let mut schema =
+        serde_json::to_value(schemars::schema_for!(RqxConfig)).expect("a schema is always JSON");
+    if let Some(root) = schema.as_object_mut() {
+        root.insert("title".to_owned(), "rqx configuration".into());
+    }
+    unwrap_descriptions(&mut schema);
+    schema
+}
+
+/// Doc comments are wrapped at the width of the source, which a hover tooltip is not.
+/// A single newline is a wrap; a blank line is a paragraph and stays.
+fn unwrap_descriptions(node: &mut serde_json::Value) {
+    match node {
+        serde_json::Value::Object(map) => {
+            for (key, value) in map.iter_mut() {
+                match value {
+                    serde_json::Value::String(text) if key == "description" => {
+                        *text = text
+                            .split("\n\n")
+                            .map(|paragraph| paragraph.replace('\n', " "))
+                            .collect::<Vec<_>>()
+                            .join("\n\n");
+                    }
+                    other => unwrap_descriptions(other),
+                }
+            }
+        }
+        serde_json::Value::Array(items) => items.iter_mut().for_each(unwrap_descriptions),
+        _ => {}
+    }
+}
+
 /// How much a project asks of itself. A level is a layer of settings merged *under*
 /// everything written by hand, so naming one changes the defaults and never overrides
 /// a value the project stated.
-#[derive(Copy, Clone, Debug, Default, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Level {
     Relaxed,
@@ -82,12 +120,13 @@ impl fmt::Display for Level {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct RqxConfig {
     /// Stops the search for further config files above this one, for a repository
     /// checked out inside another one.
     pub root: bool,
+    /// How much this project asks of itself: relaxed, standard, strict or pristine. A level is merged under everything written by hand, so it moves the defaults and never overrides a stated value.
     pub level: Level,
     pub languages: Languages,
     pub thresholds: Thresholds,
@@ -116,16 +155,17 @@ pub struct RqxConfig {
 }
 
 /// Keys a policy forbids a project to change, as `table.key`.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Locked {
+    /// Keys, as `table.key`, that a project may not set to a different value.
     pub keys: Vec<String>,
 }
 
 /// What a subtree may say differently. Only thresholds, rules and patterns, because
 /// the walker is built once and the gate reaches one verdict: honouring a scoped
 /// `scan` would mean walking the tree twice.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct SubtreeOverride {
     /// Globs, relative to the directory of the file that wrote them.
@@ -133,25 +173,36 @@ pub struct SubtreeOverride {
     /// A subtree can be held to a different level: strict in the domain, relaxed in
     /// the scripts. The gate is not moved by it.
     pub level: Option<Level>,
+    /// Thresholds for this subtree, merged over the project's.
     pub thresholds: Option<Thresholds>,
+    /// Rule switches for this subtree, merged over the project's.
     pub rules: Option<Rules>,
+    /// Pattern advice switches for this subtree, merged over the project's.
     pub patterns: Option<Patterns>,
 }
 
 /// A rule written as a tree-sitter query. The query is not compiled here — core has
 /// no grammars — but every other field is checked the moment the config parses.
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CustomRule {
+    /// The rule's slug, used to disable it and to waive it.
     pub id: String,
+    /// Languages the query runs against.
     pub languages: Vec<Language>,
+    /// A tree-sitter query. Name the capture to report `@site`; without one the first capture is used.
     pub query: String,
+    /// What the finding says.
     pub message: String,
+    /// Defaults to `warning`.
     #[serde(default = "warning")]
     pub severity: Severity,
+    /// The family the rule is filed under.
     pub family: Category,
+    /// Defaults to `verified`: a query either matched or it did not.
     #[serde(default = "verified")]
     pub confidence: Confidence,
+    /// What to do about it, shown beside the finding.
     #[serde(default)]
     pub hint: String,
 }
@@ -194,9 +245,10 @@ impl RqxConfig {
 ///
 /// Silent until a project declares it: an architecture nobody stated is not one rqx
 /// should invent.
-#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Architecture {
+    /// Layer names, ordered inner to outer. A file may import its own layer and any layer before it.
     pub layers: Vec<String>,
     /// Glob to what it belongs to. A sub-table because `flatten` and
     /// `deny_unknown_fields` cannot both apply to one struct, and losing the typo
@@ -204,11 +256,14 @@ pub struct Architecture {
     pub paths: BTreeMap<String, Assignment>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Assignment {
+    /// The layer this subtree belongs to; it must be named in `architecture.layers`.
     pub layer: Option<String>,
+    /// Globs this subtree may not import from.
     pub may_not_import: Vec<String>,
+    /// The only globs this subtree may import from.
     pub may_only_import: Vec<String>,
 }
 
@@ -251,9 +306,10 @@ impl Architecture {
 /// Whether rqx may ask GitHub if a newer release exists. The check runs on a thread
 /// nobody waits for, caches its answer for a day, and never runs in CI — but a tool
 /// that reaches the network at all should be answerable to a line in a config file.
-#[derive(Clone, Debug, Deserialize, Hash)]
+#[derive(Clone, Debug, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Update {
+    /// Ask GitHub whether a newer release exists.
     pub check: bool,
 }
 
@@ -266,11 +322,12 @@ impl Default for Update {
 /// Which mechanical fixes `rqx fix` may apply. A project that keeps commented-out
 /// code as documentation should not have it deleted, and naming the rule here beats
 /// remembering a flag per run.
-#[derive(Clone, Debug, Deserialize, Hash)]
+#[derive(Clone, Debug, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Fix {
     /// Autofix kinds, or individual rule slugs. Empty applies every kind.
     pub apply: BTreeSet<String>,
+    /// Fixes to leave alone even when their kind is applied: kinds or rule slugs.
     pub disabled: BTreeSet<String>,
     /// One fix can make the next possible, so fixing repeats. A cap rather than a
     /// fixed point, because a rule pair that undid each other would never settle.
@@ -398,9 +455,10 @@ pub const SCOPED_TABLES: [&str; 3] = ["thresholds", "rules", "patterns"];
 /// Which languages a scan reads. Empty means all of them: a project that only holds
 /// one language pays nothing for the others, because the file walker never yields a
 /// path no language claims.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Languages {
+    /// Language names. Empty means all five.
     pub enabled: Vec<Language>,
 }
 
@@ -422,7 +480,7 @@ impl Languages {
 
 /// What makes `rqx check` fail. Defaults are deliberately permissive: a gate that
 /// fails on day one gets disabled on day one, and a disabled gate checks nothing.
-#[derive(Clone, Debug, Deserialize, Hash)]
+#[derive(Clone, Debug, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Gate {
     /// Findings allowed in the reviewed set before the check fails.
@@ -449,7 +507,7 @@ pub struct Gate {
     pub ratchet: bool,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum GateGrade {
     Pristine,
@@ -473,7 +531,7 @@ impl GateGrade {
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum GateSeverity {
     Error,
@@ -510,61 +568,99 @@ impl Default for Gate {
 /// Every threshold is the highest acceptable value: a finding fires strictly
 /// above it. Mixing `>` and `>=` across rules makes a configured number mean
 /// different things depending on which rule reads it.
-#[derive(Clone, Debug, Deserialize, Hash)]
+#[derive(Clone, Debug, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Thresholds {
+    /// Statements in one function. Tunes `long-function`.
     pub long_function_statements: u32,
+    /// Cognitive complexity of one function, which counts nesting as well as branches. Tunes `cognitive-complexity`.
     pub cognitive_complexity: u32,
+    /// Levels of nested control flow in one function. Tunes `deep-nesting`.
     pub nesting_depth: u32,
+    /// Parameters one function may take. Tunes `long-parameter-list`.
     pub max_params: u32,
+    /// Members one class may declare. Tunes `large-class`.
     pub class_members: u32,
+    /// Statements across all the methods of one class. Tunes `large-class`.
     pub class_statements: u32,
+    /// Smallest repeated block, in statements, that is reported as duplicate code. Tunes `duplicate-code`.
     pub clone_min_statements: u32,
-    /// A floor on AST nodes rather than statements, to reject a block of three
+    /// Tunes `duplicate-code`. A floor on AST nodes rather than statements, to reject a block of three
     /// bare identifiers. Statement count is the primary filter: candidates are
     /// only taken at extractable block boundaries, where a real three-statement
     /// block runs to roughly twenty nodes.
     pub clone_min_nodes: u32,
+    /// Operands in one boolean condition. Tunes `complex-condition`.
     pub condition_operands: u32,
+    /// Calls chained on one object before the chain reaches too far. Tunes `message-chain`.
     pub message_chain_depth: u32,
+    /// Consecutive lines of commented-out code. Tunes `commented-out-code`.
     pub commented_code_lines: u32,
+    /// Times one unnamed number may repeat before it wants a name. Tunes `magic-number`.
     pub magic_number_repeats: u32,
+    /// Public members one class may expose. Tunes `wide-surface`.
     pub class_public_members: u32,
+    /// Modules one file may import. Tunes `wide-fan-out`.
     pub fan_out: u32,
+    /// Modules that may import one file. Tunes `wide-fan-in`.
     pub fan_in: u32,
+    /// Levels a relative import may climb. Tunes `deep-relative-import`.
     pub relative_climb: u32,
+    /// Statements in one file across all its functions. Tunes `oversized-module`.
     pub module_statements: u32,
+    /// Local variables one function may declare. Tunes `many-locals`.
     pub function_locals: u32,
+    /// Statements inside one try block. Tunes `wide-try`.
     pub try_statements: u32,
+    /// Consecutive lines each narrated by its own comment. Tunes `comment-per-line`.
     pub narrated_run: u32,
+    /// How many times longer than the code it describes a comment may be. Tunes `explanation-longer-than-code`.
     pub explanation_ratio: u32,
+    /// Guard clauses stacked at the top of one function. Tunes `guard-cascade`.
     pub guard_cascade: u32,
+    /// Commits by one author, and no one else, before a file counts as single-author. Tunes `single-author-file`.
     pub sole_author_commits: u32,
+    /// Commits to one file within `scan.churn_days` before it is a hotspot. Tunes `hotspot`.
     pub hotspot_commits: u32,
+    /// Independent paths through one function. Tunes `cyclomatic-complexity`.
     pub cyclomatic_complexity: u32,
+    /// Results one function may return. Tunes `many-results`.
     pub max_results: u32,
+    /// Other classes one class may depend on. Tunes `many-collaborators`.
     pub class_collaborators: u32,
+    /// Percentage of a function's statements that are logging. Tunes `over-logging`.
     pub log_percent: u32,
+    /// Levels of inheritance above one class. Tunes `deep-inheritance`.
     pub inheritance_depth: u32,
+    /// Days a TODO may stand before it is stale. Tunes `stale-todo`.
     pub todo_age_days: u32,
+    /// Ways out of one function body, past the guard clauses at the top. Tunes `many-exits`.
     pub max_exits: u32,
+    /// Arms in one switch before it stops being a table a reader scans. Tunes `wide-switch`.
     pub max_cases: u32,
+    /// Arms below which a switch is an if spelled in more lines. Tunes `tiny-switch`, which is off by default.
     pub min_cases: u32,
+    /// Function literals nested inside other function literals. Tunes `callback-nesting`.
     pub callback_depth: u32,
+    /// How many times more a method uses another class's members than its own. Tunes `feature-envy`.
     pub feature_envy_ratio: u32,
+    /// Parameters that travel together before they are a data clump. Tunes `data-clump`.
     pub data_clump_size: u32,
+    /// Functions that must share the same group of parameters before it is a data clump. Tunes `data-clump`.
     pub data_clump_sites: u32,
+    /// Lines a short name may stay in scope. Tunes `short-name-wide-scope`.
     pub short_name_scope_lines: u32,
-    /// A pause in a test longer than this is wall clock on every run.
+    /// Milliseconds a test may pause: a longer pause is wall clock on every run. Tunes `slow-test`.
     pub slow_test_ms: u32,
+    /// Times the same off-by-one boundary arithmetic may repeat. Tunes `boundary-arithmetic`.
     pub boundary_repeats: u32,
-    /// Lines a reader must hold a binding in mind before its first use is too far.
+    /// Lines a reader must hold a binding in mind before its first use is too far. Tunes `distant-declaration`.
     pub declaration_distance_lines: u32,
-    /// Operations packed into one unnamed expression before it stops being readable.
+    /// Operations packed into one unnamed expression before it stops being readable. Tunes `obscured-expression`.
     pub expression_operations: u32,
-    /// Block nesting at which a configuration literal counts as buried.
+    /// Block nesting at which a configuration literal counts as buried. Tunes `buried-configuration`.
     pub configuration_depth: u32,
-    /// Loops inside loops before the body's cost is a power of the input.
+    /// Loops inside loops before the body's cost is a power of the input. Tunes `deep-loop-nesting`.
     pub loop_nesting: u32,
 }
 
@@ -631,9 +727,10 @@ impl Thresholds {
 
 /// Modules the project is entered through. Anything reachable from one is live by
 /// definition, so these are read before an export is called unused.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Entrypoints {
+    /// Globs of the modules the project is entered through.
     pub paths: Vec<String>,
 }
 
@@ -691,10 +788,12 @@ impl Default for Thresholds {
 /// Rules and whole families can be switched on or off by name. A rule marked
 /// `off_by_default` in the catalogue stays off unless it is named in `enabled`,
 /// which keeps the noisy-but-real rules available without inflicting them.
-#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Rules {
+    /// Rule slugs or family slugs to switch off. `rqx rules` lists both.
     pub disabled: BTreeSet<String>,
+    /// Rules that ship off, switched on by slug or family.
     pub enabled: BTreeSet<String>,
     /// When non-empty, only these families run.
     pub categories: BTreeSet<String>,
@@ -770,10 +869,12 @@ impl Rules {
 /// claim is wrong for this project, by pattern when the whole pattern is, by family,
 /// and by stance when a project wants the half-applied patterns and not the
 /// suggestions.
-#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Patterns {
+    /// Advisory slugs, pattern slugs or families to switch off.
     pub disabled: BTreeSet<String>,
+    /// Advisories that ship off, switched on by advisory, pattern or family.
     pub enabled: BTreeSet<String>,
     /// When non-empty, only these families run.
     pub families: BTreeSet<String>,
@@ -851,9 +952,10 @@ impl Patterns {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Ignore {
+    /// Globs of files rqx does not read, matched against paths relative to the scanned directory.
     pub patterns: Vec<String>,
 }
 
@@ -887,10 +989,12 @@ impl Default for Ignore {
 /// Client names and call names the I/O rules should recognise on top of the ones
 /// rqx ships. Added to the built-in vocabulary rather than replacing it, because a
 /// project that names its own gateway still has a `fetch` somewhere.
-#[derive(Clone, Debug, Default, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Performance {
+    /// Client names the I/O rules should recognise, one segment each.
     pub receivers: Vec<String>,
+    /// Call names the I/O rules should recognise, one segment each.
     pub methods: Vec<String>,
 }
 
@@ -914,13 +1018,18 @@ impl Performance {
 /// requires descending into a directory to produce the paths it then rejects,
 /// which on a populated `node_modules` is the difference between skipping a
 /// directory and walking every file in it.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Scan {
+    /// Worker threads. 0 lets rqx pick from the machine.
     pub threads: usize,
+    /// Skip files carrying a generator's marker, and list them as skipped.
     pub skip_generated: bool,
+    /// Bytes. A larger file is reported as skipped.
     pub max_filesize: u64,
+    /// How many findings the report shows. 0 shows every one. Never moves the score.
     pub max_findings: usize,
+    /// Directory names never descended into.
     pub prune_dirs: Vec<String>,
     /// Coverage files to read, so a test run can contradict a dead-code finding.
     pub coverage: Vec<String>,
@@ -983,6 +1092,64 @@ impl Default for Scan {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn property<'a>(schema: &'a serde_json::Value, path: &[&str]) -> &'a serde_json::Value {
+        let mut at = schema;
+        for part in path {
+            let next = &at["properties"][*part];
+            at = match next["$ref"].as_str() {
+                Some(reference) => &schema["$defs"][reference.trim_start_matches("#/$defs/")],
+                None => next,
+            };
+        }
+        at
+    }
+
+    /// The schema is what an editor offers on hover, so a key with no description is
+    /// a key a reader has to leave the editor to understand.
+    #[test]
+    fn every_threshold_is_described_and_names_the_rule_it_tunes() {
+        let schema = json_schema();
+        let thresholds = property(&schema, &["thresholds"]);
+        for (key, rules) in Thresholds::TUNES {
+            let description = thresholds["properties"][key]["description"]
+                .as_str()
+                .unwrap_or_else(|| panic!("`{key}` has no description"));
+            for rule in rules {
+                assert!(
+                    description.contains(&format!("`{}`", rule.slug())),
+                    "`{key}` is described as {description:?} but tunes `{}`",
+                    rule.slug()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_schema_carries_defaults_and_refuses_unknown_keys() {
+        let schema = json_schema();
+        let thresholds = property(&schema, &["thresholds"]);
+        assert_eq!(thresholds["additionalProperties"], false);
+        assert_eq!(thresholds["properties"]["max_params"]["default"], 4);
+        assert_eq!(
+            property(&schema, &["gate"])["properties"]["fail_on"]["default"],
+            "error"
+        );
+    }
+
+    #[test]
+    fn the_template_validates_against_the_schema_it_names() {
+        assert_eq!(TEMPLATE.lines().next(), Some(SCHEMA_DIRECTIVE));
+        let template: serde_json::Value = serde_saphyr::from_str(TEMPLATE).expect("the template");
+        let schema = json_schema();
+        let allowed = schema["properties"].as_object().expect("properties");
+        for key in template.as_object().expect("a mapping").keys() {
+            assert!(
+                allowed.contains_key(key),
+                "the template sets `{key}`, which the schema lacks"
+            );
+        }
+    }
 
     /// A key that names no field, or a field no row names, makes the table a lie the
     /// moment a threshold is added or renamed.
