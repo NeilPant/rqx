@@ -1599,3 +1599,24 @@ fn graph_takes_its_formats_as_reporters_and_keeps_format() {
     );
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// A workflow that sets a variable from an input it was not given passes an empty
+/// string. That is "nothing to say", not a value to reject and not a gate to turn on.
+#[test]
+fn a_blank_gate_variable_is_not_set() {
+    let root = project(
+        "gate-env-blank",
+        &[("a.ts", DIRTY), ("index.ts", "export * from './a'\n")],
+    );
+    for variable in [
+        "RQX_FAIL_ON",
+        "RQX_ALLOW_FINDINGS",
+        "RQX_MIN_HEALTH",
+        "RQX_MIN_GRADE",
+        "RQX_FAIL_ON_INCOMPLETE",
+    ] {
+        let output = scan_with_env(&root, &[(variable, "")], &[]);
+        assert_eq!(code(&output), 0, "{variable} set to nothing");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}

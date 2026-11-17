@@ -2,7 +2,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint};
+use clap::builder::{EnumValueParser, FalseyValueParser};
+use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint, value_parser};
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 
@@ -37,6 +38,7 @@ mod render;
 mod report;
 mod scan;
 mod session;
+mod setting;
 mod setup;
 mod sink;
 mod slop;
@@ -50,6 +52,7 @@ mod watch;
 use brand::{ColorDepth, Palette};
 use gate::{Scope, judge};
 use report::{FindingFilter, Layout, Report, Reporter};
+use setting::{OrUnset, Setting};
 use sink::{Rendering, Sink};
 
 #[cfg(feature = "mimalloc")]
@@ -1120,26 +1123,48 @@ enum CacheAction {
 
 /// Each setting can also come from the environment, so a pipeline sets its standard
 /// once for every job. A flag wins over the variable, and the variable over
-/// `rqx.yaml`; setting any of them opts a scan into gating, as a flag does.
+/// `rqx.yaml`; setting any of them opts a scan into gating, as a flag does. A variable
+/// set to an empty string is not set, because a template that has nothing to say
+/// still names it.
 #[derive(Args)]
 struct Gate {
     /// Lowest severity that fails the run
-    #[arg(long, value_enum, env = "RQX_FAIL_ON", help_heading = "Gate")]
-    fail_on: Option<FailOn>,
+    #[arg(
+        long,
+        env = "RQX_FAIL_ON",
+        value_parser = OrUnset(EnumValueParser::<FailOn>::new()),
+        help_heading = "Gate"
+    )]
+    fail_on: Option<Setting<FailOn>>,
     /// Findings allowed before the run fails
-    #[arg(long, env = "RQX_ALLOW_FINDINGS", help_heading = "Gate")]
-    allow_findings: Option<u32>,
+    #[arg(
+        long,
+        env = "RQX_ALLOW_FINDINGS",
+        value_parser = OrUnset(value_parser!(u32)),
+        help_heading = "Gate"
+    )]
+    allow_findings: Option<Setting<u32>>,
     /// Health score below which the run fails; 0 disables
-    #[arg(long, env = "RQX_MIN_HEALTH", help_heading = "Gate")]
-    min_health: Option<u32>,
+    #[arg(
+        long,
+        env = "RQX_MIN_HEALTH",
+        value_parser = OrUnset(value_parser!(u32)),
+        help_heading = "Gate"
+    )]
+    min_health: Option<Setting<u32>>,
     /// Lowest grade any single file may carry
-    #[arg(long, value_enum, env = "RQX_MIN_GRADE", help_heading = "Gate")]
-    min_grade: Option<MinGrade>,
+    #[arg(
+        long,
+        env = "RQX_MIN_GRADE",
+        value_parser = OrUnset(EnumValueParser::<MinGrade>::new()),
+        help_heading = "Gate"
+    )]
+    min_grade: Option<Setting<MinGrade>>,
     /// Fail when a design pattern is half applied
     #[arg(
         long,
         env = "RQX_FAIL_ON_INCOMPLETE",
-        value_parser = clap::builder::FalseyValueParser::new(),
+        value_parser = FalseyValueParser::new(),
         help_heading = "Gate"
     )]
     fail_on_incomplete: bool,
@@ -1170,24 +1195,40 @@ impl From<MinGrade> for GateGrade {
 
 impl Gate {
     fn is_set(&self) -> bool {
-        self.fail_on.is_some()
-            || self.allow_findings.is_some()
-            || self.min_health.is_some()
-            || self.min_grade.is_some()
+        self.fail_on().is_some()
+            || self.allow_findings().is_some()
+            || self.min_health().is_some()
+            || self.min_grade().is_some()
             || self.fail_on_incomplete
     }
 
+    fn fail_on(&self) -> Option<FailOn> {
+        Setting::of(self.fail_on)
+    }
+
+    fn allow_findings(&self) -> Option<u32> {
+        Setting::of(self.allow_findings)
+    }
+
+    fn min_health(&self) -> Option<u32> {
+        Setting::of(self.min_health)
+    }
+
+    fn min_grade(&self) -> Option<MinGrade> {
+        Setting::of(self.min_grade)
+    }
+
     fn apply(&self, config: &mut RqxConfig) {
-        if let Some(fail_on) = self.fail_on {
+        if let Some(fail_on) = self.fail_on() {
             config.gate.fail_on = fail_on.into();
         }
-        if let Some(allowed) = self.allow_findings {
+        if let Some(allowed) = self.allow_findings() {
             config.gate.max_findings = allowed;
         }
-        if let Some(health) = self.min_health {
+        if let Some(health) = self.min_health() {
             config.gate.min_health = health;
         }
-        if let Some(grade) = self.min_grade {
+        if let Some(grade) = self.min_grade() {
             config.gate.min_grade = grade.into();
         }
         if self.fail_on_incomplete {

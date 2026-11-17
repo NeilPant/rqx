@@ -49,7 +49,8 @@ every job:
 
 A flag beats its variable, and a variable beats `rqx.yaml`. Like a flag, setting any of
 them makes `rqx scan` gate, so a variable left in a shared runner image changes what
-every scan on it returns.
+every scan on it returns. A variable set to an empty string counts as not set, which is
+what a workflow passes for an input nobody filled in.
 
 ## Reporters
 
