@@ -229,6 +229,8 @@ pub struct Hygiene {
     pub awaits_in_loops: Vec<Spot>,
     pub invariants_in_loops: Vec<Spot>,
     pub copied_accumulators: Vec<Spot>,
+    /// Accumulators that the source declares as text, which a rule can be sure copy.
+    pub typed_text_accumulators: Vec<Spot>,
     pub blocking_in_async: Vec<Spot>,
 }
 

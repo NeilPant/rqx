@@ -2267,7 +2267,7 @@ catalogue! {
         analysis: Semantics,
         metric: "an accumulator rebuilt by copying itself on every pass of a loop",
         fixes: [AccumulateInPlace],
-        confidence: Heuristic,
+        confidence: Verified,
         severity: Warning,
         why: "each step copies everything gathered so far, so building a result of n items \
               touches about half of n squared items",

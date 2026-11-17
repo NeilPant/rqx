@@ -134,5 +134,8 @@ func main() {
 	_ = fixtures.AppendEach
 	_ = fixtures.RankEach
 	_ = fixtures.RankOwn
+	_ = fixtures.JoinWithPlus
+	_ = fixtures.JoinWithBuilder
+	_ = fixtures.LengthOf
 	_ = cyclea.Orbit
 }

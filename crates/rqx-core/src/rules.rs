@@ -586,11 +586,6 @@ pub fn check_hygiene(
             RuleId::InvariantInLoop,
             "compile it once above the loop and reuse it",
         ),
-        (
-            &hygiene.copied_accumulators,
-            RuleId::AccumulateByCopy,
-            "add to the accumulator in place instead of rebuilding it",
-        ),
     ] {
         for spot in spots {
             emit(
@@ -603,6 +598,27 @@ pub fn check_hygiene(
                     sampled: None,
                 },
                 hint.to_owned(),
+            );
+        }
+    }
+    // A name the source declares as text is a copy the rule can be sure of; any other
+    // accumulator is a guess from the value it started with.
+    for (spots, confidence) in [
+        (&hygiene.typed_text_accumulators, Confidence::Verified),
+        (&hygiene.copied_accumulators, Confidence::Heuristic),
+    ] {
+        for spot in spots {
+            builder.emit_with(
+                out,
+                RuleId::AccumulateByCopy,
+                spot.span,
+                Evidence::InLoop {
+                    subject: spot.detail.clone(),
+                    depth: spot.count,
+                    sampled: None,
+                },
+                "add to the accumulator in place instead of rebuilding it".to_owned(),
+                confidence,
             );
         }
     }

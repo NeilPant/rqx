@@ -2,6 +2,7 @@
 //! snippet: which rule reports which line.
 
 use rqx_core::config::RqxConfig;
+use rqx_core::finding::Confidence;
 use rqx_core::{Language, RuleId};
 
 use crate::analyze_as;
@@ -71,5 +72,31 @@ fn a_sort_of_what_the_loop_changes_is_not_a_repeated_sort() {
     assert_eq!(
         reported(Language::Python, unchanged, &[RuleId::SortInLoop]),
         [(RuleId::SortInLoop, 3)]
+    );
+}
+
+fn confidences(language: Language, source: &str, rule: RuleId) -> Vec<Confidence> {
+    let config = RqxConfig::default();
+    let analysis = analyze_as(language, "snippet", source, &config).expect("the snippet parses");
+    analysis
+        .findings
+        .iter()
+        .filter(|finding| finding.rule == rule)
+        .map(|finding| finding.confidence)
+        .collect()
+}
+
+#[test]
+fn text_the_source_declares_is_a_copy_the_rule_is_sure_of() {
+    let declared = "class A {\n  String join(java.util.List<String> parts) {\n    String text = \"\";\n    for (String part : parts) {\n      text += part;\n    }\n    return text;\n  }\n}\n";
+    assert_eq!(
+        confidences(Language::Java, declared, RuleId::AccumulateByCopy),
+        [Confidence::Verified]
+    );
+
+    let inferred = "function join(parts) {\n  let flat = [];\n  for (const part of parts) {\n    flat = [...flat, ...part];\n  }\n  return flat;\n}\n";
+    assert_eq!(
+        confidences(Language::JavaScript, inferred, RuleId::AccumulateByCopy),
+        [Confidence::Heuristic]
     );
 }

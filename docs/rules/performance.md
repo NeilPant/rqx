@@ -162,7 +162,7 @@ each step copies everything gathered so far, so building a result of n items tou
 | | |
 |---|---|
 | Measures | an accumulator rebuilt by copying itself on every pass of a loop |
-| Reported as | warning, measured threshold |
+| Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
 | Fix | Accumulate in Place |
 
