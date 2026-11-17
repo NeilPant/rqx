@@ -20,7 +20,7 @@ use rqx_core::score::FindingCounts;
 use rqx_core::span::Span;
 use smallvec::SmallVec;
 
-use crate::cache::Loading;
+use crate::cache::{Cached, Loading, Stamp};
 use crate::config::Resolved;
 use crate::stats::{FileReads, ScanStats};
 
@@ -1959,15 +1959,25 @@ pub(crate) fn collect(
 /// `max_filesize`, which drops them before they are ever visible: a file that was
 /// never analyzed has to be reported as such, or a clean score is a false one.
 fn analyze_entry(
-    path: &Path,
+    entry: &ignore::DirEntry,
     root: &Path,
-    size: Option<u64>,
     settings: &Resolved,
     cache: Option<&crate::cache::Cache>,
     reads: &FileReads,
     sender: &SyncSender<ScanMessage>,
 ) {
-    let _ = sender.send(analyze_file(path, root, size, settings, cache, reads));
+    let metadata = entry.metadata().ok();
+    let size = metadata.as_ref().map(std::fs::Metadata::len);
+    let stamp = metadata.as_ref().and_then(Stamp::of);
+    let _ = sender.send(analyze_file(
+        entry.path(),
+        root,
+        size,
+        stamp,
+        settings,
+        cache,
+        reads,
+    ));
 }
 
 /// One file, analysed. Split from the send so a caller holding its own map of results
@@ -1977,6 +1987,7 @@ pub(crate) fn analyze_file(
     path: &Path,
     root: &Path,
     size: Option<u64>,
+    stamp: Option<Stamp>,
     settings: &Resolved,
     cache: Option<&crate::cache::Cache>,
     reads: &FileReads,
@@ -1992,65 +2003,88 @@ pub(crate) fn analyze_file(
             ),
         };
     }
-    reads.note();
-    match std::fs::read_to_string(path) {
-        Ok(source) => {
-            if config.scan.skip_generated
-                && let Some(tool) = generated_by(&source)
-            {
-                return ScanMessage::Skipped {
-                    path: path.to_owned(),
-                    reason: format!("{tool} (set `scan.skip_generated = false` to include it)"),
-                };
-            }
-            let display = relative_to(root, path);
-            let cached = cache.and_then(|cache| cache.get(&display, &source));
-            let analysed = match cached {
-                Some(analysis) => Ok(analysis),
-                None => rqx_lang::analyze(path, &display, &source, config).inspect(|analysis| {
-                    if let Some(cache) = cache {
-                        cache.put(&display, &source, analysis);
-                    }
-                }),
-            };
-            match analysed {
-                Ok(mut analysis) => {
-                    // Tagged here rather than on the collector: resolving an identity
-                    // needs the file's text, and this is the one thread that already
-                    // has it.
-                    if let Some(baseline) = &settings.baseline {
-                        for finding in &mut analysis.findings {
-                            finding.known =
-                                baseline.contains(&rqx_core::Identity::resolved(finding, &source));
-                        }
-                    }
-                    ScanMessage::File(Box::new(Analyzed {
-                        canonical: settings
-                            .needs_modules()
-                            .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
-                        display,
-                        language: analysis.language,
-                        findings: analysis.findings,
-                        advice: analysis.advice,
-                        clones: analysis.clones,
-                        module: analysis.module,
-                        code_lines: analysis.code_lines,
-                        shape: analysis.shape,
-                        suppressions: analysis.suppressions,
-                        todos: analysis.todos,
-                    }))
-                }
-                Err(error) => ScanMessage::Skipped {
-                    path: path.to_owned(),
-                    reason: error.to_string(),
-                },
-            }
-        }
-        Err(error) => ScanMessage::Skipped {
-            path: path.to_owned(),
-            reason: error.to_string(),
-        },
+    let display = relative_to(root, path);
+    if let Some(cached) = cache
+        .zip(stamp)
+        .and_then(|(cache, stamp)| cache.unchanged(&display, stamp))
+    {
+        return analyzed(path, display, cached, settings);
     }
+    reads.note();
+    let source = match std::fs::read_to_string(path) {
+        Ok(source) => source,
+        Err(error) => return skipped(path, error.to_string()),
+    };
+    if config.scan.skip_generated
+        && let Some(tool) = generated_by(&source)
+    {
+        return skipped(
+            path,
+            format!("{tool} (set `scan.skip_generated = false` to include it)"),
+        );
+    }
+    let cached = match cache.and_then(|cache| cache.get(&display, &source, stamp)) {
+        Some(cached) => cached,
+        None => match rqx_lang::analyze(path, &display, &source, config) {
+            Ok(analysis) => {
+                let identities = identities_of(&analysis.findings, &source);
+                if let Some(cache) = cache {
+                    cache.put(&display, &source, stamp, &analysis, &identities);
+                }
+                Cached {
+                    analysis,
+                    identities,
+                }
+            }
+            Err(error) => return skipped(path, error.to_string()),
+        },
+    };
+    analyzed(path, display, cached, settings)
+}
+
+fn skipped(path: &Path, reason: String) -> ScanMessage {
+    ScanMessage::Skipped {
+        path: path.to_owned(),
+        reason,
+    }
+}
+
+/// Resolved here, where the file's text is already in hand, and kept with the cached
+/// analysis so that a file that is not read again can still be held against a baseline.
+fn identities_of(findings: &[Finding], source: &str) -> Vec<rqx_core::Identity> {
+    findings
+        .iter()
+        .map(|finding| rqx_core::Identity::resolved(finding, source))
+        .collect()
+}
+
+fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -> ScanMessage {
+    let Cached {
+        mut analysis,
+        identities,
+    } = cached;
+    // Tagged here rather than on the collector, which every worker's output funnels
+    // through.
+    if let Some(baseline) = &settings.baseline {
+        for (finding, identity) in analysis.findings.iter_mut().zip(&identities) {
+            finding.known = baseline.contains(identity);
+        }
+    }
+    ScanMessage::File(Box::new(Analyzed {
+        canonical: settings
+            .needs_modules()
+            .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
+        display,
+        language: analysis.language,
+        findings: analysis.findings,
+        advice: analysis.advice,
+        clones: analysis.clones,
+        module: analysis.module,
+        code_lines: analysis.code_lines,
+        shape: analysis.shape,
+        suppressions: analysis.suppressions,
+        todos: analysis.todos,
+    }))
 }
 
 /// One graph per language family, merged. Import syntax means different things in
@@ -2328,9 +2362,8 @@ pub(crate) fn scan_with(
                 }
                 match entry {
                     Ok(entry) if entry.file_type().is_some_and(|kind| kind.is_file()) => {
-                        let size = entry.metadata().ok().map(|meta| meta.len());
                         let cache = *cached.get_or_insert_with(|| loading.and_then(Loading::wait));
-                        analyze_entry(entry.path(), root, size, settings, cache, reads, &sender);
+                        analyze_entry(&entry, root, settings, cache, reads, &sender);
                     }
                     Ok(_) => {}
                     Err(error) => {
@@ -2403,6 +2436,8 @@ mod tests {
         assert!(!CachePolicy::FromSettings.enabled(&config));
     }
 
+    const HOUR: u64 = 3600;
+
     /// A copy of the TypeScript fixtures that the cache tests are free to write into
     /// and edit, removed when it goes out of scope.
     struct Project {
@@ -2422,10 +2457,29 @@ mod tests {
                 let path = entry.unwrap().path();
                 std::fs::copy(&path, root.join(path.file_name().unwrap())).unwrap();
             }
-            Self {
+            let project = Self {
                 root,
                 settings: Resolved::of(rqx_core::config::RqxConfig::default()),
+            };
+            for entry in std::fs::read_dir(&project.root).unwrap() {
+                project.age(&entry.unwrap().path(), HOUR);
             }
+            project
+        }
+
+        /// Dated well before any cache is written, which is when a stamp is believed.
+        fn age(&self, path: &Path, seconds_ago: u64) {
+            let at = std::time::SystemTime::now() - std::time::Duration::from_secs(seconds_ago);
+            Self::stamp(path, at);
+        }
+
+        fn stamp(path: &Path, at: std::time::SystemTime) {
+            std::fs::File::options()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(at)
+                .unwrap();
         }
 
         fn scan(&self) -> ScanOutcome {
@@ -2549,10 +2603,82 @@ mod tests {
         let mut source = std::fs::read_to_string(&edited).unwrap();
         source.push_str("\nexport const edited = 1;\n");
         std::fs::write(&edited, source).unwrap();
+        project.age(&edited, HOUR / 2);
         project.scan();
 
         assert_eq!(project.cached_entries(), analysed);
         assert!(project.next_run_hits_every_file());
+    }
+
+    #[test]
+    fn a_warm_run_opens_no_file() {
+        let project = Project::copied_from_fixtures();
+        let files = project.scan().analyzed.len() as u32;
+
+        let stats = project.scan().stats;
+
+        assert_eq!(stats.files_read, 0);
+        assert_eq!(stats.cache_hits, files);
+    }
+
+    #[test]
+    fn a_file_touched_without_changing_is_read_once_and_then_not_again() {
+        let project = Project::copied_from_fixtures();
+        project.scan();
+        project.age(&project.root.join("clean.ts"), HOUR / 2);
+
+        let touched = project.scan().stats;
+        let after = project.scan().stats;
+
+        assert_eq!(touched.files_read, 1);
+        assert_eq!(touched.cache_misses, 0);
+        assert_eq!(after.files_read, 0);
+    }
+
+    /// The edit keeps the length and the file's own time, and the time is later than
+    /// the cache was written, which is the one edit a length and a time cannot see.
+    #[test]
+    fn an_edit_that_leaves_the_length_and_the_time_alone_is_still_seen() {
+        let project = Project::copied_from_fixtures();
+        let edited = project.root.join("clean.ts");
+        let just_now = std::time::SystemTime::now() + std::time::Duration::from_secs(60);
+        Project::stamp(&edited, just_now);
+        project.scan();
+        let before = std::fs::read_to_string(&edited).unwrap();
+
+        std::fs::write(&edited, before.replacen("first", "other", 1)).unwrap();
+        Project::stamp(&edited, just_now);
+        let warm = project.scan();
+
+        assert_eq!(
+            std::fs::metadata(&edited).unwrap().len(),
+            before.len() as u64
+        );
+        assert_eq!(warm.stats.cache_misses, 1);
+        assert_eq!(warm.stats.files_read, 1);
+    }
+
+    #[test]
+    fn a_baseline_still_applies_to_files_that_are_not_read() {
+        let project = Project::copied_from_fixtures();
+        let cold = project.scan();
+        assert!(!cold.findings.is_empty());
+        let mut settings = Resolved::of(rqx_core::config::RqxConfig::default());
+        settings.baseline = Some(Arc::new(
+            cold.findings
+                .iter()
+                .map(|finding| {
+                    let source =
+                        std::fs::read_to_string(project.root.join(&*finding.location.file));
+                    rqx_core::Identity::resolved(finding, &source.unwrap())
+                })
+                .collect(),
+        ));
+
+        let warm = scan_with(&project.root, &settings, None, CachePolicy::Forced).unwrap();
+
+        assert_eq!(warm.stats.files_read, 0);
+        assert!(warm.findings.iter().all(|finding| finding.known));
     }
 
     #[test]

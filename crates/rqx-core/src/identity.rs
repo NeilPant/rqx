@@ -1,12 +1,14 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::finding::{Evidence, Finding};
 use crate::rule::RuleId;
 
 /// What a finding is about, independent of where in the file it currently sits.
 /// Two findings with the same identity are the same problem before and after an
 /// edit moved it, which is what lets a fixer tell "still there" from "new".
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Identity(u64);
 
 impl Identity {

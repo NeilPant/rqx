@@ -126,6 +126,15 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   A warm scan decodes only the entries it uses, on the threads that walk the tree,
   instead of reading the whole document before the first file is opened.
 
+- **A warm scan does not open unchanged files.** The cache now records each file's
+  length and modification time, and a file that still has both is served from the
+  cache without being read. On a 4,440-file tree a warm scan reads no files where it
+  read all of them. A file edited in the two seconds before the cache was written is
+  still read and compared by content, because an edit that keeps the length cannot be
+  told apart by its time. Baselines are applied to cached files without their text.
+  `scan.skip_generated` now counts as a setting for the cache, so changing it
+  rebuilds the cache.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**

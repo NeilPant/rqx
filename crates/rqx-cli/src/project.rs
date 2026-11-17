@@ -133,6 +133,7 @@ fn analyse_into(
             path,
             root,
             Some(stamp.size),
+            None,
             settings,
             None,
             &crate::stats::FileReads::default(),
