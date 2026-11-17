@@ -111,6 +111,44 @@ jobs:
           sarif_file: rqx.sarif
           category: rqx
 
+  # The scan is a performance tool as much as a correctness one, and the counts that
+  # prove it (cache hits, walks, files read) are asserted in `cargo test`, where they
+  # cannot flake. This job is the other half: the wall time, which varies with the
+  # runner, so it is only reported. It never fails the run and never runs on a pull
+  # request, where a noisy number would be read as a verdict on the change.
+  bench:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: hyperfine
+
+      - run: cargo build --release --locked
+
+      - name: Make the synthetic corpus
+        run: tools/bench/synth.sh 10
+
+      # `run.sh` prints hyperfine's own output and then a summary; only the summary
+      # goes to the page.
+      - name: Time cold, warm and warm-after-edit scans
+        run: |
+          set -o pipefail
+          tools/bench/run.sh --corpus synth target/release/rqx | tee bench.log
+          {
+            echo "## Scan timings (synthetic corpus)"
+            echo '```'
+            sed -n '/^summary/,$p' bench.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # install.sh and install.ps1 are the first thing a new user runs, so a broken one is
   # the worst first impression. Their dry runs need no build, only GitHub.
   install-scripts:
