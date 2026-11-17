@@ -72,6 +72,25 @@ pub fn table(outcome: &ScanOutcome, files: &BTreeSet<String>) -> Vec<OwnerRow> {
     rows
 }
 
+/// The scanned files an owner answers for. Owners are matched without regard to case,
+/// as the forges do.
+pub fn files_of<'a>(outcome: &'a ScanOutcome, owner: &str) -> Vec<&'a str> {
+    let Some(codeowners) = &outcome.owners else {
+        return Vec::new();
+    };
+    outcome
+        .analyzed
+        .iter()
+        .map(String::as_str)
+        .filter(|file| {
+            codeowners
+                .owners_of(file)
+                .iter()
+                .any(|named| named.eq_ignore_ascii_case(owner))
+        })
+        .collect()
+}
+
 /// The same curve as the project's, applied to these files alone, so an owner's number
 /// is comparable with the project's and a gate on it means what the project gate means.
 pub fn row(outcome: &ScanOutcome, owner: &str, files: &[&str]) -> OwnerRow {

@@ -1160,6 +1160,30 @@ mod tests {
     }
 
     #[test]
+    fn a_gate_can_hold_each_owner_to_a_floor_of_its_own() {
+        let root = workspace("owner-gate");
+        write(
+            &root.join("rqx.yaml"),
+            "gate:\n  owners:\n    \"@team-a\": { min_health: 70, fail_on: error }\n    \"@team-b\": { min_health: 50 }\n",
+        );
+        let settings = resolve(&root, None, None).expect("resolves");
+        let owners = &settings.config.gate.owners;
+        assert_eq!(owners["@team-a"].min_health, 70);
+        assert_eq!(owners["@team-a"].fail_on.slug(), "error");
+        assert_eq!(owners["@team-b"].fail_on.slug(), "never");
+    }
+
+    #[test]
+    fn an_unknown_key_in_an_owner_gate_is_an_error() {
+        let root = workspace("owner-gate-typo");
+        write(
+            &root.join("rqx.yaml"),
+            "gate:\n  owners:\n    \"@team-a\": { min_helth: 70 }\n",
+        );
+        assert!(resolve(&root, None, None).is_err());
+    }
+
+    #[test]
     fn a_preset_sets_what_the_file_leaves_alone_and_names_itself_as_the_source() {
         let root = workspace("preset");
         write(
