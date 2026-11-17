@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::channel;
-use std::time::{Instant, SystemTime};
+use std::time::Instant;
 
 use anyhow::Result;
 
@@ -10,15 +10,7 @@ use crate::config::Resolved;
 use crate::history::History;
 use crate::progress::Bar;
 use crate::scan::{self, ScanMessage, ScanOutcome};
-
-/// What a file looked like when it was last analysed. Size joins the timestamp
-/// because a filesystem with one-second timestamps would otherwise miss a save
-/// inside the same second.
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Stamp {
-    pub modified: Option<SystemTime>,
-    pub size: u64,
-}
+use crate::watch::{Stamp, stamps};
 
 struct Cached {
     stamp: Stamp,
@@ -65,34 +57,6 @@ impl Project {
     /// The walk opens nothing: one `stat` per file is what makes polling affordable.
     pub fn walk(&self) -> Result<BTreeMap<PathBuf, Stamp>> {
         stamps(&self.root, &self.settings)
-    }
-}
-
-/// Every file the scan would read, with enough of its metadata to tell a save from a
-/// re-read. Used by the interface's poll and by `scan --watch`, which want the same
-/// answer to the same question.
-pub fn stamps(root: &Path, settings: &Resolved) -> Result<BTreeMap<PathBuf, Stamp>> {
-    {
-        let walker = scan::build_walker(root, &settings.config)?;
-        let found = std::sync::Mutex::new(BTreeMap::new());
-        walker.run(|| {
-            Box::new(|entry| {
-                if let Ok(entry) = entry
-                    && entry.file_type().is_some_and(|kind| kind.is_file())
-                {
-                    let data = entry.metadata().ok();
-                    found.lock().expect("the walk map").insert(
-                        entry.path().to_path_buf(),
-                        Stamp {
-                            modified: data.as_ref().and_then(|meta| meta.modified().ok()),
-                            size: data.as_ref().map_or(0, std::fs::Metadata::len),
-                        },
-                    );
-                }
-                ignore::WalkState::Continue
-            })
-        });
-        Ok(found.into_inner().expect("the walk map"))
     }
 }
 

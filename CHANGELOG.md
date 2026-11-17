@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
+  It cleared the screen before every run whatever stdout was, so a watch redirected to
+  a log filled it with escape characters. It now clears only on a terminal, and
+  anywhere else prints a `── rescanned after HH:MM:SS ──` line between reports.
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding
   only that file, so the next run analysed everything else again, and the run after
   paid the same price for the next edit. The cache now keeps every file the run saw,

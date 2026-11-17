@@ -438,6 +438,50 @@ fn ci_gets_the_report_and_the_exit_code() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// A watch whose stdout is a file would otherwise fill it with clear-screen escapes
+/// between the reports; a line tells the runs apart instead.
+#[test]
+fn a_watch_without_a_terminal_separates_runs_instead_of_clearing_the_screen() {
+    use std::io::{BufRead, BufReader};
+    use std::process::Stdio;
+    use std::time::Duration;
+
+    let root = project("watch", &[("a.ts", DIRTY)]);
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan", "--watch"])
+        .arg(&root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("failed to run rqx");
+    let _watchdog = common::Watchdog::arm(child.id(), Duration::from_secs(60));
+    let mut lines = BufReader::new(child.stdout.take().expect("a piped stdout")).lines();
+
+    let mut written = false;
+    let mut seen = String::new();
+    while let Some(Ok(line)) = lines.next() {
+        seen.push_str(&line);
+        seen.push('\n');
+        if line.contains("rescanned after") {
+            break;
+        }
+        // The first report is the signal that the watch has taken its stamps.
+        if !written && seen.contains("Findings") {
+            std::fs::write(root.join("a.ts"), CLEAN).expect("a changed file");
+            written = true;
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+
+    assert!(seen.contains("rescanned after"), "no separator:\n{seen}");
+    assert!(
+        !seen.contains('\u{1b}'),
+        "an escape sequence reached a pipe"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// A pipeline pointed at the wrong directory would otherwise pass, silently, with a
 /// perfect score: nothing was analysed, so nothing was wrong.
 #[test]

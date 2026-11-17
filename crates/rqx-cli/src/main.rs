@@ -37,6 +37,7 @@ mod term;
 mod tui;
 mod update;
 mod verify;
+mod watch;
 
 use brand::{ColorDepth, Palette};
 use report::{FindingFilter, Layout, Report, Reporter};
@@ -1243,35 +1244,6 @@ fn update_notice(view: &View, sinks: &[Sink], palette: Palette, enabled: bool) {
     }
 }
 
-/// Scan, print, and scan again whenever a file changes. Polling rather than an OS
-/// watcher: the scan already walks the tree to find its files, so the walk that
-/// answers "has anything changed" is one it knows how to do.
-fn watch_loop(
-    path: &Path,
-    settings: &config::Resolved,
-    run: impl Fn(&config::Resolved) -> Result<Exit>,
-) -> Result<Exit> {
-    const BETWEEN_WALKS: std::time::Duration = std::time::Duration::from_millis(400);
-
-    let mut seen = project::stamps(path, settings)?;
-    loop {
-        // The screen is cleared before each run so the terminal holds one report
-        // rather than a scroll of them.
-        print!("\u{1b}[2J\u{1b}[H");
-        std::io::Write::flush(&mut std::io::stdout())?;
-        run(settings)?;
-        eprintln!("\n  watching {} \u{b7} ctrl-c to stop", path.display());
-        loop {
-            std::thread::sleep(BETWEEN_WALKS);
-            let now = project::stamps(path, settings)?;
-            if now != seen {
-                seen = now;
-                break;
-            }
-        }
-    }
-}
-
 fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
     let filter = FindingFilter::new(
         view.severity.map(Severity::from),
@@ -1540,7 +1512,7 @@ fn run() -> Result<Exit> {
             };
 
             if watch {
-                return watch_loop(&path, &settings, run);
+                return watch::watch(&path, &settings, run);
             }
             run(&settings)
         }
