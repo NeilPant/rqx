@@ -1,4 +1,5 @@
 use crate::cost::bounds::{CountedLoop, LoopVocabulary};
+use crate::cost::indicators::SignalVocabulary;
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -310,6 +311,15 @@ pub static CPP: LanguageProfile = LanguageProfile {
             "append",
             "emplace_front",
         ],
+    },
+    signals: SignalVocabulary {
+        allocating: &["new_expression"],
+        lock_calls: &["lock", "lock_shared", "try_lock"],
+        lock_kinds: &[],
+        lock_types: &["lock_guard", "unique_lock", "scoped_lock", "shared_lock"],
+        fanout_calls: &[],
+        spawn_calls: &["std.async", "async", "std.thread"],
+        spawn_kinds: &[],
     },
     test: TestVocabulary {
         suite_roots: &["TEST", "TEST_F", "TEST_P"],

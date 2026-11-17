@@ -118,6 +118,8 @@ pub struct LanguageProfile {
     pub perf: PerfVocabulary,
     /// How this language writes the loops whose bounds the cost analysis reads.
     pub loops: crate::cost::bounds::LoopVocabulary,
+    /// The names the cost analysis reads signals from beyond a loop's bound.
+    pub signals: crate::cost::indicators::SignalVocabulary,
     /// The field naming what a call calls. Some grammars hold the whole callee in one
     /// field; others put the receiver and the method name in separate ones, in which
     /// case the call node is itself the thing to measure a chain from.

@@ -7,6 +7,8 @@
 pub mod bindings;
 pub mod bounds;
 pub mod env;
+pub mod indicators;
+pub mod recurrence;
 pub mod tables;
 pub mod types;
 

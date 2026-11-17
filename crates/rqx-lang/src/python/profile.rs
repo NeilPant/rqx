@@ -1,4 +1,5 @@
 use crate::cost::bounds::LoopVocabulary;
+use crate::cost::indicators::SignalVocabulary;
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -325,6 +326,22 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
             "update",
             "setdefault",
         ],
+    },
+    signals: SignalVocabulary {
+        allocating: &[
+            "list",
+            "dictionary",
+            "set",
+            "list_comprehension",
+            "dictionary_comprehension",
+            "set_comprehension",
+        ],
+        lock_calls: &["acquire", "lock"],
+        lock_kinds: &[],
+        lock_types: &[],
+        fanout_calls: &["asyncio.gather", "gather", "asyncio.wait"],
+        spawn_calls: &["asyncio.create_task", "create_task", "ensure_future"],
+        spawn_kinds: &[],
     },
     test: TestVocabulary {
         suite_roots: &["describe"],

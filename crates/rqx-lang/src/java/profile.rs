@@ -1,4 +1,5 @@
 use crate::cost::bounds::{CountedLoop, LoopVocabulary};
+use crate::cost::indicators::SignalVocabulary;
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -356,6 +357,29 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         appenders: &[
             "add", "addAll", "put", "offer", "push", "append", "addFirst", "addLast", "putAll",
         ],
+    },
+    signals: SignalVocabulary {
+        allocating: &["object_creation_expression", "array_creation_expression"],
+        lock_calls: &[
+            "lock",
+            "lockInterruptibly",
+            "tryLock",
+            "readLock",
+            "writeLock",
+            "acquire",
+        ],
+        lock_kinds: &["synchronized_statement"],
+        lock_types: &[],
+        fanout_calls: &["CompletableFuture.allOf", "CompletableFuture.anyOf"],
+        spawn_calls: &[
+            "supplyAsync",
+            "runAsync",
+            "submit",
+            "execute",
+            "supply",
+            "start",
+        ],
+        spawn_kinds: &[],
     },
     test: TestVocabulary {
         suite_roots: &[],

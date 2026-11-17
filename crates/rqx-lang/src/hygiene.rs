@@ -2747,69 +2747,15 @@ impl<'a> Walker<'a> {
             .named_children(&mut body.walk())
             .find(|child| profile.is_block(*child))
             .unwrap_or(body);
-        let mut cursor = holder.walk();
-        let statements: Vec<Node<'a>> = holder.named_children(&mut cursor).collect();
-        for pair in statements.windows(2) {
-            let [first, second] = pair else { continue };
-            // Both have to be taking an answer: two awaited calls written for their
-            // effects are in that order because the author put them there.
-            if !self.waits(*first) || !self.waits(*second) {
-                continue;
-            }
-            if !self.takes_an_answer(*first) || !self.takes_an_answer(*second) {
-                continue;
-            }
-            // The second reading a name the first introduced is the reason they are
-            // in series.
-            let introduced: Vec<&str> = descendants(*first)
-                .into_iter()
-                .filter(|node| {
-                    profile.is_identifier(*node)
-                        && crate::tree::is_binding_position(
-                            *node,
-                            &[],
-                            profile.borrowed_name_kinds,
-                            profile.local_declaring_kinds,
-                            profile.expression_list_kinds,
-                        )
-                })
-                .map(|node| self.text(node))
-                .collect();
-            let depends = descendants(*second)
-                .into_iter()
-                .any(|node| profile.is_identifier(node) && introduced.contains(&self.text(node)));
-            if depends {
-                continue;
-            }
+        if let Some((_, second)) =
+            crate::cost::indicators::independent_awaits(&self.names(), holder).first()
+        {
             self.out.sequential_awaits.push(Spot {
                 span: span_of(*second),
                 detail: self.snippet(*second),
                 count: 2,
             });
-            return;
         }
-    }
-
-    /// Whether a statement keeps what it waited for, rather than waiting for the
-    /// effect alone.
-    fn takes_an_answer(&self, statement: Node<'a>) -> bool {
-        let profile = self.profile;
-        descendants(statement).into_iter().any(|node| {
-            profile.is_identifier(node)
-                && crate::tree::is_binding_position(
-                    node,
-                    &[],
-                    profile.borrowed_name_kinds,
-                    profile.local_declaring_kinds,
-                    profile.expression_list_kinds,
-                )
-        })
-    }
-
-    fn waits(&self, statement: Node<'a>) -> bool {
-        descendants(statement)
-            .into_iter()
-            .any(|node| self.profile.await_kinds.contains(&kind_of(node)))
     }
 
     /// A check that the language is free to compile away, standing where a real one

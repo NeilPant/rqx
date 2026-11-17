@@ -1,4 +1,5 @@
 use crate::cost::bounds::{CountedLoop, LoopVocabulary};
+use crate::cost::indicators::SignalVocabulary;
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -378,6 +379,15 @@ pub const TYPESCRIPT_PROFILE: LanguageProfile = LanguageProfile {
             "Array.from",
         ],
         appenders: &["push", "unshift", "add", "set"],
+    },
+    signals: SignalVocabulary {
+        allocating: &["new_expression", "array", "object"],
+        lock_calls: &["lock", "acquire", "runExclusive", "withLock"],
+        lock_kinds: &[],
+        lock_types: &[],
+        fanout_calls: &["Promise.all", "Promise.allSettled", "Promise.any"],
+        spawn_calls: &[],
+        spawn_kinds: &[],
     },
     test: TestVocabulary {
         suite_roots: &["describe"],

@@ -1,4 +1,5 @@
 use crate::cost::bounds::{CountedLoop, LoopVocabulary};
+use crate::cost::indicators::SignalVocabulary;
 use rqx_core::Language;
 
 use crate::profile::LanguageProfile;
@@ -286,6 +287,15 @@ pub static GO: LanguageProfile = LanguageProfile {
             "slices.Sorted",
         ],
         appenders: &["append"],
+    },
+    signals: SignalVocabulary {
+        allocating: &["composite_literal"],
+        lock_calls: &["Lock", "RLock"],
+        lock_kinds: &[],
+        lock_types: &[],
+        fanout_calls: &[],
+        spawn_calls: &[],
+        spawn_kinds: &["go_statement"],
     },
     test: TestVocabulary {
         suite_roots: &[],
