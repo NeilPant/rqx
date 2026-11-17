@@ -68,6 +68,9 @@ pub struct Layout {
     pub stats: bool,
     /// Lines of unmarked code shown either side of the offence.
     pub context: u32,
+    /// `-v`: what the run read and how long it took, and every skipped file instead of
+    /// the first few.
+    pub verbose: bool,
 }
 
 /// One listing in progress: what to print, what to print it from, and what has
@@ -273,7 +276,8 @@ fn write_footer(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Re
     write_hotspots(out, layout, report, &prefix)?;
     write_skipped(out, layout, report.outcome)?;
     write_notes(out, layout, report.outcome)?;
-    write_gate(out, layout, report)
+    write_gate(out, layout, report)?;
+    write_run(out, layout, report.outcome)
 }
 
 /// The same findings under a heading that is not a file. The file listing shows a
@@ -984,6 +988,43 @@ fn write_notes(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> R
     Ok(())
 }
 
+/// What `-v` adds: the inputs the run used and what it cost, which a report about the
+/// code does not say and a reader debugging a surprising result needs.
+fn write_run(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Result<()> {
+    if !layout.verbose {
+        return Ok(());
+    }
+    let dim = layout.palette.style(Ink::Muted);
+    let configuration = if outcome.config_files.is_empty() {
+        "none, the defaults".to_owned()
+    } else {
+        outcome
+            .config_files
+            .iter()
+            .map(|file| file.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let stats = &outcome.stats;
+    let cache = if stats.cache_hits + stats.cache_misses == 0 {
+        "not used".to_owned()
+    } else {
+        format!("{} hits, {} misses", stats.cache_hits, stats.cache_misses)
+    };
+    writeln!(out, "\n  {}", paint(layout.palette.bold(Ink::Text), "Run"))?;
+    for (label, value) in [
+        ("config", configuration),
+        ("cache", cache),
+        (
+            "time",
+            format!("{:.2}s", outcome.elapsed_ms as f64 / 1000.0),
+        ),
+    ] {
+        writeln!(out, "    {}  {value}", paint(dim, format!("{label:<6}")))?;
+    }
+    Ok(())
+}
+
 fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Result<()> {
     if outcome.skipped.is_empty() {
         return Ok(());
@@ -994,11 +1035,16 @@ fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) ->
         "\n  {} skipped:",
         plural(outcome.skipped.len() as u32, "file", "files")
     )?;
-    for (path, reason) in outcome.skipped.iter().take(MAX_SKIPPED_ROWS) {
+    let shown = if layout.verbose {
+        outcome.skipped.len()
+    } else {
+        MAX_SKIPPED_ROWS
+    };
+    for (path, reason) in outcome.skipped.iter().take(shown) {
         writeln!(out, "    {} \u{2014} {reason}", paint(dim, path.display()))?;
     }
-    if outcome.skipped.len() > MAX_SKIPPED_ROWS {
-        let extra = outcome.skipped.len() - MAX_SKIPPED_ROWS;
+    if outcome.skipped.len() > shown {
+        let extra = outcome.skipped.len() - shown;
         writeln!(
             out,
             "    {}",
@@ -1061,6 +1107,7 @@ mod tests {
             quiet: false,
             stats: false,
             context: 1,
+            verbose: false,
         }
     }
 
@@ -1171,5 +1218,71 @@ mod tests {
         )
         .unwrap();
         assert!(String::from_utf8(loud).unwrap().contains("PASS"));
+    }
+    fn rendered_text(outcome: &ScanOutcome, layout: &Layout) -> String {
+        let report = Report::scan(outcome, &FindingFilter::default());
+        let mut out = Vec::new();
+        render(&report, layout, &mut out).unwrap();
+        String::from_utf8(out).unwrap()
+    }
+
+    #[test]
+    fn the_run_footer_appears_only_when_asked_for() {
+        let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+        outcome.config_files = vec!["rqx.yaml".into(), "policy.yaml".into()];
+        outcome.stats.cache_hits = 7;
+        outcome.stats.cache_misses = 2;
+
+        let quiet = rendered_text(&outcome, &layout());
+        assert!(!quiet.contains("config"), "{quiet}");
+
+        let loud = rendered_text(
+            &outcome,
+            &Layout {
+                verbose: true,
+                ..layout()
+            },
+        );
+        assert!(loud.contains("rqx.yaml, policy.yaml"), "{loud}");
+        assert!(loud.contains("7 hits, 2 misses"), "{loud}");
+        assert!(loud.contains("0.84s"), "{loud}");
+    }
+
+    #[test]
+    fn a_run_with_no_configuration_says_it_used_the_defaults() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let loud = rendered_text(
+            &outcome,
+            &Layout {
+                verbose: true,
+                ..layout()
+            },
+        );
+
+        assert!(loud.contains("none, the defaults"), "{loud}");
+        assert!(loud.contains("not used"), "{loud}");
+    }
+
+    #[test]
+    fn every_skipped_file_is_listed_when_verbose() {
+        let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+        outcome.skipped = (0..MAX_SKIPPED_ROWS + 5)
+            .map(|n| (format!("big-{n}.ts").into(), "too large".to_owned()))
+            .collect();
+
+        let capped = rendered_text(&outcome, &layout());
+        assert!(capped.contains("and 5 more"), "{capped}");
+        assert!(!capped.contains("big-14.ts"), "{capped}");
+
+        let full = rendered_text(
+            &outcome,
+            &Layout {
+                verbose: true,
+                ..layout()
+            },
+        );
+        assert!(!full.contains("more"), "{full}");
+        assert!(full.contains("big-14.ts"), "{full}");
     }
 }

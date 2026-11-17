@@ -149,6 +149,10 @@ pub struct ScanOutcome {
     /// What the scan did, as counts, so a change in the work can be told apart from a
     /// change in the machine.
     pub stats: ScanStats,
+    /// Every `git` command the scan ran, as typed, in the order they were taken.
+    pub git_commands: Vec<String>,
+    /// The configuration files that were in effect, lowest layer first, then the policy.
+    pub config_files: Vec<PathBuf>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -273,6 +277,7 @@ struct Staged {
     importers: Vec<(Arc<str>, u32)>,
     commits: Vec<(Arc<str>, u32)>,
     blames: u32,
+    git_commands: Vec<String>,
 }
 
 impl Staged {
@@ -312,6 +317,7 @@ struct Collector {
     phase_began: std::time::Instant,
     timings: Vec<(&'static str, u128)>,
     stats: ScanStats,
+    git_commands: Vec<String>,
     /// Where progress goes, whoever is drawing it: the command line's bar, the
     /// interface, the language server.
     watcher: Option<SyncSender<ScanProgress>>,
@@ -370,6 +376,7 @@ impl Collector {
             phase_began: std::time::Instant::now(),
             timings: Vec::new(),
             stats: ScanStats::default(),
+            git_commands: Vec::new(),
             watcher: None,
             by_language: [0; rqx_core::Language::ALL.len()],
             showing: None,
@@ -436,6 +443,7 @@ impl Collector {
         }
         self.stats.blames += staged.blames;
         self.stats.git_processes += staged.blames;
+        self.git_commands.extend(staged.git_commands);
     }
 
     /// The waiver that covers this finding, if its file wrote one. Cross-file
@@ -1353,6 +1361,9 @@ impl Collector {
         let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
         let blamed = crate::history::blame_dates_for(root, &names);
         staged.blames += names.len() as u32;
+        staged
+            .git_commands
+            .extend(names.iter().map(|file| crate::history::blame_command(file)));
         for ((file, spots), dates) in noted.into_iter().zip(blamed) {
             if dates.is_empty() {
                 continue;
@@ -1576,6 +1587,7 @@ impl Collector {
             self.report_phase(Phase::History);
             let (history, noted, together) = joined(git);
             self.stats.git_processes += history.git_processes();
+            self.git_commands.extend(history.commands().iter().cloned());
             self.absorb(noted);
             self.finish_churn(analyzed_ref, config, &mut Positions::new(root), &history);
             self.report_phase(Phase::CoChange);
@@ -1682,6 +1694,13 @@ impl Collector {
             baseline_size: self.baseline_findings,
             timings: self.timings,
             stats: self.stats,
+            git_commands: self.git_commands,
+            config_files: settings
+                .sources
+                .iter()
+                .chain(settings.policy.as_ref())
+                .cloned()
+                .collect(),
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,

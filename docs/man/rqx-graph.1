@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-graph \- Print the import graph — as text, Graphviz, Mermaid or data
 .SH SYNOPSIS
-\fBrqx graph\fR [\fB\-\-level\fR] [\fB\-\-format\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx graph\fR [\fB\-\-level\fR] [\fB\-\-format\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Print the import graph — as text, Graphviz, Mermaid or data
 .SH OPTIONS
@@ -95,6 +95,9 @@ plain: A line on stderr every two seconds and at each phase, for a job log
 .IP \(bu 2
 none: Nothing
 .RE
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

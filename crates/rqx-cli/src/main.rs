@@ -104,6 +104,9 @@ pub struct Cli {
         env = "RQX_PROGRESS"
     )]
     progress: progress::Style,
+    /// Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr
+    #[arg(short = 'v', long, action = clap::ArgAction::Count, global = true)]
+    verbose: u8,
 }
 
 /// `--no-progress` is the older spelling of `--progress none`, and a request for
@@ -828,6 +831,10 @@ impl From<OrderArg> for report::Order {
 /// with a display flag would not mean anything.
 #[derive(Args, Default)]
 struct View {
+    /// Set from the global `-v` after parsing, so the report can see it without every
+    /// command that flattens a view declaring the flag again.
+    #[arg(skip)]
+    verbose: u8,
     /// Show only findings at or above this severity
     #[arg(long, value_enum, help_heading = "Filtering")]
     severity: Option<SeverityArg>,
@@ -1297,6 +1304,9 @@ fn companion_stream(sinks: &[Sink]) -> Box<dyn std::io::Write> {
 }
 
 fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
+    if view.verbose > 1 {
+        write_diagnostics(report.outcome, view, palette)?;
+    }
     if !view.timings {
         for sink in sinks {
             write_sink(report, sink, view, palette, &mut stdout_for(sink))?;
@@ -1312,6 +1322,16 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     )?;
     anstream::stdout().lock().write_all(&held)?;
     Ok(())
+}
+
+/// What `-vv` adds on stderr, where it cannot corrupt a document on stdout. The stage
+/// timings are left out when `--timings` is already printing them.
+fn write_diagnostics(outcome: &scan::ScanOutcome, view: &View, palette: Palette) -> Result<()> {
+    let mut stderr = anstream::stderr().lock();
+    if !view.timings {
+        report::timings(outcome, &[], palette, &mut stderr)?;
+    }
+    report::git_commands(outcome, palette, &mut stderr)
 }
 
 /// The timed report into one writer, stages first, for a caller whose output is
@@ -1371,6 +1391,7 @@ fn write_sink(
         show_passed: view.show_passed,
         stats: view.stats,
         quiet: view.quiet,
+        verbose: view.verbose > 0,
         // Full is the level that shows everything, so it is the one that pays
         // for surrounding lines; at 285 findings they are most of the scroll.
         context: view.context.unwrap_or(match view.detail {
@@ -1598,7 +1619,7 @@ fn run() -> Result<Exit> {
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();
     let animated = !matches!(cli.motion, Motion::Off);
-    let (requested, no_progress) = (cli.progress, cli.no_progress);
+    let (requested, no_progress, verbosity) = (cli.progress, cli.no_progress, cli.verbose);
     let progress_for =
         |quiet| progress::Mode::new(progress_style(requested, no_progress, quiet), animated);
     let progress = progress_for(false);
@@ -1665,6 +1686,10 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let progress = progress_for(view.quiet);
+            let view = View {
+                verbose: verbosity,
+                ..view
+            };
             let sinks = sinks(&view)?;
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
@@ -2299,6 +2324,10 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let progress = progress_for(view.quiet);
+            let view = View {
+                verbose: verbosity,
+                ..view
+            };
             let sinks = sinks(&view)?;
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.

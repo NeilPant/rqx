@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-scan \- Analyze a project and report every finding
 .SH SYNOPSIS
-\fBrqx scan\fR [\fB\-\-level\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-no\-tui\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-advice\fR] [\fB\-\-color\fR] [\fB\-\-coverage\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-profile\fR] [\fB\-\-max\-findings\fR] [\fB\-\-progress\fR] [\fB\-\-watch\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx scan\fR [\fB\-\-level\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-no\-tui\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-advice\fR] [\fB\-\-color\fR] [\fB\-\-coverage\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-profile\fR] [\fB\-\-max\-findings\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-watch\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze a project and report every finding
 .SH OPTIONS
@@ -77,6 +77,9 @@ plain: A line on stderr every two seconds and at each phase, for a job log
 .IP \(bu 2
 none: Nothing
 .RE
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
 .TP
 \fB\-\-watch\fR
 Scan again whenever a file changes, until interrupted

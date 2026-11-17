@@ -16,9 +16,11 @@
 --progress =none
 --progress =plain
 --progress [env RQX_PROGRESS]
+--verbose
 --version
 -V
 -h
+-v
 alias c -> check
 alias f -> fix
 alias s -> scan
@@ -49,7 +51,9 @@ baseline --progress [env RQX_PROGRESS]
 baseline --threads
 baseline --threads [env RQX_THREADS]
 baseline --update
+baseline --verbose
 baseline -h
+baseline -v
 baseline <path>
 cache
 cache --color
@@ -70,7 +74,9 @@ cache --progress =bar
 cache --progress =none
 cache --progress =plain
 cache --progress [env RQX_PROGRESS]
+cache --verbose
 cache -h
+cache -v
 cache clear
 cache clear --color
 cache clear --color =always
@@ -90,7 +96,9 @@ cache clear --progress =bar
 cache clear --progress =none
 cache clear --progress =plain
 cache clear --progress [env RQX_PROGRESS]
+cache clear --verbose
 cache clear -h
+cache clear -v
 cache clear <path>
 cache help
 cache help clear
@@ -116,7 +124,9 @@ cache status --progress =bar
 cache status --progress =none
 cache status --progress =plain
 cache status --progress [env RQX_PROGRESS]
+cache status --verbose
 cache status -h
+cache status -v
 cache status <path>
 check
 check --allow-findings
@@ -205,9 +215,11 @@ check --sort =severity
 check --stats
 check --timings
 check --top
+check --verbose
 check --write
 check -h
 check -q
+check -v
 check -w
 check <path>
 comment
@@ -253,7 +265,9 @@ comment --progress =plain
 comment --progress [env RQX_PROGRESS]
 comment --threads
 comment --threads [env RQX_THREADS]
+comment --verbose
 comment -h
+comment -v
 comment <path>
 completions
 completions --color
@@ -274,7 +288,9 @@ completions --progress =bar
 completions --progress =none
 completions --progress =plain
 completions --progress [env RQX_PROGRESS]
+completions --verbose
 completions -h
+completions -v
 completions <shell>
 complexity
 complexity --by
@@ -313,7 +329,9 @@ complexity --sort =statements
 complexity --threads
 complexity --threads [env RQX_THREADS]
 complexity --top
+complexity --verbose
 complexity -h
+complexity -v
 complexity <path>
 config
 config --color
@@ -338,7 +356,9 @@ config --progress =bar
 config --progress =none
 config --progress =plain
 config --progress [env RQX_PROGRESS]
+config --verbose
 config -h
+config -v
 config <path>
 config explain
 config explain --color
@@ -359,7 +379,9 @@ config explain --progress =bar
 config explain --progress =none
 config explain --progress =plain
 config explain --progress [env RQX_PROGRESS]
+config explain --verbose
 config explain -h
+config explain -v
 config explain <key>
 config files
 config files --color
@@ -380,7 +402,9 @@ config files --progress =bar
 config files --progress =none
 config files --progress =plain
 config files --progress [env RQX_PROGRESS]
+config files --verbose
 config files -h
+config files -v
 config help
 config help explain
 config help files
@@ -410,7 +434,9 @@ config migrate --progress =bar
 config migrate --progress =none
 config migrate --progress =plain
 config migrate --progress [env RQX_PROGRESS]
+config migrate --verbose
 config migrate -h
+config migrate -v
 config migrate <path>
 config schema
 config schema --color
@@ -431,7 +457,9 @@ config schema --progress =bar
 config schema --progress =none
 config schema --progress =plain
 config schema --progress [env RQX_PROGRESS]
+config schema --verbose
 config schema -h
+config schema -v
 config set
 config set --color
 config set --color =always
@@ -453,7 +481,9 @@ config set --progress =bar
 config set --progress =none
 config set --progress =plain
 config set --progress [env RQX_PROGRESS]
+config set --verbose
 config set -h
+config set -v
 config set <key>
 config set <value>
 config unset
@@ -477,7 +507,9 @@ config unset --progress =bar
 config unset --progress =none
 config unset --progress =plain
 config unset --progress [env RQX_PROGRESS]
+config unset --verbose
 config unset -h
+config unset -v
 config unset <key>
 config validate
 config validate --color
@@ -503,7 +535,9 @@ config validate --progress =none
 config validate --progress =plain
 config validate --progress [env RQX_PROGRESS]
 config validate --strict
+config validate --verbose
 config validate -h
+config validate -v
 config validate <path>
 docs
 docs --color
@@ -526,7 +560,9 @@ docs --progress =bar
 docs --progress =none
 docs --progress =plain
 docs --progress [env RQX_PROGRESS]
+docs --verbose
 docs -h
+docs -v
 explain
 explain --color
 explain --color =always
@@ -546,7 +582,9 @@ explain --progress =bar
 explain --progress =none
 explain --progress =plain
 explain --progress [env RQX_PROGRESS]
+explain --verbose
 explain -h
+explain -v
 explain <name>
 fix
 fix --color
@@ -576,8 +614,10 @@ fix --progress =plain
 fix --progress [env RQX_PROGRESS]
 fix --threads
 fix --threads [env RQX_THREADS]
+fix --verbose
 fix --write
 fix -h
+fix -v
 fix -w
 fix <path>
 graph
@@ -612,7 +652,9 @@ graph --progress =plain
 graph --progress [env RQX_PROGRESS]
 graph --threads
 graph --threads [env RQX_THREADS]
+graph --verbose
 graph -h
+graph -v
 graph <path>
 health
 health --by
@@ -644,7 +686,9 @@ health --progress =plain
 health --progress [env RQX_PROGRESS]
 health --threads
 health --threads [env RQX_THREADS]
+health --verbose
 health -h
+health -v
 health <path>
 help
 help baseline
@@ -706,7 +750,9 @@ init --progress =bar
 init --progress =none
 init --progress =plain
 init --progress [env RQX_PROGRESS]
+init --verbose
 init -h
+init -v
 init <path>
 levels
 levels --color
@@ -727,7 +773,9 @@ levels --progress =bar
 levels --progress =none
 levels --progress =plain
 levels --progress [env RQX_PROGRESS]
+levels --verbose
 levels -h
+levels -v
 lsp
 lsp --color
 lsp --color =always
@@ -748,7 +796,9 @@ lsp --progress =bar
 lsp --progress =none
 lsp --progress =plain
 lsp --progress [env RQX_PROGRESS]
+lsp --verbose
 lsp -h
+lsp -v
 lsp <path>
 mcp
 mcp --color
@@ -771,7 +821,9 @@ mcp --progress =bar
 mcp --progress =none
 mcp --progress =plain
 mcp --progress [env RQX_PROGRESS]
+mcp --verbose
 mcp -h
+mcp -v
 mcp <path>
 patterns
 patterns --color
@@ -799,7 +851,9 @@ patterns --progress =plain
 patterns --progress [env RQX_PROGRESS]
 patterns --threads
 patterns --threads [env RQX_THREADS]
+patterns --verbose
 patterns -h
+patterns -v
 patterns <path>
 perf
 perf --by
@@ -839,7 +893,9 @@ perf --sort =weight
 perf --threads
 perf --threads [env RQX_THREADS]
 perf --top
+perf --verbose
 perf -h
+perf -v
 perf <path>
 plan
 plan --budget
@@ -869,7 +925,9 @@ plan --progress [env RQX_PROGRESS]
 plan --simulate
 plan --threads
 plan --threads [env RQX_THREADS]
+plan --verbose
 plan -h
+plan -v
 plan <path>
 query
 query --captures
@@ -892,7 +950,9 @@ query --progress =bar
 query --progress =none
 query --progress =plain
 query --progress [env RQX_PROGRESS]
+query --verbose
 query -h
+query -v
 query <language>
 query <path>
 query <query>
@@ -926,7 +986,9 @@ recommend --progress =plain
 recommend --progress [env RQX_PROGRESS]
 recommend --threads
 recommend --threads [env RQX_THREADS]
+recommend --verbose
 recommend -h
+recommend -v
 recommend <path>
 rules
 rules --color
@@ -949,7 +1011,9 @@ rules --progress =none
 rules --progress =plain
 rules --progress [env RQX_PROGRESS]
 rules --slugs
+rules --verbose
 rules -h
+rules -v
 rules <category>
 scan
 scan --advice
@@ -1042,9 +1106,11 @@ scan --threads
 scan --threads [env RQX_THREADS]
 scan --timings
 scan --top
+scan --verbose
 scan --watch
 scan -h
 scan -q
+scan -v
 scan <path>
 setup
 setup --color
@@ -1065,8 +1131,10 @@ setup --progress =bar
 setup --progress =none
 setup --progress =plain
 setup --progress [env RQX_PROGRESS]
+setup --verbose
 setup --write
 setup -h
+setup -v
 setup -w
 setup <editor>
 slop
@@ -1096,7 +1164,9 @@ slop --progress [env RQX_PROGRESS]
 slop --threads
 slop --threads [env RQX_THREADS]
 slop --top
+slop --verbose
 slop -h
+slop -v
 slop <path>
 suppressions
 suppressions --color
@@ -1124,7 +1194,9 @@ suppressions --progress =plain
 suppressions --progress [env RQX_PROGRESS]
 suppressions --threads
 suppressions --threads [env RQX_THREADS]
+suppressions --verbose
 suppressions -h
+suppressions -v
 suppressions <path>
 techniques
 techniques --color
@@ -1145,7 +1217,9 @@ techniques --progress =bar
 techniques --progress =none
 techniques --progress =plain
 techniques --progress [env RQX_PROGRESS]
+techniques --verbose
 techniques -h
+techniques -v
 update
 update --check
 update --color
@@ -1168,8 +1242,10 @@ update --progress =bar
 update --progress =none
 update --progress =plain
 update --progress [env RQX_PROGRESS]
+update --verbose
 update --version
 update -h
+update -v
 verify
 verify --base
 verify --color
@@ -1197,5 +1273,7 @@ verify --progress =plain
 verify --progress [env RQX_PROGRESS]
 verify --threads
 verify --threads [env RQX_THREADS]
+verify --verbose
 verify -h
+verify -v
 verify <path>

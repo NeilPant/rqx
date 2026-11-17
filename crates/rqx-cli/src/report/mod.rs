@@ -88,6 +88,28 @@ pub fn timings(
     counts(&outcome.stats, palette, out)
 }
 
+/// Every `git` command the scan ran, for a reader who wants to know what was asked of
+/// the repository and how often.
+pub fn git_commands(
+    outcome: &ScanOutcome,
+    palette: crate::brand::Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    use crate::brand::{Ink, paint};
+    writeln!(
+        out,
+        "\n  {}",
+        paint(palette.bold(Ink::Text), "Git commands")
+    )?;
+    if outcome.git_commands.is_empty() {
+        writeln!(out, "    none")?;
+    }
+    for command in &outcome.git_commands {
+        writeln!(out, "    {command}")?;
+    }
+    Ok(())
+}
+
 /// What the scan did, which a time cannot say: the same counts on every machine.
 fn counts(
     stats: &crate::stats::ScanStats,
@@ -486,6 +508,8 @@ pub mod tests {
             baseline_size: None,
             timings: Vec::new(),
             stats: Default::default(),
+            git_commands: Vec::new(),
+            config_files: Vec::new(),
             omitted: 0,
             code_lines: 10_000,
             files_scanned,
@@ -584,6 +608,7 @@ mod plainness {
             top: None,
             stats: false,
             context: 2,
+            verbose: false,
         };
         for reporter in Reporter::ALL {
             rendered(reporter.name(), |out| {

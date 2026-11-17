@@ -12,6 +12,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`-v` and `-vv`.** `-v` adds a short block to the end of the terminal report: the
+  configuration files that were in effect, cache hits and misses, and the time the run
+  took. It also lists every skipped file instead of the first ten. `-vv` also prints the
+  stage timings and every `git` command the scan ran, on stderr, so a document on
+  stdout stays parseable.
 - **`--progress auto|bar|plain|none`** (or `RQX_PROGRESS`). `plain` prints a line to
   stderr every two seconds and when the scan moves to its next phase, such as
   `rqx: scanning 1,204/3,456 files · 31 findings · 4.2s`, so a long CI job does not sit
