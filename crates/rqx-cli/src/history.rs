@@ -21,6 +21,7 @@ pub struct History {
     /// so every existing reader of the file lists is unchanged.
     authors: Vec<String>,
     prefix: String,
+    git_processes: u32,
 }
 
 impl History {
@@ -28,69 +29,25 @@ impl History {
     /// no churn signal rather than an error.
     pub fn read(root: &Path, days: u32) -> Self {
         let found = repository_prefix(root);
-        let versioned = found.is_some();
-        let prefix = found.unwrap_or_default();
-        if days == 0 {
-            return Self {
-                versioned,
-                commits: Vec::new(),
-                authors: Vec::new(),
-                prefix,
-            };
-        }
-        // `%x00` delimits commits, so one pass yields both the per-file totals and
-        // which files moved together.
-        let Ok(output) = Command::new("git")
-            .arg("-C")
-            .arg(root)
-            .args([
-                "log",
-                "--name-only",
-                "--pretty=format:%x00%an",
-                "--no-merges",
-            ])
-            .arg(format!("--since={days} days ago"))
-            .output()
-        else {
-            return Self {
-                versioned,
-                commits: Vec::new(),
-                authors: Vec::new(),
-                prefix,
-            };
+        let mut history = Self {
+            versioned: found.is_some(),
+            prefix: found.unwrap_or_default(),
+            git_processes: 1,
+            ..Self::default()
         };
-        if !output.status.success() {
-            return Self {
-                versioned,
-                commits: Vec::new(),
-                authors: Vec::new(),
-                prefix,
-            };
-        }
-        let text = String::from_utf8_lossy(&output.stdout);
-        let mut commits = Vec::new();
-        let mut authors = Vec::new();
-        for record in text.split('\0') {
-            let mut lines = record
-                .lines()
-                .map(str::trim)
-                .filter(|line| !line.is_empty());
-            let Some(author) = lines.next() else {
-                continue;
-            };
-            let files: Vec<String> = lines.map(str::to_owned).collect();
-            if files.is_empty() {
-                continue;
+        if days > 0 {
+            history.git_processes += 1;
+            if let Some((commits, authors)) = recent_commits(root, days) {
+                history.commits = commits;
+                history.authors = authors;
             }
-            authors.push(author.to_owned());
-            commits.push(files);
         }
-        Self {
-            versioned,
-            commits,
-            authors,
-            prefix,
-        }
+        history
+    }
+
+    /// How many `git` processes reading this took, so a scan can say what it cost.
+    pub const fn git_processes(&self) -> u32 {
+        self.git_processes
     }
 
     pub const fn versioned(&self) -> bool {
@@ -137,6 +94,45 @@ impl History {
 /// can be matched at all.
 /// The branch name, for the header. A detached head has none, and saying so is
 /// better than showing a hash nobody asked for.
+/// `%x00` delimits commits, so one pass yields both the per-file totals and which
+/// files moved together.
+fn recent_commits(root: &Path, days: u32) -> Option<(Vec<Vec<String>>, Vec<String>)> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args([
+            "log",
+            "--name-only",
+            "--pretty=format:%x00%an",
+            "--no-merges",
+        ])
+        .arg(format!("--since={days} days ago"))
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut commits = Vec::new();
+    let mut authors = Vec::new();
+    for record in text.split('\0') {
+        let mut lines = record
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty());
+        let Some(author) = lines.next() else {
+            continue;
+        };
+        let files: Vec<String> = lines.map(str::to_owned).collect();
+        if files.is_empty() {
+            continue;
+        }
+        authors.push(author.to_owned());
+        commits.push(files);
+    }
+    Some((commits, authors))
+}
+
 pub fn branch(root: &Path) -> Option<String> {
     let output = Command::new("git")
         .arg("-C")

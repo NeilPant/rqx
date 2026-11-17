@@ -43,23 +43,27 @@ pub use waivers::{json as waivers_json, render as waivers};
 
 /// Where a scan spent its time. Printed above the report rather than inside it, so
 /// no reporter's format has to grow a field nothing else wants.
+///
+/// `later` holds stages that only exist once the scan has returned: rendering is one,
+/// because the outcome is finished before anything is drawn.
 pub fn timings(
     outcome: &ScanOutcome,
+    later: &[(&'static str, u128)],
     palette: crate::brand::Palette,
     out: &mut dyn Write,
 ) -> Result<()> {
     use crate::brand::{Ink, paint};
     let dim = palette.style(Ink::Muted);
-    let total: u128 = outcome.timings.iter().map(|(_, took)| took).sum();
-    let width = outcome
-        .timings
+    let stages: Vec<&(&'static str, u128)> = outcome.timings.iter().chain(later).collect();
+    let total: u128 = stages.iter().map(|(_, took)| took).sum();
+    let width = stages
         .iter()
         .map(|(stage, _)| stage.len())
         .max()
         .unwrap_or(0)
         .max("total".len());
     writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), "Timings"))?;
-    for (stage, took) in &outcome.timings {
+    for (stage, took) in stages {
         if *took == 0 {
             continue;
         }
@@ -75,6 +79,29 @@ pub fn timings(
         )?;
     }
     writeln!(out, "    {:<width$} {total:>6}ms", "total")?;
+    counts(&outcome.stats, palette, out)
+}
+
+/// What the scan did, which a time cannot say: the same counts on every machine.
+fn counts(
+    stats: &crate::stats::ScanStats,
+    palette: crate::brand::Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    use crate::brand::{Ink, paint};
+    let rows = [
+        ("files read", stats.files_read),
+        ("cache hits", stats.cache_hits),
+        ("cache misses", stats.cache_misses),
+        ("walks", stats.walks),
+        ("git processes", stats.git_processes),
+        ("blames", stats.blames),
+    ];
+    let width = rows.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
+    writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), "Counts"))?;
+    for (name, count) in rows {
+        writeln!(out, "    {name:<width$} {count:>6}")?;
+    }
     Ok(())
 }
 
@@ -436,6 +463,7 @@ pub mod tests {
             suppressed: Vec::new(),
             baseline_size: None,
             timings: Vec::new(),
+            stats: Default::default(),
             omitted: 0,
             code_lines: 10_000,
             files_scanned,
@@ -544,7 +572,7 @@ mod plainness {
             emit(&report, Reporter::Terminal, &stats, out).expect("a report");
         });
         rendered("timings", |out| {
-            timings(&outcome, plain(), out).expect("timings");
+            timings(&outcome, &[], plain(), out).expect("timings");
         });
     }
 

@@ -165,7 +165,14 @@ fn analyse_into(
     files: &BTreeMap<PathBuf, Stamp>,
 ) {
     for (path, stamp) in files {
-        let message = scan::analyze_file(path, root, Some(stamp.size), settings, None);
+        let message = scan::analyze_file(
+            path,
+            root,
+            Some(stamp.size),
+            settings,
+            None,
+            &crate::stats::FileReads::default(),
+        );
         into.insert(
             path.clone(),
             Cached {

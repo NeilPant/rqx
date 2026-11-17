@@ -21,6 +21,7 @@ use rqx_core::span::Span;
 use smallvec::SmallVec;
 
 use crate::config::Resolved;
+use crate::stats::{FileReads, ScanStats};
 
 /// The walk analyzes files far faster than one collector drains them, so an
 /// unbounded channel becomes the place a whole repo's findings pile up. Bounding
@@ -116,6 +117,9 @@ pub struct ScanOutcome {
     /// Wall time per stage, so `--timings` can say where a slow scan went rather
     /// than leaving a reader to guess.
     pub timings: Vec<(&'static str, u128)>,
+    /// What the scan did, as counts, so a change in the work can be told apart from a
+    /// change in the machine.
+    pub stats: ScanStats,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -214,6 +218,7 @@ struct Collector {
     phase: crate::progress::Phase,
     phase_began: std::time::Instant,
     timings: Vec<(&'static str, u128)>,
+    stats: ScanStats,
     /// Where the interface's own progress goes. The bar draws for a plain run and is
     /// hidden for an interactive one, so without this the interface heard about the
     /// walk and about nothing that came after it.
@@ -273,6 +278,7 @@ impl Collector {
             phase: crate::progress::Phase::Scanning,
             phase_began: std::time::Instant::now(),
             timings: Vec::new(),
+            stats: ScanStats::default(),
             watcher: None,
             by_language: [0; rqx_core::Language::ALL.len()],
             showing: None,
@@ -1147,6 +1153,8 @@ impl Collector {
         noted.truncate(MOST_FILES_WORTH_BLAMING);
         let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
         let blamed = crate::history::blame_dates_for(&self.root, &names);
+        self.stats.blames += names.len() as u32;
+        self.stats.git_processes += names.len() as u32;
         for ((file, spots), dates) in noted.into_iter().zip(blamed) {
             if dates.is_empty() {
                 continue;
@@ -1394,6 +1402,7 @@ impl Collector {
             self.report_phase(Phase::History);
             let history = history();
             versioned = history.versioned();
+            self.stats.git_processes += history.git_processes();
             self.finish_history(config, &mut at, &history);
             self.report_phase(Phase::CoChange);
             self.finish_cochange(root, config, &mut at, &history);
@@ -1484,6 +1493,7 @@ impl Collector {
             suppressed: self.suppressed,
             baseline_size: self.baseline_findings,
             timings: self.timings,
+            stats: self.stats,
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -1870,9 +1880,10 @@ fn analyze_entry(
     size: Option<u64>,
     settings: &Resolved,
     cache: Option<&crate::cache::Cache>,
+    reads: &FileReads,
     sender: &SyncSender<ScanMessage>,
 ) {
-    let _ = sender.send(analyze_file(path, root, size, settings, cache));
+    let _ = sender.send(analyze_file(path, root, size, settings, cache, reads));
 }
 
 /// One file, analysed. Split from the send so a caller holding its own map of results
@@ -1884,6 +1895,7 @@ pub(crate) fn analyze_file(
     size: Option<u64>,
     settings: &Resolved,
     cache: Option<&crate::cache::Cache>,
+    reads: &FileReads,
 ) -> ScanMessage {
     let config = settings.for_file(path);
     if size.is_some_and(|bytes| bytes > config.scan.max_filesize) {
@@ -1896,6 +1908,7 @@ pub(crate) fn analyze_file(
             ),
         };
     }
+    reads.note();
     match std::fs::read_to_string(path) {
         Ok(source) => {
             if config.scan.skip_generated
@@ -2207,10 +2220,16 @@ pub(crate) fn scan_with(
             ..ScanProgress::default()
         });
     }
+    let mut walks = 1;
     let total = count_files(root, config, watch.as_ref())?;
 
     let walker = build_walker(root, config)?;
+    // What the walk waits for rather than what loading cost: the load overlaps the
+    // count above, so only the part nobody hid is time the scan lost to it.
+    let cache_wait = Instant::now();
     let cache = cache.and_then(|loading| loading.join().ok());
+    let cache_load = cache_wait.elapsed().as_millis();
+    let reads = FileReads::default();
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 
     let collector = thread::scope(|scope| {
@@ -2223,6 +2242,7 @@ pub(crate) fn scan_with(
             })
         });
         let cached = cache.as_ref();
+        let reads = &reads;
         walker.run(|| {
             let sender = sender.clone();
             let settings = &*settings;
@@ -2233,7 +2253,7 @@ pub(crate) fn scan_with(
                 match entry {
                     Ok(entry) if entry.file_type().is_some_and(|kind| kind.is_file()) => {
                         let size = entry.metadata().ok().map(|meta| meta.len());
-                        analyze_entry(entry.path(), root, size, settings, cached, &sender);
+                        analyze_entry(entry.path(), root, size, settings, cached, reads, &sender);
                     }
                     Ok(_) => {}
                     Err(error) => {
@@ -2246,6 +2266,7 @@ pub(crate) fn scan_with(
                 WalkState::Continue
             })
         });
+        walks += 1;
         drop(sender);
         handle.join()
     });
@@ -2254,11 +2275,20 @@ pub(crate) fn scan_with(
         anyhow::bail!(CANCELLED);
     }
 
+    let mut outcome = collector.map_err(|_| anyhow::anyhow!("the collector thread panicked"))?;
+    outcome.stats.walks = walks;
+    outcome.stats.files_read = reads.total();
     if let Some(cache) = cache {
+        outcome.stats.cache_hits = cache.hit_count();
+        outcome.stats.cache_misses = cache.miss_count();
+        let saving = Instant::now();
         cache.save();
+        outcome.timings.push(("cache load", cache_load));
+        outcome
+            .timings
+            .push(("cache save", saving.elapsed().as_millis()));
     }
-
-    collector.map_err(|_| anyhow::anyhow!("the collector thread panicked"))
+    Ok(outcome)
 }
 
 #[cfg(test)]
@@ -2367,6 +2397,31 @@ mod tests {
         let warm = project.scan();
         assert_eq!(project.findings_of(&cold), project.findings_of(&warm));
         assert!(project.next_run_hits_every_file());
+    }
+
+    #[test]
+    fn a_cold_run_misses_every_file_and_walks_the_tree_twice() {
+        let project = Project::copied_from_fixtures();
+
+        let stats = project.scan().stats;
+
+        let files = project.cached_entries() as u32;
+        assert!(files > 1);
+        assert_eq!(stats.cache_misses, files);
+        assert_eq!(stats.cache_hits, 0);
+        assert_eq!(stats.files_read, files);
+        assert_eq!(stats.walks, 2);
+    }
+
+    #[test]
+    fn a_warm_run_hits_every_file_and_misses_none() {
+        let project = Project::copied_from_fixtures();
+        let files = project.scan().analyzed.len() as u32;
+
+        let stats = project.scan().stats;
+
+        assert_eq!(stats.cache_hits, files);
+        assert_eq!(stats.cache_misses, 0);
     }
 
     #[test]
