@@ -161,6 +161,7 @@ Print the settings a run will use, and the file each one came from
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--json` | One JSON object per setting, then a summary, instead of the table |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |

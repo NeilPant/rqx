@@ -60,7 +60,7 @@ rqx.yaml:2:14: warning: `nonsense` in `rules.disabled` names nothing; …
 ✓ config is valid (1 file, 1 warning)
 ```
 
-`rqx config validate [PATH]` takes the directory to resolve from, and `--config` and `--level` as `scan` does.
+`rqx config validate [PATH]` takes the directory to resolve from, and `--config` and `--level` as `scan` does. `--json` prints one line per problem and a summary instead; `rqx config --json` does the same for the table of settings. Both formats are in [json.md](json.md).
 
 ## One rule, on its own terms
 

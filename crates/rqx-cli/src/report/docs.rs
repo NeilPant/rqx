@@ -631,7 +631,9 @@ fn configuration_page() -> String {
          \u{2713} config is valid (1 file, 1 warning)\n\
          ```\n\n\
          `rqx config validate [PATH]` takes the directory to resolve from, and `--config` and \
-         `--level` as `scan` does.\n\n\
+         `--level` as `scan` does. `--json` prints one line per problem and a summary instead; \
+         `rqx config --json` does the same for the table of settings. Both formats are in \
+         [json.md](json.md).\n\n\
          ## One rule, on its own terms\n\n\
          A rule's slug is a key under `rules`, and it takes the settings that belong to \
          that rule alone.\n\n\

@@ -194,3 +194,102 @@ fn the_path_argument_and_the_config_flag_choose_what_is_validated() {
     );
     let _ = std::fs::remove_dir_all(root);
 }
+
+fn lines(output: &Output) -> Vec<serde_json::Value> {
+    stdout(output)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap_or_else(|_| panic!("not JSON: {line}")))
+        .collect()
+}
+
+#[test]
+fn config_json_is_one_line_per_setting_then_a_summary() {
+    let root = project(
+        "config-json",
+        &[("rqx.yaml", "thresholds:\n  max_params: 6\n")],
+    );
+    let output = rqx(&root, &["config", "--json"]);
+    assert_eq!(code(&output), 0, "{output:?}");
+    let lines = lines(&output);
+    let (summary, settings) = lines.split_last().expect("a summary line");
+    assert!(settings.iter().all(|line| line["kind"] == "setting"));
+
+    let find = |key: &str| {
+        settings
+            .iter()
+            .find(|line| line["key"] == key)
+            .unwrap_or_else(|| panic!("no setting {key}"))
+    };
+    let tuned = find("thresholds.max_params");
+    assert_eq!(tuned["value"], 6);
+    assert_eq!(tuned["from"], "rqx.yaml");
+    assert_eq!(tuned["default"], false);
+    let untouched = find("gate.fail_on");
+    assert_eq!(untouched["value"], "error");
+    assert_eq!(untouched["from"], "default");
+    assert_eq!(untouched["default"], true);
+
+    assert_eq!(summary["kind"], "summary");
+    assert_eq!(summary["schema_version"], 1);
+    assert_eq!(summary["files"], serde_json::json!(["rqx.yaml"]));
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn config_json_with_a_broken_config_is_still_exit_two() {
+    let root = project("config-json-broken", &[("rqx.yaml", "bogus: 1\n")]);
+    let output = rqx(&root, &["config", "--json"]);
+    assert_eq!(code(&output), 2);
+    assert!(stdout(&output).is_empty());
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn validate_json_is_one_line_per_problem_then_a_summary() {
+    let root = project("validate-json", &[("rqx.yaml", WARNED)]);
+    let output = rqx(&root, &["config", "validate", "--json"]);
+    assert_eq!(code(&output), 0, "{output:?}");
+    let lines = lines(&output);
+    let (summary, problems) = lines.split_last().expect("a summary line");
+    assert_eq!(problems.len(), 3);
+    assert_eq!(problems[0]["kind"], "problem");
+    assert_eq!(problems[0]["severity"], "warning");
+    assert_eq!(problems[0]["file"], "rqx.yaml");
+    assert_eq!(problems[0]["line"], 2);
+    assert_eq!(problems[0]["column"], 14);
+    assert_eq!(summary["valid"], true);
+    assert_eq!(summary["warnings"], 3);
+
+    let strict = rqx(&root, &["config", "validate", "--json", "--strict"]);
+    assert_eq!(code(&strict), 1);
+    assert_eq!(lines_of_summary(&strict)["valid"], false);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+fn lines_of_summary(output: &Output) -> serde_json::Value {
+    lines(output).pop().expect("a summary line")
+}
+
+#[test]
+fn validate_json_reports_an_error_with_its_place() {
+    let root = project(
+        "validate-json-error",
+        &[("rqx.yaml", "thresholds:\n  bogus: 1\n")],
+    );
+    let output = rqx(&root, &["config", "validate", "--json"]);
+    assert_eq!(code(&output), 2);
+    let lines = lines(&output);
+    assert_eq!(lines[0]["severity"], "error");
+    assert_eq!(lines[0]["line"], 2);
+    assert_eq!(lines[0]["column"], 3);
+    assert_eq!(lines[1]["valid"], false);
+    assert_eq!(lines[1]["errors"], 1);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn json_is_refused_on_the_subcommands_that_have_no_json_form() {
+    let root = project("json-refused", &[]);
+    assert_eq!(code(&rqx(&root, &["config", "--json", "files"])), 2);
+    let _ = std::fs::remove_dir_all(root);
+}

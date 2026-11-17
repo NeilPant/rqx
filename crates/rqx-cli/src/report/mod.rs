@@ -119,7 +119,7 @@ pub fn unknown(kind: &str, named: &str, known: &[&str], hint: &str) -> anyhow::E
 pub use filter::FindingFilter;
 pub use json::finding_of;
 pub use markdown::{classification, comment};
-pub use settings::{render as config, rows as setting_rows};
+pub use settings::{render as config, render_json as config_json, rows as setting_rows};
 pub use terminal::{Detail, Grouping, Layout, Order};
 pub use validation::{json as validation_json, render as validation};
 

@@ -266,6 +266,7 @@ config --color =auto
 config --color =never
 config --config
 config --help
+config --json
 config --level
 config --level [env RQX_LEVEL]
 config --motion

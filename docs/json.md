@@ -54,6 +54,33 @@ written against it keeps working.
 scan summary writes snake_case. That mix is kept: renaming either would break the
 consumers already reading it.
 
+`rqx config --json` writes one `"kind": "setting"` line per setting, then a
+`"kind": "summary"` line:
+
+```json
+{"kind":"setting","key":"thresholds.max_params","value":6,"from":"rqx.yaml","default":false}
+{"kind":"summary","schema_version":1,"files":["rqx.yaml"]}
+```
+
+`key` is the setting as it is written in a config file, `value` is what it resolves
+to as the type the config gives it (a number, a string, a list), `from` is what the
+table's `from` column prints (`default`, a file name, `preset:NAME`, `level:NAME`),
+and `default` is whether nothing set it. A row that summarises a table, such as how
+many rules run, has no single value and carries the table's own words as a string.
+`files` lists the config files that were read, nearest last.
+
+`rqx config validate --json` writes one `"kind": "problem"` line per problem, then a
+summary:
+
+```json
+{"kind":"problem","severity":"warning","file":"rqx.yaml","line":2,"column":14,"message":"`nonsense` in `rules.disabled` names nothing; …"}
+{"kind":"summary","schema_version":1,"valid":true,"errors":0,"warnings":1,"files":["rqx.yaml"]}
+```
+
+`severity` is `error` or `warning`. `file`, `line` and `column` are `null` when a
+problem has no place in a file. `valid` is `true` when the command exits 0, so under
+`--strict` a warning makes it `false`.
+
 The commands that print a table as data (`complexity`, `perf`, `health`, `slop`,
 `recommend`, `waivers`, `patterns`) write one object per row and no summary. Their
 keys follow the same promise.

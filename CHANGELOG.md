@@ -37,6 +37,12 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   rules read, an `overrides` entry with no `paths`) prints and exits 0, or 1 under
   `--strict`. A scan still refuses the unknown names, so a warning here is a scan that
   would stop. It prints `✓ config is valid (N files)` when nothing stops it.
+- **`rqx config --json` and `rqx config validate --json`.** `rqx config --json` writes
+  one line per setting (`key`, `value`, `from`, `default`) and a summary line listing
+  the files read, so a script can assert on the settings a run will use.
+  `config validate --json` writes one line per problem (`severity`, `file`, `line`,
+  `column`, `message`) and a summary whose `valid` is the answer the exit code gives.
+  Both formats are in `docs/json.md`.
 
 ### Changed
 

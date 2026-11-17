@@ -693,6 +693,9 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
+        /// One JSON object per setting, then a summary, instead of the table
+        #[arg(long)]
+        json: bool,
         #[command(subcommand)]
         action: Option<ConfigAction>,
     },
@@ -2118,8 +2121,16 @@ fn run() -> Result<Exit> {
             path,
             standard,
             config,
+            json,
             action,
         } => {
+            if json && action.is_some() {
+                bail!(
+                    "`--json` goes after `rqx config` to print the settings, or after \
+                     `rqx config validate` to print the problems; the other subcommands \
+                     have no JSON form"
+                );
+            }
             // A TOML file stops the config from loading, and converting it is the way
             // out, so this has to run before anything reads the configuration.
             match action {
@@ -2155,6 +2166,10 @@ fn run() -> Result<Exit> {
             }
             let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
             match action {
+                None if json => {
+                    let mut out = anstream::stdout().lock();
+                    report::config_json(&settings?, &mut out).map(|()| Exit::Clean)
+                }
                 None => report::config(&settings?, palette).map(|()| Exit::Clean),
                 Some(ConfigAction::Explain { key }) => {
                     let mut out = anstream::stdout().lock();
