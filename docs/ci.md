@@ -218,6 +218,40 @@ rqx scan . --reporter json \
   | jq -c 'select(.kind != "summary") | {file: .location.file, rule, severity}'
 ```
 
+## Checking the config in CI
+
+A typo in `rqx.yaml` stops a scan with one error at a time. `rqx config validate`
+reports every problem in the config before any code is read:
+
+```sh
+rqx config validate --strict
+```
+
+An error exits 2, the same as a run that could not start. A warning, such as a rule
+name that is not in the catalogue, exits 0 on its own and 1 under `--strict`, so a
+pipeline that wants a clean config fails on it. `--json` prints one line per problem
+with its file, line and column; see [json.md](json.md).
+
+## Review without git history
+
+`rqx check` normally asks git which files differ from `--base`. A shallow clone has no
+common commit to diff from, and some pipelines already know which files changed. Pass
+the list instead:
+
+```sh
+git diff -z --name-only origin/main... | rqx check --files-from -
+```
+
+`-z` separates the names with NUL, which `--files-from` detects, so a file name with a
+space or a newline in it survives. Without `-z`, one path per line works too. The
+list replaces the diff as the files under review. Whatever imports a listed file is
+reviewed as well, and the whole project is still analysed, so a finding that depends
+on another file stays correct. Paths that are not files under the scanned directory
+are named once on stderr and skipped.
+
+Any program can write the list, such as a changed-files API call or a build tool's
+affected-projects output. `--base` and `--files-from` cannot be combined.
+
 ## Adopting a gate on an existing codebase
 
 A gate that fails on day one gets disabled on day one. Start where you already
