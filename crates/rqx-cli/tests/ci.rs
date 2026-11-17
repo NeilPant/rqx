@@ -265,6 +265,38 @@ fn an_unknown_rule_or_option_is_refused_with_what_it_could_have_been() {
     }
 }
 
+#[test]
+fn explain_says_what_a_setting_is_and_which_preset_or_file_set_it() {
+    let root = project(
+        "explain",
+        &[(
+            "rqx.yaml",
+            "extends: [ci-gate]\nthresholds:\n  max_params: 6\n",
+        )],
+    );
+    let said = |key: &str| {
+        let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+            .args(["config"])
+            .arg(&root)
+            .args(["explain", key])
+            .output()
+            .expect("failed to run rqx");
+        (
+            code(&output),
+            String::from_utf8_lossy(&output.stdout).into_owned(),
+        )
+    };
+    let (status, preset) = said("gate.min_health");
+    assert_eq!(status, 0);
+    assert!(preset.contains("current  70  preset:ci-gate"), "{preset}");
+    let (_, file) = said("thresholds.max_params");
+    assert!(file.contains("Parameters one function may take"), "{file}");
+    assert!(file.contains("default  4"), "{file}");
+    assert!(file.contains("current  6  rqx.yaml"), "{file}");
+    assert_eq!(said("gate.fial_on").0, 2);
+    let _ = std::fs::remove_dir_all(root);
+}
+
 /// A bare scan reports; it gates only when asked. A pipeline that added a config file
 /// above its checkout would otherwise start failing without anyone changing a rule.
 #[test]

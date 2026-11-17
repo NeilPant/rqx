@@ -15,6 +15,7 @@ mod check;
 mod complexity;
 mod config;
 mod edit_config;
+mod explain;
 mod fix;
 mod forge;
 mod graph;
@@ -892,6 +893,12 @@ enum ConfigAction {
     Files,
     /// Print the JSON Schema of a config file, for an editor or a validator
     Schema,
+    /// What one setting is, what it defaults to, and what it is now and why
+    Explain {
+        /// The setting, dotted: `thresholds.max_params`, `gate.fail_on`,
+        /// `rules.long-function.severity`
+        key: String,
+    },
     /// Convert RQX.toml files, the policies they point at and the user config to YAML
     Migrate {
         /// A directory to search for RQX.toml, or one TOML file to convert
@@ -1180,7 +1187,7 @@ impl From<ConfigAction> for edit_config::Change {
             },
             ConfigAction::Unset { key, file, pick } => Self::Unset { key, file, pick },
             ConfigAction::Files => Self::Files,
-            ConfigAction::Migrate { .. } | ConfigAction::Schema => {
+            ConfigAction::Migrate { .. } | ConfigAction::Schema | ConfigAction::Explain { .. } => {
                 unreachable!("answered before settings load")
             }
         }
@@ -2091,6 +2098,10 @@ fn run() -> Result<Exit> {
             let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
             match action {
                 None => report::config(&settings?, palette).map(|()| Exit::Clean),
+                Some(ConfigAction::Explain { key }) => {
+                    let mut out = anstream::stdout().lock();
+                    explain::run(&key, &settings?, palette, &mut out).map(|()| Exit::Clean)
+                }
                 Some(action) => {
                     let change = edit_config::Change::from(action);
                     let mut out = anstream::stdout().lock();

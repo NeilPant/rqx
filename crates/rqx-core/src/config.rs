@@ -749,6 +749,12 @@ impl Thresholds {
         ("loop_nesting", &[RuleId::DeepLoopNesting]),
     ];
 
+    /// What a threshold is when nothing sets it, by its key.
+    pub fn default_of(key: &str) -> Option<u32> {
+        let defaults = serde_json::to_value(Self::default()).ok()?;
+        u32::try_from(defaults.get(key)?.as_u64()?).ok()
+    }
+
     /// The key that tunes a rule, for the rule's own documentation.
     pub fn tuned_by(rule: RuleId) -> Vec<&'static str> {
         Self::TUNES

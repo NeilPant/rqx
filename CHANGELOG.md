@@ -26,6 +26,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   The tarballs are on the GitHub release with a `SHA256SUMS` beside them, and the npm
   packages publish with Sigstore provenance.
 
+- **`rqx config explain KEY`.** Prints a setting's description, type, default and
+  current value, and the file or preset that set it: `rqx config explain
+  rules.long-function.severity`. It reads the same schema an editor does, so the
+  words match the hover text, and a misspelt key is answered with the closest real one.
 - **Per-rule options.** A rule's slug is a key under `rules`, with `severity`,
   `enabled`, `paths`, `confidence` and the thresholds that rule reads:
   `rules: {long-parameter-list: {severity: error, max_params: 6, paths: ["src/domain/**"]}}`.

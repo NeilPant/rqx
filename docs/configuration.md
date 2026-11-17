@@ -40,6 +40,10 @@ An override may set `thresholds`, `rules`, `patterns` and `level` and nothing el
 
 The same holds for names: a rule, family, pattern or stance that does not exist is an error, not a silent no-op, because a `categories` allowlist naming only unknown families would otherwise turn every rule off. `rqx rules` lists every name that is valid.
 
+## Asking what a setting means
+
+`rqx config explain thresholds.max_params` prints a setting's description, its type, its default and its current value, and says which file or preset set it. The words are the ones the editor shows from [`rqx.schema.json`](rqx.schema.json), which `rqx config schema` also prints, so the two cannot disagree. A misspelt key is refused with the closest real one and the keys beside it.
+
 ## One rule, on its own terms
 
 A rule's slug is a key under `rules`, and it takes the settings that belong to that rule alone.

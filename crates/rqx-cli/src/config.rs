@@ -187,6 +187,12 @@ impl Resolved {
         self.locked.iter().map(String::as_str)
     }
 
+    /// What wrote the setting at a dotted path such as `rules.long-function.severity`.
+    /// `None` when nothing did, which is to say it is a default.
+    pub fn origin_of_path(&self, path: &str) -> Option<Origin> {
+        self.key_sources.get(path).cloned()
+    }
+
     /// What wrote a setting, whether a file, a preset or a flag. The key is the more
     /// precise answer; the table is what is left when two layers both touched it.
     pub fn origin_of(&self, table: &str, key: Option<&str>) -> Option<Origin> {

@@ -600,6 +600,12 @@ fn configuration_page() -> String {
          is an error, not a silent no-op, because a `categories` allowlist naming only \
          unknown families would otherwise turn every rule off. `rqx rules` lists every \
          name that is valid.\n\n\
+         ## Asking what a setting means\n\n\
+         `rqx config explain thresholds.max_params` prints a setting's description, its type, \
+         its default and its current value, and says which file or preset set it. The words are \
+         the ones the editor shows from [`rqx.schema.json`](rqx.schema.json), which `rqx config \
+         schema` also prints, so the two cannot disagree. A misspelt key is refused with the \
+         closest real one and the keys beside it.\n\n\
          ## One rule, on its own terms\n\n\
          A rule's slug is a key under `rules`, and it takes the settings that belong to \
          that rule alone.\n\n\
