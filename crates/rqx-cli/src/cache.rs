@@ -20,7 +20,7 @@ const LEGACY_CACHE_FILE: &str = "cache.json";
 
 /// Part of the version, so a change to how entries are laid out makes every cache
 /// written before it a miss instead of a parse error.
-const FORMAT: u32 = 2;
+const FORMAT: u32 = 3;
 
 const MAGIC: &[u8; 8] = b"rqxcache";
 const INDEX_LENGTH_BYTES: usize = 4;
@@ -117,8 +117,12 @@ pub struct Cache {
 /// signature is hashed whole rather than field by field because the list that was
 /// written out by hand covered eight of the seventeen thresholds and nothing said so.
 fn analysis_version(settings: &Resolved) -> u64 {
+    analysis_version_of_format(FORMAT, settings)
+}
+
+fn analysis_version_of_format(format: u32, settings: &Resolved) -> u64 {
     let mut hasher = DefaultHasher::new();
-    FORMAT.hash(&mut hasher);
+    format.hash(&mut hasher);
     env!("CARGO_PKG_VERSION").hash(&mut hasher);
     settings.signature().hash(&mut hasher);
     catalogue_version().hash(&mut hasher);
@@ -733,6 +737,39 @@ mod tests {
         let before = analysis_version(&Resolved::of(config.clone()));
         config.scan.skip_generated = !config.scan.skip_generated;
         assert_ne!(before, analysis_version(&Resolved::of(config)));
+    }
+
+    /// A cache written by the previous release holds analyses without the cost facts.
+    /// Serving one would hide every function's cost until the file next changed, so the
+    /// format number is part of the version and the whole file is a miss.
+    #[test]
+    fn a_cache_written_in_the_previous_format_is_a_miss() {
+        let root = a_scratch_project("previous-format");
+        let settings = Resolved::of(RqxConfig::default());
+        let path = root.join(CACHE_DIRECTORY).join(CACHE_FILE);
+        let previous = analysis_version_of_format(FORMAT - 1, &settings);
+        let file = encode_container(
+            previous,
+            WRITTEN_AT_NS,
+            BTreeMap::from([("a.ts".to_owned(), packed(SOURCE, Some(stamped(SETTLED))))]),
+        )
+        .unwrap();
+        std::fs::write(&path, file).unwrap();
+
+        assert!(!stored(&root, &settings).unwrap().current);
+        let cache = Cache::open(&root, &settings);
+        assert!(cache.unchanged("a.ts", stamped(SETTLED)).is_none());
+        assert!(cache.get("a.ts", SOURCE, None).is_none());
+        assert_eq!(cache.miss_count(), 1);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn an_entry_without_cost_facts_decodes_with_an_empty_file_cost() {
+        let mut entry = serde_json::to_value(analysis_of(SOURCE)).unwrap();
+        entry.as_object_mut().unwrap().remove("cost");
+        let analysis: FileAnalysis = serde_json::from_value(entry).unwrap();
+        assert!(analysis.cost.is_empty());
     }
 
     #[test]
