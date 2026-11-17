@@ -39,6 +39,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   of it serialised at the end. Sixteen units cost 2.4% of scan time and 4MB of
   binary, measured on a 3,456-file corpus, with findings byte-identical.
 
+### Fixed
+
+- **A cache hit is kept.** After one file changed, the cache was rewritten holding
+  only that file, so the next run analysed everything else again, and the run after
+  paid the same price for the next edit. The cache now keeps every file the run saw,
+  hit or miss, and a run that hit every file no longer rewrites it.
+
 ## 0.1.1 — 2026-09-06
 
 ### Added
