@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 
 /// Everything the scan needs from git, read once. The per-file counts and the
 /// co-change sets came from two `git log` invocations differing only in their format
@@ -284,27 +286,38 @@ pub fn blame_files(root: &Path, files: &[Arc<str>]) -> Vec<HashMap<u32, (String,
 /// One answer per file, in the order the files came. A blame that panicked answers
 /// with an empty `T`: its callers pair the answers back up with the files, and a
 /// missing one would shift every later file onto the wrong dates.
-fn at_once<T: Send + Default>(files: &[Arc<str>], blame: impl Fn(&str) -> T + Sync) -> Vec<T> {
+fn at_once<T: Send + Sync + Default>(
+    files: &[Arc<str>],
+    blame: impl Fn(&str) -> T + Sync,
+) -> Vec<T> {
     /// More processes than this and git's own start-up cost dominates; fewer and
     /// the wait is not covered.
     const AT_ONCE: usize = 8;
 
-    let mut answers: Vec<T> = Vec::with_capacity(files.len());
-    for batch in files.chunks(AT_ONCE) {
-        std::thread::scope(|scope| {
-            let running: Vec<_> = batch
-                .iter()
-                .map(|file| {
-                    let blame = &blame;
-                    scope.spawn(move || blame(file))
-                })
-                .collect();
-            for handle in running {
-                answers.push(handle.join().unwrap_or_default());
-            }
-        });
-    }
+    // Workers take the next file as they finish rather than waiting for a batch to
+    // drain, so one slow blame holds up one worker and not the seven beside it.
+    let answers: Vec<OnceLock<T>> = files.iter().map(|_| OnceLock::new()).collect();
+    let next = AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        for _ in 0..AT_ONCE.min(files.len()) {
+            scope.spawn(|| {
+                loop {
+                    let at = next.fetch_add(1, Ordering::Relaxed);
+                    let (Some(file), Some(slot)) = (files.get(at), answers.get(at)) else {
+                        break;
+                    };
+                    let answer = std::panic::catch_unwind(AssertUnwindSafe(|| blame(file)));
+                    if let Ok(answer) = answer {
+                        let _ = slot.set(answer);
+                    }
+                }
+            });
+        }
+    });
     answers
+        .into_iter()
+        .map(|answer| answer.into_inner().unwrap_or_default())
+        .collect()
 }
 
 /// Who last touched each line, and when. One process for the whole file: the
@@ -454,6 +467,53 @@ mod tests {
             };
             assert_eq!(answer, &expected);
         }
+    }
+
+    /// With batches of eight, the first blame would wait on the ninth, which could
+    /// only start once the whole first batch was done, and neither would ever finish.
+    #[test]
+    fn a_blame_that_waits_on_a_later_one_does_not_hold_up_the_queue() {
+        let files: Vec<Arc<str>> = (0..9).map(|n| Arc::from(n.to_string())).collect();
+        let last_ran = std::sync::atomic::AtomicBool::new(false);
+
+        let answers = at_once(&files, |file| {
+            if file == "0" {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+                while !last_ran.load(Ordering::Relaxed) && std::time::Instant::now() < deadline {
+                    std::thread::yield_now();
+                }
+            }
+            if file == "8" {
+                last_ran.store(true, Ordering::Relaxed);
+            }
+            last_ran.load(Ordering::Relaxed)
+        });
+
+        assert!(answers[0], "the first blame never saw the last one run");
+    }
+
+    #[test]
+    fn no_more_blames_run_at_once_than_the_limit() {
+        let files: Vec<Arc<str>> = (0..40).map(|n| Arc::from(n.to_string())).collect();
+        let running = AtomicUsize::new(0);
+        let most = AtomicUsize::new(0);
+
+        let answers = at_once(&files, |file| {
+            let now = running.fetch_add(1, Ordering::Relaxed) + 1;
+            most.fetch_max(now, Ordering::Relaxed);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            running.fetch_sub(1, Ordering::Relaxed);
+            file.to_owned()
+        });
+
+        assert!(most.load(Ordering::Relaxed) <= 8);
+        assert_eq!(
+            answers,
+            files
+                .iter()
+                .map(|file| file.to_string())
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]

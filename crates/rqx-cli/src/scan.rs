@@ -2,7 +2,7 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::thread;
 use std::time::Instant;
@@ -20,6 +20,7 @@ use rqx_core::score::FindingCounts;
 use rqx_core::span::Span;
 use smallvec::SmallVec;
 
+use crate::cache::{Cached, Loading, Stamp};
 use crate::config::Resolved;
 use crate::stats::{FileReads, ScanStats};
 
@@ -56,7 +57,13 @@ pub(crate) struct Analyzed {
 #[derive(Clone)]
 pub(crate) enum ScanMessage {
     File(Box<Analyzed>),
-    Skipped { path: PathBuf, reason: String },
+    Skipped {
+        path: PathBuf,
+        reason: String,
+    },
+    /// How many files the walk will visit, sent once by whoever counted them. It
+    /// arrives mid-scan, so until it does the collector reports no total.
+    Total(Option<u32>),
 }
 
 /// The file is carried as the `Arc<str>` the worker already built for it, so naming
@@ -228,6 +235,58 @@ impl PortedGroup {
     }
 }
 
+/// A stage that panicked takes the scan with it, as it did when the stages ran in line.
+fn joined<T>(stage: thread::ScopedJoinHandle<'_, T>) -> T {
+    stage
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+}
+
+/// A finding the rules let through for its file, with the project's per-rule options
+/// applied, at the confidence a run of the code leaves it. A run that reached the code contradicts the graph that called it dead: the
+/// finding is kept and shown — the graph may still be right about the import — but at
+/// a confidence that keeps it out of the health score.
+fn offered(config: &RqxConfig, mut finding: Finding) -> Option<Finding> {
+    if !config.rules.admits(finding.rule, &finding.location.file) {
+        return None;
+    }
+    config.rules.adjust(&mut finding);
+    if let Some(lowered) = rqx_core::runtime::contradicted(finding.rule)
+        && ran(&finding.evidence)
+    {
+        finding.confidence = finding.confidence.min(lowered);
+    }
+    Some(finding)
+}
+
+/// What one of the stages after the walk found. A stage reads the facts the walk
+/// collected and answers with one of these instead of writing into the collector, which
+/// is what lets the stages run side by side and be taken in a fixed order afterwards.
+#[derive(Default)]
+struct Staged {
+    findings: Vec<Finding>,
+    /// Advice never passes through `accept`: it must not reach `counts`, and the way
+    /// to guarantee that is for it to have no route there at all.
+    advice: Vec<rqx_core::Advice>,
+    import_edges: std::collections::BTreeMap<String, Vec<String>>,
+    cycles: Vec<Vec<String>>,
+    importers: Vec<(Arc<str>, u32)>,
+    commits: Vec<(Arc<str>, u32)>,
+    blames: u32,
+}
+
+impl Staged {
+    fn accept_if_enabled(&mut self, config: &RqxConfig, finding: Finding) {
+        self.findings.extend(offered(config, finding));
+    }
+
+    fn advise_if_enabled(&mut self, config: &RqxConfig, advice: rqx_core::Advice) {
+        if config.patterns.enabled(advice.advisory) {
+            self.advice.push(advice);
+        }
+    }
+}
+
 /// Findings are capped for display while `counts` stays exact, because a health
 /// score that moved with the display cap would not mean anything.
 struct Collector {
@@ -358,28 +417,29 @@ impl Collector {
         });
     }
 
-    /// Advice never passes through `accept`: it must not reach `counts`, and the way
-    /// to guarantee that is for it to have no route there at all.
-    fn advise_if_enabled(&mut self, config: &RqxConfig, advice: rqx_core::Advice) {
-        if config.patterns.enabled(advice.advisory) {
-            self.advice.push(advice);
+    fn accept_if_enabled(&mut self, config: &RqxConfig, finding: Finding) {
+        if let Some(finding) = offered(config, finding) {
+            self.accept(finding);
         }
     }
 
-    fn accept_if_enabled(&mut self, config: &RqxConfig, mut finding: Finding) {
-        if !config.rules.admits(finding.rule, &finding.location.file) {
-            return;
+    /// What the stages after the walk found, taken in the order the stages come in
+    /// rather than the order they finished.
+    fn absorb(&mut self, staged: Staged) {
+        for finding in staged.findings {
+            self.accept(finding);
         }
-        config.rules.adjust(&mut finding);
-        // A run that reached the code contradicts the graph that called it dead. The
-        // finding is kept and shown — the graph may still be right about the import —
-        // but at a confidence that keeps it out of the health score.
-        if let Some(lowered) = rqx_core::runtime::contradicted(finding.rule)
-            && ran(&finding.evidence)
-        {
-            finding.confidence = finding.confidence.min(lowered);
+        self.advice.extend(staged.advice);
+        self.import_edges.extend(staged.import_edges);
+        self.cycles.extend(staged.cycles);
+        for (file, importers) in staged.importers {
+            self.impact.set_importers(file, importers);
         }
-        self.accept(finding);
+        for (file, commits) in staged.commits {
+            self.impact.set_commits(file, commits);
+        }
+        self.stats.blames += staged.blames;
+        self.stats.git_processes += staged.blames;
     }
 
     /// The waiver that covers this finding, if its file wrote one. Cross-file
@@ -515,17 +575,20 @@ impl Collector {
     /// Blocks whose shape appears in more than one language. Same-language repeats
     /// are `duplicate-code`'s job and are already reported with a fingerprint that
     /// knows about identifiers; this only claims the narrower, louder thing.
-    fn finish_ported(&mut self, root: &Path, settings: &Resolved) {
+    fn ported_findings(
+        ported: HashMap<u64, PortedGroup>,
+        root: &Path,
+        settings: &Resolved,
+    ) -> Staged {
+        let mut staged = Staged::default();
         // Ported code keeps its constants even when its syntax changes completely, so
         // a shared literal is what separates the same rule written twice from two
         // blocks that merely branch and return in the same order.
         const MIN_STATEMENTS: u32 = 8;
         const MIN_NODES: u32 = 40;
 
-        let mut groups: Vec<PortedGroup> = self
-            .ported
-            .drain()
-            .map(|(_, group)| group)
+        let mut groups: Vec<PortedGroup> = ported
+            .into_values()
             .filter(|group| {
                 group.families().len() > 1
                     && group.sites.len() > 1
@@ -546,7 +609,7 @@ impl Collector {
             let spec = RuleId::CrossLanguageDuplicate.spec();
             let named: Vec<&str> = group.languages.iter().map(|l| l.title()).collect();
             let config = settings.for_file(&root.join(anchor.file.as_ref()));
-            self.accept_if_enabled(
+            staged.accept_if_enabled(
                 config,
                 Finding {
                     rule: RuleId::CrossLanguageDuplicate,
@@ -568,13 +631,17 @@ impl Collector {
                 },
             );
         }
+        staged
     }
 
-    fn finish_clones(&mut self, root: &Path, settings: &Resolved) {
-        let mut groups: Vec<CloneGroup> = self
-            .clone_groups
-            .drain()
-            .map(|(_, group)| group)
+    fn clone_findings(
+        clone_groups: HashMap<u64, CloneGroup>,
+        root: &Path,
+        settings: &Resolved,
+    ) -> Staged {
+        let mut staged = Staged::default();
+        let mut groups: Vec<CloneGroup> = clone_groups
+            .into_values()
             .filter(|group| group.occurrences > 1)
             .collect();
         groups.sort_by(|a, b| {
@@ -601,7 +668,7 @@ impl Collector {
             let spec = RuleId::DuplicateCode.spec();
             let others: Vec<SourceRange> = group.sites.iter().skip(1).cloned().collect();
             let config = settings.for_file(&root.join(anchor.file.as_ref()));
-            self.accept_if_enabled(config, Finding {
+            staged.accept_if_enabled(config, Finding {
                 rule: RuleId::DuplicateCode,
                 location: anchor,
                 severity: spec.severity,
@@ -628,15 +695,16 @@ impl Collector {
                 known: false,
             });
         }
+        staged
     }
 
     /// The patterns built on inheritance, which cannot be seen from one file in a
     /// language that puts one class in each.
     fn advise_hierarchy(
-        &mut self,
         modules: &[rqx_lang::module_graph::ModuleEntry],
         config: &RqxConfig,
         at: &mut Positions,
+        staged: &mut Staged,
     ) {
         use rqx_lang::hierarchy::{Hierarchy, Shape};
 
@@ -679,7 +747,7 @@ impl Collector {
             let Some(range) = at.range(&path, span) else {
                 continue;
             };
-            self.accept_if_enabled(
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::DeepInheritance,
@@ -724,7 +792,7 @@ impl Collector {
                 ),
                 _ => format!("`{}` is the seam the family varies behind", found.name),
             };
-            self.advise_if_enabled(
+            staged.advise_if_enabled(
                 config,
                 rqx_core::Advice {
                     advisory,
@@ -745,12 +813,12 @@ impl Collector {
     /// The direction a project said its dependencies may point, checked against the
     /// direction they actually do. Silent unless `[architecture]` is declared: an
     /// architecture nobody wrote down is not one rqx should infer.
-    fn finish_architecture<'graph>(
-        &mut self,
+    fn check_architecture<'graph>(
         root: &Path,
         config: &RqxConfig,
         report: &'graph rqx_lang::module_graph::GraphReport,
         at: &mut Positions,
+        staged: &mut Staged,
     ) {
         let plan = &config.architecture;
         if !plan.is_declared() {
@@ -785,7 +853,7 @@ impl Collector {
                 };
 
                 if let Some(glob) = rules.forbids(&to) {
-                    self.accept_if_enabled(
+                    staged.accept_if_enabled(
                         config,
                         build(
                             RuleId::ForbiddenImport,
@@ -814,7 +882,7 @@ impl Collector {
                     continue;
                 };
                 if outer > inner {
-                    self.accept_if_enabled(
+                    staged.accept_if_enabled(
                         config,
                         build(
                             RuleId::LayerViolation,
@@ -836,14 +904,20 @@ impl Collector {
         }
     }
 
-    fn finish_modules(&mut self, root: &Path, config: &RqxConfig, at: &mut Positions) {
-        if !self.track_modules || self.modules.is_empty() {
-            return;
+    fn module_findings(
+        modules: Vec<rqx_lang::module_graph::ModuleEntry>,
+        root: &Path,
+        config: &RqxConfig,
+        coverage: Option<&rqx_core::Hits>,
+        at: &mut Positions,
+    ) -> Staged {
+        let mut staged = Staged::default();
+        if modules.is_empty() {
+            return staged;
         }
-        let modules = std::mem::take(&mut self.modules);
-        self.advise_hierarchy(&modules, config, at);
+        Self::advise_hierarchy(&modules, config, at, &mut staged);
         let report = graph_report(modules, root, config);
-        self.finish_architecture(root, config, &report, at);
+        Self::check_architecture(root, config, &report, at, &mut staged);
 
         for dead in report.dead_exports {
             let Some(range) = at.range(&dead.path, dead.span) else {
@@ -852,11 +926,8 @@ impl Collector {
             // A run reaching code the graph called dead means a reader the graph
             // cannot see — a dynamic import, a container wiring by name, reflection.
             // The finding stays, at a confidence that keeps it out of the score.
-            let ran = self
-                .coverage
-                .as_ref()
-                .map(|hits| hits.covered(&range.file, range.line, range.end_line));
-            self.accept_if_enabled(
+            let ran = coverage.map(|hits| hits.covered(&range.file, range.line, range.end_line));
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::UnusedExport,
@@ -887,11 +958,8 @@ impl Collector {
             let Some(range) = at.range(&dead.path, WHOLE_FILE) else {
                 continue;
             };
-            let ran = self
-                .coverage
-                .as_ref()
-                .map(|hits| u32::from(hits.ran(&range.file)));
-            self.accept_if_enabled(
+            let ran = coverage.map(|hits| u32::from(hits.ran(&range.file)));
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::UnusedFile,
@@ -914,19 +982,20 @@ impl Collector {
         }
 
         for (importer, targets) in &report.edges {
-            self.import_edges.insert(
+            staged.import_edges.insert(
                 at.relative(importer),
                 targets.iter().map(|target| at.relative(target)).collect(),
             );
         }
 
         for (path, importers) in &report.importers {
-            self.impact
-                .set_importers(Arc::from(at.relative(path)), *importers);
+            staged
+                .importers
+                .push((Arc::from(at.relative(path)), *importers));
             if *importers > config.thresholds.fan_in
                 && let Some(range) = at.range(path, WHOLE_FILE)
             {
-                self.accept_if_enabled(
+                staged.accept_if_enabled(
                     config,
                     build(
                         RuleId::WideFanIn,
@@ -950,7 +1019,7 @@ impl Collector {
             if reaches > config.thresholds.fan_out
                 && let Some(range) = at.range(importer, WHOLE_FILE)
             {
-                self.accept_if_enabled(
+                staged.accept_if_enabled(
                     config,
                     build(
                         RuleId::WideFanOut,
@@ -973,7 +1042,7 @@ impl Collector {
             let Some(range) = at.range(&dead.path, dead.span) else {
                 continue;
             };
-            self.accept_if_enabled(
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::SpeculativeGenerality,
@@ -1036,7 +1105,7 @@ impl Collector {
                 .iter()
                 .map(|member| at.relative(member))
                 .collect();
-            self.cycles.push(ring.clone());
+            staged.cycles.push(ring.clone());
             // Two modules importing each other is a cycle, which the rule above
             // reports; three or more is a group no member can be read apart from,
             // which is a different thing to say about the same fact.
@@ -1046,7 +1115,7 @@ impl Collector {
                     .iter()
                     .map(|member| at.relative(member))
                     .collect();
-                self.advise_if_enabled(
+                staged.advise_if_enabled(
                     config,
                     rqx_core::Advice {
                         advisory: rqx_core::AdviceId::MediatorFits,
@@ -1064,7 +1133,7 @@ impl Collector {
                     },
                 );
             }
-            self.accept_if_enabled(
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::CircularDependency,
@@ -1088,7 +1157,7 @@ impl Collector {
             let Some(range) = at.range(&external.path, external.span) else {
                 continue;
             };
-            self.advise_if_enabled(
+            staged.advise_if_enabled(
                 config,
                 rqx_core::Advice {
                     advisory: rqx_core::AdviceId::FacadeFits,
@@ -1112,7 +1181,7 @@ impl Collector {
             let Some(range) = at.range(&pair.path, pair.span) else {
                 continue;
             };
-            self.accept_if_enabled(
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::ParallelInheritance,
@@ -1131,22 +1200,24 @@ impl Collector {
                 ),
             );
         }
+        staged
     }
 
-    /// Churn is read once for the whole repository after the walk, because a file
-    /// with no findings needs no history and most files have none.
-    fn finish_size(&mut self, config: &RqxConfig, at: &mut Positions) {
-        // Collected first: accepting a finding borrows the collector, and the shapes it
-        // reads live on the collector too.
-        let counted: Vec<(PathBuf, u32, Span)> = self
-            .shape_by_file
+    fn size_findings(
+        shape_by_file: &std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
+        root: &Path,
+        config: &RqxConfig,
+        at: &mut Positions,
+    ) -> Staged {
+        let mut staged = Staged::default();
+        let counted: Vec<(PathBuf, u32, Span)> = shape_by_file
             .iter()
             .map(|(file, shape)| {
                 let statements = shape.functions.iter().map(|f| f.statements).sum();
                 let opens = shape.functions.first().map_or(WHOLE_FILE, |function| {
                     Span::new(function.range.start, function.range.end)
                 });
-                (self.root.join(file.as_ref()), statements, opens)
+                (root.join(file.as_ref()), statements, opens)
             })
             .collect();
         for (path, statements, opens) in counted {
@@ -1156,7 +1227,7 @@ impl Collector {
             let Some(range) = at.range(&path, opens) else {
                 continue;
             };
-            self.accept_if_enabled(
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::OversizedModule,
@@ -1171,10 +1242,40 @@ impl Collector {
                 ),
             );
         }
+        staged
     }
 
-    fn finish_history(
+    /// What git says about each file, and the one pass over it that costs a process per
+    /// file. Reads nothing the other stages produce, which is what lets it run beside
+    /// them.
+    fn history_findings(
+        todos: HashMap<Arc<str>, Vec<rqx_core::facts::Spot>>,
+        history: &crate::history::History,
+        root: &Path,
+        config: &RqxConfig,
+        at: &mut Positions,
+    ) -> Staged {
+        let mut staged = Staged::default();
+        if config.scan.churn_days == 0 {
+            return staged;
+        }
+        let prefix = history.prefix();
+        for (repo_path, commits) in history.commits_per_file() {
+            let Some(relative) = repo_path.strip_prefix(prefix) else {
+                continue;
+            };
+            staged.commits.push((Arc::from(relative), commits));
+        }
+        Self::stale_todo_findings(todos, root, config, at, &mut staged);
+        staged
+    }
+
+    /// Churn is read once for the whole repository after the walk, because a file
+    /// with no findings needs no history and most files have none. It counts the
+    /// findings each file already has, so it runs once every other stage has been taken.
+    fn finish_churn(
         &mut self,
+        analyzed: &std::collections::BTreeSet<String>,
         config: &RqxConfig,
         at: &mut Positions,
         history: &crate::history::History,
@@ -1183,59 +1284,6 @@ impl Collector {
             return;
         }
         let prefix = history.prefix();
-        for (repo_path, commits) in history.commits_per_file() {
-            let Some(relative) = repo_path.strip_prefix(prefix) else {
-                continue;
-            };
-            self.impact.set_commits(Arc::from(relative), commits);
-        }
-
-        // One blame per file, and only for the files that hold a note: the per-line
-        // form costs a process each, and a repository with a thousand notes would
-        // spend the whole scan in git.
-        const MOST_FILES_WORTH_BLAMING: usize = 200;
-        let today = rqx_core::suppress::today();
-        let mut noted: Vec<(Arc<str>, Vec<rqx_core::facts::Spot>)> =
-            std::mem::take(&mut self.todos).into_iter().collect();
-        noted.sort_by(|left, right| left.0.cmp(&right.0));
-        noted.truncate(MOST_FILES_WORTH_BLAMING);
-        let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
-        let blamed = crate::history::blame_dates_for(&self.root, &names);
-        self.stats.blames += names.len() as u32;
-        self.stats.git_processes += names.len() as u32;
-        for ((file, spots), dates) in noted.into_iter().zip(blamed) {
-            if dates.is_empty() {
-                continue;
-            }
-            let path = self.root.join(file.as_ref());
-            for spot in spots {
-                let Some(range) = at.range(&path, spot.span) else {
-                    continue;
-                };
-                let Some(written) = dates.get(&range.line) else {
-                    continue;
-                };
-                let age = rqx_core::suppress::days_between(written, &today);
-                if age < i64::from(config.thresholds.todo_age_days) {
-                    continue;
-                }
-                self.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::StaleTodo,
-                        range,
-                        Evidence::Breadth {
-                            counted: format!("days since this {} was written", spot.detail),
-                            found: age.unsigned_abs() as u32,
-                            limit: config.thresholds.todo_age_days,
-                        },
-                        "do it, ticket it, or delete it".to_owned(),
-                        Vec::new(),
-                    ),
-                );
-            }
-        }
-
         // Collected first: accepting a finding borrows the collector, and the counts
         // it reads live on it.
         let mut churned: Vec<(String, u32, u32, String)> = history
@@ -1243,7 +1291,7 @@ impl Collector {
             .into_iter()
             .filter_map(|(repo_path, (authors, commits))| {
                 let relative = repo_path.strip_prefix(prefix)?;
-                self.analyzed.contains(relative).then(|| {
+                analyzed.contains(relative).then(|| {
                     let findings = self.findings_by_file.get(relative).copied().unwrap_or(0);
                     let sole = if authors.len() == 1 {
                         authors.iter().next().copied().unwrap_or_default()
@@ -1301,26 +1349,84 @@ impl Collector {
         }
     }
 
+    /// Blame is a process per file, so it runs only when its answer can become a
+    /// finding: a project that switched `stale-todo` off pays nothing for it.
+    fn stale_todo_findings(
+        todos: HashMap<Arc<str>, Vec<rqx_core::facts::Spot>>,
+        root: &Path,
+        config: &RqxConfig,
+        at: &mut Positions,
+        staged: &mut Staged,
+    ) {
+        if !config.rules.enabled(RuleId::StaleTodo) {
+            return;
+        }
+        // One blame per file, and only for the files that hold a note: the per-line
+        // form costs a process each, and a repository with a thousand notes would
+        // spend the whole scan in git.
+        const MOST_FILES_WORTH_BLAMING: usize = 200;
+        let today = rqx_core::suppress::today();
+        let mut noted: Vec<(Arc<str>, Vec<rqx_core::facts::Spot>)> = todos.into_iter().collect();
+        noted.sort_by(|left, right| left.0.cmp(&right.0));
+        noted.truncate(MOST_FILES_WORTH_BLAMING);
+        let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
+        let blamed = crate::history::blame_dates_for(root, &names);
+        staged.blames += names.len() as u32;
+        for ((file, spots), dates) in noted.into_iter().zip(blamed) {
+            if dates.is_empty() {
+                continue;
+            }
+            let path = root.join(file.as_ref());
+            for spot in spots {
+                let Some(range) = at.range(&path, spot.span) else {
+                    continue;
+                };
+                let Some(written) = dates.get(&range.line) else {
+                    continue;
+                };
+                let age = rqx_core::suppress::days_between(written, &today);
+                if age < i64::from(config.thresholds.todo_age_days) {
+                    continue;
+                }
+                staged.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::StaleTodo,
+                        range,
+                        Evidence::Breadth {
+                            counted: format!("days since this {} was written", spot.detail),
+                            found: age.unsigned_abs() as u32,
+                            limit: config.thresholds.todo_age_days,
+                        },
+                        "do it, ticket it, or delete it".to_owned(),
+                        Vec::new(),
+                    ),
+                );
+            }
+        }
+    }
+
     /// Two files that almost always change together are one decision split across
     /// two places, which is what Shotgun Surgery describes. It needs history, so it
-    /// runs last and stays silent outside a repository.
-    fn finish_cochange(
-        &mut self,
+    /// stays silent outside a repository.
+    fn cochange_findings(
+        analyzed: &std::collections::BTreeSet<String>,
         root: &Path,
         config: &RqxConfig,
         at: &mut Positions,
         history: &crate::history::History,
-    ) {
+    ) -> Staged {
+        let mut staged = Staged::default();
         // Reads git history, not the import graph, so it must not ride on the gate
         // that builds one — enabling only this rule used to leave it silent.
         if !(config.rules.enabled(RuleId::ShotgunSurgery)
             || config.rules.enabled(RuleId::DivergentChange))
         {
-            return;
+            return staged;
         }
         let commits: Vec<&Vec<String>> = history.co_changes().collect();
         if commits.len() < 5 {
-            return;
+            return staged;
         }
         let prefix = history.prefix();
 
@@ -1333,7 +1439,7 @@ impl Collector {
             let mut relative: Vec<&str> = files
                 .iter()
                 .filter_map(|file| file.strip_prefix(prefix))
-                .filter(|file| self.analyzed.contains(*file))
+                .filter(|file| analyzed.contains(*file))
                 .collect();
             relative.sort_unstable();
             relative.dedup();
@@ -1369,7 +1475,7 @@ impl Collector {
                 let Some(range) = at.range(&root.join(file), WHOLE_FILE) else {
                     continue;
                 };
-                self.accept_if_enabled(
+                staged.accept_if_enabled(
                     config,
                     build(
                         RuleId::DivergentChange,
@@ -1391,7 +1497,7 @@ impl Collector {
         let mut ranked: Vec<((&str, &str), u32)> = pairs.into_iter().collect();
         ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         if !config.rules.enabled(RuleId::ShotgunSurgery) {
-            return;
+            return staged;
         }
         for ((left, right), together) in ranked {
             let total = totals.get(left).copied().unwrap_or(0);
@@ -1406,7 +1512,7 @@ impl Collector {
             let Some(partner) = at.range(&root.join(right), WHOLE_FILE) else {
                 continue;
             };
-            self.accept_if_enabled(
+            staged.accept_if_enabled(
                 config,
                 build(
                     RuleId::ShotgunSurgery,
@@ -1424,6 +1530,82 @@ impl Collector {
                 ),
             );
         }
+        staged
+    }
+
+    /// The stages that need every file, run side by side: duplicates, the import graph,
+    /// and what git knows touch nothing but what the walk collected, so none waits for
+    /// another. What they found is taken in the order the stages are written in, which
+    /// is the order they used to run in, so the output does not depend on which
+    /// finished first. Only churn waits, because it counts the findings the others
+    /// produced. The phases report what the scan is waiting on, so a stage that
+    /// finished while an earlier one was still running shows no time of its own.
+    fn finish_cross_file(
+        &mut self,
+        root: &Path,
+        settings: &Resolved,
+        history: impl FnOnce() -> Arc<crate::history::History> + Send,
+    ) -> bool {
+        use crate::progress::Phase;
+        let config = &settings.config;
+        let clone_groups = std::mem::take(&mut self.clone_groups);
+        let ported = std::mem::take(&mut self.ported);
+        let modules = if self.track_modules {
+            std::mem::take(&mut self.modules)
+        } else {
+            Vec::new()
+        };
+        let todos = std::mem::take(&mut self.todos);
+        let shapes = std::mem::take(&mut self.shape_by_file);
+        let analyzed = std::mem::take(&mut self.analyzed);
+        let coverage = self.coverage.take();
+        let (shapes_ref, analyzed_ref, coverage_ref) = (&shapes, &analyzed, coverage.as_ref());
+
+        let versioned = thread::scope(|scope| {
+            let duplicates = scope.spawn(move || {
+                [
+                    Self::clone_findings(clone_groups, root, settings),
+                    Self::ported_findings(ported, root, settings),
+                ]
+            });
+            let imports = scope.spawn(move || {
+                let mut at = Positions::new(root);
+                [
+                    Self::module_findings(modules, root, config, coverage_ref, &mut at),
+                    Self::size_findings(shapes_ref, root, config, &mut at),
+                ]
+            });
+            let git = scope.spawn(move || {
+                let history = history();
+                let mut at = Positions::new(root);
+                let noted = Self::history_findings(todos, &history, root, config, &mut at);
+                let together =
+                    Self::cochange_findings(analyzed_ref, root, config, &mut at, &history);
+                (history, noted, together)
+            });
+
+            self.report_phase(Phase::Duplicates);
+            for staged in joined(duplicates) {
+                self.absorb(staged);
+            }
+            self.report_phase(Phase::Imports);
+            for staged in joined(imports) {
+                self.absorb(staged);
+            }
+            self.report_phase(Phase::History);
+            let (history, noted, together) = joined(git);
+            self.stats.git_processes += history.git_processes();
+            self.absorb(noted);
+            self.finish_churn(analyzed_ref, config, &mut Positions::new(root), &history);
+            self.report_phase(Phase::CoChange);
+            self.absorb(together);
+            history.versioned()
+        });
+
+        self.shape_by_file = shapes;
+        self.analyzed = analyzed;
+        self.coverage = coverage;
+        versioned
     }
 
     /// `stopped` skips every cross-file phase rather than the assembly after them:
@@ -1433,27 +1615,12 @@ impl Collector {
         mut self,
         root: &Path,
         settings: &Resolved,
-        history: impl FnOnce() -> Arc<crate::history::History>,
+        history: impl FnOnce() -> Arc<crate::history::History> + Send,
         stopped: bool,
     ) -> ScanOutcome {
-        use crate::progress::Phase;
-        let config = &settings.config;
         let mut versioned = false;
         if !stopped {
-            self.report_phase(Phase::Duplicates);
-            self.finish_clones(root, settings);
-            self.finish_ported(root, settings);
-            let mut at = Positions::new(root);
-            self.report_phase(Phase::Imports);
-            self.finish_modules(root, config, &mut at);
-            self.finish_size(config, &mut at);
-            self.report_phase(Phase::History);
-            let history = history();
-            versioned = history.versioned();
-            self.stats.git_processes += history.git_processes();
-            self.finish_history(config, &mut at, &history);
-            self.report_phase(Phase::CoChange);
-            self.finish_cochange(root, config, &mut at, &history);
+            versioned = self.finish_cross_file(root, settings, history);
         }
         self.bar.clear();
         let retained = self.retained.len() as u32;
@@ -1763,13 +1930,28 @@ fn build(
 /// Where a graph finding is, and what to call the file it is in. Both answers need the
 /// file the walker has already moved on from, so both are cached here.
 struct Positions {
-    files: HashMap<PathBuf, Option<String>>,
+    files: HashMap<PathBuf, Option<ReadFile>>,
     root: PathBuf,
     /// The walker yields paths as given while the module graph works in canonical ones,
     /// so `strip_prefix` fails for every graph path and the fallback resolved *both*
     /// sides again — two syscalls per import edge. Resolving the root once is the whole
     /// difference.
     canonical_root: Option<PathBuf>,
+}
+
+/// A file's text and where its lines begin, worked out the first time a finding is
+/// placed in it.
+struct ReadFile {
+    text: String,
+    lines: rqx_core::LineStarts,
+}
+
+impl ReadFile {
+    fn read(path: &Path) -> Option<Self> {
+        let text = std::fs::read_to_string(path).ok()?;
+        let lines = rqx_core::LineStarts::new(&text);
+        Some(Self { text, lines })
+    }
 }
 
 impl Positions {
@@ -1800,14 +1982,13 @@ impl Positions {
 
     fn range(&mut self, path: &Path, span: Span) -> Option<SourceRange> {
         let file: Arc<str> = Arc::from(self.relative(path));
-        let text = self
+        let read = self
             .files
             .entry(path.to_path_buf())
-            .or_insert_with(|| std::fs::read_to_string(path).ok())
-            .as_deref()?;
-        let index = rqx_core::LineIndex::new(text);
-        let (line, column) = index.locate(span.start);
-        let (end_line, _) = index.locate(span.end);
+            .or_insert_with(|| ReadFile::read(path))
+            .as_ref()?;
+        let (line, column) = read.lines.locate(&read.text, span.start);
+        let (end_line, _) = read.lines.locate(&read.text, span.end);
         Some(SourceRange {
             file,
             start: span.start,
@@ -1872,7 +2053,7 @@ pub(crate) fn collect(
     // A thunk rather than the history itself: reading git is the one part of a scan
     // that does not depend on the walk, and waiting for it before draining the
     // channel stalls every worker behind it once the buffer fills.
-    history: impl FnOnce() -> Arc<crate::history::History>,
+    history: impl FnOnce() -> Arc<crate::history::History> + Send,
 ) -> ScanOutcome {
     let mut collector = Collector::new(
         settings.config.scan.max_findings,
@@ -1942,6 +2123,7 @@ pub(crate) fn collect(
                 collector.tick(None);
             }
             ScanMessage::Skipped { path, reason } => collector.skipped.push((path, reason)),
+            ScanMessage::Total(total) => collector.total = total.or(collector.total),
         }
     }
     collector.into_outcome(root, settings, history, watch.is_some_and(Watch::stopped))
@@ -1951,15 +2133,25 @@ pub(crate) fn collect(
 /// `max_filesize`, which drops them before they are ever visible: a file that was
 /// never analyzed has to be reported as such, or a clean score is a false one.
 fn analyze_entry(
-    path: &Path,
+    entry: &ignore::DirEntry,
     root: &Path,
-    size: Option<u64>,
     settings: &Resolved,
     cache: Option<&crate::cache::Cache>,
     reads: &FileReads,
     sender: &SyncSender<ScanMessage>,
 ) {
-    let _ = sender.send(analyze_file(path, root, size, settings, cache, reads));
+    let metadata = entry.metadata().ok();
+    let size = metadata.as_ref().map(std::fs::Metadata::len);
+    let stamp = metadata.as_ref().and_then(Stamp::of);
+    let _ = sender.send(analyze_file(
+        entry.path(),
+        root,
+        size,
+        stamp,
+        settings,
+        cache,
+        reads,
+    ));
 }
 
 /// One file, analysed. Split from the send so a caller holding its own map of results
@@ -1969,6 +2161,7 @@ pub(crate) fn analyze_file(
     path: &Path,
     root: &Path,
     size: Option<u64>,
+    stamp: Option<Stamp>,
     settings: &Resolved,
     cache: Option<&crate::cache::Cache>,
     reads: &FileReads,
@@ -1984,65 +2177,88 @@ pub(crate) fn analyze_file(
             ),
         };
     }
-    reads.note();
-    match std::fs::read_to_string(path) {
-        Ok(source) => {
-            if config.scan.skip_generated
-                && let Some(tool) = generated_by(&source)
-            {
-                return ScanMessage::Skipped {
-                    path: path.to_owned(),
-                    reason: format!("{tool} (set `scan.skip_generated = false` to include it)"),
-                };
-            }
-            let display = relative_to(root, path);
-            let cached = cache.and_then(|cache| cache.get(&display, &source).cloned());
-            let analysed = match cached {
-                Some(analysis) => Ok(analysis),
-                None => rqx_lang::analyze(path, &display, &source, config).inspect(|analysis| {
-                    if let Some(cache) = cache {
-                        cache.put(&display, &source, analysis);
-                    }
-                }),
-            };
-            match analysed {
-                Ok(mut analysis) => {
-                    // Tagged here rather than on the collector: resolving an identity
-                    // needs the file's text, and this is the one thread that already
-                    // has it.
-                    if let Some(baseline) = &settings.baseline {
-                        for finding in &mut analysis.findings {
-                            finding.known =
-                                baseline.contains(&rqx_core::Identity::resolved(finding, &source));
-                        }
-                    }
-                    ScanMessage::File(Box::new(Analyzed {
-                        canonical: settings
-                            .needs_modules()
-                            .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
-                        display,
-                        language: analysis.language,
-                        findings: analysis.findings,
-                        advice: analysis.advice,
-                        clones: analysis.clones,
-                        module: analysis.module,
-                        code_lines: analysis.code_lines,
-                        shape: analysis.shape,
-                        suppressions: analysis.suppressions,
-                        todos: analysis.todos,
-                    }))
-                }
-                Err(error) => ScanMessage::Skipped {
-                    path: path.to_owned(),
-                    reason: error.to_string(),
-                },
-            }
-        }
-        Err(error) => ScanMessage::Skipped {
-            path: path.to_owned(),
-            reason: error.to_string(),
-        },
+    let display = relative_to(root, path);
+    if let Some(cached) = cache
+        .zip(stamp)
+        .and_then(|(cache, stamp)| cache.unchanged(&display, stamp))
+    {
+        return analyzed(path, display, cached, settings);
     }
+    reads.note();
+    let source = match std::fs::read_to_string(path) {
+        Ok(source) => source,
+        Err(error) => return skipped(path, error.to_string()),
+    };
+    if config.scan.skip_generated
+        && let Some(tool) = generated_by(&source)
+    {
+        return skipped(
+            path,
+            format!("{tool} (set `scan.skip_generated = false` to include it)"),
+        );
+    }
+    let cached = match cache.and_then(|cache| cache.get(&display, &source, stamp)) {
+        Some(cached) => cached,
+        None => match rqx_lang::analyze(path, &display, &source, config) {
+            Ok(analysis) => {
+                let identities = identities_of(&analysis.findings, &source);
+                if let Some(cache) = cache {
+                    cache.put(&display, &source, stamp, &analysis, &identities);
+                }
+                Cached {
+                    analysis,
+                    identities,
+                }
+            }
+            Err(error) => return skipped(path, error.to_string()),
+        },
+    };
+    analyzed(path, display, cached, settings)
+}
+
+fn skipped(path: &Path, reason: String) -> ScanMessage {
+    ScanMessage::Skipped {
+        path: path.to_owned(),
+        reason,
+    }
+}
+
+/// Resolved here, where the file's text is already in hand, and kept with the cached
+/// analysis so that a file that is not read again can still be held against a baseline.
+fn identities_of(findings: &[Finding], source: &str) -> Vec<rqx_core::Identity> {
+    findings
+        .iter()
+        .map(|finding| rqx_core::Identity::resolved(finding, source))
+        .collect()
+}
+
+fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -> ScanMessage {
+    let Cached {
+        mut analysis,
+        identities,
+    } = cached;
+    // Tagged here rather than on the collector, which every worker's output funnels
+    // through.
+    if let Some(baseline) = &settings.baseline {
+        for (finding, identity) in analysis.findings.iter_mut().zip(&identities) {
+            finding.known = baseline.contains(identity);
+        }
+    }
+    ScanMessage::File(Box::new(Analyzed {
+        canonical: settings
+            .needs_modules()
+            .then(|| path.canonicalize().unwrap_or_else(|_| path.to_owned())),
+        display,
+        language: analysis.language,
+        findings: analysis.findings,
+        advice: analysis.advice,
+        clones: analysis.clones,
+        module: analysis.module,
+        code_lines: analysis.code_lines,
+        shape: analysis.shape,
+        suppressions: analysis.suppressions,
+        todos: analysis.todos,
+    }))
 }
 
 /// One graph per language family, merged. Import syntax means different things in
@@ -2237,13 +2453,9 @@ impl CachePolicy {
 
 /// The same walker the scan uses, so the total it reports cannot disagree with what is
 /// then scanned. Only directory entries are touched: nothing is opened or parsed.
-fn count_files(
-    root: &Path,
-    config: &rqx_core::config::RqxConfig,
-    watch: Option<&Watch>,
-) -> Result<Option<u32>> {
+fn count_files(walker: ignore::WalkParallel, watch: Option<&Watch>) -> Option<u32> {
     let counted = std::sync::atomic::AtomicU32::new(0);
-    build_walker(root, config)?.run(|| {
+    walker.run(|| {
         Box::new(|entry| {
             if watch.is_some_and(Watch::stopped) {
                 return ignore::WalkState::Quit;
@@ -2254,7 +2466,7 @@ fn count_files(
             ignore::WalkState::Continue
         })
     });
-    Ok(Some(counted.into_inner()).filter(|total| *total > 0))
+    Some(counted.into_inner()).filter(|total| *total > 0)
 }
 
 pub(crate) fn scan_with(
@@ -2274,42 +2486,20 @@ pub(crate) fn scan_with(
         let days = config.scan.churn_days;
         thread::spawn(move || crate::history::History::read(&root, days))
     };
-    // Read beside the git history rather than before the walk. It is one JSON
-    // document — thirty-three megabytes on a three-thousand-file project — and
-    // parsing it used to be dead time with every core idle, which on a warm run was
-    // most of the run.
-    let cache = policy.enabled(config).then(|| {
-        let root = root.to_path_buf();
-        let settings = settings.clone();
-        thread::spawn(move || crate::cache::Cache::open(&root, &settings))
-    });
+    // Read beside the git history rather than before the walk: a compressed document
+    // of several megabytes, which used to be dead time with every core idle. The walkers
+    // wait for it only when they have a file to look up.
+    let loading = policy.enabled(config).then(crate::cache::Loading::new);
 
-    let mut bar = if drawing {
+    let bar = if drawing {
         crate::progress::Bar::new(crate::brand::Palette::detect())
     } else {
         crate::progress::Bar::hidden()
     };
 
-    // Counted before scanning so the bar can show a real proportion. This is directory
-    // traversal with no file opened and nothing parsed, against a scan measured in
-    // seconds — and a bar that claims a percentage it cannot know is worse than none.
-    bar.update(crate::progress::Phase::Counting, 0, None, 0, "");
-    // The interface hears it too, or it opens on zero files with no word of why.
-    if let Some(watch) = &watch {
-        let _ = watch.updates.try_send(ScanProgress {
-            phase: crate::progress::Phase::Counting,
-            ..ScanProgress::default()
-        });
-    }
-    let mut walks = 1;
-    let total = count_files(root, config, watch.as_ref())?;
-
+    let counter = build_walker(root, config)?;
     let walker = build_walker(root, config)?;
-    // What the walk waits for rather than what loading cost: the load overlaps the
-    // count above, so only the part nobody hid is time the scan lost to it.
-    let cache_wait = Instant::now();
-    let cache = cache.and_then(|loading| loading.join().ok());
-    let cache_load = cache_wait.elapsed().as_millis();
+    let walks = AtomicU32::new(0);
     let reads = FileReads::default();
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 
@@ -2318,23 +2508,36 @@ pub(crate) fn scan_with(
         let watch = watch.as_ref();
         let root_ref = root;
         let handle = scope.spawn(move || {
-            collect(receiver, root_ref, settings_ref, bar, total, watch, || {
+            collect(receiver, root_ref, settings_ref, bar, None, watch, || {
                 Arc::new(history.join().unwrap_or_default())
             })
         });
-        let cached = cache.as_ref();
+        let loading = loading.as_ref();
+        if let Some(loading) = loading {
+            scope.spawn(move || loading.load(root_ref, settings_ref));
+        }
+        // The count only decorates the bar, so it runs beside the walk and sends its
+        // total when it is done; until then the bar is indeterminate.
+        let counting = sender.clone();
+        let walks = &walks;
+        let counted = scope.spawn(move || {
+            let total = count_files(counter, watch);
+            walks.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let _ = counting.send(ScanMessage::Total(total));
+        });
         let reads = &reads;
         walker.run(|| {
             let sender = sender.clone();
             let settings = &*settings;
+            let mut cached = None;
             Box::new(move |entry| {
                 if watch.is_some_and(Watch::stopped) {
                     return WalkState::Quit;
                 }
                 match entry {
                     Ok(entry) if entry.file_type().is_some_and(|kind| kind.is_file()) => {
-                        let size = entry.metadata().ok().map(|meta| meta.len());
-                        analyze_entry(entry.path(), root, size, settings, cached, reads, &sender);
+                        let cache = *cached.get_or_insert_with(|| loading.and_then(Loading::wait));
+                        analyze_entry(&entry, root, settings, cache, reads, &sender);
                     }
                     Ok(_) => {}
                     Err(error) => {
@@ -2347,8 +2550,9 @@ pub(crate) fn scan_with(
                 WalkState::Continue
             })
         });
-        walks += 1;
+        walks.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         drop(sender);
+        let _ = counted.join();
         handle.join()
     });
 
@@ -2357,14 +2561,15 @@ pub(crate) fn scan_with(
     }
 
     let mut outcome = collector.map_err(|_| anyhow::anyhow!("the collector thread panicked"))?;
-    outcome.stats.walks = walks;
+    outcome.stats.walks = walks.into_inner();
     outcome.stats.files_read = reads.total();
-    if let Some(cache) = cache {
+    if let Some(cache) = loading.and_then(Loading::into_cache) {
         outcome.stats.cache_hits = cache.hit_count();
         outcome.stats.cache_misses = cache.miss_count();
         let saving = Instant::now();
+        let loaded = cache.loaded_in().as_millis();
         cache.save();
-        outcome.timings.push(("cache load", cache_load));
+        outcome.timings.push(("cache load", loaded));
         outcome
             .timings
             .push(("cache save", saving.elapsed().as_millis()));
@@ -2405,6 +2610,8 @@ mod tests {
         assert!(!CachePolicy::FromSettings.enabled(&config));
     }
 
+    const HOUR: u64 = 3600;
+
     /// A copy of the TypeScript fixtures that the cache tests are free to write into
     /// and edit, removed when it goes out of scope.
     struct Project {
@@ -2424,10 +2631,29 @@ mod tests {
                 let path = entry.unwrap().path();
                 std::fs::copy(&path, root.join(path.file_name().unwrap())).unwrap();
             }
-            Self {
+            let project = Self {
                 root,
                 settings: Resolved::of(rqx_core::config::RqxConfig::default()),
+            };
+            for entry in std::fs::read_dir(&project.root).unwrap() {
+                project.age(&entry.unwrap().path(), HOUR);
             }
+            project
+        }
+
+        /// Dated well before any cache is written, which is when a stamp is believed.
+        fn age(&self, path: &Path, seconds_ago: u64) {
+            let at = std::time::SystemTime::now() - std::time::Duration::from_secs(seconds_ago);
+            Self::stamp(path, at);
+        }
+
+        fn stamp(path: &Path, at: std::time::SystemTime) {
+            std::fs::File::options()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(at)
+                .unwrap();
         }
 
         fn scan(&self) -> ScanOutcome {
@@ -2445,18 +2671,17 @@ mod tests {
         fn cache_file(&self) -> PathBuf {
             self.root
                 .join(crate::cache::CACHE_DIRECTORY)
-                .join("cache.json")
+                .join(crate::cache::CACHE_FILE)
         }
 
-        /// A run that finds every file in the cache has nothing to write, so a cache
-        /// reformatted beforehand comes back byte for byte as it was left.
+        /// A run that finds every file in the cache has nothing to write, so bytes
+        /// appended beforehand are still there afterwards.
         fn next_run_hits_every_file(&self) -> bool {
-            let document: serde_json::Value =
-                serde_json::from_str(&std::fs::read_to_string(self.cache_file()).unwrap()).unwrap();
-            let marked = serde_json::to_string_pretty(&document).unwrap();
+            let mut marked = std::fs::read(self.cache_file()).unwrap();
+            marked.extend_from_slice(b"untouched");
             std::fs::write(self.cache_file(), &marked).unwrap();
             self.scan();
-            std::fs::read_to_string(self.cache_file()).unwrap() == marked
+            std::fs::read(self.cache_file()).unwrap() == marked
         }
     }
 
@@ -2495,6 +2720,44 @@ mod tests {
     }
 
     #[test]
+    fn the_count_reaches_the_progress_without_the_walk_waiting_for_it() {
+        let project = Project::copied_from_fixtures();
+        let (updates, drained) = mpsc::sync_channel(1000);
+
+        let outcome = scan_with(
+            &project.root,
+            &project.settings,
+            Some(Watch::new(updates)),
+            CachePolicy::Forced,
+        )
+        .unwrap();
+
+        let last = drained
+            .try_iter()
+            .last()
+            .expect("the scan reported progress");
+        assert_eq!(last.total, Some(outcome.files_scanned));
+        assert_eq!(outcome.stats.walks, 2, "the walk and the count beside it");
+    }
+
+    #[test]
+    fn a_cache_from_before_the_container_is_replaced_not_read() {
+        let project = Project::copied_from_fixtures();
+        let legacy = project
+            .root
+            .join(crate::cache::CACHE_DIRECTORY)
+            .join("cache.json");
+        std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        std::fs::write(&legacy, r#"{"version":1,"entries":{}}"#).unwrap();
+
+        let stats = project.scan().stats;
+
+        assert_eq!(stats.cache_hits, 0);
+        assert!(!legacy.exists());
+        assert!(project.cache_file().exists());
+    }
+
+    #[test]
     fn a_warm_run_hits_every_file_and_misses_none() {
         let project = Project::copied_from_fixtures();
         let files = project.scan().analyzed.len() as u32;
@@ -2514,10 +2777,96 @@ mod tests {
         let mut source = std::fs::read_to_string(&edited).unwrap();
         source.push_str("\nexport const edited = 1;\n");
         std::fs::write(&edited, source).unwrap();
+        project.age(&edited, HOUR / 2);
         project.scan();
 
         assert_eq!(project.cached_entries(), analysed);
         assert!(project.next_run_hits_every_file());
+    }
+
+    #[test]
+    fn blame_runs_only_when_stale_todo_can_report() {
+        let project = Project::copied_from_fixtures();
+        let blamed = project.scan().stats.blames;
+        assert!(blamed > 0, "the fixtures hold a note, so a blame is wanted");
+
+        let mut config = rqx_core::config::RqxConfig::default();
+        config.rules.disabled.insert("stale-todo".to_owned());
+        let settings = Resolved::of(config);
+        let skipped = scan_with(&project.root, &settings, None, CachePolicy::Off).unwrap();
+
+        assert_eq!(skipped.stats.blames, 0);
+    }
+
+    #[test]
+    fn a_warm_run_opens_no_file() {
+        let project = Project::copied_from_fixtures();
+        let files = project.scan().analyzed.len() as u32;
+
+        let stats = project.scan().stats;
+
+        assert_eq!(stats.files_read, 0);
+        assert_eq!(stats.cache_hits, files);
+    }
+
+    #[test]
+    fn a_file_touched_without_changing_is_read_once_and_then_not_again() {
+        let project = Project::copied_from_fixtures();
+        project.scan();
+        project.age(&project.root.join("clean.ts"), HOUR / 2);
+
+        let touched = project.scan().stats;
+        let after = project.scan().stats;
+
+        assert_eq!(touched.files_read, 1);
+        assert_eq!(touched.cache_misses, 0);
+        assert_eq!(after.files_read, 0);
+    }
+
+    /// The edit keeps the length and the file's own time, and the time is later than
+    /// the cache was written, which is the one edit a length and a time cannot see.
+    #[test]
+    fn an_edit_that_leaves_the_length_and_the_time_alone_is_still_seen() {
+        let project = Project::copied_from_fixtures();
+        let edited = project.root.join("clean.ts");
+        let just_now = std::time::SystemTime::now() + std::time::Duration::from_secs(60);
+        Project::stamp(&edited, just_now);
+        project.scan();
+        let before = std::fs::read_to_string(&edited).unwrap();
+
+        std::fs::write(&edited, before.replacen("first", "other", 1)).unwrap();
+        Project::stamp(&edited, just_now);
+        let warm = project.scan();
+
+        assert_eq!(
+            std::fs::metadata(&edited).unwrap().len(),
+            before.len() as u64
+        );
+        assert_eq!(warm.stats.cache_misses, 1);
+        assert_eq!(warm.stats.files_read, 1);
+    }
+
+    #[test]
+    fn a_baseline_still_applies_to_files_that_are_not_read() {
+        let project = Project::copied_from_fixtures();
+        let cold = project.scan();
+        assert!(!cold.findings.is_empty());
+        let mut settings = Resolved::of(rqx_core::config::RqxConfig::default());
+        settings.baseline = Some(Arc::new(
+            cold.findings
+                .iter()
+                .map(|finding| {
+                    let source =
+                        std::fs::read_to_string(project.root.join(&*finding.location.file));
+                    rqx_core::Identity::resolved(finding, &source.unwrap())
+                })
+                .collect(),
+        ));
+
+        let warm = scan_with(&project.root, &settings, None, CachePolicy::Forced).unwrap();
+
+        assert_eq!(warm.stats.files_read, 0);
+        assert!(warm.findings.iter().all(|finding| finding.known));
     }
 
     #[test]
@@ -2572,6 +2921,65 @@ mod tests {
         assert_eq!(first.cmp(&second), Ordering::Greater);
     }
     use super::generated_by;
+
+    #[test]
+    fn a_file_is_read_and_indexed_once_however_many_findings_land_in_it() {
+        let root = std::env::temp_dir().join(format!("rqx-positions-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("wide.ts");
+        std::fs::write(&path, "const é = 1;\nconst b = 2;\n").unwrap();
+        let mut at = Positions::new(&root);
+
+        let first = at.range(&path, Span::new(19, 24)).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let second = at.range(&path, Span::new(19, 24)).unwrap();
+
+        assert_eq!((first.line, first.column), (2, 6));
+        assert_eq!((second.line, second.column), (first.line, first.column));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_stage_keeps_only_the_findings_of_rules_that_are_on() {
+        let mut config = rqx_core::config::RqxConfig::default();
+        let mut staged = Staged::default();
+
+        staged.accept_if_enabled(&config, ranked("a.ts", 1).0);
+        config.rules.disabled.insert("imprecise-type".to_owned());
+        staged.accept_if_enabled(&config, ranked("b.ts", 1).0);
+
+        let kept: Vec<&str> = staged
+            .findings
+            .iter()
+            .map(|finding| &*finding.location.file)
+            .collect();
+        assert_eq!(kept, ["a.ts"]);
+    }
+
+    #[test]
+    fn what_the_stages_found_is_counted_whichever_collector_takes_it() {
+        let mut collector = Collector::new(
+            10,
+            false,
+            false,
+            false,
+            crate::progress::Bar::hidden(),
+            None,
+        );
+        let mut staged = Staged::default();
+        staged.findings.push(ranked("a.ts", 1).0);
+        staged.importers.push((Arc::from("a.ts"), 3));
+        staged.blames = 2;
+
+        collector.absorb(staged);
+
+        assert_eq!(collector.counts.total, 1);
+        assert_eq!(collector.impact.get("a.ts").importers, 3);
+        assert_eq!(
+            (collector.stats.blames, collector.stats.git_processes),
+            (2, 2)
+        );
+    }
 
     #[test]
     fn a_marker_past_a_wide_character_is_still_found() {

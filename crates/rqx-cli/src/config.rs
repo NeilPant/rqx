@@ -152,12 +152,15 @@ impl Resolved {
             .count()
     }
 
-    /// Everything that changes what a finding is, for the cache key.
+    /// Everything that changes what a finding is, for the cache key. Whether generated
+    /// files are skipped is part of it because a file served from the cache is not read,
+    /// and so is never looked at for the marker that would skip it.
     pub fn signature(&self) -> impl std::hash::Hash + '_ {
         (
             &self.config.thresholds,
             &self.config.rules,
             &self.config.patterns,
+            self.config.scan.skip_generated,
             self.scopes
                 .iter()
                 .map(|scope| {
@@ -165,6 +168,7 @@ impl Resolved {
                         &scope.config.thresholds,
                         &scope.config.rules,
                         &scope.config.patterns,
+                        scope.config.scan.skip_generated,
                     )
                 })
                 .collect::<Vec<_>>(),

@@ -11,6 +11,9 @@ pub struct ScanStats {
     pub cache_hits: u32,
     pub cache_misses: u32,
     pub files_read: u32,
+    /// Every traversal of the tree, the count of how many files there are included.
+    /// The count runs beside the scan on its own thread, so two walks is still one on
+    /// the critical path.
     pub walks: u32,
     /// Every `git` the scan started, blames included.
     pub git_processes: u32,

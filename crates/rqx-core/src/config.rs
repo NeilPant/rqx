@@ -1087,7 +1087,7 @@ pub struct Scan {
     pub profile: Vec<String>,
     /// Days of git history to read for churn; 0 turns the signal off.
     pub churn_days: u32,
-    /// Reuse `.rqx/cache.json` for files whose contents have not changed. It was
+    /// Reuse `.rqx/cache.bin` for files whose contents have not changed. It was
     /// off because a warm run was no faster than a cold one, but that was measured
     /// while the collector joined the git thread before draining the channel: the
     /// wait, not the parsing, was what a cache could not beat. With that gone a

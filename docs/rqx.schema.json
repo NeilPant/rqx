@@ -9317,7 +9317,7 @@
       "properties": {
         "cache": {
           "default": true,
-          "description": "Reuse `.rqx/cache.json` for files whose contents have not changed. It was off because a warm run was no faster than a cold one, but that was measured while the collector joined the git thread before draining the channel: the wait, not the parsing, was what a cache could not beat. With that gone a warm scan of 3,440 files costs 298ms against 2,023ms cold.",
+          "description": "Reuse `.rqx/cache.bin` for files whose contents have not changed. It was off because a warm run was no faster than a cold one, but that was measured while the collector joined the git thread before draining the channel: the wait, not the parsing, was what a cache could not beat. With that gone a warm scan of 3,440 files costs 298ms against 2,023ms cold.",
           "type": "boolean"
         },
         "churn_days": {

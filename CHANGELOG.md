@@ -112,6 +112,46 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   smaller one, a pipe, CI or `--no-tui` still gets the plain scan. `--no-mouse` is
   still accepted and does nothing.
 
+### Changed
+
+- **A scan starts reading files straight away.** Counting the files for the progress
+  bar used to finish before the first file was opened. It now runs beside the scan, so
+  the bar shows no percentage until the count arrives and the scan no longer waits for
+  it.
+
+- **The cache is under a quarter of the size.** It was one JSON document of 37 MB on a
+  4,440-file tree; each file's entry is now compressed on its own and the cache is
+  8.4 MB, in `.rqx/cache.bin`. A cache from an earlier version is not read, so the
+  first scan after upgrading is a cold one, and it removes the old `.rqx/cache.json`.
+  A warm scan decodes only the entries it uses, on the threads that walk the tree,
+  instead of reading the whole document before the first file is opened.
+
+- **A warm scan does not open unchanged files.** The cache now records each file's
+  length and modification time, and a file that still has both is served from the
+  cache without being read. On a 4,440-file tree a warm scan reads no files where it
+  read all of them. A file edited in the two seconds before the cache was written is
+  still read and compared by content, because an edit that keeps the length cannot be
+  told apart by its time. Baselines are applied to cached files without their text.
+  `scan.skip_generated` now counts as a setting for the cache, so changing it
+  rebuilds the cache.
+
+- **Blame no longer runs when `stale-todo` is off, and it does not wait in batches.**
+  `git blame` costs a process per file with a note in it; a project that has switched
+  `stale-todo` off was paying for it and discarding the answer. When it is on, the
+  blames now run eight at a time as each one finishes, instead of in groups of eight
+  where one slow file held the other seven.
+
+- **Each file's line index is built once.** Placing a project-wide finding rebuilt the
+  line index of its file every time, so a module with dozens of dead exports paid for
+  the same index dozens of times.
+
+- **The stages after the walk run side by side.** Duplicate detection, the import
+  graph and git history no longer wait for one another, so the 250 ms a scan spent
+  reading history on a 4,440-file tree now overlaps the import graph. Results are
+  unchanged and come out in the same order. With `--timings`, the stage times show
+  what the scan was waiting on at that point, so a stage that finished while an earlier
+  one was still running shows no time of its own.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
