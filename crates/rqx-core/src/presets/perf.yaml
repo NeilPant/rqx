@@ -1,0 +1,5 @@
+# Puts the performance family first: nested loops and callbacks are reported at a
+# shallower depth than the defaults allow. Everything else is left as it is.
+thresholds:
+  loop_nesting: 1
+  callback_depth: 2

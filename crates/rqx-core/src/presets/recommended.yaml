@@ -1,0 +1,3 @@
+# What rqx ships: every threshold, rule and gate setting at its default. Extending it
+# changes nothing by itself, which makes it a useful base to name explicitly in a file
+# that also extends something stricter further down.

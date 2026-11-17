@@ -1,0 +1,9 @@
+# A gate sensible for a pipeline that should fail a merge request: no errors, a
+# health score that cannot slide below 70, and no single file graded critical.
+# Thresholds stay at their defaults, so adopting it changes what fails the build and
+# not what rqx reports.
+gate:
+  fail_on: error
+  max_findings: 0
+  min_health: 70
+  min_grade: poor

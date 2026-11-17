@@ -1,0 +1,13 @@
+# For a codebase that has to stay shippable while it is cleaned up. The thresholds
+# are the relaxed level's, where a large existing codebase can meet them, and the rules
+# that read as opinion rather than defect are off.
+#
+# The gate only fails on errors, and the ratchet is on: once `rqx baseline` has
+# recorded the debt and `gate.baseline` names the file, the total may not grow. The
+# ratchet does nothing until then, so extending this preset never fails a run that has
+# no baseline yet.
+extends: [relaxed]
+
+gate:
+  fail_on: error
+  ratchet: true

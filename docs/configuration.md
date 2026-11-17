@@ -8,12 +8,16 @@ Layers are merged in this order, each one overriding the one above it. A table m
 
 | | Source |
 |---|---|
-| 1 | the built-in defaults |
-| 2 | `$XDG_CONFIG_HOME/rqx/rqx.yaml`, else `~/.config/rqx/rqx.yaml` (`%APPDATA%\\rqx\\rqx.yaml` on Windows) |
-| 3 | every `rqx.yaml` from the scanned directory upward, outermost first |
-| 4 | `RQX_CONFIG`, if it is set |
-| 5 | `--config <path>` |
-| 6 | the command's own flags |
+| 1 | the built-in defaults, and the `level` |
+| 2 | every preset and file named by `extends`, in the order they are listed |
+| 3 | `$XDG_CONFIG_HOME/rqx/rqx.yaml`, else `~/.config/rqx/rqx.yaml` (`%APPDATA%\\rqx\\rqx.yaml` on Windows) |
+| 4 | the policy a project points at, which keeps a locked key from moving |
+| 5 | every `rqx.yaml` from the scanned directory upward, outermost first |
+| 6 | `RQX_CONFIG`, if it is set |
+| 7 | `--config <path>` |
+| 8 | the command's own flags |
+
+Everything a file extends goes under *every* file rqx reads, not just under the file that named it, so a preset can never override a policy or a project's own key. [`docs/presets.md`](presets.md) lists the presets.
 
 A directory may call its config `rqx.yaml`, `.rqx.yml`, `rqx.yml` or `.rqx.yaml`; holding two is an error. A `RQX.toml` is an error too: rqx no longer reads TOML, and skipping one could change what a pipeline gates on. `rqx config migrate` converts it.
 

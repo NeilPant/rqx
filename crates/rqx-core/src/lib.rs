@@ -10,6 +10,7 @@ pub mod language;
 pub mod line_index;
 pub mod naming;
 pub mod pattern;
+pub mod presets;
 pub mod rule;
 pub mod rules;
 pub mod runtime;
@@ -17,6 +18,7 @@ pub mod score;
 pub mod signature;
 pub mod slop;
 pub mod span;
+pub mod suggest;
 pub mod suppress;
 pub mod technique;
 

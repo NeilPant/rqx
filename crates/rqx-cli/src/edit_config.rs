@@ -58,7 +58,7 @@ fn label_of(path: &Path, root: &Path) -> String {
 /// else the nearest project config. Anything else surprises someone.
 pub fn default_target(settings: &Resolved, key: &str) -> Option<PathBuf> {
     settings
-        .source_of_key_public(key)
+        .file_that_set(key)
         .map(Path::to_path_buf)
         .or_else(|| settings.sources.last().cloned())
 }

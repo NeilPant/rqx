@@ -558,12 +558,17 @@ fn configuration_page() -> String {
          one.\n\n\
          | | Source |\n\
          |---|---|\n\
-         | 1 | the built-in defaults |\n\
-         | 2 | `$XDG_CONFIG_HOME/rqx/rqx.yaml`, else `~/.config/rqx/rqx.yaml` (`%APPDATA%\\\\rqx\\\\rqx.yaml` on Windows) |\n\
-         | 3 | every `rqx.yaml` from the scanned directory upward, outermost first |\n\
-         | 4 | `RQX_CONFIG`, if it is set |\n\
-         | 5 | `--config <path>` |\n\
-         | 6 | the command's own flags |\n\n\
+         | 1 | the built-in defaults, and the `level` |\n\
+         | 2 | every preset and file named by `extends`, in the order they are listed |\n\
+         | 3 | `$XDG_CONFIG_HOME/rqx/rqx.yaml`, else `~/.config/rqx/rqx.yaml` (`%APPDATA%\\\\rqx\\\\rqx.yaml` on Windows) |\n\
+         | 4 | the policy a project points at, which keeps a locked key from moving |\n\
+         | 5 | every `rqx.yaml` from the scanned directory upward, outermost first |\n\
+         | 6 | `RQX_CONFIG`, if it is set |\n\
+         | 7 | `--config <path>` |\n\
+         | 8 | the command's own flags |\n\n\
+         Everything a file extends goes under *every* file rqx reads, not just under the \
+         file that named it, so a preset can never override a policy or a project's own \
+         key. [`docs/presets.md`](presets.md) lists the presets.\n\n\
          A directory may call its config `rqx.yaml`, `.rqx.yml`, `rqx.yml` or \
          `.rqx.yaml`; holding two is an error. A `RQX.toml` is an error too: rqx no \
          longer reads TOML, and skipping one could change what a pipeline gates on. \

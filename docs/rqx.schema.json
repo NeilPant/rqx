@@ -948,6 +948,14 @@
         "paths": []
       }
     },
+    "extends": {
+      "default": [],
+      "description": "Settings this file builds on, merged under its own keys, later entries over earlier ones. Each is a built-in preset (`recommended`, `strict`, `legacy-adoption`, `ci-gate`, `perf`, or a level name) or a path to another YAML file, relative to this one. Read by the loader; it never reaches a resolved config.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "fix": {
       "$ref": "#/$defs/Fix",
       "default": {

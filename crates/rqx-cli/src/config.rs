@@ -9,10 +9,13 @@ use rqx_core::config::{
 };
 use serde_json::{Map, Value};
 
+mod extends;
 mod files;
+mod origin;
 mod quickfix;
 
 pub use files::{config_path_in, user_config_directories};
+pub use origin::Origin;
 pub use quickfix::disable_entry;
 
 pub const CONFIG_ENV: &str = "RQX_CONFIG";
@@ -34,14 +37,16 @@ struct Scope {
 pub struct Resolved {
     pub config: RqxConfig,
     pub sources: Vec<PathBuf>,
-    pub provenance: BTreeMap<&'static str, PathBuf>,
+    pub provenance: BTreeMap<&'static str, Origin>,
     /// Which file wrote each individual `table.key`. The per-table map cannot answer
     /// that once two layers both touch `[thresholds]`, and a locked key has to be
     /// able to name the file that set it.
-    key_sources: BTreeMap<String, PathBuf>,
+    key_sources: BTreeMap<String, Origin>,
     /// The keys the policy will not let a project change.
     locked: BTreeSet<String>,
     pub policy: Option<PathBuf>,
+    /// The presets the run built on, in the order they were laid down.
+    pub presets: Vec<String>,
     /// What the project actually wrote, before the level's layer went under it, so
     /// the `from` column can tell a value a file set from one a level moved.
     written: Value,
@@ -63,6 +68,7 @@ impl Clone for Resolved {
             key_sources: self.key_sources.clone(),
             locked: self.locked.clone(),
             policy: self.policy.clone(),
+            presets: self.presets.clone(),
             written: self.written.clone(),
             scopes: self
                 .scopes
@@ -99,6 +105,7 @@ impl Resolved {
             key_sources: BTreeMap::new(),
             locked: BTreeSet::new(),
             policy: None,
+            presets: Vec::new(),
             written: files::empty(),
             scopes: Vec::new(),
             baseline: None,
@@ -167,14 +174,11 @@ impl Resolved {
         Some(path.file_name()?.to_string_lossy().into_owned())
     }
 
-    /// The file that set a table, for the `from` column. Falls back to the last file
-    /// read, so a value that came from a layer rqx merged still names a real file.
-    /// The file that wrote one setting, which is not always the last file to touch
-    /// its table.
-    /// The file that wrote `table.key`, addressed as one string. `set` needs this
-    /// to default to the file already holding the setting.
-    pub fn source_of_key_public(&self, key: &str) -> Option<&Path> {
-        self.key_sources.get(key).map(PathBuf::as_path)
+    /// The project file that wrote `table.key`, addressed as one string, which is not
+    /// always the last file to touch its table. `set` defaults to it. A preset or an
+    /// extended file never answers: neither is the project's to edit.
+    pub fn file_that_set(&self, key: &str) -> Option<&Path> {
+        self.key_sources.get(key).and_then(Origin::file)
     }
 
     /// Every locked key, so a writer can refuse before it touches the file.
@@ -182,22 +186,18 @@ impl Resolved {
         self.locked.iter().map(String::as_str)
     }
 
-    pub fn source_of_key(&self, table: &str, key: &str) -> Option<&Path> {
-        self.key_sources
-            .get(&format!("{table}.{key}"))
-            .map(PathBuf::as_path)
+    /// What wrote a setting, whether a file, a preset or a flag. The key is the more
+    /// precise answer; the table is what is left when two layers both touched it.
+    pub fn origin_of(&self, table: &str, key: Option<&str>) -> Option<Origin> {
+        key.and_then(|key| self.key_sources.get(&format!("{table}.{key}")))
+            .or_else(|| self.provenance.get(table))
+            .cloned()
+            .or_else(|| self.sources.last().cloned().map(Origin::File))
     }
 
     /// Whether a policy forbids this project changing one setting.
     pub fn is_locked(&self, table: &str, key: &str) -> bool {
         self.locked.contains(&format!("{table}.{key}"))
-    }
-
-    pub fn source_of(&self, table: &str) -> Option<&Path> {
-        self.provenance
-            .get(table)
-            .or_else(|| self.sources.last())
-            .map(PathBuf::as_path)
     }
 
     /// Whether a key was written down rather than moved by the level.
@@ -248,6 +248,7 @@ impl Resolved {
             key_sources: self.key_sources.clone(),
             locked: self.locked.clone(),
             policy: self.policy.clone(),
+            presets: self.presets.clone(),
             written: self.written.clone(),
             scopes,
             baseline: self.baseline.clone(),
@@ -293,38 +294,64 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         layers.push(path.to_path_buf());
     }
 
+    let loaded: Vec<(PathBuf, Value)> = layers
+        .into_iter()
+        .map(|path| files::read(&path).map(|value| (path, value)))
+        .collect::<Result<_>>()?;
+    let mut stack = Vec::new();
+    for (path, value) in &loaded {
+        stack.extend(extends::inherited(path, value)?);
+    }
+    stack.extend(loaded.into_iter().map(|(path, value)| extends::Layer {
+        origin: Origin::File(path),
+        value,
+    }));
+
     let mut merged = files::empty();
     let mut provenance = BTreeMap::new();
     let mut raw_overrides: Vec<(PathBuf, Value)> = Vec::new();
     let mut sources = Vec::new();
+    let mut presets: Vec<String> = Vec::new();
     let mut locked: Vec<String> = Vec::new();
-    let mut key_sources: BTreeMap<String, PathBuf> = BTreeMap::new();
-    let mut written: Vec<(PathBuf, Vec<(String, Value)>)> = Vec::new();
+    let mut key_sources: BTreeMap<String, Origin> = BTreeMap::new();
+    let mut written: Vec<(Origin, Vec<(String, Value)>)> = Vec::new();
 
-    for path in layers {
-        let mut value = files::read(&path)?;
+    for extends::Layer { origin, mut value } in stack {
+        let path = match &origin {
+            Origin::File(path) | Origin::Extended(path) => path.clone(),
+            Origin::Preset(name) => {
+                presets.push(name.clone());
+                PathBuf::from(format!("preset:{name}"))
+            }
+            Origin::Flag(_) => continue,
+        };
+        extends::take_extends(&mut value);
         for entry in take_overrides(&mut value, &path)? {
             raw_overrides.push((path.clone(), entry));
         }
-        let is_policy = policy.as_deref() == Some(path.as_path());
+        let is_policy =
+            matches!(&origin, Origin::File(file) if policy.as_deref() == Some(file.as_path()));
         locked.extend(take_locked(&mut value, &path, is_policy)?);
         take_policy(&mut value);
         if let Some(table) = value.as_object() {
             for key in table.keys() {
                 if let Some(known) = TABLES.iter().find(|table| *table == key) {
-                    provenance.insert(*known, path.clone());
+                    provenance.insert(*known, origin.clone());
                 }
             }
         }
         let mut leaves = Vec::new();
         flatten("", &value, &mut leaves);
         for (key, _) in &leaves {
-            key_sources.insert(key.clone(), path.clone());
+            key_sources.insert(key.clone(), origin.clone());
         }
-        written.push((path.clone(), leaves));
+        written.push((origin.clone(), leaves));
         merge(&mut merged, value);
-        sources.push(path);
+        if !matches!(origin, Origin::Preset(_)) {
+            sources.push(path);
+        }
     }
+    presets.dedup();
 
     if let Some(policy) = &policy {
         enforce_locks(&locked, policy, &written, &raw_overrides, level)?;
@@ -346,7 +373,7 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         serde_json::from_value(effective).with_context(|| describe(&sources))?;
     reject_unknown_names(&config, &describe(&sources))?;
     if level.is_some() {
-        provenance.insert("level", PathBuf::from("--level"));
+        provenance.insert("level", Origin::Flag("--level"));
     }
 
     let mut scopes = Vec::new();
@@ -384,6 +411,7 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         key_sources,
         locked: locked.into_iter().collect(),
         policy,
+        presets,
         written: merged,
         scopes,
         modules,
@@ -559,17 +587,18 @@ fn flatten(prefix: &str, value: &Value, out: &mut Vec<(String, Value)>) {
 fn enforce_locks(
     locked: &[String],
     policy: &Path,
-    written: &[(PathBuf, Vec<(String, Value)>)],
+    written: &[(Origin, Vec<(String, Value)>)],
     overrides: &[(PathBuf, Value)],
     level: Option<Level>,
 ) -> Result<()> {
+    let is_policy = |origin: &Origin| origin.file() == Some(policy);
     let from_policy: &[(String, Value)] = written
         .iter()
-        .find(|(path, _)| path == policy)
+        .find(|(origin, _)| is_policy(origin))
         .map_or(&[], |(_, leaves)| leaves.as_slice());
     let above = written
         .iter()
-        .skip_while(|(path, _)| path != policy)
+        .skip_while(|(origin, _)| !is_policy(origin))
         .skip(1);
 
     for key in locked {
@@ -581,14 +610,13 @@ fn enforce_locks(
                 policy.display()
             );
         };
-        for (path, leaves) in above.clone() {
+        for (origin, leaves) in above.clone() {
             if let Some((_, got)) = leaves.iter().find(|(named, _)| named == key)
                 && got != want
             {
                 bail!(
-                    "`{key}` is locked to {want} by {}; {} sets {got}.",
-                    policy.display(),
-                    path.display()
+                    "`{key}` is locked to {want} by {}; {origin} sets {got}.",
+                    policy.display()
                 );
             }
         }
@@ -823,12 +851,12 @@ mod tests {
         // The per-table map cannot tell these apart; the per-key one has to.
         assert!(
             settings
-                .source_of_key("thresholds", "cognitive_complexity")
+                .file_that_set("thresholds.cognitive_complexity")
                 .is_some_and(|path| path.ends_with("policy.yaml"))
         );
         assert!(
             settings
-                .source_of_key("thresholds", "max_params")
+                .file_that_set("thresholds.max_params")
                 .is_some_and(|path| path.ends_with("rqx.yaml"))
         );
     }
@@ -964,6 +992,133 @@ mod tests {
         write(&root.join("rqx.yaml"), "# nothing yet\n");
         let settings = resolve(&root, None, None).expect("resolves");
         assert_eq!(settings.config.thresholds.max_params, 4);
+    }
+
+    #[test]
+    fn a_preset_sets_what_the_file_leaves_alone_and_names_itself_as_the_source() {
+        let root = workspace("preset");
+        write(
+            &root.join("rqx.yaml"),
+            "extends: [ci-gate]\n\ngate:\n  max_findings: 5\n",
+        );
+        let settings = resolve(&root, None, None).expect("resolves");
+        assert_eq!(settings.config.gate.min_health, 70);
+        assert_eq!(
+            settings.config.gate.max_findings, 5,
+            "the file's own key wins"
+        );
+        assert_eq!(settings.presets, ["ci-gate"]);
+        let from = |key| {
+            settings
+                .origin_of("gate", Some(key))
+                .expect("origin")
+                .label()
+        };
+        assert_eq!(from("min_health"), "preset:ci-gate");
+        assert_eq!(from("max_findings"), "rqx.yaml");
+    }
+
+    #[test]
+    fn a_later_entry_of_extends_wins_over_an_earlier_one() {
+        let root = workspace("extends-order");
+        write(&root.join("rqx.yaml"), "extends: [perf, legacy-adoption]\n");
+        let settings = resolve(&root, None, None).expect("resolves");
+        // perf says 2, and legacy-adoption comes through the relaxed level, which says 3.
+        assert_eq!(settings.config.thresholds.callback_depth, 2);
+        assert_eq!(settings.config.thresholds.max_params, 6);
+        assert_eq!(settings.config.thresholds.loop_nesting, 1);
+        assert_eq!(settings.presets, ["perf", "relaxed", "legacy-adoption"]);
+    }
+
+    /// presets and extends < policy < per-directory files, so a preset can never
+    /// override what a policy set, whichever file named it.
+    #[test]
+    fn a_policy_overrides_a_preset_and_a_project_file_overrides_both() {
+        let root = workspace("precedence");
+        write(
+            &root.join("platform/policy.yaml"),
+            "thresholds:\n  loop_nesting: 5\n  callback_depth: 4\n",
+        );
+        write(
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\nextends: [perf]\nthresholds:\n  callback_depth: 6\n",
+        );
+        let settings = resolve(&root.join("service"), None, None).expect("resolves");
+        assert_eq!(
+            settings.config.thresholds.loop_nesting, 5,
+            "policy over preset"
+        );
+        assert_eq!(
+            settings.config.thresholds.callback_depth, 6,
+            "file over policy"
+        );
+    }
+
+    #[test]
+    fn a_preset_cannot_move_a_key_the_policy_locks() {
+        let root = workspace("preset-lock");
+        write(
+            &root.join("platform/policy.yaml"),
+            "gate:\n  min_health: 90\n\nlocked:\n  keys: [gate.min_health]\n",
+        );
+        write(
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\nextends: [ci-gate]\n",
+        );
+        let settings = resolve(&root.join("service"), None, None).expect("resolves");
+        assert_eq!(settings.config.gate.min_health, 90);
+    }
+
+    #[test]
+    fn a_file_can_extend_a_file_beside_it_and_that_file_is_not_the_one_set_edits() {
+        let root = workspace("extends-file");
+        write(
+            &root.join("shared/base.yaml"),
+            "thresholds:\n  max_params: 2\n",
+        );
+        write(
+            &root.join("rqx.yaml"),
+            "extends: [shared/base.yaml]\nthresholds:\n  nesting_depth: 2\n",
+        );
+        let settings = resolve(&root, None, None).expect("resolves");
+        assert_eq!(settings.config.thresholds.max_params, 2);
+        assert_eq!(
+            settings
+                .origin_of("thresholds", Some("max_params"))
+                .expect("origin")
+                .label(),
+            "base.yaml (extends)"
+        );
+        assert!(settings.file_that_set("thresholds.max_params").is_none());
+        assert!(settings.file_that_set("thresholds.nesting_depth").is_some());
+    }
+
+    #[test]
+    fn an_unknown_preset_is_refused_with_the_one_it_was_close_to() {
+        let root = workspace("unknown-preset");
+        write(&root.join("rqx.yaml"), "extends: [stirct]\n");
+        let error = refusal(&root);
+        assert!(error.contains("`stirct`"), "{error}");
+        assert!(error.contains("Did you mean `strict`?"), "{error}");
+        assert!(error.contains("legacy-adoption"), "{error}");
+    }
+
+    #[test]
+    fn files_that_extend_each_other_are_refused_rather_than_followed_forever() {
+        let root = workspace("extends-loop");
+        write(&root.join("a.yaml"), "extends: [b.yaml]\n");
+        write(&root.join("b.yaml"), "extends: [a.yaml]\n");
+        write(&root.join("rqx.yaml"), "extends: [a.yaml]\n");
+        assert!(refusal(&root).contains("loops"));
+    }
+
+    #[test]
+    fn extending_a_file_that_is_missing_or_toml_is_refused() {
+        let root = workspace("extends-missing");
+        write(&root.join("rqx.yaml"), "extends: [nowhere.yaml]\n");
+        assert!(refusal(&root).contains("nowhere.yaml"));
+        write(&root.join("rqx.yaml"), "extends: [old.toml]\n");
+        assert!(refusal(&root).contains("rqx config migrate"));
     }
 
     fn failure(outcome: Result<Scope>) -> String {

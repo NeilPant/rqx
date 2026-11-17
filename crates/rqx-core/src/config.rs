@@ -128,6 +128,12 @@ pub struct RqxConfig {
     pub root: bool,
     /// How much this project asks of itself: relaxed, standard, strict or pristine. A level is merged under everything written by hand, so it moves the defaults and never overrides a stated value.
     pub level: Level,
+    /// Settings this file builds on, merged under its own keys, later entries over
+    /// earlier ones. Each is a built-in preset (`recommended`, `strict`,
+    /// `legacy-adoption`, `ci-gate`, `perf`, or a level name) or a path to another YAML
+    /// file, relative to this one. Read by the loader; it never reaches a resolved
+    /// config.
+    pub extends: Vec<String>,
     pub languages: Languages,
     pub thresholds: Thresholds,
     pub rules: Rules,
