@@ -546,7 +546,20 @@ pub fn components(adjacency: &[Vec<usize>]) -> Vec<Vec<usize>> {
     components
 }
 
+/// The module graph over owned entries. Kept for callers of earlier releases;
+/// [`analyze_borrowed`] does the same without taking ownership.
 pub fn analyze(
+    modules: Vec<ModuleEntry>,
+    root: &Path,
+    configured: &[String],
+    resolver: &dyn Resolver,
+    is_vendor: fn(&str) -> bool,
+) -> GraphReport {
+    let borrowed: Vec<&ModuleEntry> = modules.iter().collect();
+    analyze_borrowed(&borrowed, root, configured, resolver, is_vendor)
+}
+
+pub fn analyze_borrowed(
     modules: &[&ModuleEntry],
     root: &Path,
     configured: &[String],
@@ -867,7 +880,7 @@ mod tests {
         let refs: Vec<&ModuleEntry> = modules.iter().collect();
         let resolver = Siblings(modules.iter().map(|m| m.path.clone()).collect());
 
-        let report = analyze(&refs, Path::new("/p"), &[], &resolver, |_| true);
+        let report = analyze_borrowed(&refs, Path::new("/p"), &[], &resolver, |_| true);
 
         assert_eq!(report.cycles.len(), 1);
         assert_eq!(report.edges.len(), 2);

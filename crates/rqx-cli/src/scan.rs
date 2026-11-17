@@ -2405,7 +2405,7 @@ fn graph_report(
     for (language, entries) in by_family(modules) {
         let support = rqx_lang::support(language);
         let resolver = (support.resolver)(root);
-        let report = rqx_lang::module_graph::analyze(
+        let report = rqx_lang::module_graph::analyze_borrowed(
             &entries,
             root,
             &config.entrypoints.paths,
