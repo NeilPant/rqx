@@ -415,6 +415,21 @@ fn cost_site_wording(site: &CostSite) -> Option<(Evidence, &'static str)> {
             in_loop(),
             "sort once above the loop: nothing in the loop changes what is being sorted",
         ),
+        RuleId::AllocationInLoop => (
+            Evidence::BranchShape {
+                shape: format!("{} on every pass of the innermost loop.", site.subject),
+            },
+            "allocate once above the loop and reuse it, clearing it between passes",
+        ),
+        RuleId::MissingCapacity => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is appended to in a loop over a collection of known size, with no \
+                         capacity set"
+                    .to_owned(),
+            },
+            "give it the loop's size as its capacity where it is made",
+        ),
         _ => return None,
     })
 }

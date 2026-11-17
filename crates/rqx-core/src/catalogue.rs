@@ -2324,4 +2324,35 @@ catalogue! {
         why: "every pass after the first sorts input that is already sorted, at a cost of n log n \
               each time",
     },
+    AllocationInLoop {
+        slug: "allocation-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "three or more allocations, or one fixed allocation of a thousand elements or \
+                 more, in each pass of an innermost loop",
+        fixes: [HoistInvariant],
+        confidence: Heuristic,
+        severity: Info,
+        why: "each pass pays for memory it could have reused, which adds allocator and \
+              collection work to every iteration",
+        off_by_default: true,
+    },
+    MissingCapacity {
+        slug: "missing-capacity",
+        category: Performance,
+        analysis: Semantics,
+        metric: "an empty collection appended to in a loop over a collection whose size is known \
+                 before the loop starts",
+        fixes: [PresizeCollection],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the collection grows by reallocating and copying its contents as it fills, work \
+              that a capacity set from the loop's size avoids",
+        off_by_default: true,
+        not_applicable: [
+            (JavaScript, "arrays grow without a capacity to set"),
+            (TypeScript, "arrays grow without a capacity to set"),
+            (Python, "lists grow without a capacity to set"),
+        ],
+    },
 }

@@ -6019,6 +6019,81 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/cost-allocation-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 4,
+                  "startColumn": 11,
+                  "startLine": 4
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`pair` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "plural-mismatch"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-allocation-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 6,
+                  "startColumn": 11,
+                  "startLine": 6
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`spare` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "plural-mismatch"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-allocation-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 24,
+                  "startColumn": 11,
+                  "startLine": 24
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`pair` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "plural-mismatch"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/conventions.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -7007,6 +7082,31 @@
           ],
           "message": {
             "text": "`cursor` is adjusted by one in 3 places, each of them a chance to be off by one. each place that recomputes the boundary can compute it wrongly, and off-by-one errors are found by readers, not by types Fix: name the boundary once, so `cursor` is adjusted in one place"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "boundary-arithmetic"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-allocation-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 4,
+                  "startColumn": 24,
+                  "startLine": 4
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`row` is adjusted by one in 3 places, each of them a chance to be off by one. each place that recomputes the boundary can compute it wrongly, and off-by-one errors are found by readers, not by types Fix: name the boundary once, so `row` is adjusted in one place"
           },
           "properties": {
             "confidence": "heuristic"

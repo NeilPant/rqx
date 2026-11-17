@@ -18,7 +18,7 @@ use crate::tree::span_of;
 const RANGE_STARTS: [&str; 4] = ["begin", "cbegin", "rbegin", "data"];
 
 impl<'a> Visitor<'a, '_> {
-    fn note_site(&mut self, rule: RuleId, node: Node<'a>, subject: &str) {
+    pub(super) fn note_site(&mut self, rule: RuleId, node: Node<'a>, subject: &str) {
         self.sites.push(CostSite {
             rule,
             span: span_of(node),

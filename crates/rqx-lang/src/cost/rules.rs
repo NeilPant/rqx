@@ -7,9 +7,19 @@ use rqx_core::{Language, RuleId};
 
 use crate::analyze_as;
 
+/// The defaults, with the rules that ship off switched on.
+fn config() -> RqxConfig {
+    let mut config = RqxConfig::default();
+    config
+        .rules
+        .enabled
+        .extend(["allocation-in-loop", "missing-capacity"].map(String::from));
+    config
+}
+
 /// `(rule, line)` for every finding of the given rules, in the order reported.
 fn reported(language: Language, source: &str, rules: &[RuleId]) -> Vec<(RuleId, u32)> {
-    let config = RqxConfig::default();
+    let config = config();
     let analysis = analyze_as(language, "snippet", source, &config).expect("the snippet parses");
     analysis
         .findings
@@ -76,7 +86,7 @@ fn a_sort_of_what_the_loop_changes_is_not_a_repeated_sort() {
 }
 
 fn confidences(language: Language, source: &str, rule: RuleId) -> Vec<Confidence> {
-    let config = RqxConfig::default();
+    let config = config();
     let analysis = analyze_as(language, "snippet", source, &config).expect("the snippet parses");
     analysis
         .findings
@@ -99,4 +109,46 @@ fn text_the_source_declares_is_a_copy_the_rule_is_sure_of() {
         confidences(Language::JavaScript, inferred, RuleId::AccumulateByCopy),
         [Confidence::Heuristic]
     );
+}
+
+#[test]
+fn a_pass_that_mostly_allocates_is_reported_and_one_small_allocation_is_not() {
+    let busy = "function f(rows) {\n  for (const row of rows) {\n    const a = [row];\n    const b = { row };\n    const c = [row, row];\n    use(a, b, c);\n  }\n}\n";
+    assert_eq!(
+        reported(Language::JavaScript, busy, &[RuleId::AllocationInLoop]),
+        [(RuleId::AllocationInLoop, 3)]
+    );
+    let light = "function f(rows) {\n  for (const row of rows) {\n    const a = [row];\n    use(a);\n  }\n}\n";
+    assert!(reported(Language::JavaScript, light, &[RuleId::AllocationInLoop]).is_empty());
+}
+
+#[test]
+fn a_large_fixed_allocation_is_reported_and_a_small_one_is_not() {
+    let large = "func f(rows []int) {\n\tfor range rows {\n\t\t_ = make([]byte, 65536)\n\t}\n}\n";
+    assert_eq!(
+        reported(Language::Go, large, &[RuleId::AllocationInLoop]),
+        [(RuleId::AllocationInLoop, 3)]
+    );
+    let small = "func f(rows []int) {\n\tfor range rows {\n\t\t_ = make([]byte, 16)\n\t}\n}\n";
+    assert!(reported(Language::Go, small, &[RuleId::AllocationInLoop]).is_empty());
+}
+
+#[test]
+fn an_empty_collection_filled_in_a_loop_over_known_input_wants_a_capacity() {
+    let empty = "func f(names []string) []string {\n\tout := []string{}\n\tfor _, name := range names {\n\t\tout = append(out, name)\n\t}\n\treturn out\n}\n";
+    assert_eq!(
+        reported(Language::Go, empty, &[RuleId::MissingCapacity]),
+        [(RuleId::MissingCapacity, 4)]
+    );
+    let sized = "func f(names []string) []string {\n\tout := make([]string, 0, len(names))\n\tfor _, name := range names {\n\t\tout = append(out, name)\n\t}\n\treturn out\n}\n";
+    assert!(reported(Language::Go, sized, &[RuleId::MissingCapacity]).is_empty());
+
+    let reserved = "#include <vector>\nvoid f(const std::vector<int>& xs) {\n  std::vector<int> out;\n  out.reserve(xs.size());\n  for (int x : xs) {\n    out.push_back(x);\n  }\n}\n";
+    assert!(reported(Language::Cpp, reserved, &[RuleId::MissingCapacity]).is_empty());
+}
+
+#[test]
+fn a_language_whose_lists_have_no_capacity_is_never_asked_for_one() {
+    let python = "def f(names: list[str]):\n    out = []\n    for name in names:\n        out.append(name)\n";
+    assert!(reported(Language::Python, python, &[RuleId::MissingCapacity]).is_empty());
 }

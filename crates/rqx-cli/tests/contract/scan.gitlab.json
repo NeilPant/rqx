@@ -2844,6 +2844,42 @@
     "severity": "info"
   },
   {
+    "check_name": "plural-mismatch",
+    "description": "`pair` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
+    "fingerprint": "da5988a3bd530b56",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "plural-mismatch",
+    "description": "`spare` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
+    "fingerprint": "311f3e5d2d8dbc67",
+    "location": {
+      "lines": {
+        "begin": 6
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "plural-mismatch",
+    "description": "`pair` disagrees in number with what it holds. — a reader relies on the name to say whether there is one value or many, and here it says the opposite",
+    "fingerprint": "da5988a3bd530b560001",
+    "location": {
+      "lines": {
+        "begin": 24
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
+    },
+    "severity": "info"
+  },
+  {
     "check_name": "name-repeats-type",
     "description": "`entryList (List)` spells its type into its name. — the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes",
     "fingerprint": "9e79a0b69ca5a42a",
@@ -3320,6 +3356,18 @@
         "begin": 9
       },
       "path": "typescript/conventions.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "boundary-arithmetic",
+    "description": "`row` is adjusted by one in 3 places, each of them a chance to be off by one. — each place that recomputes the boundary can compute it wrongly, and off-by-one errors are found by readers, not by types",
+    "fingerprint": "78e8318de1d5bf4e",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-allocation-in-loop.ts"
     },
     "severity": "info"
   },

@@ -137,5 +137,10 @@ func main() {
 	_ = fixtures.JoinWithPlus
 	_ = fixtures.JoinWithBuilder
 	_ = fixtures.LengthOf
+	_ = fixtures.DescribeRows
+	_ = fixtures.BufferEachRow
+	_ = fixtures.PairEachRow
+	_ = fixtures.CopyNames
+	_ = fixtures.CopyNamesSized
 	_ = cyclea.Orbit
 }

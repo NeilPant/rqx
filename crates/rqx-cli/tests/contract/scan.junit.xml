@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="293" failures="156" time="0">
+<testsuites name="rqx" tests="297" failures="156" time="0">
   <testsuite name="typescript/bloat.ts" tests="19" failures="10">
     <testcase classname="typescript/bloat.ts" name="no-base-case at 86:17">
       <failure type="no-base-case" message="Calls itself 1 times per invocation with no memo in sight.">Calls itself 1 times per invocation with no memo in sight.
@@ -148,6 +148,20 @@ Fix: give each group its own type, and have one type hold the other</failure>
     </testcase>
     <testcase classname="typescript/conventions.ts" name="mixed-language-file at 5:10">
       <skipped message="A template literal in this file holds SQL." />
+    </testcase>
+  </testsuite>
+  <testsuite name="typescript/cost-allocation-in-loop.ts" tests="4" failures="0">
+    <testcase classname="typescript/cost-allocation-in-loop.ts" name="plural-mismatch at 4:11">
+      <skipped message="`pair` disagrees in number with what it holds." />
+    </testcase>
+    <testcase classname="typescript/cost-allocation-in-loop.ts" name="plural-mismatch at 6:11">
+      <skipped message="`spare` disagrees in number with what it holds." />
+    </testcase>
+    <testcase classname="typescript/cost-allocation-in-loop.ts" name="plural-mismatch at 24:11">
+      <skipped message="`pair` disagrees in number with what it holds." />
+    </testcase>
+    <testcase classname="typescript/cost-allocation-in-loop.ts" name="boundary-arithmetic at 4:24">
+      <skipped message="`row` is adjusted by one in 3 places, each of them a chance to be off by one." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/cost-linear-op-in-loop.ts" tests="1" failures="1">

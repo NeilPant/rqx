@@ -2,7 +2,7 @@
 //! and space come from, the calls the function makes, and the signals beside them.
 //! Subtrees that cost nothing are not written down.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use rqx_core::config::Performance;
@@ -11,6 +11,7 @@ use rqx_core::cost::{
     SizeSrc,
 };
 use rqx_core::facts::CostSite;
+use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use super::bindings::{bind_assignment, bind_declaration, bind_parameters};
@@ -24,7 +25,7 @@ use super::shape::{Parts, seq};
 use super::tables::{CallFacts, CostTables, Entry, SizeOf};
 use super::types::{KEYED_GUESS, TypeFact, constructed_fact, declares, names_a_keyed_value};
 use crate::names::Names;
-use crate::tree::{descendants, kind_of, operator_of};
+use crate::tree::{descendants, kind_of, operator_of, span_of};
 use crate::vocabulary::{IO_BARE, MEMO_HINTS, asks_for_data, mentions_any, reaches_outside};
 
 /// What a function is read against: the library tables, the project's own names for
@@ -35,6 +36,7 @@ pub struct Shared<'f> {
     pub file: &'f FileFacts,
 }
 
+mod allocation;
 mod sites;
 
 pub struct Built<'a> {
@@ -51,6 +53,10 @@ pub struct Built<'a> {
 #[derive(Default)]
 struct LoopFrame {
     allocations: u32,
+    /// Where the first of them is, which is where a report points.
+    first_allocation: Option<Span>,
+    /// A allocation of a fixed, large size, and what it is written as.
+    large_allocation: Option<(Span, String)>,
     holds_a_loop: bool,
 }
 
@@ -81,6 +87,9 @@ struct Visitor<'a, 'f> {
     /// The loops the visit is inside, outermost first, to read what they leave alone.
     loop_nodes: Vec<Node<'a>>,
     sites: Vec<CostSite>,
+    /// Collections made here with nothing in them and no room set aside, by the loop
+    /// depth they were made at.
+    empty_collections: HashMap<&'a str, u8>,
     nested: Vec<Site<'a>>,
     nested_names: HashSet<String>,
     reductions: Vec<Reduction>,
@@ -111,6 +120,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         loop_bounds: Vec::new(),
         loop_nodes: Vec::new(),
         sites: Vec::new(),
+        empty_collections: HashMap::new(),
         nested: Vec::new(),
         nested_names: HashSet::new(),
         reductions: Vec::new(),
@@ -177,6 +187,7 @@ impl<'a> Visitor<'a, '_> {
             && !frame.holds_a_loop
         {
             self.allocations_per_pass = self.allocations_per_pass.max(frame.allocations);
+            self.note_allocation_site(&frame);
         }
     }
 
@@ -226,6 +237,10 @@ impl<'a> Visitor<'a, '_> {
             && let Some(frame) = self.frames.last_mut()
         {
             frame.allocations += 1;
+            frame.first_allocation.get_or_insert(span_of(node));
+        }
+        if !self.frames.is_empty() {
+            self.note_large_allocation(node, kind);
         }
         if self.depth > 0 {
             self.note_statement_in_loop(node, kind);
@@ -256,6 +271,7 @@ impl<'a> Visitor<'a, '_> {
         // What a name stands for is known only once the value it is set from has been read.
         if declares(profile, node) {
             bind_declaration(&mut self.bounds(), node);
+            self.note_empty_collection(node);
         } else if profile.assignment_kinds.contains(&kind) {
             bind_assignment(&mut self.bounds(), node);
         }
@@ -543,6 +559,7 @@ impl<'a> Visitor<'a, '_> {
         let mut parts = Parts::default();
 
         self.note_signals(dotted, receiver, tail, arguments);
+        self.note_reservation(receiver, tail);
         if self.is_round_trip(receiver, tail) {
             parts.io = Some(Cost::One);
         }
@@ -551,6 +568,7 @@ impl<'a> Visitor<'a, '_> {
         }
         if let Some(name) = self.grown_local(receiver, tail, arguments) {
             parts.grow = Some(Cost::One);
+            self.note_append(&name, node);
             self.bound_by_enclosing_loop(&name);
         }
 

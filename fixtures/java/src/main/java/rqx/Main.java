@@ -102,6 +102,11 @@ public class Main {
         new Ticker().fire();
         new Editor().save();
         new SmsGateway().disconnect();
+        new CostAllocationInLoop().describeRows(java.util.List.of());
+        new CostAllocationInLoop().bufferEachRow(java.util.List.of());
+        new CostAllocationInLoop().pairEachRow(java.util.List.of());
+        new CostMissingCapacity().copyNames(java.util.List.of());
+        new CostMissingCapacity().copyNamesSized(java.util.List.of());
         new CostAccumulateByCopy().joinWithPlus(java.util.List.of());
         new CostAccumulateByCopy().joinWithBuilder(java.util.List.of());
         new CostAccumulateByCopy().lengthOf(java.util.List.of());

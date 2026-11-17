@@ -445,7 +445,7 @@ mod language_tests {
     /// decision rather than an accident.
     #[test]
     fn typescript_runs_every_rule_but_the_ones_it_has_no_syntax_for() {
-        const NO_SYNTAX_FOR_IT: [&str; 1] = ["shadowed-handler"];
+        const NO_SYNTAX_FOR_IT: [&str; 2] = ["shadowed-handler", "missing-capacity"];
         let exempt: Vec<&str> = RuleId::ALL
             .iter()
             .filter(|rule| !rule.applies_to(Language::TypeScript))

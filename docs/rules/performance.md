@@ -263,3 +263,50 @@ From `fixtures/typescript/cost-sort-in-loop.ts`, line 4:
 
 Suggested fix: sort once above the loop: nothing in the loop changes what is being sorted
 
+## `allocation-in-loop`
+
+each pass pays for memory it could have reused, which adds allocator and collection work to every iteration
+
+| | |
+|---|---|
+| Measures | three or more allocations, or one fixed allocation of a thousand elements or more, in each pass of an innermost loop |
+| Reported as | info, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Hoist Invariant |
+| Default | off; name it under `rules.enabled` |
+
+From `fixtures/typescript/cost-allocation-in-loop.ts`, line 4:
+
+```ts
+  for (const row of rows) {
+    const pair = [row, row + 1];
+    const label = { row, next: row + 1 };
+```
+
+Suggested fix: allocate once above the loop and reuse it, clearing it between passes
+
+## `missing-capacity`
+
+the collection grows by reallocating and copying its contents as it fills, work that a capacity set from the loop's size avoids
+
+| | |
+|---|---|
+| Measures | an empty collection appended to in a loop over a collection whose size is known before the loop starts |
+| Reported as | info, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Presize the Collection |
+| Default | off; name it under `rules.enabled` |
+| Not in JavaScript | arrays grow without a capacity to set |
+| Not in TypeScript | arrays grow without a capacity to set |
+| Not in Python | lists grow without a capacity to set |
+
+From `fixtures/go/fixtures/cost-linear-op-in-loop.go`, line 16:
+
+```go
+	for _, item := range items {
+		results = append(results, item)
+	}
+```
+
+Suggested fix: give it the loop's size as its capacity where it is made
+
