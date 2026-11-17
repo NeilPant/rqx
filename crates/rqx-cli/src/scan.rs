@@ -2102,11 +2102,43 @@ impl Watch {
 pub const CANCELLED: &str = "the scan was cancelled";
 
 pub fn scan(root: &Path, settings: &Resolved) -> Result<ScanOutcome> {
-    scan_watched(root, settings, None)
+    scan_with(root, settings, None, CachePolicy::FromSettings)
 }
 
 pub fn scan_with_progress(root: &Path, settings: &Resolved, watch: Watch) -> Result<ScanOutcome> {
-    scan_watched(root, settings, Some(watch))
+    scan_with(root, settings, Some(watch), CachePolicy::FromSettings)
+}
+
+/// Who decides whether a scan reads and writes the cache. The commands leave it to the
+/// settings; an in-process caller that has to prove the cache's behaviour cannot, because
+/// a development build never uses it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CachePolicy {
+    Off,
+    FromSettings,
+    Forced,
+}
+
+impl CachePolicy {
+    fn enabled(self, config: &rqx_core::config::RqxConfig) -> bool {
+        match self {
+            Self::Off => false,
+            Self::Forced => true,
+            // Never in a development build. The key covers the version, the settings and
+            // the catalogue, but not the analyser itself — so a collector fixed between two
+            // builds of the same version would go on serving the answer it gave before it
+            // was fixed. That is a confusing hour for a contributor and it has already cost
+            // two; a released binary carries a version that moves.
+            // The environment turns it off for one run without editing a file anybody else
+            // shares: a CI job proving a cache bug should not have to commit a config.
+            Self::FromSettings => {
+                config.scan.cache
+                    && std::env::var_os("RQX_NO_CACHE").is_none()
+                    && !cfg!(debug_assertions)
+            }
+        }
+    }
 }
 
 /// The same walker the scan uses, so the total it reports cannot disagree with what is
@@ -2131,7 +2163,12 @@ fn count_files(
     Ok(Some(counted.into_inner()).filter(|total| *total > 0))
 }
 
-fn scan_watched(root: &Path, settings: &Resolved, watch: Option<Watch>) -> Result<ScanOutcome> {
+pub(crate) fn scan_with(
+    root: &Path,
+    settings: &Resolved,
+    watch: Option<Watch>,
+    policy: CachePolicy,
+) -> Result<ScanOutcome> {
     let config = &settings.config;
     // A caller watching the channel is drawing its own progress on this terminal,
     // and a second writer scribbling over it corrupts both.
@@ -2143,19 +2180,11 @@ fn scan_watched(root: &Path, settings: &Resolved, watch: Option<Watch>) -> Resul
         let days = config.scan.churn_days;
         thread::spawn(move || crate::history::History::read(&root, days))
     };
-    // Never in a development build. The key covers the version, the settings and
-    // the catalogue, but not the analyser itself — so a collector fixed between two
-    // builds of the same version would go on serving the answer it gave before it
-    // was fixed. That is a confusing hour for a contributor and it has already cost
-    // two; a released binary carries a version that moves.
-    // The environment turns it off for one run without editing a file anybody else
-    // shares: a CI job proving a cache bug should not have to commit a config.
-    let asked_off = std::env::var_os("RQX_NO_CACHE").is_some();
     // Read beside the git history rather than before the walk. It is one JSON
     // document — thirty-three megabytes on a three-thousand-file project — and
     // parsing it used to be dead time with every core idle, which on a warm run was
     // most of the run.
-    let cache = (config.scan.cache && !asked_off && !cfg!(debug_assertions)).then(|| {
+    let cache = policy.enabled(config).then(|| {
         let root = root.to_path_buf();
         let settings = settings.clone();
         thread::spawn(move || crate::cache::Cache::open(&root, &settings))
@@ -2253,6 +2282,16 @@ mod tests {
         };
 
         assert!(failed.to_string().contains(CANCELLED), "{failed:#}");
+    }
+
+    #[test]
+    fn a_forced_policy_uses_the_cache_whatever_the_settings_say() {
+        let mut config = rqx_core::config::RqxConfig::default();
+        config.scan.cache = false;
+
+        assert!(CachePolicy::Forced.enabled(&config));
+        assert!(!CachePolicy::Off.enabled(&config));
+        assert!(!CachePolicy::FromSettings.enabled(&config));
     }
 
     fn ranked(file: &str, line: u32) -> Ranked {
