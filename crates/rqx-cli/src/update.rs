@@ -21,6 +21,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+use crate::term::{self, Stream};
+
 const REPOSITORY: &str = "https://github.com/jadhamwi21/rqx";
 const TAGS: &str = "https://api.github.com/repos/jadhamwi21/rqx/tags";
 const CHANGELOG: &str = "https://raw.githubusercontent.com/jadhamwi21/rqx";
@@ -90,40 +92,21 @@ fn remember(found: &Remembered) {
     }
 }
 
-/// Every variable that means "this is a build, not a person". `CI` covers GitHub
-/// Actions, GitLab, CircleCI, Travis, Buildkite and Bitbucket; Jenkins, TeamCity and
-/// Azure Pipelines do not set it reliably and are named individually.
-const A_PIPELINE: &[&str] = &[
-    "CI",
-    "CONTINUOUS_INTEGRATION",
-    "BUILD_NUMBER",
-    "RUN_ID",
-    "JENKINS_URL",
-    "TEAMCITY_VERSION",
-    "TF_BUILD",
-    "bamboo_buildKey",
-    "GO_PIPELINE_NAME",
-];
-
 /// Whether asking is appropriate at all. A pipeline that reached out to GitHub on
 /// every run would be a pipeline that fails when GitHub does, so the check is off
 /// wherever the output is not going to a person who could act on it.
 pub fn wanted(enabled: bool) -> bool {
-    use std::io::IsTerminal;
-
     enabled
         && std::env::var_os("RQX_NO_UPDATE_CHECK").is_none()
         // A version a package manager installed is not one rqx should offer to
         // replace: the manager owns that file and will put it back.
         && managed().is_none()
-        && !A_PIPELINE
-            .iter()
-            .any(|name| std::env::var_os(name).is_some())
+        && !term::in_ci()
         // The decisive test rather than the environment's word for it: a notice is
         // only worth printing to something a person is watching, and a redirected
         // stderr is a log file whatever the variables say.
-        && std::io::stderr().is_terminal()
-        && std::io::stdout().is_terminal()
+        && term::is_terminal(Stream::Stderr)
+        && term::is_terminal(Stream::Stdout)
 }
 
 /// Set by the npm wrapper, and expected of a distribution packager, because a

@@ -30,9 +30,25 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   blames. A count is the same on every machine, so a warm run that stopped using the
   cache shows up as a number rather than as noise in a timing. The stages gain cache
   load, cache save and render.
+### Changed
+
+- **`rqx scan` always prints the report.** In a terminal it used to open the
+  interactive interface, which silently dropped `--severity`, `--not-*`,
+  `--confidence`, `--fixable`, `--search`, `--since`, `--changed`, `--group-by`,
+  `--sort`, `--top`, `--detail` and `--context`. They now apply there as they do
+  everywhere else. `--no-tui`, `--no-mouse` and `--motion` are still accepted.
+- **Behaviour change: bare `rqx` outside a terminal scans the working directory and
+  exits with the scan's code.** It used to print help and exit 0, which made a
+  misconfigured CI job look green. Piped, redirected, under CI, on a dumb terminal or
+  with `--no-tui`, `rqx` now means `rqx scan`, including the defaults `RQX_LEVEL` and
+  `RQX_THREADS` set. In a terminal it still opens the interface.
 
 ### Fixed
 
+- **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
+  It cleared the screen before every run whatever stdout was, so a watch redirected to
+  a log filled it with escape characters. It now clears only on a terminal, and
+  anywhere else prints a `── rescanned after HH:MM:SS ──` line between reports.
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding
   only that file, so the next run analysed everything else again, and the run after
   paid the same price for the next edit. The cache now keeps every file the run saw,
