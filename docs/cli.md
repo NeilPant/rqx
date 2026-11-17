@@ -525,7 +525,7 @@ Analyze a project and report every finding
 
 ## `rqx setup`
 
-Print the configuration an editor needs to connect to rqx, or list the supported editors
+Print the configuration an editor or a coding agent needs to use rqx, or list the supported editors
 
 | Flag | What it does |
 | --- | --- |

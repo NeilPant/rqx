@@ -7,6 +7,7 @@ use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint, value
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 
+mod agent_setup;
 mod baseline;
 mod brand;
 mod cache;
@@ -322,13 +323,16 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Print the configuration an editor needs to connect to rqx, or list the supported editors
+    /// Print the configuration an editor or a coding agent needs to use rqx, or list the supported editors
+    #[command(args_conflicts_with_subcommands = true)]
     Setup {
         /// Editor name. Omit to list the supported editors.
         editor: Option<String>,
         /// Append the configuration to the editor's configuration file, after showing what will be added
         #[arg(long, short)]
         write: bool,
+        #[command(subcommand)]
+        target: Option<SetupTarget>,
     },
     /// Rank the work by value against effort, and report the health score after it
     #[command(
@@ -1113,6 +1117,20 @@ has no effect: a rule name not in the catalogue, a threshold no enabled rule rea
 }
 
 #[derive(Subcommand)]
+enum SetupTarget {
+    /// Print the instructions that make a coding agent run rqx before it finishes
+    Agent {
+        /// The agent the instructions are for. Claude Code also gets a Stop hook
+        #[arg(long = "for", value_enum, default_value_t = agent_setup::Agent::Generic)]
+        agent: agent_setup::Agent,
+        /// Add the instructions to the project's files, keeping what they already hold.
+        /// Without it nothing on disk changes
+        #[arg(long, short)]
+        write: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum CacheAction {
     /// Show what the cache holds and whether the next scan can use it
     Status {
@@ -1874,7 +1892,22 @@ fn run() -> Result<Exit> {
             })?;
             Ok(Exit::of(!verified.passed()))
         }
-        Command::Setup { editor, write } => {
+        Command::Setup {
+            target: Some(SetupTarget::Agent { agent, write }),
+            ..
+        } => {
+            let mut out = anstream::stdout().lock();
+            let outputs = agent_setup::outputs(agent);
+            if !write {
+                return report::agent(&outputs, palette, &mut out).map(|()| Exit::Clean);
+            }
+            for output in &outputs {
+                let change = output.apply(Path::new("."))?;
+                report::agent_change(output.path, change, palette, &mut out)?;
+            }
+            Ok(Exit::Clean)
+        }
+        Command::Setup { editor, write, .. } => {
             let mut out = anstream::stdout().lock();
             let Some(name) = editor else {
                 return report::editors(palette, &mut out).map(|()| Exit::Clean);

@@ -2,11 +2,11 @@
 .el .ds Aq '
 .TH rqx-setup 1  "setup " 
 .SH NAME
-rqx\-setup \- Print the configuration an editor needs to connect to rqx, or list the supported editors
+rqx\-setup \- Print the configuration an editor or a coding agent needs to use rqx, or list the supported editors
 .SH SYNOPSIS
-\fBrqx setup\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIEDITOR\fR] 
+\fBrqx setup\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIEDITOR\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
-Print the configuration an editor needs to connect to rqx, or list the supported editors
+Print the configuration an editor or a coding agent needs to use rqx, or list the supported editors
 .SH OPTIONS
 .TP
 \fB\-w\fR, \fB\-\-write\fR
@@ -86,3 +86,7 @@ Print help (see a summary with \*(Aq\-h\*(Aq)
 .TP
 [\fIEDITOR\fR]
 Editor name. Omit to list the supported editors
+.SH SUBCOMMANDS
+.TP
+rqx\-setup\-agent(1)
+Print the instructions that make a coding agent run rqx before it finishes

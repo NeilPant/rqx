@@ -96,6 +96,58 @@ import cycles, duplication and the two co-change rules need the whole project. T
 result states this, so that the absence of an `unused-export` finding is not
 read as a clean result.
 
+## Instructing a coding agent
+
+`rqx setup agent` prints the instructions that make a coding agent run rqx before it
+finishes a task. `--for` selects the agent: `claude`, `codex`, `cursor` or `generic`,
+which is the default. Without `--write` it only prints.
+
+```sh
+rqx setup agent --for claude          # print
+rqx setup agent --for claude --write  # add to the project's files
+```
+
+The instructions tell the agent to stage its changes and run `rqx check --staged`, or
+`rqx check --base <branch>` for committed work, then to read each finding, apply the
+named refactoring, and confirm it with `rqx verify --base <branch> --expect
+<rule>@<file>`. They also point at the MCP tools when the server is configured.
+
+| `--for` | Instructions file | Also |
+|---|---|---|
+| `claude` | `CLAUDE.md` | A Stop hook in `.claude/settings.json` |
+| `codex`, `cursor`, `generic` | `AGENTS.md` | |
+
+`--write` never replaces a file. The instructions go between `<!-- rqx:begin -->` and
+`<!-- rqx:end -->`. The first run appends that block to the file, and a later run
+replaces only the text between the markers. A file whose markers are missing one end,
+repeated or in the wrong order is left as it is and the command fails.
+
+For `claude`, `--write` also adds a Stop hook to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "rqx check --staged >&2; [ $? -ne 1 ] || exit 2" }] }
+    ]
+  }
+}
+```
+
+Claude Code holds the agent back when a Stop hook exits with 2 and shows it the error
+output. The command exits 2 only when the gate fails, which is exit code 1 of
+`rqx check`, and sends the report to the error output. Any other result, including
+rqx not being installed, lets the agent finish. The command needs a POSIX shell.
+
+The file is parsed as JSON, and the hook is added next to every other key and every
+other Stop hook. The file is rewritten as indented JSON with its keys in alphabetical
+order. If a Stop hook running `rqx check --staged` is already there, the file is not
+changed. A file that is not valid JSON, or whose `hooks` or `Stop` value is not an
+object or list, is left as it is and the command fails.
+
+`rqx check --staged` reads the index, so the hook reports on changes the agent has
+staged with `git add`. Unstaged edits are not part of the verdict.
+
 ## Over HTTP
 
 ```sh

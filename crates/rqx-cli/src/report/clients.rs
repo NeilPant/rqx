@@ -2,6 +2,7 @@ use std::io::Write;
 
 use anyhow::{Context, Result, bail};
 
+use crate::agent_setup::{Change, Output};
 use crate::brand::{Ink, Palette, paint};
 use crate::setup::{Client, Home};
 
@@ -108,6 +109,49 @@ pub fn write(client: &Client, palette: Palette, out: &mut dyn Write) -> Result<(
         "\n  {} {}\n",
         paint(palette.badge(Ink::Good), " ADDED "),
         paint(palette.style(Ink::Accent), path.display().to_string())
+    )?;
+    Ok(())
+}
+
+/// What `rqx setup agent` would add to each file, and the command that adds it.
+pub fn agent(outputs: &[Output], palette: Palette, out: &mut dyn Write) -> Result<()> {
+    for output in outputs {
+        writeln!(
+            out,
+            "\n  {}\n",
+            paint(palette.style(Ink::Accent), output.path)
+        )?;
+        for line in output.shown.lines() {
+            writeln!(out, "    {line}")?;
+        }
+    }
+    writeln!(
+        out,
+        "\n  {}\n",
+        paint(
+            palette.style(Ink::Muted),
+            "`rqx setup agent --write` adds this to the files above without replacing \
+             what they hold."
+        )
+    )?;
+    Ok(())
+}
+
+pub fn agent_change(
+    path: &str,
+    change: Change,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let badge = match change {
+        Change::Created => paint(palette.badge(Ink::Good), " ADDED "),
+        Change::Updated => paint(palette.badge(Ink::Good), " UPDATED "),
+        Change::Unchanged => paint(palette.badge(Ink::Muted), " CURRENT "),
+    };
+    writeln!(
+        out,
+        "\n  {badge} {}\n",
+        paint(palette.style(Ink::Accent), path)
     )?;
     Ok(())
 }

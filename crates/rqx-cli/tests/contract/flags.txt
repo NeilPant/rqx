@@ -859,6 +859,7 @@ help recommend
 help rules
 help scan
 help setup
+help setup agent
 help slop
 help suppressions
 help techniques
@@ -1341,6 +1342,43 @@ setup -h
 setup -v
 setup -w
 setup <editor>
+setup agent
+setup agent --color
+setup agent --color =always
+setup agent --color =auto
+setup agent --color =never
+setup agent --for
+setup agent --for =claude
+setup agent --for =codex
+setup agent --for =cursor
+setup agent --for =generic
+setup agent --help
+setup agent --hyperlinks
+setup agent --hyperlinks =always
+setup agent --hyperlinks =auto
+setup agent --hyperlinks =never
+setup agent --hyperlinks [env RQX_HYPERLINKS]
+setup agent --motion
+setup agent --motion =off
+setup agent --motion =on
+setup agent --no-mouse
+setup agent --no-progress
+setup agent --no-progress [env RQX_NO_PROGRESS]
+setup agent --no-tui
+setup agent --progress
+setup agent --progress =auto
+setup agent --progress =bar
+setup agent --progress =none
+setup agent --progress =plain
+setup agent --progress [env RQX_PROGRESS]
+setup agent --verbose
+setup agent --write
+setup agent -h
+setup agent -v
+setup agent -w
+setup help
+setup help agent
+setup help help
 slop
 slop --color
 slop --color =always

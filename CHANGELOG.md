@@ -18,6 +18,12 @@ them. `tools/release.sh` turns that section into the release notes.
 - **A pre-commit hook definition.** `.pre-commit-hooks.yaml` declares `rqx-check`, which
   runs `rqx check --staged` for the [pre-commit](https://pre-commit.com) framework.
   `docs/ci.md` also has the plain git hook, lefthook and husky equivalents.
+- **`rqx setup agent`.** Prints, or with `--write` adds, the instructions that make a
+  coding agent run `rqx check --staged`, apply the named refactoring and confirm it with
+  `rqx verify`. `--for claude|codex|cursor|generic` picks the file: `CLAUDE.md` or
+  `AGENTS.md`. The instructions sit between `<!-- rqx:begin -->` and `<!-- rqx:end -->`,
+  appended once and replaced on later runs, and the rest of the file is kept. For
+  `claude`, `--write` also merges a Stop hook into `.claude/settings.json`.
 
 ## 0.3.0 — 2026-11-17
 
