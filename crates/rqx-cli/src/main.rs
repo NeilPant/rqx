@@ -22,6 +22,7 @@ mod health;
 mod history;
 mod lsp;
 mod mcp;
+mod migrate;
 mod perf;
 mod plan;
 mod preview;
@@ -889,6 +890,15 @@ enum ConfigAction {
     },
     /// List the files this project's settings come from, nearest last
     Files,
+    /// Convert RQX.toml files, the policies they point at and the user config to YAML
+    Migrate {
+        /// A directory to search for RQX.toml, or one TOML file to convert
+        #[arg(value_hint = ValueHint::AnyPath)]
+        path: Option<PathBuf>,
+        /// Say what would change and write nothing
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1168,6 +1178,9 @@ impl From<ConfigAction> for edit_config::Change {
             },
             ConfigAction::Unset { key, file, pick } => Self::Unset { key, file, pick },
             ConfigAction::Files => Self::Files,
+            ConfigAction::Migrate { .. } => {
+                unreachable!("migrate is answered before settings load")
+            }
         }
     }
 }
@@ -2056,6 +2069,17 @@ fn run() -> Result<Exit> {
             config,
             action,
         } => {
+            // A TOML file stops the config from loading, and converting it is the way
+            // out, so this has to run before anything reads the configuration.
+            if let Some(ConfigAction::Migrate {
+                path: named,
+                dry_run,
+            }) = action
+            {
+                let mut out = anstream::stdout().lock();
+                migrate::run(named.as_ref().unwrap_or(&path), dry_run, palette, &mut out)?;
+                return Ok(Exit::Clean);
+            }
             let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
             match action {
                 None => report::config(&settings?, palette).map(|()| Exit::Clean),

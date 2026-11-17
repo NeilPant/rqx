@@ -80,6 +80,47 @@ fn being_unable_to_run_is_a_different_exit_from_failing() {
     let _ = std::fs::remove_dir_all(broken);
 }
 
+/// A TOML file that was skipped would be a gate nobody knows has changed, so it stops
+/// the run; converting it brings the same gate back, with the original kept.
+#[test]
+fn a_toml_config_stops_the_run_until_it_is_migrated() {
+    let root = project(
+        "retired",
+        &[
+            ("a.ts", DIRTY),
+            ("index.ts", "export * from './a'\n"),
+            ("RQX.toml", "# the bar\n[gate]\nfail_on = \"info\"\n"),
+        ],
+    );
+    assert_eq!(code(&rqx(&root, &["scan"])), 2);
+    let refusal = String::from_utf8_lossy(&rqx(&root, &["scan"]).stderr).into_owned();
+    assert!(refusal.contains("rqx config migrate"), "{refusal}");
+
+    // The user's own config directories point at the project, so the test never
+    // converts the real one.
+    let migrated = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["config", "migrate"])
+        .arg(&root)
+        .env("HOME", &root)
+        .env("XDG_CONFIG_HOME", &root)
+        .env_remove("APPDATA")
+        .output()
+        .expect("failed to run rqx");
+    assert_eq!(code(&migrated), 0, "{migrated:?}");
+    assert!(root.join("rqx.yaml").exists());
+    assert!(root.join("RQX.toml.bak").exists());
+    assert!(!root.join("RQX.toml").exists());
+    assert!(
+        std::fs::read_to_string(root.join("rqx.yaml"))
+            .expect("rqx.yaml")
+            .contains("# the bar\ngate:\n  fail_on: info\n")
+    );
+
+    assert_eq!(code(&rqx(&root, &["scan"])), 0, "a bare scan never gates");
+    assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
+    let _ = std::fs::remove_dir_all(root);
+}
+
 /// A bare scan reports; it gates only when asked. A pipeline that added a config file
 /// above its checkout would otherwise start failing without anyone changing a rule.
 #[test]

@@ -26,12 +26,19 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   The tarballs are on the GitHub release with a `SHA256SUMS` beside them, and the npm
   packages publish with Sigstore provenance.
 
+- **`rqx config migrate [PATH] [--dry-run]`.** Converts every `RQX.toml` under a
+  directory, the policy files they point at, and the user config to YAML. Comments
+  above keys and sections come across, `[[override]]` becomes `overrides:`, and a
+  policy pointer is rewritten to the new file. The original is kept as `RQX.toml.bak`,
+  and the YAML is parsed back and compared with the TOML before anything is written,
+  so a conversion that would change a value writes nothing.
+
 ### Removed
 
 - **TOML configuration.** rqx no longer reads `RQX.toml` or `rqx.toml`, in a
   directory, as the user config, as a policy, or through `--config` and `RQX_CONFIG`.
   Finding one stops the run with exit 2 and a message saying so, because ignoring it
-  could quietly loosen a CI gate.
+  could quietly loosen a CI gate. `rqx config migrate` converts it.
 
 ### Changed
 

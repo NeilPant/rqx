@@ -12,7 +12,7 @@ use serde_json::{Map, Value};
 mod files;
 mod quickfix;
 
-pub use files::config_path_in;
+pub use files::{config_path_in, user_config_directories};
 pub use quickfix::disable_entry;
 
 pub const CONFIG_ENV: &str = "RQX_CONFIG";
