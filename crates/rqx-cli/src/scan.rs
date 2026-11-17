@@ -1779,13 +1779,28 @@ fn build(
 /// Where a graph finding is, and what to call the file it is in. Both answers need the
 /// file the walker has already moved on from, so both are cached here.
 struct Positions {
-    files: HashMap<PathBuf, Option<String>>,
+    files: HashMap<PathBuf, Option<ReadFile>>,
     root: PathBuf,
     /// The walker yields paths as given while the module graph works in canonical ones,
     /// so `strip_prefix` fails for every graph path and the fallback resolved *both*
     /// sides again — two syscalls per import edge. Resolving the root once is the whole
     /// difference.
     canonical_root: Option<PathBuf>,
+}
+
+/// A file's text and where its lines begin, worked out the first time a finding is
+/// placed in it.
+struct ReadFile {
+    text: String,
+    lines: rqx_core::LineStarts,
+}
+
+impl ReadFile {
+    fn read(path: &Path) -> Option<Self> {
+        let text = std::fs::read_to_string(path).ok()?;
+        let lines = rqx_core::LineStarts::new(&text);
+        Some(Self { text, lines })
+    }
 }
 
 impl Positions {
@@ -1816,14 +1831,13 @@ impl Positions {
 
     fn range(&mut self, path: &Path, span: Span) -> Option<SourceRange> {
         let file: Arc<str> = Arc::from(self.relative(path));
-        let text = self
+        let read = self
             .files
             .entry(path.to_path_buf())
-            .or_insert_with(|| std::fs::read_to_string(path).ok())
-            .as_deref()?;
-        let index = rqx_core::LineIndex::new(text);
-        let (line, column) = index.locate(span.start);
-        let (end_line, _) = index.locate(span.end);
+            .or_insert_with(|| ReadFile::read(path))
+            .as_ref()?;
+        let (line, column) = read.lines.locate(&read.text, span.start);
+        let (end_line, _) = read.lines.locate(&read.text, span.end);
         Some(SourceRange {
             file,
             start: span.start,
@@ -2756,6 +2770,23 @@ mod tests {
         assert_eq!(first.cmp(&second), Ordering::Greater);
     }
     use super::generated_by;
+
+    #[test]
+    fn a_file_is_read_and_indexed_once_however_many_findings_land_in_it() {
+        let root = std::env::temp_dir().join(format!("rqx-positions-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("wide.ts");
+        std::fs::write(&path, "const é = 1;\nconst b = 2;\n").unwrap();
+        let mut at = Positions::new(&root);
+
+        let first = at.range(&path, Span::new(19, 24)).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let second = at.range(&path, Span::new(19, 24)).unwrap();
+
+        assert_eq!((first.line, first.column), (2, 6));
+        assert_eq!((second.line, second.column), (first.line, first.column));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn a_marker_past_a_wide_character_is_still_found() {

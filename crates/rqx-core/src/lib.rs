@@ -31,7 +31,7 @@ pub use finding::{Confidence, Evidence, Finding, Severity, SourceRange};
 pub use identity::Identity;
 pub use impact::{Impact, ImpactMap};
 pub use language::Language;
-pub use line_index::LineIndex;
+pub use line_index::{LineIndex, LineStarts};
 pub use pattern::{Pattern, PatternFamily};
 pub use rule::{RuleId, RuleSpec};
 pub use runtime::Hits;

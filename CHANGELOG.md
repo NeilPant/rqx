@@ -141,6 +141,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   blames now run eight at a time as each one finishes, instead of in groups of eight
   where one slow file held the other seven.
 
+- **Each file's line index is built once.** Placing a project-wide finding rebuilt the
+  line index of its file every time, so a module with dozens of dead exports paid for
+  the same index dozens of times.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
