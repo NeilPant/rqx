@@ -22,6 +22,7 @@ the whole family is chosen once, so nothing downstream can mix a part from one f
 | Confidence | measured threshold |
 | Reads | the import graph across every file |
 | Not in Go | the language has no inheritance, so nothing can implement the family twice |
+| Not in JavaScript | JavaScript has no abstract keyword to leave a member for a subclass |
 
 From `fixtures/typescript/families.ts`, line 56:
 
@@ -52,6 +53,7 @@ the object is assembled a step at a time and handed over once, so no caller ever
 | Decided by | three or more methods returning the class itself, and one returning something else |
 | Confidence | verified |
 | Reads | resolved scopes and symbols |
+| Not in JavaScript | a method declares no return type, so nothing says it hands back itself or a copy |
 
 From `fixtures/typescript/patterns.ts`, line 154:
 
@@ -74,6 +76,7 @@ the chain never ends in the thing being built, so callers reach past it for the 
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Separate Query from Modifier |
+| Not in JavaScript | a method declares no return type, so nothing says it hands back itself or a copy |
 
 From `fixtures/typescript/patterns.ts`, line 171:
 
@@ -105,6 +108,7 @@ which concrete class is made is decided by the subclass rather than by the calle
 | Confidence | measured threshold |
 | Reads | the import graph across every file |
 | Not in Go | the language has no inheritance, so nothing can override the decision |
+| Not in JavaScript | JavaScript has no abstract keyword to leave a member for a subclass |
 
 From `fixtures/typescript/families.ts`, line 17:
 
@@ -135,6 +139,7 @@ a new one is made from an existing one, so the caller never has to know which co
 | Decided by | a method named for copying that returns the class it is declared on |
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
+| Not in JavaScript | a method declares no return type, so nothing says it hands back itself or a copy |
 
 From `fixtures/typescript/patterns.ts`, line 185:
 
@@ -167,6 +172,7 @@ one instance exists and the constructor enforces it, which is also why nothing t
 | Reads | resolved scopes and symbols |
 | Not in Go | there are no constructors to make private; a single instance is a package-level variable |
 | Not in Python | nothing in the language stops a second call to the constructor |
+| Not in JavaScript | a field declares no type, so nothing says what a class holds |
 
 From `fixtures/typescript/patterns.ts`, line 194:
 
@@ -191,6 +197,7 @@ the shared instance is a convention rather than a guarantee, so some code is usi
 | Fix | Hide Method |
 | Not in Go | there are no constructors to make private; a single instance is a package-level variable |
 | Not in Python | nothing in the language stops a second call to the constructor |
+| Not in JavaScript | a field declares no type, so nothing says what a class holds |
 
 From `fixtures/typescript/patterns.ts`, line 202:
 

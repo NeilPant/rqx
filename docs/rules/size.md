@@ -146,6 +146,7 @@ a raw string or number carries no rules of its own, so every place that uses it 
 | Not in Go | Go has no union types, so the string-literal alias this measures cannot be written |
 | Not in Java | Java has no union types, so the string-literal alias this measures cannot be written |
 | Not in C++ | C++ has no union types, so the string-literal alias this measures cannot be written |
+| Not in JavaScript | JavaScript has no type aliases, so the string-literal alias this measures cannot be written |
 
 From `fixtures/typescript/shapes.ts`, line 1:
 

@@ -107,6 +107,7 @@ a static can never be overridden, so behaviour that clearly belongs to the insta
 | Reads | resolved scopes and symbols |
 | Fix | Move Method |
 | Not in Go | Go has no methods on the type itself, only on values of it, so the static-on-own-type shape cannot be written |
+| Not in JavaScript | a parameter declares no type, so nothing says it is an instance of its own class |
 
 From `fixtures/typescript/shapes.ts`, line 15:
 
@@ -195,6 +196,7 @@ the word says a subclass has work to do and there is none, so the only thing it 
 | Not in Go | there is no inheritance and no abstract keyword |
 | Not in C++ | abstractness is a member with no body, which the type never declares |
 | Not in Python | abstractness is a base class it inherits, not a word on the type |
+| Not in JavaScript | JavaScript has no abstract keyword to leave a member for a subclass |
 
 From `fixtures/typescript/flow.ts`, line 202:
 
