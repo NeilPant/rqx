@@ -10,6 +10,56 @@ permissions:
   security-events: write
 
 jobs:
+  # The binary ships for macOS and Windows as well as Linux, and the scan, the git
+  # history checks and the process handling all differ between them. Tests that only
+  # ever ran on Linux say nothing about the other two.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+  # `rust-version` promises users a compiler floor. Nothing else in CI builds on that
+  # floor, so a dependency or a newer std API can break it without any job going red.
+  #
+  # The version is read from Cargo.toml rather than written here, so raising the floor
+  # in one place moves this job with it.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+          if [ -z "$version" ]; then
+            echo "::error::Cargo.toml declares no rust-version for this job to test"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.version.outputs.version }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      # `--all-targets` because the tests and examples are code the floor has to compile
+      # too, not only the library a downstream user links.
+      - run: cargo check --workspace --all-targets --locked
+
   analyze:
     runs-on: ubuntu-latest
     steps:
@@ -21,9 +71,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
-
-      - name: Test
-        run: cargo test --workspace
 
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
@@ -94,3 +141,15 @@ jobs:
       - name: Dry run install.ps1
         shell: pwsh
         run: ./install.ps1 -DryRun
+
+  # Advisories, licenses, duplicate versions and sources, against the policy in
+  # deny.toml. Kept out of `analyze` so a newly published advisory, which can land on a
+  # commit that changed nothing, fails a job that says what it is about.
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources

@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 use std::process::Command;
 
+mod common;
+use common::run_with_a_reader_that_walks_away;
+
 /// Every language gets its own scan root, with its own entry-point manifest and its
 /// own exact rule counts. One shared root would make a Python fixture change a
 /// TypeScript expectation, which is a test that fails for the wrong reason.
@@ -849,10 +852,12 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
 #[test]
 fn clean_code_produces_no_findings() {
     let report = scan(&[]);
-    assert!(
-        !report.lines().any(|line| line.contains("/clean.ts")),
-        "clean.ts should be silent"
-    );
+    let flagged = report
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter_map(|finding| finding["location"]["file"].as_str().map(str::to_owned))
+        .any(|file| std::path::Path::new(&file).file_name() == Some("clean.ts".as_ref()));
+    assert!(!flagged, "clean.ts should be silent");
 }
 
 /// The whole value of the module graph is knowing the difference between an export
@@ -1547,6 +1552,7 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
         return;
     }
     git(&["init", "-q"]);
+    git(&["config", "core.autocrlf", "false"]);
     git(&["config", "user.email", "test@example.com"]);
     git(&["config", "user.name", "test"]);
 
@@ -1739,22 +1745,9 @@ fn walk(root: &std::path::Path) -> Vec<String> {
 
 #[test]
 fn a_reader_that_walks_away_is_not_a_failed_run() {
-    use std::process::{Command, Stdio};
-
-    let mut scan = Command::new(env!("CARGO_BIN_EXE_rqx"))
-        .args(["scan", &fixtures_dir()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("rqx starts");
-    let reader = scan.stdout.take().expect("rqx writes to stdout");
-    Command::new("head")
-        .arg("-3")
-        .stdin(Stdio::from(reader))
-        .stdout(Stdio::null())
-        .status()
-        .expect("head runs");
-    let output = scan.wait_with_output().expect("rqx finishes");
+    let output = run_with_a_reader_that_walks_away(
+        Command::new(env!("CARGO_BIN_EXE_rqx")).args(["scan", &fixtures_dir()]),
+    );
     assert_eq!(
         output.status.code(),
         Some(0),

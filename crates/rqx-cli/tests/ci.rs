@@ -6,6 +6,9 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+mod common;
+use common::{file_uri, run_with_a_reader_that_walks_away};
+
 const CLEAN: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
 const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
@@ -314,16 +317,18 @@ fn a_closed_pipe_is_not_a_failure() {
         "pipe",
         &[("a.ts", DIRTY), ("index.ts", "export * from './a'\n")],
     );
-    let status = Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{} scan {} --format json | head -1 > /dev/null",
-            env!("CARGO_BIN_EXE_rqx"),
-            root.display()
-        ))
-        .status()
-        .expect("sh");
-    assert!(status.success());
+    let output = run_with_a_reader_that_walks_away(
+        Command::new(env!("CARGO_BIN_EXE_rqx"))
+            .arg("scan")
+            .arg(&root)
+            .args(["--format", "json"]),
+    );
+    assert_eq!(
+        code(&output),
+        0,
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -554,6 +559,7 @@ fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
             .expect("git")
     };
     git(&origin, &["init", "-q"]);
+    git(&origin, &["config", "core.autocrlf", "false"]);
     git(&origin, &["add", "-A"]);
     git(
         &origin,
@@ -586,8 +592,8 @@ fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
     let _ = std::fs::remove_dir_all(&shallow);
     assert!(
         Command::new("git")
-            .args(["clone", "-q", "--depth", "1"])
-            .arg(format!("file://{}", origin.display()))
+            .args(["-c", "core.autocrlf=false", "clone", "-q", "--depth", "1"])
+            .arg(file_uri(&origin))
             .arg(&shallow)
             .output()
             .expect("git clone")
