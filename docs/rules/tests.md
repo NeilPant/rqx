@@ -22,7 +22,7 @@ it("waits on the clock", async () => {
   expect(add(1, 1)).toBe(2);
 ```
 
-rqx says: wait on the thing itself rather than on the clock, or fake the timer
+Suggested fix: wait on the thing itself rather than on the clock, or fake the timer
 
 ## `real-world-test`
 
@@ -34,7 +34,7 @@ it fails for reasons that have nothing to do with the code, and it is slow enoug
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Invert Dependency |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/suite.test.ts`, line 41:
 
@@ -44,7 +44,7 @@ it("reads the store", async () => {
   expect(rows).toBeDefined();
 ```
 
-rqx says: hand the test something standing in for it, and test the real one once
+Suggested fix: hand the test something standing in for it, and test the real one once
 
 ## `unlabelled-assertions`
 
@@ -56,7 +56,7 @@ a failing run prints two values and the reader has to count lines to find which 
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Introduce Assertion |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/suite.test.ts`, line 22:
 
@@ -69,7 +69,7 @@ it("asserts the same thing twice", () => {
 
 ```
 
-rqx says: say what each one is holding to, or split them into tests that say it in their names
+Suggested fix: say what each one is holding to, or split them into tests that say it in their names
 
 ## `self-asserting-test`
 
@@ -90,7 +90,7 @@ it("holds the code to itself", () => {
 });
 ```
 
-rqx says: write the answer the test expects, not the call that produces it
+Suggested fix: write the answer the test expects, not the call that produces it
 
 ## `unexplained-expected-value`
 
@@ -102,7 +102,7 @@ when it changes, nobody can tell whether the code is wrong or the number was, so
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Replace Magic Number with Constant |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/suite.test.ts`, line 4:
 
@@ -112,7 +112,7 @@ describe.skip("pricing", () => {
 });
 ```
 
-rqx says: name it, or work it out in the test from the inputs it came from
+Suggested fix: name it, or work it out in the test from the inputs it came from
 
 ## `empty-test`
 
@@ -133,7 +133,7 @@ it("is not written yet", () => {});
 
 ```
 
-rqx says: write what it was going to check, or delete it
+Suggested fix: write what it was going to check, or delete it
 
 ## `eager-test`
 
@@ -145,7 +145,7 @@ it fails for any of them and the run says only that the test failed, so the name
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Extract Method |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/suite.test.ts`, line 72:
 
@@ -162,7 +162,7 @@ it("drives five units", () => {
 
 ```
 
-rqx says: hold one of them to one thing, so a failing run names what broke
+Suggested fix: hold one of them to one thing, so a failing run names what broke
 
 ## `string-shape-assertion`
 
@@ -183,7 +183,7 @@ From `fixtures/typescript/suite.test.ts`, line 69:
 });
 ```
 
-rqx says: check the parts that matter, so spacing cannot fail the test
+Suggested fix: check the parts that matter, so spacing cannot fail the test
 
 ## `unused-fixture`
 
@@ -204,7 +204,7 @@ beforeEach(() => {
 });
 ```
 
-rqx says: delete it, or move it into the one case that wanted it
+Suggested fix: delete it, or move it into the one case that wanted it
 
 ## `unchecked-stub`
 
@@ -225,7 +225,7 @@ it("stands something in", () => {
   expect(add(1, 1)).toBe(2);
 ```
 
-rqx says: check what it was called with, or let the real thing run
+Suggested fix: check what it was called with, or let the real thing run
 
 ## `branching-test`
 
@@ -250,7 +250,7 @@ it("branches on the input", () => {
 
 ```
 
-rqx says: write one test per path, so a green run says which case held
+Suggested fix: write one test per path, so a green run says which case held
 
 ## `duplicate-assertion`
 
@@ -274,7 +274,7 @@ it("asserts the same thing twice", () => {
 
 ```
 
-rqx says: delete the repeat, or assert the thing the second one meant to
+Suggested fix: delete the repeat, or assert the thing the second one meant to
 
 ## `hand-rolled-throws`
 
@@ -300,7 +300,7 @@ it("catches the failure itself", () => {
 });
 ```
 
-rqx says: use whatever this framework spells as "expect it to fail", so a call that stops failing fails the test
+Suggested fix: use whatever this framework spells as "expect it to fail", so a call that stops failing fails the test
 
 ## `debug-output-in-test`
 
@@ -321,7 +321,7 @@ it("prints while it runs", () => {
   expect(add(1, 1)).toBe(2);
 ```
 
-rqx says: assert what you were reading, or delete the line
+Suggested fix: assert what you were reading, or delete the line
 
 ## `unnamed-test`
 
@@ -344,7 +344,7 @@ it("works", () => {
 
 ```
 
-rqx says: name the behaviour it holds to, so a failing run says what broke
+Suggested fix: name the behaviour it holds to, so a failing run says what broke
 
 ## `skipped-test`
 
@@ -368,7 +368,7 @@ describe.skip("pricing", () => {
 
 ```
 
-rqx says: fix it and re-enable it, or delete it and record the question it was asking
+Suggested fix: fix it and re-enable it, or delete it and record the question it was asking
 
 ## `focused-test`
 
@@ -394,7 +394,7 @@ it.only("ships", () => { expect(add(1, 1)).toBe(2); });
 
 ```
 
-rqx says: remove the focus before this lands; it is almost never meant to be committed
+Suggested fix: remove the focus before this lands; it is almost never meant to be committed
 
 ## `assertionless-test`
 
@@ -415,5 +415,5 @@ it("checks nothing", () => { const value = add(1, 1); });
 
 ```
 
-rqx says: assert the behaviour it names, or delete it so the suite stops claiming coverage
+Suggested fix: assert the behaviour it names, or delete it so the suite stops claiming coverage
 

@@ -20,7 +20,7 @@ const retry_limit = 3;
 const retryBackoff = 250;
 ```
 
-rqx says: pick the convention the rest of the project uses and rename to match
+Suggested fix: pick the convention the rest of the project uses and rename to match
 
 ## `vague-function-name`
 
@@ -40,7 +40,7 @@ export function process(rows: number[]) {
   const data = rows.filter(Boolean);
 ```
 
-rqx says: rename `process` after what it does to what
+Suggested fix: rename `process` after what it does to what
 
 ## `misleading-pattern-name`
 
@@ -52,7 +52,7 @@ a pattern name is a promise about the interface, and a reader who trusts it goes
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Rename Method / Extract Class |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/lifecycle.ts`, line 24:
 
@@ -62,7 +62,7 @@ export class ReportFactory {
   private rows: string[] = [];
 ```
 
-rqx says: rename `ReportFactory` after what it holds, or give it the members a factory has
+Suggested fix: rename `ReportFactory` after what it holds, or give it the members a factory has
 
 ## `inconsistent-vocabulary`
 
@@ -74,7 +74,7 @@ a reader who has met `fetchUser` cannot tell whether `getUser` is the same thing
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Rename Method |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/vocabulary.ts`, line 1:
 
@@ -83,7 +83,7 @@ export function getAccount(id: string): string {
   return id;
 ```
 
-rqx says: pick one verb for the idea and rename the rest to match
+Suggested fix: pick one verb for the idea and rename the rest to match
 
 ## `meaningless-name`
 
@@ -95,7 +95,7 @@ a name that describes nothing forces every reader to re-derive the value's purpo
 | Reported as | info, low confidence |
 | Reads | the syntax tree alone |
 | Fix | Rename Variable |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/names.ts`, line 2:
 
@@ -105,7 +105,7 @@ export function process(rows: number[]) {
   const temp2 = data.length;
 ```
 
-rqx says: rename `data` to what it holds
+Suggested fix: rename `data` to what it holds
 
 ## `short-name-wide-scope`
 
@@ -118,7 +118,7 @@ a one-letter name is readable while its whole life fits on screen, and stops bei
 | Reads | resolved scopes and symbols |
 | Fix | Rename Variable |
 | Tuned by | `thresholds.short_name_scope_lines` |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/shapes.ts`, line 59:
 
@@ -128,7 +128,7 @@ export function sweep(rows: number[]) {
   const seen: number[] = [];
 ```
 
-rqx says: give `n` a name that survives the distance to its last use
+Suggested fix: give `n` a name that survives the distance to its last use
 
 ## `hungarian-notation`
 
@@ -140,7 +140,7 @@ the type is already in the declaration and checked by the compiler, so the prefi
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Rename Variable |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/shapes.ts`, line 23:
 
@@ -150,7 +150,7 @@ export interface IShipment { strLabel: string; }
 
 ```
 
-rqx says: drop the prefix; the declaration already states the type and the compiler checks it
+Suggested fix: drop the prefix; the declaration already states the type and the compiler checks it
 
 ## `negated-name`
 
@@ -171,7 +171,7 @@ export function guardsTheGate(rows: number[]): number {
   const Promise = rows.length;
 ```
 
-rqx says: name the positive and let the call sites negate it
+Suggested fix: name the positive and let the call sites negate it
 
 ## `shadows-builtin`
 
@@ -192,7 +192,7 @@ From `fixtures/typescript/names.ts`, line 9:
   return notReady ? 0 : Promise;
 ```
 
-rqx says: give it a name of this project's own
+Suggested fix: give it a name of this project's own
 
 ## `boolean-not-a-question`
 
@@ -213,7 +213,7 @@ export function restated(ready: boolean): boolean {
   if (ready) {
 ```
 
-rqx says: name it as the question it answers, so a condition reads as one
+Suggested fix: name it as the question it answers, so a condition reads as one
 
 ## `name-repeats-type`
 
@@ -234,7 +234,7 @@ export class Ledger {
   private label = "ledger";
 ```
 
-rqx says: name what it is for, and let the declaration say what it is
+Suggested fix: name what it is for, and let the declaration say what it is
 
 ## `plural-mismatch`
 
@@ -255,5 +255,5 @@ export const tier = [1, 2, 3];
 
 ```
 
-rqx says: make the name agree with how many there are
+Suggested fix: make the name agree with how many there are
 

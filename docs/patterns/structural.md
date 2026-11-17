@@ -32,7 +32,7 @@ export class SmsNotifier implements Notifier {
   constructor(private readonly gateway: SmsGateway) {}
 ```
 
-rqx says: `SmsNotifier` translates one interface into another; keep the translation here rather than at its call sites
+Suggested fix: `SmsNotifier` translates one interface into another; keep the translation here rather than at its call sites
 
 ## Bridge
 
@@ -64,7 +64,7 @@ export abstract class Shape {
   abstract draw(): string;
 ```
 
-rqx says: give `Shape` a field for the second axis, so the two vary apart instead of multiplying
+Suggested fix: give `Shape` a field for the second axis, so the two vary apart instead of multiplying
 
 ## Composite
 
@@ -95,7 +95,7 @@ export class Menu {
   private readonly items: Menu[] = [];
 ```
 
-rqx says: one `Menu` and a tree of them answer the same way
+Suggested fix: one `Menu` and a tree of them answer the same way
 
 ## Decorator
 
@@ -127,7 +127,7 @@ export class LoggingNotifier implements Notifier {
   constructor(private readonly inner: Notifier) {}
 ```
 
-rqx says: `LoggingNotifier` can stand in for `Notifier`
+Suggested fix: `LoggingNotifier` can stand in for `Notifier`
 
 ### `decorator-not-substitutable`
 
@@ -152,7 +152,7 @@ export class RetryingGateway {
   constructor(private readonly gateway: SmsGateway) {}
 ```
 
-rqx says: give `RetryingGateway` the interface `SmsGateway` answers to, or callers have to know which of the two they are holding
+Suggested fix: give `RetryingGateway` the interface `SmsGateway` answers to, or callers have to know which of the two they are holding
 
 ## Facade
 
@@ -182,7 +182,7 @@ import { charge } from "stripe";
 
 ```
 
-rqx says: put `stripe` behind one module of your own, so replacing it is one edit rather than 3 edits
+Suggested fix: put `stripe` behind one module of your own, so replacing it is one edit rather than 3 edits
 
 ## Flyweight
 
@@ -215,7 +215,7 @@ export class Glyph {
   private static pool: Glyph[] = [];
 ```
 
-rqx says: the same `Glyph` is one object wherever it is held
+Suggested fix: the same `Glyph` is one object wherever it is held
 
 ## Proxy
 
@@ -247,5 +247,5 @@ export class GuardedNotifier implements Notifier {
   constructor(private readonly inner: Notifier) {}
 ```
 
-rqx says: `GuardedNotifier` adds nothing to `Notifier`
+Suggested fix: `GuardedNotifier` adds nothing to `Notifier`
 

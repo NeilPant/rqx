@@ -28,7 +28,7 @@ export function narrated(rows: number[]): number {
   return total;
 ```
 
-rqx says: let the names say it, and keep the one comment that gives a reason
+Suggested fix: let the names say it, and keep the one comment that gives a reason
 
 ## `explanation-longer-than-code`
 
@@ -56,7 +56,7 @@ From `fixtures/typescript/hygiene.ts`, line 117:
 export function scoreOf(userId: number): number {
 ```
 
-rqx says: put what the prose is explaining into the names, and keep the part that says why
+Suggested fix: put what the prose is explaining into the names, and keep the part that says why
 
 ## `docstring-restates-signature`
 
@@ -77,7 +77,7 @@ From `fixtures/typescript/hygiene.ts`, line 128:
 export function scoreOfUser(userId: number): number {
 ```
 
-rqx says: say why it exists, or delete it
+Suggested fix: say why it exists, or delete it
 
 ## `over-logging`
 
@@ -99,7 +99,7 @@ export function narrates(rows: number[]): number {
   const log = { info: (message: string) => message };
 ```
 
-rqx says: log the decision and the failure; the steps between are the code
+Suggested fix: log the decision and the failure; the steps between are the code
 
 ## `banner-comment`
 
@@ -121,7 +121,7 @@ From `fixtures/typescript/hygiene.ts`, line 40:
 // Here's the helper you asked for! 🎉
 ```
 
-rqx says: delete it; if the file needs sections, it needs splitting
+Suggested fix: delete it; if the file needs sections, it needs splitting
 
 ## `chat-residue`
 
@@ -143,7 +143,7 @@ From `fixtures/typescript/hygiene.ts`, line 41:
 // Sorry, this one is ugly.
 ```
 
-rqx says: say what the code does that its name does not, or delete the comment
+Suggested fix: say what the code does that its name does not, or delete the comment
 
 ## `apology-comment`
 
@@ -164,7 +164,7 @@ From `fixtures/typescript/hygiene.ts`, line 42:
 
 ```
 
-rqx says: fix it, or record why it stays and what would let it go
+Suggested fix: fix it, or record why it stays and what would let it go
 
 ## `emoji-in-source`
 
@@ -176,7 +176,7 @@ it survives grep, diffs and terminals badly, and it is decoration in a place whe
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Remove Dead Code |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/hygiene.ts`, line 41:
 
@@ -186,7 +186,7 @@ From `fixtures/typescript/hygiene.ts`, line 41:
 // Sorry, this one is ugly.
 ```
 
-rqx says: write it in words
+Suggested fix: write it in words
 
 ## `example-value`
 
@@ -207,5 +207,5 @@ From `fixtures/typescript/config.ts`, line 5:
       }
 ```
 
-rqx says: name it as configuration, or move it to a test where a stand-in belongs
+Suggested fix: name it as configuration, or move it to a test where a stand-in belongs
 

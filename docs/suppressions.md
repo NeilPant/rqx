@@ -1,17 +1,17 @@
 # Waivers
 
-Sometimes rqx is wrong, and sometimes it is right and the answer is still "not this
-one". Turning the rule off for the whole project is the wrong size of hammer, so
-there is a comment for it.
+A waiver is a source comment that excludes one finding from the results. It is used
+when a finding is a false positive, or is correct and accepted. It is narrower than
+disabling the rule for the whole project.
 
 ```ts
 // rqx-ignore long-function: the parser is generated, PLAT-812
 export function parse(input: string): Ast {
 ```
 
-The waiver applies to findings on its own line and the next one, which is what a
-comment directly above a declaration covers. It works in any comment syntax rqx
-parses: `//`, `#`, and `/* */`.
+A waiver applies to findings on its own line and on the next line, so a comment
+directly above a declaration covers that declaration. It works in any comment syntax
+rqx parses: `//`, `#`, and `/* */`.
 
 ## The reason is not optional
 
@@ -19,7 +19,8 @@ parses: `//`, `#`, and `/* */`.
 // rqx-ignore long-function
 ```
 
-That waives nothing. The finding stands, and rqx reports the comment:
+A waiver without a reason has no effect. The finding is still reported, and rqx
+reports the comment itself:
 
 ```
   ● unjustified-suppression  parse.ts:41  warning
@@ -28,9 +29,7 @@ That waives nothing. The finding stands, and rqx reports the comment:
           nobody has to justify is how a rule gets switched off one line at a time
 ```
 
-This is the whole point of the feature. A suppression mechanism with no cost is how
-a codebase ends up with four hundred silent exemptions and no idea why any of them
-are there.
+Requiring a reason keeps every exemption documented in the source.
 
 ## Forms
 
@@ -42,8 +41,8 @@ are there.
 | `rqx-ignore all: <reason>` | every rule |
 | `rqx-ignore-file circular-dependency: <reason>` | that rule, anywhere in the file |
 
-A cycle, a dead export and a churn finding are decided across files, so they anchor
-at line 1 and only the `-file` form reaches them.
+A cycle, a dead export and a churn finding are determined across files, so they are
+reported at line 1, and only the `-file` form waives them.
 
 ## Putting a date on it
 
@@ -51,9 +50,9 @@ at line 1 and only the `-file` form reaches them.
 # rqx-ignore magic-number until 2027-01-01: the tariff table lands in Q1
 ```
 
-Past that date the waiver stops being honoured, exactly as if the reason had been
-left out: the finding comes back and `unjustified-suppression` reports the comment
-as expired. A waiver with no date lasts until someone deletes it.
+After that date the waiver is no longer applied, as if the reason had been left out.
+The finding is reported again, and `unjustified-suppression` reports the comment as
+expired. A waiver with no date stays in effect until it is deleted.
 
 ## Writing one from the command line
 
@@ -63,11 +62,11 @@ rqx waive src/tariff.py:88 magic-number --reason "the tariff table lands in Q1" 
 rqx waive src/generated.ts circular-dependency --reason "generated" --whole-file
 ```
 
-`rqx waive` inserts the comment above the line, indented like it, in the comment
-style of the file's language. It refuses a rule that does not exist, naming the
-closest one, and a blank reason, because the scan would not honour either.
-`--dry-run` prints the diff and changes nothing. The editor's `rqx.suppress` command
-writes the same comment.
+`rqx waive` inserts the comment above the line, with the same indentation, in the
+comment style of the file's language. It refuses a rule that does not exist, and
+names the closest rule. It also refuses a blank reason. A scan would not apply a
+waiver with either problem. `--dry-run` prints the diff and changes nothing. The
+editor command `rqx.suppress` writes the same comment.
 
 ## Reading them back
 
@@ -87,16 +86,16 @@ rqx suppressions
     until 2027-01-01  ·  Ada Lovelace, 2026-08-02
 ```
 
-`--expiring` shows only the ones carrying a date, which is the list worth reading
-before a release. `--json` gives one object per waiver.
+`--expiring` shows only the waivers that carry a date. `--json` writes one object per
+waiver.
 
-Waivers are visible everywhere, not just in that command. The scan summary counts
-them, the JSON summary carries `suppressed`, and SARIF reports each one as a result
-with `suppressions: [{ "kind": "inSource", "justification": … }]` — so a code
-scanning UI shows it as waived rather than never seeing it at all.
+Waivers are reported outside this command as well. The scan summary counts them, the
+JSON summary carries `suppressed`, and SARIF reports each one as a result with
+`suppressions: [{ "kind": "inSource", "justification": … }]`, so a code scanning
+interface shows it as waived.
 
 ## What a waiver is not
 
-A waived finding does not count towards the health score, the grade, or the gate. If
-what you want is "this is real debt we have not got to", that is a
-[baseline](baseline.md), not a waiver.
+A waived finding does not count towards the health score, the grade or the gate. To
+record findings that are accepted as existing debt, use a [baseline](baseline.md)
+instead.

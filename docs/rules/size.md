@@ -21,7 +21,7 @@ export function manySteps() {
   let total = 0;
 ```
 
-rqx says: split `manySteps` into named steps, each one nameable without the word "and"
+Suggested fix: split `manySteps` into named steps, each one nameable without the word "and"
 
 ## `cognitive-complexity`
 
@@ -43,7 +43,7 @@ export function manyPaths(kind: string, rows: number[]): number {
   if (kind === "a") return 1;
 ```
 
-rqx says: lift the conditions in `manyPaths` into named predicates, then extract the deepest block into its own function
+Suggested fix: lift the conditions in `manyPaths` into named predicates, then extract the deepest block into its own function
 
 ## `deep-nesting`
 
@@ -65,7 +65,7 @@ export function deeplyNested(rows: number[]) {
   for (const row of rows) {
 ```
 
-rqx says: invert the outer conditions of `deeplyNested` into early returns so the innermost code sits at depth 1
+Suggested fix: invert the outer conditions of `deeplyNested` into early returns so the innermost code sits at depth 1
 
 ## `long-parameter-list`
 
@@ -86,7 +86,7 @@ export function tooManyParameters(a: number, b: number, c: number, d: number, e:
   return a + b + c + d + e;
 ```
 
-rqx says: group the 5 parameters of `tooManyParameters` into one options object, or pass the object the caller already has
+Suggested fix: group the 5 parameters of `tooManyParameters` into one options object, or pass the object the caller already has
 
 ## `large-class`
 
@@ -108,7 +108,7 @@ export class Overgrown {
   a1 = 1; a2 = 1; a3 = 1; a4 = 1; a5 = 1; a6 = 1; a7 = 1; a8 = 1; a9 = 1; a10 = 1;
 ```
 
-rqx says: extract the fields of `Overgrown` that only a subset of its 3 methods touch into their own class
+Suggested fix: extract the fields of `Overgrown` that only a subset of its 3 methods touch into their own class
 
 ## `data-clump`
 
@@ -130,7 +130,7 @@ export function notify(userId: string, channel: string, locale: string) { return
 export function enqueue(userId: string, channel: string, locale: string) { return channel; }
 ```
 
-rqx says: give (channel, locale, userId) a name and pass that object instead
+Suggested fix: give (channel, locale, userId) a name and pass that object instead
 
 ## `primitive-obsession`
 
@@ -142,7 +142,7 @@ a raw string or number carries no rules of its own, so every place that uses it 
 | Reported as | info, low confidence |
 | Reads | resolved scopes and symbols |
 | Fix | Replace Type Code with Class / Introduce Parameter Object |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 | Not in Go | Go has no union types, so the string-literal alias this measures cannot be written |
 | Not in Java | Java has no union types, so the string-literal alias this measures cannot be written |
 | Not in C++ | C++ has no union types, so the string-literal alias this measures cannot be written |
@@ -155,7 +155,7 @@ export type Channel = "email" | "sms" | "push";
 
 ```
 
-rqx says: give `Channel` a type that owns its rules, so validation lives with the data instead of at every use
+Suggested fix: give `Channel` a type that owns its rules, so validation lives with the data instead of at every use
 
 ## `obscured-expression`
 
@@ -177,7 +177,7 @@ export function score(a: number, b: number, c: number, d: number): number {
 }
 ```
 
-rqx says: lift the steps into named locals, so the expression reads as its own summary
+Suggested fix: lift the steps into named locals, so the expression reads as its own summary
 
 ## `many-exits`
 
@@ -199,7 +199,7 @@ export function buriedExits(a: number, b: number): number {
   const scale = a * b;
 ```
 
-rqx says: give the function one exit, or extract the branches that end early
+Suggested fix: give the function one exit, or extract the branches that end early
 
 ## `wide-switch`
 
@@ -229,7 +229,7 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-rqx says: give the thing being switched on a type, and let it answer for itself
+Suggested fix: give the thing being switched on a type, and let it answer for itself
 
 ## `callback-nesting`
 
@@ -253,7 +253,7 @@ From `fixtures/typescript/flow.ts`, line 101:
       }, 1);
 ```
 
-rqx says: name the inner steps and call them, so the order they run in is the order they read in
+Suggested fix: name the inner steps and call them, so the order they run in is the order they read in
 
 ## `cyclomatic-complexity`
 
@@ -275,7 +275,7 @@ export function manyPaths(kind: string, rows: number[]): number {
   if (kind === "a") return 1;
 ```
 
-rqx says: split `manyPaths` so each part has a number of paths somebody would write tests for
+Suggested fix: split `manyPaths` so each part has a number of paths somebody would write tests for
 
 ## `many-results`
 
@@ -299,7 +299,7 @@ export function spreadOut(rows: number[]): [number, number, number, number] {
 }
 ```
 
-rqx says: give them a name apiece by handing back one thing that holds them
+Suggested fix: give them a name apiece by handing back one thing that holds them
 
 ## `many-locals`
 
@@ -321,7 +321,7 @@ export function crowdedScope(seed: number): number {
   const c1 = seed; const c2 = seed; const c3 = seed; const c4 = seed;
 ```
 
-rqx says: pull the run that uses one group of them into a function of its own
+Suggested fix: pull the run that uses one group of them into a function of its own
 
 ## `wide-try`
 
@@ -349,7 +349,7 @@ export function widelyGuarded(seed: number): number {
     return 0;
 ```
 
-rqx says: guard the line that can fail, and leave the rest outside
+Suggested fix: guard the line that can fail, and leave the rest outside
 
 ## `oversized-module`
 
@@ -370,5 +370,5 @@ export function tooManyParameters(a: number, b: number, c: number, d: number, e:
   return a + b + c + d + e;
 ```
 
-rqx says: split it along whatever its functions already group into
+Suggested fix: split it along whatever its functions already group into
 

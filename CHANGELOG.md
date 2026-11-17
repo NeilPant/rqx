@@ -5,8 +5,8 @@ Notable changes, newest first, in the shape
 Removed, Fixed. Dates are when the release was tagged.
 
 Anything user-visible goes under `## Unreleased` in the same pull request that
-changes it — `tools/release.sh` turns that section into the release, and the pipeline
-posts it as the notes, so an entry written later is an entry nobody reads.
+changes it. `tools/release.sh` turns that section into the release, and the pipeline
+posts it as the release notes.
 
 ## Unreleased
 
@@ -92,8 +92,8 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   JavaScript share one module graph. An import written `./util.js` now finds `util.ts`,
   which also fixes TypeScript projects that use that convention being told the module
   is unused. To keep the old behaviour, name the languages you want with
-  `[languages] enabled = ["typescript", "python", "go", "java", "cpp"]`, or skip the
-  files with `[ignore] patterns = ["**/*.js"]`.
+  `languages.enabled: [typescript, python, go, java, cpp]` in `rqx.yaml`, or skip the
+  files with `ignore.patterns: ["**/*.js"]`.
 - **`--timings` says what the scan did.** Beneath the stage times it now prints
   counts: files read, cache hits and misses, walks of the tree, `git` processes and
   blames. A count is the same on every machine, so a warm run that stopped using the

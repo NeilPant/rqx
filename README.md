@@ -38,34 +38,36 @@ rqx mcp                         # serve the analysis to an agent over MCP
 ## Contents
 
 1. [Install](#install)
-2. [The commands](#the-commands)
-3. [The report](#the-report)
-4. [Anatomy of a finding](#anatomy-of-a-finding)
-5. [The catalogue](#the-catalogue)
-6. [Design patterns](#design-patterns)
-7. [Architectural constraints](#architectural-constraints)
-8. [Language support](#language-support)
-9. [Automatic fixes](#automatic-fixes)
-10. [Verifying a refactoring](#verifying-a-refactoring)
-11. [Prioritising the work](#prioritising-the-work)
-12. [Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase)
-13. [Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
-14. [Editing configuration](#editing-configuration)
-15. [Levels](#levels)
-16. [Configuration](#configuration)
-17. [Enabling and disabling rules](#enabling-and-disabling-rules)
-18. [Cross-language duplication](#cross-language-duplication)
-19. [Performance rules](#performance-rules)
-20. [Coverage as evidence](#coverage-as-evidence)
-21. [Confidence levels](#confidence-levels)
-22. [Editors](#editors)
-23. [Agents](#agents)
-24. [The interface](#the-interface)
-25. [CI](#ci)
-26. [Contributing](#contributing)
-27. [Performance](#performance)
-28. [References](#references)
-29. [License](#license)
+2. [Network access](#network-access)
+3. [The commands](#the-commands)
+4. [What rqx does not do](#what-rqx-does-not-do)
+5. [The report](#the-report)
+6. [Anatomy of a finding](#anatomy-of-a-finding)
+7. [The catalogue](#the-catalogue)
+8. [Design patterns](#design-patterns)
+9. [Architectural constraints](#architectural-constraints)
+10. [Language support](#language-support)
+11. [Automatic fixes](#automatic-fixes)
+12. [Verifying a refactoring](#verifying-a-refactoring)
+13. [Prioritising the work](#prioritising-the-work)
+14. [Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase)
+15. [Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
+16. [Editing configuration](#editing-configuration)
+17. [Levels](#levels)
+18. [Configuration](#configuration)
+19. [Enabling and disabling rules](#enabling-and-disabling-rules)
+20. [Cross-language duplication](#cross-language-duplication)
+21. [Performance rules](#performance-rules)
+22. [Coverage as evidence](#coverage-as-evidence)
+23. [Confidence levels](#confidence-levels)
+24. [Editors](#editors)
+25. [Agents](#agents)
+26. [The interface](#the-interface)
+27. [CI](#ci)
+28. [Contributing](#contributing)
+29. [Performance](#performance)
+30. [References](#references)
+31. [License](#license)
 
 Every page under [`docs/`](docs/README.md) goes further than its section here; the
 rule reference in [`docs/rules/`](docs/rules) and the pattern reference in
@@ -90,8 +92,8 @@ release, checks it against the release's `SHA256SUMS`, and installs it into
 `~/.local/bin` (`%LOCALAPPDATA%\rqx\bin` on Windows). It never uses sudo and never
 edits your shell files or PATH; when the directory is not on your PATH it prints the
 line to add. `--version X.Y.Z` pins a release, `--dir` picks the directory, and
-`--dry-run` prints every step without changing anything. Read
-[install.sh](install.sh) first if you would rather not pipe a script into a shell.
+`--dry-run` prints every step without changing anything. To inspect the script
+before running it, read [install.sh](install.sh).
 
 Each release archive also holds the manual pages under `man/`; copy that directory to
 somewhere on your `MANPATH` and `man rqx` works.
@@ -117,25 +119,46 @@ the release's `SHA256SUMS`; any mismatch installs nothing and exits 2. A copy un
 package manager owns marks itself with `RQX_MANAGED`, and `rqx update` then reads the
 notes and points at that manager rather than replacing a file it does not own.
 
-A scan prints one dim line when a newer version has been tagged, and nothing when it
-has not. The check starts when the scan does, on a thread the report waits a quarter
-of a second for at the end; its answer is cached for a day.
-
-**It cannot disturb a pipeline.** It is skipped when stdout or stderr is not a
-terminal, which is the test that does not depend on knowing every CI system, and
-again when any of `CI`, `JENKINS_URL`, `TEAMCITY_VERSION`, `TF_BUILD` or their
-equivalents is set. `RQX_NO_UPDATE_CHECK` and `update.check: false` in `rqx.yaml`
-turn it off outright, `RQX_MANAGED` marks an install a package manager owns, and no
-exit code, report or reporter output changes either way.
-
-**One tag, every channel.** A release builds six binaries, one per platform, and
-publishes them beside the crates from the same commit, so a version means the same
-thing wherever it came from. Every asset is checksummed in `SHA256SUMS` on the
-release.
+A release is one tag. It builds six binaries, one per platform, and publishes them
+beside the crates from the same commit, so one version number identifies the same
+code in every channel. Every asset is checksummed in `SHA256SUMS` on the release.
 
 Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
-prints the configuration each one needs — see [Editors](#editors).
+prints the configuration each one needs. See [Editors](#editors).
 
+## Network access
+
+A scan reads your code on your machine and sends none of it anywhere. rqx reaches the
+network in three cases.
+
+**The update check.** When you run `rqx scan` or `rqx check` in a terminal, rqx asks
+GitHub whether a newer release has been tagged, at most once a day. It runs `curl`
+against `https://api.github.com/repos/jadhamwi21/rqx/tags` with the headers
+`Accept: application/vnd.github+json` and `User-Agent: rqx/<version>`. For the newest
+tag it also fetches that tag's `CHANGELOG.md` from `raw.githubusercontent.com`, so the
+notice can say what changed. Nothing from your project is in either request. The answer
+is cached in `update.json` under `$XDG_CACHE_HOME/rqx`, or `~/.cache/rqx` when that is
+unset, and a newer version is shown as one dim line after the report.
+
+The check starts when the scan does, and the report waits at most a quarter of a second
+for it at the end. It runs only when both stdout and stderr are terminals, so it is
+skipped when output is piped or redirected. It is also skipped when `CI`,
+`JENKINS_URL`, `TEAMCITY_VERSION`, `TF_BUILD` or one of the other pipeline variables
+rqx recognises is set, and for an install that a package manager owns (`RQX_MANAGED`).
+Exit codes, the report and reporter files are the same whether or not it runs.
+
+To turn it off, set `RQX_NO_UPDATE_CHECK` in the environment, or add this to
+`rqx.yaml`:
+
+```yaml
+update:
+  check: false
+```
+
+**`rqx update`** downloads a release from GitHub, but only when you run it.
+
+**`rqx comment`** posts to the GitLab or GitHub API of the merge request it is run for,
+but only when you run it.
 
 ## The commands
 
@@ -152,10 +175,30 @@ reference.
 | **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` · `update` |
 
 The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
-`rqx v`. A thirtieth command fails the build until it is placed under a heading,
-so the list cannot quietly go back to being flat.
+`rqx v`. Adding a thirtieth command fails the build until it is placed under a heading.
 
 Inside the interface the same list is `/help`.
+
+## What rqx does not do
+
+- **It does not type-check.** rqx parses source, resolves scopes and imports, and reads
+  git history. It does not resolve types, so a finding that needs a type checker to be
+  certain is reported at lower confidence, or not reported, and says which.
+- **Rule coverage differs by language.** Of 185 rules, 184 apply to TypeScript, 176 to
+  JavaScript, 174 to Python, 171 to Java, 169 to C++ and 139 to Go. A rule that cannot
+  exist in a language says so in `rqx explain`, with a reason. `rqx rules --language
+  <name>` lists the ones that apply.
+- **JavaScript leaves out the type-syntax rules.** JavaScript is read as TypeScript
+  without its types, so the eight rules that read type syntax do not apply to it:
+  `abstract-nothing`, `boolean-not-a-question`, `catch-all-handler`, `flag-argument`,
+  `imprecise-type`, `inappropriate-static`, `primitive-obsession` and
+  `speculative-generality`.
+- **It does not do security or taint analysis.** rqx does not follow data from a source
+  to a sink, so it will not find injection or unsafe deserialisation. Use a tool built
+  for that, such as [Semgrep](https://semgrep.dev) or [CodeQL](https://codeql.github.com).
+- **It does not judge meaning.** Whether a comment still matches the code beneath it,
+  whether an algorithm is the right one, or whether behaviour a reader expected is
+  missing cannot be settled by a metric, so rqx has no rules for them.
 
 ## The report
 
@@ -191,33 +234,31 @@ Real output, narrowed to two rules so it fits here:
 Every finding shows the code it is about, with the offending columns marked in the
 severity's colour and a caret ruler underneath for terminals that drop backgrounds.
 
-A rule's `Why:` reads the same on every finding it produces, and a file's churn reads
-the same on every finding in it, so each is printed once — the reason on that rule's
-first finding, the cost in the file's header. `--detail full` repeats both on every
+A rule's `Why:` is the same on every finding the rule produces, and a file's churn is
+the same on every finding in it, so each is printed once: the reason on the rule's
+first finding and the cost in the file's header. `--detail full` repeats both on every
 finding and shows two lines of context either side; `--detail terse` is one line per
 finding. `--context <n>` sets the window at any level.
 
-Import cycles, and the contracts a file breaks where an `[architecture]` is declared,
-get sections of their own above the summary. Both are ordinary findings as well —
-anchored on one member of the ring — but a cycle presented as a cycle is what the
-reader is looking for.
+Import cycles, and the contracts a file breaks where an `architecture` is declared,
+get sections of their own above the summary. Both are also ordinary findings,
+anchored on one member of the ring.
 
-Each file carries a grade — `pristine`, `clean`, `fair`, `poor`, `critical` — from
-the same curve as the health score applied to that file's own lines. It is what
-`Start here` ranks by, and `--min-grade` gates on it, which catches one file rotting
-where a project-wide average would not.
+Each file carries a grade (`pristine`, `clean`, `fair`, `poor` or `critical`) from the
+same curve as the health score, applied to that file's own lines. `Start here` ranks
+by it, and `--min-grade` gates on it, which catches one file degrading where a
+project-wide average would not.
 
-Clean files are counted, not listed — `--show-passed` lists them. Narrow the view
+Clean files are counted, not listed; `--show-passed` lists them. Narrow the view
 with `--severity`, `--rule`, `--category` and `--path`, or by subtraction with
 `--not-rule`, `--not-category` and `--not-path`. `--confidence` keeps only what rqx is
 certain of or only what it is guessing at, `--fixable` keeps what `rqx fix` could act
-on, and `--search` matches the rule, the file or the evidence. None of them move the
-health score or the gate, because a CI result that depended on how it was printed
-would be worthless.
+on, and `--search` matches the rule, the file or the evidence. None of them changes the
+health score or the gate.
 
 ## Anatomy of a finding
 
-Every finding carries four things, and none of them are optional:
+Every finding carries four things:
 
 ```
   src/orders/reconcile.ts:88:3  cognitive-complexity  ⚠ warning
@@ -231,58 +272,54 @@ Every finding carries four things, and none of them are optional:
            `reconcileBatch` into named predicates, then extract the deepest block
 ```
 
-The **measured fact**, the **reason it matters**, what it **costs** given how often
-that file changes and how much depends on it, and a **named refactoring** — never
-"simplify this".
+The finding states the measured fact, the reason it matters, what it costs given how
+often the file changes and how much depends on it, and a named refactoring. The fix
+is a named refactoring, never a generic instruction such as "simplify this".
 
-Each rule is traceable to an established catalogue, and that traceability is
-enforced by the compiler: `RuleId::spec()` is an exhaustive match, so a rule that
-does not declare its metric and fix does not build.
+Each rule is traceable to an established catalogue. `RuleId::spec()` is an exhaustive
+match, so a rule that does not declare its metric and fix does not build.
 
 ## The catalogue
 
 <!-- rqx:catalogue -->
-185 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
+185 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
 
 | Family | Rules | What it measures |
 |---|---|---|
-| **Size** | 16 | units that outgrew what a reader can hold |
-| **Abstraction** | 17 | types that model the problem wrong |
-| **Change** | 7 | shapes that make an edit expensive |
-| **Waste** | 33 | code and comments nothing reaches |
-| **Coupling** | 18 | modules that know too much about each other, and dependencies pointing the wrong way |
-| **Flow** | 17 | control flow that says less than it looks like |
-| **Naming** | 12 | names that mislead or say nothing |
+| **Size** | 16 | functions, types and modules whose size or complexity exceeds a threshold |
+| **Abstraction** | 17 | types whose structure does not match the problem |
+| **Change** | 7 | code shapes that raise the cost of a change |
+| **Waste** | 33 | code and comments that nothing reaches |
+| **Coupling** | 18 | dependencies between modules that are too broad or point the wrong way |
+| **Flow** | 17 | control flow that is redundant or misleading |
+| **Naming** | 12 | names that mislead or carry no information |
 | **Safety** | 28 | silent failure and swallowed errors |
-| **Tests** | 18 | suites that pass without checking |
-| **Noise** | 9 | text that costs a reader and buys nothing |
-| **Performance** | 10 | work done more often, or more expensively, than it needs to be |
+| **Tests** | 18 | tests that pass without checking behaviour |
+| **Noise** | 9 | text that adds reading cost without adding information |
+| **Performance** | 10 | work done more often, or more expensively, than needed |
 <!-- /rqx:catalogue -->
 
-Those pages are generated from the catalogue by `rqx docs`, and a test fails if they
-drift from it — a hand-written table of sixty-odd rules is a table that goes stale, which
-is what the one here had already done.
+The table above and the pages in `docs/rules/` are generated from the catalogue by
+`rqx docs`, and a test fails if they differ from it.
 
 `rqx techniques` prints every refactoring the rules prescribe, grouped by the kind of
-move it is, with the rules that ask for it. A technique nothing prescribes fails the
-suite, because an unreachable menu entry is worse than no entry.
+move it is, with the rules that ask for it. A technique that no rule prescribes
+fails the test suite.
 
 ### What is deliberately absent
 
-Some things are visible in source and still not decidable from it. Whether a comment
-still matches the code beneath it, whether an algorithm is the right one, whether
-behaviour a reader expected is missing — no metric settles these, and a tool that
-claimed otherwise would be inventing findings. That costs more trust than the missing
-rules do.
+Some properties of code cannot be decided from source: whether a comment still
+matches the code beneath it, whether an algorithm is the right one, and whether
+expected behaviour is missing. No metric settles these, so no rule reports them.
 
-Rqx also parses without resolving types, so anything that needs a type checker to be
-certain is either reported at lower confidence or not at all, and says which.
+The other limits, including what needs types, are listed under
+[What rqx does not do](#what-rqx-does-not-do).
 
 ## Design patterns
 
-A third catalogue, held to the same standard: all twenty-three patterns from *Design
-Patterns*, each with the static shape that decides it and the reason Rqx declines
-where it does. `rqx patterns` reads a project, `rqx patterns --coverage` prints the
+A third catalogue covers all twenty-three patterns from *Design Patterns*. Each
+pattern has the static shape that decides it and a stated reason where rqx declines
+to recognise it. `rqx patterns` reads a project, `rqx patterns --coverage` prints the
 whole table, and `rqx explain decorator` prints one.
 
 ```
@@ -296,28 +333,27 @@ whole table, and `rqx explain decorator` prints one.
         know which of the two they are holding
 ```
 
-Three things are said, and they do not rank. A pattern **in use** is inventory. One
-**half applied** is a defect: a decorator that cannot substitute for what it wraps, a
-subscribe with no unsubscribe. One that **would fit** is a suggestion about a shape
-already in the code.
+rqx reports three kinds of result, and they do not rank. A pattern in use is
+inventory. A pattern half applied is a defect: a decorator that cannot substitute for
+what it wraps, or a subscribe with no unsubscribe. A pattern that would fit is a
+suggestion about a shape already in the code.
 
-**None of it moves the health score.** A pattern that would fit is not a finding, and
-a score that fell because code declined to use Strategy would stop meaning anything.
-Advice is not a `Finding` and has no route to `FindingCounts`; a test scans the
-fixtures with every advisory on and off and compares the summary byte for byte. The
-one way it reaches an exit code is `[gate] fail_on_incomplete`, which sees only the
-half-applied half.
+Pattern results do not change the health score. Advice is not a `Finding` and has no
+route to `FindingCounts`; a test scans the fixtures with every advisory on and off
+and compares the summary byte for byte. The only route to an exit code is
+`gate.fail_on_incomplete`, which considers only the half-applied patterns.
 
-Confidence is per advisory, not per pattern: recognising a Decorator from what it
-holds is `verified`, reading a Bridge out of a cross-product of subclass names is a
-`measured threshold`, and pairing a save with a restore by name is `low confidence`
-and ships off. [`docs/patterns/`](docs/patterns/README.md) is the reference.
+Confidence is set per advisory rather than per pattern. Recognising a Decorator from
+what it holds is `verified`. Reading a Bridge out of a cross-product of subclass
+names is a `measured threshold`. Pairing a save with a restore by name is
+`low confidence` and ships off. [`docs/patterns/`](docs/patterns/README.md) is the
+reference.
 
 ## Architectural constraints
 
-ArchUnit covers Java, dependency-cruiser JavaScript, import-linter Python. None of
-them covers a polyglot repository from one configuration, which is where layering
-drift tends to accumulate: no single tool observes the whole graph.
+ArchUnit covers Java, dependency-cruiser covers JavaScript and import-linter covers
+Python. rqx checks layering across all six languages from one configuration, because
+it reads one module graph.
 
 ```yaml
 architecture:
@@ -330,18 +366,18 @@ architecture:
 ```
 
 `layers` is ordered inner to outer: a file may import its own layer and any layer
-before it, so the domain cannot reach for an adapter. The finding points at the import
-line, in whichever of the six languages wrote it, because it reads the same module
-graph the cycle detection already uses.
+before it, so the domain cannot import an adapter. The finding points at the import
+line, in any of the six languages, because it reads the same module graph as cycle
+detection.
 
-The check is silent until declared: an architecture that has not been written down
-is not one rqx infers. A layer named in `paths` but absent from `layers` is an error
-rather than a rule that silently governs nothing.
+The check does nothing until an `architecture` is declared, because rqx does not
+infer one. A layer named in `paths` but absent from `layers` is a configuration
+error.
 
 ## Language support
 
 ```yaml
-# rqx.yaml — all six are enabled unless stated otherwise
+# rqx.yaml: all six are enabled by default
 languages:
   enabled: [typescript, javascript, python, go, java, cpp]
 ```
@@ -349,7 +385,7 @@ languages:
 Every rule is written once, against measurements a language backend fills in: how
 many statements a body holds, which names it binds, what it takes from other files.
 A language contributes a table of node kinds, a reader for its module surface and an
-import resolver; nothing else about it reaches the rules.
+import resolver. Nothing else about a language reaches the rules.
 
 | | TypeScript | JavaScript | Python | Go | Java | C++ |
 |---|---|---|---|---|---|---|
@@ -375,16 +411,15 @@ $ rqx explain refused-bequest
         has a method or does not
 ```
 
-`rqx rules --language go` lists what does apply. Two tests hold this honest: every
+`rqx rules --language go` lists what does apply. Two tests cover this. Every
 applicable rule must fire on that language's fixtures, and every exempted rule must
-stay silent on them — so a rule that quietly stops working in one language fails the
-build rather than going unnoticed.
+stay silent on them. A rule that stops working in one language fails the build.
 
 ## Automatic fixes
 
-Most findings name a refactoring, and choosing its shape is the work. Some do not:
-nothing about deleting an unused local is a design decision, and rqx already located
-the exact bytes and proved nothing references them.
+Most findings name a refactoring whose shape is a design decision. Some fixes involve
+no decision: deleting an unused local needs only its exact bytes, which rqx has
+already located, and a check that nothing references them.
 
 ```
 $ rqx fix ./src
@@ -404,18 +439,18 @@ $ rqx fix ./src
   Nothing written.  rqx fix --write
 ```
 
-**Nothing is written unverified.** Each file's edits are applied in memory, re-parsed
-for the error nodes tree-sitter invents when it recovers, and re-analysed: the targeted
-findings must be gone and nothing new may appear. A file that fails is named with the
-reason rather than passed over silently. Writes are atomic, and one fix making the next
-possible is why it repeats — deleting the branch that held a binding's only reference
-is what makes that binding unused.
+`rqx fix` writes nothing without `--write`, and with it writes only verified edits.
+Each file's edits are applied in memory, re-parsed for the error nodes tree-sitter
+inserts when it recovers, and re-analysed. The targeted findings must be gone and no
+new finding may appear. A file that fails is named with the reason. Writes are
+atomic. The pass repeats, because one fix can enable the next: deleting the branch
+that held a binding's only reference makes that binding unused.
 
-Thirteen rules qualify today. `[fix] disabled = ["commented-out-code"]` opts one out;
-`rqx explain <rule>` says whether a rule is fixable. The other 172 are
-`rqx fix --plan`, which emits them with the span, the source text, the metric, the
-reasoning and the named refactoring — the brief for a person or an agent, in the shape
-they can act on. `rqx check --base main --fix` does the same for a branch and judges
+Thirteen rules qualify. `fix.disabled: [commented-out-code]` in `rqx.yaml` opts one
+out, and `rqx explain <rule>` says whether a rule is fixable. For the other 172,
+`rqx fix --plan` emits each finding with its span, the source text, the metric, the
+reasoning and the named refactoring, as a brief for a person or an agent. `rqx check
+--base main --fix` does the same for a branch and judges
 the gate afterwards, so a branch whose only failures were mechanical passes.
 
 Editors offer the same edits, verified the same way and tagged `source.fixAll`, so
@@ -423,9 +458,9 @@ they can be applied on save.
 
 ## Verifying a refactoring
 
-rqx names a refactoring for every finding, but naming one does not establish that
-it was carried out. `rqx verify` grades a diff against the refactoring it claimed to
-perform, which matters most where the diff was written by an agent.
+rqx names a refactoring for every finding, and `rqx verify` grades a diff against the
+refactoring it claimed to perform. Naming a refactoring does not show that it was
+carried out, which matters most where an agent wrote the diff.
 
 ```
 $ rqx verify --base main
@@ -445,20 +480,19 @@ $ rqx verify --base main
   ✖ the diff moved problems rather than removing them
 ```
 
-`relocated` is the one nobody else reports: a body moved into a new helper takes its
-complexity with it, and a tool that called that "resolved" would be endorsing the
-wrong diff. Findings are matched by what they are about — rule, file and subject —
-never by line, so moving code around does not read as fixing it.
+`relocated` marks a body moved into a new helper that takes its complexity with it,
+and it is reported separately from `resolved`. Findings are matched by what they are
+about (rule, file and subject) and never by line, so moving code around does not
+count as fixing it.
 
 `--expect cognitive-complexity@orders/reconcile.ts` fails the run unless that
-particular finding was resolved. It is a `verify` MCP tool too, so an agent can
-propose, be graded, and try again.
+particular finding was resolved. `verify` is also an MCP tool, so an agent can propose
+a change, be graded, and try again.
 
 ## Prioritising the work
 
-A list of findings ranked by severity is the conventional output and is rarely
-acted on. `rqx plan` ranks the work by what each item buys against what it costs, and
-projects the health score after each one:
+`rqx plan` ranks findings by what each item buys against what it costs, and projects
+the health score after each one:
 
 ```
 $ rqx plan ./src --budget 12 --simulate
@@ -479,16 +513,15 @@ $ rqx plan ./src --budget 12 --simulate
 ```
 
 Value is the weight the finding carries in the score, scaled by what the file costs to
-change — churn and how many modules import it. Effort comes from the refactoring the
+change: its churn and how many modules import it. Effort comes from the refactoring the
 rule prescribes: deleting is one point, moving behaviour up or down a type tree is
-five. The selection is exact rather than greedy, because the cheapest two items are
-often worth more together than the dearest one.
+five. The selection is exact rather than greedy: the cheapest two items can be worth
+more together than the most expensive one.
 
 ## Adopting it on an existing codebase
 
-A codebase of any age arrives with a large existing debt. A gate switched on
-against it fails the first pull request and is switched off by the second. Four
-features exist to make adoption incremental.
+A gate enabled on a codebase that already has findings fails the first pull request.
+Four features make adoption incremental.
 
 **Record the existing debt.**
 
@@ -508,10 +541,10 @@ gate:
   Baseline  7 findings known · 1 new
 ```
 
-Eight warnings, still reported, still in the editor. Seven are debt the baseline
-recorded; one arrived with this change, and only that one fails the build. The health
-score still counts all of them — the score is a statement about the code, not about
-which debt has been agreed to. [More](docs/baseline.md).
+All eight warnings are still reported and still appear in the editor. Seven are debt
+the baseline recorded and one arrived with this change, and only that one fails the
+build. The health score counts all eight, because it describes the code and not which
+findings have been accepted. [More](docs/baseline.md).
 
 **Waive one finding, with a reason.**
 
@@ -538,11 +571,11 @@ rule:
     severity: error
 ```
 
-A tree-sitter query, and every grammar is already in the binary. It counts towards the
-score, shows in the editor, gets its own SARIF descriptor, and can be disabled or
-waived by name. `rqx query typescript '<query>' --captures` tries one before
-commit to it, and a query that will not compile is a config error naming the rule and
-the row it failed at. [More](docs/custom-rules.md).
+The query is a tree-sitter query, and every grammar is built into the binary. A custom
+rule counts towards the score, shows in the editor, gets its own SARIF descriptor, and
+can be disabled or waived by name. `rqx query typescript '<query>' --captures` tries
+one before you commit it, and a query that does not compile is a configuration error
+naming the rule and the row it failed at. [More](docs/custom-rules.md).
 
 **One standard across many repositories.**
 
@@ -550,9 +583,9 @@ the row it failed at. [More](docs/custom-rules.md).
 policy: ../platform/rqx-policy.yaml
 ```
 
-The policy sits *under* the project, so a service may still tighten what it likes.
-`locked.keys` names what it may not change at all — not in its own config, not in an
-override, not with `--level`. [More](docs/policy.md).
+The policy is merged under the project, so a service can still tighten settings.
+`locked.keys` lists the settings a service may not change, whether in its own config,
+in an override or with `--level`. [More](docs/policy.md).
 
 ## Surveying an unfamiliar codebase
 
@@ -564,7 +597,7 @@ rqx graph --cycles --format mermaid
 rqx slop           # which files read as written rather than read
 ```
 
-`rqx complexity` is the most useful first command on an unfamiliar tree:
+`rqx complexity` shows the distribution of function complexity in a tree:
 
 ```
   Complexity  39873 functions measured
@@ -578,19 +611,20 @@ rqx slop           # which files read as written rather than read
     p50 0 · p90 2 · p99 11 · 180 of 39873 over the threshold of 15
 ```
 
-The final line establishes whether the threshold describes the exceptions or the
-norm. `rqx recommend` proposes moving it in the first case and stays silent in the
+The final line shows whether the threshold describes the exceptions or the norm.
+`rqx recommend` proposes moving it in the first case and makes no proposal in the
 second.
 
 `rqx graph` prints the import graph as text, Graphviz, Mermaid or JSON, with the edges
-that close a cycle marked in each — and `circular-dependency` reports the ring as a
+that close a cycle marked in each. `circular-dependency` reports the ring as a
 walk that can be followed rather than a count, anchored on the import that opens it.
 
 `rqx slop` scores how much of a file is text that costs a reader and buys nothing: a
 comment above every line restating it, a divider in a fifty-line file, `example.com`
-in a constant, a leftover *Here's the implementation you asked for!* — each is nothing
-alone; together and at density they describe code that was produced and never read
-back. It is labelled a heuristic everywhere it appears and gates nothing unless asked.
+in a constant, a leftover *Here's the implementation you asked for!*. Each is weak
+evidence alone. Together and at density they suggest code that was generated and not
+reviewed. It is labelled a heuristic wherever it appears and gates nothing unless
+configured to.
 
 ## Editing configuration
 
@@ -602,15 +636,16 @@ rqx config unset thresholds.max_params
 rqx config files                             # the chain, nearest last
 ```
 
-A monorepo reads a user config, a policy and one `rqx.yaml` per directory, so `set`
-writes to the file that already holds the key, and `--pick` asks for one when a
-different one. Edits go through a format-preserving writer: the template is mostly
-prose explaining what each key is for, and a reserialise would throw all of it away on
-the first change. A value the config would refuse is refused before the file is written. A key the policy locked is refused before the file is touched.
+A monorepo can read a user config, a policy and one `rqx.yaml` per directory. `set`
+writes to the file that already holds the key, and `--pick` prompts for a file when
+you want a different one. Edits go through a format-preserving writer, because the
+template is mostly prose explaining what each key is for and re-serialising would
+discard it. A value the config would refuse is refused before the file is written,
+and a key the policy locked is refused before the file is touched.
 
 ## Levels
 
-How much a project asks of itself is one word:
+A project's overall strictness is one setting:
 
 ```yaml
 level: strict
@@ -623,10 +658,10 @@ level: strict
 | `strict` | 168 of 185 | warning, min grade `fair` | held to what a reader can follow without effort |
 | `pristine` | 185 of 185 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
 
-A level is merged **under** everything the project states, so it moves the defaults
-and never overrides a stated value — `rqx config` says `level:strict` in the `from` column
-for a value the level moved, and names the project's file for one it set. `--level strict`
-overrides the file, because CI usually wants a stricter standard on the default branch
+A level is merged under everything the project states, so it moves the defaults and
+does not override a stated value. `rqx config` shows `level:strict` in the `from`
+column for a value the level moved, and names the project's file for one it set.
+`--level strict` overrides the file, because CI usually needs a stricter standard on the default branch
 than a working copy does, and an entry of `overrides` may name its own level, so a project can
 be strict in its domain and relaxed in its scripts. `rqx levels` prints each one as the
 settings it would take to write by hand.
@@ -642,9 +677,9 @@ is, what it defaults to and why it has the value it has. `rqx.yml`, `.rqx.yml` a
 `.rqx.yaml` are read too; two in one directory is an error.
 
 rqx no longer reads TOML. A directory holding an `RQX.toml` stops the run with exit
-code 2, because skipping it could change what a pipeline gates on, and
-`rqx config migrate` converts it, its policy files and the user config to YAML,
-keeping comments and the originals as `.bak`.
+code 2, because skipping it could change what a pipeline gates on. `rqx config
+migrate` converts it, its policy files and the user config to YAML, keeping comments
+and the originals as `.bak`.
 
 Layers merge, lowest first: the built-in defaults and the `level`, then every preset
 and file named by `extends`, then the user's `~/.config/rqx/rqx.yaml`, then the policy
@@ -685,10 +720,10 @@ overrides:
       long_function_statements: 200
 ```
 
-Nothing else may be scoped. The file walker is built once and the gate reaches one
-verdict, so an override naming `scan` or `gate` is an error rather than a setting
-that quietly does nothing. [docs/configuration.md](docs/configuration.md) has the
-whole schema, all 44 thresholds and the rules each one tunes.
+No other table may be scoped. The file walker is built once and the gate reaches one
+verdict, so an override naming `scan` or `gate` is a configuration error.
+[docs/configuration.md](docs/configuration.md) has the whole schema, all 44 thresholds
+and the rules each one tunes.
 
 ## Enabling and disabling rules
 
@@ -699,16 +734,16 @@ rules:
   enabled: [short-name-wide-scope]        # opt into an off-by-default rule
 ```
 
-Twenty-one rules ship off by default — the ones whose signal is real but noisy, or
+Twenty-one rules ship off by default: the ones whose signal is real but noisy, or
 which encode a convention a given project may not share. They are listed with
 `(off by default)` in `rqx rules`.
 
 ## Cross-language duplication
 
-Clone detection is per-language everywhere, including here: the hash reads node ids a
-grammar assigns, and no two grammars agree on them. A second hash reads a vocabulary
-none of them owns — branch, loop, call, return, assign, and the canonical operator —
-so a validation rule ported from TypeScript to Python still matches.
+Clone detection is per language: the hash reads node ids that each grammar assigns,
+and grammars do not share ids. A second hash reads a vocabulary no grammar owns
+(branch, loop, call, return, assign and the canonical operator), so a validation
+rule ported from TypeScript to Python still matches.
 
 ```
 ● cross-language-duplicate  api/validate.py:4
@@ -717,19 +752,18 @@ so a validation rule ported from TypeScript to Python still matches.
   from both, or write down why they are allowed to differ
 ```
 
-Off by default and reported at low confidence, which keeps it out of the health
-score. Two blocks that merely branch and return in the same order are not the same
-rule, so a group has to span languages, clear eight statements and forty nodes, and
-share a constant before it is reported — ported code keeps its constants even when
-its syntax changes completely.
+The rule is off by default and reports at low confidence, which keeps it out of the
+health score. Two blocks that branch and return in the same order are not
+necessarily the same rule, so a group has to span languages, clear eight statements
+and forty nodes, and share a constant before it is reported. Ported code usually
+keeps its constants when its syntax changes.
 
 ## Performance rules
 
-Much of what a profiler eventually identifies is visible in the source: a query
-inside a loop, a linear search inside a loop, an await per item, a pattern recompiled
-on every pass. Ten rules read those shapes, and
-`rqx perf` ranks the functions carrying them by what they cost against how much of
-the project leans on the file they are in.
+Several costs that a profiler would find are visible in source: a query inside a
+loop, a linear search inside a loop, an await per item, a pattern recompiled on every
+pass. Ten rules read those shapes, and `rqx perf` ranks the functions carrying them
+by what they cost against how much of the project leans on the file they are in.
 
 ```
 $ rqx perf --top 2
@@ -747,15 +781,15 @@ $ rqx perf --top 2
     p50 0 · p90 1 · p99 2 loop depth · 14 over 2 · 9 with a round trip inside a loop
 ```
 
-`order` is loop order, not a proof — three nested loops over three items are three
-passes of nothing. Which is why a CPU profile can settle it. `--profile cpu.pprof`
-reads a V8 `.cpuprofile`, a Go pprof or collapsed stacks by content, and a
-performance finding in a function the run never put on the stack keeps its finding
-and stops counting, exactly as a covered symbol stops counting as dead code.
+`order` is the loop order and is not proof of cost: three nested loops over three
+items are cheap. A CPU profile can settle it. `--profile cpu.pprof` reads a V8
+`.cpuprofile`, a Go pprof or collapsed stacks by content. A performance finding in a
+function the run never put on the stack keeps its finding and stops counting, in the
+same way a covered symbol stops counting as dead code.
 
-Names are the weakest evidence here, so the rules leaning on one are `heuristic` and
-never `error`, and a receiver that is already keyed — a `Set`, a `Map`, anything
-named `index` or `cache` — is a lookup rather than a round trip and is not reported.
+Some rules rely on names, which are weak evidence, so those rules are `heuristic` and
+never `error`. A receiver that is already keyed (a `Set`, a `Map`, anything named
+`index` or `cache`) is a lookup rather than a round trip and is not reported.
 [docs/perf.md](docs/perf.md) has the columns, the formats and the vocabulary a
 project can extend.
 
@@ -768,10 +802,10 @@ a container wiring things up by name, or reflection. A coverage file settles it:
 rqx scan . --coverage coverage/lcov.info
 ```
 
-A file or export the graph called dead that a test run reached keeps its finding —
-the missing import may still be worth adding — but drops to `low` confidence, which
-means it is shown and stops counting against the health score. One nothing reached
-stays `verified`, and now says so with evidence rather than only from the graph.
+A file or export that the graph called dead and a test run reached keeps its finding,
+because the missing import may still be worth adding, but drops to `low` confidence.
+It is shown and no longer counts against the health score. One that nothing reached
+stays `verified` and records the coverage as evidence.
 
 lcov, Go cover profiles and coverage.py JSON are recognised by content, several files
 merge, and a coverage file that cannot be read is skipped with a warning rather than
@@ -781,13 +815,13 @@ failing the scan.
 
 A finding says how sure it is. `unused-parameter` claims **verified** only for a
 trailing parameter of a function whose signature its author controls. A parameter
-in the middle cannot be deleted without renumbering every call site, and a
-callback's arity is fixed by whatever calls it — so those are reported as
-**heuristic**, or not at all.
+in the middle cannot be deleted without renumbering every call site, and a callback's
+arity is fixed by whatever calls it, so those are reported as **heuristic**, or not
+at all.
 
-Findings that cannot be verified are omitted rather than asserted. Ignored files
-are never parsed, which is why tests are *not* ignored by default: an invisible
-import manufactures false "unused export" findings.
+Findings that cannot be verified are omitted rather than asserted. Ignored files are
+never parsed, which is why tests are not ignored by default: an unparsed import
+produces false "unused export" findings.
 
 ## Editors
 
@@ -809,38 +843,37 @@ rqx setup neovim -w  # append it, after showing what will be added
 | **Kakoune** kak-lsp | ✓ | ✓ | ✓ | ✓ | — | — |
 | **Kate** | ✓ | ✓ | ✓ | ✓ | — | — |
 
-There is no extension to install and none to keep up to date: every client above is
-stock LSP configuration against the `rqx lsp` binary, so a capability added to the
-server reaches all of them in the same commit. Any editor with an LSP client works
-the same way. For a sidebar of findings, files and rules, `rqx` in a terminal split
-is that view.
+There is no extension to install. Every client above is stock LSP configuration
+pointed at the `rqx lsp` binary, so a capability added to the server is available to
+all of them. Any editor with an LSP client works the same way. For a sidebar view of
+findings, files and rules, run `rqx` in a terminal split.
 
 Quick fixes are the same edits `rqx fix` applies, verified the same way and tagged
-`source.fixAll` so an editor can apply them on save. The rules whose fix is
-a decision offer to explain themselves or turn the rule off instead.
+`source.fixAll` so an editor can apply them on save. For rules whose fix is a
+decision, the quick fix offers to explain the rule or turn it off.
 
-Cross-file findings arrive without being asked for: the server scans the workspace on
-its own and republishes every file, so the rules that need the whole import graph do
-not go silently missing in an editor that has one file open.
+The server scans the workspace on its own and republishes every file, so the rules
+that need the whole import graph produce findings even when the editor has one file
+open.
 
 [docs/editor.md](docs/editor.md) has the commands, the custom notifications and a
 paste-in block per editor.
 
 ## Agents
 
-`rqx mcp` runs an MCP server, so a coding agent can query a project's problems
-rather than inferring them by reading files. It answers with the same four things every
-finding carries — the measured fact, why it matters, what it costs and the named
-refactoring — which is exactly what an agent asked to "clean this up" otherwise invents.
+`rqx mcp` runs an MCP server, so a coding agent can query a project's findings
+instead of inferring them by reading files. Each answer carries the same four things
+as a finding: the measured fact, why it matters, what it costs and the named
+refactoring.
 
 ```sh
 claude mcp add rqx -- rqx mcp
 ```
 
-Answers are summaries with drill-down, never dumps. `scan` returns health, the grade
-distribution and what to open first; the findings themselves are paged out of `findings`,
-narrowed by rule, severity or path. A full report of a 12,000-file repository does not fit
-in a context window, and a tool that returned one would leave nothing to fix it with.
+Answers are summaries with drill-down. `scan` returns health, the grade distribution
+and what to open first; the findings are paged out of `findings` and can be narrowed
+by rule, severity or path. A full report of a 12,000-file repository does not fit in
+a context window.
 
 | Tool | Answers |
 |---|---|
@@ -856,8 +889,8 @@ in a context window, and a tool that returned one would leave nothing to fix it 
 
 All fifteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
 the brief and the agent does the writing. `--http` serves
-the same tools over Streamable HTTP for clients that cannot spawn a process, and refuses
-a public address without `RQX_MCP_TOKEN` rather than exposing the source to a network.
+the same tools over Streamable HTTP for clients that cannot spawn a process, and
+refuses a public address without `RQX_MCP_TOKEN`.
 [docs/mcp.md](docs/mcp.md) has the payload shapes and a config snippet per client.
 
 ## The interface
@@ -872,15 +905,15 @@ does not capture the mouse, so what it prints lands in your scrollback and stays
 there after you leave, and you select, search and scroll it with the terminal's own
 tools.
 
-It scans as it opens. While it works, the owl glances left and right beside the
-phase and the files done; when the scan lands, a header and the worst findings go
-into scrollback, with the owl in the header in the colour of the verdict. Under the
+It scans as it opens. While it works, the owl animates beside the phase and the files
+done. When the scan finishes, a header and the worst findings go into scrollback,
+with the owl in the header in the colour of the verdict. Under the
 prompt, one line says `? for shortcuts` and, on the right, the health, the grade, the
 findings and `watching` when it is on.
 
-**A slash command is the command line's command.** `/plan --budget 20` is parsed by
+Slash commands use the command line's definitions. `/plan --budget 20` is parsed by
 the same definition as `rqx plan --budget 20`, runs on the scan the session already
-holds, and prints through the same functions, so the two cannot differ. Text with no
+holds, and prints through the same functions, so the two produce the same output. Text with no
 slash searches the findings.
 
 ```
@@ -914,8 +947,7 @@ them, and exits non-zero when the gate fails.
 | `2` | rqx could not run |
 | `101` | rqx hit a bug; please report it |
 
-A reader that walks away is not a failure: `rqx scan . \| head` exits `0`, because the
-scan did what it was asked and the pipe closing is the reader's decision.
+A closed pipe is not a failure: `rqx scan . \| head` exits `0`.
 
 One analysis pass feeds every consumer. `--reporter <name>` writes to stdout,
 `--reporter <name>=<path>` writes to a file, and both repeat:
@@ -928,34 +960,35 @@ rqx scan . \
   --fail-on error
 ```
 
-`terminal`, `json`, `sarif`, `junit`, `gitlab`, `github` and `markdown` — between
-JUnit XML and GitLab Code Quality that covers GitHub, GitLab, Jenkins, CircleCI, Azure
-Pipelines, Bitbucket and Buildkite natively. Copy-paste snippets for each
-are in [docs/ci.md](docs/ci.md); `action.yml` wires up GitHub Actions in five
-lines.
+The reporters are `terminal`, `json`, `sarif`, `junit`, `gitlab`, `github`,
+`markdown` and `html`. JUnit XML and GitLab Code Quality together cover GitHub,
+GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket and Buildkite natively.
+Snippets for each are in [docs/ci.md](docs/ci.md). `action.yml` is the GitHub
+Action: `uses: jadhamwi21/rqx@v0.2.1`. A moving major tag such as `@v1` is planned
+and is not published yet.
 
-**`rqx comment` posts the review onto the merge request it is reviewing**, on
-GitLab and GitHub alike. It reads the project, the merge request and the token
-from the CI environment, writes one comment — a verdict line, the counts, and the
-worst findings folded behind a `<details>` — and edits that same comment on every
-later run instead of adding another. It also grades the commit, so the merge
-request shows `rqx: B · 12 findings` beside the other checks without anyone
+`rqx comment` posts the review onto the merge request it is reviewing, on GitLab and
+GitHub. It reads the project, the merge request and the token from the CI
+environment, writes one comment (a verdict line, the counts, and the worst findings
+folded behind a `<details>`), and edits that same comment on every later run instead
+of adding another. It also grades the commit, so the merge request shows `rqx: B · 12
+findings` beside the other checks without anyone
 opening a job log.
 
 ```sh
 rqx comment --fail-on error
 ```
 
-There is no `--base` there because the pipeline already knows it: GitLab hands over
-`CI_MERGE_REQUEST_DIFF_BASE_SHA` and GitHub the pull request's base, both of them
-commits that exist in a CI clone — which `origin/HEAD` is not. Pass `--base` to
-override it.
+`rqx comment` takes no `--base` by default because the CI environment supplies it.
+GitLab provides `CI_MERGE_REQUEST_DIFF_BASE_SHA` and GitHub provides the pull
+request's base. Both are commits that exist in a CI clone, which `origin/HEAD` may
+not be. Pass `--base` to override it.
 
-`--dry-run` prints what it would post and posts nothing, which is the right first
-run. `--marker` keeps two jobs' comments apart on one merge request. `--no-status`
-comments without grading. The exit code is the gate's, so the job fails the same way
-`check` does. GitLab needs a token with `api` scope — `CI_JOB_TOKEN` cannot write
-merge-request notes — and GitHub needs `pull-requests: write`.
+`--dry-run` prints what it would post and posts nothing. `--marker` keeps two jobs'
+comments apart on one merge request. `--no-status` comments without grading. The exit
+code is the gate's, so the job fails the same way
+`check` does. GitLab needs a token with `api` scope (`CI_JOB_TOKEN` cannot write
+merge-request notes), and GitHub needs `pull-requests: write`.
 
 The gate lives in `rqx.yaml` and every part of it can be overridden per run with
 `--fail-on`, `--allow-findings` and `--min-health`, so a strict gate on the
@@ -979,15 +1012,15 @@ cargo rqx rules                 # same thing through cargo
 cargo test --workspace
 ```
 
-`./rqx` builds and then execs the binary rather than using `cargo run`, so cargo's
-progress output never lands in the middle of the interface, and paths still resolve
-against the current working directory. Build output goes to stderr, so
-`./rqx scan . --reporter json > out.json` stays valid JSON. To install it properly:
+`./rqx` builds the binary and then execs it instead of using `cargo run`, so cargo's
+progress output does not appear inside the interface, and paths resolve against the
+current working directory. Build output goes to stderr, so
+`./rqx scan . --reporter json > out.json` stays valid JSON. To install it:
 `cargo install --path crates/rqx-cli`.
 
-Rules are a declarative table, and [CONTRIBUTING.md](CONTRIBUTING.md) walks through
-adding one — the compiler names most of the steps, and a rule no fixture can trigger
-does not compile. Precision numbers from a real repository are the review.
+Rules are a declarative table. [CONTRIBUTING.md](CONTRIBUTING.md) walks through adding
+one. The compiler reports most of the steps, and a rule that no fixture can trigger
+does not compile. Precision numbers from a real repository are part of the review.
 
 [Code of conduct](CODE_OF_CONDUCT.md) ·
 [Security](SECURITY.md) ·
@@ -997,7 +1030,7 @@ does not compile. Precision numbers from a real repository are the review.
 
 ## Performance
 
-Measured on an M3 Pro — five performance cores, six efficiency cores — with the
+Measured on an M3 Pro (five performance cores, six efficiency cores) with the
 cache off for the cold numbers:
 
 | | Files | Code lines | Cold | Warm |
@@ -1006,26 +1039,24 @@ cache off for the cold numbers:
 | Five languages in one tree | 4,440 | 178,344 | **1.6s** | **0.67s** |
 
 Warm is the same answer from `.rqx/cache.bin` for every file whose contents have not
-moved; the cross-file stage — the import graph, the clone index, the churn rules —
+moved. The cross-file stage (the import graph, the clone index and the churn rules)
 runs again either way, because a deleted import changes what the graph says about
 files nobody touched.
 
 The walk scales with the cores it is given. On the TypeScript codebase: one thread
-24.3s, two 12.3s, four 6.4s, eight 3.8s, all eleven 3.3s — **7.3× on 5+6**, which is
-close to what that mix of cores can give.
+24.3s, two 12.3s, four 6.4s, eight 3.8s, all eleven 3.3s, which is **7.3× on 5+6**.
 
-**Output is byte-identical whatever the thread count**, so a CI gate is never flaky;
-a test asserts it. Memory is a function of thread count rather than file count, so a
-large repository does not need a large machine.
+Output is byte-identical for any thread count, and a test asserts it, so the thread
+count does not affect a CI gate. Memory use depends on the thread count rather than
+the file count.
 
-Roughly 90% of a cold scan is the per-file parse and walk. The stages after it —
-duplicates, the import graph, git history, co-change — are together about 200ms of
-the 3.2s above, which is why the cache pays: it skips the first part and keeps the
-second.
+Roughly 90% of a cold scan is the per-file parse and walk. The stages after it
+(duplicates, the import graph, git history and co-change) together take about 200ms of
+the 3.2s above, so the cache skips the larger part and keeps the smaller one.
 
 ## References
 
-Every rule names a metric and a refactoring, and neither is invented here. The
+Every rule names a metric and a refactoring that come from an established source. The
 catalogues rqx is traceable to, and what it takes from each:
 
 | Source | What rqx takes from it |
@@ -1038,14 +1069,13 @@ catalogues rqx is traceable to, and what it takes from each:
 | Adam Tornhill, *Your Code as a Crime Scene* (Pragmatic Bookshelf, 2015) | Reading git history as a signal — churn, hotspots, co-change and single-author files, and weighting a finding by what its file costs to change. |
 
 A handful of techniques have no entry in those catalogues because they answer
-something the books predate — `Extract Shared Module`, `Invert Dependency`,
-`Batch the Work`, `Memoize`. Those are rqx's own names, and `rqx techniques` marks
-no distinction: what matters at the point of a finding is that the fix has a name
-and the name means one thing.
+something the books predate: `Extract Shared Module`, `Invert Dependency`,
+`Batch the Work` and `Memoize`. Those are rqx's own names, and `rqx techniques` does
+not distinguish them.
 
 The rules that read the import graph, the module surface and the syntax tree are
 built on [tree-sitter](https://tree-sitter.github.io/tree-sitter/), one grammar per
-language, which is why a rule written once works in five.
+language, which is why a rule written once works in all six languages.
 
 ## License
 

@@ -1,11 +1,11 @@
 # Complexity
 
-Every rule with a threshold reports what crosses it and nothing else. That answers
-*what is too complex* and never *compared to what* — so a threshold of 15 could be
-flagging a third of your codebase or four functions in it, and the report looks the
-same either way.
+A rule with a threshold reports only the findings that exceed it. The report does not
+show how the rest of the codebase measures against that threshold, so the same
+threshold of 15 can flag a third of a codebase or four functions, and the output looks
+the same in both cases.
 
-`rqx complexity` shows the measurements themselves.
+`rqx complexity` prints the measurements themselves.
 
 ```sh
 rqx complexity --top 8
@@ -22,10 +22,11 @@ rqx complexity --top 8
     p50 0 · p90 2 · p99 9 · 137 of 37410 over the threshold of 15
 ```
 
-That last line is the point. Half the functions score zero, ninety per cent score two
-or less, and 137 of 37,410 are over the line — so the threshold is doing what it
-should. A p90 above your threshold means the opposite: the rule is describing normal
-code for this project, and either the code or the number needs to change.
+The last line summarises the distribution: the 50th, 90th and 99th percentiles, and
+the number of functions over the threshold. In this example the median is 0, 90 per
+cent of functions score 2 or less, and 137 of 37,410 functions are over the threshold,
+so the threshold selects a small tail. If p90 is above the threshold, the rule flags
+typical code for the project, and either the code or the threshold needs to change.
 
 ## Asking a different question
 
@@ -36,9 +37,9 @@ rqx complexity --sort params       # wide signatures
 rqx complexity --min 20            # skip everything under 20
 ```
 
-The four measurements are independent. A function can be two hundred statements of
-straight line with a complexity of 3, and that is a different problem from forty
-statements nested five deep.
+The four measurements are independent. A function can have two hundred statements of
+straight-line code and a complexity of 3, which is a different problem from forty
+statements nested five levels deep.
 
 ## By file and by directory
 
@@ -51,9 +52,9 @@ rqx complexity --by dir --top 5
     finql-app/src/features/learning/utils            52     84     4    5  59 functions
 ```
 
-A directory reports the worst of what it holds, not the average. An average hides one
-terrible function behind twenty ordinary ones, which is the opposite of useful when
-you are scanning a list of directories deciding where to look.
+`--by` selects the row type: `function` (the default), `file` or `dir`. A directory row
+reports the worst value it holds, not the average, because an average hides a single
+high-scoring function among many ordinary ones.
 
 ## The shape of it
 
@@ -70,15 +71,15 @@ rqx complexity --histogram --top 0
       51–53   █ 2
 ```
 
-The scale is square-rooted on purpose. Nearly every function in any codebase is
-trivial, so a linear bar makes the first bucket the entire chart and every bucket
-worth looking at a single character.
+The histogram uses a square-root scale. Most functions in a codebase are trivial, and
+on a linear scale the first bucket would take up the whole chart and every other
+bucket would be a single character wide.
 
-`--top 0` drops the table and leaves the distribution.
+`--top 0` omits the table and prints only the distribution.
 
 ## JSON
 
-`--json` gives one object per row — `name`, `at`, `complexity`, `statements`,
-`nesting`, `parameters`, and `functions` for a file or directory row. The numbers are
-the same ones the rules compare against, so a chart built on this and a gate built
-on `cognitive_complexity` cannot disagree.
+`--json` prints one object per row with the fields `name`, `at`, `complexity`,
+`statements`, `nesting` and `parameters`, plus `functions` for a file or directory
+row. The values are the same ones the rules compare against, so a chart built from
+this output and a gate built on `cognitive_complexity` use the same numbers.

@@ -20,7 +20,7 @@ import { spin } from "./cycle-b";
 
 ```
 
-rqx says: break the cycle by moving what they share into a module both can import, or invert the weaker of the two dependencies behind an interface
+Suggested fix: break the cycle by moving what they share into a module both can import, or invert the weaker of the two dependencies behind an interface
 
 ## `layer-violation`
 
@@ -64,7 +64,7 @@ export function ship(order: { customer: { address: { city: string } } }) {
 }
 ```
 
-rqx says: ask the nearest object for what you need and let it do the reaching
+Suggested fix: ask the nearest object for what you need and let it do the reaching
 
 ## `feature-envy`
 
@@ -86,7 +86,7 @@ From `fixtures/typescript/reconcile.ts`, line 7:
     let settled = 0;
 ```
 
-rqx says: move `reconcileBatch` onto `row`, where the data it wants already lives
+Suggested fix: move `reconcileBatch` onto `row`, where the data it wants already lives
 
 ## `middle-man`
 
@@ -107,7 +107,7 @@ export class ReportFactory {
   private rows: string[] = [];
 ```
 
-rqx says: let callers talk to the delegate directly and delete the pass-throughs in `ReportFactory`
+Suggested fix: let callers talk to the delegate directly and delete the pass-throughs in `ReportFactory`
 
 ## `inappropriate-intimacy`
 
@@ -128,7 +128,7 @@ From `fixtures/typescript/intimacy.ts`, line 5:
   }
 ```
 
-rqx says: move what they share into one of them, or behind an interface both use
+Suggested fix: move what they share into one of them, or behind an interface both use
 
 ## `global-accessor`
 
@@ -149,7 +149,7 @@ export function tabsOpen(): number {
   return openTabs;
 ```
 
-rqx says: hand the value to whoever needs it, so a caller can decide what it is
+Suggested fix: hand the value to whoever needs it, so a caller can decide what it is
 
 ## `many-collaborators`
 
@@ -179,7 +179,7 @@ export class DarkKit extends Kit {
 
 ```
 
-rqx says: give one of them the work that needs the rest
+Suggested fix: give one of them the work that needs the rest
 
 ## `deep-relative-import`
 
@@ -203,7 +203,7 @@ import type { Far } from "../../../shared/far";
 import { spinAgain } from "./cycle-a";
 ```
 
-rqx says: move what `../../../shared/far` reaches for somewhere both ends can import, or turn the path into one the project resolves by name
+Suggested fix: move what `../../../shared/far` reaches for somewhere both ends can import, or turn the path into one the project resolves by name
 
 ## `mutable-module-state`
 
@@ -224,7 +224,7 @@ export let openSessions = 0;
 
 ```
 
-rqx says: fix it at its declaration, or give it an owner that decides who writes it
+Suggested fix: fix it at its declaration, or give it an owner that decides who writes it
 
 ## `ambient-dependency`
 
@@ -245,7 +245,7 @@ From `fixtures/typescript/flow.ts`, line 102:
         }, 1);
 ```
 
-rqx says: take it as an argument, so a test can hand it whatever it needs
+Suggested fix: take it as an argument, so a test can hand it whatever it needs
 
 ## `self-built-collaborators`
 
@@ -267,7 +267,7 @@ From `fixtures/typescript/intimacy.ts`, line 37:
   }
 ```
 
-rqx says: accept it as an argument, so a caller can decide what it is
+Suggested fix: accept it as an argument, so a caller can decide what it is
 
 ## `import-time-work`
 
@@ -291,7 +291,7 @@ warmTheCache();
 
 ```
 
-rqx says: put it behind a function the caller chooses to call
+Suggested fix: put it behind a function the caller chooses to call
 
 ## `reaches-into-private`
 
@@ -303,7 +303,7 @@ the other type is free to change it and has said so, so this line breaks on a ch
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
 | Fix | Encapsulate Delegation / Move Method |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 | Not in Go | the package boundary is the language's, and the compiler holds it |
 | Not in Java | the compiler refuses it |
 | Not in C++ | the compiler refuses it |
@@ -316,7 +316,7 @@ From `fixtures/typescript/intimacy.ts`, line 43:
   }
 ```
 
-rqx says: ask the other type for what this line wanted, and let it decide how
+Suggested fix: ask the other type for what this line wanted, and let it decide how
 
 ## `wildcard-import`
 
@@ -336,7 +336,7 @@ import * as everything from "./cycle-b";
 import { neverRead } from "./cycle-c";
 ```
 
-rqx says: name the handful of things this file actually uses
+Suggested fix: name the handful of things this file actually uses
 
 ## `wide-fan-out`
 
@@ -357,7 +357,7 @@ export { add, describe } from "./clean";
 export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
 ```
 
-rqx says: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated
+Suggested fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated
 
 ## `wide-fan-in`
 
@@ -378,5 +378,5 @@ export function add(first: number, second: number): number {
   return first + second;
 ```
 
-rqx says: split it along the seams its importers actually use, so a change reaches only the ones that asked for it
+Suggested fix: split it along the seams its importers actually use, so a change reaches only the ones that asked for it
 

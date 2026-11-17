@@ -1,6 +1,6 @@
-## What broke, and what this does about it
+## Problem and change
 
-<!-- Two or three sentences. The commit messages carry the detail. -->
+<!-- Two or three sentences: what was wrong and what this pull request changes. The commit messages hold the detail. -->
 
 ## Checks
 
@@ -8,5 +8,6 @@
 - [ ] `cargo clippy --workspace --all-targets`
 - [ ] `cargo fmt --all -- --check`
 
-<!-- Adding a rule? `rqx docs` regenerates the reference, and a test fails if you
-     forget. Precision on a real repository belongs in this description. -->
+<!-- Adding a rule: run `rqx docs` to regenerate the reference. A test fails if the
+     reference is out of date. Include the rule's precision on a real repository in
+     this description. -->

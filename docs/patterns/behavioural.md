@@ -37,7 +37,7 @@ export function route(request: Request) {
   return "denied";
 ```
 
-rqx says: give each test and its body a handler that either answers or passes the request on, so adding a 4 case is one new handler rather than an edit in the middle of the chain
+Suggested fix: give each test and its body a handler that either answers or passes the request on, so adding a 4 case is one new handler rather than an edit in the middle of the chain
 
 ## Command
 
@@ -75,7 +75,7 @@ export function apply(action: Action) {
   return 0;
 ```
 
-rqx says: give each case an object with the call it already makes, and look it up by `action.kind` instead of branching on it
+Suggested fix: give each case an object with the call it already makes, and look it up by `action.kind` instead of branching on it
 
 ## Interpreter
 
@@ -96,7 +96,7 @@ each rule of the grammar is a class that knows how to evaluate itself, so the tr
 | Decided by | three or more subclasses of one base that each answer the same evaluating method |
 | Confidence | low confidence |
 | Reads | the import graph across every file |
-| Default | off; name it under `[patterns] enabled` |
+| Default | off; name it under `patterns.enabled` |
 | Not in Go | the language has no inheritance, so a grammar has no base to hang its rules from |
 
 From `fixtures/typescript/families.ts`, line 107:
@@ -107,7 +107,7 @@ export abstract class Expression {
   abstract eval(): number;
 ```
 
-rqx says: `Expression` is the seam the family varies behind
+Suggested fix: `Expression` is the seam the family varies behind
 
 ## Iterator
 
@@ -139,7 +139,7 @@ export class Pages {
   private readonly pages: string[] = [];
 ```
 
-rqx says: callers walk `Pages` with the language's own loop and never learn how it stores what it holds
+Suggested fix: callers walk `Pages` with the language's own loop and never learn how it stores what it holds
 
 ## Mediator
 
@@ -169,7 +169,7 @@ import { spin } from "./cycle-b";
 
 ```
 
-rqx says: give the group one place that knows how its members talk, so each of the 3 only has to know that one
+Suggested fix: give the group one place that knows how its members talk, so each of the 3 only has to know that one
 
 ## Memento
 
@@ -190,7 +190,7 @@ state is captured and put back without the caller learning what is in it, so the
 | Decided by | a method that hands out a snapshot type paired with one that takes the same type back |
 | Confidence | low confidence |
 | Reads | resolved scopes and symbols |
-| Default | off; name it under `[patterns] enabled` |
+| Default | off; name it under `patterns.enabled` |
 | Not in JavaScript | a method declares no return type, so nothing says it hands back itself or a copy |
 
 From `fixtures/typescript/patterns.ts`, line 247:
@@ -201,7 +201,7 @@ export class Editor {
   private text = "";
 ```
 
-rqx says: `Editor` puts its own state back without exposing it
+Suggested fix: `Editor` puts its own state back without exposing it
 
 ## Observer
 
@@ -232,7 +232,7 @@ export class Feed {
   private readonly listeners: Array<(value: number) => void> = [];
 ```
 
-rqx says: `Feed` tells its dependants without knowing them
+Suggested fix: `Feed` tells its dependants without knowing them
 
 ### `observer-without-removal`
 
@@ -255,7 +255,7 @@ export class Ticker {
   private readonly handlers: Array<() => void> = [];
 ```
 
-rqx says: give `Ticker` a way to unsubscribe, or every listener it takes lives as long as it does
+Suggested fix: give `Ticker` a way to unsubscribe, or every listener it takes lives as long as it does
 
 ## State
 
@@ -294,7 +294,7 @@ From `fixtures/typescript/patterns.ts`, line 5:
   }
 ```
 
-rqx says: give `this.state` a type per state and let each one return the next, so a transition is a return value rather than an assignment in 3 places
+Suggested fix: give `this.state` a type per state and let each one return the next, so a transition is a return value rather than an assignment in 3 places
 
 ## Strategy
 
@@ -333,7 +333,7 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-rqx says: give `kind` a type per case behind one interface, so adding a case is one new class rather than 5 edits
+Suggested fix: give `kind` a type per case behind one interface, so adding a case is one new class rather than 5 edits
 
 ## Template Method
 
@@ -365,7 +365,7 @@ export abstract class Importer {
   abstract read(): string;
 ```
 
-rqx says: a subclass of `Importer` fills in the steps and cannot change their order
+Suggested fix: a subclass of `Importer` fills in the steps and cannot change their order
 
 ## Visitor
 
@@ -395,5 +395,5 @@ export class Printer {
   visitLiteral(node: Literal) {
 ```
 
-rqx says: `Printer` is the seam the family varies behind
+Suggested fix: `Printer` is the seam the family varies behind
 

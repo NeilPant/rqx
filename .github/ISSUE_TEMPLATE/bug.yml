@@ -1,19 +1,19 @@
 name: Bug
-description: Something crashed, hung, or answered wrongly
+description: rqx crashed, hung, or returned a wrong result
 labels: ["bug"]
 body:
   - type: textarea
     id: what
     attributes:
       label: What happened
-      description: The command you ran and what it did.
+      description: The command that was run and what it did.
       render: shell
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: What you expected instead
+      label: Expected behavior
     validations:
       required: true
   - type: input

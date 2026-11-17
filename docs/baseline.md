@@ -1,17 +1,16 @@
 # Baseline
 
-A ten-year-old service has four thousand findings. Turn the gate on and it fails on
-the first pull request, so it gets turned off on the second. A baseline is how you
-gate on a codebase that already has debt: record what is there today, and let the
-gate judge only what a change adds.
+A baseline records the findings a project has today so that the gate evaluates only
+the findings a change adds. It allows a project with existing findings to enable the
+gate without failing on all of them.
 
 ```sh
 rqx baseline
 ```
 
-That scans the project and writes `.rqx/baseline.json` — one entry per finding,
-sorted, keyed by an identity that survives the finding moving down the file. Commit
-it. Then point the gate at it:
+The command scans the project and writes `.rqx/baseline.json`. The file has one entry
+per finding, sorted, and each entry is keyed by an identity that does not change when
+the finding moves to a different line. Commit the file, then point the gate at it:
 
 ```yaml
 gate:
@@ -19,7 +18,7 @@ gate:
   baseline: .rqx/baseline.json
 ```
 
-Now `rqx check` and a gated `rqx scan` count only findings the baseline does not
+`rqx check` and a gated `rqx scan` then count only findings that the baseline does not
 already hold:
 
 ```
@@ -27,30 +26,31 @@ already hold:
   Baseline  7 findings known · 1 new
 ```
 
-The eight warnings are still reported, still shown in the editor, still in the JSON.
-Seven of them are debt the baseline recorded; one arrived with this change, and that
-one is what fails the build.
+All eight warnings are still reported, shown in the editor and included in the JSON
+output. Seven are recorded in the baseline. The eighth is new, and it is the only one
+that counts against the gate.
 
 ## What a baseline does not change
 
-`min_health` and `min_grade` still see every finding. The health score is a
-statement about the code, not about which debt has been agreed to — a project that
-baselines four thousand findings still scores what four thousand findings deserve.
-Only `fail_on` and `max_findings` respect the baseline.
+`min_health` and `min_grade` evaluate every finding, including baselined ones. The
+health score describes the code as it is, so recording findings in a baseline does not
+raise it. Only `fail_on` and `max_findings` respect the baseline.
 
 ## Keeping it honest
 
-A baseline that only ever grows is a permanent exemption. Two things stop that.
+A baseline that is only ever regenerated with more findings works as a permanent
+exemption. Two mechanisms limit this.
 
-`rqx baseline --update` refuses to record more findings than the last one held:
+`rqx baseline --update` refuses to record more findings than the previous baseline
+held:
 
 ```
 Error: this would record 412 findings against the 408 already recorded.
 Fix them, or pass --force to accept the larger set.
 ```
 
-And the ratchet fails the gate when the total grows at all, whether or not the new
-findings are in files anybody reviewed:
+The ratchet fails the gate whenever the total number of findings exceeds the number
+the baseline recorded. It applies regardless of which files the new findings are in:
 
 ```yaml
 gate:
@@ -62,25 +62,26 @@ gate:
   10 findings against the 6 the baseline recorded; remove 4 or run `rqx baseline --update`
 ```
 
-Run `rqx baseline --update` on the default branch after a cleanup and commit the
-smaller file. The number only goes down.
+After a cleanup, run `rqx baseline --update` on the default branch and commit the
+smaller file. Without `--force`, the recorded total cannot increase.
 
 ## Identity
 
-An entry is keyed on the rule, the file, and what the finding is about — the name of
-the function, the binding, the import. Never the line, and never the measured value.
-So a finding survives the code above it growing, and survives its own complexity
-dropping from 25 to 22. It does not survive the file being renamed or the function
-being renamed, which both read as one finding resolved and one introduced.
+An entry is keyed on the rule, the file, and the subject of the finding, such as the
+name of the function, the binding or the import. The line number and the measured
+value are not part of the key. A finding therefore keeps its identity when code above
+it changes length, and when its measured value changes (for example, complexity
+dropping from 25 to 22). Renaming the file or the function changes the identity, so
+the finding counts as one resolved finding and one new finding.
 
-The identity is FNV-1a, written out rather than taken from the standard library's
-hasher, because the number is committed to your repository and has to mean the same
-thing on the next toolchain.
+The identity is an FNV-1a hash. rqx implements it directly instead of using the
+standard library's hasher, because the value is stored in a committed file and must be
+the same across toolchain versions.
 
 ## Interaction with waivers
 
-A waiver and a baseline answer different questions. A waiver says *this finding is
-wrong or acceptable, and here is why* — see [suppressions](suppressions.md). A
-baseline says *this finding is real and we have not got to it yet*. Waived findings
-never reach the count at all; baselined ones are counted, reported, and excluded
-only from the gate.
+A waiver and a baseline entry have different meanings. A waiver records that a finding
+is incorrect or acceptable, together with the reason (see
+[suppressions](suppressions.md)). A baseline entry records that a finding is valid and
+has not been fixed yet. Waived findings are not counted at all. Baselined findings are
+counted and reported, and are excluded only from the gate.

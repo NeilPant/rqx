@@ -1,8 +1,8 @@
 # Presets
 
 A preset is a named set of settings a config can build on. Name one under `extends`
-and it is merged under the file's own keys, so it moves the defaults and never
-overrides a value you wrote.
+and it is merged beneath the file's own keys. A preset changes the defaults and does
+not override a value written in the file.
 
 ```yaml
 # rqx.yaml
@@ -21,14 +21,14 @@ file: rqx suggests the closest preset and lists the rest.
 
 | Preset | What it sets |
 |---|---|
-| `recommended` | Nothing. It is the defaults rqx ships, named so a file can say so. |
+| `recommended` | Nothing. It is the defaults rqx ships, named so that a file can state them explicitly. |
 | `strict` | The strict level: thresholds close to what a well-factored module already meets, four naming rules on, and a gate that fails on a warning. |
-| `legacy-adoption` | The relaxed level's thresholds and rules, a gate that fails only on errors, and the ratchet on. Pair it with `rqx baseline` and `gate.baseline`; until a baseline exists the ratchet does nothing, so extending it never fails a run on its own. |
-| `ci-gate` | A gate for a pipeline: no errors, a health score of at least 70, and no single file graded `critical`. Thresholds stay at their defaults, so it changes what fails the build and not what is reported. |
+| `legacy-adoption` | The relaxed level's thresholds and rules, a gate that fails only on errors, and the ratchet on. Use it with `rqx baseline` and `gate.baseline`. The ratchet has no effect until a baseline exists, so extending the preset does not fail a run by itself. |
+| `ci-gate` | A gate for a pipeline: no errors, a health score of at least 70, and no single file graded `critical`. Thresholds stay at their defaults, so the preset changes what fails the build and leaves what is reported unchanged. |
 | `perf` | Every performance rule is reported as an error, so the default gate fails on one, and nested loops and nested callbacks are reported one level earlier than the defaults allow. |
 
-The level names `relaxed`, `standard` and `pristine` also work under `extends`, since
-`strict` already does. `rqx levels` prints what each one changes.
+The level names `relaxed`, `standard` and `pristine` can also be used under
+`extends`, as `strict` can. `rqx levels` prints what each one changes.
 
 ## Precedence
 
@@ -42,13 +42,14 @@ From lowest to highest:
 6. `--config`
 7. command-line flags
 
-Everything a file extends goes under every file rqx reads, not just under the file
-that named it. A preset therefore cannot override a policy, and it cannot move a key
+Everything a file extends is applied beneath every file rqx reads, not only beneath
+the file that named it. A preset therefore cannot override a policy or change a key
 the policy locks. A subtree's `overrides` are applied last, to the files they match.
 
 ## Seeing where a value came from
 
-`rqx config` lists the presets a run was built on and puts the source of each value in
-the `from` column, as `preset:ci-gate`, as `base.yaml (extends)` for a file pulled in
-by path, or as the name of the file that wrote it. `rqx config set` never writes to a
-preset or to an extended file; with no `--file` it writes to the nearest project config.
+`rqx config` lists the presets a run was built on and shows the source of each value
+in the `from` column: `preset:ci-gate`, `base.yaml (extends)` for a file included by
+path, or the name of the file that set the value. `rqx config set` does not write to
+a preset or to an extended file. Without `--file`, it writes to the nearest project
+configuration.

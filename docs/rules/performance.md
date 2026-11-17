@@ -21,7 +21,7 @@ From `fixtures/typescript/flow.ts`, line 186:
   }
 ```
 
-rqx says: collect the pieces and join them once
+Suggested fix: collect the pieces and join them once
 
 ## `sequential-await`
 
@@ -45,7 +45,7 @@ From `fixtures/typescript/performance.ts`, line 93:
   return first + second;
 ```
 
-rqx says: start both and wait for the pair
+Suggested fix: start both and wait for the pair
 
 ## `scan-in-loop`
 
@@ -66,7 +66,7 @@ From `fixtures/typescript/performance.ts`, line 9:
       kept.push(row);
 ```
 
-rqx says: build a set or a map of what the scan looks for once, above the loop
+Suggested fix: build a set or a map of what the scan looks for once, above the loop
 
 ## `deep-loop-nesting`
 
@@ -88,7 +88,7 @@ export function sumCube(grid: number[][][]): number {
   let total = 0;
 ```
 
-rqx says: index what the inner loops search, so `sumCube` walks the data once instead of once per pass
+Suggested fix: index what the inner loops search, so `sumCube` walks the data once instead of once per pass
 
 ## `query-in-loop`
 
@@ -109,7 +109,7 @@ From `fixtures/typescript/performance.ts`, line 31:
   }
 ```
 
-rqx says: gather the keys first and ask for all of them in one call
+Suggested fix: gather the keys first and ask for all of them in one call
 
 ## `await-in-loop`
 
@@ -132,7 +132,7 @@ From `fixtures/typescript/performance.ts`, line 39:
   }
 ```
 
-rqx says: start every call before waiting on any of them
+Suggested fix: start every call before waiting on any of them
 
 ## `invariant-in-loop`
 
@@ -153,7 +153,7 @@ From `fixtures/typescript/performance.ts`, line 47:
     hits += digits.test(line) ? 1 : 0;
 ```
 
-rqx says: compile it once above the loop and reuse it
+Suggested fix: compile it once above the loop and reuse it
 
 ## `accumulate-by-copy`
 
@@ -174,7 +174,7 @@ From `fixtures/typescript/flow.ts`, line 186:
   }
 ```
 
-rqx says: add to the accumulator in place instead of rebuilding it
+Suggested fix: add to the accumulator in place instead of rebuilding it
 
 ## `branching-recursion`
 
@@ -195,7 +195,7 @@ export function fibonacci(step: number): number {
   if (step < 2) {
 ```
 
-rqx says: keep what `fibonacci` has already answered, or rewrite it as a loop over a table
+Suggested fix: keep what `fibonacci` has already answered, or rewrite it as a loop over a table
 
 ## `blocking-call-in-async`
 
@@ -219,5 +219,5 @@ export async function settingsOf(path: string): Promise<string> {
 }
 ```
 
-rqx says: call the asynchronous form of `readFileSync`, or move the work off this thread
+Suggested fix: call the asynchronous form of `readFileSync`, or move the work off this thread
 

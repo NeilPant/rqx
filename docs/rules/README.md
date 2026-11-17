@@ -1,6 +1,6 @@
 # The rule catalogue
 
-Every rule rqx can report, what it measures, and the named refactoring that answers it. Each one names the metric that decides it, because a finding that cannot say where it comes from is an opinion.
+Every rule rqx can report, what it measures, and the named refactoring that answers it. Each rule declares the metric that decides it.
 
 `rqx explain <rule>` prints any of these at the terminal. [Configuration](../configuration.md) covers the file that turns them on and off.
 
@@ -18,7 +18,7 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 | [Noise](noise.md) | 9 | `comment-per-line` `explanation-longer-than-code` `docstring-restates-signature` `over-logging` `banner-comment` `chat-residue` `apology-comment` `emoji-in-source` `example-value` |
 | [Performance](performance.md) | 10 | `loop-concatenation` `sequential-await` `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` |
 
-185 rules in total. 21 ship **off by default** because their signal is real but noisy; name one under `[rules] enabled` to turn it on:
+185 rules in total. 21 ship **off by default** because their signal is real but noisy; name one under `rules.enabled` to turn it on:
 
 - `primitive-obsession`
 - `divergent-change`

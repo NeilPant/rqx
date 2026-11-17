@@ -29,7 +29,7 @@ export function asksTwice(kind: string): number {
 }
 ```
 
-rqx says: extract the shared block into one function and call it from all 2 sites
+Suggested fix: extract the shared block into one function and call it from all 2 sites
 
 ## `unused-export`
 
@@ -50,7 +50,7 @@ export function neverImported(value: number) {
   return value * 2;
 ```
 
-rqx says: delete `neverImported`, or add its module to `entrypoints` if something outside the project imports it
+Suggested fix: delete `neverImported`, or add its module to `entrypoints` if something outside the project imports it
 
 ## `unused-file`
 
@@ -70,7 +70,7 @@ export function noOneImportsThisFile() {
   return "dead";
 ```
 
-rqx says: delete the file, or add it to `entrypoints` if it is reached from outside the project
+Suggested fix: delete the file, or add it to `entrypoints` if it is reached from outside the project
 
 ## `unused-parameter`
 
@@ -92,7 +92,7 @@ export class Printer {
     return "1";
 ```
 
-rqx says: drop `node` from `visitLiteral` and from its call sites
+Suggested fix: drop `node` from `visitLiteral` and from its call sites
 
 ## `unused-local`
 
@@ -114,7 +114,7 @@ export function pricing(cart: number[], applyDiscount: boolean): number {
   let total = cart.reduce((a, b) => a + b, 0);
 ```
 
-rqx says: delete `neverRead`, or use it if the work computing it still matters
+Suggested fix: delete `neverRead`, or use it if the work computing it still matters
 
 ## `unused-private-member`
 
@@ -137,7 +137,7 @@ export class Settings {
   private constructor() {}
 ```
 
-rqx says: delete `instance`; nothing inside `Settings` can reach it
+Suggested fix: delete `instance`; nothing inside `Settings` can reach it
 
 ## `unreachable-code`
 
@@ -159,7 +159,7 @@ From `fixtures/typescript/hygiene.ts`, line 30:
 }
 ```
 
-rqx says: delete it, or move it above the exit if it was meant to run
+Suggested fix: delete it, or move it above the exit if it was meant to run
 
 ## `commented-out-code`
 
@@ -183,7 +183,7 @@ From `fixtures/typescript/hygiene.ts`, line 11:
 
 ```
 
-rqx says: delete it; git already has it, and a comment cannot say why it is still here
+Suggested fix: delete it; git already has it, and a comment cannot say why it is still here
 
 ## `lazy-class`
 
@@ -204,7 +204,7 @@ export class Marker { label = "x"; }
 export class Facade {
 ```
 
-rqx says: fold `Marker` into its only caller until it earns its own file
+Suggested fix: fold `Marker` into its only caller until it earns its own file
 
 ## `data-class`
 
@@ -225,7 +225,7 @@ export class Coordinate { x = 0; y = 0; get pair() { return [this.x, this.y]; } 
 export class Marker { label = "x"; }
 ```
 
-rqx says: move the logic that operates on `Coordinate`'s fields onto `Coordinate`
+Suggested fix: move the logic that operates on `Coordinate`'s fields onto `Coordinate`
 
 ## `speculative-generality`
 
@@ -247,7 +247,7 @@ export abstract class Settled {
   run(): number {
 ```
 
-rqx says: inline `Settled` into its single user until a second one arrives
+Suggested fix: inline `Settled` into its single user until a second one arrives
 
 ## `empty-catch`
 
@@ -270,7 +270,7 @@ From `fixtures/typescript/hygiene.ts`, line 21:
   return 0;
 ```
 
-rqx says: log it, rethrow it, or write the reason ignoring it is correct
+Suggested fix: log it, rethrow it, or write the reason ignoring it is correct
 
 ## `magic-number`
 
@@ -292,7 +292,7 @@ From `fixtures/typescript/flow.ts`, line 34:
     if (step > scale) {
 ```
 
-rqx says: name `3` once and refer to the name at all 4 sites
+Suggested fix: name `3` once and refer to the name at all 4 sites
 
 ## `mixed-language-file`
 
@@ -313,7 +313,7 @@ export function query(userId: string): string {
 }
 ```
 
-rqx says: move the SQL into its own file, where its own tooling can read it
+Suggested fix: move the SQL into its own file, where its own tooling can read it
 
 ## `distant-declaration`
 
@@ -335,7 +335,7 @@ export function summarise(rows: string[]): string {
   if (rows.length === 0) {
 ```
 
-rqx says: move `separator` down to where it is first used
+Suggested fix: move `separator` down to where it is first used
 
 ## `buried-configuration`
 
@@ -357,7 +357,7 @@ From `fixtures/typescript/config.ts`, line 5:
       }
 ```
 
-rqx says: lift it to a named constant at the top of the module, or into config
+Suggested fix: lift it to a named constant at the top of the module, or into config
 
 ## `journal-comment`
 
@@ -381,7 +381,7 @@ From `fixtures/typescript/precision.ts`, line 1:
 export function widen(input: any): string {
 ```
 
-rqx says: delete it; `git log` and `git blame` answer this and stay correct
+Suggested fix: delete it; `git log` and `git blame` answer this and stay correct
 
 ## `redundant-comment`
 
@@ -403,7 +403,7 @@ From `fixtures/typescript/hygiene.ts`, line 128:
 export function scoreOfUser(userId: number): number {
 ```
 
-rqx says: delete it, or say why `scoreOfUser` exists rather than what it is
+Suggested fix: delete it, or say why `scoreOfUser` exists rather than what it is
 
 ## `cross-language-duplicate`
 
@@ -415,7 +415,7 @@ the same rule is written twice in two languages, so the day it changes it change
 | Reported as | info, low confidence |
 | Reads | the syntax tree alone |
 | Fix | Extract Shared Module |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 ## `return-of-fresh-local`
 
@@ -436,7 +436,7 @@ export function freshTotal(rows: number[]): number {
   return total;
 ```
 
-rqx says: return the expression, or keep the name because it says something the expression does not
+Suggested fix: return the expression, or keep the name because it says something the expression does not
 
 ## `empty-method`
 
@@ -457,7 +457,7 @@ From `fixtures/typescript/bloat.ts`, line 21:
 }
 ```
 
-rqx says: give it a body, delete it, or make it explicit that doing nothing is the answer here
+Suggested fix: give it a body, delete it, or make it explicit that doing nothing is the answer here
 
 ## `barrel-module`
 
@@ -481,7 +481,7 @@ export { add, describe } from "./clean";
 export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
 ```
 
-rqx says: let the callers name the file they mean
+Suggested fix: let the callers name the file they mean
 
 ## `passthrough-override`
 
@@ -504,7 +504,7 @@ export class QuietFeeder extends Feeder {
     return super.feed();
 ```
 
-rqx says: delete it, and let the inherited one answer
+Suggested fix: delete it, and let the inherited one answer
 
 ## `duplicate-function`
 
@@ -529,7 +529,7 @@ export function secondWay(rows: number[]): number {
 
 ```
 
-rqx says: keep one and call it from the other, or delete the copy
+Suggested fix: keep one and call it from the other, or delete the copy
 
 ## `dead-store`
 
@@ -550,7 +550,7 @@ export function assigns(a: number, b: number): number {
   if ((found = a + b)) {
 ```
 
-rqx says: delete the write nobody reads, or read it
+Suggested fix: delete the write nobody reads, or read it
 
 ## `never-reassigned`
 
@@ -573,7 +573,7 @@ export function sweep(rows: number[]) {
   const seen: number[] = [];
 ```
 
-rqx says: declare it as fixed, and let the compiler hold it there
+Suggested fix: declare it as fixed, and let the compiler hold it there
 
 ## `discarded-expression`
 
@@ -596,7 +596,7 @@ export function dropped(total: number, other: number): number {
   return total;
 ```
 
-rqx says: use the value, or delete the line
+Suggested fix: use the value, or delete the line
 
 ## `unused-import`
 
@@ -619,7 +619,7 @@ import type { Far } from "../../../shared/far";
 import { spinAgain } from "./cycle-a";
 ```
 
-rqx says: delete it; the module it names is not one this file depends on
+Suggested fix: delete it; the module it names is not one this file depends on
 
 ## `rethrow-only-catch`
 
@@ -643,7 +643,7 @@ From `fixtures/typescript/hygiene.ts`, line 58:
 }
 ```
 
-rqx says: delete the handler and let it propagate, or add what this level knows about the failure
+Suggested fix: delete the handler and let it propagate, or add what this level knows about the failure
 
 ## `placeholder-body`
 
@@ -667,7 +667,7 @@ export function stillToWrite(): number {
 
 ```
 
-rqx says: write it, or delete it until there is a caller that needs it
+Suggested fix: write it, or delete it until there is a caller that needs it
 
 ## `passthrough-function`
 
@@ -690,7 +690,7 @@ export function loops(rows: number[]): number {
 
 ```
 
-rqx says: let the caller call the thing directly, unless this name is the seam
+Suggested fix: let the caller call the thing directly, unless this name is the seam
 
 ## `debug-output`
 
@@ -702,7 +702,7 @@ it was written to be read once by the person debugging, and it is still printing
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Remove Dead Code |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/hygiene.ts`, line 64:
 
@@ -712,7 +712,7 @@ export function traced(): void {
 }
 ```
 
-rqx says: delete it, or route it through whatever this project logs with
+Suggested fix: delete it, or route it through whatever this project logs with
 
 ## `duplicate-import`
 
@@ -733,5 +733,5 @@ import { spinAgain } from "./cycle-a";
 
 ```
 
-rqx says: fold these names into the first `./cycle-a` import
+Suggested fix: fold these names into the first `./cycle-a` import
 

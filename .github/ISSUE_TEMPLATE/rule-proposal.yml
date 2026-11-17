@@ -5,10 +5,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        Every rule has to be decidable from syntax, scope resolution, the import
-        graph or git history — rqx parses, it does not type-check. And every rule
-        names the refactoring that answers it. If you can fill in both boxes below,
-        it probably fits.
+        A rule has to be decidable from syntax, scope resolution, the import graph or
+        git history. rqx parses and does not type-check. A rule also names the
+        refactoring that answers it. If both of the first two fields below can be
+        filled in, the proposal probably fits.
   - type: textarea
     id: measures
     attributes:
@@ -19,8 +19,8 @@ body:
   - type: textarea
     id: fix
     attributes:
-      label: What the reader should do about it
-      description: A named refactoring if there is one.
+      label: Refactoring that answers it
+      description: The named refactoring, if there is one.
     validations:
       required: true
   - type: textarea
@@ -30,6 +30,12 @@ body:
       render: text
     validations:
       required: true
+  - type: textarea
+    id: precision
+    attributes:
+      label: Precision evidence
+      description: The repositories or files the rule was tried on, and how many findings were true positives and how many were false positives.
+      placeholder: "Tried on src/ of github.com/org/repo: 14 findings, 12 true positives, 2 false positives"
   - type: input
     id: languages
     attributes:

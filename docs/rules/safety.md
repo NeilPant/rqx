@@ -22,7 +22,7 @@ From `fixtures/typescript/hygiene.ts`, line 89:
     return error ? 0 : 0;
 ```
 
-rqx says: name the shape you actually accept, or `unknown` and narrow it
+Suggested fix: name the shape you actually accept, or `unknown` and narrow it
 
 ## `boundary-arithmetic`
 
@@ -44,7 +44,7 @@ export function window(items: string[], cursor: number): string[] {
   const tail = items[cursor + 1];
 ```
 
-rqx says: name the boundary once, so `cursor` is adjusted in one place
+Suggested fix: name the boundary once, so `cursor` is adjusted in one place
 
 ## `query-with-side-effect`
 
@@ -65,7 +65,7 @@ From `fixtures/typescript/queries.ts`, line 5:
     this.reads += 1;
 ```
 
-rqx says: split `getTotal` into the question and the change, or rename it for what it does
+Suggested fix: split `getTotal` into the question and the change, or rename it for what it does
 
 ## `assignment-in-condition`
 
@@ -88,7 +88,7 @@ From `fixtures/typescript/flow.ts`, line 58:
     return found;
 ```
 
-rqx says: assign above the branch, or compare if that is what was meant
+Suggested fix: assign above the branch, or compare if that is what was meant
 
 ## `closure-over-loop-variable`
 
@@ -112,7 +112,7 @@ From `fixtures/typescript/performance.ts`, line 75:
   }
 ```
 
-rqx says: pass the value in, so each function keeps the one it was made with
+Suggested fix: pass the value in, so each function keeps the one it was made with
 
 ## `mutated-while-iterated`
 
@@ -133,7 +133,7 @@ From `fixtures/typescript/performance.ts`, line 85:
     }
 ```
 
-rqx says: collect what to change, and change it after the walk
+Suggested fix: collect what to change, and change it after the walk
 
 ## `production-assert`
 
@@ -155,7 +155,7 @@ export function guards(value: number): number {
   return value;
 ```
 
-rqx says: raise the failure this is checking for, so it is checked wherever it runs
+Suggested fix: raise the failure this is checking for, so it is checked wherever it runs
 
 ## `sleep-in-production`
 
@@ -176,7 +176,7 @@ export async function paced(): Promise<number> {
   return openTabs;
 ```
 
-rqx says: wait for the thing itself, and give up on it after a time nobody has to guess
+Suggested fix: wait for the thing itself, and give up on it after a time nobody has to guess
 
 ## `shadowed-handler`
 
@@ -201,7 +201,7 @@ From `fixtures/python/hygiene.py`, line 156:
     except ValueError:
 ```
 
-rqx says: put the narrow handler first, so the wide one only takes what is left
+Suggested fix: put the narrow handler first, so the wide one only takes what is left
 
 ## `dropped-promise`
 
@@ -225,7 +225,7 @@ export async function fires(rows: number[]): Promise<number> {
   return rows.length;
 ```
 
-rqx says: wait for it, or say in the code who is going to
+Suggested fix: wait for it, or say in the code who is going to
 
 ## `guard-cascade`
 
@@ -247,7 +247,7 @@ export function manyPaths(kind: string, rows: number[]): number {
   if (kind === "a") return 1;
 ```
 
-rqx says: take a type that cannot be wrong, or check once where the values enter
+Suggested fix: take a type that cannot be wrong, or check once where the values enter
 
 ## `blanket-try`
 
@@ -274,7 +274,7 @@ export function widelyGuarded(seed: number): number {
     return 0;
 ```
 
-rqx says: guard the line that can fail, and let the rest raise
+Suggested fix: guard the line that can fail, and let the rest raise
 
 ## `no-base-case`
 
@@ -295,7 +295,7 @@ export function loops(rows: number[]): number {
   return loops(rows);
 ```
 
-rqx says: give `loops` the case that answers without calling itself
+Suggested fix: give `loops` the case that answers without calling itself
 
 ## `integer-division`
 
@@ -316,7 +316,7 @@ From `fixtures/typescript/hierarchy.ts`, line 44:
 }
 ```
 
-rqx says: say what happens to the remainder, by rounding on purpose or dividing as a fraction
+Suggested fix: say what happens to the remainder, by rounding on purpose or dividing as a fraction
 
 ## `discarded-error`
 
@@ -337,7 +337,7 @@ export function ignored(rows: number[]): number {
   return rows.length;
 ```
 
-rqx says: handle what it answered, or say in the code why there is nothing to do
+Suggested fix: handle what it answered, or say in the code why there is nothing to do
 
 ## `float-equality`
 
@@ -358,7 +358,7 @@ export function settled(balance: number): boolean {
 }
 ```
 
-rqx says: compare the difference against a tolerance the domain decides
+Suggested fix: compare the difference against a tolerance the domain decides
 
 ## `mixed-return`
 
@@ -382,7 +382,7 @@ From `fixtures/typescript/hygiene.ts`, line 69:
   }
 ```
 
-rqx says: answer with the same shape on every path, or split the two answers into two functions
+Suggested fix: answer with the same shape on every path, or split the two answers into two functions
 
 ## `exit-from-finally`
 
@@ -405,7 +405,7 @@ From `fixtures/typescript/hygiene.ts`, line 78:
   }
 ```
 
-rqx says: move it after the block, so what the block was leaving with survives
+Suggested fix: move it after the block, so what the block was leaving with survives
 
 ## `catch-all-handler`
 
@@ -430,7 +430,7 @@ From `fixtures/typescript/hygiene.ts`, line 89:
 }
 ```
 
-rqx says: name the failures this level knows what to do about, and let the rest through
+Suggested fix: name the failures this level knows what to do about, and let the rest through
 
 ## `generic-throw`
 
@@ -452,7 +452,7 @@ export function stillToWrite(): number {
 }
 ```
 
-rqx says: raise a type named for the failure, so a caller can catch this one
+Suggested fix: raise a type named for the failure, so a caller can catch this one
 
 ## `library-exit`
 
@@ -473,7 +473,7 @@ export function stops(code: number): void {
 }
 ```
 
-rqx says: return or raise, and let whatever owns the process decide to stop
+Suggested fix: return or raise, and let whatever owns the process decide to stop
 
 ## `boolean-literal-argument`
 
@@ -494,7 +494,7 @@ export function requests(url: string): string {
 }
 ```
 
-rqx says: name the value at the call site, or give the callee two methods
+Suggested fix: name the value at the call site, or give the callee two methods
 
 ## `unjustified-suppression`
 
@@ -515,7 +515,7 @@ export function unreachable(value: number) {
   const seed = 1;
 ```
 
-rqx says: say why the finding is acceptable here, or fix it
+Suggested fix: say why the finding is acceptable here, or fix it
 
 ## `suppressed-diagnostic`
 
@@ -537,7 +537,7 @@ From `fixtures/typescript/hygiene.ts`, line 33:
 export const suppressed = 1;
 ```
 
-rqx says: fix what the check is reporting, or record why suppressing it is right
+Suggested fix: fix what the check is reporting, or record why suppressing it is right
 
 ## `flag-argument`
 
@@ -558,7 +558,7 @@ export function endpoint(region: string, secure: boolean, retries: number): stri
   if (region.length > 0) {
 ```
 
-rqx says: split into two functions named for what each does, so no call site reads `(…, true)` and leaves `secure` a mystery
+Suggested fix: split into two functions named for what each does, so no call site reads `(…, true)` and leaves `secure` a mystery
 
 ## `output-parameter`
 
@@ -579,7 +579,7 @@ From `fixtures/typescript/flow.ts`, line 112:
     continue;
 ```
 
-rqx says: assign to a local instead of `total`, and return the result
+Suggested fix: assign to a local instead of `total`, and return the result
 
 ## `complex-condition`
 
@@ -601,7 +601,7 @@ From `fixtures/typescript/hygiene.ts`, line 14:
     return total;
 ```
 
-rqx says: name the condition in a variable or a predicate that says what it means
+Suggested fix: name the condition in a variable or a predicate that says what it means
 
 ## `negative-conditional`
 
@@ -613,7 +613,7 @@ the reader has to invert it mentally to follow the else, and inverting a compoun
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Decompose Conditional |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/shapes.ts`, line 51:
 
@@ -623,5 +623,5 @@ export function gate(ready: boolean, retries: number) {
     return 0;
 ```
 
-rqx says: invert the condition and swap the branches so the common case reads first
+Suggested fix: invert the condition and swap the branches so the common case reads first
 
