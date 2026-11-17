@@ -83,6 +83,14 @@ fn requests_of(files: &[Analysed<'_>], units: &[Unit<'_>], root: &Path) -> Resol
     }
     let mut requests = ResolvedRequests::new();
     for (language, modules) in families {
+        // Nothing is followed into a file unless some file of the family calls through an
+        // import, and most scans have no such call in most languages.
+        if !modules
+            .iter()
+            .any(|module| wanted.calls_through_imports(module))
+        {
+            continue;
+        }
         let resolver = (crate::support(language).resolver)(root);
         requests.extend(resolve_requests_where(
             &modules,
@@ -118,6 +126,10 @@ impl<'a> Wanted<'a> {
             }
         }
         Self { called_through }
+    }
+
+    fn calls_through_imports(&self, module: &ModuleEntry) -> bool {
+        self.called_through.contains_key(module.path.as_path())
     }
 
     fn accepts(&self, module: &ModuleEntry, position: usize) -> bool {
