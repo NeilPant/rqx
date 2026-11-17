@@ -10,6 +10,25 @@ permissions:
   security-events: write
 
 jobs:
+  # The binary ships for macOS and Windows as well as Linux, and the scan, the git
+  # history checks and the process handling all differ between them. Tests that only
+  # ever ran on Linux say nothing about the other two.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --workspace --locked
+
   analyze:
     runs-on: ubuntu-latest
     steps:
@@ -21,9 +40,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
-
-      - name: Test
-        run: cargo test --workspace
 
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
