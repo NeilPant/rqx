@@ -10,6 +10,12 @@
 --no-progress
 --no-progress [env RQX_NO_PROGRESS]
 --no-tui
+--progress
+--progress =auto
+--progress =bar
+--progress =none
+--progress =plain
+--progress [env RQX_PROGRESS]
 --version
 -V
 -h
@@ -34,6 +40,12 @@ baseline --no-mouse
 baseline --no-progress
 baseline --no-progress [env RQX_NO_PROGRESS]
 baseline --no-tui
+baseline --progress
+baseline --progress =auto
+baseline --progress =bar
+baseline --progress =none
+baseline --progress =plain
+baseline --progress [env RQX_PROGRESS]
 baseline --threads
 baseline --threads [env RQX_THREADS]
 baseline --update
@@ -52,6 +64,12 @@ cache --no-mouse
 cache --no-progress
 cache --no-progress [env RQX_NO_PROGRESS]
 cache --no-tui
+cache --progress
+cache --progress =auto
+cache --progress =bar
+cache --progress =none
+cache --progress =plain
+cache --progress [env RQX_PROGRESS]
 cache -h
 cache clear
 cache clear --color
@@ -66,6 +84,12 @@ cache clear --no-mouse
 cache clear --no-progress
 cache clear --no-progress [env RQX_NO_PROGRESS]
 cache clear --no-tui
+cache clear --progress
+cache clear --progress =auto
+cache clear --progress =bar
+cache clear --progress =none
+cache clear --progress =plain
+cache clear --progress [env RQX_PROGRESS]
 cache clear -h
 cache clear <path>
 cache help
@@ -86,6 +110,12 @@ cache status --no-mouse
 cache status --no-progress
 cache status --no-progress [env RQX_NO_PROGRESS]
 cache status --no-tui
+cache status --progress
+cache status --progress =auto
+cache status --progress =bar
+cache status --progress =none
+cache status --progress =plain
+cache status --progress [env RQX_PROGRESS]
 cache status -h
 cache status <path>
 check
@@ -151,6 +181,12 @@ check --not-category
 check --not-path
 check --not-rule
 check --path
+check --progress
+check --progress =auto
+check --progress =bar
+check --progress =none
+check --progress =plain
+check --progress [env RQX_PROGRESS]
 check --quiet
 check --reporter
 check --rule
@@ -209,6 +245,12 @@ comment --no-progress
 comment --no-progress [env RQX_NO_PROGRESS]
 comment --no-status
 comment --no-tui
+comment --progress
+comment --progress =auto
+comment --progress =bar
+comment --progress =none
+comment --progress =plain
+comment --progress [env RQX_PROGRESS]
 comment --threads
 comment --threads [env RQX_THREADS]
 comment -h
@@ -226,6 +268,12 @@ completions --no-mouse
 completions --no-progress
 completions --no-progress [env RQX_NO_PROGRESS]
 completions --no-tui
+completions --progress
+completions --progress =auto
+completions --progress =bar
+completions --progress =none
+completions --progress =plain
+completions --progress [env RQX_PROGRESS]
 completions -h
 completions <shell>
 complexity
@@ -251,6 +299,12 @@ complexity --no-mouse
 complexity --no-progress
 complexity --no-progress [env RQX_NO_PROGRESS]
 complexity --no-tui
+complexity --progress
+complexity --progress =auto
+complexity --progress =bar
+complexity --progress =none
+complexity --progress =plain
+complexity --progress [env RQX_PROGRESS]
 complexity --sort
 complexity --sort =complexity
 complexity --sort =nesting
@@ -278,6 +332,12 @@ config --no-mouse
 config --no-progress
 config --no-progress [env RQX_NO_PROGRESS]
 config --no-tui
+config --progress
+config --progress =auto
+config --progress =bar
+config --progress =none
+config --progress =plain
+config --progress [env RQX_PROGRESS]
 config -h
 config <path>
 config explain
@@ -293,6 +353,12 @@ config explain --no-mouse
 config explain --no-progress
 config explain --no-progress [env RQX_NO_PROGRESS]
 config explain --no-tui
+config explain --progress
+config explain --progress =auto
+config explain --progress =bar
+config explain --progress =none
+config explain --progress =plain
+config explain --progress [env RQX_PROGRESS]
 config explain -h
 config explain <key>
 config files
@@ -308,6 +374,12 @@ config files --no-mouse
 config files --no-progress
 config files --no-progress [env RQX_NO_PROGRESS]
 config files --no-tui
+config files --progress
+config files --progress =auto
+config files --progress =bar
+config files --progress =none
+config files --progress =plain
+config files --progress [env RQX_PROGRESS]
 config files -h
 config help
 config help explain
@@ -332,6 +404,12 @@ config migrate --no-mouse
 config migrate --no-progress
 config migrate --no-progress [env RQX_NO_PROGRESS]
 config migrate --no-tui
+config migrate --progress
+config migrate --progress =auto
+config migrate --progress =bar
+config migrate --progress =none
+config migrate --progress =plain
+config migrate --progress [env RQX_PROGRESS]
 config migrate -h
 config migrate <path>
 config schema
@@ -347,6 +425,12 @@ config schema --no-mouse
 config schema --no-progress
 config schema --no-progress [env RQX_NO_PROGRESS]
 config schema --no-tui
+config schema --progress
+config schema --progress =auto
+config schema --progress =bar
+config schema --progress =none
+config schema --progress =plain
+config schema --progress [env RQX_PROGRESS]
 config schema -h
 config set
 config set --color
@@ -363,6 +447,12 @@ config set --no-progress
 config set --no-progress [env RQX_NO_PROGRESS]
 config set --no-tui
 config set --pick
+config set --progress
+config set --progress =auto
+config set --progress =bar
+config set --progress =none
+config set --progress =plain
+config set --progress [env RQX_PROGRESS]
 config set -h
 config set <key>
 config set <value>
@@ -381,6 +471,12 @@ config unset --no-progress
 config unset --no-progress [env RQX_NO_PROGRESS]
 config unset --no-tui
 config unset --pick
+config unset --progress
+config unset --progress =auto
+config unset --progress =bar
+config unset --progress =none
+config unset --progress =plain
+config unset --progress [env RQX_PROGRESS]
 config unset -h
 config unset <key>
 config validate
@@ -400,6 +496,12 @@ config validate --no-mouse
 config validate --no-progress
 config validate --no-progress [env RQX_NO_PROGRESS]
 config validate --no-tui
+config validate --progress
+config validate --progress =auto
+config validate --progress =bar
+config validate --progress =none
+config validate --progress =plain
+config validate --progress [env RQX_PROGRESS]
 config validate --strict
 config validate -h
 config validate <path>
@@ -418,6 +520,12 @@ docs --no-progress
 docs --no-progress [env RQX_NO_PROGRESS]
 docs --no-tui
 docs --out
+docs --progress
+docs --progress =auto
+docs --progress =bar
+docs --progress =none
+docs --progress =plain
+docs --progress [env RQX_PROGRESS]
 docs -h
 explain
 explain --color
@@ -432,6 +540,12 @@ explain --no-mouse
 explain --no-progress
 explain --no-progress [env RQX_NO_PROGRESS]
 explain --no-tui
+explain --progress
+explain --progress =auto
+explain --progress =bar
+explain --progress =none
+explain --progress =plain
+explain --progress [env RQX_PROGRESS]
 explain -h
 explain <name>
 fix
@@ -454,6 +568,12 @@ fix --no-progress
 fix --no-progress [env RQX_NO_PROGRESS]
 fix --no-tui
 fix --plan
+fix --progress
+fix --progress =auto
+fix --progress =bar
+fix --progress =none
+fix --progress =plain
+fix --progress [env RQX_PROGRESS]
 fix --threads
 fix --threads [env RQX_THREADS]
 fix --write
@@ -484,6 +604,12 @@ graph --no-mouse
 graph --no-progress
 graph --no-progress [env RQX_NO_PROGRESS]
 graph --no-tui
+graph --progress
+graph --progress =auto
+graph --progress =bar
+graph --progress =none
+graph --progress =plain
+graph --progress [env RQX_PROGRESS]
 graph --threads
 graph --threads [env RQX_THREADS]
 graph -h
@@ -510,6 +636,12 @@ health --no-mouse
 health --no-progress
 health --no-progress [env RQX_NO_PROGRESS]
 health --no-tui
+health --progress
+health --progress =auto
+health --progress =bar
+health --progress =none
+health --progress =plain
+health --progress [env RQX_PROGRESS]
 health --threads
 health --threads [env RQX_THREADS]
 health -h
@@ -568,6 +700,12 @@ init --no-mouse
 init --no-progress
 init --no-progress [env RQX_NO_PROGRESS]
 init --no-tui
+init --progress
+init --progress =auto
+init --progress =bar
+init --progress =none
+init --progress =plain
+init --progress [env RQX_PROGRESS]
 init -h
 init <path>
 levels
@@ -583,6 +721,12 @@ levels --no-mouse
 levels --no-progress
 levels --no-progress [env RQX_NO_PROGRESS]
 levels --no-tui
+levels --progress
+levels --progress =auto
+levels --progress =bar
+levels --progress =none
+levels --progress =plain
+levels --progress [env RQX_PROGRESS]
 levels -h
 lsp
 lsp --color
@@ -598,6 +742,12 @@ lsp --no-mouse
 lsp --no-progress
 lsp --no-progress [env RQX_NO_PROGRESS]
 lsp --no-tui
+lsp --progress
+lsp --progress =auto
+lsp --progress =bar
+lsp --progress =none
+lsp --progress =plain
+lsp --progress [env RQX_PROGRESS]
 lsp -h
 lsp <path>
 mcp
@@ -615,6 +765,12 @@ mcp --no-mouse
 mcp --no-progress
 mcp --no-progress [env RQX_NO_PROGRESS]
 mcp --no-tui
+mcp --progress
+mcp --progress =auto
+mcp --progress =bar
+mcp --progress =none
+mcp --progress =plain
+mcp --progress [env RQX_PROGRESS]
 mcp -h
 mcp <path>
 patterns
@@ -635,6 +791,12 @@ patterns --no-mouse
 patterns --no-progress
 patterns --no-progress [env RQX_NO_PROGRESS]
 patterns --no-tui
+patterns --progress
+patterns --progress =auto
+patterns --progress =bar
+patterns --progress =none
+patterns --progress =plain
+patterns --progress [env RQX_PROGRESS]
 patterns --threads
 patterns --threads [env RQX_THREADS]
 patterns -h
@@ -662,6 +824,12 @@ perf --no-progress
 perf --no-progress [env RQX_NO_PROGRESS]
 perf --no-tui
 perf --profile
+perf --progress
+perf --progress =auto
+perf --progress =bar
+perf --progress =none
+perf --progress =plain
+perf --progress [env RQX_PROGRESS]
 perf --sort
 perf --sort =io
 perf --sort =order
@@ -692,6 +860,12 @@ plan --no-mouse
 plan --no-progress
 plan --no-progress [env RQX_NO_PROGRESS]
 plan --no-tui
+plan --progress
+plan --progress =auto
+plan --progress =bar
+plan --progress =none
+plan --progress =plain
+plan --progress [env RQX_PROGRESS]
 plan --simulate
 plan --threads
 plan --threads [env RQX_THREADS]
@@ -712,6 +886,12 @@ query --no-mouse
 query --no-progress
 query --no-progress [env RQX_NO_PROGRESS]
 query --no-tui
+query --progress
+query --progress =auto
+query --progress =bar
+query --progress =none
+query --progress =plain
+query --progress [env RQX_PROGRESS]
 query -h
 query <language>
 query <path>
@@ -738,6 +918,12 @@ recommend --only =config
 recommend --only =perf
 recommend --only =reading
 recommend --only =refactor
+recommend --progress
+recommend --progress =auto
+recommend --progress =bar
+recommend --progress =none
+recommend --progress =plain
+recommend --progress [env RQX_PROGRESS]
 recommend --threads
 recommend --threads [env RQX_THREADS]
 recommend -h
@@ -756,6 +942,12 @@ rules --no-mouse
 rules --no-progress
 rules --no-progress [env RQX_NO_PROGRESS]
 rules --no-tui
+rules --progress
+rules --progress =auto
+rules --progress =bar
+rules --progress =none
+rules --progress =plain
+rules --progress [env RQX_PROGRESS]
 rules --slugs
 rules -h
 rules <category>
@@ -824,6 +1016,12 @@ scan --not-path
 scan --not-rule
 scan --path
 scan --profile
+scan --progress
+scan --progress =auto
+scan --progress =bar
+scan --progress =none
+scan --progress =plain
+scan --progress [env RQX_PROGRESS]
 scan --quiet
 scan --reporter
 scan --rule
@@ -861,6 +1059,12 @@ setup --no-mouse
 setup --no-progress
 setup --no-progress [env RQX_NO_PROGRESS]
 setup --no-tui
+setup --progress
+setup --progress =auto
+setup --progress =bar
+setup --progress =none
+setup --progress =plain
+setup --progress [env RQX_PROGRESS]
 setup --write
 setup -h
 setup -w
@@ -883,6 +1087,12 @@ slop --no-mouse
 slop --no-progress
 slop --no-progress [env RQX_NO_PROGRESS]
 slop --no-tui
+slop --progress
+slop --progress =auto
+slop --progress =bar
+slop --progress =none
+slop --progress =plain
+slop --progress [env RQX_PROGRESS]
 slop --threads
 slop --threads [env RQX_THREADS]
 slop --top
@@ -906,6 +1116,12 @@ suppressions --no-mouse
 suppressions --no-progress
 suppressions --no-progress [env RQX_NO_PROGRESS]
 suppressions --no-tui
+suppressions --progress
+suppressions --progress =auto
+suppressions --progress =bar
+suppressions --progress =none
+suppressions --progress =plain
+suppressions --progress [env RQX_PROGRESS]
 suppressions --threads
 suppressions --threads [env RQX_THREADS]
 suppressions -h
@@ -923,6 +1139,12 @@ techniques --no-mouse
 techniques --no-progress
 techniques --no-progress [env RQX_NO_PROGRESS]
 techniques --no-tui
+techniques --progress
+techniques --progress =auto
+techniques --progress =bar
+techniques --progress =none
+techniques --progress =plain
+techniques --progress [env RQX_PROGRESS]
 techniques -h
 update
 update --check
@@ -940,6 +1162,12 @@ update --no-progress
 update --no-progress [env RQX_NO_PROGRESS]
 update --no-tui
 update --notes
+update --progress
+update --progress =auto
+update --progress =bar
+update --progress =none
+update --progress =plain
+update --progress [env RQX_PROGRESS]
 update --version
 update -h
 verify
@@ -961,6 +1189,12 @@ verify --no-mouse
 verify --no-progress
 verify --no-progress [env RQX_NO_PROGRESS]
 verify --no-tui
+verify --progress
+verify --progress =auto
+verify --progress =bar
+verify --progress =none
+verify --progress =plain
+verify --progress [env RQX_PROGRESS]
 verify --threads
 verify --threads [env RQX_THREADS]
 verify -h

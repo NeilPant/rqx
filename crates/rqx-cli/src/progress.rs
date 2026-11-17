@@ -1,9 +1,10 @@
 use std::io::Write;
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use clap::ValueEnum;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::brand::{Ink, Palette, paint};
@@ -83,15 +84,28 @@ pub struct Mode {
 enum Display {
     Hidden,
     Bar,
+    Lines,
+}
+
+/// What `--progress` asks for. `auto` is what a person at a terminal wants and what a
+/// pipeline does not: it draws only where a bar can redraw and nobody is reading a log.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, ValueEnum)]
+pub enum Style {
+    /// A bar on a terminal, nothing in CI or when stderr is redirected
+    Auto,
+    /// A bar whenever stderr is a terminal, CI included
+    Bar,
+    /// A line on stderr every two seconds and at each phase, for a job log
+    Plain,
+    /// Nothing
+    None,
 }
 
 impl Mode {
-    /// A bar needs a terminal on stderr to redraw in; a redirected run writes nothing,
-    /// so a pipe stays clean whatever was asked for.
-    pub fn new(shown: bool, animated: bool) -> Self {
-        let live = shown && term::is_terminal(Stream::Stderr);
+    pub fn new(style: Style, animated: bool) -> Self {
+        let terminal = term::is_terminal(Stream::Stderr);
         Self {
-            display: if live { Display::Bar } else { Display::Hidden },
+            display: display_for(style, terminal, term::in_ci()),
             animated,
         }
     }
@@ -105,6 +119,17 @@ impl Mode {
 
     const fn is_hidden(self) -> bool {
         matches!(self.display, Display::Hidden)
+    }
+}
+
+/// A bar needs a terminal on stderr to redraw in, so a redirected run never gets one
+/// whatever was asked for. Plain lines are for logs, which is where there is no terminal.
+fn display_for(style: Style, terminal: bool, in_ci: bool) -> Display {
+    match style {
+        Style::Auto if terminal && !in_ci => Display::Bar,
+        Style::Bar if terminal => Display::Bar,
+        Style::Plain => Display::Lines,
+        Style::Auto | Style::Bar | Style::None => Display::Hidden,
     }
 }
 
@@ -128,15 +153,75 @@ pub fn drawing<T>(mode: Mode, work: impl FnOnce(Option<Watch>) -> Result<T>) -> 
 
 /// Draws a scan's updates until the scan drops its end of the channel.
 pub fn follow(updates: Receiver<ScanProgress>, mode: Mode) -> JoinHandle<()> {
-    thread::spawn(move || {
-        if mode.is_hidden() {
+    thread::spawn(move || match mode.display {
+        Display::Hidden => {}
+        Display::Bar => {
+            let mut bar = Bar::new(Palette::detect(), mode.animated);
+            for progress in updates {
+                bar.update(&progress);
+            }
+        }
+        Display::Lines => print_lines(&updates, &mut std::io::stderr()),
+    })
+}
+
+/// How often a log gets a line while nothing changes phase, which is slow enough not
+/// to fill a job's log and fast enough that a stalled job is visibly stalled.
+const LINE_EVERY: Duration = Duration::from_secs(2);
+
+/// One line per phase and one every `LINE_EVERY`, including while a long phase sends
+/// nothing, so a silent stretch of history reading still shows the job is alive.
+fn print_lines(updates: &Receiver<ScanProgress>, out: &mut impl Write) {
+    let began = Instant::now();
+    let mut printed: Option<(Instant, Phase)> = None;
+    let mut latest = ScanProgress::default();
+    loop {
+        let arrived = updates.recv_timeout(LINE_EVERY);
+        if matches!(arrived, Err(RecvTimeoutError::Disconnected)) {
             return;
         }
-        let mut bar = Bar::new(Palette::detect(), mode.animated);
-        for progress in updates {
-            bar.update(&progress);
+        if let Ok(progress) = arrived {
+            latest = progress;
         }
-    })
+        let due =
+            printed.is_none_or(|(at, phase)| phase != latest.phase || at.elapsed() >= LINE_EVERY);
+        if due {
+            let _ = writeln!(out, "{}", line_of(&latest, began.elapsed()));
+            printed = Some((Instant::now(), latest.phase));
+        }
+    }
+}
+
+fn line_of(progress: &ScanProgress, elapsed: Duration) -> String {
+    let findings = thousands(progress.findings);
+    let seen = thousands(progress.files_scanned);
+    let counted = progress
+        .total
+        .filter(|total| *total > 0 && progress.phase == Phase::Scanning);
+    let position = match counted {
+        Some(total) => format!(
+            "{} {seen}/{} files",
+            progress.phase.label(),
+            thousands(total)
+        ),
+        None => format!("{} · {seen} files", progress.phase.label()),
+    };
+    format!(
+        "rqx: {position} · {findings} findings · {:.1}s",
+        elapsed.as_secs_f64()
+    )
+}
+
+fn thousands(number: u32) -> String {
+    let digits = number.to_string();
+    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            grouped.push(',');
+        }
+        grouped.push(digit);
+    }
+    grouped
 }
 
 /// Draws one line, in place, on stderr. Clears it when dropped.
@@ -309,6 +394,91 @@ fn elide(path: &str, room: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_draws_a_bar_only_on_a_terminal_outside_ci() {
+        assert_eq!(display_for(Style::Auto, true, false), Display::Bar);
+        assert_eq!(display_for(Style::Auto, true, true), Display::Hidden);
+        assert_eq!(display_for(Style::Auto, false, false), Display::Hidden);
+    }
+
+    #[test]
+    fn a_bar_is_drawn_in_ci_when_asked_for_but_never_without_a_terminal() {
+        assert_eq!(display_for(Style::Bar, true, true), Display::Bar);
+        assert_eq!(display_for(Style::Bar, false, false), Display::Hidden);
+    }
+
+    #[test]
+    fn plain_lines_are_for_logs_so_they_need_no_terminal() {
+        assert_eq!(display_for(Style::Plain, false, true), Display::Lines);
+        assert_eq!(display_for(Style::None, true, false), Display::Hidden);
+    }
+
+    #[test]
+    fn a_line_names_the_phase_the_counts_and_the_time() {
+        let scanning = ScanProgress {
+            files_scanned: 1204,
+            total: Some(3456),
+            findings: 31,
+            phase: Phase::Scanning,
+            ..ScanProgress::default()
+        };
+
+        assert_eq!(
+            line_of(&scanning, Duration::from_millis(4200)),
+            "rqx: scanning 1,204/3,456 files · 31 findings · 4.2s"
+        );
+    }
+
+    #[test]
+    fn a_phase_after_the_walk_has_no_total_to_divide_by() {
+        let grouping = ScanProgress {
+            files_scanned: 3456,
+            total: Some(3456),
+            findings: 31,
+            phase: Phase::Duplicates,
+            ..ScanProgress::default()
+        };
+
+        assert_eq!(
+            line_of(&grouping, Duration::from_secs(9)),
+            "rqx: grouping duplicates · 3,456 files · 31 findings · 9.0s"
+        );
+    }
+
+    #[test]
+    fn thousands_are_separated_by_commas() {
+        assert_eq!(thousands(0), "0");
+        assert_eq!(thousands(999), "999");
+        assert_eq!(thousands(1000), "1,000");
+        assert_eq!(thousands(1_234_567), "1,234,567");
+    }
+
+    #[test]
+    fn a_log_gets_a_line_when_the_phase_changes_and_not_for_every_file() {
+        let (updates, receiver) = mpsc::sync_channel(8);
+        for phase in [Phase::Scanning, Phase::Scanning, Phase::Duplicates] {
+            updates
+                .send(ScanProgress {
+                    phase,
+                    ..ScanProgress::default()
+                })
+                .unwrap();
+        }
+        drop(updates);
+        let mut out = Vec::new();
+
+        print_lines(&receiver, &mut out);
+
+        let written = String::from_utf8(out).unwrap();
+        let lines: Vec<&str> = written.lines().collect();
+        assert_eq!(lines.len(), 2, "{written}");
+        assert!(lines[0].starts_with("rqx: scanning"), "{written}");
+        assert!(
+            lines[1].starts_with("rqx: grouping duplicates"),
+            "{written}"
+        );
+    }
 
     #[test]
     fn a_hidden_mode_gives_the_work_nothing_to_report_to() {

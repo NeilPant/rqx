@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-fix \- Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
 .SH SYNOPSIS
-\fBrqx fix\fR [\fB\-\-level\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx fix\fR [\fB\-\-level\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
 .SH OPTIONS
@@ -70,8 +70,25 @@ off
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it
 .TP
+\fB\-\-progress\fR \fI<PROGRESS>\fR [default: auto]
+How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto: A bar on a terminal, nothing in CI or when stderr is redirected
+.IP \(bu 2
+bar: A bar whenever stderr is a terminal, CI included
+.IP \(bu 2
+plain: A line on stderr every two seconds and at each phase, for a job log
+.IP \(bu 2
+none: Nothing
+.RE
+.TP
 \fB\-h\fR, \fB\-\-help\fR
-Print help
+Print help (see a summary with \*(Aq\-h\*(Aq)
 .TP
 [\fIPATH\fR] [default: .]
 

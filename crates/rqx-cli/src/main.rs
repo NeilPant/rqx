@@ -95,12 +95,25 @@ pub struct Cli {
     /// Do not draw the progress bar on stderr; `--quiet` implies it
     #[arg(long, global = true, env = "RQX_NO_PROGRESS")]
     no_progress: bool,
+    /// How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = progress::Style::Auto,
+        global = true,
+        env = "RQX_PROGRESS"
+    )]
+    progress: progress::Style,
 }
 
-/// The bar is for a person watching a terminal, and a request for quiet output is a
-/// request not to be drawn at either.
-const fn progress_wanted(no_progress: bool, quiet: bool) -> bool {
-    !no_progress && !quiet
+/// `--no-progress` is the older spelling of `--progress none`, and a request for
+/// quiet output is a request not to be drawn at either.
+fn progress_style(requested: progress::Style, no_progress: bool, quiet: bool) -> progress::Style {
+    if no_progress || quiet {
+        progress::Style::None
+    } else {
+        requested
+    }
 }
 
 /// The commands, in five groups. Order inside a group is the order a reader meets
@@ -1585,7 +1598,10 @@ fn run() -> Result<Exit> {
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();
     let animated = !matches!(cli.motion, Motion::Off);
-    let progress = progress::Mode::new(progress_wanted(cli.no_progress, false), animated);
+    let (requested, no_progress) = (cli.progress, cli.no_progress);
+    let progress_for =
+        |quiet| progress::Mode::new(progress_style(requested, no_progress, quiet), animated);
+    let progress = progress_for(false);
     let palette = Palette::detect();
 
     let command = match cli.command {
@@ -1648,8 +1664,7 @@ fn run() -> Result<Exit> {
             }
             gate.apply(&mut settings.config);
 
-            let progress =
-                progress::Mode::new(progress_wanted(cli.no_progress, view.quiet), animated);
+            let progress = progress_for(view.quiet);
             let sinks = sinks(&view)?;
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
@@ -2283,8 +2298,7 @@ fn run() -> Result<Exit> {
             update::start(settings.config.update.check);
             gate.apply(&mut settings.config);
 
-            let progress =
-                progress::Mode::new(progress_wanted(cli.no_progress, view.quiet), animated);
+            let progress = progress_for(view.quiet);
             let sinks = sinks(&view)?;
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.
@@ -2587,11 +2601,43 @@ mod flags {
             .collect()
     }
 
+    fn cli_of(arguments: &[&str]) -> super::Cli {
+        let matches = super::parser()
+            .try_get_matches_from(arguments)
+            .unwrap_or_else(|error| panic!("{arguments:?}: {error}"));
+        <super::Cli as clap::FromArgMatches>::from_arg_matches(&matches).unwrap()
+    }
+
     #[test]
-    fn quiet_implies_no_progress() {
-        assert!(super::progress_wanted(false, false));
-        assert!(!super::progress_wanted(true, false));
-        assert!(!super::progress_wanted(false, true));
+    fn quiet_and_no_progress_both_mean_no_progress() {
+        use crate::progress::Style;
+
+        assert_eq!(
+            super::progress_style(Style::Plain, false, false),
+            Style::Plain
+        );
+        assert_eq!(
+            super::progress_style(Style::Plain, false, true),
+            Style::None
+        );
+        assert_eq!(
+            super::progress_style(Style::Plain, true, false),
+            Style::None
+        );
+    }
+
+    #[test]
+    fn progress_is_accepted_before_and_after_the_command() {
+        for arguments in [
+            ["rqx", "--progress", "plain", "scan"],
+            ["rqx", "scan", "--progress", "plain"],
+        ] {
+            assert_eq!(
+                cli_of(&arguments).progress,
+                crate::progress::Style::Plain,
+                "{arguments:?}"
+            );
+        }
     }
 
     #[test]

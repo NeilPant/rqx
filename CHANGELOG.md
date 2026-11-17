@@ -12,6 +12,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`--progress auto|bar|plain|none`** (or `RQX_PROGRESS`). `plain` prints a line to
+  stderr every two seconds and when the scan moves to its next phase, such as
+  `rqx: scanning 1,204/3,456 files · 31 findings · 4.2s`, so a long CI job does not sit
+  silent. `auto` is the old behaviour with one change: it also stays quiet under CI when
+  stderr happens to be a terminal. `--no-progress` still works and means `none`.
 - **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs that
   release instead of the newest, which also lets you step back to an older one.
   `--dry-run` prints how the update would be done, the download URLs and the file it
