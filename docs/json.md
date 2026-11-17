@@ -35,7 +35,14 @@ The summary line has `"kind": "summary"` and:
 | `suppressed` | Findings a waiver kept out of `counts` |
 | `skipped` | Files rqx could not read, with the reason |
 | `grades` | A letter grade per file in scope |
+| `gate` | Present when a verdict exists: `{ "passed": bool, "failures": [string] }` |
 | `review` | Present for `rqx check`: the base, the reviewed counts and the verdict |
+
+`gate` is there for a scan only when the run was gated by a flag (`--fail-on`,
+`--allow-findings`, `--min-health`, `--min-grade` or `--fail-on-incomplete`), and for
+`check` and `comment` always. `passed` is the answer the exit code gives, so a pipeline that cannot see the
+exit code can read it here. `review` is older and stays as it is, so a consumer
+written against it keeps working.
 
 ## The other commands
 

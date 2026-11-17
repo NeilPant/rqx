@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **A gated scan says whether it passed.** The JSON summary line gains
+  `gate: { "passed": bool, "failures": [...] }` whenever there is a verdict: a scan
+  with a gate flag such as `--fail-on` or `--min-health`, `check`, and `comment`. Before, a pipeline reading the JSON had to rebuild the gate from the
+  counts, or trust the exit code alone. `review` is unchanged.
 - **Every JSON line says what it is.** Finding lines in `--reporter json` now carry
   `"kind": "finding"`, so a consumer switches on `kind` for every line instead of
   telling findings apart by the keys they lack. The summary line gains

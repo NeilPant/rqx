@@ -698,6 +698,26 @@ fn every_json_line_says_what_it_is() {
 }
 
 #[test]
+fn a_gated_scan_says_whether_it_passed_and_an_ungated_one_says_nothing() {
+    let root = project("json-gate", &[("a.ts", DIRTY)]);
+    let summary_of = |extra: &[&str]| {
+        let mut args = vec!["scan", "--reporter", "json", "--no-tui"];
+        args.extend_from_slice(extra);
+        json_lines(&rqx(&root, &args)).pop().expect("a summary")
+    };
+
+    let failed = summary_of(&["--fail-on", "warning"]);
+    assert_eq!(failed["gate"]["passed"], false);
+    assert!(!failed["gate"]["failures"].as_array().unwrap().is_empty());
+
+    let passed = summary_of(&["--fail-on", "error", "--allow-findings", "100"]);
+    assert_eq!(passed["gate"]["passed"], true);
+    assert_eq!(passed["gate"]["failures"], serde_json::json!([]));
+
+    assert!(summary_of(&[]).get("gate").is_none());
+}
+
+#[test]
 fn the_secondary_summaries_carry_the_schema_version() {
     let root = project("json-secondary", &[("a.ts", DIRTY)]);
     for command in ["fix", "plan"] {
