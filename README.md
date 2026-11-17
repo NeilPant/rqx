@@ -777,21 +777,21 @@ by what they cost against how much of the project leans on the file they are in.
 ```
 $ rqx perf --top 2
 
-  Bottlenecks  8 functions worth a look
+  Bottlenecks  4 functions worth a look
 
-                   order  loops   io  reach   sampled  where
-    reconcileBatch  O(n²)      2    1   ×3.4    41.2%  orders/reconcile.ts:88
-                  `db.order.findMany` runs on every pass of the loop. On the stack in
-                  41.2% of samples.  · Fix: Batch the Work
-    fibonacci         exp      0    0   ×1.1        –  math/series.ts:12
-                  Calls itself 2 times per invocation with no memo in sight. A profile
-                  never sampled this function.  · Fix: Memoize
+                   order   time space   io alloc      conf loops trips reach  where
+    reconcileBatch  O(n) O(n·m)  O(n) O(n)     2  verified     1     2  ×1.0  reconcile.ts:3
+                   `db.order.findMany` runs on every pass of the loop.  · Fix: Batch the Work
+    fibonacci        exp    exp  O(n) O(1)     –  verified     0     0  ×1.0  reconcile.ts:12
+                   Calls itself 2 times per invocation with no memo in sight.  · Fix: Memoize
 
-    p50 0 · p90 1 · p99 2 loop depth · 14 over 2 · 9 with a round trip inside a loop
+    p50 1 · p90 1 · p99 1 loop depth · 0 over 2 · 2 with a round trip inside a loop
 ```
 
-`order` is the loop order and is not proof of cost: three nested loops over three
-items are cheap. A CPU profile can settle it. `--profile cpu.pprof` reads a V8
+`order` is the syntactic loop order. `time`, `space` and `io` are composed across calls
+and files, and `conf` says how sure the analysis is. `rqx perf --explain reconcileBatch`
+prints how a row's cost was derived. None of this is proof of cost: three nested loops
+over three items are cheap. A CPU profile can settle it. `--profile cpu.pprof` reads a V8
 `.cpuprofile`, a Go pprof, speedscope JSON, `jfr print` text or collapsed stacks by
 content. A performance finding in a function the run never put on the stack keeps its
 finding and stops counting, in the same way a covered symbol stops counting as dead

@@ -33,6 +33,25 @@ them. `tools/release.sh` turns that section into the release notes.
   `gate.complexity_regression: off`, which YAML reads as the boolean `false`, and the
   setting refused it with "expected string or map". The boolean `false` is now read as
   `off`.
+- **`rqx perf` reports the composed cost of each function.** The table keeps the
+  syntactic `order` column and adds `time`, `space`, `io`, `alloc` and `conf`, which come
+  from the cost analysis that follows calls across files. The round trips counted inside
+  loops are shown as `trips`. `--sort time` and `--sort space` rank by those orders, and
+  `--sort order` now ranks by the composed time. The default weight grows with the time
+  order. See `docs/perf.md`.
+- **`rqx perf --explain FUNCTION`.** Prints how a function's cost was derived: each loop
+  and where its bound came from, each call with the callee's cost, the library table
+  entry that priced each library call, the recursion shape, and the reasons for the
+  confidence. `FUNCTION` is a name, `Class.method` or `file:line`. A name that several
+  functions share lists them and exits 2. It works as `/perf --explain` in a session and
+  takes `--json`.
+- **`rqx perf --json` and the MCP `perf` tool gain keys.** Each row has `time`, `space`,
+  `io_order`, `alloc`, `confidence` and `cost` (`expr`, `trace`, `vars`). The existing
+  keys are unchanged: `order` is the syntactic loop order and `io` is still the count of
+  round trips inside loops.
+- **A Performance section in the HTML report.** It ranks up to ten functions with their
+  time, space, io and confidence, links each to its file, and holds the derivation in a
+  `<details>` element under the row. The page still uses no script.
 
 ## 0.4.0 — 2026-11-17
 
