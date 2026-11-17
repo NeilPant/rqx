@@ -68,7 +68,7 @@ impl Rqx {
     fn relative(&self, path: &Path) -> String {
         path.strip_prefix(self.root.as_path())
             .ok()
-            .map(|path| path.to_string_lossy().into_owned())
+            .map(rqx_core::paths::display_path)
             .filter(|path| !path.is_empty())
             .unwrap_or_else(|| ".".to_owned())
     }
@@ -115,8 +115,7 @@ impl ServerHandler for Rqx {
 }
 
 pub fn serve(path: &Path, settings: Resolved, http: Option<SocketAddr>) -> Result<()> {
-    let root = path
-        .canonicalize()
+    let root = rqx_core::paths::canonicalize(path)
         .with_context(|| format!("`{}` cannot be read", path.display()))?;
     let token = std::env::var(TOKEN_ENV)
         .ok()

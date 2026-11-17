@@ -26,6 +26,7 @@ mod wrap;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
+use std::path::Path;
 
 use anyhow::Result;
 use clap::ValueEnum;
@@ -282,24 +283,7 @@ impl<'a> Report<'a> {
     /// an annotation against the checkout root, so scanning a subdirectory has to
     /// say which one.
     pub fn path_prefix(&self) -> String {
-        let root = self.outcome.root.as_path();
-        if root == std::path::Path::new(".") {
-            return String::new();
-        }
-        let absolute = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        let shown = std::env::current_dir()
-            .ok()
-            .and_then(|cwd| {
-                absolute
-                    .strip_prefix(&cwd)
-                    .ok()
-                    .map(std::path::Path::to_path_buf)
-            })
-            .unwrap_or(absolute);
-        match shown.to_string_lossy().replace('\\', "/") {
-            text if text.is_empty() => String::new(),
-            text => format!("{text}/"),
-        }
+        prefix_below(&self.outcome.root, std::env::current_dir().ok().as_deref())
     }
 
     /// One file's grade, on the project's own curve applied to that file's lines.
@@ -431,6 +415,25 @@ pub fn column(text: &str, width: usize, align: Align) -> String {
     }
 }
 
+/// `root` as a path below `cwd` with a trailing slash, or the canonical path when it
+/// lies elsewhere. Both sides are canonicalized the same way: on Windows the standard
+/// library's answer carries a verbatim prefix the working directory lacks, so it would
+/// never be stripped.
+fn prefix_below(root: &Path, cwd: Option<&Path>) -> String {
+    if root == Path::new(".") {
+        return String::new();
+    }
+    let absolute = rqx_core::paths::canonical_or_same(root);
+    let shown = cwd
+        .map(rqx_core::paths::canonical_or_same)
+        .and_then(|cwd| absolute.strip_prefix(cwd).ok().map(Path::to_path_buf))
+        .unwrap_or(absolute);
+    match rqx_core::paths::display_path(&shown) {
+        text if text.is_empty() => String::new(),
+        text => format!("{text}/"),
+    }
+}
+
 pub fn plural(count: u32, one: &str, many: &str) -> String {
     format!("{count} {}", if count == 1 { one } else { many })
 }
@@ -444,6 +447,23 @@ pub mod tests {
     use rqx_core::score::FindingCounts;
 
     use super::*;
+
+    #[test]
+    fn a_subdirectory_of_the_working_directory_is_named_without_the_machine_path() {
+        let cwd = std::env::temp_dir().join(format!("rqx-prefix-{}", std::process::id()));
+        std::fs::create_dir_all(cwd.join("pkg")).expect("a directory to scan");
+        let prefix = prefix_below(&cwd.join("pkg"), Some(&cwd));
+        let _ = std::fs::remove_dir_all(&cwd);
+        assert_eq!(prefix, "pkg/");
+    }
+
+    #[test]
+    fn the_working_directory_itself_has_no_prefix() {
+        assert_eq!(
+            prefix_below(Path::new("."), Some(Path::new("/anywhere"))),
+            ""
+        );
+    }
 
     /// A scan outcome assembled by hand, so a reporter can be tested without a
     /// repository to scan.

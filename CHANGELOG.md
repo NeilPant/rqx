@@ -209,6 +209,24 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   a log filled it with escape characters. It now clears only on a terminal, and
   anywhere else prints a `── rescanned after HH:MM:SS ──` line between reports.
 
+- **Windows reports no longer print `//?/C:/…` paths.** Scanning a subdirectory made
+  the SARIF, GitLab, HTML, Markdown and terminal reports name files with the
+  `\\?\` prefix Windows adds when it resolves a path, because the working directory
+  never carries it. Every path rqx resolves now drops that prefix first.
+
+- **Finding paths use `/` on Windows.** A file in a nested directory was reported as
+  `domain\billing\invoice.ts`, so an architecture glob such as `domain/**` never
+  matched it and the same scan printed different paths on Windows and elsewhere. Paths
+  in findings, reports, glob matches and the cache are now always written with `/`.
+
+- **`overrides` apply however the files are reached.** An override's `paths` were
+  compared with the path as the scan wrote it, so they missed when `rqx scan` was given
+  a directory other than the one holding `rqx.yaml`, when it ran from inside the
+  subtree, and when the project was reached through a symlink (macOS temp directories
+  are one). The path is now resolved first and matched relative to the config file's
+  directory, which `docs/configuration.md` now states. `rqx verify` rebases the same
+  way for a relative scan root.
+
 ## 0.2.1 — 2026-11-17
 
 ### Added

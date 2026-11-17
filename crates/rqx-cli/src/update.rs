@@ -150,9 +150,9 @@ pub struct Installation {
 /// Reads the environment and the running executable, and decides from them.
 pub fn detect() -> Result<Installation> {
     let executable = std::env::current_exe()
-        .and_then(std::fs::canonicalize)
+        .and_then(|path| rqx_core::paths::canonicalize(&path))
         .context("could not tell where the running rqx is installed")?;
-    let cargo_home = cargo_home().map(|home| std::fs::canonicalize(&home).unwrap_or(home));
+    let cargo_home = cargo_home().map(|home| rqx_core::paths::canonical_or_same(&home));
     Ok(Installation {
         method: choose(managed(), &executable, cargo_home.as_deref()),
         executable,

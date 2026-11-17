@@ -159,10 +159,7 @@ impl Server {
     }
 
     fn relative(&self, path: &Path) -> String {
-        path.strip_prefix(&self.root).map_or_else(
-            |_| path.display().to_string(),
-            |rest| rest.display().to_string(),
-        )
+        rqx_core::paths::display_path(path.strip_prefix(&self.root).unwrap_or(path))
     }
 
     fn analyze(&self, path: &Path, source: &str) -> Vec<Finding> {

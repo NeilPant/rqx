@@ -307,7 +307,7 @@ impl Resolver for TypeScriptResolver {
             let base = base.as_path();
             let trimmed = candidate.trim_start_matches("./");
             let direct = base.join(trimmed);
-            if let Ok(canonical) = direct.canonicalize()
+            if let Ok(canonical) = rqx_core::paths::canonicalize(&direct)
                 && known.contains(&canonical)
             {
                 entries.insert(canonical);
@@ -317,7 +317,7 @@ impl Resolver for TypeScriptResolver {
             // entry.
             for extension in SOURCE_EXTENSIONS {
                 let source = direct.with_extension(extension);
-                if let Ok(canonical) = source.canonicalize()
+                if let Ok(canonical) = rqx_core::paths::canonicalize(&source)
                     && known.contains(&canonical)
                 {
                     entries.insert(canonical);
@@ -329,7 +329,7 @@ impl Resolver for TypeScriptResolver {
                 .replacen("lib/", "src/", 1);
             for extension in SOURCE_EXTENSIONS {
                 let source = base.join(&rewritten).with_extension(extension);
-                if let Ok(canonical) = source.canonicalize()
+                if let Ok(canonical) = rqx_core::paths::canonicalize(&source)
                     && known.contains(&canonical)
                 {
                     entries.insert(canonical);

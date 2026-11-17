@@ -412,11 +412,7 @@ fn source_fixes(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrC
 
     let index = rqx_core::LineIndex::new(&source);
     let requested = params.range;
-    let display = path
-        .strip_prefix(server.root())
-        .unwrap_or(&path)
-        .display()
-        .to_string();
+    let display = server.relative(&path);
 
     let edits_of = |plan: &rqx_core::edit::Resolution| -> Vec<TextEdit> {
         plan.kept

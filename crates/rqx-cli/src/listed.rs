@@ -36,7 +36,8 @@ impl Listed {
 
     pub fn parse(bytes: &[u8], root: &Path) -> Self {
         let separator = if bytes.contains(&0) { 0 } else { b'\n' };
-        let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        let canonical_root =
+            rqx_core::paths::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
         let mut listed = Self {
             files: BTreeSet::new(),
             missing: Vec::new(),
@@ -87,12 +88,12 @@ impl Listed {
 /// The path relative to the scan root, when it is a file inside it. A relative path is
 /// read against the root, not against wherever the command happened to run.
 fn under(canonical_root: &Path, root: &Path, named: &str) -> Option<String> {
-    let found = root.join(named).canonicalize().ok()?;
+    let found = rqx_core::paths::canonicalize(&root.join(named)).ok()?;
     if !found.is_file() {
         return None;
     }
     let relative = found.strip_prefix(canonical_root).ok()?;
-    Some(relative.display().to_string())
+    Some(rqx_core::paths::display_path(relative))
 }
 
 #[cfg(test)]

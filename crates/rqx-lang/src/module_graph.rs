@@ -278,7 +278,7 @@ fn resolve_edges(
                 } else {
                     let canonical = resolved
                         .entry(target.clone())
-                        .or_insert_with_key(|target| target.canonicalize().ok());
+                        .or_insert_with_key(|target| rqx_core::paths::canonicalize(target).ok());
                     let Some(target) = canonical.clone() else {
                         continue;
                     };

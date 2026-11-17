@@ -103,7 +103,7 @@ fn read_file(name: &str, owner: &Origin) -> Result<(Origin, Value)> {
     };
     let path: PathBuf = from.parent().unwrap_or(Path::new(".")).join(name);
     files::refuse_retired(&path)?;
-    let path = path.canonicalize().map_err(|_| {
+    let path = rqx_core::paths::canonicalize(&path).map_err(|_| {
         anyhow!(
             "{} extends `{name}`, which does not exist at {}",
             from.display(),

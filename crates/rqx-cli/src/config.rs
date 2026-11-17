@@ -35,6 +35,37 @@ struct Scope {
     globs: Vec<String>,
 }
 
+impl Scope {
+    /// Whether this override governs `file`, given in the form `resolved_form` returns.
+    /// A path that could not be resolved stays relative and is matched as written,
+    /// which is how a name that only exists in an editor buffer is read.
+    fn covers(&self, file: &Path) -> bool {
+        let inside = if file.is_relative() {
+            Some(file)
+        } else {
+            file.strip_prefix(&self.directory).ok()
+        };
+        inside.is_some_and(|inside| self.matcher.matched(inside, false).is_whitelist())
+    }
+}
+
+/// A file's path with its directory canonical, so it compares against a config
+/// directory however it was reached: relative to where rqx ran, through a symlink, or
+/// from a subdirectory. The file's own name stays as written, because a symlinked file
+/// belongs to the directory that holds the link.
+fn resolved_form(file: &Path) -> PathBuf {
+    let (Some(directory), Some(name)) = (file.parent(), file.file_name()) else {
+        return file.to_path_buf();
+    };
+    let directory = if directory.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        directory
+    };
+    rqx_core::paths::canonicalize(directory)
+        .map_or_else(|_| file.to_path_buf(), |resolved| resolved.join(name))
+}
+
 /// Every layer of configuration that applies to one run, already merged, plus the
 /// directory-scoped overrides that could not be merged because they apply to some
 /// files and not others.
@@ -121,10 +152,14 @@ impl Resolved {
     /// The settings that govern one file. Overrides are tried last-declared first, so
     /// the most specific rule a project wrote is the one that answers.
     pub fn for_file(&self, path: &Path) -> &RqxConfig {
+        if self.scopes.is_empty() {
+            return &self.config;
+        }
+        let file = resolved_form(path);
         self.scopes
             .iter()
             .rev()
-            .find(|scope| scope.matcher.matched(path, false).is_whitelist())
+            .find(|scope| scope.covers(&file))
             .map_or(&self.config, |scope| &scope.config)
     }
 
@@ -224,9 +259,11 @@ impl Resolved {
     /// revision would judge the two sides by different rules: the globs would match
     /// in the working tree and silently match nothing in the temporary one.
     pub fn rebased(&self, from: &Path, to: &Path) -> Result<Self> {
+        let from = rqx_core::paths::canonical_or_same(from);
+        let to = rqx_core::paths::canonical_or_same(to);
         let mut scopes = Vec::new();
         for scope in &self.scopes {
-            let directory = match scope.directory.strip_prefix(from) {
+            let directory = match scope.directory.strip_prefix(&from) {
                 Ok(rest) => to.join(rest),
                 Err(_) => scope.directory.clone(),
             };
@@ -539,7 +576,7 @@ pub fn init(directory: &Path, force: bool) -> Result<PathBuf> {
 /// A scanned file has no ancestors of its own worth searching; the directory holding
 /// it does.
 fn anchor_of(root: &Path) -> PathBuf {
-    let absolute = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let absolute = rqx_core::paths::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
     if absolute.is_file() {
         return absolute
             .parent()
@@ -789,8 +826,14 @@ fn scope(
     }
     let globs = typed.paths;
 
-    let directory = path.parent().unwrap_or(Path::new("."));
-    let mut builder = OverrideBuilder::new(directory);
+    let directory = path
+        .parent()
+        .filter(|directory| !directory.as_os_str().is_empty())
+        .map_or_else(
+            || rqx_core::paths::canonical_or_same(Path::new(".")),
+            rqx_core::paths::canonical_or_same,
+        );
+    let mut builder = OverrideBuilder::new(&directory);
     for glob in &globs {
         builder
             .add(glob)
@@ -821,7 +864,7 @@ fn scope(
     Ok(Scope {
         matcher,
         config,
-        directory: directory.to_path_buf(),
+        directory,
         globs,
     })
 }
@@ -1329,6 +1372,43 @@ mod tests {
             "error",
             "a scoped level must not move the gate"
         );
+    }
+
+    #[test]
+    fn an_override_governs_files_under_its_config_directory_and_no_others() {
+        let scoped = scope(
+            Path::new("rqx.yaml"),
+            tree("paths: ['**/*.ts']\n"),
+            &files::empty(),
+            Level::Standard,
+            &mut Tolerance::refusing(),
+        )
+        .unwrap();
+        let inside = scoped
+            .directory
+            .join("src")
+            .join("not-yet-written")
+            .join("a.ts");
+        let outside = std::env::temp_dir().join("rqx-elsewhere").join("a.ts");
+
+        assert!(scoped.covers(&resolved_form(&inside)));
+        assert!(!scoped.covers(&resolved_form(&outside)));
+    }
+
+    #[test]
+    fn a_path_that_cannot_be_resolved_is_matched_as_written() {
+        let scoped = scope(
+            Path::new("rqx.yaml"),
+            tree("paths: [legacy/**]\n"),
+            &files::empty(),
+            Level::Standard,
+            &mut Tolerance::refusing(),
+        )
+        .unwrap();
+        let unsaved = Path::new("no-such-directory").join("legacy").join("a.ts");
+
+        assert!(!scoped.covers(&resolved_form(&unsaved)));
+        assert!(scoped.covers(&resolved_form(&Path::new("legacy").join("no-such-file.ts"))));
     }
 
     #[test]

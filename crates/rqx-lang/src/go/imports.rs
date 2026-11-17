@@ -98,7 +98,7 @@ impl Resolver for GoResolver {
             }
         }
         for entry in configured {
-            if let Ok(canonical) = root.join(entry).canonicalize()
+            if let Ok(canonical) = rqx_core::paths::canonicalize(&root.join(entry))
                 && known.contains(&canonical)
             {
                 entries.insert(canonical);
