@@ -1,5 +1,7 @@
 package fixtures
 
+import "strings"
+
 func IndexOfItem(list []string, wanted string) int {
 	for i := range list {
 		if list[i] == wanted {
@@ -19,12 +21,14 @@ func FirstOccurrences(items []string) []string {
 	return firsts
 }
 
-func MissingFrom(items []string, known []string) []string {
-	missing := []string{}
+func Describe(text string) string {
+	return strings.ToUpper(strings.TrimSpace(text))
+}
+
+func DescribeEach(items []string) []string {
+	out := []string{}
 	for _, item := range items {
-		if IndexOfItem(known, item) < 0 {
-			missing = append(missing, item)
-		}
+		out = append(out, Describe(item))
 	}
-	return missing
+	return out
 }

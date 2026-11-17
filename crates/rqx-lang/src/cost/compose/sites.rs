@@ -5,7 +5,7 @@
 //! sees an edit made to a callee in another file.
 
 use rqx_core::RuleId;
-use rqx_core::cost::{Bound, Conf, Cost, FunctionCost, Invoked, Order, SizeId, TraceStep};
+use rqx_core::cost::{Bound, Conf, Cost, FunctionCost, Invoked, Order, SizeId, SizeSrc, TraceStep};
 use rqx_core::cost_sites::{CrossSite, trace_text};
 
 use super::fold::{Done, Fold, Reached, TRACE_STEPS};
@@ -39,6 +39,16 @@ struct Place<'g, 'a> {
     tables: &'g CostTables,
     node: NodeId,
     fold: Fold<'g, 'a>,
+}
+
+/// The sizes a call in a loop is costed in.
+#[derive(Clone, Copy)]
+struct Sizes {
+    enclosing: Enclosing,
+    /// What the loop runs over.
+    looped: SizeId,
+    /// What the callee's time grows with.
+    callee: SizeId,
 }
 
 /// A loop the visit is inside: how many times it runs, and where it is.
@@ -106,36 +116,63 @@ impl Place<'_, '_> {
             if reached.node == self.node {
                 continue;
             }
-            let Some(enclosing) = self.loop_it_grows_with(&reached, loops) else {
+            let Some(sizes) = self.loop_and_callee_sizes(&reached, loops) else {
                 continue;
             };
-            return self.quadratic_site(line, &reached, enclosing, loops);
+            return self.quadratic_site(line, &reached, sizes, loops);
         }
         None
     }
 
-    /// The innermost loop over a size the callee's time grows with.
-    fn loop_it_grows_with(
-        &self,
-        reached: &Reached,
-        loops: &[Enclosing],
-    ) -> Option<(Enclosing, SizeId)> {
-        loops
+    /// The loop the callee runs inside and the sizes it is costed in. A callee that grows
+    /// with the size of a loop around it makes that loop quadratic; one that grows with
+    /// another collection the function is given makes the pair a product, which is the same
+    /// cost `scan-in-loop` reports when the callee is a library call. Only a size the
+    /// function was handed is one it can say the callee scans: what it builds or reads off a
+    /// loop's element is not a collection every pass shares.
+    fn loop_and_callee_sizes(&self, reached: &Reached, loops: &[Enclosing]) -> Option<Sizes> {
+        let vars = &self.function().vars;
+        let looped_over = |size: &SizeId| {
+            loops
+                .iter()
+                .any(|enclosing| enclosing.bound == Bound::Size(*size))
+        };
+        let grown: Vec<SizeId> = grown_sizes(&reached.time)
+            .into_iter()
+            .filter(|size| {
+                looped_over(size)
+                    || vars
+                        .get(usize::from(*size))
+                        .is_some_and(|var| matches!(var.src, SizeSrc::Param(_)))
+            })
+            .collect();
+        let sized = |enclosing: &Enclosing| match enclosing.bound {
+            Bound::Size(variable) => Some((*enclosing, variable)),
+            _ => None,
+        };
+        let same = loops
             .iter()
             .rev()
-            .find_map(|enclosing| match enclosing.bound {
-                Bound::Size(variable) if grows_with(&reached.time, variable) => {
-                    Some((*enclosing, variable))
-                }
-                _ => None,
-            })
+            .filter_map(sized)
+            .find(|(_, variable)| grown.contains(variable));
+        let (enclosing, looped) = same.or_else(|| loops.iter().rev().find_map(sized))?;
+        let callee = if grown.contains(&looped) {
+            looped
+        } else {
+            *grown.first()?
+        };
+        Some(Sizes {
+            enclosing,
+            looped,
+            callee,
+        })
     }
 
     fn quadratic_site(
         &mut self,
         line: u32,
         reached: &Reached,
-        (enclosing, variable): (Enclosing, SizeId),
+        sizes: Sizes,
         loops: &[Enclosing],
     ) -> Option<CrossSite> {
         let callee = self.done[reached.node].as_ref()?;
@@ -154,7 +191,7 @@ impl Place<'_, '_> {
         let mut steps = vec![
             TraceStep {
                 file: self.graph.file_of(self.node).to_owned(),
-                line: enclosing.line,
+                line: sizes.enclosing.line,
                 what: "loop".to_owned(),
                 order: total.clone(),
             },
@@ -167,9 +204,11 @@ impl Place<'_, '_> {
         ];
         steps.extend(callee.trace.iter().cloned());
         steps.truncate(TRACE_STEPS);
-        let size = &self.function().vars[usize::from(variable)].name;
+        let vars = &self.function().vars;
         let message = format!(
-            "is called on every pass of a loop over `{size}` and itself takes time in `{size}`. {}",
+            "is called on every pass of a loop over `{}` and itself takes time in `{}`. {}",
+            vars[usize::from(sizes.looped)].name,
+            vars[usize::from(sizes.callee)].name,
             trace_text(&total, &steps, self.graph.file_of(self.node))
         );
         let name = called.name.as_deref().unwrap_or(&called.qual);
@@ -324,11 +363,16 @@ fn at_least_linear(order: &Order) -> bool {
             .any(|(_, power, _)| *power >= 1)
 }
 
-/// Whether the order has the size in it to at least the first power.
-fn grows_with(order: &Order, size: SizeId) -> bool {
-    order
+/// The sizes the order has in it to at least the first power, smallest first.
+fn grown_sizes(order: &Order) -> Vec<SizeId> {
+    let mut sizes: Vec<SizeId> = order
         .terms()
         .iter()
         .flat_map(|term| term.factors())
-        .any(|(variable, power, _)| *variable == size && *power >= 1)
+        .filter(|(_, power, _)| *power >= 1)
+        .map(|(variable, _, _)| *variable)
+        .collect();
+    sizes.sort_unstable();
+    sizes.dedup();
+    sizes
 }

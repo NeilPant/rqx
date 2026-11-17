@@ -198,7 +198,7 @@ Fix: take the lock once around the whole loop, or keep it per pass only if other
     <testcase classname="typescript/cost-quadratic-via-call.ts" name="quadratic-via-call at 13:5">
       <failure type="quadratic-via-call" message="`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2.">`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2.
 
-Why: the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop
+Why: the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop
 Fix: index what the callee searches once above the loop, or change the callee to look up by key so each pass costs constant time</failure>
     </testcase>
     <testcase classname="typescript/cost-quadratic-via-call.ts" name="never-reassigned at 2:12">

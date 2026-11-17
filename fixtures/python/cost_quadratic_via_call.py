@@ -13,9 +13,12 @@ def first_occurrences(items: list[str]) -> list[str]:
     return firsts
 
 
-def missing_from(items: list[str], known: list[str]) -> list[str]:
-    missing: list[str] = []
+def describe(text: str) -> str:
+    return text.strip().upper()
+
+
+def describe_each(items: list[str]) -> list[str]:
+    out: list[str] = []
     for item in items:
-        if index_of_item(known, item) < 0:
-            missing.append(item)
-    return missing
+        out.append(describe(item))
+    return out

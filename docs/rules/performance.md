@@ -481,11 +481,11 @@ Suggested fix: run the work through a semaphore, a limiter or a fixed-size pool
 
 ## `quadratic-via-call`
 
-the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop
+the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop
 
 | | |
 |---|---|
-| Measures | a loop over a collection around a call whose cost grows with that same collection |
+| Measures | a loop over a collection around a call whose cost grows with a collection the function was given |
 | Reported as | warning, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Replace Loop with Lookup / Replace Algorithm |

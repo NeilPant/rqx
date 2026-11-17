@@ -57,14 +57,38 @@ fn a_loop_over_a_collection_around_a_call_that_scans_it_is_quadratic() {
 }
 
 #[test]
-fn a_loop_over_another_collection_is_a_product_and_not_a_square() {
+fn a_loop_around_a_call_that_scans_another_collection_is_a_product_the_site_names() {
     let source = QUADRATIC
         .replace("indexOfItem(items, item)", "indexOfItem(other, item)")
         .replace(
             "dedupe(items: string[])",
             "dedupe(items: string[], other: string[])",
         );
-    assert!(found(Language::TypeScript, &source).is_empty());
+    let found = sites(Language::TypeScript, &source, true);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0]
+            .message
+            .contains("over `items` and itself takes time in `other`"),
+        "{}",
+        found[0].message
+    );
+    assert!(
+        found[0].message.contains("O(n·m): loop :7"),
+        "{}",
+        found[0].message
+    );
+}
+
+#[test]
+fn a_callee_that_grows_with_the_loops_own_element_is_not_a_size_the_caller_knows() {
+    let source = "function shout(text: string) { for (const c of text) { sink(c); } }
+export function f(items: string[]) {
+  for (const item of items) { shout(item); }
+}
+";
+    let found = sites(Language::TypeScript, source, true);
+    assert!(found.is_empty(), "{found:?}");
 }
 
 #[test]

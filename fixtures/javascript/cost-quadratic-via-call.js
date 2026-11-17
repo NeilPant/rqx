@@ -17,12 +17,14 @@ function firstOccurrences(items) {
   return firsts;
 }
 
-function missingFrom(items, known) {
-  const missing = [];
+function describe(text) {
+  return text.trim().toUpperCase();
+}
+
+function describeEach(items) {
+  const out = [];
   for (const item of items) {
-    if (indexOfItem(known, item) < 0) {
-      missing.push(item);
-    }
+    out.push(describe(item));
   }
-  return missing;
+  return out;
 }

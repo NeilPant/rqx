@@ -4,7 +4,7 @@
 //! the place came from.
 
 use crate::cost::{Conf, Order, TraceStep};
-use crate::finding::{Confidence, Evidence};
+use crate::finding::{Confidence, Evidence, Finding};
 use crate::rule::RuleId;
 
 /// The rules that read the composed cost of a function, and so cannot be answered from
@@ -15,6 +15,27 @@ pub const CROSS_FILE_RULES: [RuleId; 4] = [
     RuleId::RepeatedComputationInLoop,
     RuleId::PairScanCouldHash,
 ];
+
+/// Rules that already report a call inside a loop. A place one of them reports on the same
+/// line is that rule's, and is not reported a second time under a rule that generalises it.
+pub const REPORTED_IN_LOOPS: [&str; 7] = [
+    "scan-in-loop",
+    "query-in-loop",
+    "await-in-loop",
+    "invariant-in-loop",
+    "accumulate-by-copy",
+    "linear-op-in-loop",
+    "sort-in-loop",
+];
+
+/// The lines of a file where a per-file rule already reports work in a loop.
+pub fn lines_reported_in_loops(findings: &[Finding]) -> Vec<u32> {
+    findings
+        .iter()
+        .filter(|finding| REPORTED_IN_LOOPS.contains(&finding.rule.slug()))
+        .map(|finding| finding.location.line)
+        .collect()
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CrossSite {
@@ -55,6 +76,15 @@ impl CrossSite {
                 reason: self.message.clone(),
             },
         }
+    }
+
+    /// Whether the rule stands in for the per-file rules that report work in a loop, so
+    /// that a line one of them reports is theirs.
+    pub const fn generalises_per_file_rules(&self) -> bool {
+        matches!(
+            self.rule,
+            RuleId::QuadraticViaCall | RuleId::RepeatedComputationInLoop
+        )
     }
 
     pub const fn fix_hint(&self) -> &'static str {

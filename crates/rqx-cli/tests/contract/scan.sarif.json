@@ -383,7 +383,7 @@
             }
           ],
           "message": {
-            "text": "`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2. the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop Fix: index what the callee searches once above the loop, or change the callee to look up by key so each pass costs constant time"
+            "text": "`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2. the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop Fix: index what the callee searches once above the loop, or change the callee to look up by key so each pass costs constant time"
           },
           "properties": {
             "confidence": "verified"
@@ -10362,10 +10362,10 @@
                 "level": "warning"
               },
               "fullDescription": {
-                "text": "the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop"
+                "text": "the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop"
               },
               "help": {
-                "text": "the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop\n\nFix: Replace Loop with Lookup / Replace Algorithm\nMetric: a loop over a collection around a call whose cost grows with that same collection"
+                "text": "the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop\n\nFix: Replace Loop with Lookup / Replace Algorithm\nMetric: a loop over a collection around a call whose cost grows with a collection the function was given"
               },
               "id": "quadratic-via-call",
               "name": "quadratic-via-call",
@@ -10378,7 +10378,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "a loop over a collection around a call whose cost grows with that same collection"
+                "text": "a loop over a collection around a call whose cost grows with a collection the function was given"
               }
             },
             {

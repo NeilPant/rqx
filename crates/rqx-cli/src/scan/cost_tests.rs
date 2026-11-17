@@ -221,8 +221,29 @@ fn a_loop_around_a_call_into_another_file_that_scans_the_same_collection_is_quad
 }
 
 #[test]
-fn a_loop_over_another_collection_than_the_callee_scans_is_left_alone() {
+fn a_loop_around_a_call_that_scans_another_collection_is_reported_as_a_product() {
     let tree = Tree::with(&[("caller.ts", CALLER), ("finder.ts", FINDER_LINEAR)]);
+
+    let outcome = tree.scan();
+
+    let finding = outcome
+        .findings
+        .iter()
+        .find(|finding| finding.rule == RuleId::QuadraticViaCall)
+        .expect("the product is reported");
+    let text = finding.evidence.to_string();
+    assert!(
+        text.contains("over `wanted` and itself takes time in `items`"),
+        "{text}"
+    );
+    assert!(text.contains("O(n·m): loop :3"), "{text}");
+}
+
+#[test]
+fn a_call_that_costs_nothing_to_the_loop_is_left_alone() {
+    let caller = "import { label } from \"./label\";\nexport function f(items: string[]) {\n  for (const item of items) { label(item); }\n}\n";
+    let label = "export function label(text: string) { return text.length; }\n";
+    let tree = Tree::with(&[("caller.ts", caller), ("label.ts", label)]);
 
     assert!(reported(&tree.scan(), RuleId::QuadraticViaCall).is_empty());
 }

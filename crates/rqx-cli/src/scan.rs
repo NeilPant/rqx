@@ -1585,19 +1585,20 @@ impl Collector {
                 cost: &file.cost,
             })
             .collect();
+        let covered: HashMap<&str, &[u32]> = costs
+            .iter()
+            .map(|file| (&*file.name, file.covered.as_slice()))
+            .collect();
+        let reported =
+            |file: &str, line: u32| covered.get(file).is_some_and(|lines| lines.contains(&line));
         let composed = rqx_lang::cost::compose::summarise_with_sites(
             &files,
             root,
             &settings.cost_tables,
             complete,
-            cost_rules::wanted(settings),
+            cost_rules::wanted(settings).then_some(&reported),
         );
-        let languages: HashMap<&str, Language> = costs
-            .iter()
-            .zip(modules)
-            .map(|(file, module)| (&*file.name, module.language))
-            .collect();
-        let mut staged = cost_rules::staged(composed.sites, costs, &languages, root, settings);
+        let mut staged = cost_rules::staged(composed.sites, root, settings);
         staged.summaries = Some(composed.summaries);
         staged
     }
@@ -2231,7 +2232,7 @@ pub(crate) fn collect_against(
                 if !todos.is_empty() {
                     collector.todos.insert(Arc::clone(&shared), todos);
                 }
-                let covered = lines_reported_in_loops(&findings);
+                let covered = rqx_core::cost_sites::lines_reported_in_loops(&findings);
                 for finding in findings {
                     collector.accept(finding);
                 }
@@ -2353,14 +2354,6 @@ pub(crate) fn analyze_file(
         }
     };
     analyzed(path, display, cached, settings)
-}
-
-fn lines_reported_in_loops(findings: &[Finding]) -> Vec<u32> {
-    findings
-        .iter()
-        .filter(|finding| cost_rules::REPORTED_IN_LOOPS.contains(&finding.rule.slug()))
-        .map(|finding| finding.location.line)
-        .collect()
 }
 
 fn skipped(path: &Path, reason: String) -> ScanMessage {

@@ -2469,13 +2469,13 @@ catalogue! {
         slug: "quadratic-via-call",
         category: Performance,
         analysis: Semantics,
-        metric: "a loop over a collection around a call whose cost grows with that same collection",
+        metric: "a loop over a collection around a call whose cost grows with a collection the function was given",
         fixes: [ReplaceLoopWithLookup, ReplaceAlgorithm],
         confidence: Heuristic,
         severity: Warning,
-        why: "the callee does work in proportion to the collection on every pass of a loop over \
-              it, so the total grows with the square of the size although the caller shows only \
-              one loop",
+        why: "the callee does work in proportion to a collection on every pass of the loop, so the \
+              total grows with the product of the two sizes, and with the square of the size when \
+              they are one collection, although the caller shows only one loop",
     },
     DeepRecursion {
         slug: "deep-recursion",

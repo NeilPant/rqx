@@ -23,13 +23,15 @@ public class CostQuadraticViaCall {
         return firsts;
     }
 
-    public List<String> missingFrom(List<String> items, List<String> known) {
-        List<String> missing = new ArrayList<>();
+    String describe(String text) {
+        return text.trim().toUpperCase();
+    }
+
+    public List<String> describeEach(List<String> items) {
+        List<String> out = new ArrayList<>();
         for (String item : items) {
-            if (indexOfItem(known, item) < 0) {
-                missing.add(item);
-            }
+            out.add(describe(item));
         }
-        return missing;
+        return out;
     }
 }

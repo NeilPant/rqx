@@ -169,7 +169,7 @@
   },
   {
     "check_name": "quadratic-via-call",
-    "description": "`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2. — the callee does work in proportion to the collection on every pass of a loop over it, so the total grows with the square of the size although the caller shows only one loop",
+    "description": "`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2. — the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop",
     "fingerprint": "b115a75bc45602b8",
     "location": {
       "lines": {

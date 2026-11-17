@@ -19,13 +19,14 @@ std::vector<std::string> first_occurrences(const std::vector<std::string>& items
   return firsts;
 }
 
-std::vector<std::string> missing_from(const std::vector<std::string>& items,
-                                      const std::vector<std::string>& known) {
-  std::vector<std::string> missing;
+std::string describe(const std::string& text) {
+  return text.substr(0, 8);
+}
+
+std::vector<std::string> describe_each(const std::vector<std::string>& items) {
+  std::vector<std::string> out;
   for (const std::string& item : items) {
-    if (index_of_item(known, item) < 0) {
-      missing.push_back(item);
-    }
+    out.push_back(describe(item));
   }
-  return missing;
+  return out;
 }

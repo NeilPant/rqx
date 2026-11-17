@@ -49,6 +49,9 @@ pub struct Analysed<'a> {
     pub cost: &'a FileCost,
 }
 
+/// Whether a per-file rule already reports work in a loop at a line of a file.
+pub type Reported<'r> = &'r dyn Fn(&str, u32) -> bool;
+
 /// What a composition found: the summary of every function, and the places in them
 /// that the cross-file performance rules report.
 pub struct Composed {
@@ -65,19 +68,20 @@ pub fn summarise(
     tables: &CostTables,
     complete: bool,
 ) -> Summaries {
-    summarise_with_sites(files, root, tables, complete, false).summaries
+    summarise_with_sites(files, root, tables, complete, None).summaries
 }
 
-/// As [`summarise`], and with the places the cross-file rules report when `sites` is
-/// set. A call into a file the scan did not read costs nothing to the composition, so a
-/// rule that concludes from a cost that crosses files has no places unless the scan
-/// was `complete`.
+/// As [`summarise`], and with the places the cross-file rules report when `reported` is
+/// given. It answers whether a per-file rule already reports work in a loop at a line of
+/// a file. A call into a file the scan did not read costs nothing to the composition, so
+/// a rule that concludes from a cost that crosses files has no places unless the scan
+/// was `complete`. A place in a language its rule does not apply to is left out.
 pub fn summarise_with_sites(
     files: &[Analysed<'_>],
     root: &Path,
     tables: &CostTables,
     complete: bool,
-    sites: bool,
+    reported: Option<Reported<'_>>,
 ) -> Composed {
     if files.iter().all(|file| file.cost.is_empty()) {
         return Composed {
@@ -95,7 +99,21 @@ pub fn summarise_with_sites(
         })
         .collect();
     let requests = requests_of(files, &units, root);
-    compose_with_sites(&units, &requests, tables, complete, sites)
+    let mut composed = compose_with_sites(&units, &requests, tables, complete, reported.is_some());
+    if let Some(reported) = reported {
+        composed
+            .sites
+            .retain(|site| is_wanted(site, files, reported));
+    }
+    composed
+}
+
+fn is_wanted(site: &CrossSite, files: &[Analysed<'_>], reported: Reported<'_>) -> bool {
+    let applies = files
+        .iter()
+        .find(|file| file.name == site.file)
+        .is_none_or(|file| site.rule.applies_to(file.module.language));
+    applies && !(site.generalises_per_file_rules() && reported(&site.file, site.line))
 }
 
 /// The import requests the composition may follow, resolved per language family because
