@@ -646,6 +646,29 @@ fn configuration_page() -> String {
          the ones the editor shows from [`rqx.schema.json`](rqx.schema.json), which `rqx config \
          schema` also prints, so the two cannot disagree. A misspelt key is refused with the \
          closest real one and the keys beside it.\n\n\
+         ## Checking a config before it runs\n\n\
+         `rqx config validate` resolves the config the way a scan does \u{2014} presets and \
+         `extends`, the user config, the policy, every `rqx.yaml` up to the repository root, \
+         `RQX_CONFIG` and `--config` \u{2014} and says where it is wrong, with the file, line \
+         and column:\n\n\
+         ```\n\
+         rqx.yaml:3:3: error: unknown field `bogus`, expected one of long_function_statements, \u{2026}\n\
+         \u{2717} config is invalid\n\
+         ```\n\n\
+         An **error** is anything that stops a run: a YAML mistake, an unknown key, a key the \
+         policy locks, a retired `RQX.toml`. It exits 2. A **warning** is something that loads \
+         and does nothing: a name in `rules.disabled` or `patterns.enabled` that is not in the \
+         catalogue, a threshold that only disabled rules read, an `overrides` entry with no \
+         `paths`. Warnings print and exit 0, or exit 1 under `--strict`. A scan still refuses \
+         the unknown names, so a warning here is a scan that would stop.\n\n\
+         ```\n\
+         rqx.yaml:2:14: warning: `nonsense` in `rules.disabled` names nothing; \u{2026}\n\
+         \u{2713} config is valid (1 file, 1 warning)\n\
+         ```\n\n\
+         `rqx config validate [PATH]` takes the directory to resolve from, and `--config` and \
+         `--level` as `scan` does. `--json` prints one line per problem and a summary instead; \
+         `rqx config --json` does the same for the table of settings. Both formats are in \
+         [json.md](json.md).\n\n\
          ## One rule, on its own terms\n\n\
          A rule's slug is a key under `rules`, and it takes the settings that belong to \
          that rule alone.\n\n\

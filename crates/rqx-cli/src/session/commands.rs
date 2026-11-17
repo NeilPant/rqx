@@ -284,7 +284,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
                 crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config)
             });
             let sinks = crate::sinks(&view)?;
-            let filter = crate::filter_of(&view, &path)?;
+            let filter = crate::filter_of(&view, &path, listed(&view, &path)?.as_ref())?;
             let report = Report::scan(outcome, &filter);
             let report = match &verdict {
                 Some(verdict) => report.judged(verdict),
@@ -539,7 +539,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             gate.apply(&mut settings.config);
             let sinks = crate::sinks(&view)?;
             background(false, move || {
-                let filter = crate::filter_of(&view, &path)?;
+                let filter = crate::filter_of(&view, &path, listed(&view, &path)?.as_ref())?;
                 let review = check::review(&path, &settings, &base)?;
                 let verdict = review.judge(&settings.config);
                 let report = Report::review(&review, &verdict, &filter);
@@ -589,6 +589,20 @@ fn background(
         work: Box::new(work),
         rescan,
     })
+}
+
+/// `--files-from` in the session, which can read a named list but not standard input:
+/// the session's standard input is the terminal the prompt is reading.
+fn listed(
+    view: &crate::View,
+    root: &std::path::Path,
+) -> anyhow::Result<Option<crate::listed::Listed>> {
+    if view.files_from.as_deref() == Some("-") {
+        anyhow::bail!(
+            "`--files-from -` reads standard input, which the session is using; name a file instead"
+        );
+    }
+    crate::listed_files(view, root)
 }
 
 #[cfg(test)]

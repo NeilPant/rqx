@@ -46,6 +46,29 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   blames. A count is the same on every machine, so a warm run that stopped using the
   cache shows up as a number rather than as noise in a timing. The stages gain cache
   load, cache save and render.
+- **`rqx config validate [PATH] [--strict]`.** Resolves the config the way a scan does
+  and reports what is wrong with it, with the file, line and column. An error (bad
+  YAML, an unknown key, a key the policy locks, a retired `RQX.toml`) exits 2. A
+  warning (a rule name that is not in the catalogue, a threshold that only disabled
+  rules read, an `overrides` entry with no `paths`) prints and exits 0, or 1 under
+  `--strict`. A scan still refuses the unknown names, so a warning here is a scan that
+  would stop. It prints `✓ config is valid (N files)` when nothing stops it.
+- **`rqx config --json` and `rqx config validate --json`.** `rqx config --json` writes
+  one line per setting (`key`, `value`, `from`, `default`) and a summary line listing
+  the files read, so a script can assert on the settings a run will use.
+  `config validate --json` writes one line per problem (`severity`, `file`, `line`,
+  `column`, `message`) and a summary whose `valid` is the answer the exit code gives.
+  Both formats are in `docs/json.md`.
+- **`--files-from FILE` on `scan` and `check`.** Names the files to look at, one path
+  per line, or separated by NUL when the input holds one, so `git diff -z --name-only`
+  works; `-` reads standard input. Paths are relative to the scanned directory or
+  absolute, and paths that are not files under it are said once on stderr and
+  ignored. On `scan` it narrows the report the way `--since` and `--changed` do, and
+  combines with them; the whole project is still analysed, so cross-file findings stay
+  right. On `check` the list replaces the git diff as the files under review (what
+  imports them is still added), so a review works in a clone with no history to diff
+  against. `--base` and `--files-from` cannot be given together.
+
 ### Changed
 
 - **`rqx scan` always prints the report.** In a terminal it used to open the

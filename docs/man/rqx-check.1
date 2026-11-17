@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-check \- Analyze changed files against a base revision and fail if the gate is not met
 .SH SYNOPSIS
-\fBrqx check\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-no\-tui\fR] [\fB\-\-min\-health\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-motion\fR] [\fB\-\-config\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx check\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-no\-tui\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-motion\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-no\-progress\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze changed files against a base revision and fail if the gate is not met
 .SH OPTIONS
@@ -55,11 +55,11 @@ on
 off
 .RE
 .TP
-\fB\-\-config\fR \fI<FILE>\fR
-Read settings from this file, layered over any `rqx.yaml` found
-.TP
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)
@@ -125,6 +125,9 @@ Show only findings in files this revision changed
 .TP
 \fB\-\-changed\fR
 Show only findings in files not yet committed
+.TP
+\fB\-\-files\-from\fR \fI<FILE>\fR
+Show only findings in the files this list names, one path per line, or separated by NUL when the input holds one (`git diff \-z \-\-name\-only`); `\-` reads standard input. Paths are relative to the scanned directory, or absolute. The whole project is still analysed, so cross\-file findings stay right. On `check` the list replaces the git diff as the files under review
 .SH DISPLAY
 .TP
 \fB\-\-show\-passed\fR
@@ -251,3 +254,5 @@ Examples:
   rqx check \-\-base main \-\-fail\-on error
                                       and fail CI on any error
   rqx check \-\-fix \-w                  apply the proven fixes first
+  git diff \-z \-\-name\-only main... | rqx check \-\-files\-from \-
+                                      review without git history to diff against

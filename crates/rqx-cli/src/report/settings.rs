@@ -3,6 +3,8 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::config::{GateGrade, GateSeverity, Level, RqxConfig, Thresholds};
 use rqx_core::rule::RuleId;
+use serde::Serialize;
+use serde_json::Value;
 
 use crate::brand::{Ink, Palette, paint};
 use crate::config::Resolved;
@@ -14,6 +16,8 @@ pub struct Row {
     pub name: &'static str,
     pub value: String,
     pub table: &'static str,
+    /// The setting as it is written in a config file, dotted: `gate.fail_on`.
+    pub setting: String,
     /// The key inside the table, where the row is one. Two files can both write
     /// `[thresholds]` and only this says which of them wrote this line.
     pub key: Option<&'static str>,
@@ -44,11 +48,18 @@ impl Row {
     }
 }
 
-fn row(name: &'static str, table: &'static str, value: String, is_default: bool) -> Row {
+fn row(
+    name: &'static str,
+    table: &'static str,
+    setting: &str,
+    value: String,
+    is_default: bool,
+) -> Row {
     Row {
         name,
         value,
         table,
+        setting: setting.to_owned(),
         key: None,
         is_default,
         from_level: None,
@@ -89,11 +100,13 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
         row(
             "languages",
             "languages",
+            "languages.enabled",
             languages,
             config.languages.enabled.is_empty(),
         ),
         row(
             "rules enabled",
+            "rules",
             "rules",
             format!("{} of {}", settings.rules_enabled(), RuleId::ALL.len()),
             untouched,
@@ -101,49 +114,63 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
         row(
             "pattern advice",
             "patterns",
+            "patterns",
             format!("{advisories} of {}", rqx_core::AdviceId::ALL.len()),
             advice_untouched,
         ),
-        row("threads", "scan", threads(config), config.scan.threads == 0),
+        row(
+            "threads",
+            "scan",
+            "scan.threads",
+            threads(config),
+            config.scan.threads == 0,
+        ),
         row(
             "display cap",
             "scan",
+            "scan.max_findings",
             config.scan.max_findings.to_string(),
             config.scan.max_findings == default.scan.max_findings,
         ),
         row(
             "max file size",
             "scan",
+            "scan.max_filesize",
             format!("{} KB", config.scan.max_filesize / 1024),
             config.scan.max_filesize == default.scan.max_filesize,
         ),
         row(
             "churn window",
             "scan",
+            "scan.churn_days",
             format!("{} days", config.scan.churn_days),
             config.scan.churn_days == default.scan.churn_days,
         ),
         row(
             "cache",
             "scan",
+            "scan.cache",
             config.scan.cache.to_string(),
             !config.scan.cache,
         ),
         row(
             "pruned directories",
             "scan",
+            "scan.prune_dirs",
             config.scan.prune_dirs.len().to_string(),
             config.scan.prune_dirs == default.scan.prune_dirs,
         ),
         row(
             "ignored globs",
             "ignore",
+            "ignore.patterns",
             config.ignore.patterns.len().to_string(),
             config.ignore.patterns == default.ignore.patterns,
         ),
         row(
             "entry points",
             "entrypoints",
+            "entrypoints.paths",
             if config.entrypoints.paths.is_empty() {
                 "none declared".to_owned()
             } else {
@@ -154,28 +181,33 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
         row(
             "gate: fail on",
             "gate",
+            "gate.fail_on",
             config.gate.fail_on.slug().to_owned(),
             matches!(config.gate.fail_on, GateSeverity::Error),
         ),
         row(
             "gate: allowed",
             "gate",
+            "gate.max_findings",
             config.gate.max_findings.to_string(),
             config.gate.max_findings == 0,
         ),
         row(
             "gate: min health",
             "gate",
+            "gate.min_health",
             config.gate.min_health.to_string(),
             config.gate.min_health == 0,
         ),
         row(
             "gate: min grade",
             "gate",
+            "gate.min_grade",
             min_grade(config.gate.min_grade).to_owned(),
             matches!(config.gate.min_grade, GateGrade::Never),
         ),
         row(
+            "level",
             "level",
             "level",
             format!("{} \u{2014} {}", level, level.summary()),
@@ -184,6 +216,7 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
         row(
             "fix: apply",
             "fix",
+            "fix.apply",
             if config.fix.apply.is_empty() {
                 "every kind".to_owned()
             } else {
@@ -200,6 +233,7 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
         row(
             "fix: disabled",
             "fix",
+            "fix.disabled",
             if config.fix.disabled.is_empty() {
                 "none".to_owned()
             } else {
@@ -216,13 +250,20 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
         row(
             "fix: max rounds",
             "fix",
+            "fix.max_rounds",
             config.fix.max_rounds.to_string(),
             config.fix.max_rounds == 3,
         ),
     ];
 
     for (name, key, value, fallback) in threshold_rows(thresholds, &defaults) {
-        let mut entry = row(name, "thresholds", value.to_string(), value == fallback);
+        let mut entry = row(
+            name,
+            "thresholds",
+            &format!("thresholds.{key}"),
+            value.to_string(),
+            value == fallback,
+        );
         entry.key = Some(key);
         // A threshold the level moved is not one this project chose, and naming a file
         // would send a reader to a line that is not in it.
@@ -457,5 +498,60 @@ pub fn render(settings: &Resolved, palette: Palette) -> Result<()> {
         )?;
     }
     writeln!(out)?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct JsonSetting<'a> {
+    kind: &'static str,
+    key: &'a str,
+    value: Value,
+    from: String,
+    default: bool,
+}
+
+#[derive(Serialize)]
+struct JsonSummary {
+    kind: &'static str,
+    schema_version: u32,
+    files: Vec<String>,
+}
+
+/// The value as the config holds it, so a script compares a number with a number. A
+/// row that summarises a whole table, such as how many rules run, has no one value to
+/// give and carries the words the table report uses.
+fn typed_value(entry: &Row, config: &Value) -> Value {
+    entry
+        .setting
+        .split('.')
+        .try_fold(config, |at, part| at.get(part))
+        .filter(|found| !found.is_object())
+        .cloned()
+        .unwrap_or_else(|| Value::String(entry.value.clone()))
+}
+
+/// `rqx config --json`: one line per setting, then one for the files they came from.
+pub fn render_json(settings: &Resolved, out: &mut dyn Write) -> Result<()> {
+    let config = serde_json::to_value(&settings.config)?;
+    for entry in rows(settings) {
+        let line = JsonSetting {
+            kind: "setting",
+            key: &entry.setting,
+            value: typed_value(&entry, &config),
+            from: entry.source(settings),
+            default: entry.is_default,
+        };
+        writeln!(out, "{}", serde_json::to_string(&line)?)?;
+    }
+    let summary = JsonSummary {
+        kind: "summary",
+        schema_version: super::SCHEMA_VERSION,
+        files: settings
+            .sources
+            .iter()
+            .map(|file| super::validation::shown_path(file))
+            .collect(),
+    };
+    writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())
 }

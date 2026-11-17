@@ -21,6 +21,7 @@ mod gate;
 mod graph;
 mod health;
 mod history;
+mod listed;
 mod lsp;
 mod mcp;
 mod migrate;
@@ -623,7 +624,7 @@ enum Command {
     /// Analyze changed files against a base revision and fail if the gate is not met
     #[command(visible_alias = "c")]
     #[command(
-        after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and fail CI on any error\n  rqx check --fix -w                  apply the proven fixes first"
+        after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and fail CI on any error\n  rqx check --fix -w                  apply the proven fixes first\n  git diff -z --name-only main... | rqx check --files-from -\n                                      review without git history to diff against"
     )]
     Check {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -631,7 +632,7 @@ enum Command {
         #[command(flatten)]
         standard: Standard,
         /// Revision to compare against
-        #[arg(long, default_value = "origin/HEAD")]
+        #[arg(long, default_value = "origin/HEAD", conflicts_with = "files_from")]
         base: String,
         /// Apply the mechanical fixes to what the branch touched before gating, so a
         /// branch whose only failures were mechanical passes
@@ -709,6 +710,9 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
+        /// One JSON object per setting, then a summary, instead of the table
+        #[arg(long)]
+        json: bool,
         #[command(subcommand)]
         action: Option<ConfigAction>,
     },
@@ -851,6 +855,18 @@ struct View {
     /// Show only findings in files not yet committed
     #[arg(long, help_heading = "Filtering")]
     changed: bool,
+    /// Show only findings in the files this list names, one path per line, or
+    /// separated by NUL when the input holds one (`git diff -z --name-only`); `-` reads
+    /// standard input. Paths are relative to the scanned directory, or absolute. The
+    /// whole project is still analysed, so cross-file findings stay right. On `check`
+    /// the list replaces the git diff as the files under review
+    #[arg(
+        long = "files-from",
+        value_name = "FILE",
+        value_hint = ValueHint::FilePath,
+        help_heading = "Filtering"
+    )]
+    files_from: Option<String>,
 
     /// List files that have no findings as well
     #[arg(long, help_heading = "Display")]
@@ -929,6 +945,32 @@ enum ConfigAction {
         /// The setting, dotted: `thresholds.max_params`, `gate.fail_on`,
         /// `rules.long-function.severity`
         key: String,
+    },
+    /// Check that the config loads, and say where it does not
+    #[command(after_help = "Examples:
+  rqx config validate                 exit 2 on an error, 0 otherwise
+  rqx config validate --strict        exit 1 when there are warnings too
+  rqx config validate --json          one line per problem, then a summary
+
+The config is resolved the way a scan resolves it: presets and `extends`, the user
+config, the policy, every `rqx.yaml` up to the repository root, RQX_CONFIG and --config.
+An error is anything that stops a run. A warning is something that loads but does
+nothing: a rule name not in the catalogue, a threshold no enabled rule reads, an
+`overrides` entry with no `paths`.")]
+    Validate {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Exit 1 when the config has warnings, not only when it has errors
+        #[arg(long)]
+        strict: bool,
+        /// One JSON object per problem, then a summary, instead of the reader's report
+        #[arg(long)]
+        json: bool,
+        /// Read settings from this file, layered over any `rqx.yaml` found
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
     },
     /// Convert RQX.toml files, the policies they point at and the user config to YAML
     Migrate {
@@ -1218,7 +1260,10 @@ impl From<ConfigAction> for edit_config::Change {
             },
             ConfigAction::Unset { key, file, pick } => Self::Unset { key, file, pick },
             ConfigAction::Files => Self::Files,
-            ConfigAction::Migrate { .. } | ConfigAction::Schema | ConfigAction::Explain { .. } => {
+            ConfigAction::Migrate { .. }
+            | ConfigAction::Validate { .. }
+            | ConfigAction::Schema
+            | ConfigAction::Explain { .. } => {
                 unreachable!("answered before settings load")
             }
         }
@@ -1363,7 +1408,27 @@ fn update_notice(view: &View, sinks: &[Sink], palette: Palette, enabled: bool) {
     }
 }
 
-fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
+/// The list `--files-from` names, read once because standard input cannot be read
+/// twice, and said once when it named things that are not there.
+fn listed_files(view: &View, root: &Path) -> Result<Option<listed::Listed>> {
+    let Some(source) = view.files_from.as_deref() else {
+        return Ok(None);
+    };
+    let directory = if root.is_file() {
+        root.parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or(Path::new("."))
+    } else {
+        root
+    };
+    let listed = listed::Listed::read(source, directory)?;
+    if let Some(note) = listed.note_on_missing() {
+        eprintln!("  {note}");
+    }
+    Ok(Some(listed))
+}
+
+fn filter_of(view: &View, root: &Path, listed: Option<&listed::Listed>) -> Result<FindingFilter> {
     let filter = FindingFilter::new(
         view.severity.map(Severity::from),
         &view.rules,
@@ -1385,9 +1450,40 @@ fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
             .get_or_insert_with(Vec::new)
             .extend(history::uncommitted(root));
     }
+    if let Some(listed) = listed {
+        touched
+            .get_or_insert_with(Vec::new)
+            .extend(listed.files.iter().cloned());
+    }
     Ok(match touched {
         Some(files) => filter.touching(files),
         None => filter,
+    })
+}
+
+/// A config that does not load is a config rqx cannot run with, which is exit 2 like
+/// any other run that could not start; one that loads and has warnings is only a
+/// failure when `--strict` says warnings are.
+fn validate_config(
+    path: &Path,
+    explicit: Option<&Path>,
+    standard: &Standard,
+    strict: bool,
+    json: bool,
+    palette: Palette,
+) -> Result<Exit> {
+    let validation = config::validate(path, explicit, standard.chosen()?);
+    let passes = validation.passes(strict);
+    let mut out = anstream::stdout().lock();
+    if json {
+        report::validation_json(&validation, passes, &mut out)?;
+    } else {
+        report::validation(&validation, strict, palette, &mut out)?;
+    }
+    Ok(if validation.count(config::Severity::Error) > 0 {
+        Exit::Failed
+    } else {
+        Exit::of(!passes)
     })
 }
 
@@ -1554,7 +1650,8 @@ fn run() -> Result<Exit> {
 
             progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
-            let filter = filter_of(&view, &path)?;
+            let listed = listed_files(&view, &path)?;
+            let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
                 let outcome = scan::scan(&path, settings)?;
 
@@ -2088,8 +2185,16 @@ fn run() -> Result<Exit> {
             path,
             standard,
             config,
+            json,
             action,
         } => {
+            if json && action.is_some() {
+                bail!(
+                    "`--json` goes after `rqx config` to print the settings, or after \
+                     `rqx config validate` to print the problems; the other subcommands \
+                     have no JSON form"
+                );
+            }
             // A TOML file stops the config from loading, and converting it is the way
             // out, so this has to run before anything reads the configuration.
             match action {
@@ -2105,10 +2210,30 @@ fn run() -> Result<Exit> {
                     println!("{}", report::config_schema());
                     return Ok(Exit::Clean);
                 }
+                Some(ConfigAction::Validate {
+                    path,
+                    standard,
+                    strict,
+                    json,
+                    config,
+                }) => {
+                    return validate_config(
+                        &path,
+                        config.as_deref(),
+                        &standard,
+                        strict,
+                        json,
+                        palette,
+                    );
+                }
                 _ => {}
             }
             let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
             match action {
+                None if json => {
+                    let mut out = anstream::stdout().lock();
+                    report::config_json(&settings?, &mut out).map(|()| Exit::Clean)
+                }
                 None => report::config(&settings?, palette).map(|()| Exit::Clean),
                 Some(ConfigAction::Explain { key }) => {
                     let mut out = anstream::stdout().lock();
@@ -2157,8 +2282,15 @@ fn run() -> Result<Exit> {
 
             progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
-            let filter = filter_of(&view, &path)?;
-            let mut review = check::review(&path, &settings, &base)?;
+            // The list is what is reviewed here, so it does not also narrow the report:
+            // that would hide the findings in the files that import what it names.
+            let listed = listed_files(&view, &path)?;
+            let source = match &listed {
+                Some(listed) => check::Reviewed::Listed(&listed.files),
+                None => check::Reviewed::Since(&base),
+            };
+            let filter = filter_of(&view, &path, None)?;
+            let mut review = check::review_of(&path, &settings, source, None)?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
             // mechanical passes rather than failing on work rqx could have done.
@@ -2176,7 +2308,7 @@ fn run() -> Result<Exit> {
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
-                    review = check::review(&path, &settings, &base)?;
+                    review = check::review_of(&path, &settings, source, None)?;
                 }
             }
             let verdict = review.judge(&settings.config);

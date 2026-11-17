@@ -69,6 +69,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--search` | Show only findings whose rule, file or evidence contains this text |
 | `--since` | Show only findings in files this revision changed |
 | `--changed` | Show only findings in files not yet committed |
+| `--files-from` | Show only findings in the files this list names, one path per line, or separated by NUL when the input holds one (`git diff -z --name-only`); `-` reads standard input. Paths are relative to the scanned directory, or absolute. The whole project is still analysed, so cross-file findings stay right. On `check` the list replaces the git diff as the files under review |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
 | `--timings` | Print how long each stage of the scan took, and what it did |
@@ -161,6 +162,7 @@ Print the settings a run will use, and the file each one came from
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--json` | One JSON object per setting, then a summary, instead of the table |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
@@ -427,6 +429,7 @@ Analyze a project and report every finding
 | `--search` | Show only findings whose rule, file or evidence contains this text |
 | `--since` | Show only findings in files this revision changed |
 | `--changed` | Show only findings in files not yet committed |
+| `--files-from` | Show only findings in the files this list names, one path per line, or separated by NUL when the input holds one (`git diff -z --name-only`); `-` reads standard input. Paths are relative to the scanned directory, or absolute. The whole project is still analysed, so cross-file findings stay right. On `check` the list replaces the git diff as the files under review |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
 | `--timings` | Print how long each stage of the scan took, and what it did |

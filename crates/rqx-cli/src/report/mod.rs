@@ -19,6 +19,7 @@ mod sarif;
 mod settings;
 mod tally;
 mod terminal;
+mod validation;
 mod waivers;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -121,8 +122,9 @@ pub fn unknown(kind: &str, named: &str, known: &[&str], hint: &str) -> anyhow::E
 pub use filter::FindingFilter;
 pub use json::finding_of;
 pub use markdown::{classification, comment};
-pub use settings::{render as config, rows as setting_rows};
+pub use settings::{render as config, render_json as config_json, rows as setting_rows};
 pub use terminal::{Detail, Grouping, Layout, Order};
+pub use validation::{json as validation_json, render as validation};
 
 /// The shape of the machine formats. Bumped only when a key is removed or changes
 /// meaning, which `docs/json.md` promises never to do, so a consumer can refuse a

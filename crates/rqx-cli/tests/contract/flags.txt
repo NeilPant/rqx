@@ -112,6 +112,7 @@ check --fail-on =info
 check --fail-on =never
 check --fail-on =warning
 check --fail-on-incomplete
+check --files-from
 check --fix
 check --fixable
 check --format
@@ -267,6 +268,7 @@ config --color =auto
 config --color =never
 config --config
 config --help
+config --json
 config --level
 config --level [env RQX_LEVEL]
 config --motion
@@ -278,6 +280,21 @@ config --no-progress [env RQX_NO_PROGRESS]
 config --no-tui
 config -h
 config <path>
+config explain
+config explain --color
+config explain --color =always
+config explain --color =auto
+config explain --color =never
+config explain --help
+config explain --motion
+config explain --motion =off
+config explain --motion =on
+config explain --no-mouse
+config explain --no-progress
+config explain --no-progress [env RQX_NO_PROGRESS]
+config explain --no-tui
+config explain -h
+config explain <key>
 config files
 config files --color
 config files --color =always
@@ -293,10 +310,44 @@ config files --no-progress [env RQX_NO_PROGRESS]
 config files --no-tui
 config files -h
 config help
+config help explain
 config help files
 config help help
+config help migrate
+config help schema
 config help set
 config help unset
+config help validate
+config migrate
+config migrate --color
+config migrate --color =always
+config migrate --color =auto
+config migrate --color =never
+config migrate --dry-run
+config migrate --help
+config migrate --motion
+config migrate --motion =off
+config migrate --motion =on
+config migrate --no-mouse
+config migrate --no-progress
+config migrate --no-progress [env RQX_NO_PROGRESS]
+config migrate --no-tui
+config migrate -h
+config migrate <path>
+config schema
+config schema --color
+config schema --color =always
+config schema --color =auto
+config schema --color =never
+config schema --help
+config schema --motion
+config schema --motion =off
+config schema --motion =on
+config schema --no-mouse
+config schema --no-progress
+config schema --no-progress [env RQX_NO_PROGRESS]
+config schema --no-tui
+config schema -h
 config set
 config set --color
 config set --color =always
@@ -332,6 +383,26 @@ config unset --no-tui
 config unset --pick
 config unset -h
 config unset <key>
+config validate
+config validate --color
+config validate --color =always
+config validate --color =auto
+config validate --color =never
+config validate --config
+config validate --help
+config validate --json
+config validate --level
+config validate --level [env RQX_LEVEL]
+config validate --motion
+config validate --motion =off
+config validate --motion =on
+config validate --no-mouse
+config validate --no-progress
+config validate --no-progress [env RQX_NO_PROGRESS]
+config validate --no-tui
+config validate --strict
+config validate -h
+config validate <path>
 docs
 docs --color
 docs --color =always
@@ -453,9 +524,13 @@ help comment
 help completions
 help complexity
 help config
+help config explain
 help config files
+help config migrate
+help config schema
 help config set
 help config unset
+help config validate
 help docs
 help explain
 help fix
@@ -709,6 +784,7 @@ scan --fail-on =info
 scan --fail-on =never
 scan --fail-on =warning
 scan --fail-on-incomplete
+scan --files-from
 scan --fixable
 scan --format
 scan --format =github

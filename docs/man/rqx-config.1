@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-config \- Print the settings a run will use, and the file each one came from
 .SH SYNOPSIS
-\fBrqx config\fR [\fB\-\-level\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
+\fBrqx config\fR [\fB\-\-level\fR] [\fB\-\-config\fR] [\fB\-\-json\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 Print the settings a run will use, and the file each one came from
 .SH OPTIONS
@@ -14,6 +14,9 @@ relaxed, standard, strict or pristine
 .TP
 \fB\-\-config\fR \fI<FILE>\fR
 Read settings from this file, layered over any `rqx.yaml` found
+.TP
+\fB\-\-json\fR
+One JSON object per setting, then a summary, instead of the table
 .TP
 \fB\-\-no\-tui\fR
 Never open the interactive interface; bare `rqx` prints the report instead
@@ -73,6 +76,9 @@ Print the JSON Schema of a config file, for an editor or a validator
 .TP
 rqx\-config\-explain(1)
 What one setting is, what it defaults to, and what it is now and why
+.TP
+rqx\-config\-validate(1)
+Check that the config loads, and say where it does not
 .TP
 rqx\-config\-migrate(1)
 Convert RQX.toml files, the policies they point at and the user config to YAML
