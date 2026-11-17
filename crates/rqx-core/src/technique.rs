@@ -155,6 +155,7 @@ techniques! {
     PresizeCollection { name: "Presize the Collection", group: Performance },
     BoundConcurrency { name: "Bound Concurrency", group: Performance },
     BoundTheCache { name: "Bound the Cache", group: Performance },
+    UsePrimitiveType { name: "Use a Primitive Type", group: Performance },
 }
 
 impl fmt::Display for FixTechnique {

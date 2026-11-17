@@ -2378,6 +2378,43 @@ catalogue! {
         why: "it holds an entry for every distinct key the program has ever been given, so \
               memory grows with the variety of the input for as long as the process runs",
     },
+    DeferInLoop {
+        slug: "defer-in-loop",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a defer statement with a loop between it and its enclosing function",
+        fixes: [ExtractMethod],
+        confidence: Verified,
+        severity: Warning,
+        why: "a deferred call runs when the function returns, not when the pass ends, so every \
+              pass holds what it opened until the whole loop is done",
+        not_applicable: [
+            (JavaScript, "JavaScript has no defer statement; cleanup is written in a finally block"),
+            (TypeScript, "TypeScript has no defer statement; cleanup is written in a finally block"),
+            (Python, "a with block releases what it opens when the block ends, inside the pass"),
+            (Java, "try-with-resources releases what it opens when its block ends, inside the pass"),
+            (Cpp, "a destructor runs when its scope ends, which is inside the pass"),
+        ],
+    },
+    BoxingInLoop {
+        slug: "boxing-in-loop",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a local declared as Integer, Long, Double or another boxed number and changed \
+                 with an arithmetic update inside a loop",
+        fixes: [UsePrimitiveType],
+        confidence: Verified,
+        severity: Warning,
+        why: "each update unboxes the value and boxes the result as a new object, which the \
+              primitive type does in place",
+        not_applicable: [
+            (JavaScript, "numbers have one representation; there is no boxed form to avoid"),
+            (TypeScript, "numbers have one representation; there is no boxed form to avoid"),
+            (Python, "every int is an object; there is no primitive form to use instead"),
+            (Go, "numeric values are stored directly; nothing is boxed"),
+            (Cpp, "numeric values are stored directly; nothing is boxed"),
+        ],
+    },
     UnboundedConcurrency {
         slug: "unbounded-concurrency",
         category: Performance,

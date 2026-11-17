@@ -352,6 +352,58 @@ function rememberPage(key: string, size: number): number {
 
 Suggested fix: bound it with a maximum size and an eviction rule, or key it by something that has a limited number of values
 
+## `defer-in-loop`
+
+a deferred call runs when the function returns, not when the pass ends, so every pass holds what it opened until the whole loop is done
+
+| | |
+|---|---|
+| Measures | a defer statement with a loop between it and its enclosing function |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Method |
+| Not in JavaScript | JavaScript has no defer statement; cleanup is written in a finally block |
+| Not in TypeScript | TypeScript has no defer statement; cleanup is written in a finally block |
+| Not in Python | a with block releases what it opens when the block ends, inside the pass |
+| Not in Java | try-with-resources releases what it opens when its block ends, inside the pass |
+| Not in C++ | a destructor runs when its scope ends, which is inside the pass |
+
+From `fixtures/go/fixtures/cost-defer-in-loop.go`, line 12:
+
+```go
+		}
+		defer file.Close()
+		info, err := file.Stat()
+```
+
+Suggested fix: move the loop body into its own function, so the deferred call runs at the end of each pass
+
+## `boxing-in-loop`
+
+each update unboxes the value and boxes the result as a new object, which the primitive type does in place
+
+| | |
+|---|---|
+| Measures | a local declared as Integer, Long, Double or another boxed number and changed with an arithmetic update inside a loop |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Use a Primitive Type |
+| Not in JavaScript | numbers have one representation; there is no boxed form to avoid |
+| Not in TypeScript | numbers have one representation; there is no boxed form to avoid |
+| Not in Python | every int is an object; there is no primitive form to use instead |
+| Not in Go | numeric values are stored directly; nothing is boxed |
+| Not in C++ | numeric values are stored directly; nothing is boxed |
+
+From `fixtures/java/src/main/java/rqx/CostBoxingInLoop.java`, line 9:
+
+```java
+        for (Integer row : rows) {
+            total += row;
+        }
+```
+
+Suggested fix: declare it with the primitive type
+
 ## `unbounded-concurrency`
 
 the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit

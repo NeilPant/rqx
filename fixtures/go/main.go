@@ -148,5 +148,8 @@ func main() {
 	_ = fixtures.LoadFewPages
 	_ = fixtures.RememberPage
 	_ = fixtures.RememberRecentPage
+	_ = fixtures.SizeOfEach
+	_ = fixtures.SizeOfEachInTurn
+	_ = fixtures.SizeOfOne
 	_ = cyclea.Orbit
 }

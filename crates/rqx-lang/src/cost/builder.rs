@@ -39,6 +39,7 @@ pub struct Shared<'f> {
 mod allocation;
 mod concurrency;
 mod sites;
+mod statements;
 
 pub struct Built<'a> {
     /// `None` for a function that is plainly constant time and calls nothing.
@@ -88,6 +89,8 @@ struct Visitor<'a, 'f> {
     /// The loops the visit is inside, outermost first, to read what they leave alone.
     loop_nodes: Vec<Node<'a>>,
     sites: Vec<CostSite>,
+    /// Boxed numbers declared here, by the loop depth they were declared at.
+    boxed: HashMap<&'a str, u8>,
     /// Work started with no limit in sight, held until the function is read in full,
     /// because a limit may be written anywhere in it.
     unbounded: Vec<CostSite>,
@@ -124,6 +127,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         loop_bounds: Vec::new(),
         loop_nodes: Vec::new(),
         sites: Vec::new(),
+        boxed: HashMap::new(),
         unbounded: Vec::new(),
         empty_collections: HashMap::new(),
         nested: Vec::new(),
@@ -278,9 +282,11 @@ impl<'a> Visitor<'a, '_> {
         if declares(profile, node) {
             bind_declaration(&mut self.bounds(), node);
             self.note_empty_collection(node);
+            self.note_boxed_declaration(node);
         } else if profile.assignment_kinds.contains(&kind) {
             bind_assignment(&mut self.bounds(), node);
         }
+        self.note_boxed_step(node, kind);
         if profile.assignment_kinds.contains(&kind) {
             return self.with_growth_by_key(node, parts);
         }
@@ -304,6 +310,7 @@ impl<'a> Visitor<'a, '_> {
 
     fn note_statement_in_loop(&mut self, node: Node<'a>, kind: &str) {
         self.note_statement_sites(node, kind);
+        self.note_deferred_in_loop(node, kind);
         let signals = &self.names.profile.signals;
         if signals.lock_kinds.contains(&kind) {
             self.locks_in_loop = true;

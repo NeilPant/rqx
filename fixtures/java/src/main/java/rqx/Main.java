@@ -102,6 +102,9 @@ public class Main {
         new Ticker().fire();
         new Editor().save();
         new SmsGateway().disconnect();
+        new CostBoxingInLoop().sumBoxed(java.util.List.of());
+        new CostBoxingInLoop().sumPrimitive(java.util.List.of());
+        new CostBoxingInLoop().firstBoxed(java.util.List.of());
         new CostUnboundedCache().rememberPage("", 0);
         new CostUnboundedCache().rememberRecentPage("", 0);
         new CostLockInLoop().tallyUnderOneLock(java.util.List.of(), new Object());

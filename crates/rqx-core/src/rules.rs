@@ -444,6 +444,24 @@ fn cost_site_wording(site: &CostSite) -> Option<(Evidence, &'static str)> {
             "bound it with a maximum size and an eviction rule, or key it by something that \
              has a limited number of values",
         ),
+        RuleId::DeferInLoop => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is deferred inside a loop, so it runs when the function returns and not \
+                         when the pass ends"
+                    .to_owned(),
+            },
+            "move the loop body into its own function, so the deferred call runs at the end of each pass",
+        ),
+        RuleId::BoxingInLoop => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is a boxed number changed on every pass, allocating a new object each \
+                         time"
+                    .to_owned(),
+            },
+            "declare it with the primitive type",
+        ),
         RuleId::UnboundedConcurrency => (
             Evidence::Name {
                 identifier: site.subject.clone(),

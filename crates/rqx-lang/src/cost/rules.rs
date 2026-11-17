@@ -234,3 +234,32 @@ fn a_memoizing_decorator_with_no_maximum_is_an_unbounded_cache() {
         "import functools\n\n@functools.lru_cache(maxsize=128)\ndef square(n):\n    return n * n\n";
     assert!(reported(Language::Python, bounded, &[RuleId::UnboundedCache]).is_empty());
 }
+
+#[test]
+fn a_defer_in_a_loop_waits_for_the_function_and_one_in_a_closure_does_not() {
+    let looped = "func f(paths []string) {\n\tfor _, path := range paths {\n\t\tfile, _ := os.Open(path)\n\t\tdefer file.Close()\n\t}\n}\n";
+    assert_eq!(
+        reported(Language::Go, looped, &[RuleId::DeferInLoop]),
+        [(RuleId::DeferInLoop, 4)]
+    );
+    let closure = "func f(paths []string) {\n\tfor _, path := range paths {\n\t\tfunc() {\n\t\t\tfile, _ := os.Open(path)\n\t\t\tdefer file.Close()\n\t\t}()\n\t}\n}\n";
+    assert!(reported(Language::Go, closure, &[RuleId::DeferInLoop]).is_empty());
+    let after = "func f(path string) {\n\tfile, _ := os.Open(path)\n\tdefer file.Close()\n}\n";
+    assert!(reported(Language::Go, after, &[RuleId::DeferInLoop]).is_empty());
+}
+
+#[test]
+fn a_boxed_number_stepped_in_a_loop_is_reported_and_a_primitive_is_not() {
+    let boxed = "class A {\n  Integer f(java.util.List<Integer> rows) {\n    Integer total = 0;\n    for (Integer row : rows) {\n      total += row;\n    }\n    return total;\n  }\n}\n";
+    assert_eq!(
+        reported(Language::Java, boxed, &[RuleId::BoxingInLoop]),
+        [(RuleId::BoxingInLoop, 5)]
+    );
+    let counted = "class A {\n  Integer f(int n) {\n    Integer total = 0;\n    for (int at = 0; at < n; at++) {\n      total++;\n    }\n    return total;\n  }\n}\n";
+    assert_eq!(
+        reported(Language::Java, counted, &[RuleId::BoxingInLoop]),
+        [(RuleId::BoxingInLoop, 5)]
+    );
+    let primitive = "class A {\n  int f(java.util.List<Integer> rows) {\n    int total = 0;\n    for (Integer row : rows) {\n      total += row;\n    }\n    return total;\n  }\n}\n";
+    assert!(reported(Language::Java, primitive, &[RuleId::BoxingInLoop]).is_empty());
+}

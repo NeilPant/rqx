@@ -13,7 +13,7 @@ A single Rust binary with no runtime dependencies.
 
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
-![Rules](https://img.shields.io/badge/rules-193-0a84ff)
+![Rules](https://img.shields.io/badge/rules-195-0a84ff)
 ![Languages](https://img.shields.io/badge/languages-6-0a84ff)
 ![No runtime dependencies](https://img.shields.io/badge/runtime%20deps-none-1f9e55)
 
@@ -185,8 +185,8 @@ Inside the interface the same list is `/help`.
 - **It does not type-check.** rqx parses source, resolves scopes and imports, and reads
   git history. It does not resolve types, so a finding that needs a type checker to be
   certain is reported at lower confidence, or not reported, and says which.
-- **Rule coverage differs by language.** Of 193 rules, 191 apply to TypeScript, 183
-  to JavaScript, 181 to Python, 179 to Java, 177 to C++ and 147 to Go. A rule that cannot
+- **Rule coverage differs by language.** Of 195 rules, 191 apply to TypeScript, 183
+  to JavaScript, 181 to Python, 180 to Java, 177 to C++ and 148 to Go. A rule that cannot
   exist in a language says so in `rqx explain`, with a reason. `rqx rules --language
   <name>` lists the ones that apply.
 - **JavaScript leaves out the type-syntax rules.** JavaScript is read as TypeScript
@@ -227,7 +227,7 @@ Real output, narrowed to two rules so it fits here:
   Files     2 with findings · 0 clean · 2 scanned
   Findings  0 errors · 10 warnings · 1 info · 8 not shown
   Grades    1 clean · 1 fair
-  Rules     9 of 193 fired
+  Rules     9 of 195 fired
   Health    66/100
   Duration  0.02s
 ```
@@ -283,7 +283,7 @@ match, so a rule that does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-193 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
+195 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
 
 | Family | Rules | What it measures |
 |---|---|---|
@@ -297,7 +297,7 @@ match, so a rule that does not declare its metric and fix does not build.
 | **Safety** | 28 | silent failure and swallowed errors |
 | **Tests** | 18 | tests that pass without checking behaviour |
 | **Noise** | 9 | text that adds reading cost without adding information |
-| **Performance** | 17 | work done more often, or more expensively, than needed |
+| **Performance** | 19 | work done more often, or more expensively, than needed |
 <!-- /rqx:catalogue -->
 
 The table above and the pages in `docs/rules/` are generated from the catalogue by
@@ -662,10 +662,10 @@ level: strict
 
 | Level | Rules | Gate | For |
 |---|---|---|---|
-| `relaxed` | 161 of 193 | error | legacy code that has to stay shippable while it is cleaned up |
-| `standard` | 170 of 193 | error | the catalogue as it stands |
-| `strict` | 174 of 193 | warning, min grade `fair` | held to what a reader can follow without effort |
-| `pristine` | 193 of 193 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
+| `relaxed` | 163 of 195 | error | legacy code that has to stay shippable while it is cleaned up |
+| `standard` | 172 of 195 | error | the catalogue as it stands |
+| `strict` | 176 of 195 | warning, min grade `fair` | held to what a reader can follow without effort |
+| `pristine` | 195 of 195 | info, min grade `clean`, health 90 | every rule, including the ones that ship off |
 
 A level is merged under everything the project states, so it moves the defaults and
 does not override a stated value. `rqx config` shows `level:strict` in the `from`
