@@ -6,7 +6,9 @@ use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
 use crate::scope::{Binding, BindingKind, Scopes};
-use crate::tree::{descendants, find_within, kind_of, operands_of, operator_of, span_of, text_of};
+use crate::tree::{
+    Nodes, descendants, find_within, kind_of, operands_of, operator_of, span_of, text_of,
+};
 use crate::vocabulary::{
     CONVENTIONAL, HASHED_HINTS, IO_BARE, KEYED_CONSTRUCTIONS, TestVocabulary, asks_for_data,
     configuration_literal, convention_of, foreign_language, journal_marker, looks_like_code,
@@ -29,6 +31,7 @@ struct PerfFrame {
 struct Walker<'a> {
     profile: &'static LanguageProfile,
     source: &'a str,
+    nodes: &'a Nodes<'a>,
     limits: Limits,
     extra: &'a rqx_core::config::Performance,
     out: Hygiene,
@@ -2023,8 +2026,10 @@ impl<'a> Walker<'a> {
         // A language that has no file-level binding spells the same thing as a static
         // member, so the class bodies are read too.
         holders.extend(
-            descendants(root)
-                .into_iter()
+            self.nodes
+                .under(root)
+                .iter()
+                .copied()
                 .filter(|node| profile.is_class(*node))
                 .filter_map(|class| self.class_body(class)),
         );
@@ -4845,10 +4850,21 @@ fn distant_declarations(scopes: &Scopes, source: &str, distance: u32) -> Vec<Spo
 /// facts rather than the scope table: an import binds at file level in every
 /// language here, while only some of them give the bound name a node the resolver
 /// would recognise as a declaration.
+#[deprecated(note = "use `unused_imports_over`, which shares the file's one traversal")]
 pub fn unused_imports(
     profile: &'static LanguageProfile,
     source: &str,
     root: Node<'_>,
+    markup: bool,
+    imports: &[rqx_core::facts::ImportRequest],
+) -> Vec<Spot> {
+    unused_imports_over(profile, source, &Nodes::of(root), markup, imports)
+}
+
+pub fn unused_imports_over(
+    profile: &'static LanguageProfile,
+    source: &str,
+    nodes: &Nodes<'_>,
     markup: bool,
     imports: &[rqx_core::facts::ImportRequest],
 ) -> Vec<Spot> {
@@ -4859,11 +4875,11 @@ pub fn unused_imports(
         .collect();
     // A tree with an error has swallowed some of its identifiers, and every one it
     // swallowed reads here as a name the file never mentions.
-    if brought.is_empty() || root.has_error() {
+    if brought.is_empty() || nodes.root().has_error() {
         return Vec::new();
     }
     let mut mentioned: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    for node in descendants(root) {
+    for node in nodes.iter() {
         let named = profile.is_identifier(node)
             || profile.binding_identifier_kinds.contains(&kind_of(node))
             || profile.reference_only_kinds.contains(&kind_of(node))
@@ -4921,13 +4937,22 @@ fn squashed(text: &str) -> String {
 
 /// The waivers alone, for a configuration that asks for no semantic analysis: a
 /// developer's `rqx-ignore` has to be honoured whichever rules are switched on.
+#[deprecated(note = "use `waivers_over`, which shares the file's one traversal")]
 pub fn waivers(
     profile: &'static LanguageProfile,
     source: &str,
     root: Node<'_>,
 ) -> Vec<rqx_core::suppress::Suppression> {
-    descendants(root)
-        .into_iter()
+    waivers_over(profile, source, &Nodes::of(root))
+}
+
+pub fn waivers_over(
+    profile: &'static LanguageProfile,
+    source: &str,
+    nodes: &Nodes<'_>,
+) -> Vec<rqx_core::suppress::Suppression> {
+    nodes
+        .iter()
         .filter(|node| profile.is_comment(*node))
         .filter_map(|comment| {
             rqx_core::suppress::Suppression::parse(text_of(comment, source), span_of(comment))
@@ -4954,15 +4979,12 @@ fn is_fractional(text: &str) -> bool {
 fn scan_comments(
     profile: &'static LanguageProfile,
     source: &str,
-    root: Node<'_>,
+    nodes: &Nodes<'_>,
     limits: Limits,
     out: &mut Hygiene,
 ) {
     let mut runs: Vec<(Span, u32)> = Vec::new();
-    for comment in descendants(root)
-        .into_iter()
-        .filter(|node| profile.is_comment(*node))
-    {
+    for comment in nodes.iter().filter(|node| profile.is_comment(*node)) {
         let span = span_of(comment);
         let text = text_of(comment, source);
         if crate::vocabulary::emoji(text) {
@@ -5052,10 +5074,10 @@ fn scan_comments(
         }
     }
 
-    note_narration(profile, source, root, limits, out);
-    note_twin_functions(profile, source, root, out);
-    note_unused_fixtures(profile, source, root, out);
-    note_body_docstrings(profile, source, root, out);
+    note_narration(profile, source, nodes, limits, out);
+    note_twin_functions(profile, source, nodes, out);
+    note_unused_fixtures(profile, source, nodes, out);
+    note_body_docstrings(profile, source, nodes, out);
 
     // Consecutive commented-out lines are one decision, not one finding per line.
     let mut index = 0;
@@ -5083,6 +5105,7 @@ fn scan_comments(
     }
 }
 
+#[deprecated(note = "use `collect_over`, which shares the file's one traversal")]
 pub fn collect(
     profile: &'static LanguageProfile,
     source: &str,
@@ -5091,9 +5114,22 @@ pub fn collect(
     limits: Limits,
     extra: &rqx_core::config::Performance,
 ) -> Hygiene {
+    collect_over(profile, source, &Nodes::of(root), scopes, limits, extra)
+}
+
+pub fn collect_over(
+    profile: &'static LanguageProfile,
+    source: &str,
+    nodes: &Nodes<'_>,
+    scopes: &Scopes,
+    limits: Limits,
+    extra: &rqx_core::config::Performance,
+) -> Hygiene {
+    let root = nodes.root();
     let mut walker = Walker {
         profile,
         source,
+        nodes,
         limits,
         extra,
         out: Hygiene::default(),
@@ -5117,8 +5153,8 @@ pub fn collect(
     // seen, so the functions that hand one back are read afterwards.
     // Which functions answer later is only settled once the file has been read, so
     // the statements that drop one of those answers are found afterwards.
-    let awaited: Vec<String> = descendants(root)
-        .into_iter()
+    let awaited: Vec<String> = nodes
+        .iter()
         .filter(|node| profile.is_function(*node) && profile.is_async(*node))
         .filter_map(|node| {
             let named = node.child_by_field_name("name")?;
@@ -5126,8 +5162,8 @@ pub fn collect(
         })
         .collect();
     if !awaited.is_empty() {
-        let statements: Vec<Node<'_>> = descendants(root)
-            .into_iter()
+        let statements: Vec<Node<'_>> = nodes
+            .iter()
             .filter(|node| kind_of(node) == "expression_statement")
             .collect();
         for statement in statements {
@@ -5141,10 +5177,7 @@ pub fn collect(
         .map(|spot| spot.detail.clone())
         .collect();
     if !shared.is_empty() {
-        for function in descendants(root)
-            .into_iter()
-            .filter(|node| profile.is_function(*node))
-        {
+        for function in nodes.iter().filter(|node| profile.is_function(*node)) {
             walker.note_global_accessor(function, &shared);
         }
     }
@@ -5239,7 +5272,7 @@ pub fn collect(
     out.short_names = short_names(scopes, source, limits.short_name_scope_lines);
     out.distant_declarations =
         distant_declarations(scopes, source, limits.declaration_distance_lines);
-    scan_comments(profile, source, root, limits, &mut out);
+    scan_comments(profile, source, nodes, limits, &mut out);
 
     // A parameter that is only ever reassigned is a different finding from a local
     // that is, so the list is narrowed to actual parameters here.
@@ -5258,13 +5291,13 @@ pub fn collect(
 fn note_narration(
     profile: &'static LanguageProfile,
     source: &str,
-    root: Node<'_>,
+    nodes: &Nodes<'_>,
     limits: Limits,
     out: &mut Hygiene,
 ) {
     let index = rqx_core::LineIndex::new(source);
-    let comments: Vec<Node<'_>> = descendants(root)
-        .into_iter()
+    let comments: Vec<Node<'_>> = nodes
+        .iter()
         .filter(|node| profile.is_comment(*node))
         .collect();
 
@@ -5352,7 +5385,8 @@ fn note_narration(
         }
         // A comment opening the file describes the file, and the first declaration
         // under it is not what it was written about.
-        if root
+        if nodes
+            .root()
             .named_child(0)
             .is_some_and(|first| span_of(first).start == span.start)
         {
@@ -5399,13 +5433,10 @@ fn note_narration(
 fn note_body_docstrings(
     profile: &'static LanguageProfile,
     source: &str,
-    root: Node<'_>,
+    nodes: &Nodes<'_>,
     out: &mut Hygiene,
 ) {
-    for declared in descendants(root)
-        .into_iter()
-        .filter(|node| profile.is_function(*node))
-    {
+    for declared in nodes.iter().filter(|node| profile.is_function(*node)) {
         let Some(body) = declared.child_by_field_name("body") else {
             continue;
         };
@@ -5558,15 +5589,12 @@ fn plural(name: &str) -> bool {
 fn note_twin_functions(
     profile: &'static LanguageProfile,
     source: &str,
-    root: Node<'_>,
+    nodes: &Nodes<'_>,
     out: &mut Hygiene,
 ) {
     const WORTH_SAYING: usize = 3;
     let mut seen: HashMap<String, &str> = HashMap::new();
-    for function in descendants(root)
-        .into_iter()
-        .filter(|node| profile.is_function(*node))
-    {
+    for function in nodes.iter().filter(|node| profile.is_function(*node)) {
         let Some(body) = function.child_by_field_name("body") else {
             continue;
         };
@@ -5609,12 +5637,12 @@ fn note_twin_functions(
 fn note_unused_fixtures(
     profile: &'static LanguageProfile,
     source: &str,
-    root: Node<'_>,
+    nodes: &Nodes<'_>,
     out: &mut Hygiene,
 ) {
     let vocabulary = &profile.test;
-    let setups: Vec<Node<'_>> = descendants(root)
-        .into_iter()
+    let setups: Vec<Node<'_>> = nodes
+        .iter()
         .filter(|node| profile.is_call(*node) || profile.is_function(*node))
         .filter(|node| {
             let named = if profile.is_call(*node) {
@@ -5643,7 +5671,7 @@ fn note_unused_fixtures(
     // whole tree per prepared value made this cubic in the size of a test file.
     let mut spelled: std::collections::HashMap<&str, Vec<Node<'_>>> =
         std::collections::HashMap::new();
-    for node in descendants(root) {
+    for node in nodes.iter() {
         if profile.is_identifier(node) {
             spelled.entry(text_of(node, source)).or_default().push(node);
         }

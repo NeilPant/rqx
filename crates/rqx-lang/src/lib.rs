@@ -310,14 +310,15 @@ pub fn analyze_as(
         (Vec::new(), rqx_core::facts::Patterns::default())
     };
 
+    let nodes = tree::Nodes::of(root);
     let (mut module, hygiene) = match &scopes {
         Some(scopes) => {
             let mut module = (support.surface)(source, root);
             module.unused_parameters = parameters::unused(profile, source, root, scopes);
-            let hygiene = hygiene::collect(
+            let hygiene = hygiene::collect_over(
                 profile,
                 source,
-                root,
+                &nodes,
                 scopes,
                 Limits {
                     class_collaborators: thresholds.class_collaborators,
@@ -350,7 +351,7 @@ pub fn analyze_as(
         None => (
             ModuleFacts::default(),
             rqx_core::facts::Hygiene {
-                waivers: hygiene::waivers(profile, source, root),
+                waivers: hygiene::waivers_over(profile, source, &nodes),
                 ..Default::default()
             },
         ),
@@ -367,10 +368,10 @@ pub fn analyze_as(
     hygiene
         .unused_locals
         .retain(|spot| !exported.contains(spot.detail.as_str()));
-    hygiene.unused_imports = hygiene::unused_imports(
+    hygiene.unused_imports = hygiene::unused_imports_over(
         profile,
         source,
-        root,
+        &nodes,
         holds_markup(display),
         &module.imports,
     );

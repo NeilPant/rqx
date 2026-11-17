@@ -37,6 +37,9 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   already walked instead of asking the filesystem about each candidate, and a
   specifier that many files in one directory write is resolved once. The graph and
   every finding are unchanged.
+- **Per-file analysis reads the syntax tree once for its hygiene checks.** Twelve checks
+  each walked the whole tree and built their own list of its nodes; they now share one
+  list per file. Findings are unchanged.
 
 ### Fixed
 
