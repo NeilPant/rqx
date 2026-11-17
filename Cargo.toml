@@ -31,3 +31,15 @@ rqx-lang = { version = "0.2.0", path = "crates/rqx-lang" }
 [profile.release]
 lto = "thin"
 codegen-units = 16
+
+# Full debug info for every dependency was most of a debug build's 3.5GB on disk and
+# much of its link time, and nobody steps through tree-sitter's internals. Line tables
+# keep file:line in backtraces for rqx's own code; dependencies carry none.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.test]
+debug = "line-tables-only"
