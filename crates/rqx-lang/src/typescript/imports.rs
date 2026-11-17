@@ -1,4 +1,4 @@
-//! Turning a TypeScript import specifier into a file. Only project-internal
+//! Turning a TypeScript or JavaScript import specifier into a file. Only project-internal
 //! resolution is implemented: an edge into `node_modules` says nothing about dead
 //! code inside the project, so those specifiers resolve to nothing on purpose.
 
@@ -9,6 +9,14 @@ use crate::module_graph::Resolver;
 
 const EXTENSIONS: [&str; 8] = ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
 const SOURCE_EXTENSIONS: [&str; 4] = ["ts", "tsx", "mts", "cts"];
+
+/// What a written script extension can stand for on disk, in the order `tsc` tries.
+const SCRIPT_TO_SOURCE: [(&str, &[&str]); 4] = [
+    ("js", &["ts", "tsx"]),
+    ("jsx", &["tsx"]),
+    ("mjs", &["mts"]),
+    ("cjs", &["cts"]),
+];
 
 pub struct TypeScriptResolver {
     /// `tsconfig.json` path aliases, longest prefix first so `@app/ui/*` wins over
@@ -30,6 +38,9 @@ impl TypeScriptResolver {
     /// `./x` resolves to `x.ts`, then to `x/index.ts`: the extension is optional in
     /// the source and the directory form is the package convention.
     fn as_file(candidate: &Path) -> Option<PathBuf> {
+        if let Some(source) = typescript_behind_script_name(candidate) {
+            return Some(source);
+        }
         if candidate.is_file() {
             return Some(candidate.to_path_buf());
         }
@@ -73,6 +84,20 @@ impl TypeScriptResolver {
         }
         None
     }
+}
+
+/// TypeScript's own convention under `node16` resolution: an import is written with
+/// the extension the emitted file will have, so `./util.js` means `util.ts` when that
+/// is what is on disk. The source wins over a `.js` beside it, as it does for `tsc`.
+fn typescript_behind_script_name(candidate: &Path) -> Option<PathBuf> {
+    let extension = candidate.extension()?.to_str()?;
+    let (_, sources) = SCRIPT_TO_SOURCE
+        .iter()
+        .find(|(script, _)| *script == extension)?;
+    sources
+        .iter()
+        .map(|source| candidate.with_extension(source))
+        .find(|source| source.is_file())
 }
 
 /// `Path::with_extension` replaces what follows the last dot, which turns
@@ -341,6 +366,67 @@ mod tests {
         assert!(!stripped.contains("head"));
         assert!(!stripped.contains("block"));
         assert!(stripped.contains("./src"));
+    }
+
+    fn project(files: &[&str]) -> (PathBuf, TypeScriptResolver) {
+        let root = std::env::temp_dir().join(format!(
+            "rqx-imports-{}-{}",
+            std::process::id(),
+            files.join("-").replace('/', "_")
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("a directory");
+        for file in files {
+            let path = root.join(file);
+            std::fs::create_dir_all(path.parent().expect("a parent")).expect("a directory");
+            std::fs::write(path, "export const a = 1\n").expect("a file");
+        }
+        let resolver = TypeScriptResolver::new(&root);
+        (root, resolver)
+    }
+
+    fn resolved(files: &[&str], specifier: &str) -> Vec<String> {
+        let (root, resolver) = project(files);
+        let found = resolver
+            .resolve(&root, specifier)
+            .into_iter()
+            .map(|path| {
+                path.strip_prefix(&root)
+                    .expect("inside")
+                    .display()
+                    .to_string()
+            })
+            .collect();
+        let _ = std::fs::remove_dir_all(&root);
+        found
+    }
+
+    #[test]
+    fn a_script_extension_in_an_import_finds_the_typescript_behind_it() {
+        assert_eq!(resolved(&["foo.ts"], "./foo.js"), ["foo.ts"]);
+        assert_eq!(resolved(&["foo.tsx"], "./foo.js"), ["foo.tsx"]);
+        assert_eq!(resolved(&["foo.tsx"], "./foo.jsx"), ["foo.tsx"]);
+        assert_eq!(resolved(&["foo.mts"], "./foo.mjs"), ["foo.mts"]);
+        assert_eq!(resolved(&["foo.cts"], "./foo.cjs"), ["foo.cts"]);
+    }
+
+    #[test]
+    fn a_script_that_is_really_a_script_resolves_to_itself() {
+        assert_eq!(resolved(&["foo.js"], "./foo.js"), ["foo.js"]);
+        assert_eq!(resolved(&["foo.mjs"], "./foo.mjs"), ["foo.mjs"]);
+    }
+
+    #[test]
+    fn the_source_wins_over_the_emitted_script_beside_it() {
+        assert_eq!(resolved(&["foo.ts", "foo.js"], "./foo.js"), ["foo.ts"]);
+    }
+
+    #[test]
+    fn either_language_imports_the_other_without_an_extension() {
+        assert_eq!(resolved(&["foo.js"], "./foo"), ["foo.js"]);
+        assert_eq!(resolved(&["lib/index.js"], "./lib"), ["lib/index.js"]);
+        assert_eq!(resolved(&["lib/index.mjs"], "./lib"), ["lib/index.mjs"]);
+        assert_eq!(resolved(&["foo.ts"], "./foo"), ["foo.ts"]);
     }
 
     #[test]
