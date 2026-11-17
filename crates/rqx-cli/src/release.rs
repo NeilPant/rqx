@@ -242,17 +242,30 @@ impl Scratch {
         let parent = target
             .parent()
             .with_context(|| format!("{} has no directory", target.display()))?;
-        let unique = SystemTime::now()
+        let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |since| since.as_nanos());
-        let path = parent.join(format!(".rqx-update-{}-{unique}", std::process::id()));
-        fs::create_dir(&path).with_context(|| {
-            format!(
-                "cannot write to {}, so rqx cannot replace itself there; nothing was installed",
-                parent.display()
-            )
-        })?;
-        Ok(Self(path))
+        // The clock is coarser than a nanosecond on some systems, so two scratch
+        // directories made at once can share a stamp; the next suffix is tried instead.
+        for attempt in 0u32.. {
+            let path = parent.join(format!(
+                ".rqx-update-{}-{stamp}-{attempt}",
+                std::process::id()
+            ));
+            match fs::create_dir(&path) {
+                Ok(()) => return Ok(Self(path)),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => {
+                    return Err(error).with_context(|| {
+                        format!(
+                            "cannot write to {}, so rqx cannot replace itself there; nothing was installed",
+                            parent.display()
+                        )
+                    });
+                }
+            }
+        }
+        unreachable!("a free scratch name exists before the suffix runs out")
     }
 
     fn path(&self) -> &Path {
