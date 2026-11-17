@@ -174,6 +174,10 @@ pub struct Recurrence {
     /// Self-calls in the body.
     pub calls: u8,
     pub shrink: Shrink,
+    /// The position of the parameter that shrinks, which is the one the recursion's
+    /// depth is measured in.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub param: u8,
     /// Each call copies its argument, as `xs[1:]` does.
     #[serde(default, skip_serializing_if = "is_false")]
     pub copies_arg: bool,
@@ -185,9 +189,14 @@ pub struct Recurrence {
 /// Signals that are not an order of growth but still say a function is costly.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Indicators {
-    /// Calls that leave the process, weighted by the loops around them.
+    /// Calls that leave the process, weighted by the loops around them. A single call
+    /// outside every loop weighs one, which is also what no call weighs, so
+    /// `round_trip` tells the two apart.
     #[serde(default, skip_serializing_if = "Cost::is_one")]
     pub round_trips: Cost,
+    /// The body makes a call that leaves the process, however many times.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub round_trip: bool,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub allocs_per_iter: u8,
     #[serde(default, skip_serializing_if = "is_false")]
@@ -350,10 +359,12 @@ mod tests {
             rec: Some(Recurrence {
                 calls: 2,
                 shrink: Shrink::Dec1,
+                param: 1,
                 copies_arg: false,
                 memo: true,
             }),
             ind: Indicators {
+                round_trip: true,
                 seq_awaits: 2,
                 static_growth: vec!["REGISTRY".to_owned()],
                 ..Indicators::default()

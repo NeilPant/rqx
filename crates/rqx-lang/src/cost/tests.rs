@@ -172,6 +172,24 @@ fn recursion_is_classified_by_how_it_shrinks_its_argument() {
 }
 
 #[test]
+fn the_parameter_a_recursion_shrinks_is_the_one_it_names() {
+    let power = "function power(base: number, exponent: number): number {\n  return exponent === 0 ? 1 : base * power(base, exponent - 1);\n}\n";
+    let rec = function(&facts(Language::TypeScript, power), "power")
+        .rec
+        .clone()
+        .unwrap();
+    assert_eq!((rec.shrink, rec.param), (Shrink::Dec1, 1));
+
+    let walk =
+        "function walk(node: Node) { return node ? walk(node.left) + walk(node.right) : 0; }\n";
+    let rec = function(&facts(Language::TypeScript, walk), "walk")
+        .rec
+        .clone()
+        .unwrap();
+    assert_eq!((rec.shrink, rec.param), (Shrink::Other, 0));
+}
+
+#[test]
 fn a_slice_that_copies_is_noticed_when_the_parameter_is_named() {
     let copying = "def total(xs):\n    return 0 if not xs else xs[0] + total(xs[1:])\n";
     let file = facts(Language::Python, copying);
@@ -189,6 +207,20 @@ fn a_round_trip_in_a_loop_is_counted_by_the_loops_around_it() {
         matches!(load.ind.round_trips, Cost::Loop { .. }),
         "{:?}",
         load.ind
+    );
+}
+
+#[test]
+fn a_single_round_trip_is_told_from_none() {
+    let source = "async function once(id: string) { return db.user.findOne(id); }\n\
+                  async function never(id: string) { for (const x of [1, 2]) { sink(x); } }\n";
+    let file = facts(Language::TypeScript, source);
+    assert!(function(&file, "once").ind.round_trip);
+    assert!(
+        file.functions
+            .iter()
+            .find(|f| f.name.as_deref() == Some("never"))
+            .is_none_or(|never| !never.ind.round_trip)
     );
 }
 
