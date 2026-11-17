@@ -68,16 +68,6 @@ pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
     review_of(root, settings, Reviewed::Since(base), None)
 }
 
-/// A review is a whole-project scan, so it has the same progress to report as one.
-pub fn review_watched(
-    root: &Path,
-    settings: &Resolved,
-    base: &str,
-    watch: Option<crate::scan::Watch>,
-) -> Result<Review> {
-    review_of(root, settings, Reviewed::Since(base), watch)
-}
-
 pub fn review_of(
     root: &Path,
     settings: &Resolved,

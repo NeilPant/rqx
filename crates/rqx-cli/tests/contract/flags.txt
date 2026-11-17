@@ -554,6 +554,7 @@ help suppressions
 help techniques
 help update
 help verify
+help waive
 init
 init --color
 init --color =always
@@ -965,3 +966,24 @@ verify --threads
 verify --threads [env RQX_THREADS]
 verify -h
 verify <path>
+waive
+waive --color
+waive --color =always
+waive --color =auto
+waive --color =never
+waive --config
+waive --dry-run
+waive --help
+waive --motion
+waive --motion =off
+waive --motion =on
+waive --no-mouse
+waive --no-progress
+waive --no-progress [env RQX_NO_PROGRESS]
+waive --no-tui
+waive --reason
+waive --until
+waive --whole-file
+waive -h
+waive <at>
+waive <rule>

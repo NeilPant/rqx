@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-recommend \- What to do about this project, as distinct from what is wrong with it
 .SH SYNOPSIS
-\fBrqx recommend\fR [\fB\-\-level\fR] [\fB\-\-only\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx recommend\fR [\fB\-\-level\fR] [\fB\-\-only\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 What to do about this project, as distinct from what is wrong with it
 .SH OPTIONS
@@ -40,9 +40,6 @@ Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
 Never open the interactive interface; bare `rqx` prints the report instead
-.TP
-\fB\-\-no\-mouse\fR
-Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal

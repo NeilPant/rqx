@@ -9,7 +9,6 @@ Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says w
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -28,7 +27,6 @@ Record the findings this project already has, so a gate can judge only what a ch
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -41,7 +39,6 @@ Show what the analysis cache holds, or throw it away
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -88,7 +85,6 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -113,7 +109,6 @@ Post the review onto the merge request it is reviewing, and grade the commit
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -127,7 +122,6 @@ Print a shell completion script
 | --- | --- |
 | `<shell>` | bash, zsh, fish, elvish or powershell |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -148,7 +142,6 @@ What the analyser measured, as a distribution rather than only its tail
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -164,7 +157,6 @@ Print the settings a run will use, and the file each one came from
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--json` | One JSON object per setting, then a summary, instead of the table |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -177,7 +169,6 @@ Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it, 
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -198,7 +189,6 @@ Apply the fixes a finding decides on its own, proving each one before it is writ
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -217,7 +207,6 @@ Print the import graph — as text, Graphviz, Mermaid or data
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -234,7 +223,6 @@ Where the health score comes from, and what removing each part would buy
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -253,7 +241,6 @@ Write a commented rqx.yaml with every setting at its default
 | --- | --- |
 | `--force` | Replace an rqx.yaml that is already there |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -266,7 +253,6 @@ Print what each cleanliness level changes, as the settings it would take to writ
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -280,7 +266,6 @@ Run as a Language Server over stdio, for editor integration
 | --- | --- |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -295,7 +280,6 @@ Run as an MCP server, so an AI agent can ask what a project's problems are
 | `--http` | Serve Streamable HTTP on this address instead of speaking over stdio |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -313,7 +297,6 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -334,7 +317,6 @@ Where the work grows faster than the data, ranked by reach
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -354,7 +336,6 @@ Rank the work by what it buys against what it costs, and say what the health sco
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -371,7 +352,6 @@ Run a tree-sitter query over a project, to try one out before writing it into a 
 | `--captures` | Show every capture of every match, not just where it starts |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -388,7 +368,6 @@ What to do about this project, as distinct from what is wrong with it
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -404,7 +383,6 @@ List every rule Rqx can report, grouped by family
 | `--language` | Show only the rules that apply to one language |
 | `--slugs` | One slug per line and nothing else, for a script or a shell completion |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -454,7 +432,6 @@ Analyze a project and report every finding
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -469,7 +446,6 @@ Print the configuration one editor needs to talk to rqx, or list them all
 | `<editor>` | Which editor. Omit to list every one rqx knows |
 | `--write` | Append it to the editor's config, after showing what will be added |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -486,7 +462,6 @@ Which files read as written rather than read
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -504,7 +479,6 @@ List every finding a comment in the source waives, with the reason given
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -517,7 +491,6 @@ List every refactoring Rqx prescribes, and which rules ask for it
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -534,7 +507,6 @@ Install the newest release, or say what it would change
 | `--version` | Install this release, such as 1.2.3, instead of the newest |
 | `--dry-run` | Print the method, the URLs and the file that would be replaced, and change nothing |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -553,7 +525,25 @@ Compare the working tree against a base revision and say what happened to each f
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
-| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--help` | Print help |
+
+## `rqx waive`
+
+Waive one finding with a comment in the source, and the reason a reviewer reads
+
+| Flag | What it does |
+| --- | --- |
+| `<at>` | Where the finding is, as FILE:LINE; FILE alone with --whole-file |
+| `<rule>` | The rule to waive, as `rqx rules` lists it |
+| `--reason` | Why the finding stands. A waiver without one is not honoured, so this is required; the interactive session asks for it when it is left out |
+| `--until` | The waiver stops being honoured after this date |
+| `--whole-file` | Waive the rule for the whole file, not the line |
+| `--dry-run` | Print the diff the waiver would make and change nothing |
+| `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |

@@ -213,15 +213,20 @@ fn suppress(server: &Server, request: Option<&Value>) -> Value {
     let Some(rule) = as_str(field(request, "rule")) else {
         return json!({ "error": "rqx.suppress needs a rule" });
     };
-    let Some(reason) = as_str(field(request, "reason")).filter(|reason| !reason.trim().is_empty())
-    else {
-        return json!({ "error": "a waiver needs a reason, or rqx will not honour it" });
-    };
+    let reason = as_str(field(request, "reason")).unwrap_or_default();
+    if let Err(error) = crate::waive::require_reason(reason) {
+        return json!({ "error": error.to_string() });
+    }
     let line = field(request, "line")
         .and_then(Value::as_u64)
         .map_or(1, |line| line as u32);
-    let whole_file = as_bool(field(request, "wholeFile")).unwrap_or(false);
-    let until = as_str(field(request, "until"));
+    let asked = crate::waive::Request {
+        line,
+        rule,
+        reason,
+        until: as_str(field(request, "until")),
+        whole_file: as_bool(field(request, "wholeFile")).unwrap_or(false),
+    };
 
     let path = server.root().join(file);
     let Some(language) = rqx_core::Language::of_path(&path) else {
@@ -230,10 +235,9 @@ fn suppress(server: &Server, request: Option<&Value>) -> Value {
     let Some(source) = server.text_of(&path) else {
         return json!({ "error": format!("cannot read `{file}`") });
     };
-    let Some(waiver) =
-        rqx_core::suppress::waiver(&source, language, line, rule, reason, until, whole_file)
-    else {
-        return json!({ "error": "the waiver could not be written; check the date is YYYY-MM-DD" });
+    let waiver = match crate::waive::plan(&source, language, &asked) {
+        Ok(waiver) => waiver,
+        Err(error) => return json!({ "error": error.to_string() }),
     };
     let Some(uri) = uri_of(&path) else {
         return json!({ "error": format!("`{file}` has no URI") });

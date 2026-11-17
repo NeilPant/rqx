@@ -90,10 +90,10 @@ impl Catalogue {
                 name: (*name).to_owned(),
                 about: (*about).to_owned(),
                 flags: Vec::new(),
-                argument: if name == "watch" {
-                    Values::Choices(vec!["on".to_owned(), "off".to_owned()])
-                } else {
-                    Values::Nothing
+                argument: match name {
+                    "watch" => Values::Choices(vec!["on".to_owned(), "off".to_owned()]),
+                    "open" => Values::Files,
+                    _ => Values::Nothing,
                 },
             });
         }

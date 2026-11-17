@@ -24,10 +24,27 @@ pub enum Parsed {
     Clear,
     Exit,
     Rescan,
-    Watch,
+    Watch(WatchMode),
+    /// Hand a finding's place to the editor.
+    Open(Target),
     /// Text a command's own `--help` printed, ready to show as it is.
     Printed(Vec<u8>),
     Command(Box<Invocation>),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum WatchMode {
+    On,
+    Off,
+    Toggle,
+}
+
+/// Where `/open` goes: a place typed out, or a finding from the last listing, counted
+/// from one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Target {
+    Place { file: String, line: u32 },
+    Listed(usize),
 }
 
 /// A command line command, with the name it was typed under for the messages that
@@ -38,9 +55,16 @@ pub struct Invocation {
 }
 
 /// Commands that only exist in the session.
-pub const SESSION_ONLY: [(&str, &str); 5] = [
+pub const SESSION_ONLY: [(&str, &str); 6] = [
     ("rescan", "scan the project again"),
-    ("watch", "scan again whenever a file changes: on or off"),
+    (
+        "watch",
+        "re-analyse changed files as they are saved: on or off",
+    ),
+    (
+        "open",
+        "open a finding in your editor: file:line, or its number in the list",
+    ),
     ("clear", "clear the screen"),
     ("help", "list the commands"),
     ("exit", "leave the session"),
@@ -48,7 +72,7 @@ pub const SESSION_ONLY: [(&str, &str); 5] = [
 
 /// The command line commands the session runs against its own scan. `findings` is
 /// `scan`, named for what it shows.
-pub const TWINS: [&str; 17] = [
+pub const TWINS: [&str; 18] = [
     "findings",
     "plan",
     "health",
@@ -59,6 +83,7 @@ pub const TWINS: [&str; 17] = [
     "slop",
     "patterns",
     "suppressions",
+    "waive",
     "explain",
     "rules",
     "techniques",
@@ -121,15 +146,38 @@ pub fn parse(line: &str) -> std::result::Result<Parsed, String> {
         "exit" | "quit" => Ok(Parsed::Exit),
         "rescan" => Ok(Parsed::Rescan),
         "watch" => watch(rest),
+        "open" => open(rest),
         other => invoke(subcommand_of(other), rest),
     }
 }
 
 fn watch(arguments: &[String]) -> std::result::Result<Parsed, String> {
     match arguments {
-        [] => Ok(Parsed::Watch),
-        [state] if state == "on" || state == "off" => Ok(Parsed::Watch),
+        [] => Ok(Parsed::Watch(WatchMode::Toggle)),
+        [state] if state == "on" => Ok(Parsed::Watch(WatchMode::On)),
+        [state] if state == "off" => Ok(Parsed::Watch(WatchMode::Off)),
         _ => Err("/watch takes `on` or `off`".to_owned()),
+    }
+}
+
+/// `/open` is the first finding of the list, `/open 3` the third, and `/open
+/// src/a.ts:42` that place.
+fn open(arguments: &[String]) -> std::result::Result<Parsed, String> {
+    let usage = || "/open takes file:line, or a finding's number from the list".to_owned();
+    match arguments {
+        [] => Ok(Parsed::Open(Target::Listed(1))),
+        [word] => match word.parse::<usize>() {
+            Ok(0) => Err(usage()),
+            Ok(number) => Ok(Parsed::Open(Target::Listed(number))),
+            Err(_) => {
+                let (file, line) = crate::waive::parse_target(word, false).map_err(|_| usage())?;
+                Ok(Parsed::Open(Target::Place {
+                    file: file.display().to_string(),
+                    line,
+                }))
+            }
+        },
+        _ => Err(usage()),
     }
 }
 
@@ -238,6 +286,9 @@ impl<'a> Context<'a> {
 /// What running a command asks the session to do.
 pub enum Action {
     Print(Vec<u8>),
+    /// A waiver that is missing the one thing the command line would refuse it for.
+    /// The session asks for the reason on the prompt and then runs it.
+    AskReason(crate::waive::Order),
     /// Work that scans or writes, so it runs off the input thread. `rescan` says the
     /// scan the session holds is out of date once it is done.
     Background {
@@ -443,6 +494,29 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             let outcome = context.scanned()?;
             print(|out| render::suppressions(&path, outcome, expiring, json, palette, out))
         }
+        Command::Waive {
+            at,
+            rule,
+            reason,
+            until,
+            whole_file,
+            dry_run,
+            config,
+        } => {
+            let order = crate::waive::Order {
+                at,
+                rule,
+                reason: reason.unwrap_or_default(),
+                until,
+                whole_file,
+                dry_run,
+                config,
+            };
+            if order.reason.trim().is_empty() {
+                return Ok(Action::AskReason(order));
+            }
+            Ok(waiving(order))
+        }
         Command::Explain { name } => print(|out| render::explain(&name, palette, out)),
         Command::Rules {
             category,
@@ -581,6 +655,20 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
     }
 }
 
+/// A waiver edits a file, so the scan the session holds is out of date once it is
+/// written. A dry run writes nothing and leaves the scan alone.
+pub fn waiving(order: crate::waive::Order) -> Action {
+    let rescan = !order.dry_run;
+    Action::Background {
+        work: Box::new(move || {
+            let mut out = Vec::new();
+            crate::waive::run(&order, &mut out)?;
+            Ok(out)
+        }),
+        rescan,
+    }
+}
+
 fn background(
     rescan: bool,
     work: impl FnOnce() -> Result<Vec<u8>> + Send + 'static,
@@ -671,9 +759,86 @@ mod tests {
         assert!(matches!(parse("/help"), Ok(Parsed::Help)));
         assert!(matches!(parse("/"), Ok(Parsed::Help)));
         assert!(matches!(parse("  "), Ok(Parsed::Nothing)));
-        assert!(matches!(parse("/watch on"), Ok(Parsed::Watch)));
-        assert!(matches!(parse("/watch"), Ok(Parsed::Watch)));
+        assert!(matches!(
+            parse("/watch on"),
+            Ok(Parsed::Watch(WatchMode::On))
+        ));
+        assert!(matches!(
+            parse("/watch off"),
+            Ok(Parsed::Watch(WatchMode::Off))
+        ));
+        assert!(matches!(
+            parse("/watch"),
+            Ok(Parsed::Watch(WatchMode::Toggle))
+        ));
         assert!(parse("/watch sideways").is_err());
+    }
+
+    #[test]
+    fn open_takes_a_place_or_a_number_from_the_list() {
+        let Ok(Parsed::Open(place)) = parse("/open src/a.ts:42") else {
+            panic!("not an open");
+        };
+        assert_eq!(
+            place,
+            Target::Place {
+                file: "src/a.ts".into(),
+                line: 42
+            }
+        );
+        assert!(matches!(
+            parse("/open 3"),
+            Ok(Parsed::Open(Target::Listed(3)))
+        ));
+        assert!(matches!(
+            parse("/open"),
+            Ok(Parsed::Open(Target::Listed(1)))
+        ));
+        assert!(parse("/open 0").is_err());
+        assert!(parse("/open src/a.ts").is_err());
+        assert!(parse("/open a b").is_err());
+    }
+
+    #[test]
+    fn waive_is_the_command_lines_and_a_missing_reason_is_asked_for() {
+        let Command::Waive {
+            at,
+            rule,
+            reason,
+            whole_file,
+            ..
+        } = command("/waive src/a.ts:7 empty-catch --whole-file")
+        else {
+            panic!("not a waive");
+        };
+        assert_eq!((at.as_str(), rule.as_str()), ("src/a.ts:7", "empty-catch"));
+        assert!(whole_file);
+        assert_eq!(reason, None);
+
+        let Command::Waive { reason, .. } =
+            command("/waive src/a.ts:7 empty-catch --reason \"called by the host\"")
+        else {
+            panic!("not a waive");
+        };
+        assert_eq!(reason.as_deref(), Some("called by the host"));
+    }
+
+    #[test]
+    fn a_waiver_without_a_reason_asks_instead_of_writing() {
+        let settings = Resolved::default();
+        let Ok(Parsed::Command(invocation)) = parse("/waive src/a.ts:7 empty-catch") else {
+            panic!("not a command");
+        };
+        let context = Context {
+            outcome: None,
+            settings: &settings,
+            palette: Palette::with_depth(crate::brand::ColorDepth::Monochrome),
+            level: None,
+        };
+        assert!(matches!(
+            run(*invocation, &context),
+            Ok(Action::AskReason(_))
+        ));
     }
 
     #[test]
@@ -732,7 +897,9 @@ mod tests {
             };
             match run(*invocation, &context) {
                 Ok(Action::Print(bytes)) => bytes,
-                Ok(Action::Background { .. }) => panic!("{line} ran in the background"),
+                Ok(Action::Background { .. } | Action::AskReason(_)) => {
+                    panic!("{line} did not print")
+                }
                 Err(error) => panic!("{line}: {error:#}"),
             }
         }

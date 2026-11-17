@@ -42,11 +42,9 @@ mod setup;
 mod slop;
 mod stats;
 mod term;
-// The full-screen interface is no longer opened by anything; a later change deletes it.
-#[allow(dead_code)]
-mod tui;
 mod update;
 mod verify;
+mod waive;
 mod watch;
 
 use brand::{ColorDepth, Palette};
@@ -81,9 +79,9 @@ pub struct Cli {
     /// Never open the interactive interface; bare `rqx` prints the report instead
     #[arg(long, global = true)]
     no_tui: bool,
-    /// Leave the mouse to the terminal. The session never captures it; the flag is
-    /// still accepted so an existing invocation keeps working.
-    #[arg(long, global = true)]
+    /// Accepted and ignored: the session never captures the mouse, so there is
+    /// nothing to leave to the terminal. It stays so an existing invocation works.
+    #[arg(long, global = true, hide = true)]
     #[allow(dead_code)]
     no_mouse: bool,
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -107,7 +105,7 @@ const fn progress_wanted(no_progress: bool, quiet: bool) -> bool {
 /// them, not alphabetical: `scan` before `check` before `fix` is the loop itself.
 ///
 /// A test asserts every subcommand is in exactly one group and every name here is a
-/// real subcommand, so a twenty-eighth command fails the build until it is placed.
+/// real subcommand, so a thirtieth command fails the build until it is placed.
 const GROUPS: [(&str, &[&str]); 5] = [
     ("The loop", &["scan", "check", "fix", "verify", "comment"]),
     (
@@ -126,7 +124,14 @@ const GROUPS: [(&str, &[&str]); 5] = [
     ("Reference", &["rules", "explain", "techniques", "levels"]),
     (
         "Project",
-        &["init", "config", "baseline", "suppressions", "cache"],
+        &[
+            "init",
+            "config",
+            "baseline",
+            "suppressions",
+            "waive",
+            "cache",
+        ],
     ),
     (
         "Integrations",
@@ -398,6 +403,33 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
+        /// Read settings from this file, layered over any `rqx.yaml` found
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+    /// Waive one finding with a comment in the source, and the reason a reviewer reads
+    #[command(
+        after_help = "Examples:\n  rqx waive src/api.ts:42 unused-export --reason \"called from the plugin host\"\n  rqx waive src/api.ts:42 unused-export --reason kept --until 2027-03-01\n  rqx waive src/gen.ts unused-export --reason generated --whole-file\n  rqx waive src/api.ts:42 unused-export --reason kept --dry-run"
+    )]
+    Waive {
+        /// Where the finding is, as FILE:LINE; FILE alone with --whole-file
+        #[arg(value_name = "FILE:LINE", value_hint = ValueHint::FilePath)]
+        at: String,
+        /// The rule to waive, as `rqx rules` lists it
+        rule: String,
+        /// Why the finding stands. A waiver without one is not honoured, so this is
+        /// required; the interactive session asks for it when it is left out
+        #[arg(long, value_name = "TEXT")]
+        reason: Option<String>,
+        /// The waiver stops being honoured after this date
+        #[arg(long, value_name = "YYYY-MM-DD")]
+        until: Option<String>,
+        /// Waive the rule for the whole file, not the line
+        #[arg(long)]
+        whole_file: bool,
+        /// Print the diff the waiver would make and change nothing
+        #[arg(long)]
+        dry_run: bool,
         /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
@@ -1895,6 +1927,27 @@ fn run() -> Result<Exit> {
             )
             .map(|()| Exit::Clean)
         }
+        Command::Waive {
+            at,
+            rule,
+            reason,
+            until,
+            whole_file,
+            dry_run,
+            config,
+        } => waive::run(
+            &waive::Order {
+                at,
+                rule,
+                reason: reason.unwrap_or_default(),
+                until,
+                whole_file,
+                dry_run,
+                config,
+            },
+            &mut anstream::stdout().lock(),
+        )
+        .map(|()| Exit::Clean),
         Command::Complexity {
             path,
             standard,

@@ -949,6 +949,7 @@ fn every_command_is_in_exactly_one_help_group() {
         "config",
         "baseline",
         "suppressions",
+        "waive",
         "cache",
         "lsp",
         "mcp",

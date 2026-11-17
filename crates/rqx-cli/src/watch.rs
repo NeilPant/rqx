@@ -1,4 +1,4 @@
-//! `rqx scan --watch`, and the file stamps it shares with the interface's poll.
+//! `rqx scan --watch`, and the file stamps it shares with the session's `/watch`.
 //! Both ask the same question of the tree, so both get the same answer from here.
 
 use std::collections::BTreeMap;
@@ -11,7 +11,7 @@ use crate::config::Resolved;
 use crate::scan;
 use crate::term::{self, Stream};
 
-const BETWEEN_WALKS: Duration = Duration::from_millis(400);
+pub(crate) const BETWEEN_WALKS: Duration = Duration::from_millis(400);
 
 /// What a file looked like when it was last analysed. Size joins the timestamp
 /// because a filesystem with one-second timestamps would otherwise miss a save

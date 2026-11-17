@@ -7,16 +7,19 @@
 mod ansi;
 mod commands;
 mod completion;
-pub mod fuzzy;
+mod delta;
+mod editor;
+mod fuzzy;
 mod job;
-pub mod motion;
+mod motion;
 mod owl;
 mod prompt;
 mod recall;
-pub mod sprite;
-pub mod text;
+pub(crate) mod sprite;
+mod text;
 mod view;
 mod viewport;
+mod watching;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -30,21 +33,23 @@ use rqx_core::Cleanliness;
 
 use crate::brand::{self, Ink, Palette};
 use crate::config::Resolved;
+use crate::project::Project;
 use crate::scan::{self, ScanOutcome, ScanProgress};
 use crate::term::{self, Decline};
 
-use commands::{Action, Context, Invocation, Parsed};
+use commands::{Action, Context, Invocation, Parsed, Target, WatchMode};
 use completion::{Catalogue, Suggestion};
 use job::{Finished, Job};
 use motion::Motion;
-use owl::{Owl, Pose};
+use owl::Owl;
 use prompt::Prompt;
 use recall::Recall;
 use sprite::Sprite;
 use view::{Idle, Look, Menu, MenuRow, SCANNING_ROWS};
 use viewport::Viewport;
+use watching::{Change, Watcher};
 
-const MASCOT: &str = include_str!("../../assets/mascot.txt");
+const MASCOT: &str = include_str!("../../assets/mascot-compact.txt");
 const MIN_WIDTH: u16 = 50;
 const MIN_HEIGHT: u16 = 14;
 /// How long the loop may sleep when nothing is moving and no job is running.
@@ -84,6 +89,7 @@ pub fn launch(options: Launch<'_>) -> Result<(), Decline> {
 enum Done {
     Scanned(Box<ScanOutcome>),
     Printed { bytes: Vec<u8>, rescan: bool },
+    Watching(Box<Project>),
 }
 
 /// What the viewport says the session is doing while a job runs.
@@ -105,6 +111,11 @@ struct App {
     progress: ScanProgress,
     job: Option<(Job<Done>, Busy)>,
     announced: bool,
+    watcher: Option<Watcher>,
+    /// Where the findings the summary listed are, which `/open 2` counts in.
+    listing: Vec<(String, u32)>,
+    /// A waiver that is waiting for its reason: the next line typed is the reason.
+    asking: Option<crate::waive::Order>,
     prompt: Prompt,
     recall: Recall,
     catalogue: Catalogue,
@@ -153,7 +164,7 @@ impl App {
                 palette: Palette::detect(),
             },
             motion: Motion::new(options.reduced_motion),
-            owl: Owl::new(Sprite::parse(MASCOT), clock_seed()),
+            owl: Owl::new(Sprite::parse(MASCOT)),
             root: display_root(options.path),
             path: options.path.to_path_buf(),
             config: options.config.clone(),
@@ -162,6 +173,9 @@ impl App {
             progress: ScanProgress::default(),
             job: None,
             announced: false,
+            watcher: None,
+            listing: Vec::new(),
+            asking: None,
             prompt: Prompt::with_history(recall.load()),
             recall,
             catalogue: Catalogue::new([]),
@@ -189,11 +203,16 @@ impl App {
         Ok(farewell)
     }
 
-    /// A scan reads the project with the display cap off: the analysis commands judge
-    /// the whole set, and the cap only ever shortened a list the session pages anyway.
-    fn start_scan(&mut self) {
-        let (path, mut config) = (self.path.clone(), self.config.clone());
+    /// The analysis commands judge the whole set, and the display cap only ever
+    /// shortened a list the session pages anyway, so the session reads with it off.
+    fn uncapped_config(&self) -> Resolved {
+        let mut config = self.config.clone();
         config.config.scan.max_findings = 0;
+        config
+    }
+
+    fn start_scan(&mut self) {
+        let (path, config) = (self.path.clone(), self.uncapped_config());
         self.progress = ScanProgress::default();
         let job = Job::start(move |watch| {
             scan::scan_with_progress(&path, &config, watch)
@@ -203,11 +222,7 @@ impl App {
     }
 
     fn health(&self) -> Option<u32> {
-        self.outcome.as_ref().map(|outcome| {
-            outcome
-                .counts
-                .weighted_health_score(outcome.code_lines, &outcome.impact)
-        })
+        self.outcome.as_deref().map(health_of)
     }
 
     /// The plumage follows the verdict once there is one.
@@ -216,21 +231,6 @@ impl App {
             return Ink::Accent;
         }
         brand::mascot_ink(self.health())
-    }
-
-    fn pose(&self) -> Pose {
-        if self.job.is_some() {
-            Pose::Working
-        } else {
-            Pose::Resting
-        }
-    }
-
-    /// The owl as it looks this frame: glancing while a job runs, blinking when not.
-    fn owl_now(&mut self) -> Vec<Line<'static>> {
-        let (pose, signal) = (self.pose(), self.signal());
-        self.owl
-            .lines(pose, &self.motion, self.look.palette, signal)
     }
 
     fn wanted_rows(&self) -> u16 {
@@ -247,9 +247,9 @@ impl App {
     }
 
     fn draw(&mut self) -> Result<()> {
-        let owl = self.owl_now();
         let look = &self.look;
         if let Some((_, busy)) = &self.job {
+            let owl = self.owl.glancing(&self.motion, look.palette, self.signal());
             let room = view::text_width(&owl, self.viewport.width());
             let spinner = self.motion.spinner();
             let text = match busy {
@@ -278,11 +278,10 @@ impl App {
                 rows: &rows,
                 selected: self.menu.selected,
             }),
-            hints: "/help  /findings  /plan  /fix  /rescan  /exit",
             status: &status,
         };
         self.viewport
-            .draw(|frame| view::idle(frame, look, owl, &state))?;
+            .draw(|frame| view::idle(frame, look, &state))?;
         Ok(())
     }
 
@@ -296,30 +295,57 @@ impl App {
                 .label()
                 .to_owned(),
             format!("{} findings", text::thousands(outcome.counts.total)),
-            "watch off".to_owned(),
         ];
-        let lookups = outcome.stats.cache_hits + outcome.stats.cache_misses;
-        if lookups > 0 {
-            parts.push(format!(
-                "cache {}/{}",
-                text::thousands(outcome.stats.cache_hits),
-                text::thousands(lookups)
-            ));
+        if self.watcher.is_some() {
+            parts.push("watching".to_owned());
         }
         parts.join(" \u{b7} ")
     }
 
     fn wakeup(&self) -> Duration {
-        if self.job.is_some() {
+        let watching = self.watcher.as_ref().map_or(QUIET, Watcher::wakeup);
+        let own = if self.job.is_some() {
             motion::FRAME
         } else {
-            self.owl
-                .changes_in(self.pose(), &self.motion)
-                .map_or(QUIET, |change| change.min(QUIET))
-        }
+            QUIET
+        };
+        own.min(watching)
     }
 
     fn tick(&mut self) -> Result<()> {
+        self.tick_job()?;
+        self.tick_watcher()
+    }
+
+    fn tick_watcher(&mut self) -> Result<()> {
+        let Some(watcher) = &mut self.watcher else {
+            return Ok(());
+        };
+        match watcher.advance() {
+            Ok(Some(change)) => self.apply(change),
+            Ok(None) => Ok(()),
+            Err(message) => {
+                self.watcher = None;
+                self.fail(&format!("watching stopped: {message}"))
+            }
+        }
+    }
+
+    /// The project as it is now replaces the scan the commands read, and what moved
+    /// goes into scrollback.
+    fn apply(&mut self, change: Change) -> Result<()> {
+        let lines: Vec<Line<'static>> = delta::describe(&change.before, &change.after)
+            .iter()
+            .map(|text| view::update(&self.look, text))
+            .collect();
+        self.outcome = Some(Arc::clone(&change.after));
+        self.catalogue = Catalogue::new(change.after.analyzed.iter().cloned());
+        self.refresh_menu();
+        self.viewport.print(&lines)?;
+        Ok(())
+    }
+
+    fn tick_job(&mut self) -> Result<()> {
         let Some((job, _)) = &self.job else {
             return Ok(());
         };
@@ -334,6 +360,10 @@ impl App {
         };
         match job.join() {
             Finished::Done(Done::Scanned(outcome)) => self.adopt(*outcome)?,
+            Finished::Done(Done::Watching(project)) => {
+                self.watcher = Some(Watcher::new(project));
+                self.say("Watching for changes. /watch off stops.")?;
+            }
             Finished::Done(Done::Printed { bytes, rescan }) => {
                 self.print_output(&bytes)?;
                 if rescan {
@@ -352,6 +382,7 @@ impl App {
         let outcome = Arc::new(outcome);
         self.outcome = Some(Arc::clone(&outcome));
         self.catalogue = Catalogue::new(outcome.analyzed.iter().cloned());
+        self.listing = view::listed_places(&outcome);
         self.refresh_menu();
         let mut lines = Vec::new();
         if !self.announced {
@@ -403,6 +434,12 @@ impl App {
             KeyCode::Char('d') if control => self.quit = true,
             KeyCode::Char('c') if control => self.interrupt(),
             _ if self.job.is_some() => {}
+            KeyCode::Esc if self.asking.is_some() => self.cancel_asking()?,
+            KeyCode::Char('?')
+                if !control && self.asking.is_none() && self.prompt.text().is_empty() =>
+            {
+                self.viewport.print(&view::shortcuts(&self.look))?;
+            }
             KeyCode::Enter => self.enter()?,
             KeyCode::Tab => self.accept(),
             KeyCode::Esc => self.menu.dismissed = true,
@@ -418,8 +455,13 @@ impl App {
     }
 
     fn refresh_menu(&mut self) {
+        let suggestions = if self.asking.is_some() {
+            Vec::new()
+        } else {
+            self.catalogue.suggest(&self.prompt.before_cursor())
+        };
         self.menu = MenuState {
-            suggestions: self.catalogue.suggest(&self.prompt.before_cursor()),
+            suggestions,
             selected: 0,
             dismissed: false,
         };
@@ -476,6 +518,10 @@ impl App {
             job.cancel();
             return;
         }
+        if self.asking.is_some() {
+            let _ = self.cancel_asking();
+            return;
+        }
         let again = self
             .last_interrupt
             .is_some_and(|at| at.elapsed() < INTERRUPT_AGAIN);
@@ -487,7 +533,34 @@ impl App {
         self.last_interrupt = Some(Instant::now());
     }
 
+    fn cancel_asking(&mut self) -> Result<()> {
+        self.asking = None;
+        self.prompt.clear();
+        self.refresh_menu();
+        self.say("Cancelled.")
+    }
+
+    /// The line is the reason for the waiver that was waiting for one.
+    fn submit_reason(&mut self, order: crate::waive::Order) -> Result<()> {
+        let reason = self.prompt.submit();
+        self.refresh_menu();
+        if reason.trim().is_empty() {
+            self.asking = Some(order);
+            return self.fail("a waiver needs a reason; esc cancels");
+        }
+        self.viewport
+            .print(&[view::echo(&self.look, reason.trim())])?;
+        let order = crate::waive::Order {
+            reason: reason.trim().to_owned(),
+            ..order
+        };
+        self.perform(commands::waiving(order), "running /waive".to_owned())
+    }
+
     fn submit(&mut self) -> Result<()> {
+        if let Some(order) = self.asking.take() {
+            return self.submit_reason(order);
+        }
         let line = self.prompt.submit();
         self.refresh_menu();
         let parsed = commands::parse(&line);
@@ -525,9 +598,8 @@ impl App {
                 self.viewport.print(&header)?;
                 Ok(())
             }
-            Parsed::Watch => {
-                self.say("Watching for changes is not built yet; /rescan scans again.")
-            }
+            Parsed::Watch(mode) => self.watch(mode),
+            Parsed::Open(target) => self.open(target),
             Parsed::Printed(bytes) => self.print_output(&bytes),
             Parsed::Command(invocation) => self.run_command(*invocation),
         }
@@ -542,13 +614,88 @@ impl App {
             level: self.level.as_deref(),
         };
         match commands::run(invocation, &context) {
-            Ok(Action::Print(bytes)) => self.print_output(&bytes),
-            Ok(Action::Background { work, rescan }) => {
+            Ok(action) => self.perform(action, doing),
+            Err(error) => self.fail(&format!("{error:#}")),
+        }
+    }
+
+    fn perform(&mut self, action: Action, doing: String) -> Result<()> {
+        match action {
+            Action::Print(bytes) => self.print_output(&bytes),
+            Action::AskReason(order) => {
+                self.say(&format!(
+                    "Why waive `{}` at {}? Type the reason and press enter; esc cancels.",
+                    order.rule, order.at
+                ))?;
+                self.asking = Some(order);
+                self.refresh_menu();
+                Ok(())
+            }
+            Action::Background { work, rescan } => {
                 let job = Job::start(move |_| work().map(|bytes| Done::Printed { bytes, rescan }));
                 self.job = Some((job, Busy::Running(doing)));
                 Ok(())
             }
-            Err(error) => self.fail(&format!("{error:#}")),
+        }
+    }
+
+    fn watch(&mut self, mode: WatchMode) -> Result<()> {
+        let on = match mode {
+            WatchMode::On => true,
+            WatchMode::Off => false,
+            WatchMode::Toggle => self.watcher.is_none(),
+        };
+        if !on {
+            let was = self.watcher.take().is_some();
+            return self.say(if was {
+                "Stopped watching."
+            } else {
+                "Not watching."
+            });
+        }
+        if self.watcher.is_some() {
+            return self.say("Already watching.");
+        }
+        let (path, config) = (self.path.clone(), self.uncapped_config());
+        let job = Job::start(move |_| {
+            Project::read(&path, config).map(|project| Done::Watching(Box::new(project)))
+        });
+        self.job = Some((job, Busy::Running("starting /watch".to_owned())));
+        Ok(())
+    }
+
+    /// Hands the place to the editor and takes the terminal back when it exits. With
+    /// no editor configured the place is printed, which is still enough to act on.
+    fn open(&mut self, target: Target) -> Result<()> {
+        let (file, line) = match target {
+            Target::Place { file, line } => (file, line),
+            Target::Listed(number) => match self.listing.get(number - 1) {
+                Some((file, line)) => (file.clone(), *line),
+                None => {
+                    return self.fail(&format!(
+                        "there is no finding {number} in the list; it holds {}",
+                        self.listing.len()
+                    ));
+                }
+            },
+        };
+        let Some(editor) = editor::configured() else {
+            return self.say(&format!(
+                "$VISUAL and $EDITOR are not set; the finding is at {file}:{line}"
+            ));
+        };
+        let on_disk = self.path.join(&file);
+        let Some(launch) = editor::launch(&editor, &on_disk.to_string_lossy(), line) else {
+            return self.fail("$VISUAL or $EDITOR is set but names no program");
+        };
+        self.viewport.suspend()?;
+        let ran = std::process::Command::new(&launch.program)
+            .args(&launch.arguments)
+            .status();
+        self.viewport.resume()?;
+        match ran {
+            Ok(_) => Ok(()),
+            Err(error) => self.fail(&format!("could not start {}: {error}", launch.program)),
         }
     }
 
@@ -560,11 +707,11 @@ impl App {
     }
 }
 
-/// Where the blinks fall is not worth reproducing, so the clock is as good a seed as any.
-fn clock_seed() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0x006f_776c, |since| since.as_nanos() as u64)
+/// The score the header, the status line and a watch's delta all quote.
+fn health_of(outcome: &ScanOutcome) -> u32 {
+    outcome
+        .counts
+        .weighted_health_score(outcome.code_lines, &outcome.impact)
 }
 
 /// The directory the session is looking at, as a person would write it: relative to

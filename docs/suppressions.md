@@ -55,6 +55,20 @@ Past that date the waiver stops being honoured, exactly as if the reason had bee
 left out: the finding comes back and `unjustified-suppression` reports the comment
 as expired. A waiver with no date lasts until someone deletes it.
 
+## Writing one from the command line
+
+```sh
+rqx waive src/parse.ts:41 long-function --reason "the parser is generated, PLAT-812"
+rqx waive src/tariff.py:88 magic-number --reason "the tariff table lands in Q1" --until 2027-01-01
+rqx waive src/generated.ts circular-dependency --reason "generated" --whole-file
+```
+
+`rqx waive` inserts the comment above the line, indented like it, in the comment
+style of the file's language. It refuses a rule that does not exist, naming the
+closest one, and a blank reason, because the scan would not honour either.
+`--dry-run` prints the diff and changes nothing. The editor's `rqx.suppress` command
+writes the same comment.
+
 ## Reading them back
 
 ```sh

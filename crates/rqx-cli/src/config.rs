@@ -175,13 +175,6 @@ impl Resolved {
         )
     }
 
-    /// The name of the file the settings came from, for the header. The last one wins
-    /// because that is the one whose values survived the merge.
-    pub fn display_source(&self) -> Option<String> {
-        let path = self.sources.last()?;
-        Some(path.file_name()?.to_string_lossy().into_owned())
-    }
-
     /// The project file that wrote `table.key`, addressed as one string, which is not
     /// always the last file to touch its table. `set` defaults to it. A preset or an
     /// extended file never answers: neither is the project's to edit.

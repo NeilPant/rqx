@@ -24,28 +24,34 @@ tools, and what the session printed is still there after you leave.
 
 ```
 ╭────────────────────────────────────────────────╮
-│ ▄▀▀▄▄▀▀▄  rqx 0.2.0                            │
-│ █◉▓▓▓▓◉█  ~/work/billing · 3,456 files         │
-│ ▀▄▄▄▄▄▄▀  health 82/100 · fair · 31 findings   │
+│ ▄█▄▄▄▄█▄  rqx 0.2.0                            │
+│ █▀██▀▀█▀  ~/work/billing · 3,456 files         │
+│ ▀██▀▀██▀  health 82/100 · fair · 31 findings   │
 ╰────────────────────────────────────────────────╯
  ✓ Scanned 3,456 files in 0.41s · cache 3,455/3,456
- ● error    dead-export     src/api/client.ts:42
+ 1 ● error    dead-export     src/api/client.ts:42
    … 28 more · /findings to list them
+────────────────────────────────────────────────────
 > /plan --budget 20
- 1. Extract InvoiceTotals   −6 findings  +4 health
+────────────────────────────────────────────────────
+ ? for shortcuts                    health 82 · fair · 31 findings · watching
 ```
 
-The owl is drawn larger in a real terminal; this is the layout, not the pixels.
+The owl is three rows of half blocks, eight columns wide; the sketch above is the
+layout, not the pixels.
 
 The session scans the working directory as it opens. While it runs, the owl glances
-left and right beside the phase, the files done and the file being read. When the
-scan lands, the header and the worst findings go into scrollback and the prompt
-takes the bottom of the window, with the owl beside it. The plumage follows the
-health score, and the owl blinks every few seconds. `--motion off` draws it still.
+left and right beside the phase, the files done and the file being read; it does the
+same while any other command works. When the scan lands, the header and the worst
+findings go into scrollback, and the prompt takes the bottom of the window across its
+whole width. The plumage follows the health score. `--motion off` draws the owl
+still.
 
-The status line at the bottom is right-aligned: health, grade, findings, whether
-watching is on, and how many files came from the cache. The key hints on the left
-give way when the window is too narrow for both.
+The line under the prompt says `? for shortcuts` on the left and, on the right, the
+health, the grade, the findings and `watching` when it is on. The pointer gives way
+when the window is too narrow for both. Nothing else is drawn: no permanent key
+list, no panels, and nothing that has to be dismissed, because everything a command
+prints goes into scrollback.
 
 ## Commands
 
@@ -58,11 +64,13 @@ so there is no second scan.
 |---|---|
 | `/findings` | `rqx scan`, with every filter and display flag it takes |
 | `/plan` `/health` `/complexity` `/perf` `/graph` `/recommend` `/patterns` `/suppressions` | the command of the same name, on the held scan |
+| `/waive` | `rqx waive`; without `--reason` the prompt asks for one |
 | `/explain` `/rules` `/techniques` `/levels` | the catalogue commands |
 | `/slop` | `rqx slop`, which scans again with its own rules switched on |
 | `/fix` `/check` `/verify` | the command of the same name; they scan or write, so they run in the background |
 | `/rescan` | scan the project again |
-| `/watch on\|off` | accepted; watching is not built yet |
+| `/watch on\|off` | re-analyse files as they are saved |
+| `/open` | open a finding in `$VISUAL` or `$EDITOR` |
 | `/clear` `/help` `/exit` | clear the screen, list the commands, leave |
 
 Text typed without a slash searches the findings: `dead export` is `/findings
@@ -79,6 +87,32 @@ command's own help.
 by a rescan. `/check --fix` is refused; use `/fix` or run `rqx check --fix` from a
 shell.
 
+## Watching, opening and waiving
+
+`/watch on` holds the project in memory and polls the tree for saves. A save
+re-analyses that file alone and runs the cross-file stage over everything, the same
+way `rqx scan --watch` stays correct, and the session prints what moved:
+
+```
+ src/api/client.ts  −1 finding · health 82 → 83
+```
+
+Up to three files are named on a line each, with the health on its own line; more
+than that is counted. A save that changes no finding prints nothing. The status
+line says `watching` while it is on, and the commands read the refreshed project, so
+`/plan` after a fix is the plan for what is there now. `/watch off` stops it.
+
+`/open 2` opens the second finding of the list under the header, and `/open
+src/api/client.ts:42` opens that place. It runs `$VISUAL`, or `$EDITOR` when that
+is empty, with the line: `vim +42 file`, `code -g file:42`, `hx file:42`, or just
+the file for an editor rqx has no line syntax for. The session gives the terminal to
+the editor and takes it back when the editor exits. With neither variable set it
+prints `file:line`.
+
+`/waive src/api/client.ts:42 unused-export` is `rqx waive`. Left without `--reason`,
+the prompt asks for one: type it, press enter, and the comment is written and the
+project scanned again. `esc` cancels. `--dry-run` prints the diff instead.
+
 ## The prompt
 
 | Key | Does |
@@ -88,9 +122,10 @@ shell.
 | `ctrl-u` | delete everything before the cursor |
 | `ctrl-w` | delete the word before the cursor |
 | `↑` `↓` | walk the history, or the menu when it is open |
-| `tab` | accept the highlighted suggestion |
-| `esc` | close the menu |
-| `enter` | accept the suggestion if it would change the line, otherwise run the line |
+| `?` on an empty line | print the keys into scrollback |
+| `tab` | accept the highlighted command |
+| `esc` | close the list |
+| `enter` | accept the highlighted command if it would change the line, otherwise run the line |
 | `ctrl-c` | stop the running job; at the prompt, clear the line, and twice within a second, leave |
 | `ctrl-d` | leave |
 
@@ -99,12 +134,17 @@ History is kept per user in the platform state directory (`$XDG_STATE_HOME/rqx` 
 
 ### Completion
 
-Typing `/` opens a menu. It offers command names first, ranked by how tightly the
-letters you typed sit together, so `cplx` reaches `/complexity`. After a command it
-offers that command's flags, read from the same definition the command line parses
-with. After a flag it offers the values the flag takes: the choices clap lists, rule
-slugs for `--rule` and `--not-rule`, families for `--category`, and files from the
-scan for `--focus`. `/explain` offers rule slugs.
+A line that starts with `/` shows a list of commands under the prompt, one to a
+row with the sentence `rqx <command> --help` opens with, and the highlighted row is
+the one `tab` or `enter` takes. The list is ranked by how tightly the letters you
+typed sit together, so `cplx` reaches `/complexity`. A line that does not start with
+`/` shows no list at all.
+
+Once a command is typed and a space follows it, the list offers that command's
+flags, read from the same definition the command line parses with. After a flag it
+offers the values the flag takes: the choices clap lists, rule slugs for `--rule`
+and `--not-rule`, families for `--category`, and files from the scan for `--focus`.
+`/explain` offers rule slugs.
 
 ## Leaving
 

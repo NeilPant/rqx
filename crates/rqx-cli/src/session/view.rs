@@ -16,16 +16,14 @@ use crate::scan::{ScanOutcome, ScanProgress};
 
 use super::text::{clip, seconds, thousands};
 
-/// Rows the viewport needs while a scan runs: the owl's height, and the hints under it.
-pub const SCANNING_ROWS: u16 = 7;
-/// The owl's height, which is what the viewport needs while it waits for a command and
-/// the menu is shut: the owl, with the prompt beside its face.
-pub const IDLE_ROWS: u16 = 6;
-/// What sits beside the owl above the menu: a gap, a rule, the prompt, and below the
-/// menu a rule and the status line.
-const PROMPT_ROWS: u16 = 5;
+/// Rows the viewport needs while a job runs: the owl's height, and the hint under it.
+pub const SCANNING_ROWS: u16 = 4;
+/// What the viewport needs while it waits for a command and the menu is shut: a rule,
+/// the prompt, a rule and the status line.
+pub const IDLE_ROWS: u16 = 4;
 
 const TOP_FINDINGS: usize = 5;
+const SHORTCUTS_HINT: &str = "? for shortcuts";
 const OWL_GAP: &str = "  ";
 
 pub struct Look {
@@ -47,7 +45,7 @@ impl Look {
 }
 
 /// The owl on the left and what the session is busy with beside it. `text` is built
-/// for the room `text_width` says there is.
+/// for the room `text_width` says there is, and is as tall as the owl.
 pub fn working(
     frame: &mut Frame<'_>,
     look: &Look,
@@ -87,6 +85,7 @@ pub fn busy_lines(look: &Look, spinner: char, doing: &str) -> Vec<Line<'static>>
             Span::styled(format!("{spinner} "), look.bold(Ink::Accent)),
             Span::styled(doing.to_owned(), look.bold(Ink::Accent)),
         ]),
+        Line::raw(""),
     ]
 }
 
@@ -105,22 +104,18 @@ pub fn progress_lines(
         None => format!("{} files", thousands(progress.files_scanned)),
     };
     let current = progress.file.as_deref().unwrap_or_default();
+    let counts = format!(
+        "{files} \u{b7} {} findings so far \u{b7} {}",
+        thousands(progress.findings),
+        seconds(u128::from(progress.elapsed_ms))
+    );
     vec![
-        Line::raw(""),
         Line::from(vec![
             Span::styled(format!("{spinner} "), look.bold(Ink::Accent)),
             Span::styled(progress.phase.label().to_owned(), look.bold(Ink::Accent)),
         ]),
-        Line::styled(files, look.style(Ink::Text)),
+        Line::styled(clip(&counts, width), look.style(Ink::Text)),
         Line::styled(clip(current, width), look.dim()),
-        Line::styled(
-            format!(
-                "{} findings so far \u{b7} {}",
-                thousands(progress.findings),
-                seconds(u128::from(progress.elapsed_ms))
-            ),
-            look.dim(),
-        ),
     ]
 }
 
@@ -141,46 +136,30 @@ pub struct Idle<'a> {
     pub input: &'a str,
     pub cursor: usize,
     pub menu: Option<Menu<'a>>,
-    pub hints: &'a str,
     pub status: &'a str,
 }
 
 /// The rows the viewport needs for this state of the prompt.
 pub const fn idle_rows(menu_open: bool) -> u16 {
     if menu_open {
-        PROMPT_ROWS + MENU_ROWS
+        IDLE_ROWS + MENU_ROWS
     } else {
         IDLE_ROWS
     }
 }
 
-/// The owl where it was while the scan ran, and the prompt beside it.
-pub fn idle(frame: &mut Frame<'_>, look: &Look, owl: Vec<Line<'static>>, state: &Idle<'_>) {
-    let [art, beside] = Layout::horizontal([
-        Constraint::Length(owl_columns(&owl) + OWL_GAP.len() as u16),
-        Constraint::Min(0),
-    ])
-    .areas(frame.area());
-    let owl_height = owl.len() as u16;
-    frame.render_widget(
-        Paragraph::new(owl),
-        ratatui::layout::Rect {
-            height: owl_height.min(art.height),
-            ..art
-        },
-    );
-
+/// The prompt between two rules, across the whole width, with the menu under it when
+/// it is open and the status line last.
+pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
     let menu_height = if state.menu.is_some() { MENU_ROWS } else { 0 };
-    let [_, top, prompt, below, bottom, status, _] = Layout::vertical([
-        Constraint::Length(1),
+    let [top, prompt, below, bottom, status] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(menu_height),
         Constraint::Length(1),
         Constraint::Length(1),
-        Constraint::Min(0),
     ])
-    .areas(beside);
+    .areas(frame.area());
     let rule = Line::styled("\u{2500}".repeat(top.width as usize), look.palette.rule());
     frame.render_widget(Paragraph::new(rule.clone()), top);
     frame.render_widget(Paragraph::new(rule), bottom);
@@ -198,7 +177,7 @@ pub fn idle(frame: &mut Frame<'_>, look: &Look, owl: Vec<Line<'static>>, state: 
         frame.render_widget(Paragraph::new(menu_lines(look, menu, below.width)), below);
     }
     frame.render_widget(
-        Paragraph::new(status_line(look, state.hints, state.status, status.width)),
+        Paragraph::new(status_line(look, state.status, status.width)),
         status,
     );
 }
@@ -210,31 +189,30 @@ fn menu_lines(look: &Look, menu: &Menu<'_>, width: u16) -> Vec<Line<'static>> {
         .map(|row| row.label.width())
         .max()
         .unwrap_or(0);
-    let room = usize::from(width).saturating_sub(label_width + 5);
+    let room = usize::from(width).saturating_sub(label_width + 4);
     menu.rows
         .iter()
         .enumerate()
         .map(|(at, row)| {
-            let (marker, label) = if at == menu.selected {
-                (" \u{203a} ", look.bold(Ink::Accent))
+            let (label, about) = if at == menu.selected {
+                (look.bold(Ink::Accent), look.style(Ink::Accent))
             } else {
-                ("   ", look.style(Ink::Text))
+                (look.style(Ink::Text), look.dim())
             };
             let padding = " ".repeat(label_width - row.label.width());
             Line::from(vec![
-                Span::styled(marker, label),
-                Span::styled(format!("{}{padding}  ", row.label), label),
-                Span::styled(clip(row.about, room), look.dim()),
+                Span::styled(format!("  {}{padding}  ", row.label), label),
+                Span::styled(clip(row.about, room), about),
             ])
         })
         .collect()
 }
 
-/// The hints on the left and the project's state on the right. When both do not fit
-/// the hints give way, because the state is what the line is for.
-fn status_line(look: &Look, hints: &str, status: &str, width: u16) -> Line<'static> {
+/// The one pointer at the keys on the left and the project's state on the right. When
+/// both do not fit the pointer gives way, because the state is what the line is for.
+fn status_line(look: &Look, status: &str, width: u16) -> Line<'static> {
     let right = format!("{status} ");
-    let left = format!(" {hints}");
+    let left = format!(" {SHORTCUTS_HINT}");
     let room = usize::from(width);
     let left = if left.width() + right.width() < room {
         left
@@ -312,7 +290,7 @@ pub fn header(
         let mut spans = vec![Span::styled("\u{2502}", border), Span::raw(" ")];
         spans.extend(art_line.spans.iter().cloned());
         spans.push(Span::raw(OWL_GAP));
-        let used = if let Some(fact) = row.checked_sub(1).and_then(|at| facts.get(at)) {
+        let used = if let Some(fact) = facts.get(row) {
             let clipped = clip_line(fact, text_room);
             let used = clipped.width();
             spans.extend(clipped.spans);
@@ -377,20 +355,29 @@ pub fn summary(look: &Look, outcome: &ScanOutcome) -> Vec<Line<'static>> {
     }
     let worst = worst_findings(outcome);
     let slug_width = worst.iter().map(|f| f.slug().len()).max().unwrap_or(0);
-    for finding in &worst {
-        lines.push(finding_line(look, finding, slug_width));
+    for (at, finding) in worst.iter().enumerate() {
+        lines.push(finding_line(look, at + 1, finding, slug_width));
     }
     let more = outcome.counts.total as usize - worst.len().min(outcome.counts.total as usize);
     if more > 0 {
         lines.push(Line::styled(
             format!(
-                "   \u{2026} {} more \u{b7} /findings to list them",
+                "   \u{2026} {} more \u{b7} /findings to list them \u{b7} /open 1 to edit one",
                 thousands(more as u32)
             ),
             look.dim(),
         ));
     }
     lines
+}
+
+/// Where each finding in the summary is, in the order it was listed, which is what
+/// `/open 2` counts in.
+pub fn listed_places(outcome: &ScanOutcome) -> Vec<(String, u32)> {
+    worst_findings(outcome)
+        .into_iter()
+        .map(|finding| (finding.location.file.to_string(), finding.location.line))
+        .collect()
 }
 
 fn worst_findings(outcome: &ScanOutcome) -> Vec<&Finding> {
@@ -400,10 +387,11 @@ fn worst_findings(outcome: &ScanOutcome) -> Vec<&Finding> {
     ranked
 }
 
-fn finding_line(look: &Look, finding: &Finding, slug_width: usize) -> Line<'static> {
+fn finding_line(look: &Look, number: usize, finding: &Finding, slug_width: usize) -> Line<'static> {
     let ink = severity_ink(finding.severity);
     Line::from(vec![
-        Span::styled(" \u{25cf} ", look.style(ink)),
+        Span::styled(format!(" {number} "), look.dim()),
+        Span::styled("\u{25cf} ", look.style(ink)),
         Span::styled(format!("{:<8}", finding.severity.label()), look.style(ink)),
         Span::styled(
             format!("{:<slug_width$}  ", finding.slug()),
@@ -429,8 +417,53 @@ pub fn failure(look: &Look, message: &str) -> Line<'static> {
     Line::styled(format!(" \u{2717} {message}"), look.style(Ink::Danger))
 }
 
+/// What a watch saw change, in the ordinary text colour: it is news, not a footnote.
+pub fn update(look: &Look, message: &str) -> Line<'static> {
+    Line::styled(format!(" {message}"), look.style(Ink::Text))
+}
+
 pub fn note(look: &Look, message: &str) -> Line<'static> {
     Line::styled(format!(" {message}"), look.dim())
+}
+
+/// The keys, for `?` on an empty prompt.
+const SHORTCUTS: [(&str, &str); 8] = [
+    (
+        "/",
+        "commands: type to narrow them, tab or enter takes one, esc closes the list",
+    ),
+    (
+        "\u{2191} \u{2193}",
+        "walk the history, or the command list while it is open",
+    ),
+    ("text", "a line without a slash searches the findings"),
+    ("ctrl-u", "delete to the start of the line"),
+    ("ctrl-w", "delete the word before the cursor"),
+    (
+        "ctrl-c",
+        "stop a running command; clear the line; twice leaves",
+    ),
+    ("ctrl-d", "leave"),
+    ("?", "this list, on an empty line"),
+];
+
+/// Printed into scrollback like everything else, so there is nothing to dismiss.
+pub fn shortcuts(look: &Look) -> Vec<Line<'static>> {
+    let key_width = SHORTCUTS
+        .iter()
+        .map(|(key, _)| key.width())
+        .max()
+        .unwrap_or(0);
+    SHORTCUTS
+        .iter()
+        .map(|(key, what)| {
+            let padding = " ".repeat(key_width - key.width());
+            Line::from(vec![
+                Span::styled(format!("  {key}{padding}  "), look.bold(Ink::Accent)),
+                Span::styled((*what).to_owned(), look.style(Ink::Text)),
+            ])
+        })
+        .collect()
 }
 
 /// Every command and what it is for, in the order they are offered.
@@ -485,7 +518,7 @@ mod tests {
     }
 
     fn owl(look: &Look) -> Vec<Line<'static>> {
-        let sprite = Sprite::parse(include_str!("../../assets/mascot.txt"));
+        let sprite = Sprite::parse(include_str!("../../assets/mascot-compact.txt"));
         sprite.render_frame(look.palette, sprite.frame("idle"), Ink::Accent, usize::MAX)
     }
 
@@ -554,6 +587,7 @@ mod tests {
         let lines = plain(&summary(&look, &outcome));
         assert!(lines[0].contains("Scanned 10 files"));
         assert!(lines[1].contains("error") && lines[1].contains("src/api/client.ts:1"));
+        assert!(lines[1].trim_start().starts_with("1 "), "{lines:?}");
         assert!(lines.last().unwrap().contains("3 more"), "{lines:?}");
     }
 
@@ -564,35 +598,24 @@ mod tests {
         assert!(lines[1].contains("Nothing to report"));
     }
 
-    /// The part of each row beside the owl, which is where the prompt lives.
-    fn beside_the_owl(rows: &[String]) -> Vec<String> {
-        rows.iter()
-            .map(|row| row.chars().skip(14).collect::<String>())
-            .collect()
-    }
-
     #[test]
-    fn the_owl_keeps_the_left_and_the_prompt_sits_beside_its_face() {
+    fn the_prompt_is_one_line_between_two_rules_as_wide_as_the_window() {
         let mut terminal = Terminal::new(TestBackend::new(60, IDLE_ROWS)).unwrap();
         let state = Idle {
             input: "/plan --budget 20",
             cursor: 17,
             menu: None,
-            hints: "/help  /plan",
             status: "health 82",
         };
-        terminal
-            .draw(|frame| idle(frame, &look(), owl(&look()), &state))
-            .unwrap();
-        let shown = screen(&terminal);
-        assert!(shown[0].contains('\u{2584}'), "the owl is on the left");
-        let rows = beside_the_owl(&shown);
-        assert_eq!(rows[0], "");
-        assert!(rows[1].starts_with('\u{2500}') && rows[3].starts_with('\u{2500}'));
-        assert_eq!(rows[2], "> /plan --budget 20");
-        assert!(rows[4].starts_with(" /help  /plan"), "{rows:?}");
-        assert!(rows[4].ends_with("health 82"));
-        terminal.backend_mut().assert_cursor_position((14 + 19, 2));
+        terminal.draw(|frame| idle(frame, &look(), &state)).unwrap();
+        let rows = screen(&terminal);
+        assert_eq!(rows[0], "\u{2500}".repeat(60));
+        assert_eq!(rows[1], "> /plan --budget 20");
+        assert_eq!(rows[2], "\u{2500}".repeat(60));
+        assert!(rows[3].starts_with(" ? for shortcuts"), "{rows:?}");
+        assert!(rows[3].ends_with("health 82"));
+        assert_eq!(rows.len(), 4, "the prompt has no other row");
+        terminal.backend_mut().assert_cursor_position((19, 1));
     }
 
     #[test]
@@ -615,31 +638,69 @@ mod tests {
                 rows: &choices,
                 selected: 1,
             }),
-            hints: "/help",
             status: "health 82",
         };
-        terminal
-            .draw(|frame| idle(frame, &look(), owl(&look()), &state))
-            .unwrap();
-        let shown = beside_the_owl(&screen(&terminal));
-        assert_eq!(shown[2], "> /p");
-        assert_eq!(shown[3], "   /plan  Rank the work");
-        assert_eq!(shown[4], " \u{203a} /perf  Where the work grows");
-        assert!(shown[3 + usize::from(MENU_ROWS)].starts_with('\u{2500}'));
-        assert!(shown[4 + usize::from(MENU_ROWS)].ends_with("health 82"));
+        terminal.draw(|frame| idle(frame, &look(), &state)).unwrap();
+        let shown = screen(&terminal);
+        assert_eq!(shown[1], "> /p");
+        assert_eq!(shown[2], "  /plan  Rank the work");
+        assert_eq!(shown[3], "  /perf  Where the work grows");
+        assert!(shown[2 + usize::from(MENU_ROWS)].starts_with('\u{2500}'));
+        assert!(shown[3 + usize::from(MENU_ROWS)].ends_with("health 82"));
     }
 
     #[test]
     fn a_closed_menu_takes_no_rows() {
         assert_eq!(idle_rows(false), IDLE_ROWS);
-        assert_eq!(idle_rows(true), PROMPT_ROWS + MENU_ROWS);
+        assert_eq!(idle_rows(true), IDLE_ROWS + MENU_ROWS);
     }
 
     #[test]
-    fn the_status_gives_up_its_hints_before_its_state() {
-        let line = status_line(&look(), "a hint that is far too long", "health 82", 20).to_string();
+    fn the_status_gives_up_its_pointer_before_its_state() {
+        let line = status_line(&look(), "health 82", 20).to_string();
         assert_eq!(line.trim(), "health 82");
         assert_eq!(line.width(), 20);
+        let roomy = status_line(&look(), "health 82", 60).to_string();
+        assert!(roomy.trim_start().starts_with("? for shortcuts"), "{roomy}");
+    }
+
+    #[test]
+    fn the_menu_marks_its_choice_with_colour_and_not_with_a_box_or_a_marker() {
+        let look = Look {
+            palette: Palette::with_depth(ColorDepth::Truecolor),
+        };
+        let choices = [
+            MenuRow {
+                label: "/plan",
+                about: "Rank the work",
+            },
+            MenuRow {
+                label: "/perf",
+                about: "Where the work grows",
+            },
+        ];
+        let lines = menu_lines(
+            &look,
+            &Menu {
+                rows: &choices,
+                selected: 1,
+            },
+            60,
+        );
+        assert_eq!(lines[0].to_string(), "  /plan  Rank the work");
+        assert_eq!(lines[1].to_string(), "  /perf  Where the work grows");
+        assert_ne!(lines[0].spans[0].style, lines[1].spans[0].style);
+    }
+
+    #[test]
+    fn the_shortcuts_are_lines_of_scrollback_that_name_the_keys() {
+        let lines = plain(&shortcuts(&look()));
+        assert_eq!(lines.len(), SHORTCUTS.len());
+        let text = lines.join("\n");
+        assert!(
+            text.contains("ctrl-d") && text.contains("tab or enter"),
+            "{text}"
+        );
     }
 
     #[test]

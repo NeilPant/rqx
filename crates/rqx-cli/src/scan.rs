@@ -79,11 +79,6 @@ pub struct ScanProgress {
     /// Since the scan began, so a reader can be given a rate and a time left rather
     /// than a count that means nothing without one.
     pub elapsed_ms: u64,
-    pub code_lines: u64,
-    pub skipped: u32,
-    /// Files seen per language, indexed the way `Language::ALL` is ordered. An array
-    /// rather than a map so a tick stays a copy of a few dozen bytes.
-    pub by_language: [u32; rqx_core::Language::ALL.len()],
 }
 
 /// How many findings one file holds at each severity, and how many of those a
@@ -316,7 +311,6 @@ struct Collector {
     /// hidden for an interactive one, so without this the interface heard about the
     /// walk and about nothing that came after it.
     watcher: Option<SyncSender<ScanProgress>>,
-    by_language: [u32; rqx_core::Language::ALL.len()],
     showing: Option<Arc<str>>,
     shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
     advice: Vec<rqx_core::Advice>,
@@ -374,7 +368,6 @@ impl Collector {
             timings: Vec::new(),
             stats: ScanStats::default(),
             watcher: None,
-            by_language: [0; rqx_core::Language::ALL.len()],
             showing: None,
             shape_by_file: std::collections::BTreeMap::new(),
             advice: Vec::new(),
@@ -411,9 +404,6 @@ impl Collector {
             phase: phase.unwrap_or(self.phase),
             file: self.showing.clone(),
             elapsed_ms: self.started.elapsed().as_millis() as u64,
-            code_lines: self.code_lines,
-            skipped: self.skipped.len() as u32,
-            by_language: self.by_language,
         });
     }
 
@@ -2118,7 +2108,6 @@ pub(crate) fn collect(
                     });
                 }
                 collector.analyzed.insert(display);
-                collector.by_language[language as usize] += 1;
                 collector.showing = Some(Arc::clone(&shared));
                 collector.tick(None);
             }

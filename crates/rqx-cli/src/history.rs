@@ -135,20 +135,6 @@ fn recent_commits(root: &Path, days: u32) -> Option<(Vec<Vec<String>>, Vec<Strin
     Some((commits, authors))
 }
 
-pub fn branch(root: &Path) -> Option<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let name = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    (!name.is_empty() && name != "HEAD").then_some(name)
-}
-
 pub fn repository_prefix(root: &Path) -> Option<String> {
     let output = Command::new("git")
         .arg("-C")

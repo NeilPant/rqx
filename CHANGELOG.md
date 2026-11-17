@@ -12,6 +12,17 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`/waive`, `/watch` and `/open` in the session.** `/waive src/a.ts:42 rule` is
+  `rqx waive`, and asks on the prompt for the reason when `--reason` is missing.
+  `/watch on` re-analyses files as they are saved and prints what moved, such as
+  `src/a.ts  −1 finding · health 82 → 83`, with `watching` in the status line.
+  `/open 2` or `/open src/a.ts:42` opens a finding in `$VISUAL` or `$EDITOR` at its
+  line, and the session comes back when the editor exits.
+- **`rqx waive FILE:LINE RULE --reason TEXT`.** Writes the `rqx-ignore` comment above
+  the line for you, with the file's indentation and comment style. `--until
+  YYYY-MM-DD` dates it, `--whole-file` waives the rule for the file, and `--dry-run`
+  prints the diff and changes nothing. An unknown rule is refused with the closest
+  real one, and so is a blank reason, since the scan would not honour either.
 - **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs that
   release instead of the newest, which also lets you step back to an older one.
   `--dry-run` prints how the update would be done, the download URLs and the file it
@@ -112,6 +123,20 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   printed is still there after you exit. It needs a window of at least 50x14; a
   smaller one, a pipe, CI or `--no-tui` still gets the plain scan. `--no-mouse` is
   still accepted and does nothing.
+- **The terminal library is built with only what rqx draws.** `ratatui` came with
+  its calendar widget, its macros and a layout cache, none of which rqx uses, and the
+  `time` crates the calendar needs. Building rqx now compiles 9 fewer crates (255 to
+  246), and `termwiz` and `terminfo`, the one dependency under the WTFPL licence, no
+  longer appear in `Cargo.lock`.
+
+### Removed
+
+- **The full-screen interface.** The tabbed screens, the command palette and the
+  mouse handling are gone, replaced by the inline session that bare `rqx` opens,
+  which prints into your terminal's scrollback instead of taking the window over.
+  Nothing a pipeline reads changes: `rqx scan` and every other command printed their
+  reports without it. `--no-mouse` is still accepted, hidden from `--help`, and does
+  nothing.
 
 ### Changed
 

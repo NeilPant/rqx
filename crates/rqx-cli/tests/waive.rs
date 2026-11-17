@@ -1,0 +1,142 @@
+//! `rqx waive` writes the comment the scan honours, and refuses what the scan would
+//! ignore.
+
+use std::path::PathBuf;
+use std::process::{Command, Output};
+
+const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
+
+fn project(name: &str) -> PathBuf {
+    let root = std::env::temp_dir().join(format!("rqx-waive-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a temp project");
+    std::fs::write(root.join("a.ts"), DIRTY).expect("a file");
+    root
+}
+
+fn rqx(root: &PathBuf, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .current_dir(root)
+        .args(args)
+        .output()
+        .expect("failed to run rqx")
+}
+
+fn said(output: &Output) -> String {
+    format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )
+}
+
+#[test]
+fn a_waiver_it_wrote_is_one_the_scan_lists() {
+    let root = project("round-trip");
+    let waived = rqx(
+        &root,
+        &[
+            "waive",
+            "a.ts:3",
+            "unreachable-code",
+            "--reason",
+            "kept for the demo",
+        ],
+    );
+    assert_eq!(waived.status.code(), Some(0), "{}", said(&waived));
+
+    let text = std::fs::read_to_string(root.join("a.ts")).expect("the file");
+    assert!(
+        text.contains("  // rqx-ignore unreachable-code: kept for the demo\n  console.log('dead')"),
+        "{text}"
+    );
+
+    let listed = said(&rqx(&root, &["suppressions", "."]));
+    assert!(listed.contains("unreachable-code"), "{listed}");
+    assert!(listed.contains("kept for the demo"), "{listed}");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_unknown_rule_is_refused_with_the_one_it_was_close_to() {
+    let root = project("unknown");
+    let refused = rqx(
+        &root,
+        &["waive", "a.ts:3", "unreachable-cod", "--reason", "x"],
+    );
+    assert_eq!(refused.status.code(), Some(2));
+    let message = said(&refused);
+    assert!(message.contains("`unreachable-code`"), "{message}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("a.ts")).expect("file"),
+        DIRTY
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_waiver_without_a_reason_is_refused() {
+    let root = project("no-reason");
+    let blank = rqx(
+        &root,
+        &["waive", "a.ts:3", "unreachable-code", "--reason", "  "],
+    );
+    assert_eq!(blank.status.code(), Some(2));
+    let absent = rqx(&root, &["waive", "a.ts:3", "unreachable-code"]);
+    assert_eq!(absent.status.code(), Some(2));
+    assert_eq!(
+        std::fs::read_to_string(root.join("a.ts")).expect("file"),
+        DIRTY
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_dry_run_prints_the_diff_and_changes_nothing() {
+    let root = project("dry-run");
+    let dry = rqx(
+        &root,
+        &[
+            "waive",
+            "a.ts:3",
+            "unreachable-code",
+            "--reason",
+            "demo",
+            "--dry-run",
+        ],
+    );
+    assert_eq!(dry.status.code(), Some(0), "{}", said(&dry));
+    let diff = said(&dry);
+    assert!(
+        diff.contains("+  // rqx-ignore unreachable-code: demo"),
+        "{diff}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("a.ts")).expect("file"),
+        DIRTY
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_whole_file_waiver_needs_no_line() {
+    let root = project("whole-file");
+    let waived = rqx(
+        &root,
+        &[
+            "waive",
+            "a.ts",
+            "unreachable-code",
+            "--reason",
+            "generated",
+            "--whole-file",
+        ],
+    );
+    assert_eq!(waived.status.code(), Some(0), "{}", said(&waived));
+    let text = std::fs::read_to_string(root.join("a.ts")).expect("the file");
+    assert!(
+        text.starts_with("// rqx-ignore-file unreachable-code: generated\n"),
+        "{text}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}

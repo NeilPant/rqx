@@ -4,16 +4,13 @@
 .SH NAME
 rqx\-explain \- Print a rule\*(Aqs or a pattern\*(Aqs taxonomy entry: what it maps to, what decides it, and what fixes it
 .SH SYNOPSIS
-\fBrqx explain\fR [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fINAME\fR> 
+\fBrqx explain\fR [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fINAME\fR> 
 .SH DESCRIPTION
 Print a rule\*(Aqs or a pattern\*(Aqs taxonomy entry: what it maps to, what decides it, and what fixes it
 .SH OPTIONS
 .TP
 \fB\-\-no\-tui\fR
 Never open the interactive interface; bare `rqx` prints the report instead
-.TP
-\fB\-\-no\-mouse\fR
-Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
