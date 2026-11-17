@@ -936,6 +936,42 @@
     "severity": "minor"
   },
   {
+    "check_name": "sort-in-loop",
+    "description": "`<expression>.sort` runs on every pass of the loop. — every pass after the first sorts input that is already sorted, at a cost of n log n each time",
+    "fingerprint": "2d209f2209e69065",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-sort-in-loop.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "linear-op-in-loop",
+    "description": "`entries.shift` runs on every pass of the loop. — the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's",
+    "fingerprint": "7145cdf28855e88f",
+    "location": {
+      "lines": {
+        "begin": 5
+      },
+      "path": "typescript/cost-linear-op-in-loop.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "linear-op-in-loop",
+    "description": "`rows.splice` runs on every pass of the loop. — the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's",
+    "fingerprint": "afce2469dbdc276e",
+    "location": {
+      "lines": {
+        "begin": 85
+      },
+      "path": "typescript/performance.ts"
+    },
+    "severity": "minor"
+  },
+  {
     "check_name": "blocking-call-in-async",
     "description": "`readFileSync` blocks the thread inside an `async` function. — an async function is expected not to hold the thread and this call holds it, so everything else waiting on that event loop queues behind one blocking call",
     "fingerprint": "086c9515e08b7396",

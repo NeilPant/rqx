@@ -416,7 +416,7 @@ pub fn analyze_as_with(
         ),
     };
 
-    let cost = cost::extract(
+    let extracted = cost::read(
         profile,
         source,
         root,
@@ -426,6 +426,8 @@ pub fn analyze_as_with(
             module: deep.then_some(&module),
         },
     );
+    let cost = extracted.cost;
+    let cost_sites = cost::apart_from_scans(extracted.sites, &hygiene.scans_in_loops);
 
     // An exported binding has a reader this file cannot see, and whether that reader
     // exists is the module graph's question, not this one's.
@@ -486,6 +488,7 @@ pub fn analyze_as_with(
     }
     rules::check_imports(&module, &builder, &mut findings);
     rules::check_hygiene(&hygiene, &builder, &mut findings);
+    rules::check_cost_sites(&cost_sites, &builder, &mut findings);
     custom::run(
         language,
         source,

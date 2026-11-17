@@ -102,5 +102,9 @@ public class Main {
         new Ticker().fire();
         new Editor().save();
         new SmsGateway().disconnect();
+        new CostLinearOpInLoop().sumLinked(new java.util.LinkedList<>(), 0);
+        new CostLinearOpInLoop().sumArray(new java.util.ArrayList<>(), 0);
+        new CostSortInLoop().rankEach(java.util.List.of(), new java.util.ArrayList<>());
+        new CostSortInLoop().rankOwn(java.util.List.of());
     }
 }

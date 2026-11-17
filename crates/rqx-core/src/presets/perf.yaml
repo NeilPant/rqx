@@ -16,3 +16,5 @@ rules:
   accumulate-by-copy: { severity: error }
   branching-recursion: { severity: error }
   blocking-call-in-async: { severity: error }
+  linear-op-in-loop: { severity: error }
+  sort-in-loop: { severity: error }

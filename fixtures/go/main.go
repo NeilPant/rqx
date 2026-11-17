@@ -130,5 +130,9 @@ func main() {
 	_ = fixtures.CountDigits
 	_ = fixtures.JoinByCopy
 	_ = fixtures.Fibonacci
+	_ = fixtures.PrependEach
+	_ = fixtures.AppendEach
+	_ = fixtures.RankEach
+	_ = fixtures.RankOwn
 	_ = cyclea.Orbit
 }

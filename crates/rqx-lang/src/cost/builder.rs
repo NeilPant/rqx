@@ -10,6 +10,7 @@ use rqx_core::cost::{
     ArgSize, Bound, CallSite, CalleeRef, Conf, Cost, FunctionCost, Indicators, Param, Recurrence,
     SizeSrc,
 };
+use rqx_core::facts::CostSite;
 use tree_sitter::Node;
 
 use super::bindings::{bind_assignment, bind_declaration, bind_parameters};
@@ -34,11 +35,15 @@ pub struct Shared<'f> {
     pub file: &'f FileFacts,
 }
 
+mod sites;
+
 pub struct Built<'a> {
     /// `None` for a function that is plainly constant time and calls nothing.
     pub cost: Option<FunctionCost>,
     /// Functions written inside this one that are not callbacks of a loop.
     pub nested: Vec<Site<'a>>,
+    /// Places in the function a performance rule reports.
+    pub sites: Vec<CostSite>,
 }
 
 /// What one loop's passes allocate, so the innermost loop can say how much each pass
@@ -73,6 +78,9 @@ struct Visitor<'a, 'f> {
     frames: Vec<LoopFrame>,
     /// The bound of each loop the visit is inside, outermost first.
     loop_bounds: Vec<Bound>,
+    /// The loops the visit is inside, outermost first, to read what they leave alone.
+    loop_nodes: Vec<Node<'a>>,
+    sites: Vec<CostSite>,
     nested: Vec<Site<'a>>,
     nested_names: HashSet<String>,
     reductions: Vec<Reduction>,
@@ -101,6 +109,8 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         depth: 0,
         frames: Vec::new(),
         loop_bounds: Vec::new(),
+        loop_nodes: Vec::new(),
+        sites: Vec::new(),
         nested: Vec::new(),
         nested_names: HashSet::new(),
         reductions: Vec::new(),
@@ -122,6 +132,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
     Built {
         cost,
         nested: visitor.nested,
+        sites: visitor.sites,
     }
 }
 
@@ -148,8 +159,9 @@ impl<'a> Visitor<'a, '_> {
         }
     }
 
-    fn enter_loop(&mut self, bound: Bound) {
+    fn enter_loop(&mut self, bound: Bound, node: Node<'a>) {
         self.loop_bounds.push(bound);
+        self.loop_nodes.push(node);
         self.depth = self.depth.saturating_add(1);
         if let Some(outer) = self.frames.last_mut() {
             outer.holds_a_loop = true;
@@ -159,6 +171,7 @@ impl<'a> Visitor<'a, '_> {
 
     fn exit_loop(&mut self) {
         self.loop_bounds.pop();
+        self.loop_nodes.pop();
         self.depth = self.depth.saturating_sub(1);
         if let Some(frame) = self.frames.pop()
             && !frame.holds_a_loop
@@ -292,7 +305,7 @@ impl<'a> Visitor<'a, '_> {
         let bound = self.bounds().of_loop(node).unwrap_or(Bound::Unknown);
         self.note_bound(bound);
         self.bind_loop_variables(node);
-        self.enter_loop(bound);
+        self.enter_loop(bound, node);
         let body = self.visit_children(node);
         self.exit_loop();
         body.repeated(bound, line_of(node))
@@ -337,7 +350,7 @@ impl<'a> Visitor<'a, '_> {
             bounds.push(bound);
         }
         for bound in &bounds {
-            self.enter_loop(*bound);
+            self.enter_loop(*bound, node);
         }
         let mut parts = vec![self.visit_children(node)];
         for _ in &bounds {
@@ -476,7 +489,7 @@ impl<'a> Visitor<'a, '_> {
             self.bounds().iterable_bound(source)
         });
         self.note_bound(bound);
-        self.enter_loop(bound);
+        self.enter_loop(bound, call);
         let mut body = Vec::new();
         for callback in callbacks {
             body.push(self.callback_body(*callback));
@@ -588,6 +601,7 @@ impl<'a> Visitor<'a, '_> {
         let receiver_node = self.bounds().receiver_expression(node);
 
         let mut found = tables.function(language, dotted, &call);
+        let by_function = found.is_some();
         let mut keyed = false;
         if found.is_none() && receiver.is_some() {
             let fact = receiver_node.and_then(|expression| self.fact_of(expression));
@@ -613,7 +627,14 @@ impl<'a> Visitor<'a, '_> {
         let Some((index, entry)) = found else {
             return Library::Unmatched;
         };
-        Library::Matched(self.charge(index, entry, receiver_node, arguments, line))
+        let charge = self.charge(index, entry, receiver_node, arguments, line);
+        let operand = if by_function {
+            arguments.first().copied()
+        } else {
+            receiver_node
+        };
+        self.note_library_site(node, dotted, entry, operand, charge.size);
+        Library::Matched(charge)
     }
 
     fn charge(
@@ -655,6 +676,7 @@ impl<'a> Visitor<'a, '_> {
             arg,
         };
         Charge {
+            size,
             time: if entry.cost.is_one() {
                 Cost::One
             } else {
@@ -1115,6 +1137,8 @@ impl<'a> Visitor<'a, '_> {
 /// The time and temporary space of a library call.
 #[derive(Default)]
 struct Charge {
+    /// The size the entry's `n` stood for.
+    size: ArgSize,
     time: Cost,
     temp: Cost,
 }

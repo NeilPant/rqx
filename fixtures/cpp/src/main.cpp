@@ -23,6 +23,8 @@
 #include "structures.hpp"
 #include "shapes.hpp"
 #include "performance.hpp"
+#include "cost_sort_in_loop.hpp"
+#include "cost_linear_op_in_loop.hpp"
 #include "vocabulary.hpp"
 
 int main() {
@@ -89,5 +91,9 @@ int main() {
     LoggingNotifier().history();
     GuardedNotifier().close();
     SmsNotifier().close();
+    std::vector<int> prepended; prepend_each(prepended, {});
+    std::deque<int> fronted; front_each(fronted, {});
+    std::vector<int> baseline; rank_each({}, baseline);
+    std::vector<std::vector<int>> groups; rank_own(groups);
     return 0;
 }

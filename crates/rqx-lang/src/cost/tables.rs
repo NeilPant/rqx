@@ -148,6 +148,22 @@ impl Entry {
         })
     }
 
+    /// Whether the call takes time proportional to the size it works on, or more.
+    pub fn at_least_linear(&self) -> bool {
+        self.cost.rank() >= Order::var(0).rank()
+    }
+
+    /// Whether the call works in place or answers a question, rather than making a copy
+    /// as large as its input.
+    pub fn makes_no_copy(&self) -> bool {
+        self.space.is_one()
+    }
+
+    /// Whether the call takes `n log n`: a sort.
+    pub fn sorts(&self) -> bool {
+        self.cost.rank() == Order::var(0).mul(&Order::log_var(0)).rank()
+    }
+
     fn applies(&self, call: &CallFacts<'_>) -> bool {
         self.when.iter().all(|condition| condition.holds(call))
     }

@@ -2300,4 +2300,28 @@ catalogue! {
                    its signature, so there is nothing to test a call against"),
         ],
     },
+    LinearOpInLoop {
+        slug: "linear-op-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a library call that walks or shifts its whole collection, on a collection of a \
+                 known type, inside a loop that scan-in-loop does not report",
+        fixes: [ReplaceLoopWithLookup],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the call costs time proportional to the size of the collection on every pass, so \
+              the loop grows with the product of its own length and the collection's",
+    },
+    SortInLoop {
+        slug: "sort-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a sort of a collection that the loop does not change, inside a loop that \
+                 scan-in-loop does not report",
+        fixes: [HoistInvariant],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every pass after the first sorts input that is already sorted, at a cost of n log n \
+              each time",
+    },
 }

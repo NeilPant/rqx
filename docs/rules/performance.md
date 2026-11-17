@@ -221,3 +221,45 @@ export async function settingsOf(path: string): Promise<string> {
 
 Suggested fix: call the asynchronous form of `readFileSync`, or move the work off this thread
 
+## `linear-op-in-loop`
+
+the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's
+
+| | |
+|---|---|
+| Measures | a library call that walks or shifts its whole collection, on a collection of a known type, inside a loop that scan-in-loop does not report |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Replace Loop with Lookup |
+
+From `fixtures/typescript/cost-linear-op-in-loop.ts`, line 5:
+
+```ts
+  while (entries.length > 0) {
+    total += (entries.shift() ?? 0);
+  }
+```
+
+Suggested fix: use a structure whose operation takes constant time, or take the operation out of the loop
+
+## `sort-in-loop`
+
+every pass after the first sorts input that is already sorted, at a cost of n log n each time
+
+| | |
+|---|---|
+| Measures | a sort of a collection that the loop does not change, inside a loop that scan-in-loop does not report |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Hoist Invariant |
+
+From `fixtures/typescript/cost-sort-in-loop.ts`, line 4:
+
+```ts
+  for (const group of groups) {
+    ranked.push([...base].sort());
+    ranked.push(group);
+```
+
+Suggested fix: sort once above the loop: nothing in the loop changes what is being sorted
+

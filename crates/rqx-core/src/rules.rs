@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::config::RqxConfig;
-use crate::facts::{ClassMetrics, FunctionMetrics, SuspiciousName, UnusedParameter};
+use crate::facts::{ClassMetrics, CostSite, FunctionMetrics, SuspiciousName, UnusedParameter};
 use crate::finding::{Confidence, Evidence, Finding, SourceRange};
 use crate::line_index::LineIndex;
 use crate::rule::RuleId;
@@ -396,6 +396,35 @@ fn first_of(module: &crate::facts::ModuleFacts, specifier: &str) -> u32 {
         .map(|request| request.span.start)
         .min()
         .unwrap_or_default()
+}
+
+/// What each rule the cost analysis feeds says about a place it found, and the fix it
+/// points to. A rule that analysis does not feed has no wording here.
+fn cost_site_wording(site: &CostSite) -> Option<(Evidence, &'static str)> {
+    let in_loop = || Evidence::InLoop {
+        subject: site.subject.clone(),
+        depth: site.depth,
+        sampled: None,
+    };
+    Some(match site.rule {
+        RuleId::LinearOpInLoop => (
+            in_loop(),
+            "use a structure whose operation takes constant time, or take the operation out of the loop",
+        ),
+        RuleId::SortInLoop => (
+            in_loop(),
+            "sort once above the loop: nothing in the loop changes what is being sorted",
+        ),
+        _ => return None,
+    })
+}
+
+pub fn check_cost_sites(sites: &[CostSite], builder: &FindingBuilder<'_>, out: &mut Vec<Finding>) {
+    for site in sites {
+        if let Some((evidence, hint)) = cost_site_wording(site) {
+            builder.emit(out, site.rule, site.span, evidence, hint.to_owned());
+        }
+    }
 }
 
 pub fn check_hygiene(

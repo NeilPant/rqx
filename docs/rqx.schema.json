@@ -4845,6 +4845,52 @@
           ],
           "type": "object"
         },
+        "linear-op-in-loop": {
+          "additionalProperties": false,
+          "description": "Settings for `linear-op-in-loop`. the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's",
+          "properties": {
+            "confidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this confidence. Only `verified` findings count towards the health score."
+            },
+            "enabled": {
+              "description": "`false` switches the rule off and `true` switches it on, even when it ships off. It is the most specific word on the rule, so it wins over the rule being named in `disabled` or `enabled`, or filtered out by `categories`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "paths": {
+              "description": "Globs, relative to the scanned directory. When given, the rule only reports in files they match.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "severity": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this severity instead of the catalogue's."
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "type": "object"
+        },
         "literal-comparison": {
           "additionalProperties": false,
           "description": "Settings for `literal-comparison`. comparing a boolean to a boolean literal asks a question the value already answers, and suggests the value might be something other than a boolean",
@@ -8032,6 +8078,52 @@
               "format": "uint32",
               "minimum": 0,
               "type": "integer"
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "type": "object"
+        },
+        "sort-in-loop": {
+          "additionalProperties": false,
+          "description": "Settings for `sort-in-loop`. every pass after the first sorts input that is already sorted, at a cost of n log n each time",
+          "properties": {
+            "confidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confidence"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this confidence. Only `verified` findings count towards the health score."
+            },
+            "enabled": {
+              "description": "`false` switches the rule off and `true` switches it on, even when it ships off. It is the most specific word on the rule, so it wins over the rule being named in `disabled` or `enabled`, or filtered out by `categories`.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "paths": {
+              "description": "Globs, relative to the scanned directory. When given, the rule only reports in files they match.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "severity": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Report this rule's findings at this severity instead of the catalogue's."
             }
           },
           "required": [

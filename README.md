@@ -13,7 +13,7 @@ A single Rust binary with no runtime dependencies.
 
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
-![Rules](https://img.shields.io/badge/rules-186-0a84ff)
+![Rules](https://img.shields.io/badge/rules-188-0a84ff)
 ![Languages](https://img.shields.io/badge/languages-6-0a84ff)
 ![No runtime dependencies](https://img.shields.io/badge/runtime%20deps-none-1f9e55)
 
@@ -185,8 +185,8 @@ Inside the interface the same list is `/help`.
 - **It does not type-check.** rqx parses source, resolves scopes and imports, and reads
   git history. It does not resolve types, so a finding that needs a type checker to be
   certain is reported at lower confidence, or not reported, and says which.
-- **Rule coverage differs by language.** Of 186 rules, 185 apply to TypeScript, 177 to
-  JavaScript, 175 to Python, 172 to Java, 170 to C++ and 140 to Go. A rule that cannot
+- **Rule coverage differs by language.** Of 188 rules, 187 apply to TypeScript, 179
+  to JavaScript, 177 to Python, 174 to Java, 172 to C++ and 142 to Go. A rule that cannot
   exist in a language says so in `rqx explain`, with a reason. `rqx rules --language
   <name>` lists the ones that apply.
 - **JavaScript leaves out the type-syntax rules.** JavaScript is read as TypeScript
@@ -283,7 +283,7 @@ match, so a rule that does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-186 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
+188 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
 
 | Family | Rules | What it measures |
 |---|---|---|
@@ -297,7 +297,7 @@ match, so a rule that does not declare its metric and fix does not build.
 | **Safety** | 28 | silent failure and swallowed errors |
 | **Tests** | 18 | tests that pass without checking behaviour |
 | **Noise** | 9 | text that adds reading cost without adding information |
-| **Performance** | 10 | work done more often, or more expensively, than needed |
+| **Performance** | 12 | work done more often, or more expensively, than needed |
 <!-- /rqx:catalogue -->
 
 The table above and the pages in `docs/rules/` are generated from the catalogue by

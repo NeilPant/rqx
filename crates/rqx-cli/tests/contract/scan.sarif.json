@@ -2044,6 +2044,81 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/cost-sort-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 4,
+                  "startColumn": 17,
+                  "startLine": 4
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`<expression>.sort` runs on every pass of the loop. every pass after the first sorts input that is already sorted, at a cost of n log n each time Fix: sort once above the loop: nothing in the loop changes what is being sorted"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "sort-in-loop"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-linear-op-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 5,
+                  "startColumn": 15,
+                  "startLine": 5
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`entries.shift` runs on every pass of the loop. the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's Fix: use a structure whose operation takes constant time, or take the operation out of the loop"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "linear-op-in-loop"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/performance.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 85,
+                  "startColumn": 7,
+                  "startLine": 85
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`rows.splice` runs on every pass of the loop. the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's Fix: use a structure whose operation takes constant time, or take the operation out of the loop"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "linear-op-in-loop"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/performance.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -9045,6 +9120,30 @@
             },
             {
               "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's"
+              },
+              "help": {
+                "text": "the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's\n\nFix: Replace Loop with Lookup\nMetric: a library call that walks or shifts its whole collection, on a collection of a known type, inside a loop that scan-in-loop does not report"
+              },
+              "id": "linear-op-in-loop",
+              "name": "linear-op-in-loop",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "a library call that walks or shifts its whole collection, on a collection of a known type, inside a loop that scan-in-loop does not report"
+              }
+            },
+            {
+              "defaultConfiguration": {
                 "level": "note"
               },
               "fullDescription": {
@@ -10289,6 +10388,30 @@
               },
               "shortDescription": {
                 "text": "a sleep or timeout inside a test body above the configured pause"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "every pass after the first sorts input that is already sorted, at a cost of n log n each time"
+              },
+              "help": {
+                "text": "every pass after the first sorts input that is already sorted, at a cost of n log n each time\n\nFix: Hoist Invariant\nMetric: a sort of a collection that the loop does not change, inside a loop that scan-in-loop does not report"
+              },
+              "id": "sort-in-loop",
+              "name": "sort-in-loop",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "a sort of a collection that the loop does not change, inside a loop that scan-in-loop does not report"
               }
             },
             {

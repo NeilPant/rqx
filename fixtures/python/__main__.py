@@ -97,6 +97,8 @@ from .performance import (
     settings_of,
     sum_cube,
 )
+from .cost_linear_op_in_loop import drain_from_front, drain_from_back, drain_a_deque
+from .cost_sort_in_loop import rank_each, rank_own
 from .flow import admits, buried_exits, changed, compared, decided_nothing, first_of, label_of, nested_callbacks, restated, same_either_way, shadows_outer, tier_of, wide_match, Settled, asks_twice, fresh_total, joined, overwritten
 
 
@@ -287,4 +289,9 @@ def main():
         shadows_outer,
         tier_of,
         wide_match,
+        drain_from_front,
+        drain_from_back,
+        drain_a_deque,
+        rank_each,
+        rank_own,
     ]
