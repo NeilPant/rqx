@@ -1,32 +1,63 @@
 # Contributing
 
-Issues and pull requests are both welcome, and a question in
-[Discussions](https://github.com/jadhamwi21/rqx/discussions) is welcome before either
-— an answer there often turns out to be a documentation fix, which is a smaller
-change than the one you were about to make.
+Issues and pull requests are welcome. A question in
+[Discussions](https://github.com/jadhamwi21/rqx/discussions) is a good first step: the
+answer is sometimes a documentation fix, which is a smaller change than a code change.
 
-By opening a pull request you agree that your contribution ships under the
-[MIT licence](LICENSE), the same as the rest of the project. There is no CLA to sign.
-[The code of conduct](CODE_OF_CONDUCT.md) is one page and comes down to arguing about
-the code rather than the person.
+By opening a pull request you agree that your contribution is licensed under the
+[MIT licence](LICENSE), the same as the rest of the project. There is no contributor
+licence agreement. The [code of conduct](CODE_OF_CONDUCT.md) is one page and asks that
+discussion stay on the code and not on the person who wrote it.
+
+## What to expect
+
+| Event | Target |
+|---|---|
+| First reply to an issue or pull request | within 48 hours |
+| Review of a pull request | within 5 days |
+| A thread with no reply | ping the thread after 7 days of silence |
+
+These are targets for the maintainers, and a ping on a quiet thread is welcome. A
+contributor whose change ships is credited by name in the changelog entry for that
+release.
 
 ## Getting it running
 
-Rust stable, at least the `rust-version` in `Cargo.toml`. Nothing else — no Node, no
-Python, no toolchain manager beyond `rustup`.
+Requirements: Rust stable, at least the `rust-version` in `Cargo.toml`. No other
+toolchain is needed.
 
 ```sh
 git clone https://github.com/jadhamwi21/rqx
 cd rqx
-cargo test --workspace          # 240-ish tests, about twenty seconds
-./rqx scan ../some-project      # builds, then execs — no install
+cargo test --workspace          # about 800 tests; about twenty seconds once built
+./rqx scan ../some-project      # builds, then runs the binary; no install
 ```
 
-`./rqx` execs the binary rather than using `cargo run`, so cargo's progress output
-never lands in the middle of the interface and paths resolve against your own working
-directory.
+`./rqx` builds the binary and runs it, instead of using `cargo run`. Cargo's progress
+output therefore stays out of the interactive session, and paths resolve against your
+own working directory.
 
-Before opening a pull request:
+If the build fails at link time because the default C compiler or linker is missing or
+wrong, point `CC` at a working one, for example `CC=/usr/bin/cc`. Cargo also reads
+`CARGO_TARGET_<TRIPLE>_LINKER` for the linker.
+
+### Developer commands
+
+`tools/dev.sh` wraps the common tasks and exits `0` when everything passed, `1` when a
+check failed and `2` for a usage error or a missing tool.
+
+| Command | Does |
+|---|---|
+| `tools/dev.sh check` | The CI gates: `cargo fmt --check`, clippy, the tests and the generated-docs check |
+| `tools/dev.sh smoke` | Builds a release binary and runs every command against `fixtures/` |
+| `tools/dev.sh ci` | The smoke run as CI performs it: `CI=1`, `NO_COLOR=1`, no terminal |
+| `tools/dev.sh try PATH [ARGS]` | Runs `rqx ARGS` (default `scan --no-tui`) inside `PATH` |
+| `tools/dev.sh session [PATH]` | Opens the interactive session on `PATH` (default `fixtures/typescript`) |
+| `tools/dev.sh bench [ARGS]` | Runs `tools/bench/run.sh ARGS` |
+
+`tools/dev.sh help` lists the rest.
+
+### Before opening a pull request
 
 ```sh
 cargo test --workspace
@@ -34,86 +65,64 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
 ```
 
-CI runs those three and fails on any of them. It also regenerates the rule reference
-and fails if the checked-in copy has drifted — `rqx docs` writes it, and a rule added
-without it leaves the documentation describing a tool that no longer exists.
+CI runs those three and fails on any of them. It also regenerates the documentation
+under `docs/` and fails if the checked-in copy differs. `cargo run --quiet -- docs`
+writes it. Run it after changing a rule, a flag or a configuration key.
 
-**`fixtures/` is a minefield on purpose.** Every file in it is a deliberate violation,
-kept broken so a rule has something to fire on. The repository's `rqx.yaml` tells rqx
-not to read it; do not run `rqx fix` over it, and do not "clean up" a fixture you
-notice is bad code. If a fixture changes, the counts in
-`crates/rqx-cli/tests/fixtures.rs` change with it, and the checked-in rule reference
-usually does too.
+### Fixtures
+
+`fixtures/` holds files that are violations on purpose, so that each rule has something
+to fire on. The repository's `rqx.yaml` excludes it from scans. Do not run `rqx fix`
+over it, and do not correct code in a fixture. When a fixture changes, update the
+expected counts in `crates/rqx-cli/tests/fixtures.rs`. The generated rule reference
+often changes as well.
 
 ## Where things live
 
-| Directory | Holds |
+| Path | Holds |
 |---|---|
-| `crates/rqx-core` | the catalogue, findings, scoring, configuration |
-| `crates/rqx-lang` | the tree-sitter collectors — one rule set, six languages |
-| `crates/rqx-cli` | the command line, the interface, LSP, MCP, the reporters |
-| `fixtures/` | one deliberately broken file per language per rule |
-| `docs/` | the prose reference; `docs/rules/` is generated |
+| `crates/rqx-core` | The catalogue, findings, scoring and configuration |
+| `crates/rqx-lang` | The tree-sitter collectors: one rule set for six languages |
+| `crates/rqx-cli` | The command line, the interactive session, the language server, the MCP server and the reporters |
+| `fixtures/` | The deliberately broken files, per language |
+| `docs/` | The reference. `docs/rules/`, `docs/patterns/`, `docs/cli.md`, `docs/man/` and `docs/rqx.schema.json` are generated, and so is part of `docs/configuration.md` |
+
+[docs/architecture.md](docs/architecture.md) describes the scan pipeline, the crates, the
+cache and determinism, and has step-by-step guides for adding a rule, a language and a
+slash command.
 
 ## Commits
 
-One logical change each, and a message that says *why* rather than what — the diff
-already says what. Short subject, and a body when the reason is not obvious from the
-subject.
-
-## Adding a rule
-
-Rules are a declarative table. Every field is mandatory, so a rule that omits its
-metric or the refactoring it names does not compile, and a test asserts every rule
-fires on a fixture — a rule nothing can trigger is a documentation entry pretending
-to be a check.
-
-The compiler will walk you through most of this. In order:
-
-1. **`crates/rqx-core/src/catalogue.rs`** — the entry. Slug, family, analysis tier,
-   metric, fixes, confidence, severity, and `why` in rqx's own words.
-2. **`crates/rqx-core/src/finding.rs`** — an `Evidence` variant and its `Display`,
-   unless an existing one fits.
-3. **`crates/rqx-core/src/identity.rs`** — `subject()` and `magnitude()` are
-   exhaustive on purpose: a new variant has to say whether it names something and
-   whether it has a number that can shrink.
-4. **Thresholds**, if it has one: the field, its default, a `TUNES` row, the template
-   entry with its prose, and the `Comparable` list. Tests hold those four in step.
-5. **The collector** — `crates/rqx-lang/src/hygiene.rs` for most things,
-   `metrics.rs` for measurements, `classes.rs` and `patterns.rs` for structure. Reach
-   for a `LanguageProfile` table before writing per-language code; that is what makes
-   one rule work in six languages.
-6. **`crates/rqx-core/src/rules.rs`** — turn the fact into a finding.
-7. **Fixtures** — one per language it applies to, firing the exact number of times
-   the count table in `crates/rqx-cli/tests/fixtures.rs` says.
-8. **Levels** — `relaxed`, `strict` and `pristine` each need a value if it has a
-   threshold, and `pristine` must name it if it ships off by default.
-9. **`rqx docs`** — regenerates the reference. A test compares it byte for byte.
-
-If it declares an autofix, `crates/rqx-lang/src/rewrite.rs` needs an arm and a test
-list entry; another test catches a rule that claims a mechanical fix and has none.
+Each commit is one logical change. The message gives the reason for the change, since
+the diff already shows what changed. Use a short subject, and add a body when the
+reason is not clear from the subject.
 
 ## What a rule has to be
 
-**Decidable without types.** rqx parses; it does not type-check. Syntax, scope
-resolution, the import graph and git history are what a rule may read. Anything else
-ships `Confidence::Low` and off by default, or not at all.
+- **Decidable without types.** rqx parses and does not type-check. A rule may read
+  syntax, scope resolution, the import graph and git history. A rule that needs more
+  has `Confidence::Low` and is off by default, or is not added.
+- **Accurate about what it knows.** `Verified` means the analysis is exact for the
+  cases it reports. `Heuristic` means a threshold was compared. `Low` means the rule
+  guesses, and these ship off.
+- **Named by its fix.** Every rule declares the refactoring that answers it. A finding
+  that names a problem without a fix is not accepted.
 
-**Honest about what it knows.** `Verified` means the analysis cannot be wrong.
-`Heuristic` means a threshold was compared. `Low` means it guesses, and those ship
-off.
-
-**Named by its fix.** A finding that says something is bad without saying what to do
-is a complaint.
+The checklist for adding a rule is in
+[docs/architecture.md](docs/architecture.md#guide-add-a-rule). The compiler reports
+most of the steps, and a test fails for a rule that no fixture triggers.
 
 ## Precision
 
-Before a rule ships on by default, run it on real repositories and read every finding
-it produces. Below roughly 70% true positives it is `Heuristic` and off until the
-collector improves. Put the numbers in the pull request — they are the review.
+Before a rule ships on by default, run it on real repositories and read every finding.
+A rule below roughly 70% true positives is `Heuristic` and off until its collector
+improves. Put the numbers in the pull request: the repository or files it was tried
+on, and the count of true and false positives. The
+[rule proposal form](.github/ISSUE_TEMPLATE/rule-proposal.yml) asks for the same
+evidence.
 
 ## Style
 
-The code aims to read like prose. Comments carry reasons, never descriptions: if a
-comment says what the code does rather than why it is that way, the code needs a
-better name instead. Tests are named as sentences that state what must hold.
+Code is written to be read without comments. A comment records a reason, never a
+description of what the code does; when a comment describes the code, rename the code
+instead. Tests are named as sentences that state what must hold.
