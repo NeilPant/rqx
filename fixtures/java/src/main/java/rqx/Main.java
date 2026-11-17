@@ -102,6 +102,8 @@ public class Main {
         new Ticker().fire();
         new Editor().save();
         new SmsGateway().disconnect();
+        new CostUnboundedCache().rememberPage("", 0);
+        new CostUnboundedCache().rememberRecentPage("", 0);
         new CostLockInLoop().tallyUnderOneLock(java.util.List.of(), new Object());
         new CostLockInLoop().tallyUnderEachLock(java.util.List.of(), java.util.List.of());
         new CostUnboundedConcurrency().loadEveryPage(java.util.List.of(), id -> id);

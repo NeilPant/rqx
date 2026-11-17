@@ -435,6 +435,15 @@ fn cost_site_wording(site: &CostSite) -> Option<(Evidence, &'static str)> {
             "take the lock once around the whole loop, or keep it per pass only if other threads \
              need the gaps",
         ),
+        RuleId::UnboundedCache => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "gains an entry for every distinct key it is given and is never trimmed"
+                    .to_owned(),
+            },
+            "bound it with a maximum size and an eviction rule, or key it by something that \
+             has a limited number of values",
+        ),
         RuleId::UnboundedConcurrency => (
             Evidence::Name {
                 identifier: site.subject.clone(),

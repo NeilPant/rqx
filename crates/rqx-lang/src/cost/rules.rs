@@ -199,3 +199,38 @@ fn work_started_in_a_loop_counts_only_when_it_leaves_the_process() {
     let compute = "func f(rows []int) {\n\tfor _, row := range rows {\n\t\tgo func() { square(row) }()\n\t}\n}\n";
     assert!(reported(Language::Go, compute, &[RuleId::UnboundedConcurrency]).is_empty());
 }
+
+#[test]
+fn a_shared_map_that_only_gains_keys_from_callers_is_an_unbounded_cache() {
+    let growing =
+        "const seen = new Map();\nfunction remember(key, value) {\n  seen.set(key, value);\n}\n";
+    assert_eq!(
+        reported(Language::JavaScript, growing, &[RuleId::UnboundedCache]),
+        [(RuleId::UnboundedCache, 3)]
+    );
+    let trimmed = "const seen = new Map();\nfunction remember(key, value) {\n  seen.set(key, value);\n  if (seen.size > 9) seen.clear();\n}\n";
+    assert!(reported(Language::JavaScript, trimmed, &[RuleId::UnboundedCache]).is_empty());
+    let named = "const weakSeen = new WeakMap();\nfunction remember(key, value) {\n  weakSeen.set(key, value);\n}\n";
+    assert!(reported(Language::JavaScript, named, &[RuleId::UnboundedCache]).is_empty());
+}
+
+#[test]
+fn a_collection_filled_from_nothing_the_caller_chose_is_not_a_cache() {
+    let counter =
+        "const ids = [];\nlet next = 0;\nfunction mint() {\n  next += 1;\n  ids.push(next);\n}\n";
+    assert!(reported(Language::JavaScript, counter, &[RuleId::UnboundedCache]).is_empty());
+    let table = "const NAMES = ['a', 'b'];\nfunction add(name) {\n  NAMES.push(name);\n}\n";
+    assert!(reported(Language::JavaScript, table, &[RuleId::UnboundedCache]).is_empty());
+}
+
+#[test]
+fn a_memoizing_decorator_with_no_maximum_is_an_unbounded_cache() {
+    let unbounded = "import functools\n\n@functools.lru_cache(maxsize=None)\ndef square(n):\n    return n * n\n";
+    assert_eq!(
+        reported(Language::Python, unbounded, &[RuleId::UnboundedCache]),
+        [(RuleId::UnboundedCache, 3)]
+    );
+    let bounded =
+        "import functools\n\n@functools.lru_cache(maxsize=128)\ndef square(n):\n    return n * n\n";
+    assert!(reported(Language::Python, bounded, &[RuleId::UnboundedCache]).is_empty());
+}

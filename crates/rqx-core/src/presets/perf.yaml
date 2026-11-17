@@ -24,3 +24,4 @@ rules:
   missing-capacity: { severity: error }
   lock-in-loop: { severity: error }
   unbounded-concurrency: { severity: error }
+  unbounded-cache: { severity: error }

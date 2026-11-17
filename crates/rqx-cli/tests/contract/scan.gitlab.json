@@ -948,6 +948,18 @@
     "severity": "minor"
   },
   {
+    "check_name": "unbounded-cache",
+    "description": "`pageSizes` gains an entry for every distinct key it is given and is never trimmed. — it holds an entry for every distinct key the program has ever been given, so memory grows with the variety of the input for as long as the process runs",
+    "fingerprint": "ab9b74ec1cd49a38",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-unbounded-cache.ts"
+    },
+    "severity": "minor"
+  },
+  {
     "check_name": "lock-in-loop",
     "description": "`latch.lock` runs on every pass of the loop. — each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop",
     "fingerprint": "f6f5654ebb0b65fa",

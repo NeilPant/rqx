@@ -1255,7 +1255,7 @@ fn slugs_are_narrowed_the_same_way_the_listing_is() {
     let go = rqx_bare(&["rules", "--language", "go", "--slugs"]);
 
     let count = |text: &str| text.lines().filter(|line| !line.is_empty()).count();
-    assert_eq!(count(&all), 192, "the catalogue is not 192 rules");
+    assert_eq!(count(&all), 193, "the catalogue is not 193 rules");
     assert!(
         count(&performance) < count(&all) && count(&performance) > 0,
         "the family was ignored: {} of {}",

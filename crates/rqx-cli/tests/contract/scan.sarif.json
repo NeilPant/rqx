@@ -2069,6 +2069,31 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/cost-unbounded-cache.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 4,
+                  "startColumn": 3,
+                  "startLine": 4
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`pageSizes` gains an entry for every distinct key it is given and is never trimmed. it holds an entry for every distinct key the program has ever been given, so memory grows with the variety of the input for as long as the process runs Fix: bound it with a maximum size and an eviction rule, or key it by something that has a limited number of values"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "unbounded-cache"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/cost-lock-in-loop.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -10828,6 +10853,30 @@
               },
               "shortDescription": {
                 "text": "switch or if/else chain branching on the same discriminant in more than one place"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "it holds an entry for every distinct key the program has ever been given, so memory grows with the variety of the input for as long as the process runs"
+              },
+              "help": {
+                "text": "it holds an entry for every distinct key the program has ever been given, so memory grows with the variety of the input for as long as the process runs\n\nFix: Bound the Cache\nMetric: a shared collection that functions add keyed entries to and nothing removes from or measures, or an lru_cache with no maximum size"
+              },
+              "id": "unbounded-cache",
+              "name": "unbounded-cache",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "a shared collection that functions add keyed entries to and nothing removes from or measures, or an lru_cache with no maximum size"
               }
             },
             {

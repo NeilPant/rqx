@@ -7,6 +7,7 @@
 pub mod bindings;
 pub mod bounds;
 pub mod builder;
+pub mod cache;
 pub mod env;
 pub mod file;
 pub mod indicators;
@@ -79,6 +80,7 @@ pub fn read(
         sites.extend(built.sites);
         waiting.extend(built.nested.into_iter().rev());
     }
+    sites.extend(cache::unbounded_caches(names, root, &facts));
     Extracted {
         cost: FileCost { functions },
         sites,

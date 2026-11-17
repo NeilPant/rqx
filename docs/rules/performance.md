@@ -331,6 +331,27 @@ From `fixtures/typescript/cost-lock-in-loop.ts`, line 9:
 
 Suggested fix: take the lock once around the whole loop, or keep it per pass only if other threads need the gaps
 
+## `unbounded-cache`
+
+it holds an entry for every distinct key the program has ever been given, so memory grows with the variety of the input for as long as the process runs
+
+| | |
+|---|---|
+| Measures | a shared collection that functions add keyed entries to and nothing removes from or measures, or an lru_cache with no maximum size |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Bound the Cache |
+
+From `fixtures/typescript/cost-unbounded-cache.ts`, line 4:
+
+```ts
+function rememberPage(key: string, size: number): number {
+  pageSizes.set(key, size);
+  return size;
+```
+
+Suggested fix: bound it with a maximum size and an eviction rule, or key it by something that has a limited number of values
+
 ## `unbounded-concurrency`
 
 the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit

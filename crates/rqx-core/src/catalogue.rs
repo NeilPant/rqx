@@ -2366,6 +2366,18 @@ catalogue! {
         why: "each pass pays to acquire and release the same lock, and other threads can only \
               interleave at those points instead of waiting once for the whole loop",
     },
+    UnboundedCache {
+        slug: "unbounded-cache",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a shared collection that functions add keyed entries to and nothing removes \
+                 from or measures, or an lru_cache with no maximum size",
+        fixes: [BoundTheCache],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "it holds an entry for every distinct key the program has ever been given, so \
+              memory grows with the variety of the input for as long as the process runs",
+    },
     UnboundedConcurrency {
         slug: "unbounded-concurrency",
         category: Performance,

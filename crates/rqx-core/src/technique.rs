@@ -154,6 +154,7 @@ techniques! {
     ReplaceBlockingCall { name: "Replace Blocking Call", group: Performance },
     PresizeCollection { name: "Presize the Collection", group: Performance },
     BoundConcurrency { name: "Bound Concurrency", group: Performance },
+    BoundTheCache { name: "Bound the Cache", group: Performance },
 }
 
 impl fmt::Display for FixTechnique {

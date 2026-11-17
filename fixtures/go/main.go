@@ -146,5 +146,7 @@ func main() {
 	_ = fixtures.TallyUnderEachLock
 	_ = fixtures.LoadEveryPage
 	_ = fixtures.LoadFewPages
+	_ = fixtures.RememberPage
+	_ = fixtures.RememberRecentPage
 	_ = cyclea.Orbit
 }
