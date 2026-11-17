@@ -395,8 +395,8 @@ See [json.md](json.md).
 
 ## Functions that repeat existing code
 
-`rqx check` and `rqx comment` also scan the revision the change forked from, the merge
-base of `--base` and `HEAD`. A function that exists only in the working tree and whose
+When a change adds a function, `rqx check` and `rqx comment` also scan the revision the
+change forked from, the merge base of `--base` and `HEAD`. A function that exists only in the working tree and whose
 body matches a function that exists at both revisions is reported as
 `reimplemented-existing`. The finding names the existing function and its location.
 
@@ -408,9 +408,16 @@ body matches a function that exists at both revisions is reported as
 
 A function that was renamed or moved is not reported, because the function it replaced
 no longer exists to call. `clone_min_statements` and `clone_min_nodes` set the smallest
-body that is compared. The base scan roughly doubles the run time of `rqx check`, and
-the base checkout starts without a scan cache. `--files-from` names no revision, so
-the rule does not run there, and `rqx scan` never reports it.
+body that is compared. `--files-from` names no revision, so the rule does not run
+there, and `rqx scan` never reports it.
+
+The base scan costs time, so it is limited in two ways. It runs only when a new or
+changed file holds a named function that the file did not hold at the base. Both sides
+of each such file are analysed on their own to decide this, without a checkout. A change
+that adds no function is reviewed on one scan and reports neither this rule nor the
+`Resolved` credit described under [Commenting on the merge request](#commenting-on-the-merge-request).
+When the base is scanned, it reads the `.rqx/cache.bin` of the working tree and never
+writes it, so a file with the same content at both revisions is not analysed again.
 
 ## Review without git history
 
@@ -496,7 +503,8 @@ rqx comment --fail-on error
 ```
 
 The comment has a `Resolved` section when the change removed findings that the base
-revision had. It lists them and states the health score at the base and after the
+revision had, and the base was scanned, which happens when the change adds a function
+(see [Functions that repeat existing code](#functions-that-repeat-existing-code)). It lists them and states the health score at the base and after the
 change. A finding counts as resolved when the base scan reports it and the scan of the
 working tree does not, using the matching that `rqx verify` uses, so a finding that
 moved to another file is not credited. The section is omitted when `--max-findings`

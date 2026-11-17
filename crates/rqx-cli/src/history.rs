@@ -241,6 +241,22 @@ pub fn merge_base(root: &Path, base: &str) -> Option<String> {
     (output.status.success() && !revision.is_empty()).then_some(revision)
 }
 
+/// A file as a revision held it, or `None` when the revision has no such file.
+/// `relative` is relative to `root`, as findings name files.
+pub fn file_at(root: &Path, revision: &str, relative: &str) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("show")
+        .arg(format!("{revision}:./{relative}"))
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
 /// Files that differ from a base revision. Uses the merge base so a stale branch is
 /// judged on what it actually changed rather than on everything that landed on the
 /// base since it forked.

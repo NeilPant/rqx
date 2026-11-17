@@ -9,6 +9,8 @@ use common::Repository;
 const DEAD: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 const FIXED: &str = "export function keep(): number {\n  return 1\n}\n";
 const OTHER: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
+/// `OTHER` with a second function: a change must add one for the base to be scanned.
+const OTHER_AND_MORE: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\nexport function sub(a: number, b: number): number {\n  return a - b\n}\n";
 
 fn repository(name: &str, after: &str) -> Repository {
     let repository = Repository::new(name);
@@ -16,7 +18,13 @@ fn repository(name: &str, after: &str) -> Repository {
         "base",
         &[("src/keep.ts", Some(DEAD)), ("src/add.ts", Some(OTHER))],
     );
-    repository.commit("change", &[("src/keep.ts", Some(after))]);
+    repository.commit(
+        "change",
+        &[
+            ("src/keep.ts", Some(after)),
+            ("src/add.ts", Some(OTHER_AND_MORE)),
+        ],
+    );
     repository
 }
 
@@ -50,12 +58,11 @@ fn a_change_that_fixes_nothing_credits_nothing() {
         "base",
         &[("src/keep.ts", Some(DEAD)), ("src/add.ts", Some(OTHER))],
     );
-    repository.commit("touch", &[("src/add.ts", Some(&format!("{OTHER}\n")))]);
+    repository.commit("touch", &[("src/add.ts", Some(OTHER_AND_MORE))]);
     let lines = repository.rqx_lines(&["check", ".", "--base", "HEAD~1", "--reporter", "json"]);
     let summary = summary(&lines);
 
     assert_eq!(summary["resolved"], serde_json::json!([]));
-    assert_eq!(summary["health_delta"], 0);
 }
 
 #[test]

@@ -2524,17 +2524,20 @@ pub(crate) fn scan_with(
     watch: Option<Watch>,
     policy: CachePolicy,
 ) -> Result<ScanOutcome> {
-    scan_against(root, settings, watch, policy, None)
+    scan_against(root, settings, watch, policy, None, None)
 }
 
 /// A scan that also reports what it added to `reference`, the functions of a base
-/// revision.
+/// revision. With `lent_cache`, the scan reads the cache of that directory instead of
+/// its own and does not write one: a file whose content is the same in both trees is
+/// then served from the other tree's cache, and nothing this tree holds can reach it.
 pub(crate) fn scan_against(
     root: &Path,
     settings: &Resolved,
     watch: Option<Watch>,
     policy: CachePolicy,
     reference: Option<Arc<crate::reimplemented::Reference>>,
+    lent_cache: Option<&Path>,
 ) -> Result<ScanOutcome> {
     let config = &settings.config;
     // Git depends on nothing the walk produces, so it reads while the files are being
@@ -2572,7 +2575,7 @@ pub(crate) fn scan_against(
         });
         let loading = loading.as_ref();
         if let Some(loading) = loading {
-            scope.spawn(move || loading.load(root_ref, settings_ref));
+            scope.spawn(move || loading.load(lent_cache.unwrap_or(root_ref), settings_ref));
         }
         // The count only decorates the bar, so it runs beside the walk and sends its
         // total when it is done; until then the bar is indeterminate.
@@ -2626,7 +2629,9 @@ pub(crate) fn scan_against(
         outcome.stats.cache_misses = cache.miss_count();
         let saving = Instant::now();
         let loaded = cache.loaded_in().as_millis();
-        cache.save();
+        if lent_cache.is_none() {
+            cache.save();
+        }
         outcome.timings.push(("cache load", loaded));
         outcome
             .timings
@@ -3049,6 +3054,36 @@ mod tests {
             (collector.stats.blames, collector.stats.git_processes),
             (2, 2)
         );
+    }
+
+    /// The base revision of a review is a second checkout of the same files. It reads
+    /// the working tree's cache so its unchanged files are not analysed again, and it
+    /// must leave that cache exactly as it found it.
+    #[test]
+    fn a_scan_that_borrows_a_cache_is_served_by_it_and_writes_nothing() {
+        let lender = Project::copied_from_fixtures();
+        lender.scan();
+        let cache_file = lender.root.join(".rqx").join("cache.bin");
+        let kept = std::fs::read(&cache_file).unwrap();
+
+        let borrower = Project::copied_from_fixtures();
+        let outcome = scan_against(
+            &borrower.root,
+            &borrower.settings,
+            None,
+            CachePolicy::Forced,
+            None,
+            Some(&lender.root),
+        )
+        .unwrap();
+
+        assert!(outcome.stats.cache_hits > 0);
+        assert_eq!(outcome.stats.cache_misses, 0, "every file is the lender's");
+        assert!(
+            !borrower.root.join(".rqx").exists(),
+            "the borrower wrote a cache"
+        );
+        assert_eq!(std::fs::read(&cache_file).unwrap(), kept);
     }
 
     #[test]
