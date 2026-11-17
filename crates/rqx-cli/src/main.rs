@@ -1172,9 +1172,22 @@ impl From<ConfigAction> for edit_config::Change {
     }
 }
 
+/// Where the lines that accompany a report go. A document on stdout has to parse
+/// whole, so anything else the run wants to say goes to stderr instead.
+fn companion_stream(sinks: &[Sink]) -> Box<dyn std::io::Write> {
+    let document_on_stdout = sinks
+        .iter()
+        .any(|sink| sink.path.is_none() && sink.reporter.is_document());
+    if document_on_stdout {
+        Box::new(anstream::stderr().lock())
+    } else {
+        Box::new(anstream::stdout().lock())
+    }
+}
+
 fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
     if view.timings {
-        report::timings(report.outcome, palette, &mut anstream::stdout().lock())?;
+        report::timings(report.outcome, palette, &mut companion_stream(sinks))?;
     }
     for sink in sinks {
         let plain = Layout {
@@ -1531,7 +1544,7 @@ fn run() -> Result<Exit> {
                 };
                 emit(&report, &sinks, &view, palette)?;
                 if advice {
-                    let mut out = anstream::stdout().lock();
+                    let mut out = companion_stream(&sinks);
                     report::advice(&outcome, palette, &mut out)?;
                 }
                 update_notice(&view, &sinks, palette, settings.config.update.check);
@@ -2125,7 +2138,7 @@ fn run() -> Result<Exit> {
                         only: review.reviewed.clone(),
                     },
                 )?;
-                let mut out = anstream::stdout().lock();
+                let mut out = companion_stream(&sinks);
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {

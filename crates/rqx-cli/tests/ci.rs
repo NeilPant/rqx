@@ -611,6 +611,72 @@ fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
     let _ = std::fs::remove_dir_all(&shallow);
 }
 
+fn parses_as_json_lines(text: &str) {
+    assert!(!text.trim().is_empty(), "stdout is empty");
+    for line in text.lines() {
+        serde_json::from_str::<serde_json::Value>(line)
+            .unwrap_or_else(|error| panic!("not JSON ({error}): {line:.200}"));
+    }
+}
+
+#[test]
+fn timings_and_advice_leave_a_json_stream_whole() {
+    let root = project("json-companions", &[("a.ts", DIRTY)]);
+    let output = rqx(
+        &root,
+        &[
+            "scan",
+            "--reporter",
+            "json",
+            "--timings",
+            "--advice",
+            "--no-tui",
+        ],
+    );
+    parses_as_json_lines(&String::from_utf8_lossy(&output.stdout));
+    let said = String::from_utf8_lossy(&output.stderr);
+    assert!(said.contains("total"), "the timings went missing: {said}");
+}
+
+#[test]
+fn the_fix_report_leaves_a_sarif_document_whole() {
+    let root = project("sarif-fix", &[("seed.ts", CLEAN)]);
+    let git = |args: &[&str]| {
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+            .args(args)
+            .output()
+            .expect("git")
+            .status;
+        assert!(status.success(), "git {args:?} failed");
+    };
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "base"]);
+    std::fs::write(root.join("b.ts"), DIRTY).expect("a file");
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "branch"]);
+
+    let output = rqx(
+        &root,
+        &[
+            "check",
+            "--base",
+            "HEAD~1",
+            "--fix",
+            "--reporter",
+            "sarif",
+            "--no-tui",
+        ],
+    );
+    let document: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .unwrap_or_else(|error| panic!("stdout is not a document: {error}"));
+    assert_eq!(document["version"], "2.1.0");
+    assert!(!output.stderr.is_empty(), "the fix report went missing");
+}
+
 /// `--slugs` is what a script and a shell completion read. Ignoring the family or
 /// language beside it hands back the whole catalogue with no sign it was narrowed.
 #[test]

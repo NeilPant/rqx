@@ -12,6 +12,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **A document on stdout is the only thing on stdout.** `--timings`, `scan --advice`
+  and the fix report of `check --fix` wrote their lines to stdout beside the JSON,
+  SARIF, JUnit, GitLab or Markdown document, so a pipeline that parsed the output
+  failed on the first extra line. They now go to stderr whenever a document is
+  printed to stdout; the terminal and GitHub reports keep them where they were.
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding
   only that file, so the next run analysed everything else again, and the run after
   paid the same price for the next edit. The cache now keeps every file the run saw,
