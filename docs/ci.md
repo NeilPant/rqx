@@ -26,6 +26,16 @@ overrides it.
 | `--min-health <n>` | the project score drops below `n` |
 | `--min-grade <grade>` | any single file grades below that floor |
 
+`--min-grade` is the one that catches a file rotting on its own: a project-wide
+score averages it away, and severity is per finding rather than per file. Grades
+run `pristine`, `clean`, `fair`, `poor`, `critical`, and `never` turns the gate off.
+
+Passing any gate flag opts a scan into gating, so the rest of `[gate]` applies too
+— `--min-grade poor` on a repo with `fail_on = "error"` gates on both.
+
+`fail_on = "never"` turns off only the count of findings by severity. The health floor,
+the grade floor, the ratchet and `fail_on_incomplete` still apply when they are set.
+
 Each flag has an environment variable, so a pipeline can set its standard once for
 every job:
 
@@ -40,16 +50,6 @@ every job:
 A flag beats its variable, and a variable beats `rqx.yaml`. Like a flag, setting any of
 them makes `rqx scan` gate, so a variable left in a shared runner image changes what
 every scan on it returns.
-
-`--min-grade` is the one that catches a file rotting on its own: a project-wide
-score averages it away, and severity is per finding rather than per file. Grades
-run `pristine`, `clean`, `fair`, `poor`, `critical`, and `never` turns the gate off.
-
-Passing any gate flag opts a scan into gating, so the rest of `[gate]` applies too
-— `--min-grade poor` on a repo with `fail_on = "error"` gates on both.
-
-`fail_on = "never"` turns off only the count of findings by severity. The health floor,
-the grade floor, the ratchet and `fail_on_incomplete` still apply when they are set.
 
 ## Reporters
 
