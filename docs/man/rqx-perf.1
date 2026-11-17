@@ -4,13 +4,10 @@
 .SH NAME
 rqx\-perf \- Where the work grows faster than the data, ranked by reach
 .SH SYNOPSIS
-\fBrqx perf\fR [\fB\-\-level\fR] [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\-depth\fR] [\fB\-\-profile\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx perf\fR [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\-depth\fR] [\fB\-\-profile\fR] [\fB\-\-json\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Where the work grows faster than the data, ranked by reach
 .SH OPTIONS
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
 .TP
 \fB\-\-by\fR \fI<BY>\fR [default: function]
 One row per function, per file, or per directory
@@ -55,6 +52,9 @@ A CPU profile, so a finding nothing ran stops counting. A V8 .cpuprofile, a Go p
 .TP
 \fB\-\-json\fR
 Emit one JSON object per row
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism

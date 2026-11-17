@@ -250,8 +250,6 @@ enum Command {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
         #[command(flatten)]
-        standard: Standard,
-        #[command(flatten)]
         view: View,
         #[command(flatten)]
         gate: Gate,
@@ -272,12 +270,8 @@ enum Command {
         /// Scan again whenever a file changes, until interrupted
         #[arg(long)]
         watch: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Apply the fixes a finding decides on its own, proving each one before it is
     /// written. Previews by default.
@@ -288,8 +282,6 @@ enum Command {
     Fix {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Write the fixes. Without it nothing on disk changes.
         #[arg(long, short)]
         write: bool,
@@ -307,12 +299,8 @@ enum Command {
         /// With --plan, emit markdown a person can paste rather than a report to read
         #[arg(long)]
         markdown: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Compare the working tree against a base revision and say what happened to
     /// each finding: resolved, improved, relocated, or introduced
@@ -320,8 +308,6 @@ enum Command {
     Verify {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Revision to compare against
         #[arg(long, default_value = "origin/HEAD")]
         base: String,
@@ -331,12 +317,8 @@ enum Command {
         /// Emit one JSON object per change instead of the reader's report
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Print the configuration one editor needs to talk to rqx, or list them all
     Setup {
@@ -354,8 +336,6 @@ enum Command {
     Plan {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Effort points to spend. Without it the plan is the top items by value.
         #[arg(long)]
         budget: Option<u32>,
@@ -368,12 +348,8 @@ enum Command {
         /// Emit one JSON object per item instead of the reader's plan
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it,
     /// and what fixes it
@@ -397,8 +373,6 @@ enum Command {
     Baseline {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Take it again over the current findings. Refuses to record more than the
         /// last one did unless --force.
         #[arg(long)]
@@ -406,31 +380,21 @@ enum Command {
         /// Record a larger set than the last one held
         #[arg(long)]
         force: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// List every finding a comment in the source waives, with the reason given
     Suppressions {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Show only the waivers that carry an `until` date
         #[arg(long)]
         expiring: bool,
         /// Emit one JSON object per waiver instead of the reader's report
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Waive one finding with a comment in the source, and the reason a reviewer reads
     #[command(
@@ -466,8 +430,6 @@ enum Command {
     Complexity {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// One row per function, per file, or per directory
         #[arg(long, value_enum, default_value_t = complexity::By::Function)]
         by: complexity::By,
@@ -485,19 +447,13 @@ enum Command {
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Where the work grows faster than the data, ranked by reach
     Perf {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// One row per function, per file, or per directory
         #[arg(long, value_enum, default_value_t = perf::By::Function)]
         by: perf::By,
@@ -516,12 +472,8 @@ enum Command {
         /// Emit one JSON object per row
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Install the newest release, or say what it would change
     #[command(
@@ -553,26 +505,18 @@ enum Command {
     Recommend {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Just one section
         #[arg(long, value_enum)]
         only: Option<recommend::Only>,
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Which files read as written rather than read
     Slop {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         #[arg(long, default_value_t = 20)]
         top: usize,
         /// Skip anything scoring below this
@@ -580,30 +524,20 @@ enum Command {
         min: u32,
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Where the health score comes from, and what removing each part would buy
     Health {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         #[arg(long, value_enum, default_value_t = health::By::Family)]
         by: health::By,
         /// Emit one JSON object per bucket
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Print the import graph — as text, Graphviz, Mermaid or data
     #[command(
@@ -612,8 +546,6 @@ enum Command {
     Graph {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         #[arg(long, value_enum, default_value_t = graph::Shape::Text)]
         format: graph::Shape,
         /// Only the edges that close a cycle
@@ -625,12 +557,8 @@ enum Command {
         /// How far from `--focus` to follow
         #[arg(long, default_value_t = 2)]
         depth: u32,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Show what the analysis cache holds, or throw it away
     Cache {
@@ -663,20 +591,14 @@ enum Command {
     Patterns {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Print what rqx does about every pattern in the book, without scanning
         #[arg(long)]
         coverage: bool,
         /// Emit one JSON object per advisory instead of the reader's report
         #[arg(long)]
         json: bool,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Analyze changed files against a base revision and fail if the gate is not met
     #[command(visible_alias = "c")]
@@ -726,8 +648,6 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
     Comment {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        #[command(flatten)]
-        standard: Standard,
         /// Review against this revision. Defaults to the merge request's own base,
         /// which the pipeline already knows
         #[arg(long, value_name = "REF")]
@@ -743,12 +663,8 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         no_status: bool,
         #[command(flatten)]
         gate: Gate,
-        /// Worker threads. Defaults to the machine's parallelism
-        #[arg(long, value_name = "N", env = "RQX_THREADS")]
-        threads: Option<usize>,
-        /// Read settings from this file, layered over any `rqx.yaml` found
-        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-        config: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
     },
     /// Write a commented rqx.yaml with every setting at its default
     Init {
@@ -826,6 +742,30 @@ impl Standard {
                     "Levels set the defaults; anything you write wins over them.",
                 )
             })
+    }
+}
+
+/// What every command that scans accepts, declared once so a new scanning command
+/// cannot forget one and an existing one cannot word it differently.
+#[derive(Args, Default)]
+struct Run {
+    #[command(flatten)]
+    standard: Standard,
+    /// Worker threads. Defaults to the machine's parallelism
+    #[arg(long, value_name = "N", env = "RQX_THREADS")]
+    threads: Option<usize>,
+    /// Read settings from this file, layered over any `rqx.yaml` found
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    config: Option<PathBuf>,
+}
+
+impl Run {
+    fn resolve(&self, path: &Path) -> Result<config::Resolved> {
+        let mut settings = config::resolve(path, self.config.as_deref(), self.standard.chosen()?)?;
+        if let Some(count) = self.threads {
+            settings.config.scan.threads = count;
+        }
+        Ok(settings)
     }
 }
 
@@ -1595,24 +1535,15 @@ fn validate_config(
 /// Opens the session on the working directory. `None` means the terminal could not
 /// host it after all, and the caller prints the report instead.
 fn open_session(motion: Motion) -> Result<Option<Exit>> {
-    let Command::Scan {
-        standard,
-        threads,
-        config,
-        ..
-    } = bare_scan()?
-    else {
+    let Command::Scan { run, .. } = bare_scan()? else {
         bail!("bare `rqx` did not parse as a scan");
     };
     let path = Path::new(".");
-    let mut settings = config::resolve(path, config.as_deref(), standard.chosen()?)?;
-    if let Some(count) = threads {
-        settings.config.scan.threads = count;
-    }
+    let settings = run.resolve(path)?;
     let options = session::Launch {
         path,
         config: &settings,
-        level: standard.level.as_deref(),
+        level: run.standard.level.as_deref(),
         reduced_motion: matches!(motion, Motion::Off),
     };
     match session::launch(options) {
@@ -1716,7 +1647,6 @@ fn run() -> Result<Exit> {
     match command {
         Command::Scan {
             path,
-            standard,
             view,
             gate,
             advice,
@@ -1724,8 +1654,7 @@ fn run() -> Result<Exit> {
             profile,
             max_findings,
             watch,
-            threads,
-            config,
+            run,
         } => {
             if !path.exists() {
                 bail!(
@@ -1733,7 +1662,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
+            let mut settings = run.resolve(&path)?;
             // Started before the scan rather than after it: the answer needs the length
             // of the work to arrive in, and `process::exit` does not wait for a thread.
             update::start(settings.config.update.check);
@@ -1751,9 +1680,6 @@ fn run() -> Result<Exit> {
                     .iter()
                     .map(|path| path.display().to_string())
                     .collect();
-            }
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
             }
             gate.apply(&mut settings.config);
 
@@ -1791,14 +1717,12 @@ fn run() -> Result<Exit> {
         }
         Command::Fix {
             path,
-            standard,
             write,
             max_rounds,
             json,
             plan,
             markdown,
-            threads,
-            config,
+            run,
         } => {
             if !path.exists() {
                 bail!(
@@ -1806,10 +1730,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let settings = run.resolve(&path)?;
             let mut out = anstream::stdout().lock();
             if plan {
                 let scanned = scan::scan_drawn(&path, &settings, progress)?;
@@ -1840,12 +1761,10 @@ fn run() -> Result<Exit> {
         }
         Command::Verify {
             path,
-            standard,
             base,
             expect,
             json,
-            threads,
-            config,
+            run,
         } => {
             if !path.exists() {
                 bail!(
@@ -1853,10 +1772,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             settings.config.scan.max_findings = 0;
             verify::ensure_repository(&path, &base)?;
             let verified = verify::verify_drawn(&path, &settings, &base, &expect, progress)?;
@@ -1890,13 +1806,11 @@ fn run() -> Result<Exit> {
         }
         Command::Plan {
             path,
-            standard,
             budget,
             limit,
             simulate,
             json,
-            threads,
-            config,
+            run,
         } => {
             if !path.exists() {
                 bail!(
@@ -1904,10 +1818,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             // The display cap keeps the highest-ranked findings, and the plan is a
             // ranking of its own: capping first would hide the cheap work entirely.
             settings.config.scan.max_findings = 0;
@@ -1926,11 +1837,9 @@ fn run() -> Result<Exit> {
         }
         Command::Patterns {
             path,
-            standard,
             coverage,
             json,
-            threads,
-            config,
+            run,
         } => {
             if coverage {
                 return report::pattern_coverage(palette, &mut anstream::stdout().lock())
@@ -1942,26 +1851,18 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let settings = run.resolve(&path)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::patterns(&outcome, json, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
         }
         Command::Baseline {
             path,
-            standard,
             update,
             force,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let settings = run.resolve(&path)?;
             let taken = baseline::take_drawn(&path, &settings, update, force, progress)?;
             println!(
                 "  recorded {} findings in {}{}",
@@ -1982,16 +1883,11 @@ fn run() -> Result<Exit> {
         }
         Command::Suppressions {
             path,
-            standard,
             expiring,
             json,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             // A waiver is only visible when the finding it covers was found, and the
             // display cap drops findings before anything can read them.
             settings.config.scan.max_findings = 0;
@@ -2029,20 +1925,15 @@ fn run() -> Result<Exit> {
         .map(|()| Exit::Clean),
         Command::Complexity {
             path,
-            standard,
             by,
             sort,
             top,
             min,
             histogram,
             json,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let settings = run.resolve(&path)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = complexity::View {
                 by,
@@ -2063,20 +1954,15 @@ fn run() -> Result<Exit> {
         }
         Command::Perf {
             path,
-            standard,
             by,
             sort,
             top,
             min_depth,
             profile,
             json,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             // The display cap would drop findings this ranking has to weigh.
             settings.config.scan.max_findings = 0;
             if !profile.is_empty() {
@@ -2112,16 +1998,11 @@ fn run() -> Result<Exit> {
         }
         Command::Recommend {
             path,
-            standard,
             only,
             json,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::recommend(
@@ -2136,17 +2017,12 @@ fn run() -> Result<Exit> {
         }
         Command::Slop {
             path,
-            standard,
             top,
             min,
             json,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             settings.config.scan.max_findings = 0;
             render::slop_settings(&mut settings);
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
@@ -2156,16 +2032,11 @@ fn run() -> Result<Exit> {
         }
         Command::Health {
             path,
-            standard,
             by,
             json,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             // Every finding, not the first five hundred: a bucket judged on a capped
             // list would understate whichever rule fires most.
             settings.config.scan.max_findings = 0;
@@ -2175,18 +2046,13 @@ fn run() -> Result<Exit> {
         }
         Command::Graph {
             path,
-            standard,
             format,
             cycles,
             focus,
             depth,
-            threads,
-            config,
+            run,
         } => {
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let settings = run.resolve(&path)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = graph::View {
                 shape: format,
@@ -2245,14 +2111,12 @@ fn run() -> Result<Exit> {
         Command::Docs { out, fixtures } => report::docs(&out, &fixtures).map(|()| Exit::Clean),
         Command::Comment {
             path,
-            standard,
             base,
             dry_run,
             marker,
             no_status,
             gate,
-            threads,
-            config,
+            run,
         } => {
             if !path.exists() {
                 bail!(
@@ -2260,10 +2124,7 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = config::resolve(&path, config.as_deref(), standard.chosen()?)?;
-            if let Some(count) = threads {
-                settings.config.scan.threads = count;
-            }
+            let mut settings = run.resolve(&path)?;
             gate.apply(&mut settings.config);
             // The whole review, not the first five hundred: a display cap is for a
             // terminal, and this is a document somebody scrolls.

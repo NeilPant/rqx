@@ -4,13 +4,10 @@
 .SH NAME
 rqx\-verify \- Compare the working tree against a base revision and say what happened to each finding: resolved, improved, relocated, or introduced
 .SH SYNOPSIS
-\fBrqx verify\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-expect\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx verify\fR [\fB\-\-base\fR] [\fB\-\-expect\fR] [\fB\-\-json\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Compare the working tree against a base revision and say what happened to each finding: resolved, improved, relocated, or introduced
 .SH OPTIONS
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
 .TP
 \fB\-\-base\fR \fI<BASE>\fR [default: origin/HEAD]
 Revision to compare against
@@ -20,6 +17,9 @@ Rules that must be resolved, as `rule` or `rule@file`. Repeatable
 .TP
 \fB\-\-json\fR
 Emit one JSON object per change instead of the reader\*(Aqs report
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism

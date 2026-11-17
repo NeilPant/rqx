@@ -308,7 +308,6 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
     match invocation.command {
         Command::Scan {
             path,
-            standard,
             view,
             gate,
             advice,
@@ -316,10 +315,9 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             profile,
             max_findings,
             watch,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             if !coverage.is_empty() || !profile.is_empty() || max_findings.is_some() {
                 bail!(
                     "`--coverage`, `--profile` and `--max-findings` change the scan; run them from a shell"
@@ -357,15 +355,13 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Plan {
             path,
-            standard,
             budget,
             limit,
             simulate,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let request = render::Plan {
                 budget,
                 limit,
@@ -377,29 +373,25 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Health {
             path,
-            standard,
             by,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let outcome = context.scanned()?;
             print(|out| render::health(outcome, by, json, palette, out))
         }
         Command::Complexity {
             path,
-            standard,
             by,
             sort,
             top,
             min,
             histogram,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let view = complexity::View {
                 by,
                 sort,
@@ -412,17 +404,15 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Perf {
             path,
-            standard,
             by,
             sort,
             top,
             min_depth,
             profile,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             if !profile.is_empty() {
                 bail!("`--profile` changes the scan; run it from a shell");
             }
@@ -437,15 +427,13 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Graph {
             path,
-            standard,
             format,
             cycles,
             focus,
             depth,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let view = graph::View {
                 shape: format,
                 cycles_only: cycles,
@@ -457,40 +445,34 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Recommend {
             path,
-            standard,
             only,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let outcome = context.scanned()?;
             print(|out| render::recommend(outcome, context.settings, only, json, palette, out))
         }
         Command::Patterns {
             path,
-            standard,
             coverage,
             json,
-            threads: _,
-            config,
+            run,
         } => {
             if coverage {
                 return print(|out| report::pattern_coverage(palette, out));
             }
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let outcome = context.scanned()?;
             print(|out| render::patterns(outcome, json, palette, out))
         }
         Command::Suppressions {
             path,
-            standard,
             expiring,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let outcome = context.scanned()?;
             print(|out| render::suppressions(&path, outcome, expiring, json, palette, out))
         }
@@ -533,14 +515,12 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         Command::Levels => print(|out| report::levels(palette, out)),
         Command::Slop {
             path,
-            standard,
             top,
             min,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             // The signals are Info rules that ship off, which the session's scan did not
             // run, so this one scans again with its own family on.
             let mut settings = context.settings.clone();
@@ -555,16 +535,14 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Fix {
             path,
-            standard,
             write,
             max_rounds,
             json,
             plan,
             markdown,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             if plan {
                 let outcome = context.scanned()?;
                 return print(|out| {
@@ -626,14 +604,12 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         }
         Command::Verify {
             path,
-            standard,
             base,
             expect,
             json,
-            threads: _,
-            config,
+            run,
         } => {
-            context.same_scan(&path, &standard, config.as_ref())?;
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
             let settings = context.settings.clone();
             background(false, move || {
                 verify::ensure_repository(&path, &base)?;

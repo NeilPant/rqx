@@ -4,13 +4,10 @@
 .SH NAME
 rqx\-graph \- Print the import graph — as text, Graphviz, Mermaid or data
 .SH SYNOPSIS
-\fBrqx graph\fR [\fB\-\-level\fR] [\fB\-\-format\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx graph\fR [\fB\-\-format\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Print the import graph — as text, Graphviz, Mermaid or data
 .SH OPTIONS
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
 .TP
 \fB\-\-format\fR \fI<FORMAT>\fR [default: text]
 
@@ -35,6 +32,9 @@ Only what this file reaches, and what reaches it
 .TP
 \fB\-\-depth\fR \fI<DEPTH>\fR [default: 2]
 How far from `\-\-focus` to follow
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism

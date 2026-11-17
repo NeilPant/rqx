@@ -4,13 +4,10 @@
 .SH NAME
 rqx\-plan \- Rank the work by what it buys against what it costs, and say what the health score would be after it
 .SH SYNOPSIS
-\fBrqx plan\fR [\fB\-\-level\fR] [\fB\-\-budget\fR] [\fB\-\-limit\fR] [\fB\-\-simulate\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx plan\fR [\fB\-\-budget\fR] [\fB\-\-limit\fR] [\fB\-\-simulate\fR] [\fB\-\-json\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Rank the work by what it buys against what it costs, and say what the health score would be after it
 .SH OPTIONS
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
 .TP
 \fB\-\-budget\fR \fI<BUDGET>\fR
 Effort points to spend. Without it the plan is the top items by value
@@ -23,6 +20,9 @@ Also print what the plan does to the grade of every file
 .TP
 \fB\-\-json\fR
 Emit one JSON object per item instead of the reader\*(Aqs plan
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism
