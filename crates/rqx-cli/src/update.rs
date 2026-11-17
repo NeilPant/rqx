@@ -1,10 +1,11 @@
 //! Whether a newer rqx has been tagged, and installing it.
 //!
 //! A tag is the release: it carries the binaries, the crates and the npm packages,
-//! so there is one version and one changelog section behind all of them. What this
-//! module updates is a `cargo install --git` build, because that is the only install
-//! nothing else owns — an npm or distribution install marks itself with
-//! `RQX_MANAGED` and is handed back to whatever put it there.
+//! so there is one version and one changelog section behind all of them. How an
+//! update is installed follows from how rqx was: an npm or distribution install marks
+//! itself with `RQX_MANAGED` and is handed back to whatever put it there, a
+//! `cargo install` is rebuilt the same way, and any other binary is replaced by the
+//! release's own (`release.rs`).
 //!
 //! A version check is a network request, and a scan is not the place for one: the
 //! answer is cached for a day, fetched on a thread nobody waits for, and never
@@ -14,13 +15,14 @@
 //! Requests go through `curl` for the same reason `forge.rs` does — rqx carries no
 //! TLS stack, and certificates and proxies stay the system's problem.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+use crate::release::Release;
 use crate::term::{self, Stream};
 
 const REPOSITORY: &str = "https://github.com/jadhamwi21/rqx";
@@ -53,7 +55,7 @@ impl Newer {
     /// takes a paragraph is an advert.
     pub fn line(&self) -> String {
         format!(
-            "rqx {} is out (running {}). `rqx update` builds it, `rqx update --notes` reads it.",
+            "rqx {} is out (running {}). `rqx update` installs it, `rqx update --notes` reads it.",
             self.version,
             env!("CARGO_PKG_VERSION")
         )
@@ -126,6 +128,57 @@ pub fn managed_update(manager: &str) -> String {
         }
         other => format!("{other} installed rqx, so updating it is {other}'s job."),
     }
+}
+
+/// How this copy of rqx gets replaced.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Method {
+    /// A package manager owns the file; the string names it.
+    Managed(String),
+    /// `cargo install` put it in cargo's bin directory, so cargo rebuilds it.
+    CargoBuild,
+    /// Any other binary is replaced by the release's.
+    Download,
+}
+
+/// Where rqx is installed, and so how it is updated.
+pub struct Installation {
+    pub method: Method,
+    pub executable: PathBuf,
+}
+
+/// Reads the environment and the running executable, and decides from them.
+pub fn detect() -> Result<Installation> {
+    let executable = std::env::current_exe()
+        .and_then(std::fs::canonicalize)
+        .context("could not tell where the running rqx is installed")?;
+    let cargo_home = cargo_home().map(|home| std::fs::canonicalize(&home).unwrap_or(home));
+    Ok(Installation {
+        method: choose(managed(), &executable, cargo_home.as_deref()),
+        executable,
+    })
+}
+
+/// Cargo's home, which `cargo install` puts binaries under.
+fn cargo_home() -> Option<PathBuf> {
+    if let Some(home) = std::env::var_os("CARGO_HOME").filter(|home| !home.is_empty()) {
+        return Some(PathBuf::from(home));
+    }
+    let user = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+    Some(PathBuf::from(user).join(".cargo"))
+}
+
+/// The decision, given what was read. A package manager comes first because it will
+/// put its own file back whatever else is done to it; after that, a binary under
+/// cargo's bin directory is cargo's to rebuild.
+fn choose(managed: Option<String>, executable: &Path, cargo_home: Option<&Path>) -> Method {
+    if let Some(manager) = managed {
+        return Method::Managed(manager);
+    }
+    if cargo_home.is_some_and(|home| executable.starts_with(home.join("bin"))) {
+        return Method::CargoBuild;
+    }
+    Method::Download
 }
 
 /// Compares two dotted versions numerically, so `0.10.0` is newer than `0.9.0` and a
@@ -285,20 +338,59 @@ pub fn settle(within: Duration) -> Option<Newer> {
 /// `--locked` so the build uses the versions the tag was tested with rather than
 /// whatever has been published since.
 pub fn install(version: &str) -> Result<()> {
-    let mut cargo = Command::new("cargo");
-    cargo
-        .args(["install", "--git", REPOSITORY])
-        .args(["--tag", &format!("v{version}")])
-        .args(["--locked", "--force", "rqx"]);
-
-    let status = cargo.status().context(
-        "could not run `cargo`. rqx updates by building the tagged version, so the toolchain \
-         that installed it has to still be there; otherwise install from source by hand.",
-    )?;
+    let status = Command::new("cargo")
+        .args(cargo_install_arguments(version))
+        .status()
+        .context(
+            "could not run `cargo`. rqx updates by building the tagged version, so the toolchain \
+             that installed it has to still be there; otherwise install from source by hand.",
+        )?;
     if !status.success() {
         bail!("`cargo install` did not finish; rqx is unchanged");
     }
     Ok(())
+}
+
+fn cargo_install_arguments(version: &str) -> Vec<String> {
+    let mut arguments = ["install", "--git", REPOSITORY, "--tag"]
+        .map(str::to_owned)
+        .to_vec();
+    arguments.push(format!("v{version}"));
+    arguments.extend(["--locked", "--force", "rqx"].map(str::to_owned));
+    arguments
+}
+
+/// What updating to `version` would do here, as label and value pairs, for
+/// `--dry-run`. `source` is the test override for where releases are downloaded from.
+pub fn plan(
+    installation: &Installation,
+    version: &str,
+    source: Option<String>,
+) -> Result<Vec<(&'static str, String)>> {
+    let mut lines = vec![("version", version.to_owned())];
+    match &installation.method {
+        Method::Managed(manager) => {
+            lines.push(("method", format!("hand back to {manager}")));
+            lines.push(("note", managed_update(manager)));
+            return Ok(lines);
+        }
+        Method::CargoBuild => {
+            lines.push(("method", "build from source with cargo".to_owned()));
+            let command = cargo_install_arguments(version).join(" ");
+            lines.push(("command", format!("cargo {command}")));
+        }
+        Method::Download => {
+            let release = Release::new(version, source)?;
+            lines.push((
+                "method",
+                "download the release binary and check its SHA-256".to_owned(),
+            ));
+            lines.push(("archive", release.archive_url()));
+            lines.push(("checksums", release.checksums_url()));
+        }
+    }
+    lines.push(("target", installation.executable.display().to_string()));
+    Ok(lines)
 }
 
 fn request(url: &str) -> Result<String> {
@@ -411,6 +503,69 @@ mod tests {
         assert!(settle(Duration::from_millis(60)).is_none());
         assert!(began.elapsed() < Duration::from_millis(600), "it blocked");
         drop(idle);
+    }
+
+    #[test]
+    fn an_install_is_updated_the_way_it_was_made() {
+        let cargo_home = Path::new("/home/someone/.cargo");
+        let in_cargo = Path::new("/home/someone/.cargo/bin/rqx");
+        let elsewhere = Path::new("/usr/local/bin/rqx");
+
+        assert_eq!(choose(None, in_cargo, Some(cargo_home)), Method::CargoBuild);
+        assert_eq!(choose(None, elsewhere, Some(cargo_home)), Method::Download);
+        assert_eq!(choose(None, in_cargo, None), Method::Download);
+        assert_eq!(
+            choose(
+                None,
+                Path::new("/home/someone/.cargo/registry/rqx"),
+                Some(cargo_home)
+            ),
+            Method::Download,
+            "only the bin directory is cargo's"
+        );
+        assert_eq!(
+            choose(Some("npm".to_owned()), in_cargo, Some(cargo_home)),
+            Method::Managed("npm".to_owned()),
+            "a package manager outranks where the file sits"
+        );
+    }
+
+    #[test]
+    fn a_plan_names_the_method_the_addresses_and_the_file_it_would_replace() {
+        let installation = |method| Installation {
+            method,
+            executable: PathBuf::from("/usr/local/bin/rqx"),
+        };
+        let text = |lines: Vec<(&str, String)>| {
+            lines
+                .iter()
+                .map(|(label, value)| format!("{label} {value}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+
+        let download = plan(&installation(Method::Download), "1.2.3", None).expect("a plan");
+        let download = text(download);
+        assert!(download.contains("/v1.2.3/rqx-1.2.3-"), "{download}");
+        assert!(download.contains("/v1.2.3/SHA256SUMS"), "{download}");
+        assert!(download.contains("target /usr/local/bin/rqx"), "{download}");
+
+        let cargo = text(plan(&installation(Method::CargoBuild), "1.2.3", None).expect("a plan"));
+        assert!(
+            cargo.contains("--tag v1.2.3 --locked --force rqx"),
+            "{cargo}"
+        );
+
+        let managed = text(
+            plan(
+                &installation(Method::Managed("npm".to_owned())),
+                "1.2.3",
+                None,
+            )
+            .expect("a plan"),
+        );
+        assert!(managed.contains("hand back to npm"), "{managed}");
+        assert!(!managed.contains("target"), "{managed}");
     }
 
     #[test]

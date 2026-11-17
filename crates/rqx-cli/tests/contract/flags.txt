@@ -852,6 +852,7 @@ update --color
 update --color =always
 update --color =auto
 update --color =never
+update --dry-run
 update --help
 update --motion
 update --motion =off
@@ -861,6 +862,7 @@ update --no-progress
 update --no-progress [env RQX_NO_PROGRESS]
 update --no-tui
 update --notes
+update --version
 update -h
 verify
 verify --base

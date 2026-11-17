@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs that
+  release instead of the newest, which also lets you step back to an older one.
+  `--dry-run` prints how the update would be done, the download URLs and the file it
+  would replace, and changes nothing.
 - **JavaScript is analysed.** `.js`, `.jsx`, `.mjs` and `.cjs` files are now read, and
   176 of the 185 rules apply to them. This changes what a scan reports: a repository
   that contains JavaScript will show more findings after upgrading, and `rqx check` can
@@ -42,6 +46,14 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   misconfigured CI job look green. Piped, redirected, under CI, on a dumb terminal or
   with `--no-tui`, `rqx` now means `rqx scan`, including the defaults `RQX_LEVEL` and
   `RQX_THREADS` set. In a terminal it still opens the interface.
+- **`rqx update` downloads the release instead of building it.** A binary installed with
+  `install.sh`, `install.ps1` or from a release page is now replaced by the new
+  release's binary, which takes seconds rather than the minute a build did. The archive
+  is checked against the release's `SHA256SUMS` first; if the checksum is missing or
+  does not match, nothing is installed and the exit code is 2. Installs under
+  `~/.cargo/bin` (or `$CARGO_HOME/bin`) are still rebuilt with `cargo install`, and
+  installs marked `RQX_MANAGED` are still handed back to their package manager.
+  Downloading needs `curl` and `tar`, which Windows 10 and later include.
 
 ### Changed
 

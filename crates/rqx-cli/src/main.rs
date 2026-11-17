@@ -33,6 +33,7 @@ mod progress;
 mod project;
 mod query;
 mod recommend;
+mod release;
 mod report;
 mod scan;
 mod setup;
@@ -462,15 +463,21 @@ enum Command {
     },
     /// Install the newest release, or say what it would change
     #[command(
-        after_help = "Examples:\n  rqx update                          install the newest release\n  rqx update --check                  say whether one exists, install nothing\n  rqx update --notes                  read what changed"
+        after_help = "Examples:\n  rqx update                          install the newest release\n  rqx update --check                  say whether one exists, install nothing\n  rqx update --notes                  read what changed\n  rqx update --version 0.2.1          install that release, newer or older\n  rqx update --dry-run                show how and from where, change nothing"
     )]
     Update {
         /// Report whether a newer release exists and stop
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["version", "dry_run"])]
         check: bool,
         /// Print the release notes for the newest release
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["version", "dry_run"])]
         notes: bool,
+        /// Install this release, such as 0.2.1, instead of the newest
+        #[arg(long, value_name = "X.Y.Z")]
+        version: Option<String>,
+        /// Print the method, the URLs and the file that would be replaced, and change nothing
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Print a shell completion script
     Completions {
@@ -2241,62 +2248,20 @@ fn run() -> Result<Exit> {
             }
             report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
         }
-        Command::Update { check, notes } => {
-            let dim = palette.style(brand::Ink::Muted);
-            // Asked for directly, so the cached answer is not good enough and the
-            // environment's opinion about CI does not apply.
-            let found = update::fetch()?;
-            let Some(newer) = found else {
-                anstream::println!(
-                    "\n  rqx {} is the newest release.\n",
-                    env!("CARGO_PKG_VERSION")
-                );
-                return Ok(Exit::Clean);
-            };
-
-            anstream::println!(
-                "\n  {}",
-                brand::paint(
-                    palette.bold(brand::Ink::Accent),
-                    format!("rqx {} is out", newer.version)
-                )
-            );
-            anstream::println!(
-                "  {}\n",
-                brand::paint(dim, format!("running {}", env!("CARGO_PKG_VERSION")))
-            );
-            if notes || check {
-                for line in newer.notes.lines() {
-                    anstream::println!("  {line}");
-                }
-                anstream::println!();
-            }
-            if check || notes {
-                return Ok(Exit::Clean);
-            }
-
-            if let Some(manager) = update::managed() {
-                anstream::println!(
-                    "  {}\n",
-                    brand::paint(dim, update::managed_update(&manager))
-                );
-                return Ok(Exit::Clean);
-            }
-
-            anstream::println!(
-                "  {}\n",
-                brand::paint(dim, "building it with cargo; this takes a minute")
-            );
-            update::install(&newer.version)?;
-            anstream::println!(
-                "\n  {}\n",
-                brand::paint(
-                    palette.bold(brand::Ink::Good),
-                    format!("installed rqx {}", newer.version)
-                )
-            );
-            Ok(Exit::Clean)
-        }
+        Command::Update {
+            check,
+            notes,
+            version,
+            dry_run,
+        } => update_command(
+            &UpdateRequest {
+                check,
+                notes,
+                version,
+                dry_run,
+            },
+            palette,
+        ),
         Command::Techniques => {
             report::techniques(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
         }
@@ -2304,6 +2269,119 @@ fn run() -> Result<Exit> {
             report::levels(palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
         }
     }
+}
+
+struct UpdateRequest {
+    check: bool,
+    notes: bool,
+    version: Option<String>,
+    dry_run: bool,
+}
+
+/// `rqx update`: reports what is newer, and installs it the way this copy was installed.
+fn update_command(request: &UpdateRequest, palette: Palette) -> Result<Exit> {
+    let dim = palette.style(brand::Ink::Muted);
+    let version = match &request.version {
+        Some(named) => named.trim_start_matches('v').to_owned(),
+        None => match announce_newest(request, palette)? {
+            Newest::Install(version) => version,
+            Newest::Done => return Ok(Exit::Clean),
+        },
+    };
+
+    let installation = update::detect()?;
+    if request.dry_run {
+        print_plan(
+            &update::plan(&installation, &version, release::source_override())?,
+            palette,
+        );
+        return Ok(Exit::Clean);
+    }
+
+    match installation.method {
+        update::Method::Managed(manager) => {
+            anstream::println!(
+                "  {}\n",
+                brand::paint(dim, update::managed_update(&manager))
+            );
+            return Ok(Exit::Clean);
+        }
+        update::Method::CargoBuild => {
+            anstream::println!(
+                "  {}\n",
+                brand::paint(dim, "building it with cargo; this takes a minute")
+            );
+            update::install(&version)?;
+        }
+        update::Method::Download => {
+            let release = release::Release::published(&version)?;
+            anstream::println!(
+                "  {}\n",
+                brand::paint(dim, "downloading it and checking it against SHA256SUMS")
+            );
+            release::install(&release, &installation.executable)?;
+        }
+    }
+    anstream::println!(
+        "\n  {}\n",
+        brand::paint(
+            palette.bold(brand::Ink::Good),
+            format!("installed rqx {version}")
+        )
+    );
+    Ok(Exit::Clean)
+}
+
+enum Newest {
+    Install(String),
+    Done,
+}
+
+/// Looks up the newest release and says what it is, for an update that was not
+/// told which version to install. `--check` and `--notes` end here.
+fn announce_newest(request: &UpdateRequest, palette: Palette) -> Result<Newest> {
+    let dim = palette.style(brand::Ink::Muted);
+    // Asked for directly, so the cached answer is not good enough and the
+    // environment's opinion about CI does not apply.
+    let Some(newer) = update::fetch()? else {
+        anstream::println!(
+            "\n  rqx {} is the newest release.\n",
+            env!("CARGO_PKG_VERSION")
+        );
+        return Ok(Newest::Done);
+    };
+
+    anstream::println!(
+        "\n  {}",
+        brand::paint(
+            palette.bold(brand::Ink::Accent),
+            format!("rqx {} is out", newer.version)
+        )
+    );
+    anstream::println!(
+        "  {}\n",
+        brand::paint(dim, format!("running {}", env!("CARGO_PKG_VERSION")))
+    );
+    if request.notes || request.check {
+        for line in newer.notes.lines() {
+            anstream::println!("  {line}");
+        }
+        anstream::println!();
+        return Ok(Newest::Done);
+    }
+    Ok(Newest::Install(newer.version))
+}
+
+fn print_plan(lines: &[(&str, String)], palette: Palette) {
+    let dim = palette.style(brand::Ink::Muted);
+    anstream::println!(
+        "\n  {}",
+        brand::paint(dim, "dry run: nothing is downloaded or changed")
+    );
+    for (label, value) in lines {
+        anstream::println!("  {label:<10}{value}");
+    }
+    anstream::println!();
 }
 
 #[cfg(test)]
