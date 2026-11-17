@@ -178,7 +178,8 @@ scan:
   coverage: []
   # CPU profiles to read. A performance finding in a function the profile never
   # sampled is shown but stops counting; one it sampled says how often. A V8
-  # .cpuprofile, a Go pprof and collapsed stacks are all recognised by content.
+  # .cpuprofile, a Go pprof, speedscope JSON, `jfr print` text and collapsed stacks are
+  # all recognised by content.
   profile: []
   # SARIF 2.1.0 files other tools wrote, such as ruff, ESLint or Semgrep. Each result
   # becomes a finding in the `external` family, with a rule id prefixed by the tool's
