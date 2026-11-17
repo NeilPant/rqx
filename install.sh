@@ -152,7 +152,7 @@ resolve_latest_url() {
 }
 
 resolve_latest_version() {
-  final_url="$(resolve_latest_url)" || die_with_fallback "could not reach $latest"
+  final_url="$(resolve_latest_url)" || die_with_fallback "could not reach $RELEASES_URL/latest"
   case "$final_url" in
     */releases/tag/*) tag="${final_url##*/}" ;;
     *) die_with_fallback "$REPOSITORY has no published release yet" ;;
