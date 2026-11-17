@@ -2,7 +2,7 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::thread;
 use std::time::Instant;
@@ -56,7 +56,13 @@ pub(crate) struct Analyzed {
 #[derive(Clone)]
 pub(crate) enum ScanMessage {
     File(Box<Analyzed>),
-    Skipped { path: PathBuf, reason: String },
+    Skipped {
+        path: PathBuf,
+        reason: String,
+    },
+    /// How many files the walk will visit, sent once by whoever counted them. It
+    /// arrives mid-scan, so until it does the collector reports no total.
+    Total(Option<u32>),
 }
 
 /// The file is carried as the `Arc<str>` the worker already built for it, so naming
@@ -1942,6 +1948,7 @@ pub(crate) fn collect(
                 collector.tick(None);
             }
             ScanMessage::Skipped { path, reason } => collector.skipped.push((path, reason)),
+            ScanMessage::Total(total) => collector.total = total.or(collector.total),
         }
     }
     collector.into_outcome(root, settings, history, watch.is_some_and(Watch::stopped))
@@ -2237,13 +2244,9 @@ impl CachePolicy {
 
 /// The same walker the scan uses, so the total it reports cannot disagree with what is
 /// then scanned. Only directory entries are touched: nothing is opened or parsed.
-fn count_files(
-    root: &Path,
-    config: &rqx_core::config::RqxConfig,
-    watch: Option<&Watch>,
-) -> Result<Option<u32>> {
+fn count_files(walker: ignore::WalkParallel, watch: Option<&Watch>) -> Option<u32> {
     let counted = std::sync::atomic::AtomicU32::new(0);
-    build_walker(root, config)?.run(|| {
+    walker.run(|| {
         Box::new(|entry| {
             if watch.is_some_and(Watch::stopped) {
                 return ignore::WalkState::Quit;
@@ -2254,7 +2257,7 @@ fn count_files(
             ignore::WalkState::Continue
         })
     });
-    Ok(Some(counted.into_inner()).filter(|total| *total > 0))
+    Some(counted.into_inner()).filter(|total| *total > 0)
 }
 
 pub(crate) fn scan_with(
@@ -2278,38 +2281,23 @@ pub(crate) fn scan_with(
     // document — thirty-three megabytes on a three-thousand-file project — and
     // parsing it used to be dead time with every core idle, which on a warm run was
     // most of the run.
-    let cache = policy.enabled(config).then(|| {
+    let cache_loading = policy.enabled(config).then(|| {
         let root = root.to_path_buf();
         let settings = settings.clone();
         thread::spawn(move || crate::cache::Cache::open(&root, &settings))
     });
 
-    let mut bar = if drawing {
+    let bar = if drawing {
         crate::progress::Bar::new(crate::brand::Palette::detect())
     } else {
         crate::progress::Bar::hidden()
     };
 
-    // Counted before scanning so the bar can show a real proportion. This is directory
-    // traversal with no file opened and nothing parsed, against a scan measured in
-    // seconds — and a bar that claims a percentage it cannot know is worse than none.
-    bar.update(crate::progress::Phase::Counting, 0, None, 0, "");
-    // The interface hears it too, or it opens on zero files with no word of why.
-    if let Some(watch) = &watch {
-        let _ = watch.updates.try_send(ScanProgress {
-            phase: crate::progress::Phase::Counting,
-            ..ScanProgress::default()
-        });
-    }
-    let mut walks = 1;
-    let total = count_files(root, config, watch.as_ref())?;
-
+    let counter = build_walker(root, config)?;
     let walker = build_walker(root, config)?;
-    // What the walk waits for rather than what loading cost: the load overlaps the
-    // count above, so only the part nobody hid is time the scan lost to it.
-    let cache_wait = Instant::now();
-    let cache = cache.and_then(|loading| loading.join().ok());
-    let cache_load = cache_wait.elapsed().as_millis();
+    let walks = AtomicU32::new(0);
+    let mut cache_load = 0;
+    let mut cache = None;
     let reads = FileReads::default();
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 
@@ -2318,10 +2306,24 @@ pub(crate) fn scan_with(
         let watch = watch.as_ref();
         let root_ref = root;
         let handle = scope.spawn(move || {
-            collect(receiver, root_ref, settings_ref, bar, total, watch, || {
+            collect(receiver, root_ref, settings_ref, bar, None, watch, || {
                 Arc::new(history.join().unwrap_or_default())
             })
         });
+        // The count only decorates the bar, so it runs beside the walk and sends its
+        // total when it is done; until then the bar is indeterminate.
+        let counting = sender.clone();
+        let walks = &walks;
+        let counted = scope.spawn(move || {
+            let total = count_files(counter, watch);
+            walks.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let _ = counting.send(ScanMessage::Total(total));
+        });
+        // What the walk waits for rather than what loading cost: the load overlaps the
+        // collector and the count, so only the part nobody hid is time the scan lost.
+        let cache_wait = Instant::now();
+        cache = cache_loading.and_then(|loading| loading.join().ok());
+        cache_load = cache_wait.elapsed().as_millis();
         let cached = cache.as_ref();
         let reads = &reads;
         walker.run(|| {
@@ -2347,8 +2349,9 @@ pub(crate) fn scan_with(
                 WalkState::Continue
             })
         });
-        walks += 1;
+        walks.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         drop(sender);
+        let _ = counted.join();
         handle.join()
     });
 
@@ -2357,7 +2360,7 @@ pub(crate) fn scan_with(
     }
 
     let mut outcome = collector.map_err(|_| anyhow::anyhow!("the collector thread panicked"))?;
-    outcome.stats.walks = walks;
+    outcome.stats.walks = walks.into_inner();
     outcome.stats.files_read = reads.total();
     if let Some(cache) = cache {
         outcome.stats.cache_hits = cache.hit_count();
@@ -2492,6 +2495,27 @@ mod tests {
         assert_eq!(stats.cache_hits, 0);
         assert_eq!(stats.files_read, files);
         assert_eq!(stats.walks, 2);
+    }
+
+    #[test]
+    fn the_count_reaches_the_progress_without_the_walk_waiting_for_it() {
+        let project = Project::copied_from_fixtures();
+        let (updates, drained) = mpsc::sync_channel(1000);
+
+        let outcome = scan_with(
+            &project.root,
+            &project.settings,
+            Some(Watch::new(updates)),
+            CachePolicy::Forced,
+        )
+        .unwrap();
+
+        let last = drained
+            .try_iter()
+            .last()
+            .expect("the scan reported progress");
+        assert_eq!(last.total, Some(outcome.files_scanned));
+        assert_eq!(outcome.stats.walks, 2, "the walk and the count beside it");
     }
 
     #[test]

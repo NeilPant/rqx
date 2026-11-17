@@ -112,6 +112,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   smaller one, a pipe, CI or `--no-tui` still gets the plain scan. `--no-mouse` is
   still accepted and does nothing.
 
+### Changed
+
+- **A scan starts reading files straight away.** Counting the files for the progress
+  bar used to finish before the first file was opened. It now runs beside the scan, so
+  the bar shows no percentage until the count arrives and the scan no longer waits for
+  it.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
