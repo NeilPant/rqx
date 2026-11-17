@@ -63,7 +63,7 @@ use report::{FindingFilter, Layout, Report, Reporter};
 pub struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
-    /// Print the report instead of opening the interactive interface
+    /// Never open the interactive interface; bare `rqx` prints the report instead
     #[arg(long, global = true)]
     no_tui: bool,
     /// Leave the mouse to the terminal. Capture takes drag-select away from it, and
@@ -161,14 +161,15 @@ fn grouped_help(command: &clap::Command) -> String {
     }
     out.push_str(
         "\
-Run on its own, `rqx` opens the interface on the working directory and scans it.
+Run on its own in a terminal, `rqx` opens the interactive session on the working
+directory; anywhere else it scans the working directory, as `rqx scan` does.
 `scan` already reports import cycles, layer violations against a declared
 [architecture], dead code, duplication and churn; the commands under Look closer
 narrow that same scan to one question.
 
 Examples:
-  rqx                              the interface, on the working directory
-  rqx scan . --no-tui              print the whole report instead
+  rqx                              the session in a terminal, the scan elsewhere
+  rqx scan .                       print the whole report
   rqx scan . --fail-on error       report, and exit 1 if anything is an error
   rqx check --base main            review only what changed, and gate on it
   rqx explain unused-export        what one rule measures and how to fix it
@@ -188,7 +189,7 @@ enum Command {
     /// Analyze a project and report every finding
     #[command(visible_alias = "s")]
     #[command(
-        after_help = "Examples:\n  rqx scan .                          the interface, on a terminal\n  rqx scan . --no-tui                 the whole report as text\n  rqx scan . --rule empty-catch       open on one rule\n  rqx scan . --not-path 'test/**'     everything except the tests\n  rqx scan . --fixable                only what `rqx fix` can act on\n  rqx scan . --stats                  which rules fired, and how often"
+        after_help = "Examples:\n  rqx scan .                          the whole report\n  rqx scan . --rule empty-catch       only one rule\n  rqx scan . --not-path 'test/**'     everything except the tests\n  rqx scan . --fixable                only what `rqx fix` can act on\n  rqx scan . --stats                  which rules fired, and how often"
     )]
     Scan {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -1272,72 +1273,41 @@ fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
     })
 }
 
-/// Falls back to help rather than an error: the user asked for the interface and
-/// the reason they cannot have it is environmental, so the useful response is the
-/// thing the interface would have shown them anyway.
-fn decline_to_help(
-    reason: &tui::Decline,
-    root: &str,
-    settings: &RqxConfig,
-    source: Option<&str>,
-) -> Result<()> {
-    print!("{}", tui::static_header(root, settings, source));
-    println!("  interactive interface unavailable: {reason}\n");
-    parser().print_help()?;
-    println!();
-    Ok(())
-}
-
-/// Whether `rqx scan` should open the interface rather than print. Every flag that
-/// shapes the output is a caller saying they want the text; a pipe and CI are refused
-/// by the gate itself.
-fn interface_wanted(no_tui: bool, view: &View, gate: &Gate, watch: bool) -> bool {
-    let shaped = view.quiet
-        || view.stats
-        || view.timings
-        || view.format.is_some()
-        || !view.reporters.is_empty()
-        || view.show_passed
-        || gate.is_set();
-    !no_tui && !shaped && !watch && tui::gate().is_ok()
-}
-
-/// How the interface was asked for, so `rqx`, `rqx scan` and a declined launch all
-/// read the same flags rather than each reaching into `Cli` for a different subset.
+/// How the interface was asked for, so the launch reads the same flags rather than
+/// reaching into `Cli` for a different subset.
 #[derive(Copy, Clone)]
 struct Interface {
     motion: Motion,
     mouse: bool,
 }
 
-fn open_tui(
-    path: &Path,
-    config: Option<&Path>,
-    interface: Interface,
-    filters: tui::Filters,
-) -> Result<Exit> {
-    if !path.exists() {
-        bail!(
-            "`{}` does not exist. Give rqx a directory to open, or run `rqx` on its own \
-             to open the working directory.",
-            path.display()
-        );
-    }
-    let settings = config::resolve(path, config, None)?;
-    let source = settings.display_source();
-    let root = path.display().to_string();
+/// Opens the interface on the working directory. `None` means the terminal could not
+/// host it after all, and the caller prints the report instead.
+fn open_tui(interface: Interface) -> Result<Option<Exit>> {
+    let path = Path::new(".");
+    let settings = config::resolve(path, None, None)?;
     let options = tui::Launch {
         path,
         config: &settings,
         reduced_motion: matches!(interface.motion, Motion::Off),
         mouse: interface.mouse,
-        filters,
+        filters: tui::Filters::default(),
     };
-    match tui::gate().and_then(|()| tui::launch(options)) {
-        Err(reason) => decline_to_help(&reason, &root, &settings.config, source.as_deref())
-            .map(|()| Exit::Clean),
-        Ok(()) => Ok(Exit::Clean),
+    match tui::launch(options) {
+        Ok(()) => Ok(Some(Exit::Clean)),
+        Err(reason) => {
+            eprintln!("  interactive interface unavailable: {reason}");
+            Ok(None)
+        }
     }
+}
+
+/// What bare `rqx` runs when it does not open the interface: exactly `rqx scan`,
+/// parsed the way a typed one is so the defaults that come from the environment, such
+/// as `RQX_LEVEL` and `RQX_THREADS`, apply to it as well.
+fn bare_scan() -> Result<Command> {
+    let matches = parser().get_matches_from(["rqx", "scan"]);
+    Ok(Command::from_arg_matches(&matches)?)
 }
 
 fn write_template(root: &Path, force: bool) -> Result<()> {
@@ -1413,18 +1383,20 @@ fn run() -> Result<Exit> {
         mouse: !cli.no_mouse,
     };
 
-    let Some(command) = cli.command else {
-        return if cli.no_tui {
-            decline_to_help(
-                &tui::Decline::NotATerminal,
-                ".",
-                &RqxConfig::default(),
-                None,
-            )
-            .map(|()| Exit::Clean)
-        } else {
-            open_tui(Path::new("."), None, interface, tui::Filters::default())
-        };
+    let command = match cli.command {
+        Some(command) => command,
+        None => {
+            // The gate says no for a pipe, CI and a window too small to draw in, and
+            // for all of them the answer is the report, so a pipeline running `rqx`
+            // gets the scan's exit code rather than a help page that exits 0.
+            if !cli.no_tui
+                && tui::gate().is_ok()
+                && let Some(exit) = open_tui(interface)?
+            {
+                return Ok(exit);
+            }
+            bare_scan()?
+        }
     };
 
     match command {
@@ -1470,22 +1442,6 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             gate.apply(&mut settings.config);
-
-            // A scan in a terminal opens the interface: the report is thousands of
-            // lines and the interface is the same answer with somewhere to stand in
-            // it. Anything that shapes the output means the caller wants the text.
-            if interface_wanted(cli.no_tui, &view, &gate, watch) {
-                return open_tui(
-                    &path,
-                    config.as_deref(),
-                    interface,
-                    tui::Filters {
-                        rules: view.rules.join(","),
-                        families: view.categories.join(","),
-                        paths: view.paths.join(","),
-                    },
-                );
-            }
 
             let sinks = sinks(&view)?;
             let filter = filter_of(&view, &path)?;

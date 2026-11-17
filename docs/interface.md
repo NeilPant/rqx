@@ -1,19 +1,20 @@
 # The interface
 
-`rqx` with no arguments, or `rqx scan .`, opens a full-screen interface. There is
-no second surface: what the interface shows is what the command line prints, read
-from the same scan by the same functions.
+`rqx` with no arguments opens a full-screen interface. `rqx scan` and every other
+subcommand print their report and never open it. There is no second surface: what
+the interface shows is what the command line prints, read from the same scan by the
+same functions.
 
 ## When it opens, and when it does not
 
-It opens when every one of these holds: stdout is a terminal, `TERM` is set and is
-not `dumb`, `CI` is unset, the window is at least 60x20, `--no-tui` was not given,
-and no flag that shapes the output was — `-q`, `--stats`, `--timings`, `--reporter`,
-`--watch`, or any gate flag. Otherwise the plain report is printed,
-unchanged.
+Bare `rqx` opens it when every one of these holds: stdout is a terminal, `TERM` is set
+and is not `dumb`, no pipeline variable such as `CI` is set, the window is at least
+60x20, and `--no-tui` was not given. Otherwise it runs `rqx scan` on the working
+directory and exits with that scan's exit code, so a pipeline that runs `rqx` gets
+the report and a failing exit when the project cannot be scanned.
 
-A filter given on the command line opens the interface already filtered, so
-`rqx scan . --rule empty-catch` lands on those findings rather than on all of them.
+Every flag that shapes a report, such as `--rule`, `--severity`, `--search` or
+`--group-by`, belongs to `rqx scan`, which prints it.
 
 `rqx check` never goes interactive. It exists for its exit code.
 

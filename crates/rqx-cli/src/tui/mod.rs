@@ -19,7 +19,6 @@ use crossterm::event::{
 use crossterm::execute;
 use ratatui::layout::Rect;
 use ratatui::{DefaultTerminal, Frame};
-use rqx_core::config::RqxConfig;
 
 use crate::brand::Palette;
 use crate::check;
@@ -85,48 +84,6 @@ pub fn gate() -> Result<(), Decline> {
         return Err(Decline::TooSmall { width, height });
     }
     Ok(())
-}
-
-/// The header as plain glyphs, for the path that could not have a terminal. It
-/// carries the same facts the interface would have opened with.
-pub fn static_header(root: &str, config: &RqxConfig, config_file: Option<&str>) -> String {
-    let sprite = Sprite::parse(MASCOT);
-    let rows = sprite.render_frame(
-        Palette::with_depth(crate::brand::ColorDepth::Monochrome),
-        0,
-        crate::brand::Ink::Accent,
-        usize::MAX,
-    );
-    let enabled = rqx_core::rule::RuleId::ALL
-        .iter()
-        .filter(|rule| config.rules.enabled(**rule))
-        .count();
-    let beside = [
-        format!("rqx {}", env!("CARGO_PKG_VERSION")),
-        format!(
-            "{enabled}/{} rules \u{b7} {}",
-            rqx_core::rule::RuleId::ALL.len(),
-            config_file.unwrap_or("defaults")
-        ),
-        root.to_owned(),
-    ];
-
-    // Padded rather than sized to the art, so a taller mascot does not silently lose
-    // its bottom rows to a shorter `zip`.
-    let beside = beside.into_iter().chain(std::iter::repeat(String::new()));
-    let mut out = String::from("\n");
-    for (line, text) in rows.iter().zip(beside) {
-        out.push_str("  ");
-        for span in &line.spans {
-            out.push_str(span.content.as_ref());
-        }
-        if !text.is_empty() {
-            out.push_str("   ");
-            out.push_str(&text);
-        }
-        out.push('\n');
-    }
-    out
 }
 
 /// What a worker was asked for. A review is a scan of the whole project that reports

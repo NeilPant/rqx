@@ -10,6 +10,19 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Changed
+
+- **`rqx scan` always prints the report.** In a terminal it used to open the
+  interactive interface, which silently dropped `--severity`, `--not-*`,
+  `--confidence`, `--fixable`, `--search`, `--since`, `--changed`, `--group-by`,
+  `--sort`, `--top`, `--detail` and `--context`. They now apply there as they do
+  everywhere else. `--no-tui`, `--no-mouse` and `--motion` are still accepted.
+- **Behaviour change: bare `rqx` outside a terminal scans the working directory and
+  exits with the scan's code.** It used to print help and exit 0, which made a
+  misconfigured CI job look green. Piped, redirected, under CI, on a dumb terminal or
+  with `--no-tui`, `rqx` now means `rqx scan`, including the defaults `RQX_LEVEL` and
+  `RQX_THREADS` set. In a terminal it still opens the interface.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**

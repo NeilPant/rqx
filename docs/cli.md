@@ -8,7 +8,7 @@ Finds dead weight in TypeScript, Python, Go, Java and C++ and says why it matter
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -26,7 +26,7 @@ Record the findings this project already has, so a gate can judge only what a ch
 | `--force` | Record a larger set than the last one held |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -38,7 +38,7 @@ Show what the analysis cache holds, or throw it away
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -83,7 +83,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -107,7 +107,7 @@ Post the review onto the merge request it is reviewing, and grade the commit
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -120,7 +120,7 @@ Print a shell completion script
 | Flag | What it does |
 | --- | --- |
 | `<shell>` | bash, zsh, fish, elvish or powershell |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -140,7 +140,7 @@ What the analyser measured, as a distribution rather than only its tail
 | `--json` | Emit one JSON object per row |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -154,7 +154,7 @@ Print the settings a run will use, and the file each one came from
 | --- | --- |
 | `--level` | relaxed, standard, strict or pristine |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -166,7 +166,7 @@ Print a rule's or a pattern's taxonomy entry: what it maps to, what decides it, 
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -186,7 +186,7 @@ Apply the fixes a finding decides on its own, proving each one before it is writ
 | `--markdown` | With --plan, emit markdown a person can paste rather than a report to read |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -204,7 +204,7 @@ Print the import graph — as text, Graphviz, Mermaid or data
 | `--depth` | How far from `--focus` to follow |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -220,7 +220,7 @@ Where the health score comes from, and what removing each part would buy
 | `--json` | Emit one JSON object per bucket |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -238,7 +238,7 @@ Write a commented RQX.toml with every setting at its default
 | Flag | What it does |
 | --- | --- |
 | `--force` | Replace an RQX.toml that is already there |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -250,7 +250,7 @@ Print what each cleanliness level changes, as the settings it would take to writ
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -263,7 +263,7 @@ Run as a Language Server over stdio, for editor integration
 | Flag | What it does |
 | --- | --- |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -277,7 +277,7 @@ Run as an MCP server, so an AI agent can ask what a project's problems are
 | --- | --- |
 | `--http` | Serve Streamable HTTP on this address instead of speaking over stdio |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -294,7 +294,7 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--json` | Emit one JSON object per advisory instead of the reader's report |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -314,7 +314,7 @@ Where the work grows faster than the data, ranked by reach
 | `--json` | Emit one JSON object per row |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -333,7 +333,7 @@ Rank the work by what it buys against what it costs, and say what the health sco
 | `--json` | Emit one JSON object per item instead of the reader's plan |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -349,7 +349,7 @@ Run a tree-sitter query over a project, to try one out before writing it into a 
 | `<query>` | The query, in tree-sitter's s-expression syntax |
 | `--captures` | Show every capture of every match, not just where it starts |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -365,7 +365,7 @@ What to do about this project, as distinct from what is wrong with it
 | `--only` | Just one section |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -380,7 +380,7 @@ List every rule Rqx can report, grouped by family
 | `<category>` | Show only one family |
 | `--language` | Show only the rules that apply to one language |
 | `--slugs` | One slug per line and nothing else, for a script or a shell completion |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -428,7 +428,7 @@ Analyze a project and report every finding
 | `--watch` | Scan again whenever a file changes, until interrupted |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -442,7 +442,7 @@ Print the configuration one editor needs to talk to rqx, or list them all
 | --- | --- |
 | `<editor>` | Which editor. Omit to list every one rqx knows |
 | `--write` | Append it to the editor's config, after showing what will be added |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -458,7 +458,7 @@ Which files read as written rather than read
 | `--min` | Skip anything scoring below this |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -475,7 +475,7 @@ List every finding a comment in the source waives, with the reason given
 | `--json` | Emit one JSON object per waiver instead of the reader's report |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -487,7 +487,7 @@ List every refactoring Rqx prescribes, and which rules ask for it
 
 | Flag | What it does |
 | --- | --- |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -501,7 +501,7 @@ Install the newest release, or say what it would change
 | --- | --- |
 | `--check` | Report whether a newer release exists and stop |
 | `--notes` | Print the release notes for the newest release |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
@@ -519,7 +519,7 @@ Compare the working tree against a base revision and say what happened to each f
 | `--json` | Emit one JSON object per change instead of the reader's report |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `RQX.toml` found |
-| `--no-tui` | Print the report instead of opening the interactive interface |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |

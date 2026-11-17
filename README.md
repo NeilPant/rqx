@@ -798,9 +798,10 @@ a public address without `RQX_MCP_TOKEN` rather than exposing the source to a ne
 
 ## The interface
 
-`rqx`, or `rqx scan .`, opens a full-screen interface when it has a terminal to
-open it in. Piped, redirected, given `--reporter json`, given a gate flag, or run
-under CI, it prints the report instead — `--no-tui` says so explicitly.
+`rqx` on its own opens a full-screen interface when it has a terminal to open it in.
+Piped, redirected, run under CI or given `--no-tui`, it scans the working directory
+instead, exactly as `rqx scan` would. `rqx scan` and every other subcommand always
+print their report.
 
 **It starts scanning before it draws the first frame**, so the project is on
 screen without a keypress. While it runs, the scan screen names the phase it is

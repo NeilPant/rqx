@@ -419,6 +419,85 @@ fn a_pipeline_never_gets_the_interface() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// Runs rqx the way a shell does: no path argument, inside the project.
+fn rqx_in(root: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(args)
+        .current_dir(root)
+        .output()
+        .expect("failed to run rqx")
+}
+
+/// The report minus its wall-clock line, which is the one part two runs of the same
+/// scan are allowed to disagree on.
+fn without_duration(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("Duration"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Bare `rqx` used to print help and exit 0 whenever it could not open the interface,
+/// which made a CI job with a broken setup look green. It now runs the scan.
+#[test]
+fn bare_rqx_without_a_terminal_is_the_scan() {
+    let root = project("bare", &[("a.ts", DIRTY)]);
+    let bare = rqx_in(&root, &[]);
+    let scan = rqx_in(&root, &["scan", "."]);
+    let report = without_duration(&bare);
+    assert!(
+        report.contains("Findings"),
+        "no report was printed:\n{report}"
+    );
+    assert_eq!(report, without_duration(&scan));
+    assert_eq!(code(&bare), code(&scan));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn bare_rqx_that_cannot_run_exits_two() {
+    let root = project(
+        "bare-broken",
+        &[("RQX.toml", "[rules]\ncategories = [\"nope\"]\n")],
+    );
+    assert_eq!(code(&rqx_in(&root, &[])), 2);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The flags that used to steer between the interface and the report stay accepted,
+/// so a script that passed them keeps working.
+#[test]
+fn the_interface_flags_are_still_accepted_by_scan() {
+    let root = project("old-flags", &[("a.ts", DIRTY)]);
+    let output = rqx(
+        &root,
+        &["scan", "--no-tui", "--no-mouse", "--motion", "off"],
+    );
+    assert_eq!(code(&output), 0);
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Findings"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// `--rule` used to choose which findings the interface opened on, and the report
+/// ignored it on a terminal. It narrows the report itself now.
+#[test]
+fn scan_rule_narrows_the_report() {
+    let root = project("rule-filter", &[("a.ts", DIRTY)]);
+    let everything = String::from_utf8_lossy(&rqx(&root, &["scan"]).stdout).into_owned();
+    assert!(everything.contains("\u{25cf} unused-file"));
+
+    let narrowed =
+        String::from_utf8_lossy(&rqx(&root, &["scan", "--rule", "unreachable-code"]).stdout)
+            .into_owned();
+    assert!(narrowed.contains("\u{25cf} unreachable-code"));
+    assert!(
+        !narrowed.contains("\u{25cf} unused-file"),
+        "the filter did not apply:\n{narrowed}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// `CI` set is the other half: a build machine can have a terminal attached and must
 /// still get the report rather than a screen it cannot answer.
 #[test]
