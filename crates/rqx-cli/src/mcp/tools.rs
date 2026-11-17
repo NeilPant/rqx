@@ -411,9 +411,10 @@ impl Rqx {
         description = "Where the work grows faster than the data it runs on: every \
                        function carrying a performance finding, ranked by what it costs \
                        against how much of the project depends on it, with the loop \
-                       order, the round trips inside its loops and the named fix. When \
-                       the project points at a CPU profile, how much of the run each one \
-                       was on the stack for.",
+                       order, the time and space the cost analysis composed across calls \
+                       and how sure it is of them, the round trips inside its loops and \
+                       the named fix. When the project points at a CPU profile, how much \
+                       of the run each one was on the stack for.",
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -443,10 +444,12 @@ impl Rqx {
             .take(limit)
             .map(|row| {
                 format!(
-                    "- {} ({}) {} \u{b7} {} inside a loop \u{b7} {}",
+                    "- {} ({}) {} \u{b7} time {} ({}) \u{b7} {} inside a loop \u{b7} {}",
                     row.name,
                     row.at,
                     crate::perf::order(row.loops, row.self_calls),
+                    row.measure.time,
+                    row.measure.conf.slug(),
                     row.io,
                     row.findings
                         .iter()

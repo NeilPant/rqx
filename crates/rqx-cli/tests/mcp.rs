@@ -637,6 +637,21 @@ fn the_analysers_answer_over_mcp_as_well_as_on_the_command_line() {
     assert!(graph["edges"].as_array().is_some(), "{graph}");
     assert!(graph["cycles"].as_array().is_some(), "{graph}");
 
+    let perf = session.structured("perf", json!({}));
+    let rows = perf["functions"].as_array().expect("functions");
+    assert!(!rows.is_empty(), "{perf}");
+    for row in rows {
+        assert!(
+            row["order"].is_string() && row["loops"].is_number(),
+            "{row}"
+        );
+        for field in ["time", "space", "io_order", "confidence"] {
+            assert!(row[field].is_string(), "{field} missing from {row}");
+        }
+        assert!(row["alloc"].is_number(), "{row}");
+        assert!(row["cost"]["trace"].is_array(), "{row}");
+    }
+
     // Recommend is allowed to have nothing to say; it is not allowed to fail.
     let recommend = session.structured("recommend", json!({}));
     assert!(
