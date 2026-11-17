@@ -285,7 +285,10 @@ pub fn blame_files(root: &Path, files: &[Arc<str>]) -> Vec<HashMap<u32, (String,
     at_once(files, |file| blame_file(root, file))
 }
 
-fn at_once<T: Send>(files: &[Arc<str>], blame: impl Fn(&str) -> T + Sync) -> Vec<T> {
+/// One answer per file, in the order the files came. A blame that panicked answers
+/// with an empty `T`: its callers pair the answers back up with the files, and a
+/// missing one would shift every later file onto the wrong dates.
+fn at_once<T: Send + Default>(files: &[Arc<str>], blame: impl Fn(&str) -> T + Sync) -> Vec<T> {
     /// More processes than this and git's own start-up cost dominates; fewer and
     /// the wait is not covered.
     const AT_ONCE: usize = 8;
@@ -301,9 +304,7 @@ fn at_once<T: Send>(files: &[Arc<str>], blame: impl Fn(&str) -> T + Sync) -> Vec
                 })
                 .collect();
             for handle in running {
-                if let Ok(answer) = handle.join() {
-                    answers.push(answer);
-                }
+                answers.push(handle.join().unwrap_or_default());
             }
         });
     }
@@ -438,6 +439,26 @@ pub fn uncommitted(root: &Path) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_blame_that_panicked_keeps_its_place() {
+        let files: Vec<Arc<str>> = (0..20).map(|n| Arc::from(n.to_string())).collect();
+
+        let answers = at_once(&files, |file| {
+            assert_ne!(file, "3", "git blame blew up");
+            vec![file.to_owned()]
+        });
+
+        assert_eq!(answers.len(), files.len());
+        for (file, answer) in files.iter().zip(&answers) {
+            let expected = if &**file == "3" {
+                vec![]
+            } else {
+                vec![file.to_string()]
+            };
+            assert_eq!(answer, &expected);
+        }
+    }
 
     #[test]
     fn a_directory_with_no_repository_yields_no_churn() {

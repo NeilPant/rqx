@@ -45,6 +45,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   only that file, so the next run analysed everything else again, and the run after
   paid the same price for the next edit. The cache now keeps every file the run saw,
   hit or miss, and a run that hit every file no longer rewrites it.
+- **A blame that crashed no longer shifts the dates of every file after it.** The
+  answers were collected without the crashed one, so the files after it picked up the
+  neighbouring file's blame: `TODO` ages and waiver ages could land on the wrong
+  file. A file whose blame failed now reports no dates and the rest stay in place.
 
 ## 0.1.1 — 2026-09-06
 
