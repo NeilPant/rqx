@@ -272,6 +272,7 @@ check --progress =none
 check --progress =plain
 check --progress [env RQX_PROGRESS]
 check --quiet
+check --record
 check --reporter
 check --rule
 check --sarif-in
@@ -1401,6 +1402,7 @@ scan --progress =none
 scan --progress =plain
 scan --progress [env RQX_PROGRESS]
 scan --quiet
+scan --record
 scan --reporter
 scan --rule
 scan --sarif-in

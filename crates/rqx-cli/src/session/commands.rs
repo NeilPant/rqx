@@ -295,6 +295,13 @@ fn refuse_reporter(given: bool) -> Result<()> {
     Ok(())
 }
 
+fn refuse_recording(trending: &crate::trend::Options) -> Result<()> {
+    if trending.is_set() {
+        bail!("`--record` writes a file; run it from a shell");
+    }
+    Ok(())
+}
+
 fn refuse_scan_changes(evidence: &Evidence, cap: &DisplayCap) -> Result<()> {
     if evidence.is_empty() && !cap.is_set() {
         return Ok(());
@@ -333,10 +340,12 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             evidence,
             cap,
             watch,
+            trending,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
             refuse_scan_changes(&evidence, &cap)?;
+            refuse_recording(&trending)?;
             if watch {
                 bail!("use /watch on");
             }
@@ -650,6 +659,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             gate,
             evidence,
             cap,
+            trending,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
@@ -657,6 +667,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             if staged {
                 bail!("`--staged` reads the index; run `rqx check --staged` from a shell");
             }
+            refuse_recording(&trending)?;
             if fix {
                 bail!("`--fix` writes files; run `rqx check --fix` from a shell, or /fix");
             }

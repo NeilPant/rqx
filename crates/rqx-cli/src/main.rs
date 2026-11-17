@@ -52,6 +52,7 @@ mod slop;
 mod staged;
 mod stats;
 mod term;
+mod trend;
 mod unified_diff;
 mod update;
 mod verify;
@@ -286,6 +287,8 @@ enum Command {
         /// Rescan whenever a file changes, until interrupted
         #[arg(long)]
         watch: bool,
+        #[command(flatten)]
+        trending: trend::Options,
         #[command(flatten)]
         run: Run,
     },
@@ -722,6 +725,8 @@ enum Command {
         evidence: Evidence,
         #[command(flatten)]
         cap: DisplayCap,
+        #[command(flatten)]
+        trending: trend::Options,
         #[command(flatten)]
         run: Run,
     },
@@ -1845,6 +1850,7 @@ fn run() -> Result<Exit> {
             evidence,
             cap,
             watch,
+            trending,
             run,
         } => {
             if !path.exists() {
@@ -1868,6 +1874,7 @@ fn run() -> Result<Exit> {
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
                 let outcome = scan::scan_drawn(&path, settings, progress)?;
+                trending.apply(&outcome)?;
 
                 // A bare `rqx scan` reports; it only gates when asked to, so adding a
                 // flag is the whole opt-in and no existing pipeline changes meaning.
@@ -2553,6 +2560,7 @@ fn run() -> Result<Exit> {
             gate,
             evidence,
             cap,
+            trending,
             run,
         } => {
             if !path.exists() {
@@ -2610,6 +2618,7 @@ fn run() -> Result<Exit> {
                     review = check::review_drawn(scan_root, &settings, source, progress)?;
                 }
             }
+            trending.apply(&review.outcome)?;
             let verdict = review.judge(&settings.config);
             let report = Report::review(&review, &verdict, &filter);
             emit(&report, &sinks, &view, palette)?;
