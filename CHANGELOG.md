@@ -135,6 +135,12 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   `scan.skip_generated` now counts as a setting for the cache, so changing it
   rebuilds the cache.
 
+- **Blame no longer runs when `stale-todo` is off, and it does not wait in batches.**
+  `git blame` costs a process per file with a note in it; a project that has switched
+  `stale-todo` off was paying for it and discarding the answer. When it is on, the
+  blames now run eight at a time as each one finishes, instead of in groups of eight
+  where one slow file held the other seven.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**

@@ -1197,51 +1197,7 @@ impl Collector {
             self.impact.set_commits(Arc::from(relative), commits);
         }
 
-        // One blame per file, and only for the files that hold a note: the per-line
-        // form costs a process each, and a repository with a thousand notes would
-        // spend the whole scan in git.
-        const MOST_FILES_WORTH_BLAMING: usize = 200;
-        let today = rqx_core::suppress::today();
-        let mut noted: Vec<(Arc<str>, Vec<rqx_core::facts::Spot>)> =
-            std::mem::take(&mut self.todos).into_iter().collect();
-        noted.sort_by(|left, right| left.0.cmp(&right.0));
-        noted.truncate(MOST_FILES_WORTH_BLAMING);
-        let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
-        let blamed = crate::history::blame_dates_for(&self.root, &names);
-        self.stats.blames += names.len() as u32;
-        self.stats.git_processes += names.len() as u32;
-        for ((file, spots), dates) in noted.into_iter().zip(blamed) {
-            if dates.is_empty() {
-                continue;
-            }
-            let path = self.root.join(file.as_ref());
-            for spot in spots {
-                let Some(range) = at.range(&path, spot.span) else {
-                    continue;
-                };
-                let Some(written) = dates.get(&range.line) else {
-                    continue;
-                };
-                let age = rqx_core::suppress::days_between(written, &today);
-                if age < i64::from(config.thresholds.todo_age_days) {
-                    continue;
-                }
-                self.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::StaleTodo,
-                        range,
-                        Evidence::Breadth {
-                            counted: format!("days since this {} was written", spot.detail),
-                            found: age.unsigned_abs() as u32,
-                            limit: config.thresholds.todo_age_days,
-                        },
-                        "do it, ticket it, or delete it".to_owned(),
-                        Vec::new(),
-                    ),
-                );
-            }
-        }
+        self.finish_stale_todos(config, at);
 
         // Collected first: accepting a finding borrows the collector, and the counts
         // it reads live on it.
@@ -1311,6 +1267,59 @@ impl Collector {
     /// Two files that almost always change together are one decision split across
     /// two places, which is what Shotgun Surgery describes. It needs history, so it
     /// runs last and stays silent outside a repository.
+    /// Blame is a process per file, so it runs only when its answer can become a
+    /// finding: a project that switched `stale-todo` off pays nothing for it.
+    fn finish_stale_todos(&mut self, config: &RqxConfig, at: &mut Positions) {
+        if !config.rules.enabled(RuleId::StaleTodo) {
+            return;
+        }
+        // One blame per file, and only for the files that hold a note: the per-line
+        // form costs a process each, and a repository with a thousand notes would
+        // spend the whole scan in git.
+        const MOST_FILES_WORTH_BLAMING: usize = 200;
+        let today = rqx_core::suppress::today();
+        let mut noted: Vec<(Arc<str>, Vec<rqx_core::facts::Spot>)> =
+            std::mem::take(&mut self.todos).into_iter().collect();
+        noted.sort_by(|left, right| left.0.cmp(&right.0));
+        noted.truncate(MOST_FILES_WORTH_BLAMING);
+        let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
+        let blamed = crate::history::blame_dates_for(&self.root, &names);
+        self.stats.blames += names.len() as u32;
+        self.stats.git_processes += names.len() as u32;
+        for ((file, spots), dates) in noted.into_iter().zip(blamed) {
+            if dates.is_empty() {
+                continue;
+            }
+            let path = self.root.join(file.as_ref());
+            for spot in spots {
+                let Some(range) = at.range(&path, spot.span) else {
+                    continue;
+                };
+                let Some(written) = dates.get(&range.line) else {
+                    continue;
+                };
+                let age = rqx_core::suppress::days_between(written, &today);
+                if age < i64::from(config.thresholds.todo_age_days) {
+                    continue;
+                }
+                self.accept_if_enabled(
+                    config,
+                    build(
+                        RuleId::StaleTodo,
+                        range,
+                        Evidence::Breadth {
+                            counted: format!("days since this {} was written", spot.detail),
+                            found: age.unsigned_abs() as u32,
+                            limit: config.thresholds.todo_age_days,
+                        },
+                        "do it, ticket it, or delete it".to_owned(),
+                        Vec::new(),
+                    ),
+                );
+            }
+        }
+    }
+
     fn finish_cochange(
         &mut self,
         root: &Path,
@@ -2608,6 +2617,20 @@ mod tests {
 
         assert_eq!(project.cached_entries(), analysed);
         assert!(project.next_run_hits_every_file());
+    }
+
+    #[test]
+    fn blame_runs_only_when_stale_todo_can_report() {
+        let project = Project::copied_from_fixtures();
+        let blamed = project.scan().stats.blames;
+        assert!(blamed > 0, "the fixtures hold a note, so a blame is wanted");
+
+        let mut config = rqx_core::config::RqxConfig::default();
+        config.rules.disabled.insert("stale-todo".to_owned());
+        let settings = Resolved::of(config);
+        let skipped = scan_with(&project.root, &settings, None, CachePolicy::Off).unwrap();
+
+        assert_eq!(skipped.stats.blames, 0);
     }
 
     #[test]
