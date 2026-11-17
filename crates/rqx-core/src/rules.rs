@@ -462,6 +462,20 @@ fn cost_site_wording(site: &CostSite) -> Option<(Evidence, &'static str)> {
             },
             "declare it with the primitive type",
         ),
+        RuleId::CopyInRangeFor => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is copied from the element on every pass of the loop".to_owned(),
+            },
+            "declare the variable as a const reference",
+        ),
+        RuleId::LargeByValue => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "is copied for every call and only read".to_owned(),
+            },
+            "take it as a const reference, or take it by value and std::move it if the function keeps it",
+        ),
         RuleId::UnboundedConcurrency => (
             Evidence::Name {
                 identifier: site.subject.clone(),

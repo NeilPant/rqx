@@ -38,6 +38,7 @@ pub struct Shared<'f> {
 
 mod allocation;
 mod concurrency;
+mod copies;
 mod sites;
 mod statements;
 
@@ -148,6 +149,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
     let body = names.function_body(function);
     let parts = body.map_or_else(Parts::default, |body| visitor.visit(body));
     visitor.settle_concurrency(function);
+    visitor.note_large_parameters(function, body);
     let cost = visitor.finish(function, body, parts);
     Built {
         cost,
@@ -332,6 +334,7 @@ impl<'a> Visitor<'a, '_> {
     // -- loops ---------------------------------------------------------------------
 
     fn looping(&mut self, node: Node<'a>) -> Parts {
+        self.note_range_for_copy(node, kind_of(node));
         let bound = self.bounds().of_loop(node).unwrap_or(Bound::Unknown);
         self.note_bound(bound);
         self.bind_loop_variables(node);

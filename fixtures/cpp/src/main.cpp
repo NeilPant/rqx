@@ -23,6 +23,8 @@
 #include "structures.hpp"
 #include "shapes.hpp"
 #include "performance.hpp"
+#include "cost_large_by_value.hpp"
+#include "cost_copy_in_range_for.hpp"
 #include "cost_unbounded_cache.hpp"
 #include "cost_unbounded_concurrency.hpp"
 #include "cost_lock_in_loop.hpp"
@@ -110,5 +112,12 @@ int main() {
     load_few_pages(pages, {});
     remember_page("", 0);
     remember_recent_page("", 0);
+    total_length_by_copy({});
+    total_length_by_reference({});
+    total_length_of_edited({});
+    count_characters({});
+    count_characters_by_reference({});
+    shouted("");
+    Collected({}).size();
     return 0;
 }

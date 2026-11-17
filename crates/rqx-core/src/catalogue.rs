@@ -2415,6 +2415,44 @@ catalogue! {
             (Cpp, "numeric values are stored directly; nothing is boxed"),
         ],
     },
+    CopyInRangeFor {
+        slug: "copy-in-range-for",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a range-for variable declared by value with a string or container type, \
+                 that the loop body does not change",
+        fixes: [TakeByReference],
+        confidence: Verified,
+        severity: Warning,
+        why: "each pass copies the element into the variable, allocating and copying its \
+              contents, when a reference to it would read the same value",
+        not_applicable: [
+            (JavaScript, "the loop variable refers to the element; nothing is copied"),
+            (TypeScript, "the loop variable refers to the element; nothing is copied"),
+            (Python, "the loop variable is a name for the element; nothing is copied"),
+            (Go, "range always copies the element and offers no reference form to choose instead"),
+            (Java, "the loop variable refers to the element; nothing is copied"),
+        ],
+    },
+    LargeByValue {
+        slug: "large-by-value",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a string or container parameter taken by value that the function neither \
+                 changes nor passes on with std::move",
+        fixes: [TakeByReference],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every call copies the whole argument for a function that only reads it, and the \
+              cost grows with the size of what callers pass",
+        not_applicable: [
+            (JavaScript, "arguments are references to the value; nothing is copied"),
+            (TypeScript, "arguments are references to the value; nothing is copied"),
+            (Python, "arguments are references to the value; nothing is copied"),
+            (Go, "a slice, map or string argument copies only its small header"),
+            (Java, "arguments are references to the object; nothing is copied"),
+        ],
+    },
     UnboundedConcurrency {
         slug: "unbounded-concurrency",
         category: Performance,

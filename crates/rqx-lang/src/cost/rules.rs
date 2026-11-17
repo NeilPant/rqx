@@ -263,3 +263,33 @@ fn a_boxed_number_stepped_in_a_loop_is_reported_and_a_primitive_is_not() {
     let primitive = "class A {\n  int f(java.util.List<Integer> rows) {\n    int total = 0;\n    for (Integer row : rows) {\n      total += row;\n    }\n    return total;\n  }\n}\n";
     assert!(reported(Language::Java, primitive, &[RuleId::BoxingInLoop]).is_empty());
 }
+
+#[test]
+fn a_range_for_variable_copied_and_only_read_is_reported() {
+    let copied = "void f(const std::vector<std::string>& xs) {\n  for (std::string x : xs) {\n    use(x);\n  }\n}\n";
+    assert_eq!(
+        reported(Language::Cpp, copied, &[RuleId::CopyInRangeFor]),
+        [(RuleId::CopyInRangeFor, 2)]
+    );
+    let by_reference = "void f(const std::vector<std::string>& xs) {\n  for (const std::string& x : xs) {\n    use(x);\n  }\n}\n";
+    assert!(reported(Language::Cpp, by_reference, &[RuleId::CopyInRangeFor]).is_empty());
+    let edited = "void f(const std::vector<std::string>& xs) {\n  for (std::string x : xs) {\n    x += \"!\";\n  }\n}\n";
+    assert!(reported(Language::Cpp, edited, &[RuleId::CopyInRangeFor]).is_empty());
+    let cheap = "void f(const std::vector<int>& xs) {\n  for (int x : xs) {\n    use(x);\n  }\n}\n";
+    assert!(reported(Language::Cpp, cheap, &[RuleId::CopyInRangeFor]).is_empty());
+}
+
+#[test]
+fn a_container_parameter_taken_by_value_and_only_read_is_reported() {
+    let read = "std::size_t f(std::vector<int> xs) {\n  return xs.size();\n}\n";
+    assert_eq!(
+        reported(Language::Cpp, read, &[RuleId::LargeByValue]),
+        [(RuleId::LargeByValue, 1)]
+    );
+    let moved = "struct A {\n  A(std::vector<int> xs) : xs_(std::move(xs)) {}\n  std::vector<int> xs_;\n};\n";
+    assert!(reported(Language::Cpp, moved, &[RuleId::LargeByValue]).is_empty());
+    let changed = "std::string f(std::string s) {\n  s += \"!\";\n  return s;\n}\n";
+    assert!(reported(Language::Cpp, changed, &[RuleId::LargeByValue]).is_empty());
+    let by_reference = "std::size_t f(const std::vector<int>& xs) {\n  return xs.size();\n}\n";
+    assert!(reported(Language::Cpp, by_reference, &[RuleId::LargeByValue]).is_empty());
+}

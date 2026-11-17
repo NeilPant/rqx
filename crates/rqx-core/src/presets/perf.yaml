@@ -27,3 +27,5 @@ rules:
   unbounded-cache: { severity: error }
   defer-in-loop: { severity: error }
   boxing-in-loop: { severity: error }
+  copy-in-range-for: { severity: error }
+  large-by-value: { severity: error }

@@ -156,6 +156,7 @@ techniques! {
     BoundConcurrency { name: "Bound Concurrency", group: Performance },
     BoundTheCache { name: "Bound the Cache", group: Performance },
     UsePrimitiveType { name: "Use a Primitive Type", group: Performance },
+    TakeByReference { name: "Take by Reference", group: Performance },
 }
 
 impl fmt::Display for FixTechnique {

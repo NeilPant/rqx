@@ -445,11 +445,13 @@ mod language_tests {
     /// decision rather than an accident.
     #[test]
     fn typescript_runs_every_rule_but_the_ones_it_has_no_syntax_for() {
-        const NO_SYNTAX_FOR_IT: [&str; 4] = [
+        const NO_SYNTAX_FOR_IT: [&str; 6] = [
             "shadowed-handler",
             "missing-capacity",
             "defer-in-loop",
             "boxing-in-loop",
+            "copy-in-range-for",
+            "large-by-value",
         ];
         let exempt: Vec<&str> = RuleId::ALL
             .iter()

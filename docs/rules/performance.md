@@ -404,6 +404,60 @@ From `fixtures/java/src/main/java/rqx/CostBoxingInLoop.java`, line 9:
 
 Suggested fix: declare it with the primitive type
 
+## `copy-in-range-for`
+
+each pass copies the element into the variable, allocating and copying its contents, when a reference to it would read the same value
+
+| | |
+|---|---|
+| Measures | a range-for variable declared by value with a string or container type, that the loop body does not change |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Take by Reference |
+| Not in JavaScript | the loop variable refers to the element; nothing is copied |
+| Not in TypeScript | the loop variable refers to the element; nothing is copied |
+| Not in Python | the loop variable is a name for the element; nothing is copied |
+| Not in Go | range always copies the element and offers no reference form to choose instead |
+| Not in Java | the loop variable refers to the element; nothing is copied |
+
+From `fixtures/cpp/src/cost_copy_in_range_for.cpp`, line 5:
+
+```cpp
+  std::size_t total = 0;
+  for (std::string name : names) {
+    total += name.size();
+  }
+  return total;
+```
+
+Suggested fix: declare the variable as a const reference
+
+## `large-by-value`
+
+every call copies the whole argument for a function that only reads it, and the cost grows with the size of what callers pass
+
+| | |
+|---|---|
+| Measures | a string or container parameter taken by value that the function neither changes nor passes on with std::move |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Take by Reference |
+| Not in JavaScript | arguments are references to the value; nothing is copied |
+| Not in TypeScript | arguments are references to the value; nothing is copied |
+| Not in Python | arguments are references to the value; nothing is copied |
+| Not in Go | a slice, map or string argument copies only its small header |
+| Not in Java | arguments are references to the object; nothing is copied |
+
+From `fixtures/cpp/src/cost_large_by_value.cpp`, line 3:
+
+```cpp
+
+std::size_t count_characters(std::vector<std::string> lines) {
+  std::size_t total = 0;
+```
+
+Suggested fix: take it as a const reference, or take it by value and std::move it if the function keeps it
+
 ## `unbounded-concurrency`
 
 the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit
