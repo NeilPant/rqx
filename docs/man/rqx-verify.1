@@ -1,0 +1,71 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-verify 1  "verify " 
+.SH NAME
+rqx\-verify \- Compare the working tree against a base revision and say what happened to each finding: resolved, improved, relocated, or introduced
+.SH SYNOPSIS
+\fBrqx verify\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-expect\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+Compare the working tree against a base revision and say what happened to each finding: resolved, improved, relocated, or introduced
+.SH OPTIONS
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
+.TP
+\fB\-\-base\fR \fI<BASE>\fR [default: origin/HEAD]
+Revision to compare against
+.TP
+\fB\-\-expect\fR \fI<EXPECT>\fR
+Rules that must be resolved, as `rule` or `rule@file`. Repeatable
+.TP
+\fB\-\-json\fR
+Emit one JSON object per change instead of the reader\*(Aqs report
+.TP
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIPATH\fR] [default: .]
+

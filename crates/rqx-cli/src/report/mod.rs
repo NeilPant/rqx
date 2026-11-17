@@ -2,11 +2,13 @@ mod brief;
 mod catalogue;
 mod clients;
 mod docs;
+mod escape;
 mod filter;
 mod fixes;
 mod github;
 mod gitlab;
 mod graded;
+mod html;
 mod json;
 mod junit;
 mod markdown;
@@ -15,6 +17,7 @@ pub mod projection;
 mod ranked;
 mod sarif;
 mod settings;
+mod tally;
 mod terminal;
 mod waivers;
 
@@ -135,10 +138,11 @@ pub enum Reporter {
     Gitlab,
     Github,
     Markdown,
+    Html,
 }
 
 impl Reporter {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Terminal,
         Self::Json,
         Self::Sarif,
@@ -146,6 +150,7 @@ impl Reporter {
         Self::Gitlab,
         Self::Github,
         Self::Markdown,
+        Self::Html,
     ];
 
     /// Only the console report is written for a person to read; anything else is a
@@ -170,6 +175,7 @@ impl Reporter {
             Self::Gitlab => "gitlab",
             Self::Github => "github",
             Self::Markdown => "markdown",
+            Self::Html => "html",
         }
     }
 }
@@ -357,6 +363,7 @@ pub fn emit(
         Reporter::Gitlab => gitlab::render(report, out),
         Reporter::Github => github::render(report, out),
         Reporter::Markdown => markdown::render(report, out),
+        Reporter::Html => html::render(report, out),
     }
 }
 

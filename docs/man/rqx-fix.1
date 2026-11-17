@@ -1,0 +1,82 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-fix 1  "fix " 
+.SH NAME
+rqx\-fix \- Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
+.SH SYNOPSIS
+\fBrqx fix\fR [\fB\-\-level\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
+.SH OPTIONS
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
+.TP
+\fB\-w\fR, \fB\-\-write\fR
+Write the fixes. Without it nothing on disk changes
+.TP
+\fB\-\-max\-rounds\fR \fI<MAX_ROUNDS>\fR
+One fix can make the next one possible, so fixing repeats until a round finds nothing. Overrides `[fix] max_rounds`
+.TP
+\fB\-\-json\fR
+Emit one JSON object per fixed file instead of the reader\*(Aqs preview
+.TP
+\fB\-\-plan\fR
+Report the findings `fix` will not touch, with the span, the source, the metric and the named refactoring, for a person or an agent to act on
+.TP
+\fB\-\-markdown\fR
+With \-\-plan, emit markdown a person can paste rather than a report to read
+.TP
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIPATH\fR] [default: .]
+
+.SH EXTRA
+Examples:
+  rqx fix                             show what would change
+  rqx fix \-w                          write it
+  rqx fix \-\-plan                      the edits as a list, not a diff

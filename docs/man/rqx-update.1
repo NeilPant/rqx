@@ -1,0 +1,69 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-update 1  "update " 
+.SH NAME
+rqx\-update \- Install the newest release, or say what it would change
+.SH SYNOPSIS
+\fBrqx update\fR [\fB\-\-check\fR] [\fB\-\-notes\fR] [\fB\-\-version\fR] [\fB\-\-dry\-run\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Install the newest release, or say what it would change
+.SH OPTIONS
+.TP
+\fB\-\-check\fR
+Report whether a newer release exists and stop
+.TP
+\fB\-\-notes\fR
+Print the release notes for the newest release
+.TP
+\fB\-\-version\fR \fI<X.Y.Z>\fR
+Install this release, such as 0.2.1, instead of the newest
+.TP
+\fB\-\-dry\-run\fR
+Print the method, the URLs and the file that would be replaced, and change nothing
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH EXTRA
+Examples:
+  rqx update                          install the newest release
+  rqx update \-\-check                  say whether one exists, install nothing
+  rqx update \-\-notes                  read what changed
+  rqx update \-\-version 0.2.1          install that release, newer or older
+  rqx update \-\-dry\-run                show how and from where, change nothing

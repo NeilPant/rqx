@@ -1,0 +1,56 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-setup 1  "setup " 
+.SH NAME
+rqx\-setup \- Print the configuration one editor needs to talk to rqx, or list them all
+.SH SYNOPSIS
+\fBrqx setup\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIEDITOR\fR] 
+.SH DESCRIPTION
+Print the configuration one editor needs to talk to rqx, or list them all
+.SH OPTIONS
+.TP
+\fB\-w\fR, \fB\-\-write\fR
+Append it to the editor\*(Aqs config, after showing what will be added
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIEDITOR\fR]
+Which editor. Omit to list every one rqx knows

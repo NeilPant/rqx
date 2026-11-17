@@ -57,7 +57,7 @@ impl Ink {
         }
     }
 
-    const fn rgb(self) -> (u8, u8, u8) {
+    pub const fn rgb(self) -> (u8, u8, u8) {
         match self {
             Self::Accent => (0xC8, 0x9B, 0x6A),
             Self::Danger => (0xE4, 0x57, 0x4A),
@@ -342,7 +342,7 @@ pub fn paint(style: anstyle::Style, text: impl std::fmt::Display) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[test]
@@ -423,7 +423,7 @@ mod tests {
         assert!(border >= 3.0, "a border at {border:.2}:1 is invisible");
     }
 
-    fn contrast(one: (u8, u8, u8), other: (u8, u8, u8)) -> f64 {
+    pub(crate) fn contrast(one: (u8, u8, u8), other: (u8, u8, u8)) -> f64 {
         let lighter = luminance(one).max(luminance(other));
         let darker = luminance(one).min(luminance(other));
         (lighter + 0.05) / (darker + 0.05)

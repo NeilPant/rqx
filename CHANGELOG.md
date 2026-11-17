@@ -16,6 +16,18 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   release instead of the newest, which also lets you step back to an older one.
   `--dry-run` prints how the update would be done, the download URLs and the file it
   would replace, and changes nothing.
+- **Man pages.** `man rqx` and one page per command, such as `man rqx-scan`, are
+  generated from the same parser as `docs/cli.md` and checked in under `docs/man`.
+  Release archives carry them in a `man/` directory beside the binary, which stays at
+  the archive root, so the installers and the action extract it as before.
+- **`--reporter html=PATH` writes a report you can open in a browser.** One file with
+  its own styles and no scripts or network requests: the grade distribution, findings
+  by family and by rule, then every file worst grade first with each finding's code
+  frame, why it matters and the technique that fixes it, waived findings listed
+  separately, and the gate's verdict when one was asked for. It switches between a
+  dark and a light theme with the system setting. Like `json` and `sarif` it is a
+  document, so on stdout it cannot share the stream with another report.
+  `docs/ci.md` has the artifact upload for GitHub Actions and GitLab.
 - **JavaScript is analysed.** `.js`, `.jsx`, `.mjs` and `.cjs` files are now read, and
   176 of the 185 rules apply to them. This changes what a scan reports: a repository
   that contains JavaScript will show more findings after upgrading, and `rqx check` can

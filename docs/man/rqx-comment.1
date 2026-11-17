@@ -1,0 +1,131 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-comment 1  "comment " 
+.SH NAME
+rqx\-comment \- Post the review onto the merge request it is reviewing, and grade the commit
+.SH SYNOPSIS
+\fBrqx comment\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+Post the review onto the merge request it is reviewing, and grade the commit
+.SH OPTIONS
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
+.TP
+\fB\-\-base\fR \fI<REF>\fR
+Review against this revision. Defaults to the merge request\*(Aqs own base, which the pipeline already knows
+.TP
+\fB\-\-dry\-run\fR
+Print the comment and where it would go, and post nothing
+.TP
+\fB\-\-marker\fR \fI<ID>\fR [default: results]
+Which comment to keep. Two jobs on one merge request each keep their own
+.TP
+\fB\-\-no\-status\fR
+Comment, but leave the commit ungraded
+.TP
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIPATH\fR] [default: .]
+
+.SH GATE
+.TP
+\fB\-\-fail\-on\fR \fI<FAIL_ON>\fR
+Lowest severity that fails the run
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+info
+.IP \(bu 2
+warning
+.IP \(bu 2
+error
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-allow\-findings\fR \fI<ALLOW_FINDINGS>\fR
+Findings allowed before the run fails
+.TP
+\fB\-\-min\-health\fR \fI<MIN_HEALTH>\fR
+Health score below which the run fails; 0 disables
+.TP
+\fB\-\-min\-grade\fR \fI<MIN_GRADE>\fR
+Lowest grade any single file may carry
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+pristine
+.IP \(bu 2
+clean
+.IP \(bu 2
+fair
+.IP \(bu 2
+poor
+.IP \(bu 2
+critical
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-fail\-on\-incomplete\fR
+Fail when a design pattern is half applied
+.SH EXTRA
+Examples:
+  rqx comment \-\-base main             one sticky comment, edited on every re\-run
+  rqx comment \-\-dry\-run               print what would be posted, post nothing
+  rqx comment \-\-marker api            a second comment for a second job
+
+GitLab needs RQX_TOKEN or GITLAB_TOKEN with `api` scope: CI_JOB_TOKEN cannot write
+merge\-request notes. GitHub needs `permissions: pull\-requests: write`, and
+`statuses: write` for the commit grade.

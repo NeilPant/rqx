@@ -93,6 +93,9 @@ line to add. `--version X.Y.Z` pins a release, `--dir` picks the directory, and
 `--dry-run` prints every step without changing anything. Read
 [install.sh](install.sh) first if you would rather not pipe a script into a shell.
 
+Each release archive also holds the manual pages under `man/`; copy that directory to
+somewhere on your `MANPATH` and `man rqx` works.
+
 To build from source instead, which takes about a minute:
 
 ```bash

@@ -1,0 +1,253 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-check 1  "check " 
+.SH NAME
+rqx\-check \- Analyze changed files against a base revision and fail if the gate is not met
+.SH SYNOPSIS
+\fBrqx check\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-no\-tui\fR] [\fB\-\-min\-health\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-motion\fR] [\fB\-\-config\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+Analyze changed files against a base revision and fail if the gate is not met
+.SH OPTIONS
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
+.TP
+\fB\-\-base\fR \fI<BASE>\fR [default: origin/HEAD]
+Revision to compare against
+.TP
+\fB\-\-fix\fR
+Apply the mechanical fixes to what the branch touched before gating, so a branch whose only failures were mechanical passes
+.TP
+\fB\-w\fR, \fB\-\-write\fR
+With \-\-fix, write the fixes. Without it nothing on disk changes
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+[\fIPATH\fR] [default: .]
+
+.SH FILTERING
+.TP
+\fB\-\-severity\fR \fI<SEVERITY>\fR
+Show only findings at or above this severity
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+info
+.IP \(bu 2
+warning
+.IP \(bu 2
+error
+.RE
+.TP
+\fB\-\-rule\fR \fI<SLUG>\fR
+Show only this rule; repeatable
+.TP
+\fB\-\-category\fR \fI<FAMILY>\fR
+Show only this smell family; repeatable
+.TP
+\fB\-\-path\fR \fI<GLOB>\fR
+Show only findings in files matching this glob; repeatable
+.TP
+\fB\-\-not\-rule\fR \fI<SLUG>\fR
+Hide this rule; repeatable
+.TP
+\fB\-\-not\-category\fR \fI<FAMILY>\fR
+Hide this smell family; repeatable
+.TP
+\fB\-\-not\-path\fR \fI<GLOB>\fR
+Hide findings in files matching this glob; repeatable
+.TP
+\fB\-\-confidence\fR \fI<CONFIDENCE>\fR
+Show only findings rqx is certain of, or only the ones it is guessing at
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+verified
+.IP \(bu 2
+heuristic
+.RE
+.TP
+\fB\-\-fixable\fR
+Show only findings `rqx fix` can act on
+.TP
+\fB\-\-search\fR \fI<TEXT>\fR
+Show only findings whose rule, file or evidence contains this text
+.TP
+\fB\-\-since\fR \fI<REF>\fR
+Show only findings in files this revision changed
+.TP
+\fB\-\-changed\fR
+Show only findings in files not yet committed
+.SH DISPLAY
+.TP
+\fB\-\-show\-passed\fR
+List files that have no findings as well
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Print the summary without the findings
+.TP
+\fB\-\-timings\fR
+Print how long each stage of the scan took, and what it did
+.TP
+\fB\-\-stats\fR
+Counts only: which rules and families fired, and how often
+.TP
+\fB\-\-group\-by\fR \fI<GROUPING>\fR [default: file]
+What the listing is a list of
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+file
+.IP \(bu 2
+rule
+.IP \(bu 2
+family
+.IP \(bu 2
+severity
+.RE
+.TP
+\fB\-\-sort\fR \fI<ORDER>\fR [default: line]
+What decides the order inside each group
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+line
+.IP \(bu 2
+severity
+.IP \(bu 2
+file
+.RE
+.TP
+\fB\-\-top\fR \fI<N>\fR
+List only this many groups; the rest are counted
+.TP
+\fB\-\-show\-suppressed\fR
+List the findings a comment waives, alongside the ones it does not
+.TP
+\fB\-\-context\fR \fI<N>\fR
+Lines of code shown either side of a finding. Two under `\-\-detail full`, none otherwise, unless this says
+.TP
+\fB\-\-detail\fR \fI<DETAIL>\fR [default: normal]
+How much of each finding to print
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+terse: One line per finding
+.IP \(bu 2
+normal: The reason once per rule, the cost once per file
+.IP \(bu 2
+full: Every line on every finding
+.RE
+.TP
+\fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
+Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable
+.SH GATE
+.TP
+\fB\-\-fail\-on\fR \fI<FAIL_ON>\fR
+Lowest severity that fails the run
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+info
+.IP \(bu 2
+warning
+.IP \(bu 2
+error
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-allow\-findings\fR \fI<ALLOW_FINDINGS>\fR
+Findings allowed before the run fails
+.TP
+\fB\-\-min\-health\fR \fI<MIN_HEALTH>\fR
+Health score below which the run fails; 0 disables
+.TP
+\fB\-\-min\-grade\fR \fI<MIN_GRADE>\fR
+Lowest grade any single file may carry
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+pristine
+.IP \(bu 2
+clean
+.IP \(bu 2
+fair
+.IP \(bu 2
+poor
+.IP \(bu 2
+critical
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-fail\-on\-incomplete\fR
+Fail when a design pattern is half applied
+.SH EXTRA
+Examples:
+  rqx check \-\-base main               review the branch against main
+  rqx check \-\-base main \-\-fail\-on error
+                                      and fail CI on any error
+  rqx check \-\-fix \-w                  apply the proven fixes first

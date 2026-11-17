@@ -58,6 +58,7 @@ rqx scan . \
 | `gitlab` | GitLab Code Quality — inline merge-request annotations |
 | `github` | GitHub Actions annotations on the diff |
 | `markdown` | job summaries, MR comments, chat |
+| `html` | a report a person opens from a pipeline's artifacts; [below](#html-report) |
 
 `terminal` and `github` can share stdout; anything else is a document and has to
 have the stream, or a file, to itself.
@@ -100,6 +101,35 @@ sees new fingerprints or a new category, closes the old alerts and opens the sam
 findings again. Set them once, deliberately, on a repository whose alert history you
 can afford to reset. Set a category when one repository uploads several SARIF runs
 that would otherwise overwrite each other.
+
+### HTML report
+
+`html` writes one self-contained file: the findings by family and rule, then every
+file worst grade first with its code frames, and the gate's verdict when there is
+one. It carries its own styles, loads nothing from the network and works without
+JavaScript, so it opens from an artifact download as it is. It follows the system's
+light or dark setting.
+
+GitHub Actions:
+
+```yaml
+- run: rqx scan . --reporter terminal --reporter html=rqx.html --fail-on error
+- uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: rqx-report
+    path: rqx.html
+```
+
+GitLab CI, beside the other reports:
+
+```yaml
+  script:
+    - rqx scan . --reporter terminal --reporter html=rqx.html --fail-on error
+  artifacts:
+    when: always
+    paths: [rqx.html]
+```
 
 ## GitHub Actions
 

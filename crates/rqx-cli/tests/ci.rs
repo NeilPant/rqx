@@ -601,6 +601,42 @@ fn one_run_writes_every_report_it_was_asked_for() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+#[test]
+fn the_html_report_is_one_file_that_shows_the_gate() {
+    let root = project(
+        "html",
+        &[("a.ts", DIRTY), ("index.ts", "export * from './a'\n")],
+    );
+    let page = root.join("rqx.html");
+    let output = rqx(
+        &root,
+        &[
+            "scan",
+            "--reporter",
+            &format!("html={}", page.display()),
+            "--fail-on",
+            "warning",
+        ],
+    );
+    assert_eq!(code(&output), 1);
+
+    let body = std::fs::read_to_string(&page).expect("the report");
+    assert!(body.starts_with("<!doctype html>"), "{body:.80}");
+    assert!(body.contains("Gate failed."));
+    assert!(body.contains("console.log"), "no code frame");
+    assert!(!body.contains('\u{1b}'), "an escape sequence in a page");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn html_is_a_document_and_cannot_share_stdout() {
+    let root = project("html-stdout", &[("a.ts", DIRTY)]);
+    let output = rqx(&root, &["scan", "--reporter", "html", "--reporter", "json"]);
+    assert_ne!(code(&output), 0);
+    assert!(String::from_utf8_lossy(&output.stderr).contains("`html` is a document"));
+    let _ = std::fs::remove_dir_all(root);
+}
+
 /// `rqx scan . | head` closes the pipe, and a tool that called that a failure would
 /// fail a job for being read impatiently.
 #[test]
