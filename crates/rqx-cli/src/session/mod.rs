@@ -6,9 +6,12 @@
 
 mod ansi;
 mod commands;
+mod completion;
 pub mod fuzzy;
 mod job;
 pub mod motion;
+mod prompt;
+mod recall;
 pub mod sprite;
 pub mod text;
 mod view;
@@ -22,16 +25,21 @@ use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::text::Line;
 
+use rqx_core::Cleanliness;
+
 use crate::brand::{self, Ink, Palette};
 use crate::config::Resolved;
 use crate::scan::{self, ScanOutcome, ScanProgress};
 use crate::term::{self, Decline};
 
 use commands::{Action, Context, Invocation, Parsed};
+use completion::{Catalogue, Suggestion};
 use job::{Finished, Job};
 use motion::Motion;
+use prompt::Prompt;
+use recall::Recall;
 use sprite::Sprite;
-use view::{IDLE_ROWS, Idle, Look, SCANNING_ROWS};
+use view::{Idle, Look, Menu, MenuRow, SCANNING_ROWS};
 use viewport::Viewport;
 
 const MASCOT: &str = include_str!("../../assets/mascot.txt");
@@ -95,13 +103,48 @@ struct App {
     progress: ScanProgress,
     job: Option<(Job<Done>, Busy)>,
     announced: bool,
-    input: String,
+    prompt: Prompt,
+    recall: Recall,
+    catalogue: Catalogue,
+    menu: MenuState,
     last_interrupt: Option<Instant>,
     quit: bool,
 }
 
+/// What the completion menu holds for the line as it is now.
+#[derive(Default)]
+struct MenuState {
+    suggestions: Vec<Suggestion>,
+    selected: usize,
+    /// Closed with esc, or hidden because the line came from the history, until the
+    /// next edit.
+    dismissed: bool,
+}
+
+impl MenuState {
+    fn visible(&self) -> bool {
+        !self.dismissed && !self.suggestions.is_empty()
+    }
+
+    fn chosen(&self) -> Option<&Suggestion> {
+        self.visible()
+            .then(|| self.suggestions.get(self.selected))
+            .flatten()
+    }
+
+    fn step(&mut self, forward: bool) {
+        let count = self.suggestions.len();
+        self.selected = if forward {
+            (self.selected + 1) % count
+        } else {
+            (self.selected + count - 1) % count
+        };
+    }
+}
+
 impl App {
     fn new(options: Launch<'_>, viewport: Viewport) -> Self {
+        let recall = Recall::open();
         Self {
             viewport,
             look: Look {
@@ -117,7 +160,10 @@ impl App {
             progress: ScanProgress::default(),
             job: None,
             announced: false,
-            input: String::new(),
+            prompt: Prompt::with_history(recall.load()),
+            recall,
+            catalogue: Catalogue::new([]),
+            menu: MenuState::default(),
             last_interrupt: None,
             quit: false,
         }
@@ -183,7 +229,7 @@ impl App {
         if self.job.is_some() {
             SCANNING_ROWS
         } else {
-            IDLE_ROWS
+            view::idle_rows(self.menu.visible())
         }
     }
 
@@ -207,9 +253,23 @@ impl App {
             return Ok(());
         }
         let status = self.status();
+        let input = self.prompt.text();
+        let rows: Vec<MenuRow<'_>> = self
+            .menu
+            .suggestions
+            .iter()
+            .map(|suggestion| MenuRow {
+                label: &suggestion.label,
+                about: &suggestion.about,
+            })
+            .collect();
         let state = Idle {
-            input: &self.input,
-            cursor: self.input.chars().count(),
+            input: &input,
+            cursor: self.prompt.cursor(),
+            menu: self.menu.visible().then_some(Menu {
+                rows: &rows,
+                selected: self.menu.selected,
+            }),
             hints: "/help  /findings  /plan  /fix  /rescan  /exit",
             status: &status,
         };
@@ -219,13 +279,26 @@ impl App {
     }
 
     fn status(&self) -> String {
-        match (&self.outcome, self.health()) {
-            (Some(outcome), Some(health)) => format!(
-                "health {health} \u{b7} {} findings",
-                text::thousands(outcome.counts.total)
-            ),
-            _ => String::new(),
+        let (Some(outcome), Some(health)) = (&self.outcome, self.health()) else {
+            return String::new();
+        };
+        let mut parts = vec![
+            format!("health {health}"),
+            Cleanliness::of(health, outcome.counts.total)
+                .label()
+                .to_owned(),
+            format!("{} findings", text::thousands(outcome.counts.total)),
+            "watch off".to_owned(),
+        ];
+        let lookups = outcome.stats.cache_hits + outcome.stats.cache_misses;
+        if lookups > 0 {
+            parts.push(format!(
+                "cache {}/{}",
+                text::thousands(outcome.stats.cache_hits),
+                text::thousands(lookups)
+            ));
         }
+        parts.join(" \u{b7} ")
     }
 
     fn wakeup(&self) -> Duration {
@@ -270,6 +343,8 @@ impl App {
     fn adopt(&mut self, outcome: ScanOutcome) -> Result<()> {
         let outcome = Arc::new(outcome);
         self.outcome = Some(Arc::clone(&outcome));
+        self.catalogue = Catalogue::new(outcome.analyzed.iter().cloned());
+        self.refresh_menu();
         let mut lines = Vec::new();
         if !self.announced {
             lines.extend(self.header());
@@ -319,14 +394,71 @@ impl App {
         match key.code {
             KeyCode::Char('d') if control => self.quit = true,
             KeyCode::Char('c') if control => self.interrupt(),
-            KeyCode::Char(character) if !control => self.input.push(character),
-            KeyCode::Backspace => {
-                self.input.pop();
+            _ if self.job.is_some() => {}
+            KeyCode::Enter => self.enter()?,
+            KeyCode::Tab => self.accept(),
+            KeyCode::Esc => self.menu.dismissed = true,
+            KeyCode::Up => self.up(),
+            KeyCode::Down => self.down(),
+            _ => {
+                if self.prompt.edit(key) {
+                    self.refresh_menu();
+                }
             }
-            KeyCode::Enter if self.job.is_none() => self.submit()?,
-            _ => {}
         }
         Ok(())
+    }
+
+    fn refresh_menu(&mut self) {
+        self.menu = MenuState {
+            suggestions: self.catalogue.suggest(&self.prompt.before_cursor()),
+            selected: 0,
+            dismissed: false,
+        };
+    }
+
+    /// Takes the highlighted suggestion into the line.
+    fn accept(&mut self) {
+        let Some(chosen) = self.menu.chosen().cloned() else {
+            return;
+        };
+        self.prompt
+            .replace_before_cursor(chosen.from, &chosen.insert);
+        self.refresh_menu();
+    }
+
+    /// With the menu open the arrows move through it; otherwise they walk the history,
+    /// which hides the menu so the next arrow keeps walking it.
+    fn up(&mut self) {
+        if self.menu.visible() {
+            self.menu.step(false);
+        } else {
+            self.prompt.recall_older();
+            self.menu.dismissed = true;
+        }
+    }
+
+    fn down(&mut self) {
+        if self.menu.visible() {
+            self.menu.step(true);
+        } else {
+            self.prompt.recall_newer();
+            self.menu.dismissed = true;
+        }
+    }
+
+    /// Enter completes what the menu is pointing at, unless the line already says it,
+    /// and only then runs the line.
+    fn enter(&mut self) -> Result<()> {
+        if self
+            .menu
+            .chosen()
+            .is_some_and(|chosen| !chosen.changes_nothing())
+        {
+            self.accept();
+            return Ok(());
+        }
+        self.submit()
     }
 
     /// Stops a running job; otherwise clears the line, and leaves if that is the second
@@ -342,16 +474,19 @@ impl App {
         if again {
             self.quit = true;
         }
-        self.input.clear();
+        self.prompt.clear();
+        self.refresh_menu();
         self.last_interrupt = Some(Instant::now());
     }
 
     fn submit(&mut self) -> Result<()> {
-        let line = std::mem::take(&mut self.input);
+        let line = self.prompt.submit();
+        self.refresh_menu();
         let parsed = commands::parse(&line);
         if matches!(parsed, Ok(Parsed::Nothing)) {
             return Ok(());
         }
+        self.recall.append(&line);
         self.viewport
             .print(&[view::echo(&self.look, line.trim())])?;
         match parsed {
@@ -426,5 +561,47 @@ fn display_root(path: &Path) -> String {
         Some(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
         Some(rest) => format!("~/{}", rest.display()),
         None => absolute.display().to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn menu(count: usize) -> MenuState {
+        MenuState {
+            suggestions: (0..count)
+                .map(|at| Suggestion {
+                    label: format!("/c{at}"),
+                    about: String::new(),
+                    from: 0,
+                    typed: String::new(),
+                    insert: format!("/c{at} "),
+                })
+                .collect(),
+            selected: 0,
+            dismissed: false,
+        }
+    }
+
+    #[test]
+    fn the_choice_wraps_in_both_directions() {
+        let mut menu = menu(3);
+        menu.step(false);
+        assert_eq!(menu.selected, 2);
+        menu.step(true);
+        assert_eq!(menu.selected, 0);
+        menu.step(true);
+        assert_eq!(menu.chosen().map(|s| s.label.as_str()), Some("/c1"));
+    }
+
+    #[test]
+    fn a_dismissed_or_empty_menu_offers_nothing() {
+        let mut shown = menu(2);
+        assert!(shown.visible());
+        shown.dismissed = true;
+        assert!(!shown.visible());
+        assert!(shown.chosen().is_none());
+        assert!(!menu(0).visible());
     }
 }

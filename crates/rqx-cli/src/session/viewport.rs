@@ -46,7 +46,7 @@ impl Viewport {
         if height == self.height {
             return Ok(());
         }
-        self.screen.clear()?;
+        self.vacate()?;
         self.screen = screen(height)?;
         self.height = height;
         Ok(())
@@ -83,7 +83,16 @@ impl Viewport {
     /// Wipes the viewport and leaves the cursor where it was, so whatever the caller
     /// prints next starts on the row the session's own rows used to.
     pub fn close(mut self) -> io::Result<()> {
-        self.screen.clear()
+        self.vacate()
+    }
+
+    /// Clears the rows and parks the cursor on the first of them. Ratatui's own `clear`
+    /// puts the cursor back where it was, which is the prompt, so a new viewport made
+    /// from there would start a row lower every time.
+    fn vacate(&mut self) -> io::Result<()> {
+        let top = self.screen.get_frame().area().as_position();
+        self.screen.clear()?;
+        self.screen.set_cursor_position(top)
     }
 }
 

@@ -80,19 +80,27 @@ pub fn help_rows() -> Vec<(String, String)> {
     let twins = TWINS.iter().map(|name| {
         let about = parser
             .find_subcommand(subcommand_of(name))
-            .and_then(clap::Command::get_about)
-            .map(ToString::to_string)
+            .map(about_of)
             .unwrap_or_default();
-        let about = about.split_whitespace().collect::<Vec<_>>().join(" ");
-        let first = about
-            .split_once(". ")
-            .map_or(about.as_str(), |(head, _)| head);
-        ((*name).to_owned(), first.trim_end_matches('.').to_owned())
+        ((*name).to_owned(), about)
     });
     let own = SESSION_ONLY
         .iter()
         .map(|(name, about)| ((*name).to_owned(), (*about).to_owned()));
     twins.chain(own).collect()
+}
+
+/// The first sentence of what a command is for, on one line.
+pub fn about_of(command: &clap::Command) -> String {
+    let about = command
+        .get_about()
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    let about = about.split_whitespace().collect::<Vec<_>>().join(" ");
+    let first = about
+        .split_once(". ")
+        .map_or(about.as_str(), |(head, _)| head);
+    first.trim_end_matches('.').to_owned()
 }
 
 pub fn parse(line: &str) -> std::result::Result<Parsed, String> {

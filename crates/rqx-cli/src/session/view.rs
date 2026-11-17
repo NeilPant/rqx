@@ -121,16 +121,46 @@ pub fn progress_lines(
     ]
 }
 
+/// Rows the completion menu reserves under the prompt while it is open.
+pub const MENU_ROWS: u16 = 6;
+
+pub struct MenuRow<'a> {
+    pub label: &'a str,
+    pub about: &'a str,
+}
+
+pub struct Menu<'a> {
+    pub rows: &'a [MenuRow<'a>],
+    pub selected: usize,
+}
+
 pub struct Idle<'a> {
     pub input: &'a str,
     pub cursor: usize,
+    pub menu: Option<Menu<'a>>,
     pub hints: &'a str,
     pub status: &'a str,
 }
 
+/// The rows the viewport needs for this state of the prompt.
+pub const fn idle_rows(menu_open: bool) -> u16 {
+    if menu_open {
+        IDLE_ROWS + MENU_ROWS
+    } else {
+        IDLE_ROWS
+    }
+}
+
 pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
-    let [top, prompt, bottom, status] =
-        Layout::vertical([Constraint::Length(1); 4]).areas(frame.area());
+    let menu_height = if state.menu.is_some() { MENU_ROWS } else { 0 };
+    let [top, prompt, below, bottom, status] = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Length(menu_height),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .areas(frame.area());
     let rule = Line::styled("\u{2500}".repeat(top.width as usize), look.palette.rule());
     frame.render_widget(Paragraph::new(rule.clone()), top);
     frame.render_widget(Paragraph::new(rule), bottom);
@@ -144,10 +174,40 @@ pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
         prompt,
     );
     frame.set_cursor_position(Position::new(prompt.x + 2 + column, prompt.y));
+    if let Some(menu) = &state.menu {
+        frame.render_widget(Paragraph::new(menu_lines(look, menu, below.width)), below);
+    }
     frame.render_widget(
         Paragraph::new(status_line(look, state.hints, state.status, status.width)),
         status,
     );
+}
+
+fn menu_lines(look: &Look, menu: &Menu<'_>, width: u16) -> Vec<Line<'static>> {
+    let label_width = menu
+        .rows
+        .iter()
+        .map(|row| row.label.width())
+        .max()
+        .unwrap_or(0);
+    let room = usize::from(width).saturating_sub(label_width + 5);
+    menu.rows
+        .iter()
+        .enumerate()
+        .map(|(at, row)| {
+            let (marker, label) = if at == menu.selected {
+                (" \u{203a} ", look.bold(Ink::Accent))
+            } else {
+                ("   ", look.style(Ink::Text))
+            };
+            let padding = " ".repeat(label_width - row.label.width());
+            Line::from(vec![
+                Span::styled(marker, label),
+                Span::styled(format!("{}{padding}  ", row.label), label),
+                Span::styled(clip(row.about, room), look.dim()),
+            ])
+        })
+        .collect()
 }
 
 /// The hints on the left and the project's state on the right. When both do not fit
@@ -490,6 +550,7 @@ mod tests {
         let state = Idle {
             input: "/plan --budget 20",
             cursor: 17,
+            menu: None,
             hints: "/help  /plan",
             status: "health 82",
         };
@@ -500,6 +561,44 @@ mod tests {
         assert!(rows[3].starts_with(" /help  /plan"));
         assert!(rows[3].ends_with("health 82"));
         terminal.backend_mut().assert_cursor_position((19, 1));
+    }
+
+    #[test]
+    fn an_open_menu_sits_under_the_prompt_with_the_choice_marked() {
+        let mut terminal = Terminal::new(TestBackend::new(60, idle_rows(true))).unwrap();
+        let rows = [
+            MenuRow {
+                label: "/plan",
+                about: "Rank the work",
+            },
+            MenuRow {
+                label: "/perf",
+                about: "Where the work grows",
+            },
+        ];
+        let state = Idle {
+            input: "/p",
+            cursor: 2,
+            menu: Some(Menu {
+                rows: &rows,
+                selected: 1,
+            }),
+            hints: "/help",
+            status: "health 82",
+        };
+        terminal.draw(|frame| idle(frame, &look(), &state)).unwrap();
+        let shown = screen(&terminal);
+        assert_eq!(shown[1], "> /p");
+        assert_eq!(shown[2], "   /plan  Rank the work");
+        assert_eq!(shown[3], " \u{203a} /perf  Where the work grows");
+        assert!(shown[2 + usize::from(MENU_ROWS)].starts_with('\u{2500}'));
+        assert!(shown.last().unwrap().ends_with("health 82"));
+    }
+
+    #[test]
+    fn a_closed_menu_takes_no_rows() {
+        assert_eq!(idle_rows(false), IDLE_ROWS);
+        assert_eq!(idle_rows(true), IDLE_ROWS + MENU_ROWS);
     }
 
     #[test]
