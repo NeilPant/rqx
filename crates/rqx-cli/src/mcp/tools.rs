@@ -563,7 +563,7 @@ impl Rqx {
             .map_err(|error| McpError::internal_error(error.to_string(), None))?
             .map_err(|error| refused(format!("{error:#}")))?;
 
-        let verdict = check::judge(&review, &self.settings.config);
+        let verdict = review.judge(&self.settings.config);
         let report = Report::reviewed(&review, &verdict);
         let reviewed: Vec<&Finding> = review.findings().collect();
 

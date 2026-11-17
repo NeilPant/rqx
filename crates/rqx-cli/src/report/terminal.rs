@@ -1110,8 +1110,8 @@ mod tests {
         assert_eq!(row(&rows, "Grades"), "12 pristine");
     }
 
-    fn failing_gate() -> crate::check::Verdict {
-        crate::check::Verdict {
+    fn failing_gate() -> crate::gate::Verdict {
+        crate::gate::Verdict {
             failures: vec!["1 error found".to_owned()],
             counted: 1,
             known: 0,

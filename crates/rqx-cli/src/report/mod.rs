@@ -26,7 +26,8 @@ use clap::ValueEnum;
 use rqx_core::Cleanliness;
 use rqx_core::finding::{Finding, Severity};
 
-use crate::check::{Review, Verdict};
+use crate::check::Review;
+use crate::gate::Verdict;
 use crate::scan::ScanOutcome;
 
 pub use brief::{json as brief_json, markdown as brief_markdown, render as brief};

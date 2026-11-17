@@ -2,7 +2,7 @@ use anyhow::Result;
 use rqx_core::finding::{Finding, Severity, SourceRange};
 use serde_json::{Value, json};
 
-use crate::check::Verdict;
+use crate::gate::Verdict;
 use crate::report::SCHEMA_VERSION;
 
 const SCHEMA: &str = "https://json.schemastore.org/sarif-2.1.0.json";

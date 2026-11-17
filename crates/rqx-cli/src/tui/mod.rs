@@ -133,7 +133,7 @@ pub fn static_header(root: &str, config: &RqxConfig, config_file: Option<&str>) 
 /// only the changed part, so it produces everything a scan does plus a verdict.
 enum Work {
     Scan(ScanOutcome),
-    Review(check::Review, check::Verdict),
+    Review(check::Review, crate::gate::Verdict),
 }
 
 type Worker = JoinHandle<anyhow::Result<Work>>;
@@ -260,7 +260,7 @@ impl App {
             updates,
             thread::spawn(move || {
                 let review = check::review_watched(&path, &config, &against, Some(watch))?;
-                let verdict = check::judge(&review, &config.config);
+                let verdict = review.judge(&config.config);
                 Ok(Work::Review(review, verdict))
             }),
         );

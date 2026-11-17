@@ -17,6 +17,7 @@ mod config;
 mod edit_config;
 mod fix;
 mod forge;
+mod gate;
 mod graph;
 mod health;
 mod history;
@@ -38,6 +39,7 @@ mod update;
 mod verify;
 
 use brand::{ColorDepth, Palette};
+use gate::{Scope, judge};
 use report::{FindingFilter, Layout, Report, Reporter};
 
 #[derive(Parser)]
@@ -1536,7 +1538,7 @@ fn run() -> Result<Exit> {
                 // flag is the whole opt-in and no existing pipeline changes meaning.
                 let verdict = gate
                     .is_set()
-                    .then(|| check::judge_scan(&outcome, &settings.config));
+                    .then(|| judge(&outcome, Scope::Project, &settings.config));
                 let report = Report::scan(&outcome, &filter);
                 let report = match &verdict {
                     Some(verdict) => report.judged(verdict),
@@ -2035,7 +2037,7 @@ fn run() -> Result<Exit> {
                 .or_else(forge::base_revision)
                 .unwrap_or_else(|| "origin/HEAD".to_owned());
             let review = check::review(&path, &settings, &base)?;
-            let verdict = check::judge(&review, &settings.config);
+            let verdict = review.judge(&settings.config);
             let report = Report::reviewed(&review, &verdict);
 
             // Detected before posting but after the scan, so a dry run still gets its
@@ -2145,7 +2147,7 @@ fn run() -> Result<Exit> {
                     review = check::review(&path, &settings, &base)?;
                 }
             }
-            let verdict = check::judge(&review, &settings.config);
+            let verdict = review.judge(&settings.config);
             let report = Report::review(&review, &verdict, &filter);
             emit(&report, &sinks, &view, palette)?;
             update_notice(&view, &sinks, palette, settings.config.update.check);

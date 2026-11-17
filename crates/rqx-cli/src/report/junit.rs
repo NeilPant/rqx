@@ -3,7 +3,7 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::finding::Severity;
 
-use crate::check::Verdict;
+use crate::gate::Verdict;
 use crate::report::Report;
 
 /// The five characters XML reserves. Hand-written because a whole parser crate to

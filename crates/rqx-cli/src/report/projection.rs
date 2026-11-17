@@ -80,7 +80,7 @@ pub fn start_here(report: &Report<'_>) -> Vec<Value> {
 
 /// The verdict of a diff review, shaped once so the LSP reply and the MCP tool
 /// cannot drift apart.
-pub fn review(review: &crate::check::Review, verdict: &crate::check::Verdict) -> Value {
+pub fn review(review: &crate::check::Review, verdict: &crate::gate::Verdict) -> Value {
     let report = Report::reviewed(review, verdict);
     json!({
         "base": review.base,

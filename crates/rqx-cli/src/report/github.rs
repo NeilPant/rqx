@@ -3,7 +3,7 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::finding::{Finding, Severity};
 
-use crate::check::Verdict;
+use crate::gate::Verdict;
 use crate::report::Report;
 
 const fn level(severity: Severity) -> &'static str {
