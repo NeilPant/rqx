@@ -10,6 +10,8 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+## 0.2.1 — 2026-11-17
+
 ### Added
 
 - **One line installs rqx.** `curl -fsSL …/install.sh | sh` on macOS and Linux, and

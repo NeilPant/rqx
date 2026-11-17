@@ -1769,7 +1769,7 @@ dependencies = [
 
 [[package]]
 name = "rqx"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1798,7 +1798,7 @@ dependencies = [
 
 [[package]]
 name = "rqx-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "flate2",
  "serde",
@@ -1808,7 +1808,7 @@ dependencies = [
 
 [[package]]
 name = "rqx-lang"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "rqx-core",
  "serde",
