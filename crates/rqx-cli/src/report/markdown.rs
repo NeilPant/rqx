@@ -3,7 +3,7 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::finding::Severity;
 
-use crate::credit::Credit;
+use crate::credit::{Credit, Scope};
 use crate::report::{Report, plural};
 
 const TOP_FINDINGS: usize = 10;
@@ -100,9 +100,10 @@ fn write_resolved(
     writeln!(out, "\n### Resolved\n")?;
     writeln!(
         out,
-        "{} present at `{}` and gone now. {}\n",
+        "{} present at `{}` and gone now{}.{}\n",
         plural(credit.resolved.len() as u32, "finding", "findings"),
         escape(base.unwrap_or("the base")),
+        scope_note(credit),
         health_change(credit)
     )?;
     for resolved in credit.resolved.iter().take(TOP_FINDINGS) {
@@ -121,13 +122,24 @@ fn write_resolved(
     Ok(())
 }
 
+/// The credit of a change whose base was not scanned covers the files it touched.
+fn scope_note(credit: &Credit) -> &'static str {
+    match credit.scope {
+        Scope::Project => "",
+        Scope::ChangedFiles => " in the files it changed",
+    }
+}
+
+/// A sentence, with its leading space, or nothing when no score was taken at the base.
 fn health_change(credit: &Credit) -> String {
-    format!(
-        "Health went from {} to {} ({:+}).",
-        credit.health_before,
-        credit.health_after,
-        credit.health_delta()
-    )
+    credit.health.map_or_else(String::new, |health| {
+        format!(
+            " Health went from {} to {} ({:+}).",
+            health.before,
+            health.after,
+            health.after as i32 - health.before as i32
+        )
+    })
 }
 
 /// The same report, shaped for a merge request: a verdict anyone reads at a glance,
@@ -167,8 +179,9 @@ pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
     if let Some(credit) = report.credit.filter(|credit| !credit.resolved.is_empty()) {
         writeln!(
             out,
-            "Resolves {}. {}\n",
+            "Resolves {}{}.{}\n",
             plural(credit.resolved.len() as u32, "finding", "findings"),
+            scope_note(credit),
             health_change(credit)
         )?;
     }

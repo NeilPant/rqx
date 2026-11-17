@@ -36,7 +36,13 @@ struct JsonSummary<'a> {
     /// a review that scanned its base.
     #[serde(skip_serializing_if = "Option::is_none")]
     resolved: Option<&'a [crate::credit::Resolved]>,
-    /// The health score after the change minus the score at the base.
+    /// What `resolved` was counted over: `project` for a scan of the whole base, and
+    /// `changed-files` for the findings one file's analysis produces in the files the
+    /// change touched.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved_scope: Option<crate::credit::Scope>,
+    /// The health score after the change minus the score at the base. Present only
+    /// when `resolved_scope` is `project`.
     #[serde(skip_serializing_if = "Option::is_none")]
     health_delta: Option<i32>,
 }
@@ -129,7 +135,8 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
                 failures: &verdict.failures,
             }),
         resolved: report.credit.map(|credit| credit.resolved.as_slice()),
-        health_delta: report.credit.map(crate::credit::Credit::health_delta),
+        resolved_scope: report.credit.map(|credit| credit.scope),
+        health_delta: report.credit.and_then(crate::credit::Credit::health_delta),
     };
     writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())

@@ -1,6 +1,5 @@
-//! The base revision is scanned only when the change adds a function. A review that
-//! carries `resolved` on its summary line scanned the base, and one that does not did
-//! not, so the key is what shows which happened.
+//! The base revision is scanned only when the change adds a function. A review whose
+//! credit has the scope `project` scanned the base; one with `changed-files` did not.
 
 mod common;
 use common::Repository;
@@ -26,8 +25,8 @@ fn scanned_base(name: &str, after: &[(&str, Option<&str>)]) -> bool {
         .iter()
         .find(|line| line["kind"] == "summary")
         .expect("a summary line")
-        .get("resolved")
-        .is_some()
+        .get("resolved_scope")
+        .is_some_and(|scope| scope == "project")
 }
 
 #[test]

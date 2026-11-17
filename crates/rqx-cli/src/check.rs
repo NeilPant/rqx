@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -77,8 +77,8 @@ pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
 /// A review whose scan is drawn on stderr as `mode` says. Against a revision, the
 /// revision is scanned too when the change adds a function, because what it added can
 /// only be told from what was already there by reading both. A change that adds none
-/// has nothing to compare, so it is reviewed on one scan and carries no credit. A
-/// review of listed files has no revision.
+/// has nothing to compare, so it is reviewed on one scan, and its credit is read from
+/// the files it touched alone. A review of listed files has no revision.
 pub fn review_drawn(
     root: &Path,
     settings: &Resolved,
@@ -90,8 +90,12 @@ pub fn review_drawn(
     };
     let changed = source.files(root)?;
     let forked_from = history::merge_base(root, base).unwrap_or_else(|| base.to_owned());
-    if !adds_functions(root, settings, &forked_from, &changed) {
-        return crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch));
+    let held = held_at(root, &forked_from, &changed);
+    if !adds_functions(root, settings, &held, &changed) {
+        let mut review =
+            crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch))?;
+        review.credit = Credit::in_files(&held, root, settings, &review.outcome);
+        return Ok(review);
     }
     let before = scan_base(root, settings, &forked_from, mode)?;
     let reference = Arc::new(Reference::of(&before.outcome.shape_by_file));
@@ -124,23 +128,43 @@ pub fn review_of(
     Ok(assemble(changed, outcome, source.label(), None))
 }
 
+/// What the files the change touched held at the base revision, as text: the changed
+/// files and the ones it deleted, that have source rqx reads and existed then. Read
+/// with `git show`, so no checkout is needed.
+fn held_at(root: &Path, revision: &str, changed: &BTreeSet<String>) -> BTreeMap<String, String> {
+    let prefix = history::repository_prefix(root).unwrap_or_default();
+    let deleted = history::deleted_since(root, revision)
+        .into_iter()
+        .filter_map(|path| path.strip_prefix(&prefix).map(str::to_owned));
+    changed
+        .iter()
+        .cloned()
+        .chain(deleted)
+        .filter(|file| rqx_core::Language::of_path(Path::new(file)).is_some())
+        .filter_map(|file| {
+            let text = history::file_at(root, revision, &file)?;
+            Some((file, text))
+        })
+        .collect()
+}
+
 /// Whether any changed file holds a named function that the file did not hold at the
-/// base revision. Only a new or changed file can add one, so the rest are not read.
-/// Both sides of each file are analysed on their own, which costs a few files rather
-/// than a checkout of the project. A file that cannot be told apart counts as adding
-/// one, because the answer to "no" skips the comparison.
+/// base revision, given what the files held then. Only a new or changed file can add
+/// one, so the rest are not read. Both sides of each file are analysed on their own,
+/// which costs a few files rather than a checkout of the project. A file that cannot
+/// be told apart counts as adding one, because the answer "no" skips the comparison.
 fn adds_functions(
     root: &Path,
     settings: &Resolved,
-    revision: &str,
+    held: &BTreeMap<String, String>,
     changed: &BTreeSet<String>,
 ) -> bool {
     changed
         .iter()
-        .any(|file| file_adds_functions(root, settings, revision, file))
+        .any(|file| file_adds_functions(root, settings, held.get(file), file))
 }
 
-fn file_adds_functions(root: &Path, settings: &Resolved, revision: &str, file: &str) -> bool {
+fn file_adds_functions(root: &Path, settings: &Resolved, was: Option<&String>, file: &str) -> bool {
     let path = root.join(file);
     let Some(now) = std::fs::read_to_string(&path).ok() else {
         return false;
@@ -155,8 +179,8 @@ fn file_adds_functions(root: &Path, settings: &Resolved, revision: &str, file: &
             .filter_map(|function| function.name)
             .collect())
     };
-    let had = match history::file_at(root, revision, file) {
-        Some(source) => names_in(&source).unwrap_or_default(),
+    let had = match was {
+        Some(source) => names_in(source).unwrap_or_default(),
         None => BTreeSet::new(),
     };
     match names_in(&now) {

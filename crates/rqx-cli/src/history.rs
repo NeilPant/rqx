@@ -261,13 +261,34 @@ pub fn file_at(root: &Path, revision: &str, relative: &str) -> Option<String> {
 /// judged on what it actually changed rather than on everything that landed on the
 /// base since it forked.
 pub fn changed_since(root: &Path, base: &str) -> Option<Vec<String>> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["diff", "--name-only", "--diff-filter=d"])
-        .arg(format!("{base}...HEAD"))
-        .output()
-        .ok()?;
+    names_from(
+        root,
+        &["diff", "--name-only", "--diff-filter=d"],
+        Some(base),
+    )
+}
+
+/// Files a revision had that the working tree no longer has: deleted in a commit since
+/// the merge base, or removed from the working tree and not yet committed. Named from
+/// the repository root, as `changed_since` names them.
+pub fn deleted_since(root: &Path, base: &str) -> Vec<String> {
+    let committed = names_from(
+        root,
+        &["diff", "--name-only", "--diff-filter=D"],
+        Some(base),
+    );
+    let uncommitted = names_from(root, &["ls-files", "--deleted", "--full-name"], None);
+    committed.into_iter().chain(uncommitted).flatten().collect()
+}
+
+/// The lines `git` prints for a command that lists paths, or `None` when it fails.
+fn names_from(root: &Path, args: &[&str], base: Option<&str>) -> Option<Vec<String>> {
+    let mut command = Command::new("git");
+    command.arg("-C").arg(root).args(args);
+    if let Some(base) = base {
+        command.arg(format!("{base}...HEAD"));
+    }
+    let output = command.output().ok()?;
     if !output.status.success() {
         return None;
     }

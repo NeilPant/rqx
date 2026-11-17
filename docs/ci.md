@@ -503,14 +503,24 @@ rqx comment --fail-on error
 ```
 
 The comment has a `Resolved` section when the change removed findings that the base
-revision had, and the base was scanned, which happens when the change adds a function
-(see [Functions that repeat existing code](#functions-that-repeat-existing-code)). It lists them and states the health score at the base and after the
-change. A finding counts as resolved when the base scan reports it and the scan of the
-working tree does not, using the matching that `rqx verify` uses, so a finding that
-moved to another file is not credited. The section is omitted when `--max-findings`
-dropped findings from either scan, because a dropped finding cannot be told from a
-resolved one. `rqx check` reports the same data in the terminal summary and in the
-`resolved` and `health_delta` keys of the JSON summary line.
+revision had. A finding counts as resolved when the base reports it and the working
+tree does not, using the matching that `rqx verify` uses, so a finding that moved to
+another file is not credited. The section lists the findings. `rqx check` reports the
+same data in the terminal summary and in the `resolved`, `resolved_scope` and
+`health_delta` keys of the JSON summary line.
+
+What the credit covers depends on whether the base was scanned (see
+[Functions that repeat existing code](#functions-that-repeat-existing-code)):
+
+| `resolved_scope` | When | Covers | `health_delta` |
+|---|---|---|---|
+| `project` | The change adds a function, so the base was scanned whole. | Every finding of the base scan, including those that read more than one file. | The health score after the change minus the score at the base. |
+| `changed-files` | The change adds no function. | The findings that one file's analysis produces, in the files the change touched or deleted. A finding that needs the whole project, such as `unused-export`, `unused-file`, `duplicate-code` or an import cycle, is not credited. | Absent: a score needs every finding of both sides. |
+
+The base side of a `changed-files` credit is each touched file's text at the merge
+base, read with `git show` and analysed on its own. The section is omitted when
+`--max-findings` dropped findings from the working tree's scan, because a dropped
+finding cannot be told from a resolved one.
 
 It finds the merge request from the pipeline's own variables: GitLab's
 `CI_MERGE_REQUEST_IID` and `CI_PROJECT_ID`, and GitHub's `GITHUB_REPOSITORY` and event

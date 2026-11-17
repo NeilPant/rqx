@@ -827,11 +827,14 @@ pub(super) fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row
             Row {
                 label: "Resolved",
                 value: format!(
-                    "{} fixed since the base \u{b7} health {} to {} ({:+})",
+                    "{} fixed since the base{}",
                     plural(credit.resolved.len() as u32, "finding", "findings"),
-                    credit.health_before,
-                    credit.health_after,
-                    credit.health_delta()
+                    credit.health.map_or_else(String::new, |health| format!(
+                        " \u{b7} health {} to {} ({:+})",
+                        health.before,
+                        health.after,
+                        i64::from(health.after) - i64::from(health.before)
+                    ))
                 ),
                 ink: Some(Ink::Good),
             },
