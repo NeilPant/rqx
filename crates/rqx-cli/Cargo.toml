@@ -42,6 +42,7 @@ toml = "1.1.5"
 unicode-width = "0.2.2"
 toml_edit = "0.25.13"
 clap_complete = "4.6.9"
+clap_mangen = "0.3.4"
 
 [dev-dependencies]
 rqx-core.workspace = true

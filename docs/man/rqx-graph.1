@@ -1,0 +1,91 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-graph 1  "graph " 
+.SH NAME
+rqx\-graph \- Print the import graph — as text, Graphviz, Mermaid or data
+.SH SYNOPSIS
+\fBrqx graph\fR [\fB\-\-level\fR] [\fB\-\-format\fR] [\fB\-\-cycles\fR] [\fB\-\-focus\fR] [\fB\-\-depth\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+Print the import graph — as text, Graphviz, Mermaid or data
+.SH OPTIONS
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
+.TP
+\fB\-\-format\fR \fI<FORMAT>\fR [default: text]
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+text: One line per edge, grouped by importer
+.IP \(bu 2
+dot: Graphviz, for `dot \-Tsvg`
+.IP \(bu 2
+mermaid: A fenced block GitHub and most wikis render on the spot
+.IP \(bu 2
+json: Nodes and edges as data
+.RE
+.TP
+\fB\-\-cycles\fR
+Only the edges that close a cycle
+.TP
+\fB\-\-focus\fR \fI<FILE>\fR
+Only what this file reaches, and what reaches it
+.TP
+\fB\-\-depth\fR \fI<DEPTH>\fR [default: 2]
+How far from `\-\-focus` to follow
+.TP
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `RQX.toml` found
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+[\fIPATH\fR] [default: .]
+
+.SH EXTRA
+Examples:
+  rqx graph \-\-cycles                  only the rings
+  rqx graph \-\-format mermaid          paste it into a design doc
+  rqx graph \-\-focus src/api.ts        what it reaches, and what reaches it

@@ -1,0 +1,109 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-complexity 1  "complexity " 
+.SH NAME
+rqx\-complexity \- What the analyser measured, as a distribution rather than only its tail
+.SH SYNOPSIS
+\fBrqx complexity\fR [\fB\-\-level\fR] [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\fR] [\fB\-\-histogram\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+What the analyser measured, as a distribution rather than only its tail
+.SH OPTIONS
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
+.TP
+\fB\-\-by\fR \fI<BY>\fR [default: function]
+One row per function, per file, or per directory
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+function
+.IP \(bu 2
+file
+.IP \(bu 2
+dir
+.RE
+.TP
+\fB\-\-sort\fR \fI<SORT>\fR [default: complexity]
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+complexity
+.IP \(bu 2
+statements
+.IP \(bu 2
+nesting
+.IP \(bu 2
+params
+.RE
+.TP
+\fB\-\-top\fR \fI<TOP>\fR [default: 20]
+How many rows
+.TP
+\fB\-\-min\fR \fI<MIN>\fR [default: 0]
+Skip anything below this, on whatever `\-\-sort` measures
+.TP
+\fB\-\-histogram\fR
+Draw the distribution as well as the worst of it
+.TP
+\fB\-\-json\fR
+Emit one JSON object per row
+.TP
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `RQX.toml` found
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIPATH\fR] [default: .]
+
+.SH EXTRA
+Examples:
+  rqx complexity \-\-top 20             the twenty worst functions
+  rqx complexity \-\-by dir             the worst of each directory
+  rqx complexity \-\-histogram          where the codebase actually sits

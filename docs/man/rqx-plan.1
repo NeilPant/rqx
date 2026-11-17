@@ -1,0 +1,78 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-plan 1  "plan " 
+.SH NAME
+rqx\-plan \- Rank the work by what it buys against what it costs, and say what the health score would be after it
+.SH SYNOPSIS
+\fBrqx plan\fR [\fB\-\-level\fR] [\fB\-\-budget\fR] [\fB\-\-limit\fR] [\fB\-\-simulate\fR] [\fB\-\-json\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+.SH DESCRIPTION
+Rank the work by what it buys against what it costs, and say what the health score would be after it
+.SH OPTIONS
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
+.TP
+\fB\-\-budget\fR \fI<BUDGET>\fR
+Effort points to spend. Without it the plan is the top items by value
+.TP
+\fB\-\-limit\fR \fI<LIMIT>\fR [default: 20]
+How many items to rank when no budget is given
+.TP
+\fB\-\-simulate\fR
+Also print what the plan does to the grade of every file
+.TP
+\fB\-\-json\fR
+Emit one JSON object per item instead of the reader\*(Aqs plan
+.TP
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `RQX.toml` found
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+[\fIPATH\fR] [default: .]
+
+.SH EXTRA
+Examples:
+  rqx plan \-\-budget 20                the best twenty points of work
+  rqx plan \-\-simulate                 the score each step would leave

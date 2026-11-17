@@ -203,9 +203,10 @@ jobs:
       # The executable bit does not survive an artifact upload, and a tarball of a
       # binary nobody can run is worse than no tarball.
       #
-      # The binary is named rather than archived as `.`, because `curl | tar xz -C
-      # /usr/local/bin` is a documented way to install this and a `./` entry would
-      # reset the mode of the directory it unpacks into.
+      # The binary is named rather than archived as `.`, because a `./` entry would
+      # reset the mode of the directory the archive unpacks into. It stays at the root
+      # of the archive, with the man pages beside it under `man/`: the installers
+      # extract `rqx` by name, so they are not affected by what else is in there.
       #
       # One SHA256SUMS written here from all six, rather than one line per build job
       # concatenated afterwards, because six chances to get it wrong is five too many.
@@ -220,7 +221,7 @@ jobs:
             binary=rqx
             if [ -f "$dir/rqx.exe" ]; then binary=rqx.exe; fi
             chmod +x "$dir/$binary"
-            tar czf "dist/rqx-$version-$triple.tar.gz" -C "$dir" "$binary"
+            tar czf "dist/rqx-$version-$triple.tar.gz" -C "$dir" "$binary" -C "$PWD/docs" man
           done
           (cd dist && sha256sum rqx-*.tar.gz > SHA256SUMS)
           cat dist/SHA256SUMS

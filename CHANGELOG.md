@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **Man pages.** `man rqx` and one page per command, such as `man rqx-scan`, are
+  generated from the same parser as `docs/cli.md` and checked in under `docs/man`.
+  Release archives carry them in a `man/` directory beside the binary, which stays at
+  the archive root, so the installers and the action extract it as before.
 - **`--reporter html=PATH` writes a report you can open in a browser.** One file with
   its own styles and no scripts or network requests: the grade distribution, findings
   by family and by rule, then every file worst grade first with each finding's code

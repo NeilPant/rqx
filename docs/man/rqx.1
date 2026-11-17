@@ -1,0 +1,135 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx 1  "rqx " 
+.SH NAME
+rqx \- Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says why it matters
+.SH SYNOPSIS
+\fBrqx\fR [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIsubcommands\fR]
+.SH DESCRIPTION
+Finds dead weight in TypeScript, JavaScript, Python, Go, Java and C++ and says why it matters
+.SH OPTIONS
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH SUBCOMMANDS
+.TP
+rqx\-scan(1)
+Analyze a project and report every finding
+.TP
+rqx\-fix(1)
+Apply the fixes a finding decides on its own, proving each one before it is written. Previews by default
+.TP
+rqx\-verify(1)
+Compare the working tree against a base revision and say what happened to each finding: resolved, improved, relocated, or introduced
+.TP
+rqx\-setup(1)
+Print the configuration one editor needs to talk to rqx, or list them all
+.TP
+rqx\-plan(1)
+Rank the work by what it buys against what it costs, and say what the health score would be after it
+.TP
+rqx\-explain(1)
+Print a rule\*(Aqs or a pattern\*(Aqs taxonomy entry: what it maps to, what decides it, and what fixes it
+.TP
+rqx\-rules(1)
+List every rule Rqx can report, grouped by family
+.TP
+rqx\-baseline(1)
+Record the findings this project already has, so a gate can judge only what a change adds
+.TP
+rqx\-suppressions(1)
+List every finding a comment in the source waives, with the reason given
+.TP
+rqx\-complexity(1)
+What the analyser measured, as a distribution rather than only its tail
+.TP
+rqx\-perf(1)
+Where the work grows faster than the data, ranked by reach
+.TP
+rqx\-update(1)
+Install the newest release, or say what it would change
+.TP
+rqx\-completions(1)
+Print a shell completion script
+.TP
+rqx\-recommend(1)
+What to do about this project, as distinct from what is wrong with it
+.TP
+rqx\-slop(1)
+Which files read as written rather than read
+.TP
+rqx\-health(1)
+Where the health score comes from, and what removing each part would buy
+.TP
+rqx\-graph(1)
+Print the import graph — as text, Graphviz, Mermaid or data
+.TP
+rqx\-cache(1)
+Show what the analysis cache holds, or throw it away
+.TP
+rqx\-query(1)
+Run a tree\-sitter query over a project, to try one out before writing it into a `[[rule]]`
+.TP
+rqx\-techniques(1)
+List every refactoring Rqx prescribes, and which rules ask for it
+.TP
+rqx\-levels(1)
+Print what each cleanliness level changes, as the settings it would take to write it by hand
+.TP
+rqx\-patterns(1)
+Report which design patterns a project uses, which are half applied, and where one would fit
+.TP
+rqx\-check(1)
+Analyze changed files against a base revision and fail if the gate is not met
+.TP
+rqx\-comment(1)
+Post the review onto the merge request it is reviewing, and grade the commit
+.TP
+rqx\-init(1)
+Write a commented RQX.toml with every setting at its default
+.TP
+rqx\-config(1)
+Print the settings a run will use, and the file each one came from
+.TP
+rqx\-mcp(1)
+Run as an MCP server, so an AI agent can ask what a project\*(Aqs problems are
+.TP
+rqx\-lsp(1)
+Run as a Language Server over stdio, for editor integration

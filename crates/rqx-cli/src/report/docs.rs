@@ -39,6 +39,7 @@ pub fn pages(fixtures: &Path) -> Vec<(PathBuf, String)> {
             family_page(family, &examples),
         ));
     }
+    pages.extend(man_pages());
     let advice = advice_examples(fixtures);
     pages.push((PathBuf::from("patterns/README.md"), pattern_index()));
     for family in PatternFamily::ALL {
@@ -84,6 +85,40 @@ fn cli_page() -> String {
         ));
     }
     page
+}
+
+/// `man rqx` and one page per visible subcommand, read off the parser like the command
+/// reference. The version is left out on purpose: `docs/man` is checked in, and a page
+/// that quotes it would be stale at every release for a fact `rqx --version` already
+/// gives.
+fn man_pages() -> Vec<(PathBuf, String)> {
+    use clap::CommandFactory;
+    use clap::builder::Resettable;
+
+    let mut command = crate::Cli::command()
+        .disable_help_subcommand(true)
+        .version(Resettable::Reset)
+        .long_version(Resettable::Reset);
+    command.build();
+    let subcommands = command
+        .get_subcommands()
+        .filter(|one| !one.is_hide_set())
+        .cloned();
+    std::iter::once(command.clone())
+        .chain(subcommands)
+        .map(man_page)
+        .collect()
+}
+
+fn man_page(command: clap::Command) -> (PathBuf, String) {
+    let page = clap_mangen::Man::new(command);
+    let mut roff = Vec::new();
+    page.render(&mut roff)
+        .expect("writing to memory cannot fail");
+    (
+        Path::new("man").join(page.get_filename()),
+        String::from_utf8_lossy(&roff).into_owned(),
+    )
 }
 
 /// One command's flags as a table. Positional arguments come first, in the order the
@@ -691,5 +726,39 @@ mod tests {
     #[test]
     fn a_readme_that_never_opted_in_is_not_touched() {
         assert!(with_catalogue("# Something else\n").is_none());
+    }
+
+    fn man_names() -> Vec<String> {
+        man_pages()
+            .into_iter()
+            .map(|(path, _)| path.file_name().unwrap().to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn every_visible_command_has_a_man_page_and_a_hidden_one_does_not() {
+        let names = man_names();
+        for expected in ["rqx.1", "rqx-scan.1", "rqx-check.1", "rqx-fix.1"] {
+            assert!(names.iter().any(|name| name == expected), "{expected}");
+        }
+        assert!(!names.iter().any(|name| name == "rqx-docs.1"));
+    }
+
+    /// The pages are checked in, so a release or a day must not be able to change them.
+    #[test]
+    fn a_man_page_names_no_version_and_no_date() {
+        for (path, body) in man_pages() {
+            let title = body.lines().find(|line| line.starts_with(".TH")).unwrap();
+            assert!(
+                !title.chars().any(|c| c.is_ascii_digit() && c != '1'),
+                "{} has a version or date in `{title}`",
+                path.display()
+            );
+            assert!(
+                !body.contains(env!("CARGO_PKG_VERSION")),
+                "{}",
+                path.display()
+            );
+        }
     }
 }
