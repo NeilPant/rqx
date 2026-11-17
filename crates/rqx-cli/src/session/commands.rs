@@ -75,10 +75,12 @@ pub const SESSION_ONLY: [(&str, &str); 6] = [
 
 /// The command line commands the session runs against its own scan. `findings` is
 /// `scan`, named for what it shows.
-pub const TWINS: [&str; 19] = [
+pub const TWINS: [&str; 21] = [
     "findings",
     "plan",
     "health",
+    "owners",
+    "trend",
     "complexity",
     "perf",
     "graph",
@@ -294,6 +296,13 @@ fn refuse_reporter(given: bool) -> Result<()> {
     Ok(())
 }
 
+fn refuse_trend_options(trending: &crate::trend::Options) -> Result<()> {
+    if trending.is_set() {
+        bail!("`--record` and `--trend` read and write files; run them from a shell");
+    }
+    Ok(())
+}
+
 fn refuse_scan_changes(evidence: &Evidence, cap: &DisplayCap) -> Result<()> {
     if evidence.is_empty() && !cap.is_set() {
         return Ok(());
@@ -332,10 +341,12 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             evidence,
             cap,
             watch,
+            trending,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
             refuse_scan_changes(&evidence, &cap)?;
+            refuse_trend_options(&trending)?;
             if watch {
                 bail!("use /watch on");
             }
@@ -397,6 +408,33 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::health(outcome, by, json, palette, out))
+        }
+        Command::Owners {
+            path,
+            json,
+            printing,
+            run,
+        } => {
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
+            let outcome = context.scanned()?;
+            print(|out| render::owners(outcome, json, palette, out))
+        }
+        Command::Trend {
+            path,
+            last,
+            by,
+            json,
+            printing,
+        } => {
+            refuse_reporter(printing.is_given())?;
+            let request = render::Trend {
+                path,
+                last,
+                by,
+                json,
+            };
+            print(|out| render::trend(&request, palette, out))
         }
         Command::Complexity {
             path,
@@ -638,6 +676,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             gate,
             evidence,
             cap,
+            trending,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
@@ -645,6 +684,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             if staged {
                 bail!("`--staged` reads the index; run `rqx check --staged` from a shell");
             }
+            refuse_trend_options(&trending)?;
             if fix {
                 bail!("`--fix` writes files; run `rqx check --fix` from a shell, or /fix");
             }
@@ -962,7 +1002,7 @@ mod tests {
             let outcome = fixture();
             let settings = Resolved::default();
             let palette = Palette::with_depth(ColorDepth::Truecolor);
-            let cases: [(&str, Direct); 9] = [
+            let cases: [(&str, Direct); 10] = [
                 ("/findings", |outcome, _, palette, out| {
                     terminal(outcome, &View::default(), palette, out)
                 }),
@@ -986,6 +1026,9 @@ mod tests {
                 }),
                 ("/health", |outcome, _, palette, out| {
                     render::health(outcome, crate::health::By::Family, false, palette, out)
+                }),
+                ("/owners", |outcome, _, palette, out| {
+                    render::owners(outcome, false, palette, out)
                 }),
                 ("/complexity --top 5", |outcome, settings, palette, out| {
                     let view = complexity::View {
@@ -1026,6 +1069,41 @@ mod tests {
                     "{line} differs from its command line twin"
                 );
             }
+        }
+
+        #[test]
+        fn slash_trend_prints_what_the_command_line_twin_prints() {
+            let outcome = fixture();
+            let settings = Resolved::default();
+            let file =
+                std::env::temp_dir().join(format!("rqx-slash-trend-{}.ndjson", std::process::id()));
+            let _ = std::fs::remove_file(&file);
+            for day in 0..2 {
+                crate::trend::record(&file, &crate::trend::Snapshot::of(&outcome, day * 86_400))
+                    .expect("a snapshot");
+            }
+            let line = format!("/trend {} --last 2 --by owner", file.display());
+            let request = render::Trend {
+                path: file.clone(),
+                last: Some(2),
+                by: crate::trend::By::Owner,
+                json: false,
+            };
+            let mut expected = Vec::new();
+            render::trend(
+                &request,
+                Palette::with_depth(ColorDepth::Truecolor),
+                &mut expected,
+            )
+            .expect("the direct rendering");
+            let printed = via_session(&line, &outcome, &settings);
+            let _ = std::fs::remove_file(&file);
+
+            assert!(!expected.is_empty());
+            assert_eq!(
+                String::from_utf8_lossy(&printed),
+                String::from_utf8_lossy(&expected)
+            );
         }
 
         #[test]

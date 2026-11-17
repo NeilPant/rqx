@@ -152,6 +152,9 @@ pub struct ScanOutcome {
     pub git_commands: Vec<String>,
     /// The configuration files that were in effect, lowest layer first, then the policy.
     pub config_files: Vec<PathBuf>,
+    /// The project's CODEOWNERS rules, when it has any. Kept beside the findings so
+    /// every report answers who owns a file from the same reading.
+    pub owners: Option<rqx_core::ownership::CodeOwners>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -1726,6 +1729,7 @@ impl Collector {
                 .chain(settings.policy.as_ref())
                 .cloned()
                 .collect(),
+            owners: crate::ownership::load(root),
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,

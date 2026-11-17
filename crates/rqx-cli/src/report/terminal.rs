@@ -24,6 +24,8 @@ pub enum Grouping {
     Rule,
     Family,
     Severity,
+    /// A finding in a file with several owners is listed under each of them.
+    Owner,
 }
 
 /// What decides the order inside a group.
@@ -343,6 +345,7 @@ fn write_footer(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Re
     write_cycles(out, layout, report)?;
     write_architecture(out, layout, report, &prefix)?;
     write_summary(out, layout, report, &report.totals_by_file())?;
+    write_owners(out, layout, report)?;
     write_hotspots(out, layout, report, &prefix)?;
     write_skipped(out, layout, report.outcome)?;
     write_notes(out, layout, report.outcome)?;
@@ -350,22 +353,46 @@ fn write_footer(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Re
     write_run(out, layout, report.outcome)
 }
 
+/// The headings one finding is listed under: one, except for a file with several owners.
+fn group_keys(report: &Report<'_>, grouping: Grouping, finding: &Finding) -> Vec<String> {
+    match grouping {
+        Grouping::Rule => vec![finding.slug().to_owned()],
+        Grouping::Family => vec![finding.category().slug().to_owned()],
+        Grouping::Severity => vec![finding.severity.label().to_owned()],
+        Grouping::File => vec![finding.location.file.to_string()],
+        Grouping::Owner => {
+            let owners = report.owners_of(&finding.location.file);
+            if owners.is_empty() {
+                vec![crate::ownership::UNOWNED.to_owned()]
+            } else {
+                owners.into_iter().map(str::to_owned).collect()
+            }
+        }
+    }
+}
+
 /// The same findings under a heading that is not a file. The file listing shows a
 /// grade and an excerpt per file; these headings have neither, so they are a count
 /// and the findings under it.
 fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
     write_header(out, layout, report)?;
+    if layout.grouping == Grouping::Owner && report.outcome.owners.is_none() {
+        writeln!(
+            out,
+            "\n  {}",
+            paint(
+                layout.palette.style(Ink::Muted),
+                "no CODEOWNERS file found, so every finding is unowned"
+            )
+        )?;
+    }
     let mut listing = Listing::new(layout, report);
     let mut groups: std::collections::BTreeMap<String, Vec<&Finding>> =
         std::collections::BTreeMap::new();
     for finding in &report.findings {
-        let key = match layout.grouping {
-            Grouping::Rule => finding.slug().to_owned(),
-            Grouping::Family => finding.category().slug().to_owned(),
-            Grouping::Severity => finding.severity.label().to_owned(),
-            Grouping::File => finding.location.file.to_string(),
-        };
-        groups.entry(key).or_default().push(finding);
+        for key in group_keys(report, layout.grouping, finding) {
+            groups.entry(key).or_default().push(finding);
+        }
     }
     let mut listed: Vec<(String, Vec<&Finding>)> = groups.into_iter().collect();
     listed.sort_by(|left, right| {
@@ -929,6 +956,15 @@ fn write_summary(
         }
     }
     Ok(())
+}
+
+/// Only when the project has a CODEOWNERS file: without one there is no one to divide
+/// the health among, and a heading over nothing would say the wrong thing.
+fn write_owners(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Result<()> {
+    if report.outcome.owners.is_none() {
+        return Ok(());
+    }
+    super::owners(&report.owner_rows(), layout.palette, out)
 }
 
 /// The rings, as rings. A cycle is already reported as a finding, but it is one
@@ -1512,13 +1548,76 @@ mod tests {
         let by_file = first_line(&layout());
 
         assert!(by_file.contains("3 files"), "{by_file}");
-        for grouping in [Grouping::Rule, Grouping::Family, Grouping::Severity] {
+        for grouping in [
+            Grouping::Rule,
+            Grouping::Family,
+            Grouping::Severity,
+            Grouping::Owner,
+        ] {
             let grouped = first_line(&Layout {
                 grouping,
                 ..layout()
             });
             assert_eq!(grouped, by_file);
         }
+    }
+
+    fn owned(codeowners: &str, findings: &[(&str, Severity)]) -> ScanOutcome {
+        let mut outcome = outcome_with(findings, 3);
+        outcome.owners = Some(rqx_core::ownership::CodeOwners::parse(
+            codeowners,
+            rqx_core::ownership::Dialect::GitHub,
+        ));
+        outcome
+    }
+
+    #[test]
+    fn grouping_by_owner_lists_a_finding_under_each_owner_of_its_file() {
+        let outcome = owned(
+            "web/ @web @lead\n",
+            &[
+                ("web/a.ts", Severity::Error),
+                ("tools/t.ts", Severity::Info),
+            ],
+        );
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                grouping: Grouping::Owner,
+                ..layout()
+            },
+        );
+        for heading in [
+            "@web  1 finding",
+            "@lead  1 finding",
+            "(unowned)  1 finding",
+        ] {
+            assert!(text.contains(heading), "{heading} in {text}");
+        }
+    }
+
+    #[test]
+    fn grouping_by_owner_without_a_codeowners_file_says_so() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                grouping: Grouping::Owner,
+                ..layout()
+            },
+        );
+        assert!(text.contains("no CODEOWNERS file found"), "{text}");
+        assert!(text.contains("(unowned)"), "{text}");
+    }
+
+    #[test]
+    fn the_summary_lists_owners_only_when_a_codeowners_file_exists() {
+        let findings = [("web/a.ts", Severity::Error)];
+        let with = rendered_text(&owned("web/ @web\n", &findings), &layout());
+        assert!(with.contains("Owners") && with.contains("@web"), "{with}");
+
+        let without = rendered_text(&outcome_with(&findings, 3), &layout());
+        assert!(!without.contains("Owners"), "{without}");
     }
 
     #[test]

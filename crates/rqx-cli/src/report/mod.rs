@@ -13,6 +13,7 @@ mod json;
 mod junit;
 mod link;
 mod markdown;
+mod owners;
 mod patterns;
 pub mod projection;
 mod ranked;
@@ -20,6 +21,7 @@ mod sarif;
 mod settings;
 mod tally;
 mod terminal;
+mod trend;
 mod validation;
 mod waivers;
 mod wrap;
@@ -46,10 +48,12 @@ pub use docs::schema_text as config_schema;
 pub use docs::write as docs;
 pub use fixes::{json as fixes_json, render as fixes};
 pub use graded::{json as verify_json, render as verify};
+pub use owners::{json as owners_json, missing as owners_missing, render as owners};
 pub use patterns::{
     coverage as pattern_coverage, explain as explain_pattern, json as advice_json, render as advice,
 };
 pub use ranked::{json as plan_json, render as plan};
+pub use trend::{json as trend_json, render as trend};
 pub use waivers::{json as waivers_json, render as waivers};
 
 /// Where a scan spent its time. Printed above the report rather than inside it, so
@@ -198,6 +202,9 @@ pub struct Report<'a> {
     pub totals: Totals,
     /// What the change paid off. Present only on a review that scanned its base.
     pub credit: Option<&'a crate::credit::Credit>,
+    /// Snapshots to chart, when `--trend` named a file. `Some` and empty means the file
+    /// has no history yet.
+    pub trend: Option<&'a [crate::trend::Snapshot]>,
 }
 
 /// What is in scope before any display filter, so the summary can say how much the
@@ -227,6 +234,7 @@ impl<'a> Report<'a> {
                 by_severity: outcome.counts.by_severity.clone(),
                 rules_fired: outcome.counts.by_rule.len(),
             },
+            trend: None,
         }
     }
 
@@ -244,6 +252,12 @@ impl<'a> Report<'a> {
         self
     }
 
+    /// Attaches the history a chart is drawn from.
+    pub fn trended(mut self, snapshots: Option<&'a [crate::trend::Snapshot]>) -> Self {
+        self.trend = snapshots;
+        self
+    }
+
     /// The reviewed slice with no display filter, for the same reason as `everything`.
     pub fn reviewed(review: &'a Review, verdict: &'a Verdict) -> Self {
         Self::review(review, verdict, &FindingFilter::default())
@@ -258,6 +272,7 @@ impl<'a> Report<'a> {
             verdict: Some(verdict),
             credit: review.credit.as_ref(),
             totals: totals_of(review.findings()),
+            trend: None,
         }
     }
 
@@ -310,6 +325,38 @@ impl<'a> Report<'a> {
                 .then_with(|| left.0.cmp(right.0))
         });
         ranked
+    }
+
+    /// The owners of one file, empty when the project has no CODEOWNERS file or no rule
+    /// names the file.
+    pub fn owners_of(&self, file: &str) -> Vec<&'a str> {
+        self.outcome
+            .owners
+            .as_ref()
+            .map(|owners| owners.owners_of(file))
+            .unwrap_or_default()
+    }
+
+    /// Each owner's files and health, worst first. Empty when the project has no
+    /// CODEOWNERS file. Always the whole project, like the health score: a review that
+    /// scored only the files it looked at would improve by touching fewer of them.
+    pub fn owner_rows(&self) -> Vec<crate::ownership::OwnerRow> {
+        crate::ownership::table(self.outcome, &self.outcome.analyzed)
+    }
+
+    /// The owners of files that carry findings a baseline does not already hold, with how
+    /// many each owner has, most first. A file with several owners counts for each of
+    /// them; a file no rule names is left out, since there is no one to tell.
+    pub fn owners_of_new_findings(&self) -> Vec<(&'a str, u32)> {
+        let mut counts: BTreeMap<&'a str, u32> = BTreeMap::new();
+        for finding in self.findings.iter().filter(|finding| !finding.known) {
+            for owner in self.owners_of(&finding.location.file) {
+                *counts.entry(owner).or_default() += 1;
+            }
+        }
+        let mut owners: Vec<(&'a str, u32)> = counts.into_iter().collect();
+        owners.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(right.0)));
+        owners
     }
 
     pub fn health(&self) -> u32 {
@@ -515,6 +562,7 @@ pub mod tests {
             stats: Default::default(),
             git_commands: Vec::new(),
             config_files: Vec::new(),
+            owners: None,
             omitted: 0,
             code_lines: 10_000,
             files_scanned,

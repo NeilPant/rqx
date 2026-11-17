@@ -96,6 +96,8 @@ A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule sl
 
 `rqx check` always gates. `rqx scan` gates only when one of `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade` is passed, so a `gate` mapping in `rqx.yaml` has no effect on a bare scan. This keeps a config file that appears above a project from changing the exit code of a pipeline that never asked for a gate.
 
+`gate.owners` sets a health floor and a severity limit for each owner named in a CODEOWNERS file. See [ownership.md](ownership.md). `comment.mention_owners` makes `rqx comment` write those owners as real mentions.
+
 ## Design pattern advice
 
 `patterns` decides which of the twenty-three Gang of Four patterns rqx reports on. It can be addressed four ways: by advisory, when one claim does not apply to the project; by pattern, when the whole pattern does not; by family (`creational`, `structural`, `behavioural`); and by stance.

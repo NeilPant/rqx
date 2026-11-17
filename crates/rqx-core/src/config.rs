@@ -172,6 +172,7 @@ pub struct RqxConfig {
     pub gate: Gate,
     pub fix: Fix,
     pub update: Update,
+    pub comment: Comment,
     pub architecture: Architecture,
     pub performance: Performance,
     /// Rules this project wrote, as `[[rule]]` blocks. The grammars are already in
@@ -351,6 +352,16 @@ impl Default for Update {
     fn default() -> Self {
         Self { check: true }
     }
+}
+
+/// What `rqx comment` writes into the merge request.
+#[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct Comment {
+    /// Write the owners of files with new findings as real `@mentions`, which the forge
+    /// notifies. Off by default: the names are written inside code spans, which it does
+    /// not.
+    pub mention_owners: bool,
 }
 
 /// Which mechanical fixes `rqx fix` may apply. A project that keeps commented-out
@@ -539,6 +550,31 @@ pub struct Gate {
     /// Fail when the total number of findings is above what the baseline recorded.
     /// A baseline says which debt is tolerated; this says it may not grow.
     pub ratchet: bool,
+    /// A floor per owner, keyed by the owner as CODEOWNERS writes it, for the files
+    /// that owner answers for. Needs a CODEOWNERS file; the verdict names each owner
+    /// that fell short.
+    pub owners: BTreeMap<String, OwnerGate>,
+}
+
+/// What one owner's files must meet. Both checks are off until set, so an entry names
+/// only the floor its owner has agreed to.
+#[derive(Clone, Debug, Deserialize, Hash, Serialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct OwnerGate {
+    /// Health score of the owner's files below which the check fails; 0 disables it.
+    pub min_health: u32,
+    /// Lowest severity that fails the check when the owner's files hold a finding of
+    /// it, ignoring findings a baseline already records.
+    pub fail_on: GateSeverity,
+}
+
+impl Default for OwnerGate {
+    fn default() -> Self {
+        Self {
+            min_health: 0,
+            fail_on: GateSeverity::Never,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema)]
@@ -595,6 +631,7 @@ impl Default for Gate {
             fail_on_incomplete: false,
             baseline: None,
             ratchet: false,
+            owners: BTreeMap::new(),
         }
     }
 }

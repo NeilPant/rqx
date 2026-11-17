@@ -63,6 +63,38 @@ them. `tools/release.sh` turns that section into the release notes.
   `gate.fail_on`, the reporters and the pull request comment cover these findings; the
   health score does not. `scan.sarif_in` in `rqx.yaml` sets the files. See
   `docs/ci.md`.
+- **Ownership from CODEOWNERS.** rqx reads `.github/CODEOWNERS`, `.gitlab/CODEOWNERS`,
+  `CODEOWNERS` or `docs/CODEOWNERS` (the first that holds a rule), in GitHub's format
+  or GitLab's, including `[Section]` and `^[Optional]` headers. The last matching rule
+  decides. Each JSON finding line gains an `owners` array, and the JSON summary gains an
+  `owners` object with `files`, `findings`, `health` and `grade` per owner. Both appear
+  only when a CODEOWNERS file exists. See `docs/ownership.md`.
+- **`--group-by owner`** on `scan` and `check` lists findings under the owners of their
+  file. A file with several owners is listed under each, and a file no rule names is
+  listed under `(unowned)`.
+- **Health per owner** in the terminal summary, in the HTML report as an Owners section
+  after the summary, and in the JSON summary.
+- **`rqx owners`** prints the owners ranked by health, as a table or, with
+  `--reporter json`, one object per owner. `/owners` prints the same output in the
+  session.
+- **`rqx comment` names the owners** of files with new findings, with a count each. The
+  names are written in code spans, which the forge does not notify.
+  `comment.mention_owners: true` in `rqx.yaml` writes them as real mentions.
+- **`gate.owners`** sets `min_health` and `fail_on` per owner in `rqx.yaml`. The verdict
+  lists each owner that fell short. Both checks are off until set, and the check runs
+  only when `gate.owners` is not empty.
+- **`--record [PATH]` on `scan` and `check`** appends one NDJSON snapshot to
+  `.rqx/trend.ndjson`, or to `PATH`: commit, time, rqx version, health, grade, file
+  count, counts by severity, findings per rule and, with a CODEOWNERS file, health per
+  owner. The file is only appended to.
+- **`rqx trend [PATH]`** prints the snapshots as series for health and findings, each
+  with its first and last value, the change, a direction and a block-character
+  sparkline, then the rules or, with `--by owner`, the owners that moved most.
+  `--last N` limits it to the newest N snapshots, and `--reporter json` writes one
+  object per series. `/trend` prints the same output in the session.
+- **`--trend PATH` on `scan` and `check`** adds a Trend section with an inline SVG
+  chart of the health score to the HTML report. `docs/trends.md` describes the format
+  and `docs/ci.md` has a recipe for keeping the file between CI runs.
 
 ## 0.3.0 — 2026-11-17
 

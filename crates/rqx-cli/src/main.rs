@@ -30,6 +30,7 @@ mod listed;
 mod lsp;
 mod mcp;
 mod migrate;
+mod ownership;
 mod path_suffixes;
 mod perf;
 mod plan;
@@ -51,6 +52,7 @@ mod slop;
 mod staged;
 mod stats;
 mod term;
+mod trend;
 mod unified_diff;
 mod update;
 mod verify;
@@ -151,6 +153,8 @@ const GROUPS: [(&str, &[&str]); 5] = [
             "complexity",
             "perf",
             "health",
+            "owners",
+            "trend",
             "slop",
             "hotspots",
             "graph",
@@ -284,6 +288,8 @@ enum Command {
         /// Rescan whenever a file changes, until interrupted
         #[arg(long)]
         watch: bool,
+        #[command(flatten)]
+        trending: trend::Options,
         #[command(flatten)]
         run: Run,
     },
@@ -606,6 +612,36 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
+    /// Rank the owners named in CODEOWNERS by the health of the files they own
+    Owners {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        /// Emit one JSON object per owner
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
+        run: Run,
+    },
+    /// Show how health, findings and the rules or owners that moved most have changed
+    /// across the snapshots `--record` wrote
+    Trend {
+        /// The trend file `rqx scan --record` appends to
+        #[arg(default_value = trend::DEFAULT_FILE, value_hint = ValueHint::FilePath)]
+        path: PathBuf,
+        /// Only the newest N snapshots
+        #[arg(long, value_name = "N")]
+        last: Option<usize>,
+        /// What to list the biggest movers of
+        #[arg(long, value_enum, default_value_t = trend::By::Rule)]
+        by: trend::By,
+        /// Emit one JSON object per series
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        printing: Printing,
+    },
     /// Print the import graph as text, Graphviz, Mermaid or JSON
     #[command(
         after_help = "Examples:\n  rqx graph --cycles                  only the edges that close a cycle\n  rqx graph --format mermaid          Mermaid output for documentation\n  rqx graph --focus src/api.ts        files it reaches and files that reach it"
@@ -708,6 +744,8 @@ enum Command {
         evidence: Evidence,
         #[command(flatten)]
         cap: DisplayCap,
+        #[command(flatten)]
+        trending: trend::Options,
         #[command(flatten)]
         run: Run,
     },
@@ -956,6 +994,7 @@ enum GroupArg {
     Rule,
     Family,
     Severity,
+    Owner,
 }
 
 impl From<GroupArg> for report::Grouping {
@@ -965,6 +1004,7 @@ impl From<GroupArg> for report::Grouping {
             GroupArg::Rule => Self::Rule,
             GroupArg::Family => Self::Family,
             GroupArg::Severity => Self::Severity,
+            GroupArg::Owner => Self::Owner,
         }
     }
 }
@@ -1829,6 +1869,7 @@ fn run() -> Result<Exit> {
             evidence,
             cap,
             watch,
+            trending,
             run,
         } => {
             if !path.exists() {
@@ -1852,13 +1893,14 @@ fn run() -> Result<Exit> {
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
                 let outcome = scan::scan_drawn(&path, settings, progress)?;
+                let history = trending.apply(&outcome)?;
 
                 // A bare `rqx scan` reports; it only gates when asked to, so adding a
                 // flag is the whole opt-in and no existing pipeline changes meaning.
                 let verdict = gate
                     .is_set()
                     .then(|| judge(&outcome, Scope::Project, &settings.config));
-                let report = Report::scan(&outcome, &filter);
+                let report = Report::scan(&outcome, &filter).trended(history.as_deref());
                 let report = match &verdict {
                     Some(verdict) => report.judged(verdict),
                     None => report,
@@ -2283,6 +2325,40 @@ fn run() -> Result<Exit> {
             })
             .map(|()| Exit::Clean)
         }
+        Command::Owners {
+            path,
+            json,
+            printing,
+            run,
+        } => {
+            let mut settings = run.resolve(&path)?;
+            settings.config.scan.max_findings = 0;
+            let sinks = printing.sinks(json)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::owners(&outcome, rendering.is_json(), palette, out)
+            })
+            .map(|()| Exit::Clean)
+        }
+        Command::Trend {
+            path,
+            last,
+            by,
+            json,
+            printing,
+        } => {
+            let sinks = printing.sinks(json)?;
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                let request = render::Trend {
+                    path: path.clone(),
+                    last,
+                    by,
+                    json: rendering.is_json(),
+                };
+                render::trend(&request, palette, out)
+            })
+            .map(|()| Exit::Clean)
+        }
         Command::Graph {
             path,
             format,
@@ -2397,7 +2473,11 @@ fn run() -> Result<Exit> {
             // Detected before posting but after the scan, so a dry run still gets its
             // comment where there is nowhere to put one.
             let forge = forge::Forge::detect();
-            let body = report::comment(&report, forge.as_ref().ok().and_then(forge::Forge::job))?;
+            let body = report::comment(
+                &report,
+                forge.as_ref().ok().and_then(forge::Forge::job),
+                settings.config.comment.mention_owners,
+            )?;
             if dry_run {
                 println!("{body}");
                 eprintln!(
@@ -2522,6 +2602,7 @@ fn run() -> Result<Exit> {
             gate,
             evidence,
             cap,
+            trending,
             run,
         } => {
             if !path.exists() {
@@ -2579,8 +2660,9 @@ fn run() -> Result<Exit> {
                     review = check::review_drawn(scan_root, &settings, source, progress)?;
                 }
             }
+            let history = trending.apply(&review.outcome)?;
             let verdict = review.judge(&settings.config);
-            let report = Report::review(&review, &verdict, &filter);
+            let report = Report::review(&review, &verdict, &filter).trended(history.as_deref());
             emit(&report, &sinks, &view, palette)?;
             update_notice(&view, &sinks, palette, settings.config.update.check);
             Ok(Exit::of(!verdict.passed()))

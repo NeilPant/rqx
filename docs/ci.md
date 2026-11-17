@@ -419,6 +419,65 @@ that adds no function is reviewed on one scan and reports neither this rule nor 
 When the base is scanned, it reads the `.rqx/cache.bin` of the working tree and never
 writes it, so a file with the same content at both revisions is not analysed again.
 
+## Keeping a health trend
+
+`rqx scan --record` appends a snapshot to `.rqx/trend.ndjson`, and `--trend` draws that
+file in the HTML report. A CI runner starts from a clean checkout, so the file has to be
+restored before the scan and saved after it. See [trends.md](trends.md) for the format.
+
+GitHub Actions record on the default branch and chart on every run. Cache keys cannot
+be overwritten, so each run saves a new key and the next run restores the newest one
+by prefix:
+
+```yaml
+- uses: actions/cache/restore@v4
+  with:
+    path: .rqx/trend.ndjson
+    key: rqx-trend-${{ github.run_id }}
+    restore-keys: rqx-trend-
+- run: >
+    rqx scan .
+    ${{ github.ref == 'refs/heads/main' && '--record' || '' }}
+    --trend .rqx/trend.ndjson
+    --reporter terminal --reporter html=rqx.html
+- uses: actions/cache/save@v4
+  if: github.ref == 'refs/heads/main'
+  with:
+    path: .rqx/trend.ndjson
+    key: rqx-trend-${{ github.run_id }}
+- uses: actions/upload-artifact@v4
+  with:
+    name: rqx-report
+    path: rqx.html
+```
+
+Branches and pull requests read the history without recording to it, so the chart shows
+the default branch's trend.
+
+GitLab CI keeps the file in the job cache. `policy: pull-push` restores it before the
+script and saves it after, and `when: always` saves it when the gate fails:
+
+```yaml
+rqx-trend:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  cache:
+    key: rqx-trend
+    paths: [.rqx/trend.ndjson]
+    policy: pull-push
+    when: always
+  script:
+    - rqx scan . --record --trend .rqx/trend.ndjson --reporter html=rqx.html
+  artifacts:
+    paths: [rqx.html]
+```
+
+A CI cache is evicted when it is not used for a while, and the history it held is lost
+with it. A pipeline that needs a durable history can upload the file as an artifact,
+copy it to a branch or a bucket after each run, or commit it. A trend file that is
+missing at the start of a run is not an error for `--trend`: the report notes that a
+chart needs two snapshots, and `--record` starts a new file.
+
 ## Review without git history
 
 `rqx check` normally asks git which files differ from `--base`. A shallow clone has no

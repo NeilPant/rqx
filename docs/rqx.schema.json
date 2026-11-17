@@ -87,6 +87,18 @@
         }
       ]
     },
+    "Comment": {
+      "additionalProperties": false,
+      "description": "What `rqx comment` writes into the merge request.",
+      "properties": {
+        "mention_owners": {
+          "default": false,
+          "description": "Write the owners of files with new findings as real `@mentions`, which the forge notifies. Off by default: the names are written inside code spans, which it does not.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "Confidence": {
       "enum": [
         "low",
@@ -235,6 +247,14 @@
           "minimum": 0,
           "type": "integer"
         },
+        "owners": {
+          "additionalProperties": {
+            "$ref": "#/$defs/OwnerGate"
+          },
+          "default": {},
+          "description": "A floor per owner, keyed by the owner as CODEOWNERS writes it, for the files that owner answers for. Needs a CODEOWNERS file; the verdict names each owner that fell short.",
+          "type": "object"
+        },
         "ratchet": {
           "default": false,
           "description": "Fail when the total number of findings is above what the baseline recorded. A baseline says which debt is tolerated; this says it may not grow.",
@@ -348,6 +368,25 @@
             "type": "string"
           },
           "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "OwnerGate": {
+      "additionalProperties": false,
+      "description": "What one owner's files must meet. Both checks are off until set, so an entry names only the floor its owner has agreed to.",
+      "properties": {
+        "fail_on": {
+          "$ref": "#/$defs/GateSeverity",
+          "default": "never",
+          "description": "Lowest severity that fails the check when the owner's files hold a finding of it, ignoring findings a baseline already records."
+        },
+        "min_health": {
+          "default": 0,
+          "description": "Health score of the owner's files below which the check fails; 0 disables it.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "type": "object"
@@ -9884,6 +9923,12 @@
         "paths": {}
       }
     },
+    "comment": {
+      "$ref": "#/$defs/Comment",
+      "default": {
+        "mention_owners": false
+      }
+    },
     "entrypoints": {
       "$ref": "#/$defs/Entrypoints",
       "default": {
@@ -9915,6 +9960,7 @@
         "max_findings": 0,
         "min_grade": "never",
         "min_health": 0,
+        "owners": {},
         "ratchet": false
       }
     },

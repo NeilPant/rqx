@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use rqx_core::config::{Gate, GateSeverity, RqxConfig};
+use rqx_core::config::{Gate, GateSeverity, OwnerGate, RqxConfig};
 use rqx_core::finding::Severity;
 
 use crate::scan::ScanOutcome;
@@ -54,6 +54,7 @@ struct Checks {
     grade: bool,
     incomplete: bool,
     ratchet: bool,
+    owners: bool,
 }
 
 /// `fail_on: never` says no finding fails the run by its severity. It does not
@@ -67,6 +68,7 @@ fn checks(gate: &Gate) -> Checks {
         grade: true,
         incomplete: true,
         ratchet: true,
+        owners: !gate.owners.is_empty(),
     }
 }
 
@@ -94,6 +96,9 @@ pub fn judge(outcome: &ScanOutcome, scope: Scope<'_>, config: &RqxConfig) -> Ver
     }
     if checks.ratchet {
         failures.extend(ratchet(outcome, gate));
+    }
+    if checks.owners {
+        failures.extend(owner_failures(outcome, &scope, gate));
     }
     Verdict {
         failures,
@@ -135,7 +140,11 @@ fn tally(outcome: &ScanOutcome, scope: &Scope<'_>, threshold: Severity) -> (u32,
 }
 
 const fn threshold(gate: &Gate) -> Option<Severity> {
-    match gate.fail_on {
+    threshold_of(gate.fail_on)
+}
+
+const fn threshold_of(fail_on: GateSeverity) -> Option<Severity> {
+    match fail_on {
         GateSeverity::Never => None,
         GateSeverity::Error => Some(Severity::Error),
         GateSeverity::Warning => Some(Severity::Warning),
@@ -185,6 +194,70 @@ fn ratchet(outcome: &ScanOutcome, gate: &Gate) -> Option<String> {
             "{total} findings against the {recorded} the baseline recorded; \
              remove {} or run `rqx baseline --update`",
             total - recorded
+        )
+    })
+}
+
+/// Each owner is held to its own floor over the files it answers for, so one team's
+/// debt cannot hide in a healthy project's average. Health is the owner's across the
+/// whole project, like the project's own; the severity limit counts what the scope
+/// covers and what the baseline does not already hold. An owner with no scanned files
+/// has nothing to fail on.
+fn owner_failures(outcome: &ScanOutcome, scope: &Scope<'_>, gate: &Gate) -> Vec<String> {
+    if outcome.owners.is_none() {
+        return vec![
+            "`gate.owners` is set but the project has no CODEOWNERS file to say who owns what"
+                .to_owned(),
+        ];
+    }
+    gate.owners
+        .iter()
+        .flat_map(|(owner, floor)| {
+            let files = crate::ownership::files_of(outcome, owner);
+            let health = owner_health_failure(outcome, owner, &files, floor);
+            let severity = owner_severity_failure(outcome, scope, owner, &files, floor);
+            health.into_iter().chain(severity)
+        })
+        .collect()
+}
+
+fn owner_health_failure(
+    outcome: &ScanOutcome,
+    owner: &str,
+    files: &[&str],
+    floor: &OwnerGate,
+) -> Option<String> {
+    if floor.min_health == 0 || files.is_empty() {
+        return None;
+    }
+    let health = crate::ownership::row(outcome, owner, files).health;
+    (health < floor.min_health).then(|| {
+        format!(
+            "`{owner}` health score {health} is below the required {}",
+            floor.min_health
+        )
+    })
+}
+
+fn owner_severity_failure(
+    outcome: &ScanOutcome,
+    scope: &Scope<'_>,
+    owner: &str,
+    files: &[&str],
+    floor: &OwnerGate,
+) -> Option<String> {
+    let severity = threshold_of(floor.fail_on)?;
+    let counted: u32 = files
+        .iter()
+        .filter(|file| scope.covers(file))
+        .filter_map(|file| outcome.severity_by_file.get(*file))
+        .map(|file| at_or_above(&file.new_by_severity, severity))
+        .sum();
+    (counted > 0).then(|| {
+        format!(
+            "`{owner}` has {} at or above `{}`",
+            crate::report::plural(counted, "finding", "findings"),
+            floor.fail_on.slug()
         )
     })
 }
@@ -407,6 +480,7 @@ mod gates {
             grade: true,
             incomplete: true,
             ratchet: true,
+            owners: false,
         };
         assert_eq!(checks(&gate(Error, 0, NoGrade)), all());
         assert_eq!(
@@ -913,5 +987,78 @@ mod gates {
         let verdict = judge_scan(&outcome, &config(gate(Error, 0, NoGrade)));
         assert_eq!(verdict.failures, [ERRORS]);
         assert_eq!(verdict.counted, 10);
+    }
+
+    fn owned_scenario() -> ScanOutcome {
+        let mut outcome = scenario();
+        outcome.owners = Some(rqx_core::ownership::CodeOwners::parse(
+            "bad.ts @bad\nok.ts @ok\n",
+            rqx_core::ownership::Dialect::GitHub,
+        ));
+        outcome
+    }
+
+    fn owner_gate(owners: &[(&str, u32, GateSeverity)]) -> RqxConfig {
+        let mut gate = gate(Never, 0, NoGrade);
+        for (owner, min_health, fail_on) in owners {
+            gate.owners.insert(
+                (*owner).to_owned(),
+                OwnerGate {
+                    min_health: *min_health,
+                    fail_on: *fail_on,
+                },
+            );
+        }
+        config(gate)
+    }
+
+    #[test]
+    fn an_owner_below_its_health_floor_fails_and_the_verdict_names_it() {
+        let verdict = judge_scan(
+            &owned_scenario(),
+            &owner_gate(&[("@bad", 70, Never), ("@ok", 70, Never)]),
+        );
+        assert_eq!(
+            verdict.failures,
+            ["`@bad` health score 44 is below the required 70"]
+        );
+    }
+
+    #[test]
+    fn an_owner_with_a_finding_at_its_severity_fails() {
+        let verdict = judge_scan(
+            &owned_scenario(),
+            &owner_gate(&[("@bad", 0, Error), ("@ok", 0, Error)]),
+        );
+        assert_eq!(
+            verdict.failures,
+            ["`@bad` has 10 findings at or above `error`"]
+        );
+    }
+
+    #[test]
+    fn a_review_counts_an_owners_findings_only_in_the_files_it_names() {
+        let review = reviewing(owned_scenario(), &["ok.ts"]);
+        let verdict = judge_review(&review, &owner_gate(&[("@bad", 0, Error)]));
+        assert!(verdict.passed(), "{:?}", verdict.failures);
+    }
+
+    #[test]
+    fn owners_are_matched_without_regard_to_case() {
+        let verdict = judge_scan(&owned_scenario(), &owner_gate(&[("@BAD", 0, Error)]));
+        assert_eq!(verdict.failures.len(), 1, "{:?}", verdict.failures);
+    }
+
+    #[test]
+    fn an_owner_gate_without_a_codeowners_file_says_it_cannot_be_checked() {
+        let verdict = judge_scan(&scenario(), &owner_gate(&[("@bad", 70, Never)]));
+        assert_eq!(verdict.failures.len(), 1);
+        assert!(verdict.failures[0].contains("no CODEOWNERS file"));
+    }
+
+    #[test]
+    fn a_gate_without_owners_never_looks_at_ownership() {
+        let verdict = judge_scan(&owned_scenario(), &config(gate(Never, 0, NoGrade)));
+        assert!(verdict.passed());
     }
 }

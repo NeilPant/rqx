@@ -5,7 +5,7 @@
 //! `/plan --budget 20` and `rqx plan --budget 20` from ever printing different things.
 
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
@@ -15,7 +15,7 @@ use rqx_core::rule::{Category, RuleId};
 use crate::brand::Palette;
 use crate::config::Resolved;
 use crate::scan::ScanOutcome;
-use crate::{complexity, health, hotspots, perf, plan, recommend, report, slop};
+use crate::{complexity, health, hotspots, ownership, perf, plan, recommend, report, slop, trend};
 
 pub struct Plan {
     pub budget: Option<u32>,
@@ -55,6 +55,38 @@ pub fn health(
         return health::json(outcome, by, out);
     }
     health::render(outcome, by, palette, out)
+}
+
+pub struct Trend {
+    pub path: PathBuf,
+    pub last: Option<usize>,
+    pub by: trend::By,
+    pub json: bool,
+}
+
+pub fn trend(request: &Trend, palette: Palette, out: &mut dyn Write) -> Result<()> {
+    let snapshots = trend::read(&request.path)?;
+    let shown = trend::last(&snapshots, request.last);
+    if request.json {
+        return report::trend_json(shown, request.by, out);
+    }
+    report::trend(shown, request.by, palette, out)
+}
+
+pub fn owners(
+    outcome: &ScanOutcome,
+    json: bool,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let rows = ownership::table(outcome, &outcome.analyzed);
+    if json {
+        return report::owners_json(&rows, out);
+    }
+    if outcome.owners.is_none() {
+        return report::owners_missing(palette, out);
+    }
+    report::owners(&rows, palette, out)
 }
 
 pub fn complexity(

@@ -231,6 +231,7 @@ check --format =terminal
 check --group-by
 check --group-by =family
 check --group-by =file
+check --group-by =owner
 check --group-by =rule
 check --group-by =severity
 check --help
@@ -271,6 +272,7 @@ check --progress =none
 check --progress =plain
 check --progress [env RQX_PROGRESS]
 check --quiet
+check --record
 check --reporter
 check --rule
 check --sarif-in
@@ -292,6 +294,7 @@ check --threads
 check --threads [env RQX_THREADS]
 check --timings
 check --top
+check --trend
 check --verbose
 check --write
 check -h
@@ -890,6 +893,7 @@ help init
 help levels
 help lsp
 help mcp
+help owners
 help patterns
 help perf
 help plan
@@ -902,6 +906,7 @@ help setup agent
 help slop
 help suppressions
 help techniques
+help trend
 help update
 help verify
 help waive
@@ -1057,6 +1062,41 @@ mcp --verbose
 mcp -h
 mcp -v
 mcp <path>
+owners
+owners --color
+owners --color =always
+owners --color =auto
+owners --color =never
+owners --config
+owners --help
+owners --hyperlinks
+owners --hyperlinks =always
+owners --hyperlinks =auto
+owners --hyperlinks =never
+owners --hyperlinks [env RQX_HYPERLINKS]
+owners --json
+owners --level
+owners --level [env RQX_LEVEL]
+owners --motion
+owners --motion =off
+owners --motion =on
+owners --no-mouse
+owners --no-progress
+owners --no-progress [env RQX_NO_PROGRESS]
+owners --no-tui
+owners --progress
+owners --progress =auto
+owners --progress =bar
+owners --progress =none
+owners --progress =plain
+owners --progress [env RQX_PROGRESS]
+owners --reporter
+owners --threads
+owners --threads [env RQX_THREADS]
+owners --verbose
+owners -h
+owners -v
+owners <path>
 patterns
 patterns --color
 patterns --color =always
@@ -1323,6 +1363,7 @@ scan --format =terminal
 scan --group-by
 scan --group-by =family
 scan --group-by =file
+scan --group-by =owner
 scan --group-by =rule
 scan --group-by =severity
 scan --help
@@ -1363,6 +1404,7 @@ scan --progress =none
 scan --progress =plain
 scan --progress [env RQX_PROGRESS]
 scan --quiet
+scan --record
 scan --reporter
 scan --rule
 scan --sarif-in
@@ -1383,6 +1425,7 @@ scan --threads
 scan --threads [env RQX_THREADS]
 scan --timings
 scan --top
+scan --trend
 scan --verbose
 scan --watch
 scan -h
@@ -1556,6 +1599,40 @@ techniques --progress [env RQX_PROGRESS]
 techniques --verbose
 techniques -h
 techniques -v
+trend
+trend --by
+trend --by =owner
+trend --by =rule
+trend --color
+trend --color =always
+trend --color =auto
+trend --color =never
+trend --help
+trend --hyperlinks
+trend --hyperlinks =always
+trend --hyperlinks =auto
+trend --hyperlinks =never
+trend --hyperlinks [env RQX_HYPERLINKS]
+trend --json
+trend --last
+trend --motion
+trend --motion =off
+trend --motion =on
+trend --no-mouse
+trend --no-progress
+trend --no-progress [env RQX_NO_PROGRESS]
+trend --no-tui
+trend --progress
+trend --progress =auto
+trend --progress =bar
+trend --progress =none
+trend --progress =plain
+trend --progress [env RQX_PROGRESS]
+trend --reporter
+trend --verbose
+trend -h
+trend -v
+trend <path>
 update
 update --check
 update --color
