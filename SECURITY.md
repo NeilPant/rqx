@@ -1,20 +1,22 @@
 # Security
 
-rqx reads source files and runs `git`. It does not execute the code it analyses, and
-it makes no network requests during a scan.
+rqx reads source files and runs `git`. It does not execute the code it analyses. A scan
+makes no network request except the once-a-day update check, which sends no project
+data and can be turned off (see "Network access" in the README).
 
-Two places take input that is not source code, and those are where to look:
+Two components accept input that is not source code:
 
-- **`rqx mcp --http`** compares its bearer token in constant time and refuses to bind
-  a public address without one.
-- **Custom rules** are tree-sitter queries. They match against a syntax tree; nothing
-  in a query executes.
+- `rqx mcp --http` compares its bearer token in constant time and refuses to bind a
+  public address without one.
+- Custom rules are tree-sitter queries. A query matches against a syntax tree and
+  does not execute anything.
 
-Paths from an editor or an agent are confined to the project root before anything is
-opened.
+Paths received from an editor or an agent are confined to the project root before any
+file is opened.
 
 ## Reporting
 
-Open a [security advisory](https://github.com/jadhamwi21/rqx/security/advisories/new)
-rather than a public issue. A description of the class of problem is enough to start;
-please do not include a working exploit in the first message.
+Report vulnerabilities through a
+[security advisory](https://github.com/jadhamwi21/rqx/security/advisories/new)
+instead of a public issue. The first message should describe the class of problem.
+It should not include a working exploit.
