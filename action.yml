@@ -163,7 +163,9 @@ runs:
         # Appended rather than written: other steps in the job own this file too.
         [ -n "${GITHUB_STEP_SUMMARY:-}" ] && cat "$summary" >> "$GITHUB_STEP_SUMMARY"
 
-        findings=$(grep -c '"ruleId"' "$RQX_SARIF" || echo 0)
+        # SARIF lists a waived finding too, marked suppressed, and the output is the
+        # number of findings reported.
+        findings=$(jq '[.runs[].results[] | select((.suppressions // []) == [])] | length' "$RQX_SARIF" 2>/dev/null || echo 0)
         echo "findings=$findings" >> "$GITHUB_OUTPUT"
         echo "passed=$([ "$status" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
         exit "$status"

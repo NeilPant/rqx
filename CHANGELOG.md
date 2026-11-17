@@ -44,6 +44,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **The action's `findings` output counts what was reported.** It counted every
+  `"ruleId"` in the SARIF file, and SARIF lists a finding a waiver silenced too, marked
+  suppressed, so a project that waived findings saw a number larger than the report
+  showed. The count now leaves suppressed results out and needs `jq`, which the
+  GitHub-hosted runners have.
 - **`check` counts every finding, not the 500 kept for display.** The review gate
   counted the findings retained under `max_findings` (500 by default), so a branch
   with more findings than that was counted as if it had 500, and a limit above 500
