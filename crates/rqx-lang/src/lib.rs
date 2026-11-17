@@ -3,6 +3,7 @@
 //! the walkers, the scope resolver and the rules are shared.
 
 pub mod classes;
+pub mod cost;
 pub mod cpp;
 pub mod custom;
 pub mod go;
