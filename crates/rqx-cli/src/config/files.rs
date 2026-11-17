@@ -117,6 +117,12 @@ pub fn read(path: &Path) -> Result<Value> {
     parse(&text).with_context(|| format!("reading {}", path.display()))
 }
 
+/// Whether text would load as a config file, without reading it from disk. For a writer
+/// that must not leave a project with a file rqx refuses.
+pub fn check_text(text: &str, path: &Path) -> Result<()> {
+    deserialize::<RqxConfig>(text, path).map(drop)
+}
+
 /// YAML text as a tree. An empty document, or one that is only comments, is a config
 /// that sets nothing.
 pub fn parse(text: &str) -> Result<Value> {

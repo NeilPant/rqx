@@ -101,6 +101,10 @@ pub fn set(path: &Path, key: &str, raw: &str) -> Result<String> {
         .try_set_path(key, typed(raw))
         .map_err(|error| anyhow::anyhow!("cannot set `{key}` in {}: {error}", path.display()))?;
 
+    // A value the config would refuse is refused here, with the file untouched, rather
+    // than written and found on the next run.
+    crate::config::check_text(&document.to_string(), path)
+        .with_context(|| format!("`{raw}` is not a value for `{key}`, so nothing was written"))?;
     write(path, &document)?;
     Ok(match before {
         Some(was) => format!("{was} \u{2192} {raw}"),
@@ -443,6 +447,58 @@ mod tests {
         assert!(
             !unset(&file, "thresholds.max_params").expect("second unset"),
             "removing what is not there is not a change"
+        );
+    }
+
+    #[test]
+    fn a_value_the_config_would_refuse_is_not_written() {
+        let root = workspace("refused");
+        let file = root.join("rqx.yaml");
+        let before = "# mine\nthresholds:\n  max_params: 4\n";
+        std::fs::write(&file, before).expect("write");
+
+        let error = format!(
+            "{:#}",
+            set(&file, "thresholds.max_params", "many").expect_err("refused")
+        );
+        assert!(
+            error.contains("not a value for `thresholds.max_params`"),
+            "{error}"
+        );
+        assert!(
+            set(&file, "thresholds.max_param", "2").is_err(),
+            "a misspelt key"
+        );
+        assert_eq!(std::fs::read_to_string(&file).expect("read"), before);
+    }
+
+    #[test]
+    fn a_rule_option_is_written_under_the_rule_and_survives_a_comment() {
+        let root = workspace("rule-option");
+        let file = root.join("rqx.yaml");
+        std::fs::write(
+            &file,
+            "# mine\nrules:\n  disabled: [magic-number] # noisy\n",
+        )
+        .expect("write");
+        set(&file, "rules.long-function.severity", "error").expect("set");
+        let written = std::fs::read_to_string(&file).expect("read");
+        assert!(
+            written.contains("# mine") && written.contains("# noisy"),
+            "{written}"
+        );
+        let tree: serde_json::Value = serde_saphyr::from_str(&written).expect("valid yaml");
+        assert_eq!(
+            tree["rules"]["long-function"]["severity"], "error",
+            "{written}"
+        );
+
+        assert!(unset(&file, "rules.long-function.severity").expect("unset"));
+        let written = std::fs::read_to_string(&file).expect("read");
+        assert!(!written.contains("long-function"), "{written}");
+        assert!(
+            written.contains("disabled: [magic-number] # noisy"),
+            "{written}"
         );
     }
 

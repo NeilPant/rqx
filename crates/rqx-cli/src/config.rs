@@ -15,7 +15,7 @@ mod hoist;
 mod origin;
 mod quickfix;
 
-pub use files::{config_path_in, user_config_directories};
+pub use files::{check_text, config_path_in, user_config_directories};
 pub use origin::Origin;
 pub use quickfix::disable_entry;
 

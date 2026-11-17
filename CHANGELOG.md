@@ -69,6 +69,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Changed
 
+- **`rqx config set` refuses a value the config would refuse.** It edits the YAML in
+  place, keeping comments and layout, and checks the result before writing, so
+  `rqx config set thresholds.max_params many` leaves the file as it was and says why.
+  Per-rule keys such as `rules.long-function.severity` work like any other.
 - **The action downloads rqx rather than building it.** `jadhamwi21/rqx@v1` reads the
   version out of the checkout, fetches that release's binary for the runner and
   verifies it against `SHA256SUMS`. A ref with no published binary — a fork, or
