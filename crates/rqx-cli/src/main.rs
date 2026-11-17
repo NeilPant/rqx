@@ -37,6 +37,8 @@ mod setup;
 mod slop;
 mod stats;
 mod term;
+// The full-screen interface is no longer opened by anything; a later change deletes it.
+#[allow(dead_code)]
 mod tui;
 mod update;
 mod verify;
@@ -69,9 +71,10 @@ pub struct Cli {
     /// Never open the interactive interface; bare `rqx` prints the report instead
     #[arg(long, global = true)]
     no_tui: bool,
-    /// Leave the mouse to the terminal. Capture takes drag-select away from it, and
-    /// not every emulator passes shift+drag through.
+    /// Leave the mouse to the terminal. The session never captures it; the flag is
+    /// still accepted so an existing invocation keeps working.
     #[arg(long, global = true)]
+    #[allow(dead_code)]
     no_mouse: bool,
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
     #[arg(long, value_enum, default_value_t = Color::Auto, global = true)]
@@ -1303,30 +1306,32 @@ fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
     })
 }
 
-/// How the interface was asked for, so the launch reads the same flags rather than
-/// reaching into `Cli` for a different subset.
-#[derive(Copy, Clone)]
-struct Interface {
-    motion: Motion,
-    mouse: bool,
-}
-
-/// Opens the interface on the working directory. `None` means the terminal could not
+/// Opens the session on the working directory. `None` means the terminal could not
 /// host it after all, and the caller prints the report instead.
-fn open_tui(interface: Interface) -> Result<Option<Exit>> {
+fn open_session(motion: Motion) -> Result<Option<Exit>> {
+    let Command::Scan {
+        standard,
+        threads,
+        config,
+        ..
+    } = bare_scan()?
+    else {
+        bail!("bare `rqx` did not parse as a scan");
+    };
     let path = Path::new(".");
-    let settings = config::resolve(path, None, None)?;
-    let options = tui::Launch {
+    let mut settings = config::resolve(path, config.as_deref(), standard.chosen()?)?;
+    if let Some(count) = threads {
+        settings.config.scan.threads = count;
+    }
+    let options = session::Launch {
         path,
         config: &settings,
-        reduced_motion: matches!(interface.motion, Motion::Off),
-        mouse: interface.mouse,
-        filters: tui::Filters::default(),
+        reduced_motion: matches!(motion, Motion::Off),
     };
-    match tui::launch(options) {
+    match session::launch(options) {
         Ok(()) => Ok(Some(Exit::Clean)),
         Err(reason) => {
-            eprintln!("  interactive interface unavailable: {reason}");
+            eprintln!("  interactive session unavailable: {reason}");
             Ok(None)
         }
     }
@@ -1408,10 +1413,6 @@ fn run() -> Result<Exit> {
     cli.color.choice().write_global();
     progress::set_animated(!matches!(cli.motion, Motion::Off));
     let palette = Palette::detect();
-    let interface = Interface {
-        motion: cli.motion,
-        mouse: !cli.no_mouse,
-    };
 
     let command = match cli.command {
         Some(command) => command,
@@ -1420,8 +1421,8 @@ fn run() -> Result<Exit> {
             // for all of them the answer is the report, so a pipeline running `rqx`
             // gets the scan's exit code rather than a help page that exits 0.
             if !cli.no_tui
-                && tui::gate().is_ok()
-                && let Some(exit) = open_tui(interface)?
+                && session::gate().is_ok()
+                && let Some(exit) = open_session(cli.motion)?
             {
                 return Ok(exit);
             }

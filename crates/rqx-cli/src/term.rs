@@ -118,6 +118,27 @@ pub fn interactive(needs: (u16, u16)) -> Result<(), Decline> {
     Ok(())
 }
 
+/// Installed once, and told how to give the terminal back. Ratatui installs a hook of
+/// its own on every init and each wraps the last, so the interfaces install this one
+/// instead: a panic printed into a terminal still in raw mode is unreadable.
+pub fn install_panic_hook(restore: fn()) {
+    use std::sync::Once;
+
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            restore();
+            eprintln!("\nrqx hit a bug and stopped.\n");
+            previous(info);
+            eprintln!(
+                "\nPlease report this at https://github.com/jadhamwi21/rqx/issues; \
+                 run again with RUST_BACKTRACE=1 for more."
+            );
+        }));
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::columns_from;

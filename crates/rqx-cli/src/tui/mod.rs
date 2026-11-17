@@ -719,7 +719,7 @@ pub fn launch(options: Launch<'_>) -> Result<(), Decline> {
     // and each wraps the last, so ours has to go on top to disable the mouse first.
     let mut terminal =
         Screenful::open(options.mouse).map_err(|error| Decline::SetupFailed(error.to_string()))?;
-    install_panic_hook();
+    term::install_panic_hook(restore);
     let outcome = run(&mut terminal.inner, &options);
     drop(terminal);
     let farewell = outcome.map_err(|error| Decline::SetupFailed(error.to_string()))?;
@@ -844,27 +844,6 @@ fn farewell(session: &Session) -> String {
         outcome.elapsed_ms as f64 / 1000.0,
         session.root,
     )
-}
-
-/// Installed once. Ratatui installs its own on every init, each wrapping the last, so
-/// the old two-terminal design stacked them and a panic printed into a screen that
-/// was still in raw mode.
-fn install_panic_hook() {
-    use std::sync::Once;
-
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let previous = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
-            restore();
-            eprintln!("\nrqx hit a bug and stopped.\n");
-            previous(info);
-            eprintln!(
-                "\nPlease report this at https://github.com/jadhamwi21/rqx/issues; \
-                 run again with RUST_BACKTRACE=1 for more."
-            );
-        }));
-    });
 }
 
 /// Scanning the working directory is the common case, and printing its absolute
