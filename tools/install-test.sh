@@ -37,30 +37,30 @@ fail() {
   failures=$((failures + 1))
 }
 
-# The same mapping install.sh uses, so the test expects the triple the installer should pick.
-expected_triple() {
+# The same mapping install.sh uses, so the test expects the platform the installer should pick.
+expected_platform() {
   case "$(uname -m)" in
-    x86_64 | amd64) arch="x86_64" ;;
-    arm64 | aarch64) arch="aarch64" ;;
+    x86_64 | amd64) arch="x64" ;;
+    arm64 | aarch64) arch="arm64" ;;
     *) return 1 ;;
   esac
   case "$(uname -s)" in
     Darwin)
-      if [ "$arch" = "x86_64" ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" = "1" ]; then
-        arch="aarch64"
+      if [ "$arch" = "x64" ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" = "1" ]; then
+        arch="arm64"
       fi
-      echo "$arch-apple-darwin"
+      echo "darwin-$arch"
       ;;
-    Linux) echo "$arch-unknown-linux-musl" ;;
+    Linux) echo "linux-$arch" ;;
     *) return 1 ;;
   esac
 }
 
 check_dry_run() {
   name="dry run names this platform's tarball"
-  triple="$(expected_triple)" || triple=""
-  if [ -z "$triple" ]; then
-    fail "$name: no expected triple for this platform"
+  platform="$(expected_platform)" || platform=""
+  if [ -z "$platform" ]; then
+    fail "$name: no expected platform for this platform"
     return
   fi
 
@@ -68,8 +68,8 @@ check_dry_run() {
   output="$(sh "$installer" --dry-run 2>&1)" || status=$?
   if [ "$status" -eq 0 ]; then
     case "$output" in
-      *"-$triple.tar.gz"*)
-        pass "$name ($triple)"
+      *"-$platform.tar.gz"*)
+        pass "$name ($platform)"
         return
         ;;
     esac

@@ -3,7 +3,7 @@
 Install the rqx binary for this machine from its GitHub release.
 
 .DESCRIPTION
-Works out the release's target triple from the processor architecture, downloads the
+Works out the release's platform name from the processor architecture, downloads the
 tarball and SHA256SUMS over HTTPS into a throwaway directory, checks the tarball
 against SHA256SUMS, and only then copies rqx.exe into the install directory. A
 mismatch or a missing checksum stops it with nothing installed.
@@ -54,15 +54,15 @@ function Exit-WithFallback {
     throw "$Message`nTo build from source instead (needs the Rust toolchain):`n  $script:CargoFallback"
 }
 
-function Get-RqxTriple {
+function Get-RqxPlatform {
     # A 32-bit PowerShell on a 64-bit Windows reports x86 here and names the real
     # architecture in the second variable.
     $architecture = $env:PROCESSOR_ARCHITEW6432
     if (-not $architecture) { $architecture = $env:PROCESSOR_ARCHITECTURE }
 
     switch ($architecture) {
-        'AMD64' { return 'x86_64-pc-windows-msvc' }
-        'ARM64' { return 'aarch64-pc-windows-msvc' }
+        'AMD64' { return 'win32-x64' }
+        'ARM64' { return 'win32-arm64' }
         default { Exit-WithFallback "no rqx binary is published for the $architecture architecture" }
     }
 }
@@ -176,13 +176,13 @@ function Install-Rqx {
     if (-not $InstallDir) { $InstallDir = $env:RQX_INSTALL_DIR }
     if (-not $InstallDir) { $InstallDir = Join-Path $env:LOCALAPPDATA 'rqx\bin' }
 
-    $triple = Get-RqxTriple
+    $platform = Get-RqxPlatform
     if (-not $Version) { $Version = Get-LatestRqxVersion }
     if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
         throw "'$Version' is not a version like 1.2.3"
     }
 
-    $archiveName = "rqx-$Version-$triple.tar.gz"
+    $archiveName = "rqx-$Version-$platform.tar.gz"
     $downloadBase = "$script:ReleasesUrl/download/v$Version"
     $archiveUrl = "$downloadBase/$archiveName"
     $checksumsUrl = "$downloadBase/SHA256SUMS"
@@ -191,7 +191,7 @@ function Install-Rqx {
     if ($DryRun) {
         Write-Output 'rqx install, dry run: nothing will be downloaded or changed'
         Write-Step "version    $Version"
-        Write-Step "platform   $triple"
+        Write-Step "platform   $platform"
         Write-Step "archive    $archiveUrl"
         Write-Step "checksums  $checksumsUrl"
         Write-Step "verify     $archiveName against SHA256SUMS before installing"
@@ -203,7 +203,7 @@ function Install-Rqx {
     $workDir = Join-Path ([IO.Path]::GetTempPath()) "rqx-install-$([guid]::NewGuid())"
     New-Item -ItemType Directory -Path $workDir | Out-Null
     try {
-        Write-Output "Installing rqx $Version for $triple"
+        Write-Output "Installing rqx $Version for $platform"
         $archivePath = Join-Path $workDir $archiveName
         $checksumsPath = Join-Path $workDir 'SHA256SUMS'
 
@@ -211,7 +211,7 @@ function Install-Rqx {
         try {
             Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
         } catch {
-            Exit-WithFallback "could not download $archiveUrl (no binary published for v$Version on $triple, or the network failed)"
+            Exit-WithFallback "could not download $archiveUrl (no binary published for v$Version on $platform, or the network failed)"
         }
         Write-Step "downloading $checksumsUrl"
         try {
