@@ -112,6 +112,7 @@ check --fail-on =info
 check --fail-on =never
 check --fail-on =warning
 check --fail-on-incomplete
+check --files-from
 check --fix
 check --fixable
 check --format
@@ -782,6 +783,7 @@ scan --fail-on =info
 scan --fail-on =never
 scan --fail-on =warning
 scan --fail-on-incomplete
+scan --files-from
 scan --fixable
 scan --format
 scan --format =github

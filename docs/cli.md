@@ -69,6 +69,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--search` | Show only findings whose rule, file or evidence contains this text |
 | `--since` | Show only findings in files this revision changed |
 | `--changed` | Show only findings in files not yet committed |
+| `--files-from` | Show only findings in the files this list names, one path per line, or separated by NUL when the input holds one (`git diff -z --name-only`); `-` reads standard input. Paths are relative to the scanned directory, or absolute. The whole project is still analysed, so cross-file findings stay right. On `check` the list replaces the git diff as the files under review |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
 | `--timings` | Print how long each stage of the scan took, and what it did |
@@ -428,6 +429,7 @@ Analyze a project and report every finding
 | `--search` | Show only findings whose rule, file or evidence contains this text |
 | `--since` | Show only findings in files this revision changed |
 | `--changed` | Show only findings in files not yet committed |
+| `--files-from` | Show only findings in the files this list names, one path per line, or separated by NUL when the input holds one (`git diff -z --name-only`); `-` reads standard input. Paths are relative to the scanned directory, or absolute. The whole project is still analysed, so cross-file findings stay right. On `check` the list replaces the git diff as the files under review |
 | `--show-passed` | List files that have no findings as well |
 | `--quiet` | Print the summary without the findings |
 | `--timings` | Print how long each stage of the scan took, and what it did |

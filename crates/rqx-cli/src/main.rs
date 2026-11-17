@@ -22,6 +22,7 @@ mod gate;
 mod graph;
 mod health;
 mod history;
+mod listed;
 mod lsp;
 mod mcp;
 mod migrate;
@@ -607,7 +608,7 @@ enum Command {
     /// Analyze changed files against a base revision and fail if the gate is not met
     #[command(visible_alias = "c")]
     #[command(
-        after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and fail CI on any error\n  rqx check --fix -w                  apply the proven fixes first"
+        after_help = "Examples:\n  rqx check --base main               review the branch against main\n  rqx check --base main --fail-on error\n                                      and fail CI on any error\n  rqx check --fix -w                  apply the proven fixes first\n  git diff -z --name-only main... | rqx check --files-from -\n                                      review without git history to diff against"
     )]
     Check {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -615,7 +616,7 @@ enum Command {
         #[command(flatten)]
         standard: Standard,
         /// Revision to compare against
-        #[arg(long, default_value = "origin/HEAD")]
+        #[arg(long, default_value = "origin/HEAD", conflicts_with = "files_from")]
         base: String,
         /// Apply the mechanical fixes to what the branch touched before gating, so a
         /// branch whose only failures were mechanical passes
@@ -838,6 +839,18 @@ struct View {
     /// Show only findings in files not yet committed
     #[arg(long, help_heading = "Filtering")]
     changed: bool,
+    /// Show only findings in the files this list names, one path per line, or
+    /// separated by NUL when the input holds one (`git diff -z --name-only`); `-` reads
+    /// standard input. Paths are relative to the scanned directory, or absolute. The
+    /// whole project is still analysed, so cross-file findings stay right. On `check`
+    /// the list replaces the git diff as the files under review
+    #[arg(
+        long = "files-from",
+        value_name = "FILE",
+        value_hint = ValueHint::FilePath,
+        help_heading = "Filtering"
+    )]
+    files_from: Option<String>,
 
     /// List files that have no findings as well
     #[arg(long, help_heading = "Display")]
@@ -1355,7 +1368,27 @@ fn update_notice(view: &View, sinks: &[Sink], palette: Palette, enabled: bool) {
     }
 }
 
-fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
+/// The list `--files-from` names, read once because standard input cannot be read
+/// twice, and said once when it named things that are not there.
+fn listed_files(view: &View, root: &Path) -> Result<Option<listed::Listed>> {
+    let Some(source) = view.files_from.as_deref() else {
+        return Ok(None);
+    };
+    let directory = if root.is_file() {
+        root.parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or(Path::new("."))
+    } else {
+        root
+    };
+    let listed = listed::Listed::read(source, directory)?;
+    if let Some(note) = listed.note_on_missing() {
+        eprintln!("  {note}");
+    }
+    Ok(Some(listed))
+}
+
+fn filter_of(view: &View, root: &Path, listed: Option<&listed::Listed>) -> Result<FindingFilter> {
     let filter = FindingFilter::new(
         view.severity.map(Severity::from),
         &view.rules,
@@ -1376,6 +1409,11 @@ fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
         touched
             .get_or_insert_with(Vec::new)
             .extend(history::uncommitted(root));
+    }
+    if let Some(listed) = listed {
+        touched
+            .get_or_insert_with(Vec::new)
+            .extend(listed.files.iter().cloned());
     }
     Ok(match touched {
         Some(files) => filter.touching(files),
@@ -1573,7 +1611,8 @@ fn run() -> Result<Exit> {
 
             progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
-            let filter = filter_of(&view, &path)?;
+            let listed = listed_files(&view, &path)?;
+            let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
                 let outcome = scan::scan(&path, settings)?;
 
@@ -2218,8 +2257,15 @@ fn run() -> Result<Exit> {
 
             progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
-            let filter = filter_of(&view, &path)?;
-            let mut review = check::review(&path, &settings, &base)?;
+            // The list is what is reviewed here, so it does not also narrow the report:
+            // that would hide the findings in the files that import what it names.
+            let listed = listed_files(&view, &path)?;
+            let source = match &listed {
+                Some(listed) => check::Reviewed::Listed(&listed.files),
+                None => check::Reviewed::Since(&base),
+            };
+            let filter = filter_of(&view, &path, None)?;
+            let mut review = check::review_of(&path, &settings, source, None)?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
             // mechanical passes rather than failing on work rqx could have done.
@@ -2237,7 +2283,7 @@ fn run() -> Result<Exit> {
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
-                    review = check::review(&path, &settings, &base)?;
+                    review = check::review_of(&path, &settings, source, None)?;
                 }
             }
             let verdict = review.judge(&settings.config);

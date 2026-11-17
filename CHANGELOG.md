@@ -43,6 +43,15 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   `config validate --json` writes one line per problem (`severity`, `file`, `line`,
   `column`, `message`) and a summary whose `valid` is the answer the exit code gives.
   Both formats are in `docs/json.md`.
+- **`--files-from FILE` on `scan` and `check`.** Names the files to look at, one path
+  per line, or separated by NUL when the input holds one, so `git diff -z --name-only`
+  works; `-` reads standard input. Paths are relative to the scanned directory or
+  absolute, and paths that are not files under it are said once on stderr and
+  ignored. On `scan` it narrows the report the way `--since` and `--changed` do, and
+  combines with them; the whole project is still analysed, so cross-file findings stay
+  right. On `check` the list replaces the git diff as the files under review (what
+  imports them is still added), so a review works in a clone with no history to diff
+  against. `--base` and `--files-from` cannot be given together.
 
 ### Changed
 
