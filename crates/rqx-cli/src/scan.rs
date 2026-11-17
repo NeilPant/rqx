@@ -56,6 +56,7 @@ pub(crate) struct Analyzed {
     shape: rqx_lang::FileShape,
     suppressions: Vec<rqx_core::suppress::Suppression>,
     todos: Vec<rqx_core::facts::Spot>,
+    cost: rqx_core::cost::FileCost,
 }
 
 #[derive(Clone)]
@@ -136,6 +137,12 @@ pub struct ScanOutcome {
     /// threshold was crossed — the distribution a reader wants is the same set of
     /// numbers the rules only see the tail of.
     pub shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
+    /// What each function costs once the functions it calls are folded in, by file and by
+    /// where the function starts. Worked out again by every scan and never cached,
+    /// because a callee edited in another file changes it for a caller that did not change.
+    /// Nothing reads it yet; the performance report and the rules built on it will.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub summaries: rqx_core::cost::Summaries,
     /// Findings a waiver in the source asked rqx to leave out of the count. Kept so
     /// every waiver can be audited in one place rather than only being obeyed.
     pub suppressed: Vec<rqx_core::suppress::Suppressed>,
@@ -277,6 +284,7 @@ struct Staged {
     import_edges: std::collections::BTreeMap<String, Vec<String>>,
     cycles: Vec<Vec<String>>,
     importers: Vec<(Arc<str>, u32)>,
+    summaries: Option<rqx_core::cost::Summaries>,
     commits: Vec<(Arc<str>, u32)>,
     blames: u32,
     git_commands: Vec<String>,
@@ -292,6 +300,12 @@ impl Staged {
             self.advice.push(advice);
         }
     }
+}
+
+/// One file's cost facts, under the name findings give the file.
+struct CostFile {
+    name: Arc<str>,
+    cost: rqx_core::cost::FileCost,
 }
 
 /// Findings are capped for display while `counts` stays exact, because a health
@@ -332,6 +346,9 @@ struct Collector {
     /// only interesting when it spans languages.
     ported: HashMap<u64, PortedGroup>,
     modules: Vec<rqx_lang::module_graph::ModuleEntry>,
+    /// The cost facts of the file at the same position in `modules`.
+    costs: Vec<CostFile>,
+    summaries: rqx_core::cost::Summaries,
     analyzed: std::collections::BTreeSet<String>,
     impact: ImpactMap,
     import_edges: std::collections::BTreeMap<String, Vec<String>>,
@@ -387,6 +404,8 @@ impl Collector {
             clone_groups: HashMap::new(),
             ported: HashMap::new(),
             modules: Vec::new(),
+            costs: Vec::new(),
+            summaries: rqx_core::cost::Summaries::default(),
             analyzed: std::collections::BTreeSet::new(),
             impact: ImpactMap::default(),
             import_edges: std::collections::BTreeMap::new(),
@@ -435,6 +454,9 @@ impl Collector {
         self.advice.extend(staged.advice);
         self.import_edges.extend(staged.import_edges);
         self.cycles.extend(staged.cycles);
+        if let Some(summaries) = staged.summaries {
+            self.summaries = summaries;
+        }
         for (file, importers) in staged.importers {
             self.impact.set_importers(file, importers);
         }
@@ -1541,6 +1563,32 @@ impl Collector {
         staged
     }
 
+    /// What each function costs with its callees folded in, over every file the walk
+    /// collected. `complete` says whether the walk covered the project or only part of it.
+    fn cost_summaries(
+        modules: &[rqx_lang::module_graph::ModuleEntry],
+        costs: &[CostFile],
+        root: &Path,
+        tables: &rqx_lang::cost::tables::CostTables,
+        complete: bool,
+    ) -> Staged {
+        let files: Vec<rqx_lang::cost::compose::Analysed<'_>> = modules
+            .iter()
+            .zip(costs)
+            .map(|(module, file)| rqx_lang::cost::compose::Analysed {
+                name: &file.name,
+                module,
+                cost: &file.cost,
+            })
+            .collect();
+        Staged {
+            summaries: Some(rqx_lang::cost::compose::summarise(
+                &files, root, tables, complete,
+            )),
+            ..Staged::default()
+        }
+    }
+
     /// What other tools reported, read from the SARIF files the project named.
     fn external_findings(root: &Path, config: &RqxConfig) -> Staged {
         Staged {
@@ -1566,19 +1614,21 @@ impl Collector {
         let config = &settings.config;
         let clone_groups = std::mem::take(&mut self.clone_groups);
         let ported = std::mem::take(&mut self.ported);
-        let modules = if self.track_modules {
-            std::mem::take(&mut self.modules)
-        } else {
-            Vec::new()
-        };
+        let modules = std::mem::take(&mut self.modules);
+        let costs = std::mem::take(&mut self.costs);
         let todos = std::mem::take(&mut self.todos);
         let shapes = std::mem::take(&mut self.shape_by_file);
         let analyzed = std::mem::take(&mut self.analyzed);
         let coverage = self.coverage.take();
         let reference = self.reference.clone();
         let (shapes_ref, analyzed_ref, coverage_ref) = (&shapes, &analyzed, coverage.as_ref());
-        let modules_ref = &modules;
+        // The import graph is built only when a rule reads it; the cost analysis reads the
+        // same modules whatever the rules are.
+        let graph_modules: &[rqx_lang::module_graph::ModuleEntry] =
+            if self.track_modules { &modules } else { &[] };
+        let (modules_ref, costs_ref) = (&modules, &costs);
         let reference_ref = reference.as_deref();
+        let complete = !root.is_file();
 
         let versioned = thread::scope(|scope| {
             let duplicates = scope.spawn(move || {
@@ -1590,10 +1640,19 @@ impl Collector {
             let imports = scope.spawn(move || {
                 let mut at = Positions::new(root);
                 [
-                    Self::module_findings(modules_ref, root, config, coverage_ref, &mut at),
+                    Self::module_findings(graph_modules, root, config, coverage_ref, &mut at),
                     Self::size_findings(shapes_ref, root, config, &mut at),
                     Self::reimplemented_findings(shapes_ref, reference_ref, root, settings),
                 ]
+            });
+            let costed = scope.spawn(move || {
+                Self::cost_summaries(
+                    modules_ref,
+                    costs_ref,
+                    root,
+                    &settings.cost_tables,
+                    complete,
+                )
             });
             let git = scope.spawn(move || {
                 let history = history();
@@ -1612,6 +1671,8 @@ impl Collector {
             for staged in joined(imports) {
                 self.absorb(staged);
             }
+            self.report_phase(Phase::Cost);
+            self.absorb(joined(costed));
             self.report_phase(Phase::History);
             let (history, noted, together) = joined(git);
             self.stats.git_processes += history.git_processes();
@@ -1719,6 +1780,7 @@ impl Collector {
             severity_by_file: self.severity_by_file,
             lines_by_file: self.lines_by_file,
             shape_by_file: self.shape_by_file,
+            summaries: self.summaries,
             suppressed: self.suppressed,
             baseline_size: self.baseline_findings,
             timings: self.timings,
@@ -2128,6 +2190,7 @@ pub(crate) fn collect_against(
                     shape,
                     suppressions,
                     todos,
+                    cost,
                 } = *file;
                 collector.files_scanned += 1;
                 collector.code_lines += u64::from(code_lines);
@@ -2158,6 +2221,10 @@ pub(crate) fn collect_against(
                         language,
                         path,
                         facts: module,
+                    });
+                    collector.costs.push(CostFile {
+                        name: Arc::clone(&shared),
+                        cost,
                     });
                 }
                 collector.analyzed.insert(display);
@@ -2288,9 +2355,12 @@ fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -
             finding.known = baseline.contains(identity);
         }
     }
+    // The cost analysis follows calls across imports, which it can only do for a file it
+    // can name the way the import resolver does.
+    let takes_part_in_cost =
+        !analysis.cost.is_empty() || rqx_lang::cost::compose::is_barrel(&analysis.module);
     ScanMessage::File(Box::new(Analyzed {
-        canonical: settings
-            .needs_modules()
+        canonical: (settings.needs_modules() || takes_part_in_cost)
             .then(|| rqx_core::paths::canonicalize(path).unwrap_or_else(|_| path.to_owned())),
         display,
         language: analysis.language,
@@ -2302,6 +2372,7 @@ fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -
         shape: analysis.shape,
         suppressions: analysis.suppressions,
         todos: analysis.todos,
+        cost: analysis.cost,
     }))
 }
 
@@ -2648,6 +2719,9 @@ pub(crate) fn scan_against(
     }
     Ok(outcome)
 }
+
+#[cfg(test)]
+mod cost_tests;
 
 #[cfg(test)]
 mod tests {
