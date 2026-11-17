@@ -178,3 +178,27 @@ fn outside_a_repository_it_says_so() {
     assert!(report(&output).contains("git repository"));
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// The hook definition names a command line, and a flag renamed here would leave every
+/// repository that uses the hook failing its commits.
+#[test]
+fn the_pre_commit_hook_runs_a_command_that_works() {
+    let definition = include_str!("../../../.pre-commit-hooks.yaml");
+    for setting in [
+        "language: system",
+        "pass_filenames: false",
+        "always_run: true",
+    ] {
+        assert!(definition.contains(setting), "{setting}");
+    }
+    let entry = definition
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("entry: rqx "))
+        .expect("an entry that runs rqx");
+
+    let root = repository("hook", &[("a.ts", CLEAN)]);
+    let arguments: Vec<&str> = entry.split_whitespace().collect();
+    let output = rqx(&root, &arguments);
+    assert_eq!(code(&output), 0, "{}", report(&output));
+    let _ = std::fs::remove_dir_all(root);
+}

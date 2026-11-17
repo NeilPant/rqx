@@ -15,6 +15,9 @@ them. `tools/release.sh` turns that section into the release notes.
   read from the index and analysed in a temporary copy of the repository, so unstaged
   edits do not change the verdict. Every other file is read from the working tree.
   It cannot be combined with `--base`, `--files-from`, `--fix` or `--write`.
+- **A pre-commit hook definition.** `.pre-commit-hooks.yaml` declares `rqx-check`, which
+  runs `rqx check --staged` for the [pre-commit](https://pre-commit.com) framework.
+  `docs/ci.md` also has the plain git hook, lefthook and husky equivalents.
 
 ## 0.3.0 — 2026-11-17
 
