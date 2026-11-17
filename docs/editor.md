@@ -1,62 +1,62 @@
 # rqx in an editor
 
-`rqx lsp` is a Language Server over stdio. It publishes diagnostics on open and on save
-— not on every keystroke, because a half-typed function is a work in progress rather
-than a finding — and answers hover with the measured fact, the reason it matters and the
-named refactoring that fixes it.
+`rqx lsp` is a Language Server over stdio. It publishes diagnostics on open and on
+save, not on every change, so incomplete code is not reported. It answers hover
+requests with the measured fact, the reason it matters and the named refactoring that
+fixes it.
 
-It also scans the whole project on its own: once after the handshake, and again after
-every save. The eight cross-file rules — unused exports, unused files, import cycles,
-duplication, and the two co-change rules — cannot be answered from one open file, so
-without that a client would silently miss every rule that needs more than one file open.
-Diagnostics for files you never opened are published the same way as the ones for files
-you did.
+The server also scans the whole project on its own, once after the handshake and again
+after every save. Eight rules are cross-file rules: unused exports, unused files,
+import cycles, duplication, and the two co-change rules. They cannot be evaluated from
+a single open file, so without the project scan a client would miss them. Diagnostics
+for files that were never opened are published in the same way as diagnostics for open
+files.
 
 ## Commands
 
-Every command is a standard `workspace/executeCommand`, so any client that can invoke one
-can bind it. Nothing here depends on an editor-specific extension.
+Every command is a standard `workspace/executeCommand`, so any client that can invoke
+one can bind it. No command depends on an editor-specific extension.
 
 | Command | Arguments | Does |
 |---|---|---|
 | `rqx.scan` | | Rescan the workspace |
 | `rqx.check` | `[base]` | Review the diff against a base (default `origin/HEAD`) and report the gate |
-| `rqx.explain` | `[slug]` | The catalogue entry for a rule *or* a pattern, as markdown |
+| `rqx.explain` | `[slug]` | The catalogue entry for a rule or a pattern, as markdown |
 | `rqx.startHere` | | What to open first, ranked by grade then blast radius |
 | `rqx.catalogue` | | Every rule as data |
 | `rqx.findings` | `[{severity, rule, category, glob, file}]` | The last scan's findings, filtered as `--severity`, `--rule`, `--category` and `--path` filter them |
 | `rqx.plan` | `[budget, limit]` | The work ranked by what it buys against what it costs |
 | `rqx.fix` | `[write, files]` | The proven edits; with `write` it applies them and rescans |
 | `rqx.verify` | `[base, expect]` | Whether the refactoring named actually happened |
-| `rqx.baseline` | `[update]` | Record every finding now, so the gate judges only what a change adds |
-| `rqx.suppress` | `[{file, line, rule, reason, until}]` | A `WorkspaceEdit` writing an `rqx-ignore` comment. The reason is required, because rqx does not honour a waiver without one |
+| `rqx.baseline` | `[update]` | Record every current finding, so the gate evaluates only what a change adds |
+| `rqx.suppress` | `[{file, line, rule, reason, until}]` | A `WorkspaceEdit` writing an `rqx-ignore` comment. The reason is required: rqx does not honour a waiver without one |
 | `rqx.config` | | The effective settings and where each one came from |
 | `rqx.disableRule` / `rqx.disableCategory` | `[name]` | A `WorkspaceEdit` that switches one off in `rqx.yaml` |
 | `rqx.togglePatterns` | | Half-applied design patterns on or off, as hints |
 | `rqx.toggleCodeLens` | | The per-file grade lens on or off |
 
-`rqx.scan`, `rqx.check`, `rqx.fix`, `rqx.verify` and `rqx.baseline` scan, so they answer
-when the scan finishes rather than immediately. A second request of the same kind
-replaces the first and answers it with `{ "coalesced": true }`.
+`rqx.scan`, `rqx.check`, `rqx.fix`, `rqx.verify` and `rqx.baseline` run a scan, so they
+respond when the scan finishes. A second request of the same kind replaces the first
+and answers it with `{ "coalesced": true }`.
 
-The same shortcuts are suggested everywhere: a leader chord, then `s` scan, `c` check,
-`e` explain, `h` start here, `d` disable, `p` patterns, `l` lens, `o` panel, `i` the
-interface in a terminal split, `f` fix the file, `x` waive, `v` verify. One key is
-claimed rather than twelve, and the second key is the same in every editor.
+The suggested shortcuts are the same in every editor: a leader chord followed by one
+key. Only the leader key is claimed in each editor. The second keys are `s` scan,
+`c` check, `e` explain, `h` start here, `d` disable, `p` patterns, `l` lens, `o` panel,
+`i` the interface in a terminal split, `f` fix the file, `x` waive and `v` verify.
 
 ## Notifications
 
 After every scan the server sends `rqx/health` (`{health, findings, files, elapsedMs}`)
-for a status line, and `rqx/report`, which carries the same projection `--reporter json`
-writes — grades, counts, impact, the start-here ranking and pattern advice — so an editor
-and CI cannot disagree about what the scan found. A client that does not know them
-ignores them.
+for a status line, and `rqx/report`. The report carries the same projection that
+`--reporter json` writes (grades, counts, impact, the start-here ranking and pattern
+advice), so an editor and CI see the same scan results. A client that does not
+recognise these notifications ignores them.
 
-A review sends both as well, with the verdict under `review`, because the review scanned
-the whole project to answer its narrower question and a panel left on the old numbers
-would be stale until the next save.
+A review sends both notifications as well, with the verdict under `review`. The review
+scans the whole project to answer its narrower question, so the numbers a panel shows
+would otherwise be out of date until the next save.
 
-Every diagnostic carries the rest on `data`:
+Every diagnostic carries the remaining fields on `data`:
 
 ```json
 { "rule": "long-function", "category": "size", "severity": "warning",
@@ -64,25 +64,25 @@ Every diagnostic carries the rest on `data`:
   "autofixable": false, "known": false, "technique": ["Extract Method"] }
 ```
 
-`severity` is there as well as on the diagnostic because a client may cap how loudly it
-renders findings, and `autofixable` is the project's own `[fix]` answer rather than the
-rule's — the two differ when a config narrows what may be rewritten.
+`severity` is repeated on `data` because a client may cap the severity it renders.
+`autofixable` reflects the project's `fix` configuration, not only the rule. The two
+differ when the configuration narrows which fixes may be applied.
 
 ## Settings
 
-Pass these as `initializationOptions`; no client-side plugin is needed for any of them.
+Pass these as `initializationOptions`. No client-side plugin is required.
 
 | Option | Default | Meaning |
 |---|---|---|
 | `configFile` | *(unset)* | A YAML config to use instead of the one rqx finds itself |
 | `scanOnStartup` | `true` | Scan the workspace after the handshake |
-| `scanOnSave` | `true` | Rescan the workspace after every save. The cross-file rules can only change when some *other* file does |
+| `scanOnSave` | `true` | Rescan the workspace after every save. The result of a cross-file rule can change when a different file is saved |
 | `codeLens` | `false` | A grade, blast radius and churn lens above the first line |
 | `patterns` | `false` | Publish half-applied design patterns as hints |
 
-`rqx.yaml` is otherwise resolved exactly as the CLI resolves it, and the server reloads
-it in place when the file changes — send `workspace/didChangeWatchedFiles` for
-`**/rqx.yaml` and no restart is needed.
+`rqx.yaml` is otherwise resolved in the same way as by the CLI. The server reloads it
+without a restart when the file changes, if the client sends
+`workspace/didChangeWatchedFiles` for `**/rqx.yaml`.
 
 ## Neovim
 
@@ -131,8 +131,9 @@ lspconfig.rqx.setup({
 })
 ```
 
-`root_pattern` puts `rqx.yaml` first so a monorepo package with its own config wins over
-the repository root. The health score is on `rqx/health`:
+`root_pattern` lists `rqx.yaml` first, so a monorepo package with its own `rqx.yaml`
+takes precedence over the repository root. The health score is available on
+`rqx/health`:
 
 ```lua
 vim.lsp.handlers["rqx/health"] = function(_, report)
@@ -140,7 +141,7 @@ vim.lsp.handlers["rqx/health"] = function(_, report)
 end
 ```
 
-`:MasonInstall rqx` fetches the binary if you use Mason.
+With Mason, `:MasonInstall rqx` installs the binary.
 
 ## Helix
 
@@ -165,11 +166,12 @@ name = "python"
 language-servers = ["pylsp", "rqx"]
 ```
 
-Add `rqx` to the `language-servers` list of any of the six languages. It is a second
-opinion alongside the language's own server rather than a replacement: rqx reports
-nothing about types or syntax errors.
+Add `rqx` to the `language-servers` list of any of the six languages. rqx runs
+alongside the language's own server and does not replace it: rqx reports nothing about
+types or syntax errors.
 
-The commands bind in `config.toml` — `space` is already Helix's leader, so `space r`:
+The commands are bound in `config.toml`. `space` is Helix's leader key, so the
+bindings use `space r`:
 
 ```toml
 [keys.normal.space.r]
@@ -227,8 +229,8 @@ With `eglot`:
 (keymap-global-set "C-c r h" (lambda () (interactive) (rqx-command "rqx.startHere")))
 ```
 
-`C-c` followed by a letter is the prefix Emacs reserves for users, so nothing of yours
-is taken.
+`C-c` followed by a letter is reserved for user bindings in Emacs, so these bindings do
+not collide with built-in ones.
 
 ## Vim, with coc.nvim
 
@@ -248,8 +250,8 @@ In `coc-settings.json`:
 }
 ```
 
-coc surfaces everything in `executeCommandProvider` as a `:CocCommand`, so
-`:CocCommand rqx.scan` works with no further setup:
+coc exposes every command in `executeCommandProvider` as a `:CocCommand`, so
+`:CocCommand rqx.scan` works without further setup:
 
 ```vim
 nnoremap <leader>rs :CocCommand rqx.scan<CR>
@@ -285,8 +287,8 @@ endif
     (lambda () (list :scanOnStartup t :patterns :json-false)))))
 ```
 
-`:add-on? t` is what lets rqx sit beside the language's own server. Without it
-lsp-mode treats the two as alternatives and starts whichever it finds first.
+`:add-on? t` lets rqx run beside the language's own server. Without it, lsp-mode
+treats the two servers as alternatives and starts whichever it finds first.
 
 ## Kakoune, with kak-lsp
 
@@ -321,14 +323,14 @@ In Kate's **Settings → LSP Client → User Server Settings**:
 
 ## Anything else
 
-Any client that speaks LSP over stdio works: run `rqx lsp` with the project root as the
-working directory, or pass the root as a positional argument. A `--stdio` flag is
-accepted and ignored, because several clients pass it by convention.
+Any client that speaks LSP over stdio can use the server. Run `rqx lsp` with the
+project root as the working directory, or pass the root as a positional argument. The
+`--stdio` flag is accepted and ignored, because several clients pass it by convention.
 
 The server advertises `textDocumentSync` (open, change and save), `hoverProvider`,
-`codeActionProvider`, `codeLensProvider` and `executeCommandProvider`. A finding whose
-fix is a decision offers to disable the rule or explain it; a finding whose fix is
-decided by the finding alone offers the edit, tagged `source.fixAll` so an editor can
-apply every one of them on save. A source edit is only offered after the same
-verification `rqx fix` runs, so accepting one in an editor is no less proven than
-accepting one on the command line.
+`codeActionProvider`, `codeLensProvider` and `executeCommandProvider`. For a finding
+whose fix requires a decision, the server offers to disable the rule or explain it. For
+a finding whose fix is determined by the finding alone, it offers the edit, tagged
+`source.fixAll` so that an editor can apply all such edits on save. A source edit is
+offered only after the same verification that `rqx fix` runs, so an edit accepted in
+an editor has been verified to the same degree as one applied on the command line.

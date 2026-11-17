@@ -1,7 +1,7 @@
 # Where the score comes from
 
-The health score is one number, and one number cannot be argued with. `rqx health`
-is the same arithmetic broken into buckets.
+The health score is a single number. `rqx health` shows the same calculation divided
+into buckets.
 
 ```sh
 rqx health
@@ -17,32 +17,33 @@ rqx health
     coupling       9      0%  message-chain
 ```
 
-`found` is how many findings. `debt` is what they weigh in the score's own
-arithmetic — severity times reach, as a share of the whole. The two disagree often,
-and the disagreement is the point: 24 `size` findings carry more weight here than 9
-`coupling` ones, and elsewhere sixteen coupling findings carried a third of what
-seventeen flow findings did.
+`found` is the number of findings in the bucket. `debt` is the bucket's weight in the
+score calculation (severity times reach), as a share of the total. The two columns can
+rank buckets differently. In the output above, the 24 `size` findings carry more
+weight than the 9 `coupling` findings. In another project, sixteen coupling findings
+carried a third of the weight of seventeen flow findings.
 
 ## Two things this tells you
 
-**Where the score went.** Sorted by debt, so the top row is what to fix if you are
-fixing one thing.
+Where the score went. Buckets are sorted by debt, so the top row is the one to fix
+first if only one is addressed.
 
-**When the score has stopped being useful.** Past a certain density the curve bottoms
-out and every bucket leaves it at zero. When that happens rqx says so and drops the
-`without` column rather than printing `0 (+0)` on every row:
+When the score has stopped being informative. At high finding density the score
+reaches its floor, and removing any single bucket still leaves it at zero. In that case
+rqx reports it and omits the `without` column, instead of printing `0 (+0)` on every
+row:
 
 ```
     the score stays at 0 whichever single bucket goes, so `debt` is what separates
     them: the weight each carries in the same arithmetic
 ```
 
-A project in that state cannot be steered by the score. Set a
-[baseline](baseline.md) and gate on what changes instead.
+In that state the score does not distinguish between buckets. Set a
+[baseline](baseline.md) and gate on what a change adds.
 
 ## When there is room to move
 
-On a project that is not saturated, a third column appears:
+When the score is not at its floor, a third column appears:
 
 ```
                found    debt   without  worst of it
@@ -50,9 +51,9 @@ On a project that is not saturated, a third column appears:
     size             4     22%   74 (+5)  long-function
 ```
 
-`without` is the score with that bucket gone — recomputed, not apportioned. The curve
-is exponential, so the gains do not add up: removing waste and size together buys
-less than 9 + 5.
+`without` is the score recomputed with that bucket removed, not an apportioned share.
+The score curve is exponential, so the gains are not additive: removing waste and size
+together improves the score by less than 9 + 5.
 
 ## Grouping
 
@@ -62,7 +63,7 @@ rqx health --by dir     # which part of the tree
 rqx health --by file    # which file
 ```
 
-`--by rule` is the one to reach for when a family looks expensive and you want to
-know whether it is one rule firing everywhere or a spread.
+`--by rule` shows whether a costly family comes from one rule firing in many places or
+from several rules.
 
-`--json` gives one object per bucket, with `debtShare`, `healthWithout` and `gain`.
+`--json` prints one object per bucket, with `debtShare`, `healthWithout` and `gain`.

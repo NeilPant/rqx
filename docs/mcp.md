@@ -1,17 +1,17 @@
 # rqx for agents
 
-`rqx mcp` is a Model Context Protocol server over stdio. An agent asks what a project's
-problems are instead of reading every file to guess, and gets back the measured fact, the
-reason it matters and the named refactoring that fixes it — the same four things a
-finding carries everywhere else.
+`rqx mcp` is a Model Context Protocol server over stdio. An agent queries it for a
+project's findings. Each answer carries the measured fact, the reason it matters and
+the named refactoring that addresses it, the same elements a finding carries in every
+other reporter.
 
-Answers are summaries with drill-down, never dumps. A scan of a large repository through
-`--reporter json` is megabytes; an agent that pipes that into its context has nothing
-left to fix anything with. So `scan` answers with health, grades and what to open first,
-and the findings themselves are paged out of `findings`.
+Answers are summaries with drill-down. A scan of a large repository through
+`--reporter json` can be megabytes, which is too large to place in an agent's context.
+`scan` therefore returns health, grades and the files to open first, and the findings
+themselves are paged out of `findings`.
 
-Every tool is read-only. Nothing rqx exposes to an agent writes a file, and the fix each
-finding names is a refactoring for a person to make rather than an edit rqx could apply.
+Every tool is read-only. No tool writes a file. The fix each finding names is a
+refactoring for a person to make, not an edit that rqx applies.
 
 ## Tools
 
@@ -22,20 +22,20 @@ finding names is a refactoring for a person to make rather than an edit rqx coul
 | `plan` | The findings `rqx fix` will not touch, each with the source at its span, the metric that decided it and the named refactoring. Paged like `findings`. |
 | `verify` | Compare the working tree against a base revision and grade what the diff did to each finding. Propose, grade, retry. |
 | `check` | Review the diff against a base revision and say whether the gate passes |
-| `analyze` | Analyse source held in memory — an unsaved buffer — without touching the disk |
+| `analyze` | Analyse source held in memory, such as an unsaved buffer, without writing to disk |
 | `patterns` | Design patterns in use, half applied, or that would fit |
 | `explain` | What one rule measures, why, and the refactoring it names. Also answers for a pattern |
-| `rules` | Search the 81-rule catalogue by family, language or text |
+| `rules` | Search the 185-rule catalogue by family, language or text |
 | `config` | The settings this server will use, and which file each value came from |
-| `complexity` | Every function's cognitive complexity, statements, nesting and parameters, with the project's own percentiles |
+| `complexity` | Every function's cognitive complexity, statements, nesting and parameters, with the project's percentiles |
 | `health` | Where the score comes from, by family: findings, share of the weighted debt, and the score without each |
 | `perf` | Every function that grows faster than its input, ranked by cost against reach, with the loop order, the round trips inside its loops and the named fix |
-| `graph` | Every import edge, and the cycles as rings you can follow; each edge says whether it closes one |
+| `graph` | Every import edge, and the cycles as ordered rings; each edge states whether it closes a cycle |
 | `recommend` | Whether the thresholds fit, which refactoring answers the most, and what to read first |
 
-`scan` runs a fresh scan. Every other project tool reads that scan, running one first if
-nothing has been scanned yet — so a drill-down costs nothing and a cursor keeps pointing
-at the findings it was issued against.
+`scan` runs a fresh scan. Every other project tool reads that scan, and runs one first
+if nothing has been scanned yet. A drill-down therefore does not rescan, and a cursor
+keeps referring to the findings it was issued against.
 
 ## What a scan answers
 
@@ -62,38 +62,39 @@ at the findings it was issued against.
 }
 ```
 
-There is deliberately no findings array here. `ranked_below` is how many more files the
-ranking holds — a count rather than an ellipsis, so an agent knows what it has not seen.
+The result contains no findings array. `ranked_below` is the number of further files in
+the ranking that are not listed.
 
-Every result also carries a text block: for `scan` and `check` it is the same Markdown
-`--reporter markdown` writes, which is bounded at ten findings and a handful of tables.
-The full JSON is in `structuredContent`, so a client that reads only one of the two still
-gets a complete answer.
+Every result also carries a text block. For `scan` and `check` it is the Markdown that
+`--reporter markdown` writes, limited to ten findings and a few tables. The full JSON
+is in `structuredContent`, so a client that reads only one of the two receives a
+complete answer.
 
 ## Paging
 
-`findings` takes `severity`, `rule`, `category`, `glob`, `limit` (20 by default, capped
-at 100) and `cursor`. The filters narrow what is returned and never what was scanned, so
-the health score and the gate do not move with a tool argument.
+`findings` takes `severity`, `rule`, `category`, `glob`, `limit` (20 by default, at most
+100) and `cursor`. The filters narrow what is returned, not what was scanned, so tool
+arguments do not change the health score or the gate.
 
 ```json
 { "scan_id": 1, "matched": 71, "returned": 20, "next_cursor": "1:20", "findings": [ … ] }
 ```
 
-Pass `next_cursor` back to get the next page; its absence means the end. A cursor names
-the scan it came from, and one used after the project has been scanned again is refused
-rather than answered from a different set of findings.
+Pass `next_cursor` back to get the next page. When it is absent, there are no more
+pages. A cursor records the scan it came from, and a cursor used after the project has
+been scanned again is refused instead of being answered from a different set of
+findings.
 
 ## Analysing a buffer
 
 `analyze` takes `source`, and either a `filename` to read the language from or an
-explicit `language`. The text is never written to disk, and the filename need not exist —
-it is used to pick the language and to label the findings.
+explicit `language`. The text is not written to disk, and the file named by `filename`
+does not need to exist. The name selects the language and labels the findings.
 
-One buffer cannot answer every rule. Unused exports, unused files, import cycles,
-duplication and the two co-change rules need the whole project, and the result says so,
-because an agent that gets no `unused-export` back would otherwise read the silence as a
-clean bill of health.
+A single buffer cannot be checked against every rule. Unused exports, unused files,
+import cycles, duplication and the two co-change rules need the whole project. The
+result states this, so that the absence of an `unused-export` finding is not
+read as a clean result.
 
 ## Over HTTP
 
@@ -101,27 +102,26 @@ clean bill of health.
 rqx mcp --http 127.0.0.1:8927
 ```
 
-Serves Streamable HTTP at `/mcp` for clients that cannot spawn a process — hosted
-connectors, or one endpoint shared by a team. There is no default port: a magic number is
-one more thing to collide with.
+Serves Streamable HTTP at `/mcp`, for clients that cannot spawn a process, such as
+hosted connectors, or for one endpoint shared by a team. There is no default port.
 
-**A remote bind needs a token.** Anyone who can reach the port can read the source of
-every file rqx parses, so a non-loopback address with no token is refused at startup
-rather than warned about. The token comes from `RQX_MCP_TOKEN` and never from a flag,
-because a flag is visible in `ps`:
+A non-loopback bind requires a token. Anyone who can reach the port can read the
+source of every file rqx parses, so a non-loopback address without a token is refused
+at startup. The token is read from `RQX_MCP_TOKEN` and not from a flag, because a flag
+is visible in `ps`:
 
 ```sh
 RQX_MCP_TOKEN=$(openssl rand -hex 32) rqx mcp --http 0.0.0.0:8927
 ```
 
-Clients then send `Authorization: Bearer <token>`. A request carrying an `Origin` header
-is refused whatever its token: an MCP client sends none, and a browser doing DNS
-rebinding does.
+Clients send `Authorization: Bearer <token>`. A request carrying an `Origin` header is
+refused regardless of its token. MCP clients do not send `Origin`, and a browser
+performing DNS rebinding does.
 
-Every `path` an agent passes is resolved against the directory the server was started on,
-canonicalised, and refused if it escapes — symlinks included, since a link inside the
-project pointing at `/etc` only reveals itself once resolved. That holds on stdio too: a
-local agent asking to scan `/etc` is the same leak as a remote one.
+Every `path` an agent passes is resolved against the directory the server was started
+in and canonicalised. A path that resolves outside that directory is refused, including
+through a symlink, because a link inside the project that points at `/etc` is visible
+only after resolution. The same check applies on stdio.
 
 ## Claude Code
 
@@ -129,7 +129,8 @@ local agent asking to scan `/etc` is the same leak as a remote one.
 claude mcp add rqx -- rqx mcp
 ```
 
-Or check a `.mcp.json` into the repository so everyone on the project gets it:
+Alternatively, commit a `.mcp.json` to the repository so that everyone on the project
+uses the same configuration:
 
 ```json
 { "mcpServers": { "rqx": { "command": "rqx", "args": ["mcp"] } } }
@@ -154,16 +155,16 @@ Or check a `.mcp.json` into the repository so everyone on the project gets it:
 ## JetBrains
 
 IntelliJ IDEA, PyCharm, WebStorm, GoLand, CLion, Rider, PhpStorm and RubyMine, from
-2026.1. **Settings → Tools → AI Assistant → Model Context Protocol → Add**, then paste:
+2026.1. Open Settings → Tools → AI Assistant → Model Context Protocol → Add, then paste:
 
 ```json
 { "mcpServers": { "rqx": { "command": "rqx", "args": ["mcp"] } } }
 ```
 
-The IDE launches the command itself rather than through a shell, so `rqx` has to be on
-the PATH that the IDE sees — which on macOS is not the one your terminal has when the IDE
-was started from Spotlight. Give the absolute path from `which rqx` if the server does
-not start.
+The IDE launches the command directly, without a shell, so `rqx` must be on the `PATH`
+that the IDE sees. On macOS, an IDE started from Spotlight does not inherit the
+terminal's `PATH`. If the server does not start, use the absolute path printed by
+`which rqx`.
 
 ## Zed
 
@@ -175,10 +176,10 @@ In `settings.json`:
 
 ## Anything else
 
-Any client that speaks MCP over stdio works: run `rqx mcp` with the project root as the
-working directory, or pass the root as a positional argument. Messages are
-newline-delimited JSON-RPC, and nothing but JSON-RPC reaches stdout — the progress bar
-writes to stderr and silences itself when stderr is not a terminal.
+Any client that speaks MCP over stdio can use the server. Run `rqx mcp` with the project
+root as the working directory, or pass the root as a positional argument. Messages are
+newline-delimited JSON-RPC, and only JSON-RPC is written to stdout. The progress bar
+is written to stderr and is disabled when stderr is not a terminal.
 
 For a client that only speaks HTTP, point it at the address `--http` was given:
 

@@ -1,9 +1,9 @@
 # The interactive session
 
-`rqx` with no arguments opens a session in the terminal you are already in. `rqx
-scan` and every other subcommand print their report and never open it. The session
-adds no analysis of its own: each command in it is the command line's command,
-parsed by the same definition and printed by the same functions.
+`rqx` with no arguments opens a session in the current terminal. `rqx scan` and
+every other subcommand print their report and never open it. The session adds no
+analysis of its own: each command in it is a command-line command, parsed by the
+same definition and printed by the same functions.
 
 ## When it opens, and when it does not
 
@@ -13,14 +13,14 @@ by 14 rows, and `--no-tui` was not given. Otherwise it runs `rqx scan` on the wo
 directory and exits with that scan's exit code, so a pipeline that runs `rqx` gets
 the report and a failing exit when the project cannot be scanned.
 
-`rqx check` never goes interactive. It exists for its exit code.
+`rqx check` never opens the session. It is run for its exit code.
 
 ## What it looks like
 
 The session uses no alternate screen and does not capture the mouse. A few rows at
-the bottom of the window are redrawn; everything else is printed above them into the
-terminal's own scrollback, so you scroll, search and select with the terminal's own
-tools, and what the session printed is still there after you leave.
+the bottom of the window are redrawn. Everything else is printed above them into the
+terminal's own scrollback, so scrolling, searching and selecting use the terminal's
+own tools, and the output remains after the session ends.
 
 ```
 ╭────────────────────────────────────────────────╮
@@ -37,28 +37,27 @@ tools, and what the session printed is still there after you leave.
  ? for shortcuts                    health 82 · fair · 31 findings · watching
 ```
 
-The owl is three rows of half blocks, eight columns wide; the sketch above is the
-layout, not the pixels.
+The owl is three rows of half blocks, eight columns wide. The sketch above shows the
+layout only.
 
-The session scans the working directory as it opens. While it runs, the owl glances
-left and right beside the phase, the files done and the file being read; it does the
-same while any other command works. When the scan lands, the header and the worst
-findings go into scrollback, and the prompt takes the bottom of the window across its
-whole width. The plumage follows the health score. `--motion off` draws the owl
-still.
+The session scans the working directory as it opens. While the scan runs, the owl
+looks left and right beside the phase, the number of files done and the file being
+read. It does the same while any other command runs. When the scan finishes, the
+header and the worst findings go into scrollback, and the prompt takes the full
+width at the bottom of the window. The owl's colouring follows the health score.
+`--motion off` draws the owl still.
 
-The line under the prompt says `? for shortcuts` on the left and, on the right, the
-health, the grade, the findings and `watching` when it is on. The pointer gives way
-when the window is too narrow for both. Nothing else is drawn: no permanent key
-list, no panels, and nothing that has to be dismissed, because everything a command
-prints goes into scrollback.
+The line under the prompt shows `? for shortcuts` on the left and, on the right, the
+health, the grade, the findings and `watching` when it is on. When the window is too
+narrow for both, the shortcuts pointer is dropped. Nothing else is drawn. Everything
+a command prints goes into scrollback.
 
 ## Commands
 
 A line starting with `/` is a command. It is parsed by the same clap definition as
 `rqx <command>`, so `/plan --budget 20` and `rqx plan --budget 20` take the same
 flags and print the same bytes. They run against the scan the session already holds,
-so there is no second scan.
+without scanning again.
 
 | Command | Runs |
 |---|---|
@@ -77,11 +76,11 @@ Text typed without a slash searches the findings: `dead export` is `/findings
 --search "dead export"`.
 
 A flag that would change the scan itself, such as a path, `--level`, `--config` or
-`--coverage`, is refused with a line saying so, because the session's scan was
-taken without it. Run that command from a shell. Commands the session does not host
-(`init`, `config`, `lsp` and the like) say which `rqx` command to run instead. A
-mistake in a command prints one red line, and `/<command> --help` prints that
-command's own help.
+`--coverage`, is refused with a message, because the session's scan was taken
+without it. Such a command has to be run from a shell. Commands the session does
+not host (`init`, `config`, `lsp` and similar) print the `rqx` command to run
+instead. A mistake in a command prints one red line, and `/<command> --help` prints
+that command's own help.
 
 `/fix` scans and can write, so it runs off the input thread, and a write is followed
 by a rescan. `/check --fix` is refused; use `/fix` or run `rqx check --fix` from a
@@ -90,8 +89,8 @@ shell.
 ## Watching, opening and waiving
 
 `/watch on` holds the project in memory and polls the tree for saves. A save
-re-analyses that file alone and runs the cross-file stage over everything, the same
-way `rqx scan --watch` stays correct, and the session prints what moved:
+re-analyses that file alone and runs the cross-file stage over everything, as
+`rqx scan --watch` does, and the session prints what changed:
 
 ```
  src/api/client.ts  −1 finding · health 82 → 83
@@ -105,13 +104,14 @@ line says `watching` while it is on, and the commands read the refreshed project
 `/open 2` opens the second finding of the list under the header, and `/open
 src/api/client.ts:42` opens that place. It runs `$VISUAL`, or `$EDITOR` when that
 is empty, with the line: `vim +42 file`, `code -g file:42`, `hx file:42`, or just
-the file for an editor rqx has no line syntax for. The session gives the terminal to
-the editor and takes it back when the editor exits. With neither variable set it
+the file for an editor rqx has no line syntax for. The session hands the terminal to
+the editor and takes it back when the editor exits. With neither variable set, it
 prints `file:line`.
 
-`/waive src/api/client.ts:42 unused-export` is `rqx waive`. Left without `--reason`,
-the prompt asks for one: type it, press enter, and the comment is written and the
-project scanned again. `esc` cancels. `--dry-run` prints the diff instead.
+`/waive src/api/client.ts:42 unused-export` runs `rqx waive`. Without `--reason`, the
+prompt asks for one. After the reason is typed and `enter` is pressed, the comment
+is written and the project is scanned again. `esc` cancels. `--dry-run` prints the
+diff instead.
 
 ## The prompt
 
@@ -130,15 +130,15 @@ project scanned again. `esc` cancels. `--dry-run` prints the diff instead.
 | `ctrl-d` | leave |
 
 History is kept per user in the platform state directory (`$XDG_STATE_HOME/rqx` or
-`~/.local/state/rqx`, and `%LOCALAPPDATA%\rqx` on Windows), never in the repository.
+`~/.local/state/rqx`, and `%LOCALAPPDATA%\rqx` on Windows), outside the repository.
 
 ### Completion
 
-A line that starts with `/` shows a list of commands under the prompt, one to a
-row with the sentence `rqx <command> --help` opens with, and the highlighted row is
-the one `tab` or `enter` takes. The list is ranked by how tightly the letters you
-typed sit together, so `cplx` reaches `/complexity`. A line that does not start with
-`/` shows no list at all.
+A line that starts with `/` shows a list of commands under the prompt. Each row has
+the command and the first sentence of `rqx <command> --help`, and `tab` or `enter`
+takes the highlighted row. The list is ranked by how closely the typed letters sit
+together, so `cplx` matches `/complexity`. A line that does not start with `/`
+shows no list.
 
 Once a command is typed and a space follows it, the list offers that command's
 flags, read from the same definition the command line parses with. After a flag it
@@ -148,10 +148,10 @@ and `--not-rule`, families for `--category`, and files from the scan for `--focu
 
 ## Leaving
 
-`/exit`, `ctrl-d`, or `ctrl-c` twice. The session clears its own rows, gives the
-terminal back and prints one line saying what it found and the command that prints
-the whole report. Raw mode is the only thing it takes from the terminal, and it is
-given back on a normal exit, on an error and on a panic.
+`/exit`, `ctrl-d`, or `ctrl-c` twice. The session clears its own rows, restores the
+terminal and prints one line with what it found and the command that prints the
+whole report. Raw mode is the only terminal state the session changes. It is
+restored on a normal exit, on an error and on a panic.
 
-`--no-mouse` is still accepted so existing invocations keep working. It does
-nothing, because the session never captures the mouse.
+`--no-mouse` is still accepted so that existing invocations keep working. It has
+no effect, because the session does not capture the mouse.

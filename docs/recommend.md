@@ -1,7 +1,9 @@
 # What to do about it
 
-`rqx scan` says what is wrong. `rqx plan` orders the findings. Neither answers the
-questions a lead asks before there is a plan.
+`rqx scan` reports findings, and `rqx plan` orders them. `rqx recommend` answers
+three questions that come before a plan: whether the configuration fits the
+codebase, which refactoring addresses the most findings, and which files to read
+first.
 
 ```sh
 rqx recommend
@@ -9,7 +11,7 @@ rqx recommend
 
 ## Configuration
 
-Is the configuration describing this codebase or fighting it?
+Whether each threshold fits the codebase.
 
 ```
     raise `thresholds.cognitive_complexity` from 15 to about 22
@@ -17,13 +19,12 @@ Is the configuration describing this codebase or fighting it?
       rather than the exceptions — p90 is 22, p99 is 40
 ```
 
-A threshold most of the codebase sits above is not a standard; it is a rule that
-fires on normal code, and every finding it produces is noise that trains people to
-ignore the tool. One nothing reaches is the same failure the other way round — it
-cannot fire at all.
+A threshold that most of the codebase exceeds fires on typical code, so most of its
+findings do not distinguish problem code from normal code. A threshold that nothing
+reaches never fires.
 
-The common case is neither, and then this section stays quiet. A long tail under the
-threshold with a handful of real offenders over it is the rule working.
+When neither applies, this section prints nothing. A distribution with a long tail
+under the threshold and a few functions over it is the intended case.
 
 It also names rules firing more than twenty times per thousand lines:
 
@@ -33,34 +34,35 @@ It also names rules firing more than twenty times per thousand lines:
       project's biggest problem or the wrong rule for it
 ```
 
-That is not a recommendation to turn it off. It is a recommendation to decide, once,
-on purpose, rather than living with a number nobody chose.
+The recommendation is to decide whether to keep the rule. It does not recommend
+disabling it.
 
 ## Refactoring
 
-Which single technique would answer the most at once, and where.
+The single technique that addresses the most findings, and where.
 
 ```
     Extract Variable answers 6367 findings
       184 of them are under `finql-app/src/app/(private)`
 ```
 
-One technique answering hundreds of findings in one directory is a week's work with a
-shape to it. The same findings scattered across sixty techniques is just a list, and
-`rqx plan` is the better tool for that.
+When one technique addresses many findings in one directory, the work can be done as
+a single refactoring. When the same number of findings is spread across many
+techniques, `rqx plan` is the better tool.
 
 ## Reading order
 
-Where a new person should start.
+Where a new reader should start.
 
 ```
     finql-api/src/container.ts
       105 importers · 12 commits · 148 findings · grade critical
 ```
 
-Ranked by reach times churn times trouble. A file nobody imports and nobody changes
-is not where anyone should start however bad it is; a file a hundred modules import
-is worth understanding even if it is clean.
+Files are ranked by reach (importers) times churn (commits) times trouble
+(findings). A file that nothing
+imports and nobody changes ranks low however many findings it has. A file that
+many modules import ranks high even if it is clean.
 
 ## Narrowing and scripting
 
@@ -71,6 +73,4 @@ rqx recommend --only reading
 rqx recommend --json
 ```
 
-Every recommendation carries the evidence that produced it, in the line beneath. A
-recommendation you cannot check is one you have to trust, and nothing else in this
-tool asks for that.
+Every recommendation carries the evidence that produced it, in the line beneath.
