@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::rule::RuleId;
 
+mod jfr;
 mod speedscope;
 
 /// Which lines of a file a test run actually executed. rqx decides dead code from the
@@ -539,6 +540,9 @@ impl Samples {
     /// coverage is: a project naming its profile is not going to name its dialect too.
     pub fn read(path: &Path) -> Result<Self, String> {
         let bytes = std::fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
+        if bytes.starts_with(jfr::NATIVE_MAGIC) {
+            return Err(format!("{}: {}", path.display(), jfr::NATIVE_RECORDING));
+        }
         if bytes.starts_with(&[0x1f, 0x8b]) {
             return pprof::read(&bytes).map_err(|error| format!("{}: {error}", path.display()));
         }
@@ -550,10 +554,13 @@ impl Samples {
         if body.trim_start().starts_with('{') && body.contains("\"nodes\"") {
             return read_cpuprofile(&body).map_err(|error| format!("{}: {error}", path.display()));
         }
+        if jfr::claims(&body) {
+            return jfr::read(&body).map_err(|error| format!("{}: {error}", path.display()));
+        }
         let stacks = read_collapsed(&body);
         if stacks.is_empty() {
             return Err(format!(
-                "{}: not a V8 .cpuprofile, a speedscope file, a pprof, or collapsed stacks",
+                "{}: not a V8 .cpuprofile, a speedscope file, a pprof, JFR text, or collapsed stacks",
                 path.display()
             ));
         }
@@ -762,8 +769,8 @@ fn read_collapsed(body: &str) -> Samples {
     samples
 }
 
-/// `name (file:line)` from py-spy, `pkg/Class.method_[j]` from async-profiler,
-/// `symbol+0x1a` from perf.
+/// `name (file:line)` from py-spy, `pkg/Class.method_[j]` from async-profiler (read
+/// by `jfr`, which knows Java names), `symbol+0x1a` from perf.
 fn parse_frame(text: &str) -> Frame {
     let text = text.trim();
     if let Some((name, rest)) = text.split_once(" (")
@@ -776,6 +783,9 @@ fn parse_frame(text: &str) -> Frame {
             file: Some(strip_scheme(file)),
             line: Some(line),
         };
+    }
+    if let Some(frame) = jfr::collapsed_frame(text) {
+        return frame;
     }
     let symbol = text
         .split_once("+0x")

@@ -171,3 +171,44 @@ fn a_speedscope_profile_is_read_and_a_truncated_one_is_skipped() {
     assert_eq!(with[0]["sampled"]["inclusive"], 1000);
     let _ = std::fs::remove_dir_all(&root);
 }
+
+fn profile_fixture(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/profiles")
+        .join(name)
+}
+
+/// `jfr print` names a frame by class and line, and the class is what says which
+/// file the samples belong to.
+#[test]
+fn a_jfr_text_dump_places_samples_in_the_java_file_its_class_came_from() {
+    let java = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/java");
+    let dump = profile_fixture("java.jfr.txt");
+    let with = rows(&java, &["--profile", dump.to_str().expect("a path")]);
+    let sum_cube = with
+        .iter()
+        .find(|row| row["name"] == "sumCube")
+        .expect("the cubic loop");
+    assert_eq!(sum_cube["sampled"]["inclusive"], 333);
+}
+
+#[test]
+fn a_binary_jfr_recording_is_skipped_with_the_conversion_that_reads_it() {
+    let root = project("native-jfr");
+    std::fs::write(root.join("run.jfr"), b"FLR\0\0\x02\0\x01").expect("the recording");
+    let output = perf(
+        &root,
+        &["--profile", "run.jfr", "--profile", "run.cpuprofile"],
+    );
+    let stderr = String::from_utf8(output.stderr).expect("utf-8");
+    assert!(
+        stderr.contains("skipping profile")
+            && stderr.contains("jfr print --events jdk.ExecutionSample"),
+        "{stderr}"
+    );
+    assert!(
+        output.status.success(),
+        "the profile that did read is still used"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
