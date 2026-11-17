@@ -4,6 +4,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::advice::{AdviceId, Stance};
+use crate::cost::Order;
 use crate::finding::{Confidence, Severity};
 use crate::language::Language;
 use crate::pattern::{Pattern, PatternFamily};
@@ -554,6 +555,23 @@ pub struct Gate {
     /// that owner answers for. Needs a CODEOWNERS file; the verdict names each owner
     /// that fell short.
     pub owners: BTreeMap<String, OwnerGate>,
+    /// What a function whose time or space order grew against the base revision does
+    /// to the verdict of `rqx check`: nothing (`off`), a warning, or a failure. Read
+    /// by the complexity regression check, which is not implemented yet, so the value
+    /// is validated and otherwise unused.
+    pub complexity_regression: RegressionGate,
+}
+
+/// Whether, and how loudly, a complexity regression counts against the gate.
+#[derive(
+    Copy, Clone, Debug, Default, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum RegressionGate {
+    #[default]
+    Off,
+    Warning,
+    Error,
 }
 
 /// What one owner's files must meet. Both checks are off until set, so an entry names
@@ -632,6 +650,7 @@ impl Default for Gate {
             baseline: None,
             ratchet: false,
             owners: BTreeMap::new(),
+            complexity_regression: RegressionGate::Off,
         }
     }
 }
@@ -1080,8 +1099,9 @@ impl Default for Ignore {
 }
 
 /// Client names and call names the I/O rules should recognise on top of the ones
-/// rqx ships. Added to the built-in vocabulary rather than replacing it, because a
-/// project that names its own gateway still has a `fetch` somewhere.
+/// rqx ships, and the cost of library calls the cost tables do not know. Added to the
+/// built-in vocabulary rather than replacing it, because a project that names its own
+/// gateway still has a `fetch` somewhere.
 #[derive(Clone, Debug, Default, Deserialize, Hash, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Performance {
@@ -1089,6 +1109,136 @@ pub struct Performance {
     pub receivers: Vec<String>,
     /// Call names the I/O rules should recognise, one segment each.
     pub methods: Vec<String>,
+    /// How much a library call costs, for the calls the built-in cost tables do not
+    /// list. Each entry names a call by `receiver` and `method`, or by `fn`, and gives
+    /// its time as `cost`: `1`, `log n`, `n`, `n log n`, `n^2` or `n*m`, where `n` is the
+    /// size of the receiver and `m` the size of the first argument. Read by the cost
+    /// analysis, which is not implemented yet, so entries are validated and otherwise
+    /// unused.
+    #[serde(deserialize_with = "cost_entries")]
+    pub costs: Vec<CostEntry>,
+    /// The largest time order a reviewed function may have, such as `O(n log n)`.
+    /// Unset means no limit. Read by the complexity regression check, which is not
+    /// implemented yet, so the value is validated and otherwise unused.
+    #[serde(deserialize_with = "optional_order")]
+    pub max_order: Option<String>,
+}
+
+/// One user-written line of the library cost table.
+#[derive(Clone, Debug, Deserialize, Hash, Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CostEntry {
+    /// A name for the entry, unique among the entries of the project.
+    pub id: String,
+    /// Types the method belongs to, such as `[Array, "T[]"]`.
+    #[serde(default)]
+    pub receiver: Vec<String>,
+    /// The method name, for an entry that names a receiver.
+    #[serde(default)]
+    pub method: Option<String>,
+    /// A free function, such as `std::find`, in place of `receiver` and `method`.
+    #[serde(default, rename = "fn")]
+    pub function: Option<String>,
+    /// Where the size comes from when it is not the receiver, such as `arg0.receiver`.
+    #[serde(default)]
+    pub size_of: Option<String>,
+    /// Conditions on the arguments, such as `{arg0: literal 0}`.
+    #[serde(default)]
+    pub when: BTreeMap<String, String>,
+    /// Time: `1`, `log n`, `n`, `n log n`, `n^2` or `n*m`.
+    #[serde(deserialize_with = "scalar_text")]
+    pub cost: String,
+    /// Extra space, in the same notation. Defaults to constant.
+    #[serde(default, deserialize_with = "optional_order")]
+    pub space: Option<String>,
+    /// The call has no side effects, so repeating it with the same arguments in a loop
+    /// is repeated work.
+    #[serde(default)]
+    pub pure: bool,
+}
+
+impl CostEntry {
+    fn problem(&self) -> Option<String> {
+        if self.id.trim().is_empty() {
+            return Some("an entry has no `id`".to_owned());
+        }
+        let names_a_call = self.function.is_some() || self.method.is_some();
+        if !names_a_call {
+            return Some(format!(
+                "`{}` names neither a `method` nor an `fn`",
+                self.id
+            ));
+        }
+        if self.function.is_some() && self.method.is_some() {
+            return Some(format!("`{}` names both a `method` and an `fn`", self.id));
+        }
+        [("cost", Some(&self.cost)), ("space", self.space.as_ref())]
+            .into_iter()
+            .find_map(|(key, text)| {
+                let error = text?.parse::<Order>().err()?;
+                Some(format!(
+                    "`{}` has a `{key}` that is not an order: {error}",
+                    self.id
+                ))
+            })
+    }
+}
+
+/// A scalar written as YAML reads it: `cost: 1` is a number, `cost: n*m` is text, and
+/// a bare `cost: n` is the YAML 1.1 spelling of `false`, which the table means as the
+/// size `n`.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Scalar {
+    Text(String),
+    Number(u64),
+    Flag(bool),
+}
+
+impl Scalar {
+    fn into_text(self) -> String {
+        match self {
+            Self::Text(text) => text,
+            Self::Number(number) => number.to_string(),
+            Self::Flag(false) => "n".to_owned(),
+            Self::Flag(true) => "true".to_owned(),
+        }
+    }
+}
+
+fn scalar_text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    Ok(Scalar::deserialize(deserializer)?.into_text())
+}
+
+fn optional_order<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    let Some(scalar) = Option::<Scalar>::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+    let text = scalar.into_text();
+    text.parse::<Order>()
+        .map_err(|error| serde::de::Error::custom(format!("`{text}` is not an order: {error}")))?;
+    Ok(Some(text))
+}
+
+fn cost_entries<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<CostEntry>, D::Error> {
+    let entries = Vec::<CostEntry>::deserialize(deserializer)?;
+    let mut seen = BTreeSet::new();
+    for entry in &entries {
+        if let Some(problem) = entry.problem() {
+            return Err(serde::de::Error::custom(problem));
+        }
+        if !seen.insert(entry.id.as_str()) {
+            return Err(serde::de::Error::custom(format!(
+                "two entries are called `{}`",
+                entry.id
+            )));
+        }
+    }
+    Ok(entries)
 }
 
 impl Performance {
@@ -1247,6 +1397,95 @@ mod tests {
             property(&schema, &["gate"])["properties"]["fail_on"]["default"],
             "error"
         );
+    }
+
+    fn performance_from(yaml: &str) -> Result<Performance, String> {
+        serde_saphyr::from_str::<RqxConfig>(yaml)
+            .map(|config| config.performance)
+            .map_err(|error| error.to_string())
+    }
+
+    #[test]
+    fn a_cost_table_entry_reads_every_key_of_the_documented_shape() {
+        let performance = performance_from(
+            "performance:\n  max_order: O(n log n)\n  costs:\n    \
+             - {id: js.includes, receiver: [Array, \"T[]\"], method: includes, cost: n, space: 1, pure: true}\n    \
+             - {id: py.pop0, receiver: [list], method: pop, when: {arg0: literal 0}, cost: n}\n    \
+             - {id: cpp.find, fn: std::find, size_of: arg0.receiver, cost: n*m}\n",
+        )
+        .expect("a valid table");
+        assert_eq!(performance.max_order.as_deref(), Some("O(n log n)"));
+        let ids: Vec<&str> = performance.costs.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids, ["js.includes", "py.pop0", "cpp.find"]);
+        assert_eq!(performance.costs[0].space.as_deref(), Some("1"));
+        assert_eq!(performance.costs[1].when["arg0"], "literal 0");
+        assert_eq!(performance.costs[2].function.as_deref(), Some("std::find"));
+    }
+
+    #[test]
+    fn a_cost_that_is_not_an_order_is_refused_and_says_which_entry() {
+        let error = performance_from(
+            "performance:\n  costs:\n    - {id: a.b, receiver: [A], method: b, cost: \"n^^\"}\n",
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("`a.b` has a `cost` that is not an order"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn an_entry_must_name_one_call_and_be_the_only_one_with_its_id() {
+        let wrong = [
+            ("{id: a, cost: n}", "names neither a `method` nor an `fn`"),
+            ("{id: a, method: m, fn: f, cost: n}", "names both"),
+            ("{id: \"\", method: m, cost: n}", "has no `id`"),
+        ];
+        for (entry, expected) in wrong {
+            let error =
+                performance_from(&format!("performance:\n  costs: [{entry}]\n")).unwrap_err();
+            assert!(error.contains(expected), "{entry}: {error}");
+        }
+        let twice =
+            "performance:\n  costs: [{id: a, method: m, cost: n}, {id: a, method: o, cost: 1}]\n";
+        assert!(
+            performance_from(twice)
+                .unwrap_err()
+                .contains("two entries are called `a`")
+        );
+    }
+
+    #[test]
+    fn a_max_order_that_is_not_an_order_is_refused() {
+        let error = performance_from("performance:\n  max_order: quadratic\n").unwrap_err();
+        assert!(error.contains("`quadratic` is not an order"), "{error}");
+        assert!(performance_from("performance:\n  max_order: exp\n").is_ok());
+    }
+
+    #[test]
+    fn the_regression_gate_is_off_unless_written() {
+        assert_eq!(Gate::default().complexity_regression, RegressionGate::Off);
+        let config: RqxConfig =
+            serde_saphyr::from_str("gate:\n  complexity_regression: error\n").unwrap();
+        assert_eq!(config.gate.complexity_regression, RegressionGate::Error);
+        assert!(
+            serde_saphyr::from_str::<RqxConfig>("gate:\n  complexity_regression: loud\n").is_err()
+        );
+    }
+
+    #[test]
+    fn the_schema_describes_the_performance_and_gate_additions() {
+        let schema = json_schema();
+        let performance = property(&schema, &["performance"]);
+        for key in ["costs", "max_order"] {
+            assert!(
+                performance["properties"][key]["description"].is_string(),
+                "{key}"
+            );
+        }
+        let gate = property(&schema, &["gate"]);
+        assert!(gate["properties"]["complexity_regression"].is_object());
+        assert!(schema["$defs"]["CostEntry"]["properties"]["fn"].is_object());
     }
 
     #[test]
@@ -1514,6 +1753,7 @@ mod tests {
                     format!("{:?}", config.gate.min_grade),
                     config.gate.baseline.clone().unwrap_or_default(),
                     config.gate.ratchet.to_string(),
+                    format!("{:?}", config.gate.complexity_regression),
                 ],
                 architecture: config.architecture.layers.clone(),
                 performance: config
@@ -1522,6 +1762,14 @@ mod tests {
                     .iter()
                     .chain(&config.performance.methods)
                     .cloned()
+                    .chain(
+                        config
+                            .performance
+                            .costs
+                            .iter()
+                            .map(|entry| entry.id.clone()),
+                    )
+                    .chain(config.performance.max_order.clone())
                     .collect(),
                 fix: vec![
                     config

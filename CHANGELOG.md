@@ -11,6 +11,11 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Added
 
+- **Complexity settings.** `performance.costs` lists library calls with their cost,
+  `performance.max_order` sets the largest time order a reviewed function may have, and
+  `gate.complexity_regression` (`off`, `warning` or `error`, default `off`) sets how a
+  growth in order will count against `rqx check`. The keys are validated, with the line
+  and column of a mistake, and are not yet read by any rule or report.
 - **`rqx check --staged`.** Reviews what `git commit` would record. The staged files are
   read from the index and analysed in a temporary copy of the repository, so unstaged
   edits do not change the verdict. Every other file is read from the working tree.

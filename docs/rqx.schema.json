@@ -107,6 +107,78 @@
       ],
       "type": "string"
     },
+    "CostEntry": {
+      "additionalProperties": false,
+      "description": "One user-written line of the library cost table.",
+      "properties": {
+        "cost": {
+          "description": "Time: `1`, `log n`, `n`, `n log n`, `n^2` or `n*m`.",
+          "type": "string"
+        },
+        "fn": {
+          "default": null,
+          "description": "A free function, such as `std::find`, in place of `receiver` and `method`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "A name for the entry, unique among the entries of the project.",
+          "type": "string"
+        },
+        "method": {
+          "default": null,
+          "description": "The method name, for an entry that names a receiver.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pure": {
+          "default": false,
+          "description": "The call has no side effects, so repeating it with the same arguments in a loop is repeated work.",
+          "type": "boolean"
+        },
+        "receiver": {
+          "default": [],
+          "description": "Types the method belongs to, such as `[Array, \"T[]\"]`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "size_of": {
+          "default": null,
+          "description": "Where the size comes from when it is not the receiver, such as `arg0.receiver`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "space": {
+          "default": null,
+          "description": "Extra space, in the same notation. Defaults to constant.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "when": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Conditions on the arguments, such as `{arg0: literal 0}`.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "cost"
+      ],
+      "type": "object"
+    },
     "CustomRule": {
       "additionalProperties": false,
       "description": "A rule written as a tree-sitter query. The query is not compiled here — core has no grammars — but every other field is checked the moment the config parses.",
@@ -217,6 +289,11 @@
             "string",
             "null"
           ]
+        },
+        "complexity_regression": {
+          "$ref": "#/$defs/RegressionGate",
+          "default": "off",
+          "description": "What a function whose time or space order grew against the base revision does to the verdict of `rqx check`: nothing (`off`), a warning, or a failure. Read by the complexity regression check, which is not implemented yet, so the value is validated and otherwise unused."
         },
         "fail_on": {
           "$ref": "#/$defs/GateSeverity",
@@ -436,8 +513,24 @@
     },
     "Performance": {
       "additionalProperties": false,
-      "description": "Client names and call names the I/O rules should recognise on top of the ones rqx ships. Added to the built-in vocabulary rather than replacing it, because a project that names its own gateway still has a `fetch` somewhere.",
+      "description": "Client names and call names the I/O rules should recognise on top of the ones rqx ships, and the cost of library calls the cost tables do not know. Added to the built-in vocabulary rather than replacing it, because a project that names its own gateway still has a `fetch` somewhere.",
       "properties": {
+        "costs": {
+          "default": [],
+          "description": "How much a library call costs, for the calls the built-in cost tables do not list. Each entry names a call by `receiver` and `method`, or by `fn`, and gives its time as `cost`: `1`, `log n`, `n`, `n log n`, `n^2` or `n*m`, where `n` is the size of the receiver and `m` the size of the first argument. Read by the cost analysis, which is not implemented yet, so entries are validated and otherwise unused.",
+          "items": {
+            "$ref": "#/$defs/CostEntry"
+          },
+          "type": "array"
+        },
+        "max_order": {
+          "default": null,
+          "description": "The largest time order a reviewed function may have, such as `O(n log n)`. Unset means no limit. Read by the complexity regression check, which is not implemented yet, so the value is validated and otherwise unused.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "methods": {
           "default": [],
           "description": "Call names the I/O rules should recognise, one segment each.",
@@ -456,6 +549,15 @@
         }
       },
       "type": "object"
+    },
+    "RegressionGate": {
+      "description": "Whether, and how loudly, a complexity regression counts against the gate.",
+      "enum": [
+        "off",
+        "warning",
+        "error"
+      ],
+      "type": "string"
     },
     "RuleOptions": {
       "additionalProperties": false,
@@ -9955,6 +10057,7 @@
       "$ref": "#/$defs/Gate",
       "default": {
         "baseline": null,
+        "complexity_regression": "off",
         "fail_on": "error",
         "fail_on_incomplete": false,
         "max_findings": 0,
@@ -10024,6 +10127,8 @@
     "performance": {
       "$ref": "#/$defs/Performance",
       "default": {
+        "costs": [],
+        "max_order": null,
         "methods": [],
         "receivers": []
       }
