@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use crate::module_graph::Resolver;
+use crate::module_graph::{Resolver, WalkedFiles, join_specifier};
 
 pub struct CppResolver {
     /// Directories a quoted include is tried against after the including file's own,
@@ -29,14 +29,23 @@ impl CppResolver {
 
 impl Resolver for CppResolver {
     fn resolve(&self, importer: &Path, specifier: &str) -> Vec<PathBuf> {
-        let direct = importer.join(specifier);
-        if direct.is_file() {
+        self.resolve_within(importer, specifier, &WalkedFiles::unknown())
+    }
+
+    fn resolve_within(
+        &self,
+        importer: &Path,
+        specifier: &str,
+        files: &WalkedFiles<'_>,
+    ) -> Vec<PathBuf> {
+        let direct = join_specifier(importer, specifier);
+        if files.is_file(&direct) {
             return vec![direct];
         }
         self.roots
             .iter()
             .map(|base| base.join(specifier))
-            .find(|path| path.is_file())
+            .find(|path| files.is_file(path))
             .into_iter()
             .collect()
     }

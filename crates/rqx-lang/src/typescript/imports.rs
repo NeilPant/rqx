@@ -5,7 +5,7 @@
 use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::module_graph::Resolver;
+use crate::module_graph::{Resolver, WalkedFiles, join_specifier};
 
 const EXTENSIONS: [&str; 8] = ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
 const SOURCE_EXTENSIONS: [&str; 4] = ["ts", "tsx", "mts", "cts"];
@@ -37,36 +37,36 @@ impl TypeScriptResolver {
 
     /// `./x` resolves to `x.ts`, then to `x/index.ts`: the extension is optional in
     /// the source and the directory form is the package convention.
-    fn as_file(candidate: &Path) -> Option<PathBuf> {
-        if let Some(source) = typescript_behind_script_name(candidate) {
+    fn as_file(files: &WalkedFiles<'_>, candidate: &Path) -> Option<PathBuf> {
+        if let Some(source) = typescript_behind_script_name(files, candidate) {
             return Some(source);
         }
-        if candidate.is_file() {
+        if files.is_file(candidate) {
             return Some(candidate.to_path_buf());
         }
         for extension in EXTENSIONS {
             let with_extension = append_extension(candidate, extension);
-            if with_extension.is_file() {
+            if files.is_file(&with_extension) {
                 return Some(with_extension);
             }
         }
         for extension in EXTENSIONS {
             let index = candidate.join(format!("index.{extension}"));
-            if index.is_file() {
+            if files.is_file(&index) {
                 return Some(index);
             }
         }
         None
     }
 
-    fn through_aliases(&self, specifier: &str) -> Option<PathBuf> {
+    fn through_aliases(&self, files: &WalkedFiles<'_>, specifier: &str) -> Option<PathBuf> {
         for (pattern, targets) in &self.aliases {
             let Some(stem) = pattern.strip_suffix('*') else {
                 if pattern != specifier {
                     continue;
                 }
                 for target in targets {
-                    if let Some(found) = Self::as_file(&self.base.join(target)) {
+                    if let Some(found) = Self::as_file(files, &self.base.join(target)) {
                         return Some(found);
                     }
                 }
@@ -77,7 +77,7 @@ impl TypeScriptResolver {
             };
             for target in targets {
                 let filled = target.replace('*', rest);
-                if let Some(found) = Self::as_file(&self.base.join(filled)) {
+                if let Some(found) = Self::as_file(files, &self.base.join(filled)) {
                     return Some(found);
                 }
             }
@@ -89,7 +89,7 @@ impl TypeScriptResolver {
 /// TypeScript's own convention under `node16` resolution: an import is written with
 /// the extension the emitted file will have, so `./util.js` means `util.ts` when that
 /// is what is on disk. The source wins over a `.js` beside it, as it does for `tsc`.
-fn typescript_behind_script_name(candidate: &Path) -> Option<PathBuf> {
+fn typescript_behind_script_name(files: &WalkedFiles<'_>, candidate: &Path) -> Option<PathBuf> {
     let extension = candidate.extension()?.to_str()?;
     let (_, sources) = SCRIPT_TO_SOURCE
         .iter()
@@ -97,7 +97,7 @@ fn typescript_behind_script_name(candidate: &Path) -> Option<PathBuf> {
     sources
         .iter()
         .map(|source| candidate.with_extension(source))
-        .find(|source| source.is_file())
+        .find(|source| files.is_file(source))
 }
 
 /// `Path::with_extension` replaces what follows the last dot, which turns
@@ -262,10 +262,19 @@ fn read_package_entrypoints(manifest: &Path) -> Vec<String> {
 
 impl Resolver for TypeScriptResolver {
     fn resolve(&self, importer: &Path, specifier: &str) -> Vec<PathBuf> {
+        self.resolve_within(importer, specifier, &WalkedFiles::unknown())
+    }
+
+    fn resolve_within(
+        &self,
+        importer: &Path,
+        specifier: &str,
+        files: &WalkedFiles<'_>,
+    ) -> Vec<PathBuf> {
         let found = if specifier.starts_with('.') {
-            TypeScriptResolver::as_file(&importer.join(specifier))
+            TypeScriptResolver::as_file(files, &join_specifier(importer, specifier))
         } else {
-            self.through_aliases(specifier)
+            self.through_aliases(files, specifier)
         };
         found.into_iter().collect()
     }
@@ -428,6 +437,29 @@ mod tests {
         assert_eq!(resolved(&["lib/index.js"], "./lib"), ["lib/index.js"]);
         assert_eq!(resolved(&["lib/index.mjs"], "./lib"), ["lib/index.mjs"]);
         assert_eq!(resolved(&["foo.ts"], "./foo"), ["foo.ts"]);
+    }
+
+    /// The walk skips ignored and excluded files, but `tsc` does not: `foo.ts` on disk
+    /// beats a walked `foo.js`, so a miss in the walked set cannot mean "not a file".
+    #[test]
+    fn a_file_the_walk_skipped_still_decides_the_import() {
+        let (root, resolver) = project(&["foo.ts", "foo.js", "up/bar.ts"]);
+        let walked: HashSet<PathBuf> = [root.join("foo.js"), root.join("up/bar.ts")].into();
+        let files = WalkedFiles::new(&walked);
+
+        assert_eq!(
+            resolver.resolve_within(&root, "./foo", &files),
+            [root.join("foo.ts")]
+        );
+        assert_eq!(
+            resolver.resolve_within(&root.join("up"), "../foo.js", &files),
+            [root.join("foo.ts")]
+        );
+        assert_eq!(
+            resolver.resolve_within(&root.join("up"), "./bar", &files),
+            [root.join("up/bar.ts")]
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

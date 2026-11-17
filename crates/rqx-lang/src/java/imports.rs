@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use crate::module_graph::Resolver;
+use crate::module_graph::{Resolver, WalkedFiles};
 
 pub struct JavaResolver {
     roots: Vec<PathBuf>,
@@ -32,7 +32,16 @@ impl JavaResolver {
 }
 
 impl Resolver for JavaResolver {
-    fn resolve(&self, _importer: &Path, specifier: &str) -> Vec<PathBuf> {
+    fn resolve(&self, importer: &Path, specifier: &str) -> Vec<PathBuf> {
+        self.resolve_within(importer, specifier, &WalkedFiles::unknown())
+    }
+
+    fn resolve_within(
+        &self,
+        _importer: &Path,
+        specifier: &str,
+        files: &WalkedFiles<'_>,
+    ) -> Vec<PathBuf> {
         // A static import names a member of a type, so the type is one segment up.
         let candidates = [specifier.to_owned(), {
             let mut parts: Vec<&str> = specifier.split('.').collect();
@@ -43,7 +52,7 @@ impl Resolver for JavaResolver {
             let relative = candidate.replace('.', "/");
             for base in &self.roots {
                 let file = base.join(format!("{relative}.java"));
-                if file.is_file() {
+                if files.is_file(&file) {
                     return vec![file];
                 }
             }

@@ -31,6 +31,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   cache shows up as a number rather than as noise in a timing. The stages gain cache
   load, cache save and render.
 
+### Changed
+
+- **Import resolution is faster.** Resolving an import now checks the files the scan
+  already walked instead of asking the filesystem about each candidate, and a
+  specifier that many files in one directory write is resolved once. The graph and
+  every finding are unchanged.
+
 ### Fixed
 
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding
