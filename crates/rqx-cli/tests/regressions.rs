@@ -361,3 +361,38 @@ fn the_terminal_summary_has_no_row_when_regressions_were_not_asked_for() {
 
     assert!(!String::from_utf8_lossy(&output.stdout).contains("Complexity"));
 }
+
+#[test]
+fn the_merge_request_comment_has_a_section_for_them() {
+    let repository = callee_got_slower("regress-comment");
+
+    let output = repository.rqx_output(&[
+        "comment",
+        ".",
+        "--base",
+        "HEAD~1",
+        "--regressions",
+        "--dry-run",
+    ]);
+
+    let body = String::from_utf8_lossy(&output.stdout);
+    assert!(body.contains("### Complexity regressions"), "{body}");
+    assert!(
+        body.contains("- **`reconcileBatch`** O(n) \u{2192} O(n\u{b2}) \u{b7} `src/caller.ts:3`"),
+        "{body}"
+    );
+    assert!(body.contains("<details><summary>Trace</summary>"), "{body}");
+    assert!(
+        body.contains("- lookup \u{b7} `src/callee.ts:1` \u{b7} O(n)"),
+        "{body}"
+    );
+}
+
+#[test]
+fn the_merge_request_comment_has_no_section_when_regressions_were_not_asked_for() {
+    let repository = callee_got_slower("regress-comment-silent");
+
+    let output = repository.rqx_output(&["comment", ".", "--base", "HEAD~1", "--dry-run"]);
+
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("Complexity"));
+}
