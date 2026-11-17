@@ -38,34 +38,36 @@ rqx mcp                         # serve the analysis to an agent over MCP
 ## Contents
 
 1. [Install](#install)
-2. [The commands](#the-commands)
-3. [The report](#the-report)
-4. [Anatomy of a finding](#anatomy-of-a-finding)
-5. [The catalogue](#the-catalogue)
-6. [Design patterns](#design-patterns)
-7. [Architectural constraints](#architectural-constraints)
-8. [Language support](#language-support)
-9. [Automatic fixes](#automatic-fixes)
-10. [Verifying a refactoring](#verifying-a-refactoring)
-11. [Prioritising the work](#prioritising-the-work)
-12. [Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase)
-13. [Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
-14. [Editing configuration](#editing-configuration)
-15. [Levels](#levels)
-16. [Configuration](#configuration)
-17. [Enabling and disabling rules](#enabling-and-disabling-rules)
-18. [Cross-language duplication](#cross-language-duplication)
-19. [Performance rules](#performance-rules)
-20. [Coverage as evidence](#coverage-as-evidence)
-21. [Confidence levels](#confidence-levels)
-22. [Editors](#editors)
-23. [Agents](#agents)
-24. [The interface](#the-interface)
-25. [CI](#ci)
-26. [Contributing](#contributing)
-27. [Performance](#performance)
-28. [References](#references)
-29. [License](#license)
+2. [Network access](#network-access)
+3. [The commands](#the-commands)
+4. [What rqx does not do](#what-rqx-does-not-do)
+5. [The report](#the-report)
+6. [Anatomy of a finding](#anatomy-of-a-finding)
+7. [The catalogue](#the-catalogue)
+8. [Design patterns](#design-patterns)
+9. [Architectural constraints](#architectural-constraints)
+10. [Language support](#language-support)
+11. [Automatic fixes](#automatic-fixes)
+12. [Verifying a refactoring](#verifying-a-refactoring)
+13. [Prioritising the work](#prioritising-the-work)
+14. [Adopting it on an existing codebase](#adopting-it-on-an-existing-codebase)
+15. [Surveying an unfamiliar codebase](#surveying-an-unfamiliar-codebase)
+16. [Editing configuration](#editing-configuration)
+17. [Levels](#levels)
+18. [Configuration](#configuration)
+19. [Enabling and disabling rules](#enabling-and-disabling-rules)
+20. [Cross-language duplication](#cross-language-duplication)
+21. [Performance rules](#performance-rules)
+22. [Coverage as evidence](#coverage-as-evidence)
+23. [Confidence levels](#confidence-levels)
+24. [Editors](#editors)
+25. [Agents](#agents)
+26. [The interface](#the-interface)
+27. [CI](#ci)
+28. [Contributing](#contributing)
+29. [Performance](#performance)
+30. [References](#references)
+31. [License](#license)
 
 Every page under [`docs/`](docs/README.md) goes further than its section here; the
 rule reference in [`docs/rules/`](docs/rules) and the pattern reference in
@@ -117,17 +119,6 @@ the release's `SHA256SUMS`; any mismatch installs nothing and exits 2. A copy un
 package manager owns marks itself with `RQX_MANAGED`, and `rqx update` then reads the
 notes and points at that manager rather than replacing a file it does not own.
 
-A scan prints one dim line when a newer version has been tagged, and nothing when it
-has not. The check starts when the scan does, on a thread the report waits a quarter
-of a second for at the end; its answer is cached for a day.
-
-**It cannot disturb a pipeline.** It is skipped when stdout or stderr is not a
-terminal, which is the test that does not depend on knowing every CI system, and
-again when any of `CI`, `JENKINS_URL`, `TEAMCITY_VERSION`, `TF_BUILD` or their
-equivalents is set. `RQX_NO_UPDATE_CHECK` and `update.check: false` in `rqx.yaml`
-turn it off outright, `RQX_MANAGED` marks an install a package manager owns, and no
-exit code, report or reporter output changes either way.
-
 **One tag, every channel.** A release builds six binaries, one per platform, and
 publishes them beside the crates from the same commit, so a version means the same
 thing wherever it came from. Every asset is checksummed in `SHA256SUMS` on the
@@ -136,6 +127,39 @@ release.
 Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
 prints the configuration each one needs — see [Editors](#editors).
 
+## Network access
+
+A scan reads your code on your machine and sends none of it anywhere. rqx reaches the
+network in three cases.
+
+**The update check.** When you run `rqx scan` or `rqx check` in a terminal, rqx asks
+GitHub whether a newer release has been tagged, at most once a day. It runs `curl`
+against `https://api.github.com/repos/jadhamwi21/rqx/tags` with the headers
+`Accept: application/vnd.github+json` and `User-Agent: rqx/<version>`. For the newest
+tag it also fetches that tag's `CHANGELOG.md` from `raw.githubusercontent.com`, so the
+notice can say what changed. Nothing from your project is in either request. The answer
+is cached in `update.json` under `$XDG_CACHE_HOME/rqx`, or `~/.cache/rqx` when that is
+unset, and a newer version is shown as one dim line after the report.
+
+The check starts when the scan does, and the report waits at most a quarter of a second
+for it at the end. It runs only when both stdout and stderr are terminals, so it is
+skipped when output is piped or redirected. It is also skipped when `CI`,
+`JENKINS_URL`, `TEAMCITY_VERSION`, `TF_BUILD` or one of the other pipeline variables
+rqx recognises is set, and for an install that a package manager owns (`RQX_MANAGED`).
+Exit codes, the report and reporter files are the same whether or not it runs.
+
+To turn it off, set `RQX_NO_UPDATE_CHECK` in the environment, or add this to
+`rqx.yaml`:
+
+```yaml
+update:
+  check: false
+```
+
+**`rqx update`** downloads a release from GitHub, but only when you run it.
+
+**`rqx comment`** posts to the GitLab or GitHub API of the merge request it is run for,
+but only when you run it.
 
 ## The commands
 
@@ -156,6 +180,27 @@ The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`
 so the list cannot quietly go back to being flat.
 
 Inside the interface the same list is `/help`.
+
+## What rqx does not do
+
+- **It does not type-check.** rqx parses source, resolves scopes and imports, and reads
+  git history. It does not resolve types, so a finding that needs a type checker to be
+  certain is reported at lower confidence, or not reported, and says which.
+- **Rule coverage differs by language.** Of 185 rules, 184 apply to TypeScript, 176 to
+  JavaScript, 174 to Python, 171 to Java, 169 to C++ and 139 to Go. A rule that cannot
+  exist in a language says so in `rqx explain`, with a reason. `rqx rules --language
+  <name>` lists the ones that apply.
+- **JavaScript leaves out the type-syntax rules.** JavaScript is read as TypeScript
+  without its types, so the eight rules that read type syntax do not apply to it:
+  `abstract-nothing`, `boolean-not-a-question`, `catch-all-handler`, `flag-argument`,
+  `imprecise-type`, `inappropriate-static`, `primitive-obsession` and
+  `speculative-generality`.
+- **It does not do security or taint analysis.** rqx does not follow data from a source
+  to a sink, so it will not find injection or unsafe deserialisation. Use a tool built
+  for that, such as [Semgrep](https://semgrep.dev) or [CodeQL](https://codeql.github.com).
+- **It does not judge meaning.** Whether a comment still matches the code beneath it,
+  whether an algorithm is the right one, or whether behaviour a reader expected is
+  missing cannot be settled by a metric, so rqx has no rules for them.
 
 ## The report
 
@@ -275,8 +320,8 @@ behaviour a reader expected is missing — no metric settles these, and a tool t
 claimed otherwise would be inventing findings. That costs more trust than the missing
 rules do.
 
-Rqx also parses without resolving types, so anything that needs a type checker to be
-certain is either reported at lower confidence or not at all, and says which.
+The other limits, including what needs types, are listed under
+[What rqx does not do](#what-rqx-does-not-do).
 
 ## Design patterns
 
