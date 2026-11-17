@@ -936,6 +936,30 @@
     "severity": "minor"
   },
   {
+    "check_name": "unbounded-concurrency",
+    "description": "`Promise.all` starts one piece of work per element with nothing limiting how many run at once. — the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit",
+    "fingerprint": "9036a3c6921baa50",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-unbounded-concurrency.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "lock-in-loop",
+    "description": "`latch.lock` runs on every pass of the loop. — each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop",
+    "fingerprint": "f6f5654ebb0b65fa",
+    "location": {
+      "lines": {
+        "begin": 9
+      },
+      "path": "typescript/cost-lock-in-loop.ts"
+    },
+    "severity": "minor"
+  },
+  {
     "check_name": "sort-in-loop",
     "description": "`<expression>.sort` runs on every pass of the loop. — every pass after the first sorts input that is already sorted, at a cost of n log n each time",
     "fingerprint": "2d209f2209e69065",
@@ -1028,6 +1052,18 @@
         "begin": 39
       },
       "path": "typescript/performance.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "query-in-loop",
+    "description": "`fetch` runs on every pass of the loop. — every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them",
+    "fingerprint": "9c8b59cc4b47c54a",
+    "location": {
+      "lines": {
+        "begin": 4
+      },
+      "path": "typescript/cost-unbounded-concurrency.ts"
     },
     "severity": "minor"
   },
@@ -3044,6 +3080,18 @@
         "begin": 88
       },
       "path": "typescript/suite.test.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "never-reassigned",
+    "description": "`at` is declared changeable and never changes. — a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need",
+    "fingerprint": "3bb77ae70e78438d",
+    "location": {
+      "lines": {
+        "begin": 18
+      },
+      "path": "typescript/cost-lock-in-loop.ts"
     },
     "severity": "info"
   },

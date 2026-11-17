@@ -102,6 +102,10 @@ public class Main {
         new Ticker().fire();
         new Editor().save();
         new SmsGateway().disconnect();
+        new CostLockInLoop().tallyUnderOneLock(java.util.List.of(), new Object());
+        new CostLockInLoop().tallyUnderEachLock(java.util.List.of(), java.util.List.of());
+        new CostUnboundedConcurrency().loadEveryPage(java.util.List.of(), id -> id);
+        new CostUnboundedConcurrency().loadFewPages(java.util.List.of(), id -> id, Runnable::run);
         new CostAllocationInLoop().describeRows(java.util.List.of());
         new CostAllocationInLoop().bufferEachRow(java.util.List.of());
         new CostAllocationInLoop().pairEachRow(java.util.List.of());

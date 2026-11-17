@@ -28,7 +28,7 @@ impl<'a> Visitor<'a, '_> {
     }
 
     /// Whether the loops around the visit can run more than a fixed number of times.
-    fn loops_can_grow(&self) -> bool {
+    pub(super) fn loops_can_grow(&self) -> bool {
         self.depth > 0
             && (self.loop_bounds.is_empty()
                 || self.loop_bounds.iter().any(|bound| *bound != Bound::Const))

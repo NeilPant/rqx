@@ -37,6 +37,7 @@ pub struct Shared<'f> {
 }
 
 mod allocation;
+mod concurrency;
 mod sites;
 
 pub struct Built<'a> {
@@ -87,6 +88,9 @@ struct Visitor<'a, 'f> {
     /// The loops the visit is inside, outermost first, to read what they leave alone.
     loop_nodes: Vec<Node<'a>>,
     sites: Vec<CostSite>,
+    /// Work started with no limit in sight, held until the function is read in full,
+    /// because a limit may be written anywhere in it.
+    unbounded: Vec<CostSite>,
     /// Collections made here with nothing in them and no room set aside, by the loop
     /// depth they were made at.
     empty_collections: HashMap<&'a str, u8>,
@@ -120,6 +124,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         loop_bounds: Vec::new(),
         loop_nodes: Vec::new(),
         sites: Vec::new(),
+        unbounded: Vec::new(),
         empty_collections: HashMap::new(),
         nested: Vec::new(),
         nested_names: HashSet::new(),
@@ -138,6 +143,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
 
     let body = names.function_body(function);
     let parts = body.map_or_else(Parts::default, |body| visitor.visit(body));
+    visitor.settle_concurrency(function);
     let cost = visitor.finish(function, body, parts);
     Built {
         cost,
@@ -297,6 +303,7 @@ impl<'a> Visitor<'a, '_> {
     }
 
     fn note_statement_in_loop(&mut self, node: Node<'a>, kind: &str) {
+        self.note_statement_sites(node, kind);
         let signals = &self.names.profile.signals;
         if signals.lock_kinds.contains(&kind) {
             self.locks_in_loop = true;
@@ -559,6 +566,7 @@ impl<'a> Visitor<'a, '_> {
         let mut parts = Parts::default();
 
         self.note_signals(dotted, receiver, tail, arguments);
+        self.note_call_sites(node, dotted, arguments);
         self.note_reservation(receiver, tail);
         if self.is_round_trip(receiver, tail) {
             parts.io = Some(Cost::One);

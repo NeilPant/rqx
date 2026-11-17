@@ -152,3 +152,50 @@ fn a_language_whose_lists_have_no_capacity_is_never_asked_for_one() {
     let python = "def f(names: list[str]):\n    out = []\n    for name in names:\n        out.append(name)\n";
     assert!(reported(Language::Python, python, &[RuleId::MissingCapacity]).is_empty());
 }
+
+#[test]
+fn a_lock_the_loop_does_not_change_is_taken_once_not_per_pass() {
+    let invariant = "func f(mu *sync.Mutex, rows []int) {\n\tfor range rows {\n\t\tmu.Lock()\n\t\tmu.Unlock()\n\t}\n}\n";
+    assert_eq!(
+        reported(Language::Go, invariant, &[RuleId::LockInLoop]),
+        [(RuleId::LockInLoop, 3)]
+    );
+    let per_pass = "func f(locks []*sync.Mutex, rows []int) {\n\tfor at := range rows {\n\t\tlocks[at].Lock()\n\t\tlocks[at].Unlock()\n\t}\n}\n";
+    assert!(reported(Language::Go, per_pass, &[RuleId::LockInLoop]).is_empty());
+}
+
+#[test]
+fn work_started_per_element_with_no_limit_is_reported() {
+    let unlimited =
+        "async function f(ids) {\n  return Promise.all(ids.map((id) => fetch(id)));\n}\n";
+    assert_eq!(
+        reported(
+            Language::JavaScript,
+            unlimited,
+            &[RuleId::UnboundedConcurrency]
+        ),
+        [(RuleId::UnboundedConcurrency, 2)]
+    );
+    let limited = "async function f(ids, limit) {\n  return Promise.all(ids.map((id) => limit(() => fetch(id))));\n}\n";
+    assert!(
+        reported(
+            Language::JavaScript,
+            limited,
+            &[RuleId::UnboundedConcurrency]
+        )
+        .is_empty()
+    );
+    let fixed = "async function f(a, b) {\n  return Promise.all([fetch(a), fetch(b)]);\n}\n";
+    assert!(reported(Language::JavaScript, fixed, &[RuleId::UnboundedConcurrency]).is_empty());
+}
+
+#[test]
+fn work_started_in_a_loop_counts_only_when_it_leaves_the_process() {
+    let io = "func f(urls []string) {\n\tfor _, url := range urls {\n\t\tgo func() { http.Get(url) }()\n\t}\n}\n";
+    assert_eq!(
+        reported(Language::Go, io, &[RuleId::UnboundedConcurrency]),
+        [(RuleId::UnboundedConcurrency, 3)]
+    );
+    let compute = "func f(rows []int) {\n\tfor _, row := range rows {\n\t\tgo func() { square(row) }()\n\t}\n}\n";
+    assert!(reported(Language::Go, compute, &[RuleId::UnboundedConcurrency]).is_empty());
+}

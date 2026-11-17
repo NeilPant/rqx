@@ -142,5 +142,9 @@ func main() {
 	_ = fixtures.PairEachRow
 	_ = fixtures.CopyNames
 	_ = fixtures.CopyNamesSized
+	_ = fixtures.TallyUnderOneLock
+	_ = fixtures.TallyUnderEachLock
+	_ = fixtures.LoadEveryPage
+	_ = fixtures.LoadFewPages
 	_ = cyclea.Orbit
 }

@@ -2355,4 +2355,27 @@ catalogue! {
             (Python, "lists grow without a capacity to set"),
         ],
     },
+    LockInLoop {
+        slug: "lock-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a lock taken inside a loop on a lock the loop does not change",
+        fixes: [HoistInvariant],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "each pass pays to acquire and release the same lock, and other threads can only \
+              interleave at those points instead of waiting once for the whole loop",
+    },
+    UnboundedConcurrency {
+        slug: "unbounded-concurrency",
+        category: Performance,
+        analysis: Semantics,
+        metric: "work that leaves the process started once per element of a collection of any \
+                 size, in a function that mentions no limit",
+        fixes: [BoundConcurrency],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the number of requests in flight equals the size of the collection, so a large \
+              input exhausts connections, memory or the other side's rate limit",
+    },
 }

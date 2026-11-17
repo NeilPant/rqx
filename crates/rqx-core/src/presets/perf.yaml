@@ -22,3 +22,5 @@ rules:
   sort-in-loop: { severity: error }
   allocation-in-loop: { severity: error }
   missing-capacity: { severity: error }
+  lock-in-loop: { severity: error }
+  unbounded-concurrency: { severity: error }

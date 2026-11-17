@@ -101,12 +101,12 @@ every pass pays a round trip, so listing a hundred rows makes a hundred and one 
 | Reads | resolved scopes and symbols |
 | Fix | Batch the Work |
 
-From `fixtures/typescript/performance.ts`, line 31:
+From `fixtures/typescript/cost-unbounded-concurrency.ts`, line 4:
 
 ```ts
-  for (const id of ids) {
-    rows.push(client.get(id));
-  }
+async function loadEveryPage(ids: string[]): Promise<unknown[]> {
+  return Promise.all(ids.map((id) => fetch(id)));
+}
 ```
 
 Suggested fix: gather the keys first and ask for all of them in one call
@@ -309,4 +309,46 @@ From `fixtures/go/fixtures/cost-linear-op-in-loop.go`, line 16:
 ```
 
 Suggested fix: give it the loop's size as its capacity where it is made
+
+## `lock-in-loop`
+
+each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop
+
+| | |
+|---|---|
+| Measures | a lock taken inside a loop on a lock the loop does not change |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Hoist Invariant |
+
+From `fixtures/typescript/cost-lock-in-loop.ts`, line 9:
+
+```ts
+  for (const row of rows) {
+    latch.lock();
+    total += row;
+```
+
+Suggested fix: take the lock once around the whole loop, or keep it per pass only if other threads need the gaps
+
+## `unbounded-concurrency`
+
+the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit
+
+| | |
+|---|---|
+| Measures | work that leaves the process started once per element of a collection of any size, in a function that mentions no limit |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Bound Concurrency |
+
+From `fixtures/typescript/cost-unbounded-concurrency.ts`, line 4:
+
+```ts
+async function loadEveryPage(ids: string[]): Promise<unknown[]> {
+  return Promise.all(ids.map((id) => fetch(id)));
+}
+```
+
+Suggested fix: run the work through a semaphore, a limiter or a fixed-size pool
 

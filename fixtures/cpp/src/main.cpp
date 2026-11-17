@@ -23,6 +23,8 @@
 #include "structures.hpp"
 #include "shapes.hpp"
 #include "performance.hpp"
+#include "cost_unbounded_concurrency.hpp"
+#include "cost_lock_in_loop.hpp"
 #include "cost_missing_capacity.hpp"
 #include "cost_allocation_in_loop.hpp"
 #include "cost_sort_in_loop.hpp"
@@ -101,5 +103,9 @@ int main() {
     pad_each_row({});
     copy_names({});
     copy_names_sized({});
+    std::mutex guard; tally_under_one_lock(guard, {});
+    std::vector<std::mutex> guards(1); tally_under_each_lock(guards, {});
+    PageClient pages; load_every_page(pages, {});
+    load_few_pages(pages, {});
     return 0;
 }

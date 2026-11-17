@@ -153,6 +153,7 @@ techniques! {
     Memoize { name: "Memoize", group: Performance },
     ReplaceBlockingCall { name: "Replace Blocking Call", group: Performance },
     PresizeCollection { name: "Presize the Collection", group: Performance },
+    BoundConcurrency { name: "Bound Concurrency", group: Performance },
 }
 
 impl fmt::Display for FixTechnique {

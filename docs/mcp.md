@@ -27,7 +27,7 @@ that `rqx fix` applies are returned by `fix_preview` as diffs and are not writte
 | `analyze` | Analyse source held in memory, such as an unsaved buffer, without writing to disk |
 | `patterns` | Design patterns in use, half applied, or that would fit |
 | `explain` | What one rule measures, why, and the refactoring it names. Also answers for a pattern |
-| `rules` | Search the 190-rule catalogue by family, language or text |
+| `rules` | Search the 192-rule catalogue by family, language or text |
 | `config` | The settings this server will use, and which file each value came from |
 | `complexity` | Every function's cognitive complexity, statements, nesting and parameters, with the project's percentiles |
 | `health` | Where the score comes from, by family: findings, share of the weighted debt, and the score without each |

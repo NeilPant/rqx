@@ -16,9 +16,9 @@ Every rule rqx can report, what it measures, and the named refactoring that answ
 | [Safety](safety.md) | 28 | `imprecise-type` `boundary-arithmetic` `query-with-side-effect` `assignment-in-condition` `closure-over-loop-variable` `mutated-while-iterated` `production-assert` `sleep-in-production` `shadowed-handler` `dropped-promise` `guard-cascade` `blanket-try` `no-base-case` `integer-division` `discarded-error` `float-equality` `mixed-return` `exit-from-finally` `catch-all-handler` `generic-throw` `library-exit` `boolean-literal-argument` `unjustified-suppression` `suppressed-diagnostic` `flag-argument` `output-parameter` `complex-condition` `negative-conditional` |
 | [Tests](tests.md) | 18 | `slow-test` `real-world-test` `unlabelled-assertions` `self-asserting-test` `unexplained-expected-value` `empty-test` `eager-test` `string-shape-assertion` `unused-fixture` `unchecked-stub` `branching-test` `duplicate-assertion` `hand-rolled-throws` `debug-output-in-test` `unnamed-test` `skipped-test` `focused-test` `assertionless-test` |
 | [Noise](noise.md) | 9 | `comment-per-line` `explanation-longer-than-code` `docstring-restates-signature` `over-logging` `banner-comment` `chat-residue` `apology-comment` `emoji-in-source` `example-value` |
-| [Performance](performance.md) | 14 | `loop-concatenation` `sequential-await` `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` `linear-op-in-loop` `sort-in-loop` `allocation-in-loop` `missing-capacity` |
+| [Performance](performance.md) | 16 | `loop-concatenation` `sequential-await` `scan-in-loop` `deep-loop-nesting` `query-in-loop` `await-in-loop` `invariant-in-loop` `accumulate-by-copy` `branching-recursion` `blocking-call-in-async` `linear-op-in-loop` `sort-in-loop` `allocation-in-loop` `missing-capacity` `lock-in-loop` `unbounded-concurrency` |
 
-190 rules in total. 23 ship **off by default** because their signal is real but noisy; name one under `rules.enabled` to turn it on:
+192 rules in total. 23 ship **off by default** because their signal is real but noisy; name one under `rules.enabled` to turn it on:
 
 - `primitive-obsession`
 - `divergent-change`

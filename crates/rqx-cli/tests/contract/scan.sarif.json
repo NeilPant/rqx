@@ -2044,6 +2044,56 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/cost-unbounded-concurrency.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 4,
+                  "startColumn": 10,
+                  "startLine": 4
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`Promise.all` starts one piece of work per element with nothing limiting how many run at once. the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit Fix: run the work through a semaphore, a limiter or a fixed-size pool"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "unbounded-concurrency"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-lock-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 9,
+                  "startColumn": 5,
+                  "startLine": 9
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`latch.lock` runs on every pass of the loop. each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop Fix: take the lock once around the whole loop, or keep it per pass only if other threads need the gaps"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "lock-in-loop"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/cost-sort-in-loop.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -2237,6 +2287,31 @@
             "confidence": "heuristic"
           },
           "ruleId": "await-in-loop"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-unbounded-concurrency.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 4,
+                  "startColumn": 38,
+                  "startLine": 4
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`fetch` runs on every pass of the loop. every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them Fix: gather the keys first and ask for all of them in one call"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "query-in-loop"
         },
         {
           "level": "warning",
@@ -6444,6 +6519,31 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/cost-lock-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 18,
+                  "startColumn": 12,
+                  "startLine": 18
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`at` is declared changeable and never changes. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "never-reassigned"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/shapes.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -9271,6 +9371,30 @@
                 "level": "warning"
               },
               "fullDescription": {
+                "text": "each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop"
+              },
+              "help": {
+                "text": "each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop\n\nFix: Hoist Invariant\nMetric: a lock taken inside a loop on a lock the loop does not change"
+              },
+              "id": "lock-in-loop",
+              "name": "lock-in-loop",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "a lock taken inside a loop on a lock the loop does not change"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
                 "text": "a long body usually does several things, and a reader has to hold all of them in mind to change any one"
               },
               "help": {
@@ -10704,6 +10828,30 @@
               },
               "shortDescription": {
                 "text": "switch or if/else chain branching on the same discriminant in more than one place"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit"
+              },
+              "help": {
+                "text": "the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit\n\nFix: Bound Concurrency\nMetric: work that leaves the process started once per element of a collection of any size, in a function that mentions no limit"
+              },
+              "id": "unbounded-concurrency",
+              "name": "unbounded-concurrency",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "work that leaves the process started once per element of a collection of any size, in a function that mentions no limit"
               }
             },
             {

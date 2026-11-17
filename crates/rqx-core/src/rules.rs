@@ -430,6 +430,20 @@ fn cost_site_wording(site: &CostSite) -> Option<(Evidence, &'static str)> {
             },
             "give it the loop's size as its capacity where it is made",
         ),
+        RuleId::LockInLoop => (
+            in_loop(),
+            "take the lock once around the whole loop, or keep it per pass only if other threads \
+             need the gaps",
+        ),
+        RuleId::UnboundedConcurrency => (
+            Evidence::Name {
+                identifier: site.subject.clone(),
+                reason: "starts one piece of work per element with nothing limiting how many run \
+                         at once"
+                    .to_owned(),
+            },
+            "run the work through a semaphore, a limiter or a fixed-size pool",
+        ),
         _ => return None,
     })
 }

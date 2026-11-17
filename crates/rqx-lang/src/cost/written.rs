@@ -109,11 +109,16 @@ fn introduced<'a>(names: &Names<'a>, node: Node<'a>, into: &mut HashSet<&'a str>
     }
 }
 
-/// The names an expression reads, which is all of it for a name or a spread of one.
+/// The names an expression reads, which is all of it for a name or a spread of one. A
+/// grammar that reads `hold(guard)` as a declaration puts `guard` where a type goes, so
+/// any leaf that is a kind of identifier counts.
 pub fn read_in<'a>(names: &Names<'a>, expression: Node<'a>) -> Vec<&'a str> {
     descendants(expression)
         .into_iter()
-        .filter(|node| names.profile.is_identifier(*node))
+        .filter(|node| {
+            names.profile.is_identifier(*node)
+                || (node.named_child_count() == 0 && kind_of(node).ends_with("identifier"))
+        })
         .map(|node| names.text(node))
         .collect()
 }
