@@ -33,6 +33,7 @@ mod report;
 mod scan;
 mod setup;
 mod slop;
+mod term;
 mod tui;
 mod update;
 mod verify;

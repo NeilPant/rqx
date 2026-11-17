@@ -1,9 +1,10 @@
-use std::io::{IsTerminal, Write};
+use std::io::Write;
 use std::time::{Duration, Instant};
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::brand::{Ink, Palette, paint};
+use crate::term::{self, Stream};
 
 /// Paced by the clock rather than by file count: 500 files is 20ms on a tree of small
 /// modules and several seconds on a tree of large ones, so a fixed count either flickers
@@ -96,7 +97,7 @@ impl Bar {
         Self {
             palette,
             animated: animated(),
-            live: std::io::stderr().is_terminal(),
+            live: term::is_terminal(Stream::Stderr),
             // Far enough in the past that the first update paints rather than waiting.
             painted: Instant::now() - REPAINT,
             frame: 0,
@@ -229,7 +230,7 @@ impl Drop for Bar {
 }
 
 fn terminal_width() -> usize {
-    crossterm::terminal::size().map_or(80, |(columns, _)| columns as usize)
+    term::width(Stream::Stderr).unwrap_or(80)
 }
 
 /// Keeps the end of a path, which is the part that identifies it, and measures in

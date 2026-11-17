@@ -6,7 +6,6 @@ pub mod screens;
 pub mod sprite;
 
 use std::fmt;
-use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
@@ -27,6 +26,7 @@ use crate::check;
 use crate::config::Resolved;
 use crate::project::Project;
 use crate::scan::{self, ScanOutcome, ScanProgress};
+use crate::term::{self, Stream};
 
 use app::{Nav, Screen, Session, Tab};
 use chrome::{Chrome, Hits, Landing};
@@ -69,10 +69,10 @@ impl fmt::Display for Decline {
 /// writes escape sequences into whatever is reading, and one that starts in CI
 /// hangs the job waiting for a keypress nobody will send.
 pub fn gate() -> Result<(), Decline> {
-    if !std::io::stdout().is_terminal() {
+    if !term::is_terminal(Stream::Stdout) {
         return Err(Decline::NotATerminal);
     }
-    if std::env::var_os("CI").is_some() {
+    if term::in_ci() {
         return Err(Decline::ContinuousIntegration);
     }
     match std::env::var("TERM") {
