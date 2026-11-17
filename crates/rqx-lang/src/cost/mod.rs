@@ -14,6 +14,7 @@ pub mod local;
 pub mod recurrence;
 pub mod remap;
 pub mod shape;
+pub mod sizes;
 pub mod tables;
 pub mod types;
 
