@@ -200,6 +200,56 @@ released with its own tag and verifying it against `SHA256SUMS`. A ref with no
 published binary, such as a fork or `@main` ahead of the last release, compiles rqx
 from the checkout instead.
 
+### A health badge
+
+`rqx badge --output badge.svg` writes the health score as a small self-contained SVG:
+`rqx` on the left, and the score with its grade, such as `health 82 fair`, on the
+right. The right side takes the colour of the grade: green for `pristine` and `clean`,
+tan for `fair`, amber for `poor` and red for `critical`. The file has no external
+references, so a README, a wiki or a static site can serve it directly. Without
+`--output`, the SVG is written to standard output.
+
+This workflow regenerates the badge on every push to the default branch and keeps it
+on a `badges` branch, which a README embeds from `raw.githubusercontent.com`:
+
+```yaml
+name: rqx badge
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install rqx
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/jadhamwi21/rqx/main/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Write the badge
+        run: rqx badge --output "$RUNNER_TEMP/rqx-health.svg"
+      - name: Publish it to the badges branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin badges || git switch --orphan badges
+          git switch badges
+          cp "$RUNNER_TEMP/rqx-health.svg" rqx-health.svg
+          git add rqx-health.svg
+          git diff --cached --quiet || git commit -m "Update the rqx health badge"
+          git push origin badges
+```
+
+The README then embeds it:
+
+```markdown
+![rqx health](https://raw.githubusercontent.com/OWNER/REPO/badges/rqx-health.svg)
+```
+
 ### The scan cache
 
 rqx stores one analysis per file in `.rqx/cache.bin` and skips a file whose entry is

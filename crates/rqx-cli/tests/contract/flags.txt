@@ -30,6 +30,41 @@ alias c -> check
 alias f -> fix
 alias s -> scan
 alias v -> verify
+badge
+badge --color
+badge --color =always
+badge --color =auto
+badge --color =never
+badge --config
+badge --help
+badge --hyperlinks
+badge --hyperlinks =always
+badge --hyperlinks =auto
+badge --hyperlinks =never
+badge --hyperlinks [env RQX_HYPERLINKS]
+badge --level
+badge --level [env RQX_LEVEL]
+badge --motion
+badge --motion =off
+badge --motion =on
+badge --no-mouse
+badge --no-progress
+badge --no-progress [env RQX_NO_PROGRESS]
+badge --no-tui
+badge --output
+badge --progress
+badge --progress =auto
+badge --progress =bar
+badge --progress =none
+badge --progress =plain
+badge --progress [env RQX_PROGRESS]
+badge --threads
+badge --threads [env RQX_THREADS]
+badge --verbose
+badge -h
+badge -o
+badge -v
+badge <path>
 baseline
 baseline --color
 baseline --color =always
@@ -826,6 +861,7 @@ health -h
 health -v
 health <path>
 help
+help badge
 help baseline
 help cache
 help cache clear

@@ -11,6 +11,10 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Added
 
+- **`rqx badge` writes the health score as an SVG badge.** The badge reads
+  `rqx | health 82 fair`, coloured by the grade's band with the rqx palette, and has no
+  external references. `--output PATH` writes a file; without it the SVG goes to standard
+  output. `docs/ci.md` has a GitHub Actions workflow that keeps the badge on a branch.
 - **`rqx hotspots` ranks files by churn and by what is wrong with them.** The score is
   the commits in the churn window multiplied by the file's weight: the severity weight
   of its findings that count toward the health score, plus one point per ten points of

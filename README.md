@@ -162,7 +162,7 @@ but only when you run it.
 
 ## The commands
 
-Thirty of them, under five headings. `rqx --help` prints this list; each
+Thirty-one of them, under five headings. `rqx --help` prints this list; each
 command's own `--help` prints its flags, and [docs/cli.md](docs/cli.md) is the whole
 reference.
 
@@ -172,7 +172,7 @@ reference.
 | **Look closer** | `complexity` · `perf` · `health` · `slop` · `hotspots` · `graph` · `plan` · `patterns` · `recommend` |
 | **Reference** | `rules` · `explain` · `techniques` · `levels` |
 | **Project** | `init` · `config` · `baseline` · `suppressions` · `waive` · `cache` |
-| **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` · `update` |
+| **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `badge` · `query` · `update` |
 
 The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
 `rqx v`. Adding a thirtieth command fails the build until it is placed under a heading.
@@ -630,6 +630,9 @@ configured to.
 `rqx hotspots` ranks files by the commits they received in the churn window multiplied
 by the weight of their findings and of their cognitive complexity, with a column that
 states each factor. See [docs/hotspots.md](docs/hotspots.md).
+
+`rqx badge --output badge.svg` writes the health score as a small SVG for a README. A
+GitHub Actions workflow that keeps it current is in [docs/ci.md](docs/ci.md#a-health-badge).
 
 ## Editing configuration
 

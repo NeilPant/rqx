@@ -18,6 +18,25 @@ Reports dead code, duplication, complexity and architectural drift in TypeScript
 | `--help` | Print help (see more with '--help') |
 | `--version` | Print version |
 
+## `rqx badge`
+
+Write the health score as a small SVG badge
+
+| Flag | What it does |
+| --- | --- |
+| `--output` | Write the SVG to this file. Without it, the SVG goes to standard output |
+| `--level` | relaxed, standard, strict or pristine |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
+| `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--help` | Print help (see more with '--help') |
+
 ## `rqx baseline`
 
 Record the findings this project already has, so the gate evaluates only what a change adds

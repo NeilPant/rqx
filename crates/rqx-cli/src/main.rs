@@ -7,6 +7,7 @@ use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint, value
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 
+mod badge;
 mod baseline;
 mod brand;
 mod cache;
@@ -169,7 +170,15 @@ const GROUPS: [(&str, &[&str]); 5] = [
     ),
     (
         "Integrations",
-        &["lsp", "mcp", "setup", "completions", "query", "update"],
+        &[
+            "lsp",
+            "mcp",
+            "setup",
+            "completions",
+            "badge",
+            "query",
+            "update",
+        ],
     ),
 ];
 
@@ -561,6 +570,19 @@ enum Command {
         json: bool,
         #[command(flatten)]
         printing: Printing,
+        #[command(flatten)]
+        run: Run,
+    },
+    /// Write the health score as a small SVG badge
+    #[command(
+        after_help = "Examples:\n  rqx badge --output badge.svg        write the badge for this project\n  rqx badge > badge.svg               the same, through the shell"
+    )]
+    Badge {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        /// Write the SVG to this file. Without it, the SVG goes to standard output
+        #[arg(long, short, value_name = "PATH", value_hint = ValueHint::FilePath)]
+        output: Option<PathBuf>,
         #[command(flatten)]
         run: Run,
     },
@@ -2184,6 +2206,21 @@ fn run() -> Result<Exit> {
                 )
             })
             .map(|()| Exit::Clean)
+        }
+        Command::Badge { path, output, run } => {
+            let settings = run.resolve(&path)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            let health = Report::everything(&outcome).health();
+            let badge = badge::svg(health, outcome.counts.total);
+            match output {
+                Some(file) => {
+                    std::fs::write(&file, badge)
+                        .with_context(|| format!("writing {}", file.display()))?;
+                    eprintln!("  wrote the badge to {}", file.display());
+                }
+                None => std::io::Write::write_all(&mut std::io::stdout().lock(), badge.as_bytes())?,
+            }
+            Ok(Exit::Clean)
         }
         Command::Health {
             path,
