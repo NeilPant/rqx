@@ -137,7 +137,7 @@ impl<'e, 'a> Bounds<'e, 'a> {
     }
 
     /// The loop node itself, or the header child of that kind it holds.
-    fn header(&self, node: Node<'a>, kind: &str) -> Option<Node<'a>> {
+    pub fn header(&self, node: Node<'a>, kind: &str) -> Option<Node<'a>> {
         if kind_of(node) == kind {
             return Some(node);
         }

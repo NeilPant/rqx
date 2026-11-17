@@ -2,13 +2,13 @@
 //! and space come from, the calls the function makes, and the signals beside them.
 //! Subtrees that cost nothing are not written down.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use rqx_core::config::Performance;
 use rqx_core::cost::{
-    ArgSize, Bound, CallSite, CalleeRef, Conf, Cost, FunctionCost, Indicators, Param, Recurrence,
-    SizeSrc,
+    ArgSize, Bound, CallSite, CalleeRef, Conf, Cost, FunctionCost, Indicators, PairScan, Param,
+    Recurrence, RepeatedCall, SizeSrc,
 };
 use tree_sitter::Node;
 
@@ -33,6 +33,9 @@ pub struct Shared<'f> {
     pub performance: &'f Performance,
     pub file: &'f FileFacts,
 }
+
+mod pairs;
+mod repeats;
 
 pub struct Built<'a> {
     /// `None` for a function that is plainly constant time and calls nothing.
@@ -73,6 +76,12 @@ struct Visitor<'a, 'f> {
     frames: Vec<LoopFrame>,
     /// The bound of each loop the visit is inside, outermost first.
     loop_bounds: Vec<Bound>,
+    /// The loops the visit is inside, outermost first, to read what they leave alone.
+    loop_nodes: Vec<Node<'a>>,
+    /// What each loop assigns to, worked out the first time a call in it asks.
+    written_in_loop: HashMap<usize, HashSet<&'a str>>,
+    repeats: Vec<RepeatedCall>,
+    pair_scans: Vec<PairScan>,
     nested: Vec<Site<'a>>,
     nested_names: HashSet<String>,
     reductions: Vec<Reduction>,
@@ -103,6 +112,10 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         depth: 0,
         frames: Vec::new(),
         loop_bounds: Vec::new(),
+        loop_nodes: Vec::new(),
+        written_in_loop: HashMap::new(),
+        repeats: Vec::new(),
+        pair_scans: Vec::new(),
         nested: Vec::new(),
         nested_names: HashSet::new(),
         reductions: Vec::new(),
@@ -151,8 +164,9 @@ impl<'a> Visitor<'a, '_> {
         }
     }
 
-    fn enter_loop(&mut self, bound: Bound) {
+    fn enter_loop(&mut self, bound: Bound, node: Node<'a>) {
         self.loop_bounds.push(bound);
+        self.loop_nodes.push(node);
         self.depth = self.depth.saturating_add(1);
         if let Some(outer) = self.frames.last_mut() {
             outer.holds_a_loop = true;
@@ -162,6 +176,7 @@ impl<'a> Visitor<'a, '_> {
 
     fn exit_loop(&mut self) {
         self.loop_bounds.pop();
+        self.loop_nodes.pop();
         self.depth = self.depth.saturating_sub(1);
         if let Some(frame) = self.frames.pop()
             && !frame.holds_a_loop
@@ -287,6 +302,7 @@ impl<'a> Visitor<'a, '_> {
         {
             self.locks_in_loop = true;
         }
+        self.note_pair_scan(node, kind);
     }
 
     // -- loops ---------------------------------------------------------------------
@@ -295,7 +311,7 @@ impl<'a> Visitor<'a, '_> {
         let bound = self.bounds().of_loop(node).unwrap_or(Bound::Unknown);
         self.note_bound(bound);
         self.bind_loop_variables(node);
-        self.enter_loop(bound);
+        self.enter_loop(bound, node);
         let body = self.visit_children(node);
         self.exit_loop();
         body.repeated(bound, line_of(node))
@@ -340,7 +356,7 @@ impl<'a> Visitor<'a, '_> {
             bounds.push(bound);
         }
         for bound in &bounds {
-            self.enter_loop(*bound);
+            self.enter_loop(*bound, node);
         }
         let mut parts = vec![self.visit_children(node)];
         for _ in &bounds {
@@ -479,7 +495,7 @@ impl<'a> Visitor<'a, '_> {
             self.bounds().iterable_bound(source)
         });
         self.note_bound(bound);
-        self.enter_loop(bound);
+        self.enter_loop(bound, call);
         let mut body = Vec::new();
         for callback in callbacks {
             body.push(self.callback_body(*callback));
@@ -547,6 +563,7 @@ impl<'a> Visitor<'a, '_> {
         let lookup = self.library(node, dotted, receiver, tail, arguments, line);
         match lookup {
             Library::Matched(library) => {
+                self.note_repeated_library(node, &library.time, dotted, arguments);
                 parts.time = library.time;
                 parts.temp = library.temp;
             }
@@ -557,6 +574,7 @@ impl<'a> Visitor<'a, '_> {
                         .map(|argument| self.arg_size(*argument))
                         .collect();
                     let index = self.push_call(callee, args, line);
+                    self.note_repeated_call(node, index, dotted, arguments);
                     parts.time = Cost::Call(index);
                 }
             }
@@ -1068,6 +1086,8 @@ impl<'a> Visitor<'a, '_> {
             calls,
             rec,
             ind,
+            repeats: std::mem::take(&mut self.repeats),
+            pair_scans: std::mem::take(&mut self.pair_scans),
             conf: self.conf,
             exported_as,
         })

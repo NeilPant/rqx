@@ -17,6 +17,7 @@ pub mod shape;
 pub mod sizes;
 pub mod tables;
 pub mod types;
+pub mod written;
 
 use rqx_core::config::Performance;
 use rqx_core::cost::FileCost;
@@ -65,6 +66,8 @@ pub fn extract(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_repeats;
 
 #[cfg(test)]
 pub(crate) mod testing {
