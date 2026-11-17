@@ -270,6 +270,52 @@ fn the_sarif_report_names_a_run_and_a_rule_for_every_result() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+#[test]
+fn a_failed_gate_is_written_into_the_sarif_run() {
+    let root = project("sarif-gate", &[("a.ts", DIRTY)]);
+    let output = rqx(
+        &root,
+        &[
+            "scan",
+            "--reporter",
+            "sarif",
+            "--fail-on",
+            "warning",
+            "--no-tui",
+        ],
+    );
+    assert_eq!(code(&output), 1);
+
+    let sarif: serde_json::Value = serde_json::from_slice(&output.stdout).expect("a document");
+    let run = &sarif["runs"][0];
+    assert_eq!(run["invocations"][0]["exitCode"], 1);
+    assert!(
+        !run["invocations"][0]["toolExecutionNotifications"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(run["results"][0].get("partialFingerprints").is_none());
+    assert!(run.get("automationDetails").is_none());
+}
+
+#[test]
+fn sarif_fingerprints_and_category_are_opt_in_through_the_environment() {
+    let root = project("sarif-opt-in", &[("a.ts", DIRTY)]);
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan"])
+        .arg(&root)
+        .args(["--reporter", "sarif", "--no-tui"])
+        .env("RQX_SARIF_FINGERPRINTS", "1")
+        .env("RQX_SARIF_CATEGORY", "rqx/api")
+        .output()
+        .expect("failed to run rqx");
+    let sarif: serde_json::Value = serde_json::from_slice(&output.stdout).expect("a document");
+    let run = &sarif["runs"][0];
+    assert!(run["results"][0]["partialFingerprints"]["rqxIdentity/v1"].is_string());
+    assert_eq!(run["automationDetails"]["id"], "rqx/api");
+}
+
 /// One pass, several reports. Running rqx twice to get two formats doubles the slowest
 /// step in the job, so the pipeline snippets all rely on this working.
 #[test]

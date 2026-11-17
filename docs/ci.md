@@ -62,6 +62,36 @@ have the stream, or a file, to itself.
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.
 
+### Where the verdict lives
+
+The exit code is the contract, but a report is often read somewhere the exit code
+does not reach. A gated run writes its verdict into the document too:
+
+| Reporter | Where to read it |
+|---|---|
+| `terminal` | the `gate passed` or `gate failed` line, with each failure under it |
+| `json` | `gate` on the summary line: `{ "passed": bool, "failures": [...] }` |
+| `sarif` | `runs[0].invocations[0].exitCode`, one `toolExecutionNotifications` entry per failure at level `error`, and `runs[0].properties.rqx.gate` |
+
+A scan that was not gated has no verdict, so these are absent rather than reading
+`passed`. `rqx check` and `rqx comment` always have one.
+
+### SARIF and GitHub code scanning
+
+Code scanning matches the alerts in a new upload against the ones it already holds.
+Two things change that matching, so both are off until you ask:
+
+| Variable | Effect |
+|---|---|
+| `RQX_SARIF_FINGERPRINTS=1` | adds `partialFingerprints` to every result, built from the finding's identity (the same one the GitLab report uses), so an alert follows its finding when code above it moves |
+| `RQX_SARIF_CATEGORY=<id>` | adds `automationDetails.id`, which files the run under that category |
+
+Turning either on for a repository that already has open alerts re-keys them: GitHub
+sees new fingerprints or a new category, closes the old alerts and opens the same
+findings again. Set them once, deliberately, on a repository whose alert history you
+can afford to reset. Set a category when one repository uploads several SARIF runs
+that would otherwise overwrite each other.
+
 ## GitHub Actions
 
 ```yaml

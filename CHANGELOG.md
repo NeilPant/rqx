@@ -12,6 +12,14 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **The SARIF run records its verdict.** `runs[0].invocations[0]` carries the exit
+  code the run ends with and one error notification per gate failure, and
+  `runs[0].properties.rqx` carries `schema_version` and, for a gated run, the gate. A
+  viewer that only has the document can now tell a failed gate from a clean run. Two
+  more things are available and off by default, because they change how GitHub
+  matches the alerts it already holds: `RQX_SARIF_FINGERPRINTS=1` adds
+  `partialFingerprints`, and `RQX_SARIF_CATEGORY=<id>` adds `automationDetails`.
+  `docs/ci.md` says what each one does to existing alerts.
 - **A gated scan says whether it passed.** The JSON summary line gains
   `gate: { "passed": bool, "failures": [...] }` whenever there is a verdict: a scan
   with a gate flag such as `--fail-on` or `--min-health`, `check`, and `comment`. Before, a pipeline reading the JSON had to rebuild the gate from the
