@@ -170,18 +170,14 @@ impl FindingFilter {
         // 25" is what a reader remembers seeing rather than the slug that produced it.
         // Only the interface's own search sets this; the command line filters by
         // `--rule`, `--category` and `--path`, none of which read it.
-        if !self.text.is_empty()
-            && !finding.slug().contains(&self.text)
-            && !finding.location.file.to_lowercase().contains(&self.text)
-            && !finding
+        self.text.is_empty()
+            || finding.slug().contains(&self.text)
+            || finding.location.file.to_lowercase().contains(&self.text)
+            || finding
                 .evidence
                 .to_string()
                 .to_lowercase()
                 .contains(&self.text)
-        {
-            return false;
-        }
-        true
     }
 }
 

@@ -169,12 +169,9 @@ impl<'a> Builder<'a> {
         let Some(parent) = above else {
             return false;
         };
-        if self.profile.is_member_access(parent)
-            && field_name_under(parent, node).is_some_and(|field| field == "property")
-        {
-            return false;
-        }
-        true
+        let names_a_property = self.profile.is_member_access(parent)
+            && field_name_under(parent, node).is_some_and(|field| field == "property");
+        !names_a_property
     }
 
     /// A parameter belongs to the scope its function opens; the function's own name
