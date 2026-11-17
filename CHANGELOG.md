@@ -43,6 +43,21 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   with `--no-tui`, `rqx` now means `rqx scan`, including the defaults `RQX_LEVEL` and
   `RQX_THREADS` set. In a terminal it still opens the interface.
 
+### Changed
+
+- **Import resolution is faster.** Resolving an import now checks the files the scan
+  already walked instead of asking the filesystem about each candidate, and a
+  specifier that many files in one directory write is resolved once. The graph and
+  every finding are unchanged.
+- **Per-file analysis reads the syntax tree once for its hygiene checks.** Twelve checks
+  each walked the whole tree and built their own list of its nodes; they now share one
+  list per file. Findings are unchanged.
+- **rqx uses the mimalloc allocator.** A scan allocates many small short-lived values
+  on every worker thread, and mimalloc handles that with about 4% less processor time
+  and about 3% more peak memory on a synthetic 4,400-file corpus. It is the `mimalloc`
+  cargo feature, on by default; `cargo install rqx --no-default-features` builds with
+  the system allocator.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**

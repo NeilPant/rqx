@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use crate::module_graph::Resolver;
+use crate::module_graph::{Resolver, WalkedFiles};
 
 pub struct PythonResolver {
     /// Directories an absolute import is resolved against: the project root, and any
@@ -26,7 +26,7 @@ impl PythonResolver {
 
     /// A dotted name is a directory path, ending either at a module file or at the
     /// `__init__.py` that makes a directory a package.
-    fn module_file(base: &Path, dotted: &str) -> Option<PathBuf> {
+    fn module_file(files: &WalkedFiles<'_>, base: &Path, dotted: &str) -> Option<PathBuf> {
         let mut path = base.to_path_buf();
         for segment in dotted.split('.').filter(|segment| !segment.is_empty()) {
             path.push(segment);
@@ -37,18 +37,23 @@ impl PythonResolver {
             path.join("__init__.py"),
         ]
         .into_iter()
-        .find(|candidate| candidate.is_file())
+        .find(|candidate| files.is_file(candidate))
     }
 
-    fn module_of(&self, importer: &Path, specifier: &str) -> Option<PathBuf> {
+    fn module_of(
+        &self,
+        files: &WalkedFiles<'_>,
+        importer: &Path,
+        specifier: &str,
+    ) -> Option<PathBuf> {
         let dots = specifier.chars().take_while(|c| *c == '.').count();
         if dots > 0 {
             let base = Self::relative_base(importer, dots)?;
-            return Self::module_file(&base, specifier.trim_start_matches('.'));
+            return Self::module_file(files, &base, specifier.trim_start_matches('.'));
         }
         self.roots
             .iter()
-            .find_map(|base| Self::module_file(base, specifier))
+            .find_map(|base| Self::module_file(files, base, specifier))
     }
 
     /// `.` is the importing module's own package, `..` its parent, and so on: one
@@ -64,7 +69,18 @@ impl PythonResolver {
 
 impl Resolver for PythonResolver {
     fn resolve(&self, importer: &Path, specifier: &str) -> Vec<PathBuf> {
-        self.module_of(importer, specifier).into_iter().collect()
+        self.resolve_within(importer, specifier, &WalkedFiles::unknown())
+    }
+
+    fn resolve_within(
+        &self,
+        importer: &Path,
+        specifier: &str,
+        files: &WalkedFiles<'_>,
+    ) -> Vec<PathBuf> {
+        self.module_of(files, importer, specifier)
+            .into_iter()
+            .collect()
     }
 
     fn entrypoints(
@@ -111,7 +127,7 @@ impl Resolver for PythonResolver {
         for script in project_scripts(&root.join("pyproject.toml")) {
             // `package.module:function` — only the module half names a file.
             let module = script.split(':').next().unwrap_or(&script);
-            if let Some(found) = self.module_of(root, module)
+            if let Some(found) = self.module_of(&WalkedFiles::new(known), root, module)
                 && let Ok(canonical) = found.canonicalize()
                 && known.contains(&canonical)
             {

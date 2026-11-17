@@ -13,6 +13,18 @@ pub trait Resolver: Sync {
     /// imports a unit larger than a file: Go imports a package, which is a directory.
     fn resolve(&self, importer: &Path, specifier: &str) -> Vec<PathBuf>;
 
+    /// The same answer as `resolve`, reached by asking the files the scan already
+    /// walked before asking the filesystem. A resolver that probes the disk for
+    /// candidates overrides this; the rest keep their `resolve`.
+    fn resolve_within(
+        &self,
+        importer: &Path,
+        specifier: &str,
+        _files: &WalkedFiles<'_>,
+    ) -> Vec<PathBuf> {
+        self.resolve(importer, specifier)
+    }
+
     /// Modules the outside world enters through. Their exports cannot be judged by
     /// who imports them inside the project.
     fn entrypoints(
@@ -21,6 +33,56 @@ pub trait Resolver: Sync {
         configured: &[String],
         known: &HashSet<PathBuf>,
     ) -> HashSet<PathBuf>;
+}
+
+/// The canonical paths of the files the scan walked. A candidate in the set is a file
+/// without a `stat`; anything else is left to the filesystem, because a file the walk
+/// skipped (ignored, excluded, a symlink) still decides what an import means.
+pub struct WalkedFiles<'a> {
+    known: Option<&'a HashSet<PathBuf>>,
+}
+
+impl<'a> WalkedFiles<'a> {
+    pub fn new(known: &'a HashSet<PathBuf>) -> Self {
+        Self { known: Some(known) }
+    }
+
+    /// Knows nothing about the walk, so every question goes to the filesystem.
+    pub fn unknown() -> Self {
+        Self { known: None }
+    }
+
+    pub fn is_file(&self, path: &Path) -> bool {
+        self.known.is_some_and(|known| known.contains(path)) || path.is_file()
+    }
+}
+
+/// `directory.join(specifier)` with a leading run of `./` and `../` folded away, so
+/// the result can be looked up in a set of canonical paths. `directory` must itself be
+/// canonical: only then does dropping a component for `..` agree with the filesystem.
+/// A specifier with `..` anywhere else, or one that ends in a dot segment, is joined
+/// as written and left for the filesystem to interpret.
+pub fn join_specifier(directory: &Path, specifier: &str) -> PathBuf {
+    let mut base = directory.to_path_buf();
+    let mut rest = specifier;
+    loop {
+        if let Some(after) = rest.strip_prefix("./") {
+            rest = after;
+        } else if let Some(after) = rest.strip_prefix("../") {
+            if !base.pop() {
+                return directory.join(specifier);
+            }
+            rest = after;
+        } else {
+            break;
+        }
+    }
+    let is_plain = !rest.is_empty() && rest.split('/').all(|part| !matches!(part, "" | "." | ".."));
+    if is_plain {
+        base.join(rest)
+    } else {
+        directory.join(specifier)
+    }
 }
 
 pub struct ModuleEntry {
@@ -164,10 +226,11 @@ struct Edges {
 
 fn resolve_edges(
     modules: &[ModuleEntry],
+    known: &HashSet<PathBuf>,
     resolver: &dyn Resolver,
     is_vendor: fn(&str) -> bool,
 ) -> Edges {
-    let known: HashSet<&PathBuf> = modules.iter().map(|module| &module.path).collect();
+    let walked = WalkedFiles::new(known);
     let mut edges = Edges {
         out: HashMap::new(),
         spans: HashMap::new(),
@@ -180,12 +243,17 @@ fn resolve_edges(
     // The same file is the target of many imports, and canonicalising is a syscall on
     // the one thread the whole parallel walk funnels into.
     let mut resolved: HashMap<PathBuf, Option<PathBuf>> = HashMap::new();
+    // Files in one directory write the same specifiers (`./types`, `../shared`), and
+    // each answer costs the filesystem probes of a resolver that has not seen it.
+    let mut answers: HashMap<(&Path, &str), Vec<PathBuf>> = HashMap::new();
     for module in modules {
         let Some(directory) = module.path.parent() else {
             continue;
         };
         for request in &module.facts.imports {
-            let targets = resolver.resolve(directory, &request.specifier);
+            let targets = answers
+                .entry((directory, request.specifier.as_str()))
+                .or_insert_with(|| resolver.resolve_within(directory, &request.specifier, &walked));
             // A relative specifier that resolves to nothing is a broken import, not a
             // dependency; only a bare package name is worth counting.
             // Java synthesises a request per referenced type to resolve it against
@@ -203,12 +271,18 @@ fn resolve_edges(
                     .or_default()
                     .push((module.path.clone(), request.span));
             }
-            for target in targets {
-                let canonical = resolved
-                    .entry(target)
-                    .or_insert_with_key(|target| target.canonicalize().ok());
-                let Some(target) = canonical.clone() else {
-                    continue;
+            for target in targets.iter() {
+                // A path from the walked set is canonical already.
+                let target = if known.contains(target) {
+                    target.clone()
+                } else {
+                    let canonical = resolved
+                        .entry(target.clone())
+                        .or_insert_with_key(|target| target.canonicalize().ok());
+                    let Some(target) = canonical.clone() else {
+                        continue;
+                    };
+                    target
                 };
                 if !known.contains(&target) || target == module.path {
                     continue;
@@ -389,7 +463,7 @@ pub fn analyze(
 ) -> GraphReport {
     let known: HashSet<PathBuf> = modules.iter().map(|module| module.path.clone()).collect();
     let entries = resolver.entrypoints(root, configured, &known);
-    let edges = resolve_edges(&modules, resolver, is_vendor);
+    let edges = resolve_edges(&modules, &known, resolver, is_vendor);
 
     let mut report = GraphReport::default();
     let by_path: BTreeMap<&PathBuf, &ModuleFacts> = modules
@@ -558,5 +632,34 @@ mod tests {
         for _ in 0..8 {
             assert_eq!(ring_through(&members(&["a", "b", "c"]), &out), ring);
         }
+    }
+
+    #[test]
+    fn leading_dot_segments_fold_into_the_importing_directory() {
+        let directory = Path::new("/p/src/ui");
+        assert_eq!(join_specifier(directory, "./a"), Path::new("/p/src/ui/a"));
+        assert_eq!(join_specifier(directory, "../a/b"), Path::new("/p/src/a/b"));
+        assert_eq!(join_specifier(directory, "../../a"), Path::new("/p/a"));
+    }
+
+    /// Folding `..` out of the middle of a path is only right when nothing before it is
+    /// a symlink, which the specifier's own segments cannot promise.
+    #[test]
+    fn a_dot_dot_after_a_name_is_left_for_the_filesystem() {
+        let directory = Path::new("/p/src");
+        for specifier in ["./a/../b", "..", "./", "./a/", "../.."] {
+            assert_eq!(
+                join_specifier(directory, specifier),
+                directory.join(specifier),
+                "{specifier}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_walked_file_is_found_without_asking_the_filesystem() {
+        let known: HashSet<PathBuf> = [PathBuf::from("/nowhere/walked.ts")].into();
+        assert!(WalkedFiles::new(&known).is_file(Path::new("/nowhere/walked.ts")));
+        assert!(!WalkedFiles::unknown().is_file(Path::new("/nowhere/walked.ts")));
     }
 }

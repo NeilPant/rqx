@@ -25,6 +25,7 @@ mod history;
 mod lsp;
 mod mcp;
 mod migrate;
+mod path_suffixes;
 mod perf;
 mod plan;
 mod preview;
@@ -46,6 +47,10 @@ mod watch;
 use brand::{ColorDepth, Palette};
 use gate::{Scope, judge};
 use report::{FindingFilter, Layout, Report, Reporter};
+
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Parser)]
 #[command(

@@ -250,6 +250,41 @@ pub fn descendants_outside<'tree>(
     }
 }
 
+/// Every named node under a file's root, listed once. The checks that each want "all
+/// the comments" or "all the functions" filter this one list instead of each walking
+/// the tree and allocating a list of its own.
+pub struct Nodes<'tree> {
+    root: Node<'tree>,
+    named: Vec<Node<'tree>>,
+}
+
+impl<'tree> Nodes<'tree> {
+    pub fn of(root: Node<'tree>) -> Self {
+        Self {
+            root,
+            named: descendants(root),
+        }
+    }
+
+    pub fn root(&self) -> Node<'tree> {
+        self.root
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Node<'tree>> + '_ {
+        self.named.iter().copied()
+    }
+
+    /// The named nodes under `node`, which is the shared list only when `node` is the
+    /// root: a nested node has fewer descendants than the file.
+    pub fn under(&self, node: Node<'tree>) -> std::borrow::Cow<'_, [Node<'tree>]> {
+        if node.id() == self.root.id() {
+            std::borrow::Cow::Borrowed(&self.named)
+        } else {
+            std::borrow::Cow::Owned(descendants(node))
+        }
+    }
+}
+
 /// Every named descendant, in source order.
 pub fn descendants<'tree>(node: Node<'tree>) -> Vec<Node<'tree>> {
     let mut found = Vec::new();
