@@ -10,6 +10,14 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Added
+
+- **One line installs rqx.** `curl -fsSL …/install.sh | sh` on macOS and Linux, and
+  `irm …/install.ps1 | iex` on Windows, download the release binary for the machine,
+  check it against `SHA256SUMS` and install it into `~/.local/bin` or
+  `%LOCALAPPDATA%\rqx\bin`. Neither uses sudo or edits shell files. `--version`
+  pins a release and `--dry-run` shows every step without changing anything.
+
 ### Fixed
 
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding

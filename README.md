@@ -73,13 +73,31 @@ rule reference in [`docs/rules/`](docs/rules) and the pattern reference in
 
 ## Install
 
+macOS and Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jadhamwi21/rqx/main/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/jadhamwi21/rqx/main/install.ps1 | iex
+```
+
+The installer downloads the prebuilt binary for your platform from the latest GitHub
+release, checks it against the release's `SHA256SUMS`, and installs it into
+`~/.local/bin` (`%LOCALAPPDATA%\rqx\bin` on Windows). It never uses sudo and never
+edits your shell files or PATH; when the directory is not on your PATH it prints the
+line to add. `--version X.Y.Z` pins a release, `--dir` picks the directory, and
+`--dry-run` prints every step without changing anything. Read
+[install.sh](install.sh) first if you would rather not pipe a script into a shell.
+
+To build from source instead, which takes about a minute:
+
 ```bash
 cargo install --git https://github.com/jadhamwi21/rqx --locked rqx
 ```
-
-That is the whole installation, and it is meant to be the only one: rqx keeps itself
-up to date afterwards. It compiles from source and takes about a minute on a modern
-laptop — 185 crates and five tree-sitter grammars, most of them in parallel.
 
 ```bash
 rqx update            # build and install the newest tagged version
