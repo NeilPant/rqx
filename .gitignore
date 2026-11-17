@@ -17,3 +17,6 @@
 
 # A project-level `npm login` writes an auth token here
 .npmrc
+
+# Local worktrees made by coding agents, never part of the repository.
+.claude/worktrees/
