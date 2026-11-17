@@ -221,6 +221,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **The GitHub Action no longer fails when `config` is left blank.** It handed its
+  inputs to rqx in `RQX_CONFIG` and `RQX_FAIL_ON`, so a blank `config` arrived as an
+  `RQX_CONFIG` pointing at nothing, and rqx refused to run. The inputs now travel under
+  names rqx does not read.
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
   It cleared the screen before every run whatever stdout was, so a watch redirected to
   a log filled it with escape characters. It now clears only on a terminal, and
