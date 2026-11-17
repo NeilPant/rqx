@@ -3,13 +3,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
-use rqx_core::config::RqxConfig;
+use rqx_core::config::{RegressionGate, RqxConfig};
 
 use crate::config::Resolved;
 use crate::credit::Credit;
 use crate::gate::{Scope, Verdict};
 use crate::history;
 use crate::progress::Mode;
+use crate::regressions::Regressions;
 use crate::reimplemented::Reference;
 use crate::scan::{self, ScanOutcome};
 
@@ -23,6 +24,9 @@ pub struct Review {
     pub base: String,
     /// What the change paid off, when the base revision was scanned.
     pub credit: Option<Credit>,
+    /// The functions that cost more than they did at the base revision. `None` when
+    /// the review was not asked to look.
+    pub regressions: Option<Regressions>,
 }
 
 impl Review {
@@ -39,6 +43,20 @@ impl Review {
 
     pub fn judge(&self, config: &RqxConfig) -> Verdict {
         crate::gate::judge(&self.outcome, Scope::Files(&self.reviewed), config)
+    }
+}
+
+/// What a review is asked for beyond the settings.
+#[derive(Clone, Copy, Default)]
+pub struct Options {
+    /// Report the functions that cost more than they did at the base revision, even
+    /// when `gate.complexity_regression` is `off`.
+    pub regressions: bool,
+}
+
+impl Options {
+    fn compares_complexity(self, settings: &Resolved) -> bool {
+        self.regressions || settings.config.gate.complexity_regression != RegressionGate::Off
     }
 }
 
@@ -85,38 +103,57 @@ pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
 /// only be told from what was already there by reading both. A change that adds none
 /// has nothing to compare, so it is reviewed on one scan, and its credit is read from
 /// the files it touched alone. A review of listed files has no revision.
+///
+/// The functions that cost more than at the base are looked for when the gate says to
+/// or `options` does. They are worked out from the base's text for the files the change
+/// touched, so asking does not add a scan of the base.
 pub fn review_drawn(
     root: &Path,
     settings: &Resolved,
     source: Reviewed<'_>,
     mode: Mode,
+    options: Options,
 ) -> Result<Review> {
+    let compares = options.compares_complexity(settings);
+    let gate = settings.config.gate.complexity_regression;
     let Reviewed::Since(base) = source else {
-        return crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch));
+        let mut review = crate::progress::drawing(mode, |watch| {
+            review_keeping(root, settings, source, watch, compares)
+        })?;
+        review.regressions = compares.then(|| Regressions::without_base(gate));
+        return Ok(review);
     };
     let changed = source.files(root)?;
     let forked_from = history::merge_base(root, base).unwrap_or_else(|| base.to_owned());
     let held = held_at(root, &forked_from, &changed);
-    if !adds_functions(root, settings, &held, &changed) {
-        let mut review =
-            crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch))?;
+    let mut review = if adds_functions(root, settings, &held, &changed) {
+        let before = scan_base(root, settings, &forked_from, mode)?;
+        let reference = Arc::new(Reference::of(&before.outcome.shape_by_file));
+        let outcome = crate::progress::drawing(mode, |watch| {
+            scan::scan_against(
+                root,
+                settings,
+                watch,
+                scan::CachePolicy::FromSettings,
+                scan::Comparison {
+                    reference: Some(reference),
+                    keep_costs: compares,
+                },
+                None,
+            )
+        })?;
+        let credit = Credit::between(&before.outcome, &outcome);
+        assemble(changed.clone(), outcome, source.label(), credit)
+    } else {
+        let mut review = crate::progress::drawing(mode, |watch| {
+            review_keeping(root, settings, source, watch, compares)
+        })?;
         review.credit = Credit::in_files(&held, root, settings, &review.outcome);
-        return Ok(review);
-    }
-    let before = scan_base(root, settings, &forked_from, mode)?;
-    let reference = Arc::new(Reference::of(&before.outcome.shape_by_file));
-    let outcome = crate::progress::drawing(mode, |watch| {
-        scan::scan_against(
-            root,
-            settings,
-            watch,
-            scan::CachePolicy::FromSettings,
-            Some(reference),
-            None,
-        )
-    })?;
-    let credit = Credit::between(&before.outcome, &outcome);
-    Ok(assemble(changed, outcome, source.label(), credit))
+        review
+    };
+    review.regressions =
+        compares.then(|| Regressions::between(&review.outcome, &held, &changed, root, settings));
+    Ok(review)
 }
 
 pub fn review_of(
@@ -125,12 +162,29 @@ pub fn review_of(
     source: Reviewed<'_>,
     watch: Option<crate::scan::Watch>,
 ) -> Result<Review> {
-    let changed = source.files(root)?;
+    review_keeping(root, settings, source, watch, false)
+}
 
-    let outcome = match watch {
-        Some(watch) => crate::scan::scan_with_progress(root, settings, watch)?,
-        None => crate::scan::scan(root, settings)?,
-    };
+/// One scan of the project, which keeps the cost facts when a comparison will read them.
+fn review_keeping(
+    root: &Path,
+    settings: &Resolved,
+    source: Reviewed<'_>,
+    watch: Option<crate::scan::Watch>,
+    keep_costs: bool,
+) -> Result<Review> {
+    let changed = source.files(root)?;
+    let outcome = scan::scan_against(
+        root,
+        settings,
+        watch,
+        scan::CachePolicy::FromSettings,
+        scan::Comparison {
+            reference: None,
+            keep_costs,
+        },
+        None,
+    )?;
     Ok(assemble(changed, outcome, source.label(), None))
 }
 
@@ -226,7 +280,7 @@ fn scan_base(root: &Path, settings: &Resolved, revision: &str, mode: Mode) -> Re
             &rebased,
             watch,
             scan::CachePolicy::FromSettings,
-            None,
+            scan::Comparison::default(),
             Some(root),
         )
     })
@@ -261,6 +315,7 @@ fn assemble(
         reviewed,
         base,
         credit,
+        regressions: None,
     }
 }
 

@@ -39,6 +39,7 @@ mod progress;
 mod project;
 mod query;
 mod recommend;
+mod regressions;
 mod reimplemented;
 mod release;
 mod render;
@@ -748,6 +749,8 @@ enum Command {
         #[command(flatten)]
         trending: trend::Options,
         #[command(flatten)]
+        complexity: Complexity,
+        #[command(flatten)]
         run: Run,
     },
     /// Regenerate the checked-in rule reference under docs/
@@ -787,6 +790,8 @@ merge request notes. GitHub requires `permissions: pull-requests: write`, and
         gate: Gate,
         #[command(flatten)]
         evidence: Evidence,
+        #[command(flatten)]
+        complexity: Complexity,
         #[command(flatten)]
         run: Run,
     },
@@ -956,6 +961,24 @@ fn display_all(paths: &[PathBuf]) -> Vec<String> {
         .iter()
         .map(|path| path.display().to_string())
         .collect()
+}
+
+/// What a review is asked to say about complexity.
+#[derive(Args, Default)]
+struct Complexity {
+    /// List the functions whose time order grew against the base revision, even when
+    /// `gate.complexity_regression` is `off`. They are reported and do not change the
+    /// exit code; the setting does that
+    #[arg(long)]
+    regressions: bool,
+}
+
+impl Complexity {
+    fn options(&self) -> check::Options {
+        check::Options {
+            regressions: self.regressions,
+        }
+    }
 }
 
 /// How many findings a report lists. The gate and the health score count every
@@ -2446,6 +2469,7 @@ fn run() -> Result<Exit> {
             no_status,
             gate,
             evidence,
+            complexity,
             run,
         } => {
             if !path.exists() {
@@ -2467,8 +2491,13 @@ fn run() -> Result<Exit> {
             let base = base
                 .or_else(forge::base_revision)
                 .unwrap_or_else(|| "origin/HEAD".to_owned());
-            let review =
-                check::review_drawn(&path, &settings, check::Reviewed::Since(&base), progress)?;
+            let review = check::review_drawn(
+                &path,
+                &settings,
+                check::Reviewed::Since(&base),
+                progress,
+                complexity.options(),
+            )?;
             let verdict = review.judge(&settings.config);
             let report = Report::reviewed(&review, &verdict);
 
@@ -2605,6 +2634,7 @@ fn run() -> Result<Exit> {
             evidence,
             cap,
             trending,
+            complexity,
             run,
         } => {
             if !path.exists() {
@@ -2639,7 +2669,8 @@ fn run() -> Result<Exit> {
                 (None, None) => check::Reviewed::Since(&base),
             };
             let filter = filter_of(&view, &path, None)?;
-            let mut review = check::review_drawn(scan_root, &settings, source, progress)?;
+            let mut review =
+                check::review_drawn(scan_root, &settings, source, progress, complexity.options())?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
             // mechanical passes rather than failing on work rqx could have done.
@@ -2659,7 +2690,13 @@ fn run() -> Result<Exit> {
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
-                    review = check::review_drawn(scan_root, &settings, source, progress)?;
+                    review = check::review_drawn(
+                        scan_root,
+                        &settings,
+                        source,
+                        progress,
+                        complexity.options(),
+                    )?;
                 }
             }
             let history = trending.apply(&review.outcome)?;

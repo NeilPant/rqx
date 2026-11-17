@@ -140,9 +140,11 @@ pub struct ScanOutcome {
     /// What each function costs once the functions it calls are folded in, by file and by
     /// where the function starts. Worked out again by every scan and never cached,
     /// because a callee edited in another file changes it for a caller that did not change.
-    /// Nothing reads it yet; the performance report and the rules built on it will.
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// The review compares it with the base revision's to find a function that got slower.
     pub summaries: rqx_core::cost::Summaries,
+    /// The facts the summaries were composed from, when the caller asked for them or the
+    /// configuration reads them.
+    pub cost_inputs: Option<CostInputs>,
     /// Findings a waiver in the source asked rqx to leave out of the count. Kept so
     /// every waiver can be audited in one place rather than only being obeyed.
     pub suppressed: Vec<rqx_core::suppress::Suppressed>,
@@ -303,9 +305,41 @@ impl Staged {
 }
 
 /// One file's cost facts, under the name findings give the file.
-struct CostFile {
-    name: Arc<str>,
-    cost: rqx_core::cost::FileCost,
+pub struct CostFile {
+    pub name: Arc<str>,
+    pub cost: rqx_core::cost::FileCost,
+}
+
+/// The cost facts of every file a scan read, beside the modules they were read from.
+/// Kept only for a caller that composes them again, as a review does with the files
+/// of the base revision, so a scan that has no such caller does not hold them.
+pub struct CostInputs {
+    pub modules: Vec<rqx_lang::module_graph::ModuleEntry>,
+    /// The cost facts of the file at the same position in `modules`.
+    pub costs: Vec<CostFile>,
+}
+
+impl CostInputs {
+    pub fn files(&self) -> impl Iterator<Item = rqx_lang::cost::compose::Analysed<'_>> {
+        self.modules.iter().zip(&self.costs).map(|(module, file)| {
+            rqx_lang::cost::compose::Analysed {
+                name: &file.name,
+                module,
+                cost: &file.cost,
+            }
+        })
+    }
+}
+
+/// What a scan holds on to, or is compared against, beyond its own answer. The
+/// default is a plain scan.
+#[derive(Default)]
+pub(crate) struct Comparison {
+    /// The functions of the base revision, when the scan is a review that compares
+    /// with them.
+    pub reference: Option<Arc<crate::reimplemented::Reference>>,
+    /// Keep the cost facts in the outcome, for a caller that composes them again.
+    pub keep_costs: bool,
 }
 
 /// Findings are capped for display while `counts` stays exact, because a health
@@ -349,6 +383,8 @@ struct Collector {
     /// The cost facts of the file at the same position in `modules`.
     costs: Vec<CostFile>,
     summaries: rqx_core::cost::Summaries,
+    keep_costs: bool,
+    cost_inputs: Option<CostInputs>,
     analyzed: std::collections::BTreeSet<String>,
     impact: ImpactMap,
     import_edges: std::collections::BTreeMap<String, Vec<String>>,
@@ -406,6 +442,8 @@ impl Collector {
             modules: Vec::new(),
             costs: Vec::new(),
             summaries: rqx_core::cost::Summaries::default(),
+            keep_costs: false,
+            cost_inputs: None,
             analyzed: std::collections::BTreeSet::new(),
             impact: ImpactMap::default(),
             import_edges: std::collections::BTreeMap::new(),
@@ -1566,21 +1604,12 @@ impl Collector {
     /// What each function costs with its callees folded in, over every file the walk
     /// collected. `complete` says whether the walk covered the project or only part of it.
     fn cost_summaries(
-        modules: &[rqx_lang::module_graph::ModuleEntry],
-        costs: &[CostFile],
+        inputs: &CostInputs,
         root: &Path,
         tables: &rqx_lang::cost::tables::CostTables,
         complete: bool,
     ) -> Staged {
-        let files: Vec<rqx_lang::cost::compose::Analysed<'_>> = modules
-            .iter()
-            .zip(costs)
-            .map(|(module, file)| rqx_lang::cost::compose::Analysed {
-                name: &file.name,
-                module,
-                cost: &file.cost,
-            })
-            .collect();
+        let files: Vec<rqx_lang::cost::compose::Analysed<'_>> = inputs.files().collect();
         Staged {
             summaries: Some(rqx_lang::cost::compose::summarise(
                 &files, root, tables, complete,
@@ -1614,8 +1643,10 @@ impl Collector {
         let config = &settings.config;
         let clone_groups = std::mem::take(&mut self.clone_groups);
         let ported = std::mem::take(&mut self.ported);
-        let modules = std::mem::take(&mut self.modules);
-        let costs = std::mem::take(&mut self.costs);
+        let inputs = CostInputs {
+            modules: std::mem::take(&mut self.modules),
+            costs: std::mem::take(&mut self.costs),
+        };
         let todos = std::mem::take(&mut self.todos);
         let shapes = std::mem::take(&mut self.shape_by_file);
         let analyzed = std::mem::take(&mut self.analyzed);
@@ -1624,9 +1655,12 @@ impl Collector {
         let (shapes_ref, analyzed_ref, coverage_ref) = (&shapes, &analyzed, coverage.as_ref());
         // The import graph is built only when a rule reads it; the cost analysis reads the
         // same modules whatever the rules are.
-        let graph_modules: &[rqx_lang::module_graph::ModuleEntry] =
-            if self.track_modules { &modules } else { &[] };
-        let (modules_ref, costs_ref) = (&modules, &costs);
+        let graph_modules: &[rqx_lang::module_graph::ModuleEntry] = if self.track_modules {
+            &inputs.modules
+        } else {
+            &[]
+        };
+        let inputs_ref = &inputs;
         let reference_ref = reference.as_deref();
         let complete = !root.is_file();
 
@@ -1646,13 +1680,7 @@ impl Collector {
                 ]
             });
             let costed = scope.spawn(move || {
-                Self::cost_summaries(
-                    modules_ref,
-                    costs_ref,
-                    root,
-                    &settings.cost_tables,
-                    complete,
-                )
+                Self::cost_summaries(inputs_ref, root, &settings.cost_tables, complete)
             });
             let git = scope.spawn(move || {
                 let history = history();
@@ -1688,6 +1716,7 @@ impl Collector {
         self.shape_by_file = shapes;
         self.analyzed = analyzed;
         self.coverage = coverage;
+        self.cost_inputs = self.keep_costs.then_some(inputs);
         versioned
     }
 
@@ -1781,6 +1810,7 @@ impl Collector {
             lines_by_file: self.lines_by_file,
             shape_by_file: self.shape_by_file,
             summaries: self.summaries,
+            cost_inputs: self.cost_inputs,
             suppressed: self.suppressed,
             baseline_size: self.baseline_findings,
             timings: self.timings,
@@ -2145,17 +2175,27 @@ pub(crate) fn collect(
     watch: Option<&Watch>,
     history: impl FnOnce() -> Arc<crate::history::History> + Send,
 ) -> ScanOutcome {
-    collect_against(receiver, root, settings, total, watch, None, history)
+    collect_against(
+        receiver,
+        root,
+        settings,
+        total,
+        watch,
+        Comparison::default(),
+        history,
+    )
 }
 
-/// `collect`, comparing with the functions of a base revision when `reference` is given.
+/// `collect`, comparing with the functions of a base revision when `comparison` holds
+/// them, and keeping the cost facts when it says to or when the configuration reads
+/// them.
 pub(crate) fn collect_against(
     receiver: Receiver<ScanMessage>,
     root: &Path,
     settings: &Resolved,
     total: Option<u32>,
     watch: Option<&Watch>,
-    reference: Option<Arc<crate::reimplemented::Reference>>,
+    comparison: Comparison,
     // A thunk rather than the history itself: reading git is the one part of a scan
     // that does not depend on the walk, and waiting for it before draining the
     // channel stalls every worker behind it once the buffer fills.
@@ -2174,7 +2214,8 @@ pub(crate) fn collect_against(
     collector.baseline = settings.baseline.clone();
     collector.baseline_findings = settings.baseline_findings;
     collector.root = root.to_path_buf();
-    collector.reference = reference;
+    collector.reference = comparison.reference;
+    collector.keep_costs = comparison.keep_costs || settings.config.performance.max_order.is_some();
     for message in receiver {
         match message {
             ScanMessage::File(file) => {
@@ -2604,11 +2645,11 @@ pub(crate) fn scan_with(
     watch: Option<Watch>,
     policy: CachePolicy,
 ) -> Result<ScanOutcome> {
-    scan_against(root, settings, watch, policy, None, None)
+    scan_against(root, settings, watch, policy, Comparison::default(), None)
 }
 
-/// A scan that also reports what it added to `reference`, the functions of a base
-/// revision. With `lent_cache`, the scan reads the cache of that directory instead of
+/// A scan that also reports what it added to the functions of a base revision in
+/// `comparison`. With `lent_cache`, the scan reads the cache of that directory instead of
 /// its own and does not write one: a file whose content is the same in both trees is
 /// then served from the other tree's cache, and nothing this tree holds can reach it.
 pub(crate) fn scan_against(
@@ -2616,7 +2657,7 @@ pub(crate) fn scan_against(
     settings: &Resolved,
     watch: Option<Watch>,
     policy: CachePolicy,
-    reference: Option<Arc<crate::reimplemented::Reference>>,
+    comparison: Comparison,
     lent_cache: Option<&Path>,
 ) -> Result<ScanOutcome> {
     let config = &settings.config;
@@ -2649,7 +2690,7 @@ pub(crate) fn scan_against(
                 settings_ref,
                 None,
                 watch,
-                reference,
+                comparison,
                 || Arc::new(history.join().unwrap_or_default()),
             )
         });
@@ -3155,7 +3196,7 @@ mod tests {
             &borrower.settings,
             None,
             CachePolicy::Forced,
-            None,
+            Comparison::default(),
             Some(&lender.root),
         )
         .unwrap();
