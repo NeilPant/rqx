@@ -99,6 +99,15 @@ impl Snapshot {
     }
 }
 
+impl Snapshot {
+    /// The date part of the time, which is what a reader compares snapshots by.
+    pub fn date(&self) -> &str {
+        self.time
+            .split_once('T')
+            .map_or(&self.time, |(date, _)| date)
+    }
+}
+
 fn owner_health(outcome: &ScanOutcome) -> BTreeMap<String, u32> {
     crate::ownership::table(outcome, &outcome.analyzed)
         .into_iter()
@@ -143,6 +152,179 @@ pub fn record(path: &Path, snapshot: &Snapshot) -> Result<()> {
         .open(path)
         .and_then(|mut file| file.write_all(line.as_bytes()))
         .with_context(|| format!("recording a snapshot in {}", path.display()))
+}
+
+/// The snapshots in a trend file, oldest first. A line that is not a snapshot, is
+/// not JSON, or was written under a newer schema is skipped, so a file another tool
+/// has added to still reads.
+pub fn parse(text: &str) -> Vec<Snapshot> {
+    text.lines()
+        .filter_map(|line| serde_json::from_str::<Snapshot>(line).ok())
+        .filter(|snapshot| snapshot.kind == KIND && snapshot.schema_version <= SCHEMA_VERSION)
+        .collect()
+}
+
+pub fn read(path: &Path) -> Result<Vec<Snapshot>> {
+    let text = std::fs::read_to_string(path).with_context(|| {
+        format!(
+            "reading the trend file {}; `rqx scan --record` writes one",
+            path.display()
+        )
+    })?;
+    Ok(parse(&text))
+}
+
+/// Which breakdown of the snapshots to list the movers of.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum By {
+    Rule,
+    Owner,
+}
+
+impl By {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Rule => "rule",
+            Self::Owner => "owner",
+        }
+    }
+}
+
+/// How far a series has come from where it began, for a reader who wants the verdict
+/// before the numbers.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Direction {
+    Improving,
+    Worsening,
+    Steady,
+}
+
+impl Direction {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Improving => "improving",
+            Self::Worsening => "worsening",
+            Self::Steady => "steady",
+        }
+    }
+}
+
+/// One number across the snapshots, oldest first.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Series {
+    pub name: String,
+    pub points: Vec<u32>,
+    /// Health goes up when things get better and a finding count goes down, so the
+    /// direction cannot be read from the sign of the change alone.
+    pub higher_is_better: bool,
+}
+
+impl Series {
+    pub fn first(&self) -> u32 {
+        self.points.first().copied().unwrap_or(0)
+    }
+
+    pub fn last(&self) -> u32 {
+        self.points.last().copied().unwrap_or(0)
+    }
+
+    pub fn change(&self) -> i64 {
+        i64::from(self.last()) - i64::from(self.first())
+    }
+
+    pub fn direction(&self) -> Direction {
+        match (self.change(), self.higher_is_better) {
+            (0, _) => Direction::Steady,
+            (change, true) if change > 0 => Direction::Improving,
+            (change, false) if change < 0 => Direction::Improving,
+            _ => Direction::Worsening,
+        }
+    }
+
+    /// One block character per point, scaled between this series' own lowest and
+    /// highest value. A series that never moved sits at mid height.
+    pub fn sparkline(&self) -> String {
+        const BLOCKS: [char; 8] = [
+            '\u{2581}', '\u{2582}', '\u{2583}', '\u{2584}', '\u{2585}', '\u{2586}', '\u{2587}',
+            '\u{2588}',
+        ];
+        let low = self.points.iter().copied().min().unwrap_or(0);
+        let high = self.points.iter().copied().max().unwrap_or(0);
+        self.points
+            .iter()
+            .map(|point| match high - low {
+                0 => BLOCKS[3],
+                span => {
+                    BLOCKS[((point - low) as usize * (BLOCKS.len() - 1) + span as usize / 2)
+                        / span as usize]
+                }
+            })
+            .collect()
+    }
+}
+
+/// The last `count` snapshots, or all of them when no count is given.
+pub fn last(snapshots: &[Snapshot], count: Option<usize>) -> &[Snapshot] {
+    match count {
+        Some(count) => &snapshots[snapshots.len().saturating_sub(count)..],
+        None => snapshots,
+    }
+}
+
+/// The two numbers every snapshot has: the health score and the number of findings.
+pub fn overall(snapshots: &[Snapshot]) -> Vec<Series> {
+    vec![
+        Series {
+            name: "health".to_owned(),
+            points: snapshots.iter().map(|snapshot| snapshot.health).collect(),
+            higher_is_better: true,
+        },
+        Series {
+            name: "findings".to_owned(),
+            points: snapshots
+                .iter()
+                .map(|snapshot| snapshot.counts.total)
+                .collect(),
+            higher_is_better: false,
+        },
+    ]
+}
+
+/// The rules or owners that changed most between the first snapshot and the last,
+/// biggest change first. A rule that stopped firing counts as zero in the snapshots it
+/// is missing from; an owner that was not yet in the file has no point there at all.
+pub fn movers(snapshots: &[Snapshot], by: By, limit: usize) -> Vec<Series> {
+    let names: std::collections::BTreeSet<&String> = snapshots
+        .iter()
+        .flat_map(|snapshot| match by {
+            By::Rule => snapshot.rules.keys(),
+            By::Owner => snapshot.owners.keys(),
+        })
+        .collect();
+    let mut moved: Vec<Series> = names
+        .into_iter()
+        .map(|name| Series {
+            name: name.clone(),
+            points: snapshots
+                .iter()
+                .filter_map(|snapshot| match by {
+                    By::Rule => Some(snapshot.rules.get(name).copied().unwrap_or(0)),
+                    By::Owner => snapshot.owners.get(name).copied(),
+                })
+                .collect(),
+            higher_is_better: by == By::Owner,
+        })
+        .filter(|series| series.change() != 0)
+        .collect();
+    moved.sort_by(|left, right| {
+        right
+            .change()
+            .abs()
+            .cmp(&left.change().abs())
+            .then_with(|| left.name.cmp(&right.name))
+    });
+    moved.truncate(limit);
+    moved
 }
 
 /// `--record` on the commands that scan.
@@ -251,5 +433,116 @@ mod tests {
             })
             .collect();
         assert_eq!(times, ["1970-01-01T00:00:00Z", "1970-01-02T00:00:00Z"]);
+    }
+
+    #[test]
+    fn a_line_that_is_not_a_snapshot_is_skipped_rather_than_failing_the_read() {
+        let outcome = outcome_with(&[], 1);
+        let good = serde_json::to_string(&Snapshot::of(&outcome, 0)).expect("json");
+        let newer = good.replace("\"schema_version\":1", "\"schema_version\":2");
+        let other = r#"{"kind":"note","text":"hello"}"#;
+        let text = format!("{good}\nnot json\n\n{other}\n{newer}\n{good}\n");
+        assert_eq!(parse(&text).len(), 2);
+    }
+
+    #[test]
+    fn a_snapshot_with_keys_a_later_version_added_still_reads() {
+        let outcome = outcome_with(&[], 1);
+        let mut line: serde_json::Value =
+            serde_json::to_value(Snapshot::of(&outcome, 0)).expect("json");
+        line["branch"] = "main".into();
+        assert_eq!(parse(&line.to_string()).len(), 1);
+    }
+
+    #[test]
+    fn a_missing_file_is_an_error_that_says_how_to_make_one() {
+        let path = scratch("missing").join("trend.ndjson");
+        let error = read(&path).expect_err("no file");
+        assert!(format!("{error:#}").contains("--record"), "{error:#}");
+    }
+
+    fn snapshot(day: u64, health: u32, rules: &[(&str, u32)], owners: &[(&str, u32)]) -> Snapshot {
+        let mut snapshot = Snapshot::of(&outcome_with(&[], 1), day * 86_400);
+        snapshot.health = health;
+        snapshot.counts.total = rules.iter().map(|(_, count)| count).sum();
+        snapshot.rules = rules
+            .iter()
+            .map(|(rule, n)| ((*rule).to_owned(), *n))
+            .collect();
+        snapshot.owners = owners
+            .iter()
+            .map(|(who, n)| ((*who).to_owned(), *n))
+            .collect();
+        snapshot
+    }
+
+    #[test]
+    fn direction_depends_on_which_way_is_better() {
+        let series = |points: &[u32], higher_is_better| Series {
+            name: "x".into(),
+            points: points.to_vec(),
+            higher_is_better,
+        };
+        assert_eq!(series(&[50, 60], true).direction(), Direction::Improving);
+        assert_eq!(series(&[60, 50], true).direction(), Direction::Worsening);
+        assert_eq!(series(&[9, 3], false).direction(), Direction::Improving);
+        assert_eq!(series(&[3, 9], false).direction(), Direction::Worsening);
+        assert_eq!(series(&[4, 9, 4], false).direction(), Direction::Steady);
+    }
+
+    #[test]
+    fn a_sparkline_spans_the_series_own_range() {
+        let line = |points: &[u32]| {
+            Series {
+                name: "x".into(),
+                points: points.to_vec(),
+                higher_is_better: true,
+            }
+            .sparkline()
+        };
+        assert_eq!(line(&[0, 7]), "\u{2581}\u{2588}");
+        assert_eq!(line(&[10, 20, 30]).chars().count(), 3);
+        assert_eq!(line(&[5, 5, 5]), "\u{2584}\u{2584}\u{2584}");
+        assert_eq!(line(&[]), "");
+    }
+
+    #[test]
+    fn last_keeps_the_newest_snapshots() {
+        let all: Vec<Snapshot> = (0..5).map(|day| snapshot(day, 50, &[], &[])).collect();
+        assert_eq!(last(&all, Some(2)).len(), 2);
+        assert_eq!(last(&all, Some(2))[0].date(), "1970-01-04");
+        assert_eq!(last(&all, Some(99)).len(), 5);
+        assert_eq!(last(&all, None).len(), 5);
+    }
+
+    #[test]
+    fn movers_are_ordered_by_how_far_they_moved_and_leave_out_the_still() {
+        let all = [
+            snapshot(0, 50, &[("a", 10), ("b", 2), ("c", 5)], &[]),
+            snapshot(1, 55, &[("a", 4), ("b", 3), ("c", 5), ("d", 7)], &[]),
+        ];
+        let moved = movers(&all, By::Rule, 10);
+        let named: Vec<(&str, i64)> = moved
+            .iter()
+            .map(|series| (series.name.as_str(), series.change()))
+            .collect();
+        assert_eq!(named, [("d", 7), ("a", -6), ("b", 1)]);
+        assert_eq!(movers(&all, By::Rule, 1).len(), 1);
+    }
+
+    #[test]
+    fn an_owner_with_no_point_in_an_early_snapshot_is_charted_from_its_first() {
+        let all = [
+            snapshot(0, 50, &[], &[("@old", 80)]),
+            snapshot(1, 50, &[], &[("@old", 70), ("@new", 40)]),
+            snapshot(2, 50, &[], &[("@old", 90), ("@new", 60)]),
+        ];
+        let moved = movers(&all, By::Owner, 10);
+        let new = moved
+            .iter()
+            .find(|series| series.name == "@new")
+            .expect("moved");
+        assert_eq!(new.points, [40, 60]);
+        assert!(new.higher_is_better);
     }
 }

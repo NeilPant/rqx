@@ -154,6 +154,7 @@ const GROUPS: [(&str, &[&str]); 5] = [
             "perf",
             "health",
             "owners",
+            "trend",
             "slop",
             "hotspots",
             "graph",
@@ -622,6 +623,24 @@ enum Command {
         printing: Printing,
         #[command(flatten)]
         run: Run,
+    },
+    /// Show how health, findings and the rules or owners that moved most have changed
+    /// across the snapshots `--record` wrote
+    Trend {
+        /// The trend file `rqx scan --record` appends to
+        #[arg(default_value = trend::DEFAULT_FILE, value_hint = ValueHint::FilePath)]
+        path: PathBuf,
+        /// Only the newest N snapshots
+        #[arg(long, value_name = "N")]
+        last: Option<usize>,
+        /// What to list the biggest movers of
+        #[arg(long, value_enum, default_value_t = trend::By::Rule)]
+        by: trend::By,
+        /// Emit one JSON object per series
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        printing: Printing,
     },
     /// Print the import graph as text, Graphviz, Mermaid or JSON
     #[command(
@@ -2318,6 +2337,25 @@ fn run() -> Result<Exit> {
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             sink::deliver(&sinks, palette, |rendering, palette, out| {
                 render::owners(&outcome, rendering.is_json(), palette, out)
+            })
+            .map(|()| Exit::Clean)
+        }
+        Command::Trend {
+            path,
+            last,
+            by,
+            json,
+            printing,
+        } => {
+            let sinks = printing.sinks(json)?;
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                let request = render::Trend {
+                    path: path.clone(),
+                    last,
+                    by,
+                    json: rendering.is_json(),
+                };
+                render::trend(&request, palette, out)
             })
             .map(|()| Exit::Clean)
         }

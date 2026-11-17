@@ -905,6 +905,7 @@ help setup agent
 help slop
 help suppressions
 help techniques
+help trend
 help update
 help verify
 help waive
@@ -1596,6 +1597,40 @@ techniques --progress [env RQX_PROGRESS]
 techniques --verbose
 techniques -h
 techniques -v
+trend
+trend --by
+trend --by =owner
+trend --by =rule
+trend --color
+trend --color =always
+trend --color =auto
+trend --color =never
+trend --help
+trend --hyperlinks
+trend --hyperlinks =always
+trend --hyperlinks =auto
+trend --hyperlinks =never
+trend --hyperlinks [env RQX_HYPERLINKS]
+trend --json
+trend --last
+trend --motion
+trend --motion =off
+trend --motion =on
+trend --no-mouse
+trend --no-progress
+trend --no-progress [env RQX_NO_PROGRESS]
+trend --no-tui
+trend --progress
+trend --progress =auto
+trend --progress =bar
+trend --progress =none
+trend --progress =plain
+trend --progress [env RQX_PROGRESS]
+trend --reporter
+trend --verbose
+trend -h
+trend -v
+trend <path>
 update
 update --check
 update --color

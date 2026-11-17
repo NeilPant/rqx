@@ -82,3 +82,103 @@ fn record_takes_a_path_and_does_not_change_the_report() {
     assert_eq!(summary(&plain), summary(&recorded));
     let _ = std::fs::remove_dir_all(&root);
 }
+
+fn stdout(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+/// A trend file whose health rose and whose findings fell, written by hand so the
+/// series is known.
+fn history(root: &Path) -> PathBuf {
+    let file = root.join("trend.ndjson");
+    let line = |time: &str, health: u32, findings: u32| {
+        serde_json::json!({
+            "kind": "snapshot", "schema_version": 1, "commit": null, "time": time,
+            "rqx_version": "0.4.0", "health": health, "grade": "fair", "files": 10,
+            "counts": {"error": 0, "warning": findings, "info": 0, "total": findings},
+            "rules": {"long-function": findings},
+            "owners": {"@web": health},
+        })
+        .to_string()
+    };
+    let body = [
+        line("2026-11-01T10:00:00Z", 50, 12),
+        line("2026-11-08T10:00:00Z", 62, 7),
+        line("2026-11-15T10:00:00Z", 71, 4),
+    ]
+    .join("\n");
+    std::fs::write(&file, format!("{body}\n")).expect("a trend file");
+    file
+}
+
+#[test]
+fn trend_prints_the_series_with_direction_and_movers() {
+    let root = project("series");
+    let file = history(&root);
+    let text = stdout(&rqx(&root, &["trend", file.to_str().expect("utf-8")]));
+
+    assert!(text.contains("3 snapshots"), "{text}");
+    assert!(text.contains("50 \u{2192} 71"), "{text}");
+    assert!(text.contains("+21 improving"), "{text}");
+    assert!(text.contains("Biggest movers by rule"), "{text}");
+    assert!(text.contains("long-function"), "{text}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn trend_limits_to_the_last_snapshots_and_can_break_down_by_owner() {
+    let root = project("last");
+    let file = history(&root);
+    let path = file.to_str().expect("utf-8");
+    let text = stdout(&rqx(
+        &root,
+        &["trend", path, "--last", "2", "--by", "owner"],
+    ));
+
+    assert!(text.contains("2 snapshots"), "{text}");
+    assert!(text.contains("62 \u{2192} 71"), "{text}");
+    assert!(
+        text.contains("Biggest movers by owner") && text.contains("@web"),
+        "{text}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn trend_json_is_one_object_per_series() {
+    let root = project("json");
+    let file = history(&root);
+    let output = rqx(
+        &root,
+        &["trend", file.to_str().expect("utf-8"), "--reporter", "json"],
+    );
+    let lines: Vec<serde_json::Value> = stdout(&output)
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("json"))
+        .collect();
+
+    assert_eq!(lines[0]["name"], "health");
+    assert_eq!(lines[0]["points"], serde_json::json!([50, 62, 71]));
+    assert_eq!(lines.last().expect("a summary")["kind"], "summary");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn trend_without_a_file_fails_and_says_how_to_make_one() {
+    let root = project("absent");
+    let output = rqx(&root, &["trend"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--record"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn recording_twice_then_reading_it_back_gives_two_snapshots() {
+    let root = project("roundtrip");
+    for _ in 0..2 {
+        rqx(&root, &["scan", ".", "--record", "--quiet"]);
+    }
+    let text = stdout(&rqx(&root, &["trend"]));
+    assert!(text.contains("2 snapshots"), "{text}");
+    let _ = std::fs::remove_dir_all(&root);
+}

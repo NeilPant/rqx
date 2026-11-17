@@ -21,6 +21,7 @@ mod sarif;
 mod settings;
 mod tally;
 mod terminal;
+mod trend;
 mod validation;
 mod waivers;
 mod wrap;
@@ -52,6 +53,7 @@ pub use patterns::{
     coverage as pattern_coverage, explain as explain_pattern, json as advice_json, render as advice,
 };
 pub use ranked::{json as plan_json, render as plan};
+pub use trend::{json as trend_json, render as trend};
 pub use waivers::{json as waivers_json, render as waivers};
 
 /// Where a scan spent its time. Printed above the report rather than inside it, so

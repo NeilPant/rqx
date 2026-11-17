@@ -75,11 +75,12 @@ pub const SESSION_ONLY: [(&str, &str); 6] = [
 
 /// The command line commands the session runs against its own scan. `findings` is
 /// `scan`, named for what it shows.
-pub const TWINS: [&str; 20] = [
+pub const TWINS: [&str; 21] = [
     "findings",
     "plan",
     "health",
     "owners",
+    "trend",
     "complexity",
     "perf",
     "graph",
@@ -418,6 +419,22 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             refuse_reporter(printing.is_given())?;
             let outcome = context.scanned()?;
             print(|out| render::owners(outcome, json, palette, out))
+        }
+        Command::Trend {
+            path,
+            last,
+            by,
+            json,
+            printing,
+        } => {
+            refuse_reporter(printing.is_given())?;
+            let request = render::Trend {
+                path,
+                last,
+                by,
+                json,
+            };
+            print(|out| render::trend(&request, palette, out))
         }
         Command::Complexity {
             path,
@@ -1052,6 +1069,41 @@ mod tests {
                     "{line} differs from its command line twin"
                 );
             }
+        }
+
+        #[test]
+        fn slash_trend_prints_what_the_command_line_twin_prints() {
+            let outcome = fixture();
+            let settings = Resolved::default();
+            let file =
+                std::env::temp_dir().join(format!("rqx-slash-trend-{}.ndjson", std::process::id()));
+            let _ = std::fs::remove_file(&file);
+            for day in 0..2 {
+                crate::trend::record(&file, &crate::trend::Snapshot::of(&outcome, day * 86_400))
+                    .expect("a snapshot");
+            }
+            let line = format!("/trend {} --last 2 --by owner", file.display());
+            let request = render::Trend {
+                path: file.clone(),
+                last: Some(2),
+                by: crate::trend::By::Owner,
+                json: false,
+            };
+            let mut expected = Vec::new();
+            render::trend(
+                &request,
+                Palette::with_depth(ColorDepth::Truecolor),
+                &mut expected,
+            )
+            .expect("the direct rendering");
+            let printed = via_session(&line, &outcome, &settings);
+            let _ = std::fs::remove_file(&file);
+
+            assert!(!expected.is_empty());
+            assert_eq!(
+                String::from_utf8_lossy(&printed),
+                String::from_utf8_lossy(&expected)
+            );
         }
 
         #[test]

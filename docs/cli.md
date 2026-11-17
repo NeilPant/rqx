@@ -661,6 +661,26 @@ List every refactoring rqx prescribes and the rules that prescribe it
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
 | `--help` | Print help (see more with '--help') |
 
+## `rqx trend`
+
+Show how health, findings and the rules or owners that moved most have changed across the snapshots `--record` wrote
+
+| Flag | What it does |
+| --- | --- |
+| `<path>` | The trend file `rqx scan --record` appends to |
+| `--last` | Only the newest N snapshots |
+| `--by` | What to list the biggest movers of |
+| `--json` | Emit one JSON object per series |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
+| `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--help` | Print help (see more with '--help') |
+
 ## `rqx update`
 
 Install the newest release, or report what it would change
