@@ -8,6 +8,7 @@ use rqx_core::rule::RuleId;
 
 use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
 use crate::preview::{self, HEAD_LINES};
+use crate::report::tally::{RuleCount, Tally};
 use crate::report::{Report, plural};
 use crate::scan::ScanOutcome;
 
@@ -94,24 +95,9 @@ impl<'a> Listing<'a> {
 /// answer to "which of these forty rules is my actual problem" is a count, and
 /// reading five hundred findings to arrive at it is the slow way.
 fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
-    use std::collections::BTreeMap;
     let palette = layout.palette;
     let dim = palette.style(Ink::Muted);
-
-    let mut by_family: BTreeMap<&'static str, u32> = BTreeMap::new();
-    let mut by_rule: BTreeMap<String, (u32, Severity)> = BTreeMap::new();
-    for finding in &report.findings {
-        *by_family.entry(finding.category().slug()).or_default() += 1;
-        let entry = by_rule
-            .entry(finding.slug().to_owned())
-            .or_insert((0, finding.severity));
-        entry.0 += 1;
-    }
-
-    let mut families: Vec<(&str, u32)> = by_family.into_iter().collect();
-    families.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
-    let mut rules: Vec<(String, (u32, Severity))> = by_rule.into_iter().collect();
-    rules.sort_by(|a, b| b.1.0.cmp(&a.1.0).then(a.0.cmp(&b.0)));
+    let tally = Tally::of(&report.findings);
 
     let total = report.findings.len().max(1) as u32;
     writeln!(
@@ -120,7 +106,7 @@ fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()
         paint(palette.bold(Ink::Text), "By family"),
         paint(dim, plural(total, "finding", "findings"))
     )?;
-    for (family, count) in &families {
+    for (family, count) in &tally.families {
         writeln!(
             out,
             "    {:<14} {:>6}  {}",
@@ -131,19 +117,25 @@ fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()
     }
 
     writeln!(out, "\n  {}", paint(palette.bold(Ink::Text), "By rule"))?;
-    let width = rules
+    let width = tally
+        .rules
         .iter()
-        .map(|(rule, _)| rule.chars().count())
+        .map(|rule| rule.slug.chars().count())
         .max()
         .unwrap_or(0)
         .clamp(8, 34);
-    for (rule, (count, severity)) in &rules {
+    for RuleCount {
+        slug,
+        count,
+        severity,
+    } in &tally.rules
+    {
         writeln!(
             out,
             "    {} {:>6}  {}",
             paint(
                 palette.style(severity_ink(*severity)),
-                super::column(rule, width, super::Align::Left)
+                super::column(slug, width, super::Align::Left)
             ),
             count,
             paint(dim, bar(*count, total))

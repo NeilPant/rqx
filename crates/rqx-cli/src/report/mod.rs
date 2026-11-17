@@ -16,6 +16,7 @@ pub mod projection;
 mod ranked;
 mod sarif;
 mod settings;
+mod tally;
 mod terminal;
 mod waivers;
 
