@@ -110,3 +110,15 @@ jobs:
         with:
           sarif_file: rqx.sarif
           category: rqx
+
+  # Advisories, licenses, duplicate versions and sources, against the policy in
+  # deny.toml. Kept out of `analyze` so a newly published advisory, which can land on a
+  # commit that changed nothing, fails a job that says what it is about.
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources
