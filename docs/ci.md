@@ -33,6 +33,9 @@ run `pristine`, `clean`, `fair`, `poor`, `critical`, and `never` turns the gate 
 Passing any gate flag opts a scan into gating, so the rest of `[gate]` applies too
 — `--min-grade poor` on a repo with `fail_on = "error"` gates on both.
 
+`fail_on = "never"` turns off only the count of findings by severity. The health floor,
+the grade floor, the ratchet and `fail_on_incomplete` still apply when they are set.
+
 ## Reporters
 
 `--reporter <name>` writes to stdout. `--reporter <name>=<path>` writes to a file.

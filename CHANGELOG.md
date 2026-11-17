@@ -40,6 +40,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **`fail_on = "never"` no longer switches off the health and grade floors.** A
+  project that set `fail_on = "never"` together with `min_health` or `min_grade` got a
+  gate that enforced neither in `rqx check` and `rqx comment`, and not the health floor
+  in `rqx scan`: the setting meant "no finding fails the run by severity" and was read
+  as "no gate". `min_health` and `min_grade` now fail a run regardless of `fail_on`. A
+  config with `fail_on = "never"` and a floor that used to pass because of this now
+  fails when the score or a file's grade is below it.
 - **`check` and `comment` honour `ratchet` and `fail_on_incomplete`.** Both settings
   were read only by `rqx scan`, so a pipeline that gated merge requests with
   `rqx check` or `rqx comment` passed branches that grew the baseline's total or left

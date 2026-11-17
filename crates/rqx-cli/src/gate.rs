@@ -56,32 +56,23 @@ struct Checks {
     ratchet: bool,
 }
 
-/// Today's behaviour, written down. A project gate keeps its grade, half applied and
-/// ratchet checks when `fail_on` is `never`; a review turns severity, health and
-/// grade off with it.
-fn checks(scope: &Scope<'_>, gate: &Gate) -> Checks {
-    let counts_severity = threshold(gate).is_some();
-    match scope {
-        Scope::Project => Checks {
-            severity: counts_severity,
-            health: counts_severity,
-            grade: true,
-            incomplete: true,
-            ratchet: true,
-        },
-        Scope::Files(_) => Checks {
-            severity: counts_severity,
-            health: counts_severity,
-            grade: counts_severity,
-            incomplete: true,
-            ratchet: true,
-        },
+/// `fail_on = "never"` says no finding fails the run by its severity. It does not
+/// say the health floor, the grade floor, the ratchet or half applied patterns are
+/// off; each has its own setting, and a gate that goes quiet because an unrelated one
+/// was relaxed checks nothing.
+fn checks(gate: &Gate) -> Checks {
+    Checks {
+        severity: threshold(gate).is_some(),
+        health: true,
+        grade: true,
+        incomplete: true,
+        ratchet: true,
     }
 }
 
 pub fn judge(outcome: &ScanOutcome, scope: Scope<'_>, config: &RqxConfig) -> Verdict {
     let gate = &config.gate;
-    let checks = checks(&scope, gate);
+    let checks = checks(gate);
 
     let (counted, known) = match threshold(gate) {
         Some(severity) if checks.severity => tally(outcome, &scope, severity),
@@ -405,10 +396,7 @@ mod gates {
         "`bad.ts` grades critical against a floor of pristine and 1 more";
 
     #[test]
-    fn the_checks_each_scope_runs_are_written_down() {
-        let files = BTreeSet::new();
-        let table = |scope: Scope<'_>, fail_on| checks(&scope, &gate(fail_on, 0, NoGrade));
-
+    fn only_the_severity_count_follows_fail_on() {
         let all = || Checks {
             severity: true,
             health: true,
@@ -416,22 +404,11 @@ mod gates {
             incomplete: true,
             ratchet: true,
         };
-        assert_eq!(table(Scope::Project, Error), all());
+        assert_eq!(checks(&gate(Error, 0, NoGrade)), all());
         assert_eq!(
-            table(Scope::Project, Never),
+            checks(&gate(Never, 0, NoGrade)),
             Checks {
                 severity: false,
-                health: false,
-                ..all()
-            }
-        );
-        assert_eq!(table(Scope::Files(&files), Error), all());
-        assert_eq!(
-            table(Scope::Files(&files), Never),
-            Checks {
-                severity: false,
-                health: false,
-                grade: false,
                 ..all()
             }
         );
@@ -501,11 +478,10 @@ mod gates {
                 known: 0,
             },
             Case {
-                // pinned: known gap, fixed in 0.3.0 (A9–A11)
-                name: "fail_on never skips the health floor",
+                name: "fail_on never still enforces the health floor",
                 gate: gate(Never, 60, NoGrade),
                 tweak: untouched,
-                failures: &[],
+                failures: &[HEALTH],
                 counted: 0,
                 known: 0,
             },
@@ -534,11 +510,10 @@ mod gates {
                 known: 0,
             },
             Case {
-                // pinned: known gap, fixed in 0.3.0 (A9–A11)
-                name: "fail_on never skips the grade floor",
+                name: "fail_on never still enforces the grade floor",
                 gate: gate(Never, 0, Pristine),
                 tweak: untouched,
-                failures: &[],
+                failures: &[TWO_BELOW_PRISTINE],
                 counted: 0,
                 known: 0,
             },
@@ -751,11 +726,10 @@ mod gates {
                 known: 0,
             },
             Case {
-                // pinned: known gap, fixed in 0.3.0 (A9–A11)
-                name: "fail_on never skips the health floor",
+                name: "fail_on never still enforces the health floor",
                 gate: gate(Never, 60, NoGrade),
                 tweak: untouched,
-                failures: &[],
+                failures: &[HEALTH],
                 counted: 0,
                 known: 0,
             },
