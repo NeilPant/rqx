@@ -29,6 +29,7 @@ mod progress;
 mod project;
 mod query;
 mod recommend;
+mod render;
 mod report;
 mod scan;
 mod session;
@@ -1623,12 +1624,13 @@ fn run() -> Result<Exit> {
             // ranking of its own: capping first would hide the cheap work entirely.
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let ranked = plan::rank(&outcome, budget, limit);
-            let mut out = anstream::stdout().lock();
-            if json {
-                return report::plan_json(&outcome, &ranked, &mut out).map(|()| Exit::Clean);
-            }
-            report::plan(&outcome, &ranked, budget, simulate, palette, &mut out)
+            let request = render::Plan {
+                budget,
+                limit,
+                simulate,
+                json,
+            };
+            render::plan(&outcome, &request, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
         }
         Command::Explain { name } => {
@@ -1674,11 +1676,8 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return report::advice_json(&outcome, &mut out).map(|()| Exit::Clean);
-            }
-            report::advice(&outcome, palette, &mut out).map(|()| Exit::Clean)
+            render::patterns(&outcome, json, palette, &mut anstream::stdout().lock())
+                .map(|()| Exit::Clean)
         }
         Command::Baseline {
             path,
@@ -1726,11 +1725,15 @@ fn run() -> Result<Exit> {
             // display cap drops findings before anything can read them.
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return report::waivers_json(&path, &outcome, &mut out).map(|()| Exit::Clean);
-            }
-            report::waivers(&path, &outcome, expiring, palette, &mut out).map(|()| Exit::Clean)
+            render::suppressions(
+                &path,
+                &outcome,
+                expiring,
+                json,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Complexity {
             path,
@@ -1748,7 +1751,6 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let threshold = settings.config.thresholds.cognitive_complexity;
             let outcome = scan::scan(&path, &settings)?;
             let view = complexity::View {
                 by,
@@ -1757,11 +1759,15 @@ fn run() -> Result<Exit> {
                 min,
                 histogram,
             };
-            let mut out = anstream::stdout().lock();
-            if json {
-                return complexity::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
-            }
-            complexity::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+            render::complexity(
+                &outcome,
+                &view,
+                json,
+                &settings,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Perf {
             path,
@@ -1787,7 +1793,6 @@ fn run() -> Result<Exit> {
                     .map(|path| path.display().to_string())
                     .collect();
             }
-            let threshold = settings.config.thresholds.loop_nesting;
             let outcome = scan::scan(&path, &settings)?;
             let view = perf::View {
                 by,
@@ -1795,11 +1800,15 @@ fn run() -> Result<Exit> {
                 top,
                 min_depth,
             };
-            let mut out = anstream::stdout().lock();
-            if json {
-                return perf::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
-            }
-            perf::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+            render::perf(
+                &outcome,
+                &view,
+                json,
+                &settings,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Completions { shell } => {
             // Generated from the parser itself, so a flag added anywhere is
@@ -1823,11 +1832,15 @@ fn run() -> Result<Exit> {
             }
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return recommend::json(&outcome, &settings, only, &mut out).map(|()| Exit::Clean);
-            }
-            recommend::render(&outcome, &settings, only, palette, &mut out).map(|()| Exit::Clean)
+            render::recommend(
+                &outcome,
+                &settings,
+                only,
+                json,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Slop {
             path,
@@ -1843,17 +1856,11 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             settings.config.scan.max_findings = 0;
-            // The signals are Info rules and several ship off by default, so the
-            // command turns its own family on rather than reporting nothing.
-            for (rule, _) in rqx_core::slop::SIGNALS {
-                settings.config.rules.enabled.insert(rule.slug().to_owned());
-            }
+            render::slop_settings(&mut settings);
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return slop::json(&outcome, top, min, &mut out).map(|()| Exit::Clean);
-            }
-            slop::render(&outcome, top, min, palette, &mut out).map(|()| Exit::Clean)
+            let request = render::Slop { top, min, json };
+            render::slop(&outcome, &request, palette, &mut anstream::stdout().lock())
+                .map(|()| Exit::Clean)
         }
         Command::Health {
             path,
@@ -1871,11 +1878,8 @@ fn run() -> Result<Exit> {
             // list would understate whichever rule fires most.
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return health::json(&outcome, by, &mut out).map(|()| Exit::Clean);
-            }
-            health::render(&outcome, by, palette, &mut out).map(|()| Exit::Clean)
+            render::health(&outcome, by, json, palette, &mut anstream::stdout().lock())
+                .map(|()| Exit::Clean)
         }
         Command::Graph {
             path,
