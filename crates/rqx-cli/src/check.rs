@@ -42,7 +42,16 @@ impl Review {
     }
 
     pub fn judge(&self, config: &RqxConfig) -> Verdict {
-        crate::gate::judge(&self.outcome, Scope::Files(&self.reviewed), config)
+        let regressions = self
+            .regressions
+            .as_ref()
+            .map_or(&[][..], Regressions::found);
+        crate::gate::judge(
+            &self.outcome,
+            Scope::Files(&self.reviewed),
+            config,
+            regressions,
+        )
     }
 }
 

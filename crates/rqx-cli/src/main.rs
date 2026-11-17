@@ -1924,7 +1924,7 @@ fn run() -> Result<Exit> {
                 // flag is the whole opt-in and no existing pipeline changes meaning.
                 let verdict = gate
                     .is_set()
-                    .then(|| judge(&outcome, Scope::Project, &settings.config));
+                    .then(|| judge(&outcome, Scope::Project, &settings.config, &[]));
                 let report = Report::scan(&outcome, &filter).trended(history.as_deref());
                 let report = match &verdict {
                     Some(verdict) => report.judged(verdict),

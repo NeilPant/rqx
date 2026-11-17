@@ -361,7 +361,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             let mut settings = context.settings.clone();
             gate.apply(&mut settings.config);
             let verdict = gate.is_set().then(|| {
-                crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config)
+                crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config, &[])
             });
             let sinks = crate::sinks(&view)?;
             let filter = crate::filter_of(&view, &path, listed(&view, &path)?.as_ref())?;

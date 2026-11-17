@@ -18,10 +18,16 @@ const SCAN_QUADRATIC: &str = "export function scanAll(items: string[]): number {
 /// A repository whose last commit swaps `lookup` from constant to linear time, which
 /// makes `reconcileBatch` quadratic without touching its file.
 fn callee_got_slower(name: &str) -> Repository {
+    callee_got_slower_under(name, "")
+}
+
+/// The same repository, configured by an `rqx.yaml` holding `config`.
+fn callee_got_slower_under(name: &str, config: &str) -> Repository {
     let repository = Repository::new(name);
     repository.commit(
         "base",
         &[
+            ("rqx.yaml", Some(config)),
             ("src/callee.ts", Some(CALLEE_CONSTANT)),
             ("src/caller.ts", Some(CALLER)),
         ],
@@ -112,19 +118,10 @@ fn a_review_that_was_not_asked_to_look_says_nothing_about_regressions() {
 
 #[test]
 fn the_gate_setting_asks_for_them_without_the_flag() {
-    let repository = Repository::new("regress-configured");
-    repository.commit(
-        "base",
-        &[
-            (
-                "rqx.yaml",
-                Some("gate:\n  complexity_regression: warning\n"),
-            ),
-            ("src/callee.ts", Some(CALLEE_CONSTANT)),
-            ("src/caller.ts", Some(CALLER)),
-        ],
+    let repository = callee_got_slower_under(
+        "regress-configured",
+        "gate:\n  complexity_regression: warning\n",
     );
-    repository.commit("slower", &[("src/callee.ts", Some(CALLEE_LINEAR))]);
 
     let summary = summary(&repository, &[]);
 
@@ -210,4 +207,130 @@ fn a_review_of_listed_files_has_no_base_and_says_so() {
         summary["regressions_skipped"],
         "there is no base revision to compare with"
     );
+}
+
+fn exit_code(repository: &Repository, extra: &[&str]) -> (Option<i32>, serde_json::Value) {
+    let mut command = vec![
+        "check",
+        ".",
+        "--base",
+        "HEAD~1",
+        "--reporter",
+        "json",
+        "--quiet",
+    ];
+    command.extend_from_slice(extra);
+    let output = repository.rqx_output(&command);
+    let summary = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .find(|line| line["kind"] == "summary")
+        .expect("a summary line");
+    (output.status.code(), summary)
+}
+
+#[test]
+fn the_gate_off_passes_whatever_regressed() {
+    let repository =
+        callee_got_slower_under("regress-gate-off", "gate:\n  complexity_regression: off\n");
+
+    let (code, summary) = exit_code(&repository, &["--regressions"]);
+
+    assert_eq!(code, Some(0), "{summary}");
+    assert_eq!(regressions(&summary).len(), 2);
+}
+
+#[test]
+fn the_warning_gate_reports_the_regressions_and_passes() {
+    let repository = callee_got_slower_under(
+        "regress-gate-warning",
+        "gate:\n  complexity_regression: warning\n",
+    );
+
+    let (code, summary) = exit_code(&repository, &[]);
+
+    assert_eq!(code, Some(0), "{summary}");
+    assert_eq!(regressions(&summary).len(), 2);
+    assert_eq!(summary["gate"]["passed"], true);
+}
+
+#[test]
+fn the_error_gate_fails_and_names_the_functions() {
+    let repository = callee_got_slower_under(
+        "regress-gate-error",
+        "gate:\n  complexity_regression: error\n",
+    );
+
+    let (code, summary) = exit_code(&repository, &[]);
+
+    assert_eq!(code, Some(1), "{summary}");
+    assert_eq!(summary["gate"]["passed"], false);
+    let failure = summary["gate"]["failures"][0].as_str().unwrap();
+    assert!(failure.contains("2 complexity regressions"), "{failure}");
+    assert!(
+        failure.contains("`reconcileBatch` O(n) \u{2192} O(n\u{b2})"),
+        "{failure}"
+    );
+    assert!(failure.contains("`lookup`"), "{failure}");
+}
+
+#[test]
+fn the_error_gate_passes_when_nothing_regressed() {
+    let repository = Repository::new("regress-gate-clean");
+    repository.commit(
+        "base",
+        &[
+            ("rqx.yaml", Some("gate:\n  complexity_regression: error\n")),
+            ("src/scan.ts", Some(SCAN_QUADRATIC)),
+        ],
+    );
+    repository.commit("faster", &[("src/scan.ts", Some(SCAN_LINEAR))]);
+
+    let (code, summary) = exit_code(&repository, &[]);
+
+    assert_eq!(code, Some(0), "{summary}");
+    assert!(regressions(&summary).is_empty());
+}
+
+#[test]
+fn a_function_above_max_order_fails_the_review_and_is_named() {
+    let repository = Repository::new("regress-max-order");
+    repository.commit(
+        "base",
+        &[
+            ("rqx.yaml", Some("performance:\n  max_order: O(n)\n")),
+            ("src/scan.ts", Some(SCAN_LINEAR)),
+        ],
+    );
+    repository.commit("quadratic", &[("src/scan.ts", Some(SCAN_QUADRATIC))]);
+
+    let (code, summary) = exit_code(&repository, &[]);
+
+    assert_eq!(code, Some(1), "{summary}");
+    let failure = summary["gate"]["failures"][0].as_str().unwrap();
+    assert_eq!(
+        failure,
+        "1 function above `performance.max_order` of O(n): `scanAll` is O(n\u{b2}) (src/scan.ts:1)"
+    );
+    assert!(summary.get("regressions").is_none(), "not asked for");
+}
+
+#[test]
+fn a_function_within_max_order_passes() {
+    let repository = Repository::new("regress-within-order");
+    repository.commit(
+        "base",
+        &[
+            ("rqx.yaml", Some("performance:\n  max_order: O(n)\n")),
+            ("src/scan.ts", Some(SCAN_LINEAR)),
+        ],
+    );
+    repository.commit(
+        "same",
+        &[("src/scan.ts", Some(&format!("{SCAN_LINEAR}\n")))],
+    );
+
+    let (code, summary) = exit_code(&repository, &[]);
+
+    assert_eq!(code, Some(0), "{summary}");
 }
