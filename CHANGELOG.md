@@ -9,6 +9,8 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+## 0.3.0 — 2026-11-17
+
 ### Added
 
 - **The GitHub Action keeps the scan cache between runs.** A new `cache` input, on by
