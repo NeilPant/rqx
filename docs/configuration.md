@@ -44,6 +44,24 @@ The same holds for names: a rule, family, pattern or stance that does not exist 
 
 `rqx config explain thresholds.max_params` prints a setting's description, its type, its default and its current value, and says which file or preset set it. The words are the ones the editor shows from [`rqx.schema.json`](rqx.schema.json), which `rqx config schema` also prints, so the two cannot disagree. A misspelt key is refused with the closest real one and the keys beside it.
 
+## Checking a config before it runs
+
+`rqx config validate` resolves the config the way a scan does — presets and `extends`, the user config, the policy, every `rqx.yaml` up to the repository root, `RQX_CONFIG` and `--config` — and says where it is wrong, with the file, line and column:
+
+```
+rqx.yaml:3:3: error: unknown field `bogus`, expected one of long_function_statements, …
+✗ config is invalid
+```
+
+An **error** is anything that stops a run: a YAML mistake, an unknown key, a key the policy locks, a retired `RQX.toml`. It exits 2. A **warning** is something that loads and does nothing: a name in `rules.disabled` or `patterns.enabled` that is not in the catalogue, a threshold that only disabled rules read, an `overrides` entry with no `paths`. Warnings print and exit 0, or exit 1 under `--strict`. A scan still refuses the unknown names, so a warning here is a scan that would stop.
+
+```
+rqx.yaml:2:14: warning: `nonsense` in `rules.disabled` names nothing; …
+✓ config is valid (1 file, 1 warning)
+```
+
+`rqx config validate [PATH]` takes the directory to resolve from, and `--config` and `--level` as `scan` does.
+
 ## One rule, on its own terms
 
 A rule's slug is a key under `rules`, and it takes the settings that belong to that rule alone.

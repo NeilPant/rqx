@@ -30,6 +30,14 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   blames. A count is the same on every machine, so a warm run that stopped using the
   cache shows up as a number rather than as noise in a timing. The stages gain cache
   load, cache save and render.
+- **`rqx config validate [PATH] [--strict]`.** Resolves the config the way a scan does
+  and reports what is wrong with it, with the file, line and column. An error (bad
+  YAML, an unknown key, a key the policy locks, a retired `RQX.toml`) exits 2. A
+  warning (a rule name that is not in the catalogue, a threshold that only disabled
+  rules read, an `overrides` entry with no `paths`) prints and exits 0, or 1 under
+  `--strict`. A scan still refuses the unknown names, so a warning here is a scan that
+  would stop. It prints `✓ config is valid (N files)` when nothing stops it.
+
 ### Changed
 
 - **`rqx scan` always prints the report.** In a terminal it used to open the

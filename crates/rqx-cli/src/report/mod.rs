@@ -16,6 +16,7 @@ mod ranked;
 mod sarif;
 mod settings;
 mod terminal;
+mod validation;
 mod waivers;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -120,6 +121,7 @@ pub use json::finding_of;
 pub use markdown::{classification, comment};
 pub use settings::{render as config, rows as setting_rows};
 pub use terminal::{Detail, Grouping, Layout, Order};
+pub use validation::{json as validation_json, render as validation};
 
 /// The shape of the machine formats. Bumped only when a key is removed or changes
 /// meaning, which `docs/json.md` promises never to do, so a consumer can refuse a

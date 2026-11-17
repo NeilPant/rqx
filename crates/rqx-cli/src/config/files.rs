@@ -5,9 +5,10 @@
 //! either. It is refused, loudly, because skipping it would let a project that moved
 //! its settings to YAML last week keep gating on the old file's absence.
 
+use std::fmt;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use rqx_core::config::{CONFIG_FILE_NAME, CONFIG_FILE_NAMES, RETIRED_CONFIG_FILE_NAMES, RqxConfig};
 use serde_json::{Map, Value};
 
@@ -98,13 +99,55 @@ pub fn refuse_retired(path: &Path) -> Result<()> {
 }
 
 fn retired_error(path: &Path) -> anyhow::Error {
-    anyhow!(
-        "{} is a TOML file. rqx no longer reads TOML configuration, and skipping it \
-         could change what a pipeline gates on, so it stops here. Run \
-         `rqx config migrate` to convert it to YAML; the original is kept as a `.bak`.",
-        path.display()
+    Located::refusal(
+        path,
+        None,
+        format!(
+            "{} is a TOML file. rqx no longer reads TOML configuration, and skipping it \
+             could change what a pipeline gates on, so it stops here. Run \
+             `rqx config migrate` to convert it to YAML; the original is kept as a `.bak`.",
+            path.display()
+        ),
     )
 }
+
+/// A line and a column in a file, both counted from one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Position {
+    pub line: u64,
+    pub column: u64,
+}
+
+/// A refusal that knows which file it is about, and where in it when the file can say.
+/// It prints exactly what the same refusal always printed; the extra fields are for
+/// `rqx config validate`, which has to report a place rather than a paragraph.
+#[derive(Debug)]
+pub struct Located {
+    pub file: PathBuf,
+    pub position: Option<Position>,
+    pub message: String,
+    shown: String,
+}
+
+impl Located {
+    /// A refusal whose printed form is its message.
+    pub fn refusal(file: &Path, position: Option<Position>, message: String) -> anyhow::Error {
+        anyhow::Error::new(Self {
+            file: file.to_path_buf(),
+            position,
+            shown: message.clone(),
+            message,
+        })
+    }
+}
+
+impl fmt::Display for Located {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.shown)
+    }
+}
+
+impl std::error::Error for Located {}
 
 /// A config file as a tree of values, after checking it against the shape the engine
 /// expects. The check runs on the file alone so an error names a line in it; once
@@ -138,8 +181,32 @@ pub fn parse(text: &str) -> Result<Value> {
 pub fn deserialize<T: serde::de::DeserializeOwned>(text: &str, path: &Path) -> Result<T> {
     serde_saphyr::from_str(text).map_err(|error| {
         let name = path.display().to_string();
-        anyhow!(error.render_with_options(serde_saphyr::render_options! {
+        let shown = error.render_with_options(serde_saphyr::render_options! {
             source_name: Some(name.as_str()),
-        }))
+        });
+        let position = error.location().map(|at| Position {
+            line: at.line(),
+            column: at.column(),
+        });
+        anyhow::Error::new(Located {
+            file: path.to_path_buf(),
+            position,
+            message: plain_message(&error, position),
+            shown,
+        })
     })
+}
+
+/// The parser's words without the position it prefixes them with, which the report
+/// prints in its own column.
+fn plain_message(error: &serde_saphyr::Error, position: Option<Position>) -> String {
+    let plain = error.without_snippet().to_string();
+    let prefix = position.map(|at| format!("error: line {} column {}: ", at.line, at.column));
+    match prefix
+        .as_deref()
+        .and_then(|prefix| plain.strip_prefix(prefix))
+    {
+        Some(rest) => rest.to_owned(),
+        None => plain,
+    }
 }

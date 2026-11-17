@@ -914,6 +914,32 @@ enum ConfigAction {
         /// `rules.long-function.severity`
         key: String,
     },
+    /// Check that the config loads, and say where it does not
+    #[command(after_help = "Examples:
+  rqx config validate                 exit 2 on an error, 0 otherwise
+  rqx config validate --strict        exit 1 when there are warnings too
+  rqx config validate --json          one line per problem, then a summary
+
+The config is resolved the way a scan resolves it: presets and `extends`, the user
+config, the policy, every `rqx.yaml` up to the repository root, RQX_CONFIG and --config.
+An error is anything that stops a run. A warning is something that loads but does
+nothing: a rule name not in the catalogue, a threshold no enabled rule reads, an
+`overrides` entry with no `paths`.")]
+    Validate {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        #[command(flatten)]
+        standard: Standard,
+        /// Exit 1 when the config has warnings, not only when it has errors
+        #[arg(long)]
+        strict: bool,
+        /// One JSON object per problem, then a summary, instead of the reader's report
+        #[arg(long)]
+        json: bool,
+        /// Read settings from this file, layered over any `rqx.yaml` found
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
     /// Convert RQX.toml files, the policies they point at and the user config to YAML
     Migrate {
         /// A directory to search for RQX.toml, or one TOML file to convert
@@ -1202,7 +1228,10 @@ impl From<ConfigAction> for edit_config::Change {
             },
             ConfigAction::Unset { key, file, pick } => Self::Unset { key, file, pick },
             ConfigAction::Files => Self::Files,
-            ConfigAction::Migrate { .. } | ConfigAction::Schema | ConfigAction::Explain { .. } => {
+            ConfigAction::Migrate { .. }
+            | ConfigAction::Validate { .. }
+            | ConfigAction::Schema
+            | ConfigAction::Explain { .. } => {
                 unreachable!("answered before settings load")
             }
         }
@@ -1348,6 +1377,32 @@ fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
     Ok(match touched {
         Some(files) => filter.touching(files),
         None => filter,
+    })
+}
+
+/// A config that does not load is a config rqx cannot run with, which is exit 2 like
+/// any other run that could not start; one that loads and has warnings is only a
+/// failure when `--strict` says warnings are.
+fn validate_config(
+    path: &Path,
+    explicit: Option<&Path>,
+    standard: &Standard,
+    strict: bool,
+    json: bool,
+    palette: Palette,
+) -> Result<Exit> {
+    let validation = config::validate(path, explicit, standard.chosen()?);
+    let passes = validation.passes(strict);
+    let mut out = anstream::stdout().lock();
+    if json {
+        report::validation_json(&validation, passes, &mut out)?;
+    } else {
+        report::validation(&validation, strict, palette, &mut out)?;
+    }
+    Ok(if validation.count(config::Severity::Error) > 0 {
+        Exit::Failed
+    } else {
+        Exit::of(!passes)
     })
 }
 
@@ -2079,6 +2134,22 @@ fn run() -> Result<Exit> {
                 Some(ConfigAction::Schema) => {
                     println!("{}", report::config_schema());
                     return Ok(Exit::Clean);
+                }
+                Some(ConfigAction::Validate {
+                    path,
+                    standard,
+                    strict,
+                    json,
+                    config,
+                }) => {
+                    return validate_config(
+                        &path,
+                        config.as_deref(),
+                        &standard,
+                        strict,
+                        json,
+                        palette,
+                    );
                 }
                 _ => {}
             }

@@ -5,19 +5,22 @@ use std::sync::Arc;
 use anyhow::{Context, Result, bail};
 use ignore::overrides::{Override, OverrideBuilder};
 use rqx_core::config::{
-    CONFIG_FILE_NAME, Level, RqxConfig, SCOPED_TABLES, SubtreeOverride, TABLES,
+    CONFIG_FILE_NAME, Level, RqxConfig, SCOPED_TABLES, SubtreeOverride, TABLES, UnknownName,
 };
 use serde_json::{Map, Value};
 
 mod extends;
 mod files;
 mod hoist;
+mod locate;
 mod origin;
 mod quickfix;
+mod validate;
 
-pub use files::{check_text, config_path_in, user_config_directories};
+pub use files::{Located, check_text, config_path_in, user_config_directories};
 pub use origin::Origin;
 pub use quickfix::disable_entry;
+pub use validate::{Problem, Severity, Validation, validate};
 
 pub const CONFIG_ENV: &str = "RQX_CONFIG";
 pub const POLICY_ENV: &str = "RQX_POLICY";
@@ -265,9 +268,85 @@ impl Resolved {
     }
 }
 
+/// A mistake that leaves the config loadable. A run refuses it, because a name that
+/// resolves to nothing is a silent no-op; `rqx config validate` reports it and goes
+/// on to look for the rest.
+pub enum Lapse {
+    UnknownNames {
+        /// Where the names were read, as the refusal words it.
+        source: String,
+        files: Vec<PathBuf>,
+        names: Vec<UnknownName>,
+    },
+    EmptyOverride {
+        file: PathBuf,
+    },
+}
+
+impl Lapse {
+    fn refusal(&self) -> String {
+        match self {
+            Self::UnknownNames { source, names, .. } => {
+                let lines: Vec<String> = names.iter().map(|name| format!("  {name}")).collect();
+                format!("{source}:\n{}", lines.join("\n"))
+            }
+            Self::EmptyOverride { file } => format!(
+                "an entry of `overrides` in {} names no `paths`, so nothing would use it",
+                file.display()
+            ),
+        }
+    }
+}
+
+struct Tolerance {
+    notes: bool,
+    lapses: Vec<Lapse>,
+}
+
+impl Tolerance {
+    const fn refusing() -> Self {
+        Self {
+            notes: false,
+            lapses: Vec::new(),
+        }
+    }
+
+    fn handle(&mut self, lapse: Lapse) -> Result<()> {
+        if !self.notes {
+            return Err(anyhow::anyhow!(lapse.refusal()));
+        }
+        self.lapses.push(lapse);
+        Ok(())
+    }
+}
+
 /// The files that make up a run, lowest precedence first. An explicit path is the
 /// user saying which file they mean, so it is the only one whose absence is an error.
 pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Result<Resolved> {
+    resolve_with(root, explicit, level, &mut Tolerance::refusing())
+}
+
+/// Resolved the way a run would, except that the mistakes a run refuses without
+/// stopping the config from loading are handed back rather than raised.
+pub fn resolve_noting_lapses(
+    root: &Path,
+    explicit: Option<&Path>,
+    level: Option<Level>,
+) -> Result<(Resolved, Vec<Lapse>)> {
+    let mut tolerance = Tolerance {
+        notes: true,
+        ..Tolerance::refusing()
+    };
+    let resolved = resolve_with(root, explicit, level, &mut tolerance)?;
+    Ok((resolved, tolerance.lapses))
+}
+
+fn resolve_with(
+    root: &Path,
+    explicit: Option<&Path>,
+    level: Option<Level>,
+    tolerance: &mut Tolerance,
+) -> Result<Resolved> {
     let anchor = anchor_of(root);
     let project = project_configs(&anchor)?;
     let mut layers: Vec<PathBuf> = Vec::new();
@@ -380,14 +459,14 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
 
     let config: RqxConfig =
         serde_json::from_value(effective).with_context(|| describe(&sources))?;
-    reject_unknown_names(&config, &describe(&sources))?;
+    reject_unknown_names(&config, &describe(&sources), &sources, tolerance)?;
     if level.is_some() {
         provenance.insert("level", Origin::Flag("--level"));
     }
 
     let mut scopes = Vec::new();
     for (path, entry) in raw_overrides {
-        scopes.push(scope(&path, entry, &merged, chosen)?);
+        scopes.push(scope(&path, entry, &merged, chosen, tolerance)?);
     }
 
     let modules = config.needs_modules() || scopes.iter().any(|scope| scope.config.needs_modules());
@@ -613,20 +692,28 @@ fn enforce_locks(
     for key in locked {
         let want = from_policy.iter().find(|(named, _)| named == key);
         let Some((_, want)) = want else {
-            bail!(
-                "{} locks `{key}`, which it does not set. Give it a value or drop it \
-                 from `[locked] keys`.",
-                policy.display()
-            );
+            return Err(blame(
+                policy,
+                "locked",
+                format!(
+                    "{} locks `{key}`, which it does not set. Give it a value or drop it \
+                     from `[locked] keys`.",
+                    policy.display()
+                ),
+            ));
         };
         for (origin, leaves) in above.clone() {
             if let Some((_, got)) = leaves.iter().find(|(named, _)| named == key)
                 && got != want
             {
-                bail!(
+                let message = format!(
                     "`{key}` is locked to {want} by {}; {origin} sets {got}.",
                     policy.display()
                 );
+                return Err(match origin {
+                    Origin::File(file) | Origin::Extended(file) => blame(file, key, message),
+                    _ => anyhow::anyhow!(message),
+                });
             }
         }
         // An override is merged after every layer, so a lock it contradicts would win.
@@ -635,11 +722,15 @@ fn enforce_locks(
                 if let Some(got) = entry.get(table).and_then(|values| values.get(field))
                     && got != want
                 {
-                    bail!(
-                        "`{key}` is locked to {want} by {}; an entry of `overrides` in {} sets {got}.",
-                        policy.display(),
-                        path.display()
-                    );
+                    return Err(blame(
+                        path,
+                        field,
+                        format!(
+                            "`{key}` is locked to {want} by {}; an entry of `overrides` in {} sets {got}.",
+                            policy.display(),
+                            path.display()
+                        ),
+                    ));
                 }
             }
         }
@@ -655,6 +746,16 @@ fn enforce_locks(
         }
     }
     Ok(())
+}
+
+/// A refusal about a key in a file, placed at the key when the file still says where.
+/// `key` may be dotted; the last part is what stands on a line of its own.
+fn blame(file: &Path, key: &str, message: String) -> anyhow::Error {
+    let name = key.rsplit('.').next().unwrap_or(key);
+    let position = std::fs::read_to_string(file)
+        .ok()
+        .and_then(|text| locate::key(&text, name));
+    Located::refusal(file, position, message)
 }
 
 fn take_overrides(value: &mut Value, path: &Path) -> Result<Vec<Value>> {
@@ -675,14 +776,19 @@ fn take_overrides(value: &mut Value, path: &Path) -> Result<Vec<Value>> {
 /// what only the whole run can know: that it names somewhere to apply, and that the
 /// globs compile. The raw entry is merged rather than the typed one, because a typed
 /// `thresholds` carries every default and would overwrite what the project set.
-fn scope(path: &Path, entry: Value, base: &Value, level: Level) -> Result<Scope> {
+fn scope(
+    path: &Path,
+    entry: Value,
+    base: &Value,
+    level: Level,
+    tolerance: &mut Tolerance,
+) -> Result<Scope> {
     let typed: SubtreeOverride = serde_json::from_value(entry.clone())
         .with_context(|| format!("reading an entry of `overrides` in {}", path.display()))?;
     if typed.paths.is_empty() {
-        bail!(
-            "an entry of `overrides` in {} names no `paths`, so nothing would use it",
-            path.display()
-        );
+        tolerance.handle(Lapse::EmptyOverride {
+            file: path.to_path_buf(),
+        })?;
     }
     let globs = typed.paths;
 
@@ -711,6 +817,8 @@ fn scope(path: &Path, entry: Value, base: &Value, level: Level) -> Result<Scope>
     reject_unknown_names(
         &config,
         &format!("an entry of `overrides` in {}", path.display()),
+        &[path.to_path_buf()],
+        tolerance,
     )?;
 
     Ok(Scope {
@@ -737,7 +845,12 @@ fn under(level: Level, explicit: &Value) -> Result<Value> {
     Ok(base)
 }
 
-fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
+fn reject_unknown_names(
+    config: &RqxConfig,
+    source: &str,
+    files: &[PathBuf],
+    tolerance: &mut Tolerance,
+) -> Result<()> {
     let plan = &config.architecture;
     let undeclared = plan.undeclared_layers();
     if !undeclared.is_empty() {
@@ -761,12 +874,15 @@ fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
         );
     }
 
-    let unknown = config.unknown_names();
-    if unknown.is_empty() {
+    let names = config.unknown_names();
+    if names.is_empty() {
         return Ok(());
     }
-    let lines: Vec<String> = unknown.iter().map(|name| format!("  {name}")).collect();
-    bail!("{source}:\n{}", lines.join("\n"));
+    tolerance.handle(Lapse::UnknownNames {
+        source: source.to_owned(),
+        files: files.to_vec(),
+        names,
+    })
 }
 
 /// Tables merge key by key so a file can set one threshold without restating the
@@ -1186,7 +1302,13 @@ mod tests {
     fn an_override_without_paths_is_refused() {
         let base = files::empty();
         let entry = tree("thresholds:\n  max_params: 9\n");
-        let error = failure(scope(Path::new("rqx.yaml"), entry, &base, Level::Standard));
+        let error = failure(scope(
+            Path::new("rqx.yaml"),
+            entry,
+            &base,
+            Level::Standard,
+            &mut Tolerance::refusing(),
+        ));
         assert!(error.contains("names no `paths`"), "{error}");
     }
 
@@ -1196,7 +1318,14 @@ mod tests {
     fn an_override_may_hold_its_subtree_to_a_different_level() {
         let base = files::empty();
         let entry = tree("paths: [src/domain/**]\nlevel: strict\n");
-        let scoped = scope(Path::new("rqx.yaml"), entry, &base, Level::Relaxed).unwrap();
+        let scoped = scope(
+            Path::new("rqx.yaml"),
+            entry,
+            &base,
+            Level::Relaxed,
+            &mut Tolerance::refusing(),
+        )
+        .unwrap();
         assert_eq!(scoped.config.thresholds.cognitive_complexity, 10);
         assert_eq!(
             scoped.config.gate.fail_on.slug(),
@@ -1209,7 +1338,14 @@ mod tests {
     fn a_level_never_overrides_what_the_project_wrote() {
         let base = files::empty();
         let entry = tree("paths: [src/**]\nlevel: strict\nthresholds:\n  max_params: 9\n");
-        let scoped = scope(Path::new("rqx.yaml"), entry, &base, Level::Standard).unwrap();
+        let scoped = scope(
+            Path::new("rqx.yaml"),
+            entry,
+            &base,
+            Level::Standard,
+            &mut Tolerance::refusing(),
+        )
+        .unwrap();
         assert_eq!(scoped.config.thresholds.max_params, 9);
         assert_eq!(scoped.config.thresholds.nesting_depth, 2);
     }
@@ -1218,7 +1354,13 @@ mod tests {
     fn an_override_naming_a_renamed_family_is_refused_with_the_new_name() {
         let base = files::empty();
         let entry = tree("paths: [src/**]\nrules:\n  categories: [bloaters]\n");
-        let error = failure(scope(Path::new("rqx.yaml"), entry, &base, Level::Standard));
+        let error = failure(scope(
+            Path::new("rqx.yaml"),
+            entry,
+            &base,
+            Level::Standard,
+            &mut Tolerance::refusing(),
+        ));
         assert!(
             error.contains("`bloaters`") && error.contains("`size`"),
             "{error}"
@@ -1229,7 +1371,14 @@ mod tests {
     fn an_override_keeps_the_thresholds_it_does_not_mention() {
         let base = tree("thresholds:\n  max_params: 9\n  nesting_depth: 7\n");
         let entry = tree("paths: [src/**]\nthresholds:\n  max_params: 2\n");
-        let scope = scope(Path::new("rqx.yaml"), entry, &base, Level::Standard).unwrap();
+        let scope = scope(
+            Path::new("rqx.yaml"),
+            entry,
+            &base,
+            Level::Standard,
+            &mut Tolerance::refusing(),
+        )
+        .unwrap();
         assert_eq!(scope.config.thresholds.max_params, 2);
         assert_eq!(scope.config.thresholds.nesting_depth, 7);
     }
