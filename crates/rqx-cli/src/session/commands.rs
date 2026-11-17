@@ -608,6 +608,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         Command::Check {
             path,
             base,
+            staged,
             fix,
             write: _,
             view,
@@ -618,6 +619,9 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
             refuse_scan_changes(&evidence, &cap)?;
+            if staged {
+                bail!("`--staged` reads the index; run `rqx check --staged` from a shell");
+            }
             if fix {
                 bail!("`--fix` writes files; run `rqx check --fix` from a shell, or /fix");
             }

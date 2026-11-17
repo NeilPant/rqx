@@ -364,6 +364,31 @@ Any program can produce the list, for example a changed-files API call or the
 affected-projects output of a build tool. `--base` and `--files-from` cannot be
 combined.
 
+## Review what is staged
+
+`rqx check --staged` reviews what `git commit` would record:
+
+```sh
+git add src/router.ts
+rqx check --staged
+```
+
+The staged files are read from the index, not the working tree. rqx builds a temporary
+copy of the repository in which every staged file has its staged content, scans that
+copy, and removes it afterwards. An unstaged edit to a staged file cannot change the
+verdict in either direction: unstaged bad code passes, and an unstaged fix does not
+rescue staged bad code. The working tree is never written to.
+
+Every file that is not staged is read from the working tree, so a staged file is judged
+against its neighbours as they are on disk. Whatever imports a staged file is reviewed
+as well, and the gate is the same one `rqx check` uses. When nothing is staged, nothing
+is reviewed and the check passes.
+
+`--staged` cannot be combined with `--base`, `--files-from`, `--fix` or `--write`. It
+needs a git repository, and a path given to it must be a directory. In a repository
+subdirectory, `rqx check packages/app --staged` reviews the staged files under that
+directory.
+
 ## Adopting a gate on an existing codebase
 
 A gate that fails on the first run is often disabled. To avoid that, start from the

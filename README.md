@@ -31,6 +31,7 @@ rqx plan --budget 20            # rank the work, and say what the score will be 
 rqx perf --profile cpu.pprof    # what grows faster than its input, and what ran
 rqx verify --base main          # was the named refactoring actually made
 rqx check --base main           # review only what changed, fail CI on the gate
+rqx check --staged              # review what the next commit would record
 rqx comment --fail-on error     # post that review onto the merge request
 rqx mcp                         # serve the analysis to an agent over MCP
 ```

@@ -11,6 +11,7 @@ use crate::scan::ScanOutcome;
 
 /// What a review is shown in place of a revision when the files were listed instead.
 const LISTED: &str = "--files-from";
+const STAGED: &str = "--staged";
 
 pub struct Review {
     pub outcome: ScanOutcome,
@@ -43,6 +44,10 @@ pub enum Reviewed<'a> {
     Since(&'a str),
     /// Exactly these files, named relative to the scan root.
     Listed(&'a BTreeSet<String>),
+    /// Exactly the staged files, named relative to the scan root. The root is the
+    /// overlay `staged::Overlay` built, so the scan reads the index and not the
+    /// working tree.
+    Staged(&'a BTreeSet<String>),
 }
 
 impl Reviewed<'_> {
@@ -50,13 +55,14 @@ impl Reviewed<'_> {
         match self {
             Self::Since(base) => (*base).to_owned(),
             Self::Listed(_) => LISTED.to_owned(),
+            Self::Staged(_) => STAGED.to_owned(),
         }
     }
 
     fn files(&self, root: &Path) -> Result<BTreeSet<String>> {
         match self {
             Self::Since(base) => changed_since(root, base),
-            Self::Listed(files) => Ok((*files).clone()),
+            Self::Listed(files) | Self::Staged(files) => Ok((*files).clone()),
         }
     }
 }

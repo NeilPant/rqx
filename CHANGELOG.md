@@ -9,6 +9,13 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **`rqx check --staged`.** Reviews what `git commit` would record. The staged files are
+  read from the index and analysed in a temporary copy of the repository, so unstaged
+  edits do not change the verdict. Every other file is read from the working tree.
+  It cannot be combined with `--base`, `--files-from`, `--fix` or `--write`.
+
 ## 0.3.0 — 2026-11-17
 
 ### Added

@@ -250,6 +250,7 @@ check --sort
 check --sort =file
 check --sort =line
 check --sort =severity
+check --staged
 check --stats
 check --threads
 check --threads [env RQX_THREADS]

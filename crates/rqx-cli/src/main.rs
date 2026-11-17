@@ -42,6 +42,7 @@ mod setting;
 mod setup;
 mod sink;
 mod slop;
+mod staged;
 mod stats;
 mod term;
 mod update;
@@ -632,6 +633,14 @@ enum Command {
         /// Revision to compare against
         #[arg(long, default_value = "origin/HEAD", conflicts_with = "files_from")]
         base: String,
+        /// Review what `git commit` would record: the staged contents, read from the
+        /// index. Unstaged edits do not affect the verdict. The rest of the project is
+        /// read from the working tree
+        #[arg(
+            long,
+            conflicts_with_all = ["base", "files_from", "fix", "write"]
+        )]
+        staged: bool,
         /// Apply the mechanical fixes to the files the branch changed before gating, so
         /// a branch whose only failures are mechanical passes
         #[arg(long)]
@@ -2379,6 +2388,7 @@ fn run() -> Result<Exit> {
         Command::Check {
             path,
             base,
+            staged,
             fix,
             write,
             view,
@@ -2393,7 +2403,13 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = run.resolve(&path)?;
+            // Built before the settings, because a scope in the configuration names the
+            // directory it was resolved for, and the scan reads the overlay.
+            let overlay = staged.then(|| staged::Overlay::build(&path)).transpose()?;
+            let scan_root = overlay
+                .as_ref()
+                .map_or(path.as_path(), staged::Overlay::root);
+            let mut settings = run.resolve(scan_root)?;
             // Started before the scan rather than after it: the answer needs the length
             // of the work to arrive in, and `process::exit` does not wait for a thread.
             update::start(settings.config.update.check);
@@ -2407,18 +2423,19 @@ fn run() -> Result<Exit> {
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.
             let listed = listed_files(&view, &path)?;
-            let source = match &listed {
-                Some(listed) => check::Reviewed::Listed(&listed.files),
-                None => check::Reviewed::Since(&base),
+            let source = match (&listed, &overlay) {
+                (Some(listed), _) => check::Reviewed::Listed(&listed.files),
+                (None, Some(overlay)) => check::Reviewed::Staged(&overlay.files),
+                (None, None) => check::Reviewed::Since(&base),
             };
             let filter = filter_of(&view, &path, None)?;
-            let mut review = check::review_drawn(&path, &settings, source, progress)?;
+            let mut review = check::review_drawn(scan_root, &settings, source, progress)?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
             // mechanical passes rather than failing on work rqx could have done.
             if fix {
                 let fixed = fix::run_drawn(
-                    &path,
+                    scan_root,
                     &settings,
                     fix::Options {
                         write,
@@ -2431,7 +2448,7 @@ fn run() -> Result<Exit> {
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
-                    review = check::review_drawn(&path, &settings, source, progress)?;
+                    review = check::review_drawn(scan_root, &settings, source, progress)?;
                 }
             }
             let verdict = review.judge(&settings.config);
