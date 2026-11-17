@@ -10,6 +10,7 @@ mod completion;
 pub mod fuzzy;
 mod job;
 pub mod motion;
+mod owl;
 mod prompt;
 mod recall;
 pub mod sprite;
@@ -36,6 +37,7 @@ use commands::{Action, Context, Invocation, Parsed};
 use completion::{Catalogue, Suggestion};
 use job::{Finished, Job};
 use motion::Motion;
+use owl::{Owl, Pose};
 use prompt::Prompt;
 use recall::Recall;
 use sprite::Sprite;
@@ -94,7 +96,7 @@ struct App {
     viewport: Viewport,
     look: Look,
     motion: Motion,
-    sprite: Sprite,
+    owl: Owl,
     root: String,
     path: PathBuf,
     config: Resolved,
@@ -151,7 +153,7 @@ impl App {
                 palette: Palette::detect(),
             },
             motion: Motion::new(options.reduced_motion),
-            sprite: Sprite::parse(MASCOT),
+            owl: Owl::new(Sprite::parse(MASCOT), clock_seed()),
             root: display_root(options.path),
             path: options.path.to_path_buf(),
             config: options.config.clone(),
@@ -216,13 +218,19 @@ impl App {
         brand::mascot_ink(self.health())
     }
 
-    fn owl(&self) -> Vec<Line<'static>> {
-        self.sprite.render_frame(
-            self.look.palette,
-            self.sprite.frame("idle"),
-            self.signal(),
-            usize::MAX,
-        )
+    fn pose(&self) -> Pose {
+        if self.job.is_some() {
+            Pose::Working
+        } else {
+            Pose::Resting
+        }
+    }
+
+    /// The owl as it looks this frame: glancing while a job runs, blinking when not.
+    fn owl_now(&mut self) -> Vec<Line<'static>> {
+        let (pose, signal) = (self.pose(), self.signal());
+        self.owl
+            .lines(pose, &self.motion, self.look.palette, signal)
     }
 
     fn wanted_rows(&self) -> u16 {
@@ -239,9 +247,9 @@ impl App {
     }
 
     fn draw(&mut self) -> Result<()> {
+        let owl = self.owl_now();
         let look = &self.look;
         if let Some((_, busy)) = &self.job {
-            let owl = self.owl();
             let room = view::text_width(&owl, self.viewport.width());
             let spinner = self.motion.spinner();
             let text = match busy {
@@ -274,7 +282,7 @@ impl App {
             status: &status,
         };
         self.viewport
-            .draw(|frame| view::idle(frame, look, &state))?;
+            .draw(|frame| view::idle(frame, look, owl, &state))?;
         Ok(())
     }
 
@@ -304,10 +312,10 @@ impl App {
     fn wakeup(&self) -> Duration {
         if self.job.is_some() {
             motion::FRAME
-        } else if self.motion.reduced() {
-            QUIET
         } else {
-            motion::IDLE
+            self.owl
+                .changes_in(self.pose(), &self.motion)
+                .map_or(QUIET, |change| change.min(QUIET))
         }
     }
 
@@ -361,7 +369,7 @@ impl App {
         };
         view::header(
             &self.look,
-            &self.owl(),
+            &self.owl.still(self.look.palette, self.signal()),
             outcome,
             &self.root,
             health,
@@ -550,6 +558,13 @@ impl App {
             _ => String::new(),
         }
     }
+}
+
+/// Where the blinks fall is not worth reproducing, so the clock is as good a seed as any.
+fn clock_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0x006f_776c, |since| since.as_nanos() as u64)
 }
 
 /// The directory the session is looking at, as a person would write it: relative to

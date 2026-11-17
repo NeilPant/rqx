@@ -18,9 +18,12 @@ use super::text::{clip, seconds, thousands};
 
 /// Rows the viewport needs while a scan runs: the owl's height, and the hints under it.
 pub const SCANNING_ROWS: u16 = 7;
-/// Rows the viewport needs while it waits for a command: a rule, the prompt, a rule and
-/// the status line.
-pub const IDLE_ROWS: u16 = 4;
+/// The owl's height, which is what the viewport needs while it waits for a command and
+/// the menu is shut: the owl, with the prompt beside its face.
+pub const IDLE_ROWS: u16 = 6;
+/// What sits beside the owl above the menu: a gap, a rule, the prompt, and below the
+/// menu a rule and the status line.
+const PROMPT_ROWS: u16 = 5;
 
 const TOP_FINDINGS: usize = 5;
 const OWL_GAP: &str = "  ";
@@ -145,22 +148,39 @@ pub struct Idle<'a> {
 /// The rows the viewport needs for this state of the prompt.
 pub const fn idle_rows(menu_open: bool) -> u16 {
     if menu_open {
-        IDLE_ROWS + MENU_ROWS
+        PROMPT_ROWS + MENU_ROWS
     } else {
         IDLE_ROWS
     }
 }
 
-pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
+/// The owl where it was while the scan ran, and the prompt beside it.
+pub fn idle(frame: &mut Frame<'_>, look: &Look, owl: Vec<Line<'static>>, state: &Idle<'_>) {
+    let [art, beside] = Layout::horizontal([
+        Constraint::Length(owl_columns(&owl) + OWL_GAP.len() as u16),
+        Constraint::Min(0),
+    ])
+    .areas(frame.area());
+    let owl_height = owl.len() as u16;
+    frame.render_widget(
+        Paragraph::new(owl),
+        ratatui::layout::Rect {
+            height: owl_height.min(art.height),
+            ..art
+        },
+    );
+
     let menu_height = if state.menu.is_some() { MENU_ROWS } else { 0 };
-    let [top, prompt, below, bottom, status] = Layout::vertical([
+    let [_, top, prompt, below, bottom, status, _] = Layout::vertical([
+        Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(menu_height),
         Constraint::Length(1),
         Constraint::Length(1),
+        Constraint::Min(0),
     ])
-    .areas(frame.area());
+    .areas(beside);
     let rule = Line::styled("\u{2500}".repeat(top.width as usize), look.palette.rule());
     frame.render_widget(Paragraph::new(rule.clone()), top);
     frame.render_widget(Paragraph::new(rule), bottom);
@@ -544,9 +564,16 @@ mod tests {
         assert!(lines[1].contains("Nothing to report"));
     }
 
+    /// The part of each row beside the owl, which is where the prompt lives.
+    fn beside_the_owl(rows: &[String]) -> Vec<String> {
+        rows.iter()
+            .map(|row| row.chars().skip(14).collect::<String>())
+            .collect()
+    }
+
     #[test]
-    fn the_idle_rows_are_a_rule_a_prompt_a_rule_and_the_status_right_aligned() {
-        let mut terminal = Terminal::new(TestBackend::new(50, IDLE_ROWS)).unwrap();
+    fn the_owl_keeps_the_left_and_the_prompt_sits_beside_its_face() {
+        let mut terminal = Terminal::new(TestBackend::new(60, IDLE_ROWS)).unwrap();
         let state = Idle {
             input: "/plan --budget 20",
             cursor: 17,
@@ -554,19 +581,24 @@ mod tests {
             hints: "/help  /plan",
             status: "health 82",
         };
-        terminal.draw(|frame| idle(frame, &look(), &state)).unwrap();
-        let rows = screen(&terminal);
-        assert!(rows[0].starts_with('\u{2500}') && rows[2].starts_with('\u{2500}'));
-        assert_eq!(rows[1], "> /plan --budget 20");
-        assert!(rows[3].starts_with(" /help  /plan"));
-        assert!(rows[3].ends_with("health 82"));
-        terminal.backend_mut().assert_cursor_position((19, 1));
+        terminal
+            .draw(|frame| idle(frame, &look(), owl(&look()), &state))
+            .unwrap();
+        let shown = screen(&terminal);
+        assert!(shown[0].contains('\u{2584}'), "the owl is on the left");
+        let rows = beside_the_owl(&shown);
+        assert_eq!(rows[0], "");
+        assert!(rows[1].starts_with('\u{2500}') && rows[3].starts_with('\u{2500}'));
+        assert_eq!(rows[2], "> /plan --budget 20");
+        assert!(rows[4].starts_with(" /help  /plan"), "{rows:?}");
+        assert!(rows[4].ends_with("health 82"));
+        terminal.backend_mut().assert_cursor_position((14 + 19, 2));
     }
 
     #[test]
     fn an_open_menu_sits_under_the_prompt_with_the_choice_marked() {
         let mut terminal = Terminal::new(TestBackend::new(60, idle_rows(true))).unwrap();
-        let rows = [
+        let choices = [
             MenuRow {
                 label: "/plan",
                 about: "Rank the work",
@@ -580,25 +612,27 @@ mod tests {
             input: "/p",
             cursor: 2,
             menu: Some(Menu {
-                rows: &rows,
+                rows: &choices,
                 selected: 1,
             }),
             hints: "/help",
             status: "health 82",
         };
-        terminal.draw(|frame| idle(frame, &look(), &state)).unwrap();
-        let shown = screen(&terminal);
-        assert_eq!(shown[1], "> /p");
-        assert_eq!(shown[2], "   /plan  Rank the work");
-        assert_eq!(shown[3], " \u{203a} /perf  Where the work grows");
-        assert!(shown[2 + usize::from(MENU_ROWS)].starts_with('\u{2500}'));
-        assert!(shown.last().unwrap().ends_with("health 82"));
+        terminal
+            .draw(|frame| idle(frame, &look(), owl(&look()), &state))
+            .unwrap();
+        let shown = beside_the_owl(&screen(&terminal));
+        assert_eq!(shown[2], "> /p");
+        assert_eq!(shown[3], "   /plan  Rank the work");
+        assert_eq!(shown[4], " \u{203a} /perf  Where the work grows");
+        assert!(shown[3 + usize::from(MENU_ROWS)].starts_with('\u{2500}'));
+        assert!(shown[4 + usize::from(MENU_ROWS)].ends_with("health 82"));
     }
 
     #[test]
     fn a_closed_menu_takes_no_rows() {
         assert_eq!(idle_rows(false), IDLE_ROWS);
-        assert_eq!(idle_rows(true), IDLE_ROWS + MENU_ROWS);
+        assert_eq!(idle_rows(true), PROMPT_ROWS + MENU_ROWS);
     }
 
     #[test]
