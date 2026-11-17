@@ -44,7 +44,7 @@ jobs:
       # than moving a total nobody can read.
       - name: Analyze each language's fixtures
         run: |
-          for language in typescript python go java cpp; do
+          for language in typescript javascript python go java cpp; do
             echo "## $language" >> "$GITHUB_STEP_SUMMARY"
             cargo run --release -- scan "fixtures/$language" --max-findings 0 \
               --reporter terminal --reporter github \

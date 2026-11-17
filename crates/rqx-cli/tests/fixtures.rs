@@ -814,6 +814,158 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("working-constructor", 1),
             ],
         ),
+        (
+            "javascript",
+            &[
+                ("accumulate-by-copy", 2),
+                ("ambient-dependency", 5),
+                ("ambiguous-precedence", 1),
+                ("apology-comment", 1),
+                ("assertionless-test", 2),
+                ("assignment-in-condition", 1),
+                ("await-in-loop", 1),
+                ("banner-comment", 1),
+                ("barrel-module", 1),
+                ("base-depends-on-derived", 1),
+                ("blanket-try", 2),
+                ("blocking-call-in-async", 1),
+                ("boolean-from-branch", 1),
+                ("boolean-literal-argument", 1),
+                ("boundary-arithmetic", 1),
+                ("branching-recursion", 1),
+                ("branching-test", 1),
+                ("buried-configuration", 1),
+                ("callback-nesting", 1),
+                ("chat-residue", 1),
+                ("circular-dependency", 1),
+                ("closure-over-loop-variable", 1),
+                ("cognitive-complexity", 3),
+                ("collapsible-if", 2),
+                ("comment-per-line", 2),
+                ("commented-out-code", 1),
+                ("complex-condition", 1),
+                ("cyclomatic-complexity", 1),
+                ("data-class", 1),
+                ("data-clump", 1),
+                ("dead-store", 1),
+                ("debug-output-in-test", 1),
+                ("deep-inheritance", 1),
+                ("deep-loop-nesting", 1),
+                ("deep-nesting", 2),
+                ("deep-relative-import", 1),
+                ("discarded-error", 1),
+                ("discarded-expression", 1),
+                ("distant-declaration", 2),
+                ("docstring-restates-signature", 1),
+                ("dropped-promise", 1),
+                ("duplicate-assertion", 1),
+                ("duplicate-code", 3),
+                ("duplicate-condition", 1),
+                ("duplicate-function", 1),
+                ("duplicate-import", 1),
+                ("empty-block", 1),
+                ("empty-catch", 1),
+                ("empty-method", 8),
+                ("empty-subclass", 5),
+                ("empty-test", 1),
+                ("example-value", 1),
+                ("exit-from-finally", 1),
+                ("explanation-longer-than-code", 1),
+                ("feature-envy", 2),
+                ("float-equality", 1),
+                ("focused-test", 1),
+                ("generic-throw", 3),
+                ("global-accessor", 1),
+                ("guard-cascade", 2),
+                ("hand-rolled-throws", 1),
+                ("identical-branches", 1),
+                ("import-time-work", 1),
+                ("inappropriate-intimacy", 1),
+                ("integer-division", 1),
+                ("invariant-in-loop", 1),
+                ("journal-comment", 1),
+                ("large-class", 1),
+                ("lazy-class", 10),
+                ("library-exit", 1),
+                ("literal-comparison", 1),
+                ("long-function", 2),
+                ("long-parameter-list", 2),
+                ("loop-concatenation", 1),
+                ("loop-runs-once", 1),
+                ("magic-number", 5),
+                ("many-exits", 3),
+                ("many-locals", 1),
+                ("many-results", 1),
+                ("message-chain", 2),
+                ("middle-man", 10),
+                ("mixed-conventions", 1),
+                ("mixed-language-file", 1),
+                ("mixed-return", 1),
+                ("mutable-module-state", 3),
+                ("mutated-while-iterated", 1),
+                ("name-repeats-type", 1),
+                ("negated-comparison", 1),
+                ("negated-name", 2),
+                ("nested-ternary", 1),
+                ("nested-then", 1),
+                ("never-reassigned", 1),
+                ("no-base-case", 1),
+                ("no-default-branch", 2),
+                ("obscured-expression", 1),
+                ("orphan-todo", 1),
+                ("output-parameter", 2),
+                ("over-logging", 1),
+                ("passthrough-function", 15),
+                ("passthrough-override", 1),
+                ("placeholder-body", 1),
+                ("plural-mismatch", 1),
+                ("production-assert", 1),
+                ("query-in-loop", 1),
+                ("query-with-side-effect", 1),
+                ("redundant-comment", 2),
+                ("redundant-else", 12),
+                ("redundant-jump", 1),
+                ("refused-bequest", 1),
+                ("rethrow-only-catch", 1),
+                ("return-of-fresh-local", 2),
+                ("scan-in-loop", 1),
+                ("self-asserting-test", 1),
+                ("self-built-collaborators", 1),
+                ("self-comparison", 1),
+                ("sequential-await", 1),
+                ("shadows-builtin", 1),
+                ("silent-fallthrough", 1),
+                ("single-method-field", 6),
+                ("skipped-test", 1),
+                ("sleep-in-production", 1),
+                ("slow-test", 1),
+                ("split-cohesion", 1),
+                ("static-only-class", 1),
+                ("string-shape-assertion", 1),
+                ("suppressed-diagnostic", 1),
+                ("temporal-coupling", 1),
+                ("temporary-field", 1),
+                ("type-code-switch", 4),
+                ("unchecked-stub", 1),
+                ("unjustified-suppression", 1),
+                ("unnamed-test", 1),
+                ("unreachable-code", 1),
+                ("unused-export", 1),
+                ("unused-file", 1),
+                ("unused-fixture", 1),
+                ("unused-import", 2),
+                ("unused-local", 3),
+                ("unused-parameter", 20),
+                ("unused-private-member", 5),
+                ("vague-function-name", 2),
+                ("wide-fan-out", 1),
+                ("wide-surface", 1),
+                ("wide-switch", 1),
+                ("wide-try", 1),
+                ("wildcard-import", 1),
+                ("working-constructor", 2),
+            ],
+        ),
     ];
 
     // Measured against the repository the fixtures happen to live in rather than
@@ -853,6 +1005,59 @@ fn clean_code_produces_no_findings() {
         !report.lines().any(|line| line.contains("/clean.ts")),
         "clean.ts should be silent"
     );
+}
+
+#[test]
+fn clean_javascript_produces_no_findings() {
+    let report = scan_language("javascript", &[]);
+    assert!(
+        !report.lines().any(|line| line.contains("/clean.js")),
+        "clean.js should be silent"
+    );
+}
+
+#[test]
+fn a_javascript_export_reached_from_the_entry_point_is_not_dead() {
+    let report = scan_language("javascript", &[]);
+    let dead = findings_for(&report, "unused-export");
+    assert_eq!(dead.len(), 1, "expected only neverImported: {dead:?}");
+    assert!(dead[0].contains("\"symbol\":\"neverImported\""));
+}
+
+/// TypeScript and JavaScript are one module graph: an import written with the
+/// extension the emitted file will have still reaches the source, and a script is
+/// reachable from a TypeScript entry point and the other way round.
+#[test]
+fn typescript_and_javascript_in_one_project_share_a_module_graph() {
+    let dir = std::env::temp_dir().join(format!("rqx-mixed-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("temp dir");
+    let write = |name: &str, text: &str| std::fs::write(dir.join(name), text).expect("a file");
+    write("package.json", "{ \"main\": \"main.ts\" }\n");
+    write(
+        "main.ts",
+        "import { fromTypescript } from \"./util.js\";\nimport { fromScript } from \"./legacy.js\";\nexport const both = fromTypescript() + fromScript();\n",
+    );
+    write(
+        "util.ts",
+        "import { fromHelper } from \"./helper.mjs\";\nexport function fromTypescript() {\n  return fromHelper() + 1;\n}\n",
+    );
+    write(
+        "legacy.js",
+        "export function fromScript() {\n  return 2;\n}\nexport function neverCalled() {\n  return 3;\n}\n",
+    );
+    write(
+        "helper.mjs",
+        "export function fromHelper() {\n  return 4;\n}\n",
+    );
+
+    let report = scan_dir(dir.to_str().expect("utf-8"), &[]);
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert!(findings_for(&report, "unused-file").is_empty(), "{report}");
+    let dead = findings_for(&report, "unused-export");
+    assert_eq!(dead.len(), 1, "{dead:?}");
+    assert!(dead[0].contains("\"symbol\":\"neverCalled\""), "{dead:?}");
 }
 
 /// The whole value of the module graph is knowing the difference between an export
@@ -984,10 +1189,13 @@ fn output_does_not_depend_on_thread_count() {
             .map(str::to_owned)
             .collect::<Vec<_>>()
     };
-    assert_eq!(
-        findings(scan(&["--threads", "1"])),
-        findings(scan(&["--threads", "16"]))
-    );
+    for language in ["typescript", "javascript"] {
+        assert_eq!(
+            findings(scan_language(language, &["--threads", "1"])),
+            findings(scan_language(language, &["--threads", "16"])),
+            "{language}"
+        );
+    }
 }
 
 #[test]
@@ -1214,6 +1422,20 @@ fn every_advisory_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("state-fits", 1),
                 ("strategy-fits", 2),
                 ("template-method-found", 1),
+                ("visitor-found", 1),
+            ],
+        ),
+        (
+            "javascript",
+            &[
+                ("bridge-fits", 1),
+                ("chain-of-responsibility-fits", 1),
+                ("command-fits", 1),
+                ("facade-fits", 1),
+                ("interpreter-found", 1),
+                ("mediator-fits", 1),
+                ("state-fits", 1),
+                ("strategy-fits", 2),
                 ("visitor-found", 1),
             ],
         ),
