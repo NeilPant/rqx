@@ -58,6 +58,10 @@ empty for a file no rule names.
 `rqx owners --reporter json` writes one object per owner with the keys `owner`,
 `files`, `findings`, `health` and `grade`.
 
+`rqx scan --record` appends a `"kind": "snapshot"` line to a trend file, and
+`rqx trend --reporter json` writes `series`, `mover` and `summary` lines. Both are
+described in [trends.md](trends.md).
+
 `fix`, `verify` and `plan` end with a `"kind": "summary"` line that also carries
 `schema_version`. Their other lines have their own kinds: `fix` and `withheld` for
 `fix`, `change` for `verify`, `item` for `plan`.

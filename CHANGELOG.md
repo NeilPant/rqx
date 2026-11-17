@@ -81,6 +81,18 @@ them. `tools/release.sh` turns that section into the release notes.
 - **`gate.owners`** sets `min_health` and `fail_on` per owner in `rqx.yaml`. The verdict
   lists each owner that fell short. Both checks are off until set, and the check runs
   only when `gate.owners` is not empty.
+- **`--record [PATH]` on `scan` and `check`** appends one NDJSON snapshot to
+  `.rqx/trend.ndjson`, or to `PATH`: commit, time, rqx version, health, grade, file
+  count, counts by severity, findings per rule and, with a CODEOWNERS file, health per
+  owner. The file is only appended to.
+- **`rqx trend [PATH]`** prints the snapshots as series for health and findings, each
+  with its first and last value, the change, a direction and a block-character
+  sparkline, then the rules or, with `--by owner`, the owners that moved most.
+  `--last N` limits it to the newest N snapshots, and `--reporter json` writes one
+  object per series. `/trend` prints the same output in the session.
+- **`--trend PATH` on `scan` and `check`** adds a Trend section with an inline SVG
+  chart of the health score to the HTML report. `docs/trends.md` describes the format
+  and `docs/ci.md` has a recipe for keeping the file between CI runs.
 
 ## 0.3.0 — 2026-11-17
 
