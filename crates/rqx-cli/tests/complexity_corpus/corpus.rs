@@ -1,5 +1,6 @@
-//! The precision corpus on disk: `fixtures/complexity/<language>/*`, every annotated
-//! function in it, and the id each is known by in the baseline.
+//! The precision corpus on disk: `fixtures/complexity/<language>/*` and the cross-file
+//! projects under `fixtures/complexity/projects/<name>/`, every annotated function in
+//! them, and the id each is known by in the baseline.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -12,6 +13,9 @@ pub struct Function {
     pub language: &'static str,
     /// Path under the corpus root, such as `python/loops.py`.
     pub file: String,
+    /// What the function is analysed together with: its own file, or the project it is
+    /// part of, whose files call one another.
+    pub group: String,
     pub name: Option<String>,
     pub annotation: Annotation,
 }
@@ -44,18 +48,36 @@ impl Corpus {
         };
         for language in LANGUAGES {
             for path in files_in(&root.join(language)) {
-                corpus.read(root, language, &path);
+                let group = relative_to(root, &path);
+                corpus.read(root, language, &path, &group, true);
+            }
+        }
+        for project in directories_in(&root.join(PROJECTS)) {
+            let group = relative_to(root, &project);
+            for path in files_under(&project) {
+                let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                match language_of(extension) {
+                    // A barrel that only re-exports has nothing to annotate.
+                    Some(language) => corpus.read(root, language, &path, &group, false),
+                    None => corpus.problems.push(format!(
+                        "{}: no language for `.{extension}`",
+                        relative_to(root, &path)
+                    )),
+                }
             }
         }
         corpus
     }
 
-    fn read(&mut self, root: &Path, language: &'static str, path: &Path) {
-        let relative = path
-            .strip_prefix(root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .into_owned();
+    fn read(
+        &mut self,
+        root: &Path,
+        language: &'static str,
+        path: &Path,
+        group: &str,
+        must_annotate: bool,
+    ) {
+        let relative = relative_to(root, path);
         let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         let Some(marker) = annotation::comment_marker(extension) else {
             self.problems
@@ -69,7 +91,7 @@ impl Corpus {
         let (annotations, problems) = annotation::parse(marker, &text);
         self.problems
             .extend(problems.iter().map(|p| format!("{relative}: {p}")));
-        if annotations.is_empty() && problems.is_empty() {
+        if must_annotate && annotations.is_empty() && problems.is_empty() {
             self.problems
                 .push(format!("{relative}: holds no `@complexity` annotation"));
         }
@@ -79,6 +101,7 @@ impl Corpus {
             self.functions.push(Function {
                 language,
                 file: relative.clone(),
+                group: group.to_owned(),
                 name: annotation::function_name(declaration),
                 annotation,
             });
@@ -109,6 +132,77 @@ impl Corpus {
             .filter(|function| function.language == language)
             .count()
     }
+}
+
+pub const PROJECTS: &str = "projects";
+
+/// The files a group is analysed from: the one file, or everything in the project.
+pub fn files_of(root: &Path, group: &str) -> Vec<PathBuf> {
+    let path = root.join(group);
+    if path.is_dir() {
+        files_under(&path)
+            .into_iter()
+            .filter(|file| {
+                file.extension()
+                    .and_then(|extension| extension.to_str())
+                    .and_then(language_of)
+                    .is_some()
+            })
+            .collect()
+    } else {
+        vec![path]
+    }
+}
+
+fn relative_to(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// The corpus language a source file belongs to, from its extension.
+pub fn language_of(extension: &str) -> Option<&'static str> {
+    match extension {
+        "ts" => Some("typescript"),
+        "js" => Some("javascript"),
+        "py" => Some("python"),
+        "go" => Some("go"),
+        "java" => Some("java"),
+        "cpp" => Some("cpp"),
+        _ => None,
+    }
+}
+
+fn directories_in(directory: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return Vec::new();
+    };
+    let mut found: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
+    found.sort();
+    found
+}
+
+/// Every file below a directory, in a fixed order.
+fn files_under(directory: &Path) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return found;
+    };
+    let mut paths: Vec<PathBuf> = entries.flatten().map(|entry| entry.path()).collect();
+    paths.sort();
+    for path in paths {
+        if path.is_dir() {
+            found.extend(files_under(&path));
+        } else {
+            found.push(path);
+        }
+    }
+    found
 }
 
 /// Files directly inside a corpus language directory, in a fixed order.
