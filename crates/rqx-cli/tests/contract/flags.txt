@@ -117,6 +117,7 @@ check --fixable
 check --format
 check --format =github
 check --format =gitlab
+check --format =html
 check --format =json
 check --format =junit
 check --format =markdown
@@ -712,6 +713,7 @@ scan --fixable
 scan --format
 scan --format =github
 scan --format =gitlab
+scan --format =html
 scan --format =json
 scan --format =junit
 scan --format =markdown
