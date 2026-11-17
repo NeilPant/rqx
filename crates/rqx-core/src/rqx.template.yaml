@@ -143,7 +143,7 @@ scan:
   max_findings: 500
   # Days of git history read for churn. 0 turns the signal off.
   churn_days: 90
-  # Reuse .rqx/cache.json for files whose contents have not changed. A warm scan of
+  # Reuse .rqx/cache.bin for files whose contents have not changed. A warm scan of
   # 3,440 files costs 298ms against 2,023ms cold. Add .rqx/ to .gitignore.
   cache: true
   # Directories never descended into. A glob still has to walk a directory to

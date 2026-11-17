@@ -270,9 +270,13 @@ fn new_project_scoped(before: &ScanOutcome, after: &ScanOutcome) -> Vec<Finding>
         .collect()
 }
 
+pub(crate) fn write_atomically(path: &Path, contents: &str) -> Result<()> {
+    write_bytes_atomically(path, contents.as_bytes())
+}
+
 /// A crash between the two steps leaves the original in place, and the rename is
 /// atomic on every filesystem that matters.
-pub(crate) fn write_atomically(path: &Path, contents: &str) -> Result<()> {
+pub(crate) fn write_bytes_atomically(path: &Path, contents: &[u8]) -> Result<()> {
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
     let name = path
         .file_name()

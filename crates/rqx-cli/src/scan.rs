@@ -20,6 +20,7 @@ use rqx_core::score::FindingCounts;
 use rqx_core::span::Span;
 use smallvec::SmallVec;
 
+use crate::cache::Loading;
 use crate::config::Resolved;
 use crate::stats::{FileReads, ScanStats};
 
@@ -2003,7 +2004,7 @@ pub(crate) fn analyze_file(
                 };
             }
             let display = relative_to(root, path);
-            let cached = cache.and_then(|cache| cache.get(&display, &source).cloned());
+            let cached = cache.and_then(|cache| cache.get(&display, &source));
             let analysed = match cached {
                 Some(analysis) => Ok(analysis),
                 None => rqx_lang::analyze(path, &display, &source, config).inspect(|analysis| {
@@ -2277,15 +2278,10 @@ pub(crate) fn scan_with(
         let days = config.scan.churn_days;
         thread::spawn(move || crate::history::History::read(&root, days))
     };
-    // Read beside the git history rather than before the walk. It is one JSON
-    // document — thirty-three megabytes on a three-thousand-file project — and
-    // parsing it used to be dead time with every core idle, which on a warm run was
-    // most of the run.
-    let cache_loading = policy.enabled(config).then(|| {
-        let root = root.to_path_buf();
-        let settings = settings.clone();
-        thread::spawn(move || crate::cache::Cache::open(&root, &settings))
-    });
+    // Read beside the git history rather than before the walk: a compressed document
+    // of several megabytes, which used to be dead time with every core idle. The walkers
+    // wait for it only when they have a file to look up.
+    let loading = policy.enabled(config).then(crate::cache::Loading::new);
 
     let bar = if drawing {
         crate::progress::Bar::new(crate::brand::Palette::detect())
@@ -2296,8 +2292,6 @@ pub(crate) fn scan_with(
     let counter = build_walker(root, config)?;
     let walker = build_walker(root, config)?;
     let walks = AtomicU32::new(0);
-    let mut cache_load = 0;
-    let mut cache = None;
     let reads = FileReads::default();
     let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 
@@ -2310,6 +2304,10 @@ pub(crate) fn scan_with(
                 Arc::new(history.join().unwrap_or_default())
             })
         });
+        let loading = loading.as_ref();
+        if let Some(loading) = loading {
+            scope.spawn(move || loading.load(root_ref, settings_ref));
+        }
         // The count only decorates the bar, so it runs beside the walk and sends its
         // total when it is done; until then the bar is indeterminate.
         let counting = sender.clone();
@@ -2319,16 +2317,11 @@ pub(crate) fn scan_with(
             walks.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             let _ = counting.send(ScanMessage::Total(total));
         });
-        // What the walk waits for rather than what loading cost: the load overlaps the
-        // collector and the count, so only the part nobody hid is time the scan lost.
-        let cache_wait = Instant::now();
-        cache = cache_loading.and_then(|loading| loading.join().ok());
-        cache_load = cache_wait.elapsed().as_millis();
-        let cached = cache.as_ref();
         let reads = &reads;
         walker.run(|| {
             let sender = sender.clone();
             let settings = &*settings;
+            let mut cached = None;
             Box::new(move |entry| {
                 if watch.is_some_and(Watch::stopped) {
                     return WalkState::Quit;
@@ -2336,7 +2329,8 @@ pub(crate) fn scan_with(
                 match entry {
                     Ok(entry) if entry.file_type().is_some_and(|kind| kind.is_file()) => {
                         let size = entry.metadata().ok().map(|meta| meta.len());
-                        analyze_entry(entry.path(), root, size, settings, cached, reads, &sender);
+                        let cache = *cached.get_or_insert_with(|| loading.and_then(Loading::wait));
+                        analyze_entry(entry.path(), root, size, settings, cache, reads, &sender);
                     }
                     Ok(_) => {}
                     Err(error) => {
@@ -2362,12 +2356,13 @@ pub(crate) fn scan_with(
     let mut outcome = collector.map_err(|_| anyhow::anyhow!("the collector thread panicked"))?;
     outcome.stats.walks = walks.into_inner();
     outcome.stats.files_read = reads.total();
-    if let Some(cache) = cache {
+    if let Some(cache) = loading.and_then(Loading::into_cache) {
         outcome.stats.cache_hits = cache.hit_count();
         outcome.stats.cache_misses = cache.miss_count();
         let saving = Instant::now();
+        let loaded = cache.loaded_in().as_millis();
         cache.save();
-        outcome.timings.push(("cache load", cache_load));
+        outcome.timings.push(("cache load", loaded));
         outcome
             .timings
             .push(("cache save", saving.elapsed().as_millis()));
@@ -2448,18 +2443,17 @@ mod tests {
         fn cache_file(&self) -> PathBuf {
             self.root
                 .join(crate::cache::CACHE_DIRECTORY)
-                .join("cache.json")
+                .join(crate::cache::CACHE_FILE)
         }
 
-        /// A run that finds every file in the cache has nothing to write, so a cache
-        /// reformatted beforehand comes back byte for byte as it was left.
+        /// A run that finds every file in the cache has nothing to write, so bytes
+        /// appended beforehand are still there afterwards.
         fn next_run_hits_every_file(&self) -> bool {
-            let document: serde_json::Value =
-                serde_json::from_str(&std::fs::read_to_string(self.cache_file()).unwrap()).unwrap();
-            let marked = serde_json::to_string_pretty(&document).unwrap();
+            let mut marked = std::fs::read(self.cache_file()).unwrap();
+            marked.extend_from_slice(b"untouched");
             std::fs::write(self.cache_file(), &marked).unwrap();
             self.scan();
-            std::fs::read_to_string(self.cache_file()).unwrap() == marked
+            std::fs::read(self.cache_file()).unwrap() == marked
         }
     }
 
@@ -2516,6 +2510,23 @@ mod tests {
             .expect("the scan reported progress");
         assert_eq!(last.total, Some(outcome.files_scanned));
         assert_eq!(outcome.stats.walks, 2, "the walk and the count beside it");
+    }
+
+    #[test]
+    fn a_cache_from_before_the_container_is_replaced_not_read() {
+        let project = Project::copied_from_fixtures();
+        let legacy = project
+            .root
+            .join(crate::cache::CACHE_DIRECTORY)
+            .join("cache.json");
+        std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        std::fs::write(&legacy, r#"{"version":1,"entries":{}}"#).unwrap();
+
+        let stats = project.scan().stats;
+
+        assert_eq!(stats.cache_hits, 0);
+        assert!(!legacy.exists());
+        assert!(project.cache_file().exists());
     }
 
     #[test]

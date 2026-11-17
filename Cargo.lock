@@ -1912,6 +1912,7 @@ dependencies = [
  "clap_mangen",
  "crossbeam-channel",
  "crossterm",
+ "flate2",
  "globset",
  "ignore",
  "lsp-server",

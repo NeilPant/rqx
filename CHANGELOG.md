@@ -119,6 +119,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   the bar shows no percentage until the count arrives and the scan no longer waits for
   it.
 
+- **The cache is a fifth of the size.** It was one JSON document of 37 MB on a
+  4,440-file tree; each file's entry is now compressed on its own and the cache is
+  7.6 MB, in `.rqx/cache.bin`. A cache from an earlier version is not read, so the
+  first scan after upgrading is a cold one, and it removes the old `.rqx/cache.json`.
+  A warm scan decodes only the entries it uses, on the threads that walk the tree,
+  instead of reading the whole document before the first file is opened.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**

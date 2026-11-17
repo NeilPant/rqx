@@ -1,8 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Condvar, Mutex, OnceLock};
+use std::time::Instant;
 
 use rqx_lang::FileAnalysis;
 use serde::{Deserialize, Serialize};
@@ -10,27 +12,51 @@ use serde::{Deserialize, Serialize};
 use crate::config::Resolved;
 
 pub(crate) const CACHE_DIRECTORY: &str = ".rqx";
-const CACHE_FILE: &str = "cache.json";
+pub(crate) const CACHE_FILE: &str = "cache.bin";
+/// What the cache was called while it was one uncompressed document. Nothing reads it
+/// any more, so it is removed rather than left to take up the room the new one saves.
+const LEGACY_CACHE_FILE: &str = "cache.json";
 
+/// Part of the version, so a change to how entries are laid out makes every cache
+/// written before it a miss instead of a parse error.
+const FORMAT: u32 = 2;
+
+const MAGIC: &[u8; 8] = b"rqxcache";
+const INDEX_LENGTH_BYTES: usize = 4;
+
+/// The file is an index followed by one compressed blob per source file. Compressing
+/// per file rather than the whole document is what lets a scan decode a hit on the
+/// thread that needs it: inflating all of it first was 70ms with every walker idle
+/// behind it, where here each walker inflates only the entries it serves and a hit
+/// is written back as the bytes it was read as.
 #[derive(Deserialize, Serialize)]
-struct Entry {
+struct Slot {
     fingerprint: u64,
-    analysis: FileAnalysis,
+    offset: usize,
+    length: usize,
 }
 
 #[derive(Default, Deserialize, Serialize)]
-struct Contents {
+struct Index {
     /// Bumped whenever a rule changes what it reports, because a cached finding from
     /// an older binary is worse than no cache: it is silently wrong.
     version: u64,
-    entries: HashMap<String, Entry>,
+    entries: BTreeMap<String, Slot>,
+}
+
+/// One file's analysis, compressed, and the fingerprint of the source it came from.
+struct Packed {
+    fingerprint: u64,
+    bytes: Vec<u8>,
 }
 
 pub struct Cache {
     path: PathBuf,
     version: u64,
-    loaded: HashMap<String, Entry>,
-    fresh: Mutex<HashMap<String, Entry>>,
+    loaded_in: std::time::Duration,
+    index: BTreeMap<String, Slot>,
+    blobs: Vec<u8>,
+    fresh: Mutex<BTreeMap<String, Packed>>,
     hits: Mutex<HashSet<String>>,
     misses: AtomicU32,
 }
@@ -41,6 +67,7 @@ pub struct Cache {
 /// written out by hand covered eight of the seventeen thresholds and nothing said so.
 fn analysis_version(settings: &Resolved) -> u64 {
     let mut hasher = DefaultHasher::new();
+    FORMAT.hash(&mut hasher);
     env!("CARGO_PKG_VERSION").hash(&mut hasher);
     settings.signature().hash(&mut hasher);
     catalogue_version().hash(&mut hasher);
@@ -80,25 +107,87 @@ pub struct Stored {
 
 pub fn stored(root: &Path, settings: &Resolved) -> Option<Stored> {
     let path = root.join(CACHE_DIRECTORY).join(CACHE_FILE);
-    let text = std::fs::read_to_string(&path).ok()?;
-    let contents: Contents = serde_json::from_str(&text).ok()?;
+    let (index, _) = read_container(&path)?;
     Some(Stored {
-        bytes: text.len() as u64,
-        entries: contents.entries.len(),
-        current: contents.version == analysis_version(settings),
+        bytes: std::fs::metadata(&path).ok()?.len(),
+        entries: index.entries.len(),
+        current: index.version == analysis_version(settings),
         path,
     })
+}
+
+/// The index and the blobs it points into. A file that is not a cache, or is a
+/// cut-off one, answers `None` and is treated as absent.
+fn read_container(path: &Path) -> Option<(Index, Vec<u8>)> {
+    let mut bytes = std::fs::read(path).ok()?;
+    let header = MAGIC.len() + INDEX_LENGTH_BYTES;
+    if bytes.get(..MAGIC.len())? != MAGIC {
+        return None;
+    }
+    let length = u32::from_le_bytes(bytes.get(MAGIC.len()..header)?.try_into().ok()?) as usize;
+    let index = serde_json::from_slice(bytes.get(header..header + length)?).ok()?;
+    let blobs = bytes.split_off(header + length);
+    Some((index, blobs))
+}
+
+fn encode_container(version: u64, packed: BTreeMap<String, Packed>) -> Option<Vec<u8>> {
+    let mut index = Index {
+        version,
+        entries: BTreeMap::new(),
+    };
+    let mut blobs = Vec::new();
+    for (key, entry) in packed {
+        index.entries.insert(
+            key,
+            Slot {
+                fingerprint: entry.fingerprint,
+                offset: blobs.len(),
+                length: entry.bytes.len(),
+            },
+        );
+        blobs.extend_from_slice(&entry.bytes);
+    }
+    let index = serde_json::to_vec(&index).ok()?;
+    let mut file = Vec::with_capacity(MAGIC.len() + INDEX_LENGTH_BYTES + index.len() + blobs.len());
+    file.extend_from_slice(MAGIC);
+    file.extend_from_slice(&u32::try_from(index.len()).ok()?.to_le_bytes());
+    file.extend_from_slice(&index);
+    file.extend_from_slice(&blobs);
+    Some(file)
+}
+
+fn blob<'a>(blobs: &'a [u8], slot: &Slot) -> Option<&'a [u8]> {
+    blobs.get(slot.offset..slot.offset.checked_add(slot.length)?)
+}
+
+fn pack(analysis: &FileAnalysis) -> Option<Vec<u8>> {
+    let json = serde_json::to_vec(analysis).ok()?;
+    let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(&json).ok()?;
+    encoder.finish().ok()
+}
+
+fn unpack(bytes: &[u8]) -> Option<FileAnalysis> {
+    let mut json = Vec::new();
+    flate2::read::ZlibDecoder::new(bytes)
+        .read_to_end(&mut json)
+        .ok()?;
+    serde_json::from_slice(&json).ok()
 }
 
 /// Removing the file rather than the directory: `.rqx` also holds the baseline, and
 /// clearing a cache should not throw that away.
 pub fn clear(root: &Path) -> std::io::Result<bool> {
-    let path = root.join(CACHE_DIRECTORY).join(CACHE_FILE);
-    match std::fs::remove_file(&path) {
-        Ok(()) => Ok(true),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error),
+    let directory = root.join(CACHE_DIRECTORY);
+    let mut cleared = false;
+    for file in [CACHE_FILE, LEGACY_CACHE_FILE] {
+        match std::fs::remove_file(directory.join(file)) {
+            Ok(()) => cleared = true,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
     }
+    Ok(cleared)
 }
 
 fn fingerprint(source: &str) -> u64 {
@@ -107,37 +196,48 @@ fn fingerprint(source: &str) -> u64 {
 
 impl Cache {
     pub fn open(root: &Path, settings: &Resolved) -> Self {
+        let began = Instant::now();
         let path = root.join(CACHE_DIRECTORY).join(CACHE_FILE);
         let version = analysis_version(settings);
-        let loaded = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|text| serde_json::from_str::<Contents>(&text).ok())
-            .filter(|contents| contents.version == version)
-            .map(|contents| contents.entries)
+        let (index, blobs) = read_container(&path)
+            .filter(|(index, _)| index.version == version)
+            .map(|(index, blobs)| (index.entries, blobs))
             .unwrap_or_default();
         Self {
             path,
             version,
-            loaded,
-            fresh: Mutex::new(HashMap::new()),
+            loaded_in: began.elapsed(),
+            index,
+            blobs,
+            fresh: Mutex::new(BTreeMap::new()),
             hits: Mutex::new(HashSet::new()),
             misses: AtomicU32::new(0),
         }
     }
 
-    pub fn get(&self, key: &str, source: &str) -> Option<&FileAnalysis> {
+    /// How long reading the index took, on whichever thread did it.
+    pub fn loaded_in(&self) -> std::time::Duration {
+        self.loaded_in
+    }
+
+    /// Decoded here, on the thread that asked, so the cost of a hit is spread across
+    /// the walk instead of being paid up front for every entry. An entry that no longer
+    /// decodes is a miss: the file is analysed again and its entry replaced.
+    pub fn get(&self, key: &str, source: &str) -> Option<FileAnalysis> {
         let served = self
-            .loaded
+            .index
             .get(key)
-            .filter(|entry| entry.fingerprint == fingerprint(source));
-        let Some(entry) = served else {
+            .filter(|slot| slot.fingerprint == fingerprint(source))
+            .and_then(|slot| blob(&self.blobs, slot))
+            .and_then(unpack);
+        let Some(analysis) = served else {
             self.misses.fetch_add(1, Ordering::Relaxed);
             return None;
         };
         if let Ok(mut hits) = self.hits.lock() {
             hits.insert(key.to_owned());
         }
-        Some(&entry.analysis)
+        Some(analysis)
     }
 
     pub fn hit_count(&self) -> u32 {
@@ -148,13 +248,18 @@ impl Cache {
         self.misses.load(Ordering::Relaxed)
     }
 
+    /// Compressed by the caller's thread, which is a walker, so a cold run spreads the
+    /// cost across every core instead of paying it in one piece when the cache is saved.
     pub fn put(&self, key: &str, source: &str, analysis: &FileAnalysis) {
+        let Some(bytes) = pack(analysis) else {
+            return;
+        };
         if let Ok(mut fresh) = self.fresh.lock() {
             fresh.insert(
                 key.to_owned(),
-                Entry {
+                Packed {
                     fingerprint: fingerprint(source),
-                    analysis: analysis.clone(),
+                    bytes,
                 },
             );
         }
@@ -165,33 +270,101 @@ impl Cache {
     /// writing just the misses left one entry behind after a single edited file, and
     /// the next run analysed everything else again.
     pub fn save(self) {
-        let (Ok(mut entries), Ok(hits)) = (self.fresh.into_inner(), self.hits.into_inner()) else {
+        let Self {
+            path,
+            version,
+            index,
+            blobs,
+            fresh,
+            hits,
+            ..
+        } = self;
+        let (Ok(mut entries), Ok(hits)) = (fresh.into_inner(), hits.into_inner()) else {
             return;
         };
-        if entries.is_empty() && hits.len() == self.loaded.len() {
+        if entries.is_empty() && hits.len() == index.len() {
             return;
         }
-        entries.extend(
-            self.loaded
-                .into_iter()
-                .filter(|(key, _)| hits.contains(key)),
-        );
-        let Some(directory) = self.path.parent() else {
+        for (key, slot) in &index {
+            if let Some(bytes) = hits.contains(key).then(|| blob(&blobs, slot)).flatten() {
+                entries.entry(key.clone()).or_insert_with(|| Packed {
+                    fingerprint: slot.fingerprint,
+                    bytes: bytes.to_vec(),
+                });
+            }
+        }
+        let Some(directory) = path.parent() else {
             return;
         };
         if std::fs::create_dir_all(directory).is_err() {
             return;
         }
-        let contents = Contents {
-            version: self.version,
-            entries,
-        };
         // Written through a temporary and renamed: a ctrl-c mid-write used to leave
         // a truncated document, which the version check then silently threw away
         // along with every entry in it.
-        if let Ok(text) = serde_json::to_string(&contents) {
-            let _ = crate::fix::write_atomically(&self.path, &text);
+        let written = encode_container(version, entries)
+            .is_some_and(|file| crate::fix::write_bytes_atomically(&path, &file).is_ok());
+        if written {
+            let _ = std::fs::remove_file(directory.join(LEGACY_CACHE_FILE));
         }
+    }
+}
+
+/// A cache that is still being read. The scan starts walking while a thread loads the
+/// file, and a walker thread waits only when it has a file to look up, so the
+/// directories it lists and the files it opens before then overlap the load.
+pub struct Loading {
+    cache: OnceLock<Cache>,
+    done: Mutex<bool>,
+    signal: Condvar,
+}
+
+impl Loading {
+    pub fn new() -> Self {
+        Self {
+            cache: OnceLock::new(),
+            done: Mutex::new(false),
+            signal: Condvar::new(),
+        }
+    }
+
+    /// Run on the loading thread. Waiters are released even if reading panics, so a
+    /// broken cache costs the scan its cache and not the scan itself.
+    pub fn load(&self, root: &Path, settings: &Resolved) {
+        let _release = Release(self);
+        let _ = self.cache.set(Cache::open(root, settings));
+    }
+
+    /// `None` when the load failed.
+    pub fn wait(&self) -> Option<&Cache> {
+        let mut done = self
+            .done
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        while !*done {
+            done = self
+                .signal
+                .wait(done)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+        }
+        self.cache.get()
+    }
+
+    pub fn into_cache(self) -> Option<Cache> {
+        self.cache.into_inner()
+    }
+}
+
+struct Release<'loading>(&'loading Loading);
+
+impl Drop for Release<'_> {
+    fn drop(&mut self) {
+        *self
+            .0
+            .done
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+        self.0.signal.notify_all();
     }
 }
 
@@ -265,6 +438,110 @@ mod tests {
         let before = analysis_version(&Resolved::of(config.clone()));
         config.rules.disabled.insert("long-function".to_owned());
         assert_ne!(before, analysis_version(&Resolved::of(config)));
+    }
+
+    fn a_scratch_project(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("rqx-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(root.join(CACHE_DIRECTORY)).unwrap();
+        root
+    }
+
+    fn analysis_of(source: &str) -> FileAnalysis {
+        rqx_lang::analyze(Path::new("a.ts"), "a.ts", source, &RqxConfig::default()).unwrap()
+    }
+
+    fn write_cache(root: &Path, settings: &Resolved, packed: BTreeMap<String, Packed>) -> PathBuf {
+        let path = root.join(CACHE_DIRECTORY).join(CACHE_FILE);
+        let file = encode_container(analysis_version(settings), packed).unwrap();
+        std::fs::write(&path, file).unwrap();
+        path
+    }
+
+    /// Hits are carried over as the bytes they were read as, so the entry is neither
+    /// decoded nor compressed again just because another file changed.
+    #[test]
+    fn a_hit_is_written_back_as_the_bytes_it_was_read_as() {
+        let root = a_scratch_project("untouched-hit");
+        let settings = Resolved::of(RqxConfig::default());
+        let source = "export const a = 1;\n";
+        let mut bytes = pack(&analysis_of(source)).unwrap();
+        bytes.extend_from_slice(b"trailing bytes zlib stops before");
+        let path = write_cache(
+            &root,
+            &settings,
+            BTreeMap::from([(
+                "a.ts".to_owned(),
+                Packed {
+                    fingerprint: fingerprint(source),
+                    bytes: bytes.clone(),
+                },
+            )]),
+        );
+
+        let cache = Cache::open(&root, &settings);
+        assert!(cache.get("a.ts", source).is_some());
+        cache.put(
+            "b.ts",
+            "export const b = 2;\n",
+            &analysis_of("export const b = 2;\n"),
+        );
+        cache.save();
+
+        let (index, blobs) = read_container(&path).unwrap();
+        let slot = &index.entries["a.ts"];
+        assert_eq!(&blobs[slot.offset..slot.offset + slot.length], bytes);
+        assert!(index.entries.contains_key("b.ts"));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn an_entry_that_no_longer_decodes_is_a_miss() {
+        let root = a_scratch_project("undecodable-entry");
+        let settings = Resolved::of(RqxConfig::default());
+        let source = "export const a = 1;\n";
+        write_cache(
+            &root,
+            &settings,
+            BTreeMap::from([(
+                "a.ts".to_owned(),
+                Packed {
+                    fingerprint: fingerprint(source),
+                    bytes: b"not compressed at all".to_vec(),
+                },
+            )]),
+        );
+
+        let cache = Cache::open(&root, &settings);
+
+        assert!(cache.get("a.ts", source).is_none());
+        assert_eq!(cache.miss_count(), 1);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_truncated_file_is_an_empty_cache_rather_than_an_error() {
+        let root = a_scratch_project("truncated");
+        let settings = Resolved::of(RqxConfig::default());
+        let source = "export const a = 1;\n";
+        let path = write_cache(
+            &root,
+            &settings,
+            BTreeMap::from([(
+                "a.ts".to_owned(),
+                Packed {
+                    fingerprint: fingerprint(source),
+                    bytes: pack(&analysis_of(source)).unwrap(),
+                },
+            )]),
+        );
+        let whole = std::fs::read(&path).unwrap();
+
+        for kept in [3, MAGIC.len() + 2, whole.len() - 4] {
+            std::fs::write(&path, &whole[..kept]).unwrap();
+            let cache = Cache::open(&root, &settings);
+            assert!(cache.get("a.ts", source).is_none(), "{kept} bytes kept");
+        }
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

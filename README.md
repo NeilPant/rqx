@@ -1001,7 +1001,7 @@ cache off for the cold numbers:
 | A TypeScript codebase | 3,456 | 461,090 | **3.2s** | **0.41s** |
 | Five languages in one tree | 4,440 | 178,344 | **1.6s** | **0.67s** |
 
-Warm is the same answer from `.rqx/cache.json` for every file whose contents have not
+Warm is the same answer from `.rqx/cache.bin` for every file whose contents have not
 moved; the cross-file stage — the import graph, the clone index, the churn rules —
 runs again either way, because a deleted import changes what the graph says about
 files nobody touched.
