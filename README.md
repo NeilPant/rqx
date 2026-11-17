@@ -282,21 +282,21 @@ match, so a rule that does not declare its metric and fix does not build.
 ## The catalogue
 
 <!-- rqx:catalogue -->
-185 rules across 11 families. Every rule names the metric that decides it and the refactoring that answers it, and neither is optional.
+185 rules across 11 families. Every rule declares the metric that decides it and the refactoring that answers it.
 
 | Family | Rules | What it measures |
 |---|---|---|
-| **Size** | 16 | units that outgrew what a reader can hold |
-| **Abstraction** | 17 | types that model the problem wrong |
-| **Change** | 7 | shapes that make an edit expensive |
-| **Waste** | 33 | code and comments nothing reaches |
-| **Coupling** | 18 | modules that know too much about each other, and dependencies pointing the wrong way |
-| **Flow** | 17 | control flow that says less than it looks like |
-| **Naming** | 12 | names that mislead or say nothing |
+| **Size** | 16 | functions, types and modules whose size or complexity exceeds a threshold |
+| **Abstraction** | 17 | types whose structure does not match the problem |
+| **Change** | 7 | code shapes that raise the cost of a change |
+| **Waste** | 33 | code and comments that nothing reaches |
+| **Coupling** | 18 | dependencies between modules that are too broad or point the wrong way |
+| **Flow** | 17 | control flow that is redundant or misleading |
+| **Naming** | 12 | names that mislead or carry no information |
 | **Safety** | 28 | silent failure and swallowed errors |
-| **Tests** | 18 | suites that pass without checking |
-| **Noise** | 9 | text that costs a reader and buys nothing |
-| **Performance** | 10 | work done more often, or more expensively, than it needs to be |
+| **Tests** | 18 | tests that pass without checking behaviour |
+| **Noise** | 9 | text that adds reading cost without adding information |
+| **Performance** | 10 | work done more often, or more expensively, than needed |
 <!-- /rqx:catalogue -->
 
 The table above and the pages in `docs/rules/` are generated from the catalogue by

@@ -1,8 +1,8 @@
 # Design patterns
 
-What Rqx makes of the twenty-three patterns in *Design Patterns*. Three things are being said, and they are not degrees of one another: a pattern **in use** is inventory, one **half applied** is a defect, and one that **would fit** is a suggestion about a shape that is already there.
+How rqx treats the twenty-three patterns in *Design Patterns*. It reports three kinds of result, which do not rank: a pattern in use is inventory, a pattern half applied is a defect, and a pattern that would fit is a suggestion about a shape already in the code.
 
-**None of it moves the health score.** A pattern that would fit is not a finding, and a score that fell because code declined to use Strategy would stop meaning anything. The one route to an exit code is `[gate] fail_on_incomplete`, which sees only the half-applied half.
+Pattern results do not change the health score. A pattern that would fit is not a finding. The only route to an exit code is `gate.fail_on_incomplete`, which considers only the half-applied patterns.
 
 Run `rqx patterns` for a project, `rqx patterns --coverage` for this table, and `rqx explain <pattern>` for any one of them.
 

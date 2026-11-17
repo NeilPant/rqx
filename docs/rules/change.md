@@ -21,7 +21,7 @@ export { add, describe } from "./clean";
 export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
 ```
 
-rqx says: clean this one first: whatever is wrong here is paid for on every change
+Suggested fix: clean this one first: whatever is wrong here is paid for on every change
 
 ## `single-author-file`
 
@@ -42,7 +42,7 @@ export function restated(ready: boolean): boolean {
   if (ready) {
 ```
 
-rqx says: get a second reader onto it before the first one moves on
+Suggested fix: get a second reader onto it before the first one moves on
 
 ## `shotgun-surgery`
 
@@ -65,7 +65,7 @@ this file is edited for many unrelated reasons, which is the observable signatur
 | Reported as | info, low confidence |
 | Reads | the syntax tree alone |
 | Fix | Extract Class |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 ## `parallel-inheritance`
 
@@ -77,7 +77,7 @@ every new case means a new subclass in both trees, and the day someone adds only
 | Reported as | info, low confidence |
 | Reads | the import graph across every file |
 | Fix | Move Method / Move Field / Collapse Hierarchy |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 | Not in Go | hierarchies need inheritance, and Go has none to build one from |
 
 From `fixtures/typescript/families.ts`, line 30:
@@ -88,7 +88,7 @@ export class RailLogistics extends Logistics {
   createTransport(): Transport {
 ```
 
-rqx says: fold what varies into one hierarchy, so adding a case means one subclass rather than one in `Logistics` and one in `Transport`
+Suggested fix: fold what varies into one hierarchy, so adding a case means one subclass rather than one in `Logistics` and one in `Transport`
 
 ## `stale-todo`
 
@@ -121,5 +121,5 @@ export function halved(total: number): number {
   return 7 / 2 + total;
 ```
 
-rqx says: put a ticket or a name on it, or do the thing and delete it
+Suggested fix: put a ticket or a name on it, or do the thing and delete it
 

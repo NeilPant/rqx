@@ -29,7 +29,7 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-rqx says: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 5 edits
+Suggested fix: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 5 edits
 
 ## `temporary-field`
 
@@ -50,7 +50,7 @@ From `fixtures/typescript/shapes.ts`, line 13:
   run() { this.scratch = "on"; return this.scratch; }
 ```
 
-rqx says: make `scratch` a local in `run`, or move both into a class that owns that step
+Suggested fix: make `scratch` a local in `run`, or move both into a class that owns that step
 
 ## `refused-bequest`
 
@@ -72,7 +72,7 @@ export class Broken extends Engine { run(): string { throw new Error("no"); } }
 export class Totals {
 ```
 
-rqx says: if `Broken` cannot honour `run`, it is not a subtype — split the interface so it only promises what it can do
+Suggested fix: if `Broken` cannot honour `run`, it is not a subtype — split the interface so it only promises what it can do
 
 ## `base-depends-on-derived`
 
@@ -94,7 +94,7 @@ From `fixtures/typescript/shapes.ts`, line 45:
   }
 ```
 
-rqx says: move what the base needs from `CachedRegistry` behind a method the subclass implements, so the base stops naming its own children
+Suggested fix: move what the base needs from `CachedRegistry` behind a method the subclass implements, so the base stops naming its own children
 
 ## `inappropriate-static`
 
@@ -117,7 +117,7 @@ From `fixtures/typescript/shapes.ts`, line 15:
 }
 ```
 
-rqx says: make `build` an instance method on `Engine`
+Suggested fix: make `build` an instance method on `Engine`
 
 ## `temporal-coupling`
 
@@ -137,7 +137,7 @@ export class Connection {
   private socket?: string;
 ```
 
-rqx says: set `opened` in the constructor, or split the stages into objects that cannot be used before they are ready
+Suggested fix: set `opened` in the constructor, or split the stages into objects that cannot be used before they are ready
 
 ## `alternative-classes`
 
@@ -149,7 +149,7 @@ callers have to learn both interfaces to do one job, and a fix applied to one of
 | Reported as | info, low confidence |
 | Reads | resolved scopes and symbols |
 | Fix | Rename Method / Extract Superclass / Move Method |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/intimacy.ts`, line 18:
 
@@ -159,7 +159,7 @@ export class CsvWriter {
   open(path: string): void { void path; }
 ```
 
-rqx says: give `CsvWriter` and `JsonEmitter` one interface, or one superclass, so a caller learns the job once
+Suggested fix: give `CsvWriter` and `JsonEmitter` one interface, or one superclass, so a caller learns the job once
 
 ## `wide-surface`
 
@@ -181,7 +181,7 @@ export class Overgrown {
   a1 = 1; a2 = 1; a3 = 1; a4 = 1; a5 = 1; a6 = 1; a7 = 1; a8 = 1; a9 = 1; a10 = 1;
 ```
 
-rqx says: narrow what `Overgrown` promises: an interface for what callers use, and the rest kept inside
+Suggested fix: narrow what `Overgrown` promises: an interface for what callers use, and the rest kept inside
 
 ## `abstract-nothing`
 
@@ -210,7 +210,7 @@ export abstract class Settled {
 
 ```
 
-rqx says: drop the word, or give it the member a subclass has to write
+Suggested fix: drop the word, or give it the member a subclass has to write
 
 ## `split-cohesion`
 
@@ -241,7 +241,7 @@ export class Ledger {
 
 ```
 
-rqx says: give each group its own type, and let one of them hold the other
+Suggested fix: give each group its own type, and let one of them hold the other
 
 ## `method-ignores-instance`
 
@@ -253,7 +253,7 @@ it needs nothing the type holds, so the type is a namespace for it and every cal
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Move Method |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 | Not in Go | a method names its receiver, and one that does not is a function |
 
 From `fixtures/typescript/bloat.ts`, line 21:
@@ -264,7 +264,7 @@ From `fixtures/typescript/bloat.ts`, line 21:
 }
 ```
 
-rqx says: move it to whatever it is about, or make it a function of its own
+Suggested fix: move it to whatever it is about, or make it a function of its own
 
 ## `assign-once-field`
 
@@ -276,7 +276,7 @@ nothing after construction moves it, so every reader has to check that for thems
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Encapsulate Field |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 | Not in Python | an attribute is written into the instance, not declared on the type |
 | Not in Go | a struct field is written by whatever holds the struct |
 
@@ -288,7 +288,7 @@ export class Overgrown {
   a11 = 1; a12 = 1; a13 = 1; a14 = 1; a15 = 1; a16 = 1; a17 = 1; a18 = 1; a19 = 1;
 ```
 
-rqx says: make it final, so every reader can see it cannot move
+Suggested fix: make it final, so every reader can see it cannot move
 
 ## `single-method-field`
 
@@ -312,7 +312,7 @@ export class ReportBuilder {
   withTitle(title: string): ReportBuilder {
 ```
 
-rqx says: make it that method's own, or move the method to whatever the field belongs with
+Suggested fix: make it that method's own, or move the method to whatever the field belongs with
 
 ## `deep-inheritance`
 
@@ -335,7 +335,7 @@ export class Level4 extends Level3 {}
 
 ```
 
-rqx says: give it what it needs as a collaborator, so the answer is one object away rather than four types up
+Suggested fix: give it what it needs as a collaborator, so the answer is one object away rather than four types up
 
 ## `empty-subclass`
 
@@ -357,7 +357,7 @@ export class SameAsFeeder extends Overgrown {}
 
 ```
 
-rqx says: use what it inherits from, or give it the difference that justifies it
+Suggested fix: use what it inherits from, or give it the difference that justifies it
 
 ## `static-only-class`
 
@@ -382,7 +382,7 @@ export class Formatting {
 
 ```
 
-rqx says: make them functions in a module, or give the type the state that earns it
+Suggested fix: make them functions in a module, or give the type the state that earns it
 
 ## `working-constructor`
 
@@ -406,5 +406,5 @@ From `fixtures/typescript/bloat.ts`, line 33:
   size(): number { return this.rows.length; }
 ```
 
-rqx says: take what it needs as an argument, and do the work in a method a caller chooses to call
+Suggested fix: take what it needs as an argument, and do the work in a method a caller chooses to call
 

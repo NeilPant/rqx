@@ -4,7 +4,7 @@ Everything lives in `rqx.yaml`. `rqx init` writes one with every setting at its 
 
 ## Where rqx looks
 
-Layers are merged in this order, each one overriding the one above it. A table merges key by key, so a file can set one threshold without restating the other twenty-one; a list replaces rather than appends, so a narrower layer can shorten one.
+Layers are merged in this order, each one overriding the one above it. A table merges key by key, so a file can set one threshold without restating the others; a list replaces rather than appends, so a narrower layer can shorten one.
 
 | | Source |
 |---|---|
@@ -17,13 +17,13 @@ Layers are merged in this order, each one overriding the one above it. A table m
 | 7 | `--config <path>` |
 | 8 | the command's own flags |
 
-Everything a file extends goes under *every* file rqx reads, not just under the file that named it, so a preset can never override a policy or a project's own key. [`docs/presets.md`](presets.md) lists the presets.
+Everything a file extends goes under *every* file rqx reads, not just under the file that named it, so a preset does not override a policy or a project's own key. [`docs/presets.md`](presets.md) lists the presets.
 
 A directory may call its config `rqx.yaml`, `.rqx.yml`, `rqx.yml` or `.rqx.yaml`; holding two is an error. A `RQX.toml` is an error too: rqx no longer reads TOML, and skipping one could change what a pipeline gates on. `rqx config migrate` converts it.
 
-The upward search stops at a directory holding `.git`, or at a file that sets `root: true` — a config above a checkout describes a different project, and reading it would make a scan depend on where the repository happens to sit.
+The upward search stops at a directory holding `.git`, or at a file that sets `root: true`. A config above a checkout describes a different project, and reading it would make a scan depend on where the repository is located.
 
-**An `ignore.patterns` glob is matched against paths relative to the directory being scanned**, not to the file the pattern is written in. `rqx scan .` and `rqx scan src` therefore see different things from one `patterns: [src/**]`, and a pattern naming a directory whose name appears again deeper in the tree — `fixtures/**` against a `fixtures/go/fixtures/` — matches in both places. Name one level more when that matters: `fixtures/*/**`.
+**An `ignore.patterns` glob is matched against paths relative to the directory being scanned**, not to the file the pattern is written in. `rqx scan .` and `rqx scan src` therefore see different things from one `patterns: [src/**]`, and a pattern naming a directory whose name appears again deeper in the tree (`fixtures/**` against a `fixtures/go/fixtures/`) matches in both places. Name one level more when that matters: `fixtures/*/**`.
 
 ## A subtree with different standards
 
@@ -38,17 +38,17 @@ overrides:
 
 **An override's `paths` are matched against paths relative to the directory the config file is in**, however the files were reached: `rqx scan legacy`, `rqx scan .` from inside `legacy`, and a scan through a symlink all see `legacy/**` the same way. A file outside that directory is never covered.
 
-An override may set `thresholds`, `rules`, `patterns` and `level` and nothing else. Every other table describes the run as a whole — the file walker is built once and the gate reaches one verdict — so naming one in an override is an error rather than a setting that quietly does nothing.
+An override may set `thresholds`, `rules`, `patterns` and `level` and nothing else. Every other table describes the run as a whole, because the file walker is built once and the gate reaches one verdict. Naming one in an override is an error.
 
 The same holds for names: a rule, family, pattern or stance that does not exist is an error, not a silent no-op, because a `categories` allowlist naming only unknown families would otherwise turn every rule off. `rqx rules` lists every name that is valid.
 
 ## Asking what a setting means
 
-`rqx config explain thresholds.max_params` prints a setting's description, its type, its default and its current value, and says which file or preset set it. The words are the ones the editor shows from [`rqx.schema.json`](rqx.schema.json), which `rqx config schema` also prints, so the two cannot disagree. A misspelt key is refused with the closest real one and the keys beside it.
+`rqx config explain thresholds.max_params` prints a setting's description, its type, its default and its current value, and says which file or preset set it. The words are the ones the editor shows from [`rqx.schema.json`](rqx.schema.json), which `rqx config schema` also prints, so the two use the same text. A misspelt key is refused with the closest real one and the keys beside it.
 
 ## Checking a config before it runs
 
-`rqx config validate` resolves the config the way a scan does — presets and `extends`, the user config, the policy, every `rqx.yaml` up to the repository root, `RQX_CONFIG` and `--config` — and says where it is wrong, with the file, line and column:
+`rqx config validate` resolves the config the way a scan does (presets and `extends`, the user config, the policy, every `rqx.yaml` up to the repository root, `RQX_CONFIG` and `--config`) and reports where it is wrong, with the file, line and column:
 
 ```
 rqx.yaml:3:3: error: unknown field `bogus`, expected one of long_function_statements, …
@@ -86,19 +86,19 @@ rules:
 | `confidence` | `low`, `heuristic` or `verified`. Only verified findings count towards the health score. |
 | a threshold | Any threshold the rule reads, by its key. The table below says which. It is the same setting as `thresholds.<key>`, written next to the rule; naming both with different values is an error. |
 
-A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule slug is an error that suggests the closest name, and so is an option the rule does not have. The same settings work inside an entry of `overrides`, which is how one subtree gets a stricter rule than the rest. A rule *you* wrote under `rule` carries its own `severity` and `confidence`, so it is not a key here.
+A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule slug is an error that suggests the closest name, and so is an option the rule does not have. The same settings work inside an entry of `overrides`, which is how one subtree gets a stricter rule than the rest. A custom rule written under `rule` carries its own `severity` and `confidence`, so it is not a key here.
 
 ## Levels
 
-`level: strict` in `rqx.yaml`, or `--level strict` on the command line, picks a named set of defaults. A level is merged *under* everything you wrote, so it moves the defaults and never overrides a value you stated; `rqx config` shows `level:strict` in the `from` column for a value the level moved. An entry of `overrides` may name its own `level`, so a project can be strict in its domain and relaxed in its scripts. `rqx levels` prints each one as the settings it would take to write by hand.
+`level: strict` in `rqx.yaml`, or `--level strict` on the command line, picks a named set of defaults. A level is merged under everything the project sets, so it moves the defaults and does not override a stated value; `rqx config` shows `level:strict` in the `from` column for a value the level moved. An entry of `overrides` may name its own `level`, so a project can be strict in its domain and relaxed in its scripts. `rqx levels` prints each one as the settings it would take to write by hand.
 
 ## The gate
 
-`rqx check` always gates. **`rqx scan` gates only when you pass one of `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade`**, so a `gate` mapping in `rqx.yaml` does nothing for a bare scan. That is deliberate: a scan that started failing because a config file appeared above it would change the exit code of pipelines that never asked for a gate.
+`rqx check` always gates. `rqx scan` gates only when one of `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade` is passed, so a `gate` mapping in `rqx.yaml` has no effect on a bare scan. This keeps a config file that appears above a project from changing the exit code of a pipeline that never asked for a gate.
 
 ## Design pattern advice
 
-`patterns` decides which of the twenty-three Gang of Four patterns rqx reports on. It is addressable four ways, because the useful question differs: by advisory when one claim is wrong for this project, by pattern when the whole pattern is, by family (`creational`, `structural`, `behavioural`), and by stance.
+`patterns` decides which of the twenty-three Gang of Four patterns rqx reports on. It can be addressed four ways: by advisory, when one claim does not apply to the project; by pattern, when the whole pattern does not; by family (`creational`, `structural`, `behavioural`); and by stance.
 
 ```yaml
 patterns:
@@ -107,11 +107,11 @@ patterns:
   disabled: [strategy-fits]
 ```
 
-**None of it moves the health score and none of it decides the gate.** A pattern that would fit is not a defect, and a score that fell because code declined to use Strategy would stop meaning anything. `rqx patterns --coverage` lists every pattern, what decides it, and the reason where rqx declines to guess.
+Pattern advice does not change the health score. It reaches the exit code only through `gate.fail_on_incomplete`, which considers half-applied patterns. A pattern that would fit is not a defect. `rqx patterns --coverage` lists every pattern, what decides it, and the reason where rqx declines to report.
 
 ## Thresholds
 
-Every threshold is the highest acceptable value: a finding fires strictly above it. Raising one makes its rules quieter, and this is which rules.
+Every threshold is the highest acceptable value: a finding fires strictly above it. Raising one makes its rules quieter. The table lists the rules each key affects.
 
 | Key | Default | Tunes |
 |---|---|---|

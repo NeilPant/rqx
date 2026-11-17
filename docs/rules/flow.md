@@ -23,7 +23,7 @@ From `fixtures/typescript/flow.ts`, line 4:
 }
 ```
 
-rqx says: drop the `else` and outdent its body; the branch above already returned
+Suggested fix: drop the `else` and outdent its body; the branch above already returned
 
 ## `collapsible-if`
 
@@ -48,7 +48,7 @@ From `fixtures/typescript/config.ts`, line 3:
   }
 ```
 
-rqx says: join the two conditions with `&&` and keep one branch
+Suggested fix: join the two conditions with `&&` and keep one branch
 
 ## `boolean-from-branch`
 
@@ -73,7 +73,7 @@ export function restated(ready: boolean): boolean {
 }
 ```
 
-rqx says: return the condition itself
+Suggested fix: return the condition itself
 
 ## `literal-comparison`
 
@@ -94,7 +94,7 @@ export function compared(ready: boolean, count: number): number {
     return 1;
 ```
 
-rqx says: use the value directly, or negate it
+Suggested fix: use the value directly, or negate it
 
 ## `self-comparison`
 
@@ -115,7 +115,7 @@ From `fixtures/typescript/flow.ts`, line 13:
     return 2;
 ```
 
-rqx says: one side was meant to be something else; decide which
+Suggested fix: one side was meant to be something else; decide which
 
 ## `identical-branches`
 
@@ -140,7 +140,7 @@ export function sameEitherWay(count: number): number {
 }
 ```
 
-rqx says: keep one body and delete the branch, or make the arms differ
+Suggested fix: keep one body and delete the branch, or make the arms differ
 
 ## `empty-block`
 
@@ -163,7 +163,7 @@ export function decidedNothing(count: number): void {
 }
 ```
 
-rqx says: write what should happen, or delete the branch
+Suggested fix: write what should happen, or delete the branch
 
 ## `duplicate-condition`
 
@@ -184,7 +184,7 @@ From `fixtures/typescript/flow.ts`, line 177:
     return 3;
 ```
 
-rqx says: decide which of the two arms was meant, and delete the other
+Suggested fix: decide which of the two arms was meant, and delete the other
 
 ## `silent-fallthrough`
 
@@ -208,7 +208,7 @@ From `fixtures/typescript/flow.ts`, line 193:
     case 2:
 ```
 
-rqx says: end the arm, or say in the code that falling through is the point
+Suggested fix: end the arm, or say in the code that falling through is the point
 
 ## `nested-ternary`
 
@@ -230,7 +230,7 @@ export function tierOf(score: number): string {
 }
 ```
 
-rqx says: give the inner condition a named value, or write the whole thing as statements
+Suggested fix: give the inner condition a named value, or write the whole thing as statements
 
 ## `ambiguous-precedence`
 
@@ -251,7 +251,7 @@ export function admits(rank: number, guests: number, staff: number): boolean {
 }
 ```
 
-rqx says: put the tighter half in parentheses, or name it
+Suggested fix: put the tighter half in parentheses, or name it
 
 ## `negated-comparison`
 
@@ -272,7 +272,7 @@ export function changed(before: string, after: string): boolean {
 }
 ```
 
-rqx says: invert the operator and drop the negation
+Suggested fix: invert the operator and drop the negation
 
 ## `no-default-branch`
 
@@ -300,7 +300,7 @@ export function labelOf(state: number): string {
   return "unknown";
 ```
 
-rqx says: add the arm that says what an unnamed value means, even if it only raises
+Suggested fix: add the arm that says what an unnamed value means, even if it only raises
 
 ## `loop-runs-once`
 
@@ -321,7 +321,7 @@ From `fixtures/typescript/flow.ts`, line 162:
   }
 ```
 
-rqx says: drop the loop and take the first match, or move the exit behind the condition that should end it
+Suggested fix: drop the loop and take the first match, or move the exit behind the condition that should end it
 
 ## `redundant-jump`
 
@@ -343,7 +343,7 @@ From `fixtures/typescript/flow.ts`, line 113:
   }
 ```
 
-rqx says: delete it; control was going there anyway
+Suggested fix: delete it; control was going there anyway
 
 ## `tiny-switch`
 
@@ -356,7 +356,7 @@ a switch is a table a reader scans, and one with two arms is an if spelled in fo
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |
 | Tuned by | `thresholds.min_cases` |
-| Default | off; name it under `[rules] enabled` |
+| Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/flow.ts`, line 119:
 
@@ -371,7 +371,7 @@ export function twoArmed(kind: string): number {
 }
 ```
 
-rqx says: write it as an if, or give the switch the arms that justify it
+Suggested fix: write it as an if, or give the switch the arms that justify it
 
 ## `nested-then`
 
@@ -397,5 +397,5 @@ export function chained(rows: number[]): Promise<number> {
 }
 ```
 
-rqx says: wait for each in turn where the language lets you, so the order is the order of the lines
+Suggested fix: wait for each in turn where the language lets you, so the order is the order of the lines
 

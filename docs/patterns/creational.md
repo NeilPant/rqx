@@ -32,7 +32,7 @@ export abstract class Kit {
   abstract button(): Button;
 ```
 
-rqx says: `Kit` is the seam the family varies behind
+Suggested fix: `Kit` is the seam the family varies behind
 
 ## Builder
 
@@ -63,7 +63,7 @@ export class ReportBuilder {
   private title = "";
 ```
 
-rqx says: `ReportBuilder` is assembled a step at a time
+Suggested fix: `ReportBuilder` is assembled a step at a time
 
 ### `builder-without-build`
 
@@ -86,7 +86,7 @@ export class QueryBuilder {
   private clauses = 0;
 ```
 
-rqx says: give `QueryBuilder` one method that returns what it built, so callers stop reaching for its state
+Suggested fix: give `QueryBuilder` one method that returns what it built, so callers stop reaching for its state
 
 ## Factory Method
 
@@ -118,7 +118,7 @@ export abstract class Logistics {
   abstract createTransport(): Transport;
 ```
 
-rqx says: `Logistics` is the seam the family varies behind
+Suggested fix: `Logistics` is the seam the family varies behind
 
 ## Prototype
 
@@ -149,7 +149,7 @@ export class Palette {
   colours = 3;
 ```
 
-rqx says: a new `Palette` is made from an existing one
+Suggested fix: a new `Palette` is made from an existing one
 
 ## Singleton
 
@@ -182,7 +182,7 @@ export class Settings {
   private static instance: Settings;
 ```
 
-rqx says: everything that reaches `Settings` shares one instance, and nothing depending on it can be tested against another
+Suggested fix: everything that reaches `Settings` shares one instance, and nothing depending on it can be tested against another
 
 ### `singleton-escapable`
 
@@ -207,5 +207,5 @@ export class Clock {
   private static current: Clock;
 ```
 
-rqx says: make `Clock`'s constructor private, or stop calling the shared instance the only one
+Suggested fix: make `Clock`'s constructor private, or stop calling the shared instance the only one
 
