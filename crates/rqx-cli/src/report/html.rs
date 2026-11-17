@@ -137,11 +137,18 @@ const STYLE: &str = r#"
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--ground);color:var(--text);font:14px/1.55 var(--mono)}
-main{max-width:1040px;margin:0 auto;padding:32px}
-h1,h2,p,ul,dl{margin:0}
-h2{font-size:16px;font-weight:700;margin:32px 0 12px}
+.page{max-width:1040px;margin:0 auto;padding:32px}
+h1,h2,h3,h4,p,ul,dl{margin:0}
+h3,h4{font-size:inherit;font-weight:inherit}
+h2{font-size:16px;font-weight:700;margin:40px 0 16px}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+:target{scroll-margin-top:16px}
 table{border-collapse:collapse}
 th{font-weight:400;text-align:left}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-9999px;top:8px;padding:8px 16px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;z-index:1}
+.skip:focus{left:16px}
 .muted{color:var(--muted)}
 .danger{color:var(--danger);--tone:var(--danger)}
 .warn{color:var(--warn);--tone:var(--warn)}
@@ -154,31 +161,32 @@ th{font-weight:400;text-align:left}
 .hero-text{flex:1 1 320px;min-width:0}
 .sigil{color:var(--shade)}
 .verdict{margin:8px 0;font-size:44px;line-height:1.15;font-weight:700}
-.reasons{margin-top:12px;padding:0;list-style:none}
+.reasons{margin-top:16px;padding:0;list-style:none;max-width:80ch}
 .reasons li::before{content:"- ";color:var(--muted)}
-.rows{display:grid;grid-template-columns:10ch minmax(0,1fr);column-gap:2ch}
+.toc ul{display:flex;flex-wrap:wrap;gap:0 16px;margin:16px 0 0;padding:0;list-style:none}
+.toc li+li::before{content:"\00b7";margin-right:16px;color:var(--muted)}
+.rows{display:grid;grid-template-columns:10ch minmax(0,1fr);column-gap:16px}
 .rows dt{color:var(--muted)}
 .rows dd{margin:0;overflow-wrap:anywhere}
-.scroll{margin:0 0 16px;overflow-x:auto}
-.bars th{padding:0 2ch 0 0;white-space:nowrap}
-.bars td{padding:0 2ch 0 0;white-space:nowrap}
+section h3{margin:24px 0 8px;font-weight:700}
+.scroll{overflow-x:auto}
+.bars th{padding:0 16px 0 0;white-space:nowrap}
+.bars td{padding:0 16px 0 0;white-space:nowrap}
 .bars .count{text-align:right;font-variant-numeric:tabular-nums}
 .fill{color:var(--accent)}
 .rest{color:var(--rule)}
-.sub{margin:16px 0 4px;font-weight:700}
-details.file{margin:0 0 8px;border:1px solid var(--rule);border-radius:10px}
-summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:10px 16px;cursor:pointer;list-style:none}
+details.file{min-width:0;margin:0 0 8px;border:1px solid var(--rule);border-radius:10px}
+summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 16px;padding:8px 16px;cursor:pointer;list-style:none}
 summary::-webkit-details-marker{display:none}
 summary::before{content:"\25b8";color:var(--muted)}
 details[open]>summary::before{content:"\25be"}
-summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .badge{white-space:pre;font-weight:700;background:var(--tone);color:var(--ground)}
 .path{overflow-wrap:anywhere}
-.finding{padding:16px;border-top:1px solid var(--rule)}
-.finding p{overflow-wrap:anywhere}
-.head{display:flex;flex-wrap:wrap;gap:0 2ch}
-.evidence{margin-top:8px}
-.frame{margin:12px 0 8px;padding:8px 0;overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:6px}
+.finding{min-width:0;padding:16px;border-top:1px solid var(--rule)}
+.finding>*+*{margin-top:8px}
+.finding p{max-width:80ch;overflow-wrap:anywhere}
+.head{display:flex;flex-wrap:wrap;gap:0 16px}
+.frame{max-width:100%;padding:8px 0;overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:6px}
 .rows-of-code{min-width:max-content}
 .row{display:block;padding-right:16px;white-space:pre;tab-size:4}
 .row .src{color:var(--muted)}
@@ -193,19 +201,23 @@ summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .src .c{color:var(--muted);font-style:italic}
 .src .t{color:var(--type)}
 .src .f{color:var(--text);font-weight:700}
+.to-top{padding:8px 16px;border-top:1px solid var(--rule);text-align:right}
 .waived{color:var(--muted)}
-.waived th,.waived td{padding:2px 2ch 2px 0;vertical-align:top;overflow-wrap:anywhere}
+.waived th,.waived td{padding:0 16px 0 0;vertical-align:top;overflow-wrap:anywhere}
 .waived thead th{border-bottom:1px solid var(--rule)}
 footer{margin-top:48px;font-size:12px;color:var(--muted)}
 @media (max-width:640px){
-main{padding:16px}
+.page{padding:16px}
 .hero{padding:16px;gap:16px}
 .owl{width:96px;height:96px}
 .verdict{font-size:28px}
 }
 @media print{
+.skip,.toc,.to-top{display:none}
+.hero,.finding{break-inside:avoid}
 .frame{overflow:visible}
 .row{white-space:pre-wrap}
+details::details-content{content-visibility:visible;display:block}
 }
 "#;
 
@@ -216,13 +228,38 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     let project = project_name(report);
     writeln!(out, "<!doctype html>\n<html lang=\"en\">")?;
     write_head(out, &project)?;
-    writeln!(out, "<body>\n<main>")?;
+    writeln!(
+        out,
+        "<body>\n<a class=\"skip\" href=\"#files\">Skip to the files</a>\n<div class=\"page\">"
+    )?;
     write_hero(out, report)?;
+    write_contents(out, report)?;
+    writeln!(out, "<main>")?;
     write_summary(out, report)?;
+    write_tally(out, report)?;
     write_files(out, report)?;
     write_waived(out, report)?;
+    writeln!(out, "</main>")?;
     write_footer(out, report, &project)?;
-    writeln!(out, "</main>\n</body>\n</html>")?;
+    writeln!(out, "</div>\n</body>\n</html>")?;
+    Ok(())
+}
+
+/// Plain anchor links, so a long page can be crossed without a script.
+fn write_contents(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
+    let mut links = vec![("summary", "Summary")];
+    if !report.findings.is_empty() {
+        links.extend([("families", "Families"), ("rules", "Rules")]);
+    }
+    links.push(("files", "Files"));
+    if !report.outcome.suppressed.is_empty() {
+        links.push(("waived", "Waived"));
+    }
+    writeln!(out, "<nav class=\"toc\" aria-label=\"Contents\">\n<ul>")?;
+    for (id, name) in links {
+        writeln!(out, "<li><a href=\"#{id}\">{name}</a></li>")?;
+    }
+    writeln!(out, "</ul>\n</nav>")?;
     Ok(())
 }
 
@@ -268,7 +305,7 @@ fn command_line(report: &Report<'_>) -> String {
 fn write_hero(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     let health = report.health();
     let grade = Cleanliness::of(health, report.totals.findings);
-    writeln!(out, "<header class=\"hero\">")?;
+    writeln!(out, "<header id=\"top\" class=\"hero\">")?;
     writeln!(out, "{}", owl(mascot_ink(Some(health))))?;
     writeln!(out, "<div class=\"hero-text\">")?;
     writeln!(
@@ -358,7 +395,7 @@ fn runs_of(row: &[Option<Ink>]) -> Vec<(usize, usize, Ink)> {
 fn write_summary(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     writeln!(
         out,
-        "<section aria-labelledby=\"summary\">\n<h2 id=\"summary\">Summary</h2>\n<dl class=\"rows\">"
+        "<section id=\"summary\" aria-labelledby=\"summary-title\">\n<h2 id=\"summary-title\">Summary</h2>\n<dl class=\"rows\">"
     )?;
     for row in summary_rows(report, report.totals_by_file().len()) {
         let class = row
@@ -373,13 +410,12 @@ fn write_summary(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     }
     writeln!(out, "</dl>")?;
 
-    let tally = Tally::of(&report.findings);
-    let findings = report.findings.len() as u32;
     let grades = report.grades();
     let files = report.files.len() as u32;
+    writeln!(out, "<h3 id=\"grades-title\">By grade</h3>")?;
     write_bars(
         out,
-        "By grade",
+        "grades-title",
         files,
         Cleanliness::ALL.iter().filter_map(|grade| {
             let count = grades.get(grade).copied().unwrap_or(0);
@@ -392,18 +428,38 @@ fn write_summary(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
             })
         }),
     )?;
+    writeln!(out, "</section>")?;
+    Ok(())
+}
+
+/// Where the findings are, by family and by rule, in their own sections so a reader
+/// who wants only the files can skip past them.
+fn write_tally(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
+    if report.findings.is_empty() {
+        return Ok(());
+    }
+    let tally = Tally::of(&report.findings);
+    let findings = report.findings.len() as u32;
+    writeln!(
+        out,
+        "<section id=\"families\" aria-labelledby=\"families-title\">\n<h2 id=\"families-title\">Findings by family</h2>"
+    )?;
     write_bars(
         out,
-        "By family",
+        "families-title",
         findings,
         tally
             .families
             .iter()
             .map(|(family, count)| ((*family).to_owned(), "", *count)),
     )?;
+    writeln!(
+        out,
+        "</section>\n<section id=\"rules\" aria-labelledby=\"rules-title\">\n<h2 id=\"rules-title\">Findings by rule</h2>"
+    )?;
     write_bars(
         out,
-        "By rule",
+        "rules-title",
         findings,
         tally.rules.iter().map(
             |RuleCount {
@@ -421,7 +477,7 @@ fn write_summary(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
 /// draws it. Hidden from a screen reader because the number beside it says the same.
 fn write_bars(
     out: &mut dyn Write,
-    title: &str,
+    labelled_by: &str,
     total: u32,
     rows: impl Iterator<Item = (String, &'static str, u32)>,
 ) -> Result<()> {
@@ -431,7 +487,7 @@ fn write_bars(
     }
     writeln!(
         out,
-        "<p class=\"sub\">{title}</p>\n<div class=\"scroll\"><table class=\"bars\">\n<tbody>"
+        "<div class=\"scroll\"><table class=\"bars\" aria-labelledby=\"{labelled_by}\">\n<thead class=\"sr-only\"><tr><th scope=\"col\">Name</th><th scope=\"col\">Findings</th><th scope=\"col\">Share</th></tr></thead>\n<tbody>"
     )?;
     for (name, class, count) in rows {
         writeln!(
@@ -460,7 +516,7 @@ fn meter(count: u32, total: u32) -> String {
 fn write_files(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     writeln!(
         out,
-        "<section aria-labelledby=\"files\">\n<h2 id=\"files\">Files, worst first</h2>"
+        "<section id=\"files\" aria-labelledby=\"files-title\">\n<h2 id=\"files-title\">Files, worst first</h2>"
     )?;
     let shown = report.shown_by_file();
     let prefix = report.path_prefix();
@@ -481,10 +537,30 @@ fn write_files(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
         listed += 1;
     }
     if listed == 0 {
-        writeln!(out, "<p class=\"muted\">No findings.</p>")?;
+        writeln!(
+            out,
+            "<p class=\"muted\">{}</p>",
+            empty_files_message(report)
+        )?;
     }
     writeln!(out, "</section>")?;
     Ok(())
+}
+
+/// What an empty list means, so a reader is not left to guess whether the scan found
+/// nothing or the report was narrowed to nothing.
+fn empty_files_message(report: &Report<'_>) -> &'static str {
+    if report.totals.findings > 0 {
+        "No findings are shown: this report was narrowed to none of them."
+    } else {
+        "No findings \u{2014} every scanned file passed."
+    }
+}
+
+/// An id a link can name: the path as shown, with the whitespace a fragment cannot
+/// hold replaced.
+fn anchor_of(path: &str) -> String {
+    markup(&path.split_whitespace().collect::<Vec<_>>().join("_"))
 }
 
 /// The terminal's word for a file: a verdict on it, in the colour of its grade.
@@ -506,13 +582,15 @@ fn write_file(
     open: bool,
 ) -> Result<()> {
     let ink = grade_ink(grade);
+    let shown = format!("{prefix}{file}");
     writeln!(
         out,
-        "<details class=\"file\"{}>\n<summary><span class=\"badge {}\"> {} </span><span class=\"path\">{}</span><span class=\"muted\">{} \u{b7} {}</span></summary>",
+        "<details id=\"{}\" class=\"file\"{}>\n<summary><span class=\"badge {}\"> {} </span><h3 class=\"path\">{}</h3><span class=\"muted\">{} \u{b7} {}</span></summary>",
+        anchor_of(&shown),
         if open { " open" } else { "" },
         ink_class(ink),
         badge_word(ink),
-        markup(&format!("{prefix}{file}")),
+        markup(&shown),
         grade.label(),
         plural(findings.len() as u32, "finding", "findings")
     )?;
@@ -520,10 +598,20 @@ fn write_file(
     let source = text.as_deref().map(|text| Source::of(file, text));
     let mut ordered = findings.to_vec();
     ordered.sort_by_key(|finding| finding.location.start);
+    let mut on_line: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
     for finding in ordered {
-        write_finding(out, finding, source.as_ref())?;
+        let nth = on_line.entry(finding.location.line).or_default();
+        *nth += 1;
+        let id = match nth {
+            1 => format!("{}:{}", anchor_of(&shown), finding.location.line),
+            more => format!("{}:{}-{more}", anchor_of(&shown), finding.location.line),
+        };
+        write_finding(out, finding, source.as_ref(), &id)?;
     }
-    writeln!(out, "</details>")?;
+    writeln!(
+        out,
+        "<p class=\"to-top\"><a href=\"#top\">Back to top</a></p>\n</details>"
+    )?;
     Ok(())
 }
 
@@ -590,6 +678,7 @@ fn write_finding(
     out: &mut dyn Write,
     finding: &Finding,
     source: Option<&Source<'_>>,
+    id: &str,
 ) -> Result<()> {
     let spec = finding.rule.spec();
     let severity = ink_class(severity_ink(finding.severity));
@@ -600,7 +689,7 @@ fn write_finding(
     };
     writeln!(
         out,
-        "<article class=\"finding\">\n<p class=\"head\"><span class=\"{severity}\">\u{25cf}</span><span class=\"accent\">{}</span><span class=\"muted\">{}:{}</span><span class=\"{severity}\">{}</span>{known}</p>",
+        "<article id=\"{id}\" class=\"finding\">\n<h4 class=\"head\"><span class=\"{severity}\">\u{25cf}</span><span class=\"accent\">{}</span><a class=\"muted\" href=\"#{id}\">{}:{}</a><span class=\"{severity}\">{}</span>{known}</h4>",
         markup(finding.slug()),
         finding.location.line,
         finding.location.column,
@@ -726,7 +815,7 @@ fn write_waived(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     let prefix = report.path_prefix();
     writeln!(
         out,
-        "<section aria-labelledby=\"waived\">\n<h2 id=\"waived\">{}</h2>",
+        "<section id=\"waived\" aria-labelledby=\"waived-title\">\n<h2 id=\"waived-title\">{}</h2>",
         plural(waived.len() as u32, "waived finding", "waived findings")
     )?;
     writeln!(
@@ -736,7 +825,7 @@ fn write_waived(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     for one in waived {
         writeln!(
             out,
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            "<tr><th scope=\"row\">{}</th><td>{}</td><td>{}</td><td>{}</td></tr>",
             markup(one.finding.slug()),
             markup(&format!(
                 "{prefix}{}:{}",
@@ -884,7 +973,12 @@ mod tests {
         for reference in ["http://", "https://", "<link", "<script", "@import", "url("] {
             assert!(!page.contains(reference), "references {reference}");
         }
-        for heading in ["Summary", "By grade", "By family", "By rule"] {
+        for heading in [
+            "Summary",
+            "By grade",
+            "Findings by family",
+            "Findings by rule",
+        ] {
             assert!(page.contains(heading), "missing {heading}");
         }
         assert!(page.contains("$</span> rqx scan ."));
@@ -1025,7 +1119,7 @@ mod tests {
         let report = Report::scan(&outcome, &FindingFilter::default());
         let ink = grade_ink(report.grade_of("a.ts"));
         let heading = format!(
-            "<summary><span class=\"badge {}\"> {} </span><span class=\"path\">a.ts</span>",
+            "<summary><span class=\"badge {}\"> {} </span><h3 class=\"path\">a.ts</h3>",
             ink_class(ink),
             badge_word(ink)
         );
@@ -1041,8 +1135,8 @@ mod tests {
             .map(|name| (RuleId::LongFunction, name.as_str()))
             .collect();
         let page = page_of(&outcome_of(&findings));
-        assert_eq!(page.matches("<details class=\"file\"").count(), 12);
-        assert_eq!(page.matches("<details class=\"file\" open>").count(), 10);
+        assert_eq!(page.matches("<details id=").count(), 12);
+        assert_eq!(page.matches(" class=\"file\" open>").count(), 10);
     }
 
     #[test]
@@ -1056,7 +1150,7 @@ mod tests {
         let page = page_of(&outcome);
 
         assert!(page.contains("long-function</span>"), "{page}");
-        assert!(page.contains("<span class=\"muted\">1:7</span>"));
+        assert!(page.contains(".ts:1\">1:7</a>"), "{page}");
         assert!(page.contains("<span class=\"muted\">Why:</span>"));
         assert!(page.contains("<span class=\"muted\">Fix:</span> <span class=\"accent\">"));
         assert!(page.contains("<span class=\"muted\">also at</span>"));
@@ -1111,6 +1205,108 @@ mod tests {
         assert!(page.contains("legacy &lt;import&gt;"));
         assert!(page.contains("2030-01-01"));
         assert_well_formed(&page);
+    }
+
+    #[test]
+    fn the_page_has_one_h1_and_a_way_around_it() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 1);
+        let page = page_of(&outcome);
+        assert_eq!(page.matches("<h1 ").count(), 1);
+        assert!(page.contains("<a class=\"skip\" href=\"#files\">"));
+        assert!(page.contains("<nav class=\"toc\" aria-label=\"Contents\">"));
+        for target in ["summary", "families", "rules", "files"] {
+            assert!(
+                page.contains(&format!("href=\"#{target}\"")),
+                "no link to {target}"
+            );
+            assert!(
+                page.contains(&format!("<section id=\"{target}\"")),
+                "no {target}"
+            );
+        }
+        assert!(!page.contains("href=\"#waived\""), "nothing is waived");
+        assert!(page.contains("<header id=\"top\""));
+        assert!(page.contains("<footer>"));
+        assert!(!page.contains("<script"));
+        assert_well_formed(&page);
+    }
+
+    #[test]
+    fn a_file_and_a_finding_have_stable_ids_a_link_can_name() {
+        let mut outcome = outcome_of(&[
+            (RuleId::LongFunction, "src/x y.ts"),
+            (RuleId::MagicNumber, "src/x y.ts"),
+        ]);
+        outcome.findings[1].location.line = 42;
+        let again = outcome_of(&[
+            (RuleId::LongFunction, "src/x y.ts"),
+            (RuleId::LongFunction, "src/x y.ts"),
+        ]);
+        let page = page_of(&outcome);
+        assert!(
+            page.contains("<details id=\"src/x_y.ts\" class=\"file\""),
+            "{page}"
+        );
+        assert!(page.contains("<article id=\"src/x_y.ts:1\" class=\"finding\">"));
+        assert!(page.contains("<article id=\"src/x_y.ts:42\" class=\"finding\">"));
+        let page = page_of(&again);
+        assert!(
+            page.contains("<article id=\"src/x_y.ts:1-2\" class=\"finding\">"),
+            "{page}"
+        );
+    }
+
+    #[test]
+    fn every_file_ends_with_a_way_back_to_the_top() {
+        let outcome = outcome_of(&[
+            (RuleId::LongFunction, "a.ts"),
+            (RuleId::LongFunction, "b.ts"),
+        ]);
+        let page = page_of(&outcome);
+        assert_eq!(page.matches("<a href=\"#top\">Back to top</a>").count(), 2);
+    }
+
+    #[test]
+    fn an_empty_report_says_what_happened() {
+        let outcome = outcome_with(&[], 3);
+        let page = page_of(&outcome);
+        assert!(
+            page.contains("No findings \u{2014} every scanned file passed."),
+            "{page}"
+        );
+        assert!(!page.contains("id=\"families\""), "nothing to break down");
+        assert_well_formed(&page);
+
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 1);
+        let mut report = Report::scan(&outcome, &FindingFilter::default());
+        report.findings.clear();
+        assert!(rendered(&report).contains("narrowed to none of them"));
+    }
+
+    #[test]
+    fn a_waived_table_names_its_rows() {
+        let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 1);
+        let finding = outcome.findings[0].clone();
+        outcome.suppressed.push(rqx_core::suppress::Suppressed {
+            at: finding.location.clone(),
+            finding,
+            reason: None,
+            until: None,
+        });
+        let page = page_of(&outcome);
+        assert!(
+            page.contains("<th scope=\"row\">long-function</th>"),
+            "{page}"
+        );
+        assert!(page.contains("href=\"#waived\""));
+    }
+
+    #[test]
+    fn the_style_prints_light_and_keeps_findings_whole() {
+        assert!(STYLE.contains("@media print{"));
+        assert!(STYLE.contains(".finding{break-inside:avoid}"));
+        assert!(STYLE.contains(":focus-visible{outline:2px solid var(--accent)"));
+        assert!(STYLE.contains("max-width:1040px"));
     }
 
     #[test]
