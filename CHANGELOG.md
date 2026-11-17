@@ -145,6 +145,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   line index of its file every time, so a module with dozens of dead exports paid for
   the same index dozens of times.
 
+- **The stages after the walk run side by side.** Duplicate detection, the import
+  graph and git history no longer wait for one another, so the 250 ms a scan spent
+  reading history on a 4,440-file tree now overlaps the import graph. Results are
+  unchanged and come out in the same order. With `--timings`, the stage times show
+  what the scan was waiting on at that point, so a stage that finished while an earlier
+  one was still running shows no time of its own.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**
