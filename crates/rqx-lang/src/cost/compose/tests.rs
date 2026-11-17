@@ -10,7 +10,7 @@ use rqx_core::cost::{
 use rqx_core::facts::{ExportKind, ExportedSymbol, ImportRequest, ModuleFacts};
 use rqx_core::span::Span;
 
-use super::{Unit, compose};
+use super::{CallLinks, Reached, Unit, compose_linked};
 use crate::cost::tables::CostTables;
 use crate::module_graph::ResolvedRequests;
 
@@ -154,6 +154,10 @@ fn resolved(requests: &mut ResolvedRequests, importer: &str, request: usize, tar
 }
 
 fn summarise(files: &[File], requests: &ResolvedRequests) -> Summaries {
+    summarise_linked(files, requests).0
+}
+
+fn summarise_linked(files: &[File], requests: &ResolvedRequests) -> (Summaries, CallLinks) {
     let units: Vec<Unit<'_>> = files
         .iter()
         .map(|file| Unit {
@@ -163,7 +167,7 @@ fn summarise(files: &[File], requests: &ResolvedRequests) -> Summaries {
             cost: &file.cost,
         })
         .collect();
-    compose(&units, requests, &CostTables::built_in(), true)
+    compose_linked(&units, requests, &CostTables::built_in(), true)
 }
 
 fn summary<'s>(all: &'s Summaries, file: &File, qual: &str) -> &'s Summary {
@@ -790,4 +794,29 @@ fn the_answer_does_not_depend_on_the_order_the_files_arrive_in() {
         summarise(&forward, &requests),
         summarise(&backward, &requests)
     );
+}
+
+#[test]
+fn each_call_is_linked_to_the_functions_that_cost_something() {
+    let mut outer = function("outer", 100, &["items"]);
+    let costly = outer.calling(local("scan"), &[ArgSize::Param(0)]);
+    let cheap = outer.calling(local("trim"), &[ArgSize::Param(0)]);
+    let outer = outer.looping(0, Cost::Seq(vec![costly, cheap]));
+    let trim = function("trim", 50, &["items"]);
+    let files = [file("a.ts", vec![walk("scan", 10), trim, outer])];
+
+    let (_, links) = summarise_linked(&files, &ResolvedRequests::new());
+
+    let reached = links.of_function("a.ts", 100);
+    assert_eq!(reached.len(), 2);
+    assert_eq!(
+        reached[0],
+        [Reached {
+            file: "a.ts".to_owned(),
+            start: 10,
+            guessed: false
+        }]
+    );
+    assert!(reached[1].is_empty(), "a constant callee is not a step");
+    assert!(links.of_function("a.ts", 10).is_empty());
 }

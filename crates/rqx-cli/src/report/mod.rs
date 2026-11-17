@@ -562,7 +562,7 @@ pub mod tests {
             lines_by_file: BTreeMap::new(),
             shape_by_file: BTreeMap::new(),
             summaries: Default::default(),
-            cost_inputs: None,
+            cost_facts: None,
             suppressed: Vec::new(),
             baseline_size: None,
             timings: Vec::new(),

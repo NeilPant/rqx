@@ -11,7 +11,7 @@ mod solve;
 #[cfg(test)]
 mod tests;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use rqx_core::cost::{
@@ -53,8 +53,19 @@ pub fn summarise(
     tables: &CostTables,
     complete: bool,
 ) -> Summaries {
+    summarise_linked(files, root, tables, complete).0
+}
+
+/// [`summarise`], and with each summary the functions its calls were taken to reach, so
+/// that the way a cost came about can be followed from one function into the next.
+pub fn summarise_linked(
+    files: &[Analysed<'_>],
+    root: &Path,
+    tables: &CostTables,
+    complete: bool,
+) -> (Summaries, CallLinks) {
     if files.iter().all(|file| file.cost.is_empty()) {
-        return Summaries::new(complete);
+        return (Summaries::new(complete), CallLinks::default());
     }
     let units: Vec<Unit<'_>> = files
         .iter()
@@ -66,7 +77,7 @@ pub fn summarise(
         })
         .collect();
     let requests = requests_of(files, &units, root);
-    compose(&units, &requests, tables, complete)
+    compose_linked(&units, &requests, tables, complete)
 }
 
 /// The import requests the composition may follow, resolved per language family because
@@ -174,6 +185,16 @@ pub fn compose(
     tables: &CostTables,
     complete: bool,
 ) -> Summaries {
+    compose_linked(units, requests, tables, complete).0
+}
+
+/// [`compose`], with the functions each call reaches.
+pub fn compose_linked(
+    units: &[Unit<'_>],
+    requests: &ResolvedRequests,
+    tables: &CostTables,
+    complete: bool,
+) -> (Summaries, CallLinks) {
     let mut ordered: Vec<&Unit<'_>> = units.iter().collect();
     ordered.sort_by(|left, right| left.name.cmp(right.name));
     let mut graph = Graph::new(ordered, requests, tables);
@@ -198,6 +219,7 @@ pub fn compose(
         }
     }
 
+    let links = CallLinks::of(&graph, &done);
     let mut summaries = Summaries::new(complete);
     for (node, answer) in done.into_iter().enumerate() {
         let Some(answer) = answer else { continue };
@@ -214,7 +236,64 @@ pub fn compose(
             },
         );
     }
-    summaries
+    (summaries, links)
+}
+
+/// A function a call may reach, named the way [`Summaries`] names it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reached {
+    pub file: String,
+    pub start: u32,
+    /// Which function was meant was settled by a name alone.
+    pub guessed: bool,
+}
+
+/// For each function that makes calls, the functions each call may reach, by file and by
+/// where the function starts. A call that reaches nothing that costs anything is empty,
+/// and a function none of whose calls reach anything is left out.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CallLinks {
+    functions: BTreeMap<String, BTreeMap<u32, Vec<Vec<Reached>>>>,
+}
+
+impl CallLinks {
+    fn of(graph: &Graph<'_>, done: &[Option<Done>]) -> Self {
+        let mut links = Self::default();
+        for (node, calls) in graph.calls.iter().enumerate() {
+            let reached: Vec<Vec<Reached>> = calls
+                .iter()
+                .map(|callees| {
+                    callees
+                        .nodes
+                        .iter()
+                        .filter(|callee| done[**callee].as_ref().is_some_and(|d| !d.is_constant()))
+                        .map(|callee| Reached {
+                            file: graph.file_of(*callee).to_owned(),
+                            start: graph.nodes[*callee].function.start,
+                            guessed: callees.guessed,
+                        })
+                        .collect()
+                })
+                .collect();
+            if reached.iter().all(Vec::is_empty) {
+                continue;
+            }
+            links
+                .functions
+                .entry(graph.file_of(node).to_owned())
+                .or_default()
+                .insert(graph.nodes[node].function.start, reached);
+        }
+        links
+    }
+
+    /// What each call of the function, in the order the function lists them, may reach.
+    pub fn of_function(&self, file: &str, start: u32) -> &[Vec<Reached>] {
+        self.functions
+            .get(file)
+            .and_then(|functions| functions.get(&start))
+            .map_or(&[], Vec::as_slice)
+    }
 }
 
 /// The answer for each member of a strongly connected component, in the members' order.

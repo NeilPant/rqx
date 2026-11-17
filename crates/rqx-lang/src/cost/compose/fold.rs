@@ -27,7 +27,7 @@ pub struct Done {
 }
 
 impl Done {
-    fn is_constant(&self) -> bool {
+    pub fn is_constant(&self) -> bool {
         self.time.is_one() && self.space.is_one() && self.io.is_none() && self.stack.is_one()
     }
 }

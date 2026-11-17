@@ -144,7 +144,7 @@ pub struct ScanOutcome {
     pub summaries: rqx_core::cost::Summaries,
     /// The facts the summaries were composed from, when the caller asked for them or the
     /// configuration reads them.
-    pub cost_inputs: Option<CostInputs>,
+    pub cost_facts: Option<CostFacts>,
     /// Findings a waiver in the source asked rqx to leave out of the count. Kept so
     /// every waiver can be audited in one place rather than only being obeyed.
     pub suppressed: Vec<rqx_core::suppress::Suppressed>,
@@ -287,6 +287,7 @@ struct Staged {
     cycles: Vec<Vec<String>>,
     importers: Vec<(Arc<str>, u32)>,
     summaries: Option<rqx_core::cost::Summaries>,
+    call_links: Option<rqx_lang::cost::compose::CallLinks>,
     commits: Vec<(Arc<str>, u32)>,
     blames: u32,
     git_commands: Vec<String>,
@@ -310,16 +311,51 @@ pub struct CostFile {
     pub cost: rqx_core::cost::FileCost,
 }
 
-/// The cost facts of every file a scan read, beside the modules they were read from.
-/// Kept only for a caller that composes them again, as a review does with the files
-/// of the base revision, so a scan that has no such caller does not hold them.
-pub struct CostInputs {
+/// The cost facts of every file a scan read, beside the modules they were read from, the
+/// functions each call was taken to reach and the tables the facts index. A summary says
+/// what a function costs and these say why. Kept only for a caller that reads them: a
+/// review composes them again against the base revision, and the performance report
+/// explains a cost from them. A scan that has no such caller does not hold them.
+pub struct CostFacts {
     pub modules: Vec<rqx_lang::module_graph::ModuleEntry>,
     /// The cost facts of the file at the same position in `modules`.
     pub costs: Vec<CostFile>,
+    pub links: rqx_lang::cost::compose::CallLinks,
+    /// The tables the facts were extracted against. A library call in the facts is an
+    /// index into them, so reading it back needs the same ones.
+    #[allow(dead_code)]
+    pub tables: Arc<rqx_lang::cost::tables::CostTables>,
 }
 
-impl CostInputs {
+impl Default for CostFacts {
+    fn default() -> Self {
+        Self {
+            modules: Vec::new(),
+            costs: Vec::new(),
+            links: rqx_lang::cost::compose::CallLinks::default(),
+            tables: rqx_lang::cost::tables::CostTables::built_in(),
+        }
+    }
+}
+
+impl CostFacts {
+    /// The facts of the file findings call `name`.
+    #[allow(dead_code)]
+    pub fn of_file(&self, name: &str) -> Option<&rqx_core::cost::FileCost> {
+        self.costs
+            .iter()
+            .find(|file| &*file.name == name)
+            .map(|file| &file.cost)
+    }
+
+    #[allow(dead_code)]
+    pub fn function(&self, file: &str, start: u32) -> Option<&rqx_core::cost::FunctionCost> {
+        self.of_file(file)?
+            .functions
+            .iter()
+            .find(|function| function.start == start)
+    }
+
     pub fn files(&self) -> impl Iterator<Item = rqx_lang::cost::compose::Analysed<'_>> {
         self.modules.iter().zip(&self.costs).map(|(module, file)| {
             rqx_lang::cost::compose::Analysed {
@@ -338,8 +374,25 @@ pub(crate) struct Comparison {
     /// The functions of the base revision, when the scan is a review that compares
     /// with them.
     pub reference: Option<Arc<crate::reimplemented::Reference>>,
-    /// Keep the cost facts in the outcome, for a caller that composes them again.
+    /// Keep the cost facts in the outcome, for a caller that reads them again.
     pub keep_costs: bool,
+}
+
+impl Comparison {
+    /// A scan that keeps the cost facts, for the performance report and `--explain`.
+    #[allow(dead_code)]
+    pub fn costed() -> Self {
+        Self {
+            reference: None,
+            keep_costs: true,
+        }
+    }
+
+    /// Whether the scan keeps the cost facts: when the request asks for them, or when
+    /// the configuration holds a limit that reads them.
+    fn keeps_costs(&self, settings: &Resolved) -> bool {
+        self.keep_costs || settings.config.performance.max_order.is_some()
+    }
 }
 
 /// Findings are capped for display while `counts` stays exact, because a health
@@ -384,7 +437,8 @@ struct Collector {
     costs: Vec<CostFile>,
     summaries: rqx_core::cost::Summaries,
     keep_costs: bool,
-    cost_inputs: Option<CostInputs>,
+    call_links: rqx_lang::cost::compose::CallLinks,
+    cost_facts: Option<CostFacts>,
     analyzed: std::collections::BTreeSet<String>,
     impact: ImpactMap,
     import_edges: std::collections::BTreeMap<String, Vec<String>>,
@@ -443,7 +497,8 @@ impl Collector {
             costs: Vec::new(),
             summaries: rqx_core::cost::Summaries::default(),
             keep_costs: false,
-            cost_inputs: None,
+            call_links: rqx_lang::cost::compose::CallLinks::default(),
+            cost_facts: None,
             analyzed: std::collections::BTreeSet::new(),
             impact: ImpactMap::default(),
             import_edges: std::collections::BTreeMap::new(),
@@ -494,6 +549,9 @@ impl Collector {
         self.cycles.extend(staged.cycles);
         if let Some(summaries) = staged.summaries {
             self.summaries = summaries;
+        }
+        if let Some(links) = staged.call_links {
+            self.call_links = links;
         }
         for (file, importers) in staged.importers {
             self.impact.set_importers(file, importers);
@@ -1604,16 +1662,25 @@ impl Collector {
     /// What each function costs with its callees folded in, over every file the walk
     /// collected. `complete` says whether the walk covered the project or only part of it.
     fn cost_summaries(
-        inputs: &CostInputs,
+        inputs: &CostFacts,
         root: &Path,
         tables: &rqx_lang::cost::tables::CostTables,
         complete: bool,
+        keep: bool,
     ) -> Staged {
         let files: Vec<rqx_lang::cost::compose::Analysed<'_>> = inputs.files().collect();
+        if !keep {
+            let summaries = rqx_lang::cost::compose::summarise(&files, root, tables, complete);
+            return Staged {
+                summaries: Some(summaries),
+                ..Staged::default()
+            };
+        }
+        let (summaries, links) =
+            rqx_lang::cost::compose::summarise_linked(&files, root, tables, complete);
         Staged {
-            summaries: Some(rqx_lang::cost::compose::summarise(
-                &files, root, tables, complete,
-            )),
+            summaries: Some(summaries),
+            call_links: Some(links),
             ..Staged::default()
         }
     }
@@ -1643,9 +1710,11 @@ impl Collector {
         let config = &settings.config;
         let clone_groups = std::mem::take(&mut self.clone_groups);
         let ported = std::mem::take(&mut self.ported);
-        let inputs = CostInputs {
+        let mut inputs = CostFacts {
             modules: std::mem::take(&mut self.modules),
             costs: std::mem::take(&mut self.costs),
+            links: rqx_lang::cost::compose::CallLinks::default(),
+            tables: Arc::clone(&settings.cost_tables),
         };
         let todos = std::mem::take(&mut self.todos);
         let shapes = std::mem::take(&mut self.shape_by_file);
@@ -1663,6 +1732,7 @@ impl Collector {
         let inputs_ref = &inputs;
         let reference_ref = reference.as_deref();
         let complete = !root.is_file();
+        let keep_costs = self.keep_costs;
 
         let versioned = thread::scope(|scope| {
             let duplicates = scope.spawn(move || {
@@ -1680,7 +1750,13 @@ impl Collector {
                 ]
             });
             let costed = scope.spawn(move || {
-                Self::cost_summaries(inputs_ref, root, &settings.cost_tables, complete)
+                Self::cost_summaries(
+                    inputs_ref,
+                    root,
+                    &settings.cost_tables,
+                    complete,
+                    keep_costs,
+                )
             });
             let git = scope.spawn(move || {
                 let history = history();
@@ -1716,7 +1792,8 @@ impl Collector {
         self.shape_by_file = shapes;
         self.analyzed = analyzed;
         self.coverage = coverage;
-        self.cost_inputs = self.keep_costs.then_some(inputs);
+        inputs.links = std::mem::take(&mut self.call_links);
+        self.cost_facts = self.keep_costs.then_some(inputs);
         versioned
     }
 
@@ -1810,7 +1887,7 @@ impl Collector {
             lines_by_file: self.lines_by_file,
             shape_by_file: self.shape_by_file,
             summaries: self.summaries,
-            cost_inputs: self.cost_inputs,
+            cost_facts: self.cost_facts,
             suppressed: self.suppressed,
             baseline_size: self.baseline_findings,
             timings: self.timings,
@@ -2214,8 +2291,8 @@ pub(crate) fn collect_against(
     collector.baseline = settings.baseline.clone();
     collector.baseline_findings = settings.baseline_findings;
     collector.root = root.to_path_buf();
+    collector.keep_costs = comparison.keeps_costs(settings);
     collector.reference = comparison.reference;
-    collector.keep_costs = comparison.keep_costs || settings.config.performance.max_order.is_some();
     for message in receiver {
         match message {
             ScanMessage::File(file) => {

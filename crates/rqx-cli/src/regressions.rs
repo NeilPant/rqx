@@ -12,7 +12,7 @@ use rqx_core::cost::{Conf, FileCost, FunctionCost, Order, Summaries, TraceStep};
 use rqx_lang::module_graph::ModuleEntry;
 
 use crate::config::Resolved;
-use crate::scan::{CostInputs, ScanOutcome};
+use crate::scan::{CostFacts, ScanOutcome};
 
 const NO_BASE: &str = "there is no base revision to compare with";
 const INCOMPLETE: &str = "the scan did not read the whole project, so a callee in a file it skipped would be costed as constant";
@@ -114,7 +114,7 @@ impl Regressions {
         settings: &Resolved,
     ) -> Self {
         let gate = settings.config.gate.complexity_regression;
-        let state = match (&head.cost_inputs, head.summaries.complete) {
+        let state = match (&head.cost_facts, head.summaries.complete) {
             (None, _) => State::Skipped(NO_FACTS),
             (Some(_), false) => State::Skipped(INCOMPLETE),
             (Some(inputs), true) => State::Found(regressions(
@@ -156,7 +156,7 @@ impl BaseFiles {
     fn read(
         held: &BTreeMap<String, String>,
         changed: &BTreeSet<String>,
-        inputs: &CostInputs,
+        inputs: &CostFacts,
         settings: &Resolved,
     ) -> Self {
         let paths: BTreeMap<&str, &Path> = inputs
@@ -216,7 +216,7 @@ fn sole_names<'a>(names: impl Iterator<Item = &'a str>) -> BTreeSet<String> {
 
 fn regressions(
     head: &ScanOutcome,
-    inputs: &CostInputs,
+    inputs: &CostFacts,
     base: &BaseFiles,
     root: &Path,
     settings: &Resolved,
@@ -254,7 +254,7 @@ fn regressions(
 /// Every function of the project's summary, with the changed files as they were at the
 /// base revision and a file the change added left out.
 fn base_summaries(
-    inputs: &CostInputs,
+    inputs: &CostFacts,
     base: &BaseFiles,
     root: &Path,
     settings: &Resolved,
@@ -399,10 +399,7 @@ mod tests {
     #[test]
     fn a_scan_that_did_not_read_the_whole_project_compares_nothing() {
         let mut head = crate::report::tests::outcome_with(&[], 1);
-        head.cost_inputs = Some(CostInputs {
-            modules: Vec::new(),
-            costs: Vec::new(),
-        });
+        head.cost_facts = Some(CostFacts::default());
         head.summaries = Summaries::new(false);
         let settings = Resolved::of(rqx_core::config::RqxConfig::default());
 

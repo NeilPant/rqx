@@ -337,7 +337,7 @@ struct Over<'a> {
 }
 
 fn functions_over<'a>(outcome: &'a ScanOutcome, scope: &Scope<'_>, limit: &Order) -> Vec<Over<'a>> {
-    let Some(inputs) = &outcome.cost_inputs else {
+    let Some(inputs) = &outcome.cost_facts else {
         return Vec::new();
     };
     let mut over: Vec<Over<'a>> = inputs
@@ -1239,13 +1239,10 @@ mod gates {
     }
 
     fn with_function(outcome: &mut ScanOutcome, file: &str, qual: &str, time: &str, conf: Conf) {
-        use crate::scan::{CostFile, CostInputs};
+        use crate::scan::{CostFacts, CostFile};
         use rqx_core::cost::{FileCost, FunctionCost, Summary};
 
-        let inputs = outcome.cost_inputs.get_or_insert_with(|| CostInputs {
-            modules: Vec::new(),
-            costs: Vec::new(),
-        });
+        let inputs = outcome.cost_facts.get_or_insert_with(CostFacts::default);
         let start = inputs.costs.len() as u32 * 100;
         inputs.costs.push(CostFile {
             name: Arc::from(file),
