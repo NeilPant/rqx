@@ -84,10 +84,27 @@ rqx perf --profile cpu.pprof
 rqx scan . --profile run.cpuprofile
 ```
 
-Three formats are recognised by their content, not by file extension: a V8 or Chrome
-`.cpuprofile`, a Go pprof, and collapsed stacks as py-spy, async-profiler and `perf`
-produce them. Several profile files are merged. A file that cannot be read is skipped
-with a warning, and the scan continues.
+Five formats are recognised by their content, not by file extension:
+
+- a V8 or Chrome `.cpuprofile`;
+- a Go pprof;
+- a speedscope JSON file, either `sampled` profiles (stacks with weights) or `evented`
+  profiles (open and close events, folded into stacks weighted by the time each was
+  open). A file is a speedscope file when its `$schema` names speedscope or it has a
+  `shared.frames` array;
+- the text that `jfr print --events jdk.ExecutionSample recording.jfr` writes. Each
+  event is one sample, and a frame's class gives its file, so `com.acme.Billing` is
+  matched as `com/acme/Billing.java` under any source root;
+- collapsed stacks as py-spy, async-profiler and `perf` produce them. async-profiler
+  frames in `com/acme/Billing.method` or `com.acme.Billing.method` form are matched to
+  the same file, and to the line when the profile was recorded with line numbers.
+
+A binary `.jfr` recording is not read. Convert it with
+`jfr print --events jdk.ExecutionSample` and pass the text. rqx reports this on
+standard error and skips the file.
+
+Several profile files are merged. A file that cannot be read, including a truncated
+one, is skipped with a warning, and the scan continues.
 
 A performance finding in a function that the profile never put on the stack is kept,
 but its confidence drops to `low`. A `low` confidence finding is shown and does not

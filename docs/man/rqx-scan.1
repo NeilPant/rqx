@@ -16,7 +16,7 @@ Append design pattern advice for the same files
 A coverage file that can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content
 .TP
 \fB\-\-profile\fR \fI<FILE>\fR
-A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
+A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content
 .TP
 \fB\-\-sarif\-in\fR \fI<FILE>\fR
 A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score

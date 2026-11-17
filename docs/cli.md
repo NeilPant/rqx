@@ -112,7 +112,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
-| `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content |
+| `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
 | `--max-findings` | Maximum number of findings listed; 0 lists every finding. Does not affect the health score |
 | `--record` | Append a snapshot of this scan's health to a trend file. Without a path it writes to `.rqx/trend.ndjson` |
@@ -145,7 +145,7 @@ Post the review as a comment on its merge request, and grade the commit
 | `--min-grade` | Lowest grade any single file may carry |
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
-| `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content |
+| `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
 | `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
@@ -440,7 +440,7 @@ Report code whose work grows faster than its input, ranked by reach
 | `--by` | One row per function, per file, or per directory |
 | `--top` | How many rows |
 | `--min-depth` | Skip entries whose loops nest less deeply than this |
-| `--profile` | A CPU profile; a finding in code that nothing ran stops counting. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content |
+| `--profile` | A CPU profile; a finding in code that nothing ran stops counting. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--json` | Emit one JSON object per row |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
@@ -572,7 +572,7 @@ Analyze a project and report every finding
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--advice` | Append design pattern advice for the same files |
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
-| `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content |
+| `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
 | `--max-findings` | Maximum number of findings listed; 0 lists every finding. Does not affect the health score |
 | `--watch` | Rescan whenever a file changes, until interrupted |

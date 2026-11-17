@@ -1,0 +1,3 @@
+java/lang/Thread.run_[j];rqx/Main.run_[j];rqx/Performance.keepWanted_[j];java/util/ArrayList.contains_[j];java/util/ArrayList.indexOf_[j] 30
+java/lang/Thread.run_[j];rqx/Main.run_[j];rqx/Performance.sumCube_[j] 20
+java/lang/Thread.run_[j];rqx/Main.run_[j];rqx/Performance.queryEach_[j];java/util/ArrayList.add_[j] 6

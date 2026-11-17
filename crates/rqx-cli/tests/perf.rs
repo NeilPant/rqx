@@ -50,15 +50,18 @@ fn project(name: &str) -> PathBuf {
     root
 }
 
-fn rows(root: &Path, args: &[&str]) -> Vec<serde_json::Value> {
-    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+fn perf(root: &Path, args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_rqx"))
         .arg("perf")
         .arg(root)
         .args(args)
         .arg("--json")
         .output()
-        .expect("failed to run rqx");
-    String::from_utf8(output.stdout)
+        .expect("failed to run rqx")
+}
+
+fn rows(root: &Path, args: &[&str]) -> Vec<serde_json::Value> {
+    String::from_utf8(perf(root, args).stdout)
         .expect("utf-8")
         .lines()
         .map(|line| serde_json::from_str(line).expect("a row"))
@@ -119,5 +122,93 @@ fn a_finding_the_profile_never_reached_drops_to_low() {
         "the profile put this one on the stack"
     );
     assert_eq!(nested["evidence"]["sampled"], 1000);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A speedscope file names a frame by file and line, and a file that stops halfway is
+/// reported and skipped without costing the scan the profiles that did read.
+#[test]
+fn a_speedscope_profile_is_read_and_a_truncated_one_is_skipped() {
+    let root = project("speedscope");
+    std::fs::write(
+        root.join("run.speedscope.json"),
+        r#"{"$schema": "https://www.speedscope.app/file-format-schema.json",
+        "shared": {"frames": [{"name": "sumCube", "file": "hot.ts", "line": 5}]},
+        "profiles": [{"type": "sampled", "unit": "none", "samples": [[0], [0]]}]}"#,
+    )
+    .expect("the speedscope profile");
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/profiles/truncated.speedscope.json"),
+        root.join("truncated.speedscope.json"),
+    )
+    .expect("the truncated profile");
+
+    let output = perf(
+        &root,
+        &[
+            "--profile",
+            "truncated.speedscope.json",
+            "--profile",
+            "run.speedscope.json",
+        ],
+    );
+    let stderr = String::from_utf8(output.stderr).expect("utf-8");
+    assert!(
+        stderr.contains("skipping profile") && stderr.contains("truncated.speedscope.json"),
+        "{stderr}"
+    );
+    let with = rows(
+        &root,
+        &[
+            "--profile",
+            "truncated.speedscope.json",
+            "--profile",
+            "run.speedscope.json",
+        ],
+    );
+    assert_eq!(with[0]["name"], "sumCube");
+    assert_eq!(with[0]["sampled"]["inclusive"], 1000);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+fn profile_fixture(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/profiles")
+        .join(name)
+}
+
+/// `jfr print` names a frame by class and line, and the class is what says which
+/// file the samples belong to.
+#[test]
+fn a_jfr_text_dump_places_samples_in_the_java_file_its_class_came_from() {
+    let java = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/java");
+    let dump = profile_fixture("java.jfr.txt");
+    let with = rows(&java, &["--profile", dump.to_str().expect("a path")]);
+    let sum_cube = with
+        .iter()
+        .find(|row| row["name"] == "sumCube")
+        .expect("the cubic loop");
+    assert_eq!(sum_cube["sampled"]["inclusive"], 333);
+}
+
+#[test]
+fn a_binary_jfr_recording_is_skipped_with_the_conversion_that_reads_it() {
+    let root = project("native-jfr");
+    std::fs::write(root.join("run.jfr"), b"FLR\0\0\x02\0\x01").expect("the recording");
+    let output = perf(
+        &root,
+        &["--profile", "run.jfr", "--profile", "run.cpuprofile"],
+    );
+    let stderr = String::from_utf8(output.stderr).expect("utf-8");
+    assert!(
+        stderr.contains("skipping profile")
+            && stderr.contains("jfr print --events jdk.ExecutionSample"),
+        "{stderr}"
+    );
+    assert!(
+        output.status.success(),
+        "the profile that did read is still used"
+    );
     let _ = std::fs::remove_dir_all(&root);
 }

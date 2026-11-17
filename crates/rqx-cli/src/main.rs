@@ -498,7 +498,8 @@ enum Command {
         #[arg(long, default_value_t = 0)]
         min_depth: u32,
         /// A CPU profile; a finding in code that nothing ran stops counting. A V8
-        /// .cpuprofile, a Go pprof and collapsed stacks are detected by content.
+        /// .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are
+        /// detected by content.
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         profile: Vec<PathBuf>,
         /// Emit one JSON object per row
@@ -920,7 +921,8 @@ struct Evidence {
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     coverage: Vec<PathBuf>,
     /// A CPU profile that can contradict a performance finding. A V8
-    /// .cpuprofile, a Go pprof and collapsed stacks are detected by content.
+    /// .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are
+    /// detected by content.
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     profile: Vec<PathBuf>,
     /// A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings

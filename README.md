@@ -792,9 +792,10 @@ $ rqx perf --top 2
 
 `order` is the loop order and is not proof of cost: three nested loops over three
 items are cheap. A CPU profile can settle it. `--profile cpu.pprof` reads a V8
-`.cpuprofile`, a Go pprof or collapsed stacks by content. A performance finding in a
-function the run never put on the stack keeps its finding and stops counting, in the
-same way a covered symbol stops counting as dead code.
+`.cpuprofile`, a Go pprof, speedscope JSON, `jfr print` text or collapsed stacks by
+content. A performance finding in a function the run never put on the stack keeps its
+finding and stops counting, in the same way a covered symbol stops counting as dead
+code.
 
 Some rules rely on names, which are weak evidence, so those rules are `heuristic` and
 never `error`. A receiver that is already keyed (a `Set`, a `Map`, anything named

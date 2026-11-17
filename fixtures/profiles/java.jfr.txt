@@ -1,0 +1,67 @@
+jdk.ExecutionSample {
+  startTime = 14:02:11.318 (2026-11-17)
+  sampledThread = "main" (javaThreadId = 1)
+  state = "STATE_RUNNABLE"
+  stackTrace = [
+    java.util.ArrayList.indexOf(Object) line: 311
+    java.util.ArrayList.contains(Object) line: 295
+    rqx.Performance.keepWanted(List, List) line: 28
+    rqx.Main.run() line: 12
+  ]
+}
+
+jdk.ExecutionSample {
+  startTime = 14:02:11.338 (2026-11-17)
+  sampledThread = "main" (javaThreadId = 1)
+  state = "STATE_RUNNABLE"
+  stackTrace = [
+    java.util.ArrayList.indexOf(Object) line: 311
+    java.util.ArrayList.contains(Object) line: 295
+    rqx.Performance.keepWanted(List, List) line: 28
+    rqx.Main.run() line: 12
+  ]
+}
+
+jdk.ExecutionSample {
+  startTime = 14:02:11.358 (2026-11-17)
+  sampledThread = "main" (javaThreadId = 1)
+  state = "STATE_RUNNABLE"
+  stackTrace = [
+    java.util.ArrayList.indexOf(Object) line: 313
+    java.util.ArrayList.contains(Object) line: 295
+    rqx.Performance.keepWanted(List, List) line: 28
+    rqx.Main.run() line: 12
+  ]
+}
+
+jdk.ExecutionSample {
+  startTime = 14:02:11.378 (2026-11-17)
+  sampledThread = "main" (javaThreadId = 1)
+  state = "STATE_RUNNABLE"
+  stackTrace = [
+    rqx.Performance.sumCube(int[][][]) line: 40
+    rqx.Main.run() line: 13
+  ]
+}
+
+jdk.ExecutionSample {
+  startTime = 14:02:11.398 (2026-11-17)
+  sampledThread = "main" (javaThreadId = 1)
+  state = "STATE_RUNNABLE"
+  stackTrace = [
+    rqx.Performance.sumCube(int[][][]) line: 40
+    rqx.Main.run() line: 13
+  ]
+}
+
+jdk.ExecutionSample {
+  startTime = 14:02:11.418 (2026-11-17)
+  sampledThread = "main" (javaThreadId = 1)
+  state = "STATE_RUNNABLE"
+  stackTrace = [
+    java.util.ArrayList.add(Object) line: 467
+    rqx.Performance.queryEach(List) line: 50
+    rqx.Main.run() line: 14
+    ...
+  ]
+}

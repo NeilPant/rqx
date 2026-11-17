@@ -1,0 +1,25 @@
+{
+  "$schema": "https://www.speedscope.app/file-format-schema.json",
+  "name": "performance.ts",
+  "activeProfileIndex": 0,
+  "exporter": "speedscope@1.20.0",
+  "shared": {
+    "frames": [
+      { "name": "queryEach", "file": "file:///fixtures/typescript/performance.ts", "line": 28, "col": 1 },
+      { "name": "sumCube", "file": "file:///fixtures/typescript/performance.ts", "line": 18, "col": 5 },
+      { "name": "fibonacci", "file": "file:///fixtures/typescript/performance.ts", "line": 62, "col": 3 },
+      { "name": "(program)" }
+    ]
+  },
+  "profiles": [
+    {
+      "type": "sampled",
+      "name": "main thread",
+      "unit": "milliseconds",
+      "startValue": 0,
+      "endValue": 12,
+      "samples": [[0, 1], [1], [2], [3]],
+      "weights": [6, 3, 1, 2]
+    }
+  ]
+}

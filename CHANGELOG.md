@@ -16,6 +16,13 @@ them. `tools/release.sh` turns that section into the release notes.
   `gate.complexity_regression` (`off`, `warning` or `error`, default `off`) sets how a
   growth in order will count against `rqx check`. The keys are validated, with the line
   and column of a mistake, and are not yet read by any rule or report.
+- **`--profile` reads speedscope and JFR profiles.** A speedscope JSON file is detected
+  by its `$schema` or its `shared.frames` array, in both its `sampled` and `evented`
+  forms. The text from `jfr print --events jdk.ExecutionSample` is read as one sample
+  per event, and a frame's class gives its file. async-profiler collapsed stacks with
+  Java frames in slash or dot form are matched to the same file, and to the line when
+  they carry one. A binary `.jfr` file is skipped with an error that names the
+  `jfr print` conversion. See `docs/perf.md`.
 - **`rqx check --staged`.** Reviews what `git commit` would record. The staged files are
   read from the index and analysed in a temporary copy of the repository, so unstaged
   edits do not change the verdict. Every other file is read from the working tree.
