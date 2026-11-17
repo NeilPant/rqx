@@ -1,7 +1,7 @@
 // Seed functions for the complexity precision corpus. Each annotation is the
 // ground truth the inference is scored against; `space` counts the call stack.
 
-// @complexity time=O(n) space=O(1) conf=verified
+// @complexity time=O(n) space=O(1) conf=verified scope=local
 export function sumAll(values: number[]): number {
   let total = 0;
   for (const value of values) {
@@ -10,7 +10,7 @@ export function sumAll(values: number[]): number {
   return total;
 }
 
-// @complexity time=O(n^2) space=O(1) conf=verified
+// @complexity time=O(n^2) space=O(1) conf=verified scope=local
 export function hasDuplicate(values: number[]): boolean {
   for (let i = 0; i < values.length; i++) {
     for (let j = i + 1; j < values.length; j++) {
@@ -22,7 +22,7 @@ export function hasDuplicate(values: number[]): boolean {
   return false;
 }
 
-// @complexity time=O(n^2) space=O(n) conf=verified rule=linear-op-in-loop
+// @complexity time=O(n^2) space=O(n) conf=verified rule=linear-op-in-loop scope=local
 export function dedupeWithIncludes(values: number[]): number[] {
   const unique: number[] = [];
   for (const value of values) {
@@ -33,7 +33,7 @@ export function dedupeWithIncludes(values: number[]): number[] {
   return unique;
 }
 
-// @complexity time=O(n) space=O(n) conf=verified none=linear-op-in-loop
+// @complexity time=O(n) space=O(n) conf=verified none=linear-op-in-loop scope=local
 export function dedupeWithSet(values: number[]): number[] {
   const seen = new Set<number>();
   const unique: number[] = [];
@@ -46,7 +46,7 @@ export function dedupeWithSet(values: number[]): number[] {
   return unique;
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified
+// @complexity time=O(n*m) space=O(1) conf=verified scope=local
 export function countMatches(left: string[], right: string[]): number {
   let matches = 0;
   for (const a of left) {
@@ -59,7 +59,7 @@ export function countMatches(left: string[], right: string[]): number {
   return matches;
 }
 
-// @complexity time=O(log n) space=O(1) conf=verified
+// @complexity time=O(log n) space=O(1) conf=verified scope=local
 export function binarySearch(sorted: number[], target: number): number {
   let low = 0;
   let high = sorted.length - 1;

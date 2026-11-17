@@ -4,7 +4,7 @@ package corpus
 
 import "sort"
 
-// @complexity time=O(n) space=O(1) conf=verified
+// @complexity time=O(n) space=O(1) conf=verified scope=local
 func SumAll(values []int) int {
 	total := 0
 	for _, value := range values {
@@ -13,7 +13,7 @@ func SumAll(values []int) int {
 	return total
 }
 
-// @complexity time=O(n^2) space=O(1) conf=verified
+// @complexity time=O(n^2) space=O(1) conf=verified scope=local
 func HasDuplicate(values []int) bool {
 	for i := 0; i < len(values); i++ {
 		for j := i + 1; j < len(values); j++ {
@@ -25,7 +25,7 @@ func HasDuplicate(values []int) bool {
 	return false
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified
+// @complexity time=O(n*m) space=O(1) conf=verified scope=local
 func CountMatches(left []string, right []string) int {
 	matches := 0
 	for _, a := range left {
@@ -38,7 +38,7 @@ func CountMatches(left []string, right []string) int {
 	return matches
 }
 
-// @complexity time=O(n log n) space=O(n) conf=verified
+// @complexity time=O(n log n) space=O(n) conf=verified scope=local
 func Median(values []int) int {
 	ordered := make([]int, len(values))
 	copy(ordered, values)

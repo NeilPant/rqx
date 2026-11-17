@@ -7,14 +7,17 @@
 //! `#` replaces `//` in Python. `time` and `space` are orders in the grammar of
 //! `rqx_core::cost::Order`; `space` is the auxiliary space, counting the call stack.
 //! `rule` names a rule that must fire on the function and `none` one that must not.
-//! Values may hold spaces (`O(n log n)`), so a field runs until the next `key=`.
+//! `scope=local` says the time is what the function costs on its own, with no call to
+//! another function and no recursion in it, so the per-file extraction alone can be
+//! held to it. Values may hold spaces (`O(n log n)`), so a field runs until the next
+//! `key=`.
 
 use std::fmt;
 
 use rqx_core::cost::{Conf, Order};
 
 const TAG: &str = "@complexity";
-const KEYS: [&str; 5] = ["time", "space", "conf", "rule", "none"];
+const KEYS: [&str; 6] = ["time", "space", "conf", "rule", "none", "scope"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Annotation {
@@ -27,6 +30,8 @@ pub struct Annotation {
     pub conf: Conf,
     pub rule: Option<String>,
     pub none: Option<String>,
+    /// The time is the function's own, with nothing composed in.
+    pub local: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -145,6 +150,11 @@ fn annotation(line: usize, target_line: usize, fields: &Fields) -> Result<Annota
         conf: required("conf")?.parse()?,
         rule: get("rule").map(str::to_owned),
         none: get("none").map(str::to_owned),
+        local: match get("scope") {
+            None => false,
+            Some("local") => true,
+            Some(other) => return Err(format!("`scope={other}` is not a scope: only `local`")),
+        },
     })
 }
 
@@ -196,6 +206,17 @@ mod tests {
         assert_eq!(found.rule.as_deref(), Some("quadratic-via-call"));
         assert_eq!(found.none.as_deref(), Some("sort-in-loop"));
         assert_eq!((found.line, found.target_line), (1, 2));
+    }
+
+    #[test]
+    fn a_local_scope_is_recorded_and_no_other_is_accepted() {
+        let found = one("// @complexity time=O(n) space=O(1) conf=verified scope=local\nfn() {}\n");
+        assert!(found.local);
+        assert!(!one("// @complexity time=O(n) space=O(1) conf=verified\nfn() {}\n").local);
+        assert!(
+            problem("// @complexity time=O(n) space=O(1) conf=verified scope=global\nf();\n")
+                .contains("`scope=global` is not a scope")
+        );
     }
 
     #[test]

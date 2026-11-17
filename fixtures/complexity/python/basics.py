@@ -2,7 +2,7 @@
 # ground truth the inference is scored against; `space` counts the call stack.
 
 
-# @complexity time=O(n) space=O(1) conf=verified
+# @complexity time=O(n) space=O(1) conf=verified scope=local
 def sum_all(values: list[int]) -> int:
     total = 0
     for value in values:
@@ -10,7 +10,7 @@ def sum_all(values: list[int]) -> int:
     return total
 
 
-# @complexity time=O(n^2) space=O(n) conf=verified rule=linear-op-in-loop
+# @complexity time=O(n^2) space=O(n) conf=verified rule=linear-op-in-loop scope=local
 def dedupe_with_list(values: list[int]) -> list[int]:
     unique: list[int] = []
     for value in values:
@@ -19,7 +19,7 @@ def dedupe_with_list(values: list[int]) -> list[int]:
     return unique
 
 
-# @complexity time=O(n) space=O(n) conf=verified none=linear-op-in-loop
+# @complexity time=O(n) space=O(n) conf=verified none=linear-op-in-loop scope=local
 def dedupe_with_set(values: list[int]) -> list[int]:
     seen: set[int] = set()
     unique: list[int] = []
@@ -30,7 +30,7 @@ def dedupe_with_set(values: list[int]) -> list[int]:
     return unique
 
 
-# @complexity time=O(n*m log m) space=O(m) conf=verified rule=sort-in-loop
+# @complexity time=O(n*m log m) space=O(m) conf=verified rule=sort-in-loop scope=local
 def rank_each(queries: list[int], pool: list[int]) -> list[int]:
     ranked: list[int] = []
     for query in queries:
@@ -39,7 +39,7 @@ def rank_each(queries: list[int], pool: list[int]) -> list[int]:
     return ranked
 
 
-# @complexity time=O(log n) space=O(1) conf=verified
+# @complexity time=O(log n) space=O(1) conf=verified scope=local
 def search(sorted_values: list[int], target: int) -> int:
     low, high = 0, len(sorted_values) - 1
     while low <= high:
