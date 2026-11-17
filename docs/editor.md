@@ -96,7 +96,10 @@ if not configs.rqx then
   configs.rqx = {
     default_config = {
       cmd = { "rqx", "lsp" },
-      filetypes = { "typescript", "typescriptreact", "python", "go", "java", "cpp" },
+      filetypes = {
+        "typescript", "typescriptreact", "javascript", "javascriptreact",
+        "python", "go", "java", "cpp",
+      },
       root_dir = lspconfig.util.root_pattern("RQX.toml", ".git"),
       init_options = { scanOnStartup = true, codeLens = false, patterns = false },
     },
@@ -154,11 +157,15 @@ name = "typescript"
 language-servers = ["typescript-language-server", "rqx"]
 
 [[language]]
+name = "javascript"
+language-servers = ["typescript-language-server", "rqx"]
+
+[[language]]
 name = "python"
 language-servers = ["pylsp", "rqx"]
 ```
 
-Add `rqx` to the `language-servers` list of any of the five languages. It is a second
+Add `rqx` to the `language-servers` list of any of the six languages. It is a second
 opinion alongside the language's own server rather than a replacement: rqx reports
 nothing about types or syntax errors.
 
@@ -183,7 +190,7 @@ With [`sublimelsp/LSP`](https://github.com/sublimelsp/LSP), in `LSP.sublime-sett
     "rqx": {
       "enabled": true,
       "command": ["rqx", "lsp"],
-      "selector": "source.ts | source.tsx | source.python | source.go | source.java | source.c++",
+      "selector": "source.ts | source.tsx | source.js | source.jsx | source.python | source.go | source.java | source.c++",
       "initializationOptions": { "scanOnStartup": true }
     }
   }
@@ -209,7 +216,7 @@ With `eglot`:
 
 ```elisp
 (add-to-list 'eglot-server-programs
-             '((typescript-ts-mode python-ts-mode go-ts-mode java-ts-mode c++-ts-mode)
+             '((typescript-ts-mode js-ts-mode python-ts-mode go-ts-mode java-ts-mode c++-ts-mode)
                . ("rqx" "lsp")))
 
 (defun rqx-command (name)
@@ -233,7 +240,7 @@ In `coc-settings.json`:
     "rqx": {
       "command": "rqx",
       "args": ["lsp"],
-      "filetypes": ["typescript", "typescriptreact", "python", "go", "java", "cpp"],
+      "filetypes": ["typescript", "typescriptreact", "javascript", "javascriptreact", "python", "go", "java", "cpp"],
       "rootPatterns": ["RQX.toml", ".git"],
       "initializationOptions": { "scanOnStartup": true }
     }
@@ -257,7 +264,7 @@ if executable('rqx')
   au User lsp_setup call lsp#register_server({
     \ 'name': 'rqx',
     \ 'cmd': {server_info->['rqx', 'lsp']},
-    \ 'allowlist': ['typescript', 'python', 'go', 'java', 'cpp'],
+    \ 'allowlist': ['typescript', 'javascript', 'python', 'go', 'java', 'cpp'],
     \ 'initialization_options': {'scanOnStartup': v:true},
     \ })
 endif
@@ -270,8 +277,8 @@ endif
   (lsp-register-client
    (make-lsp-client
     :new-connection (lsp-stdio-connection '("rqx" "lsp"))
-    :activation-fn (lsp-activate-on "typescript" "typescriptreact" "python"
-                                    "go" "java" "cpp")
+    :activation-fn (lsp-activate-on "typescript" "typescriptreact" "javascript"
+                                    "javascriptreact" "python" "go" "java" "cpp")
     :add-on? t
     :server-id 'rqx
     :initialization-options
@@ -288,7 +295,7 @@ lsp-mode treats the two as alternatives and starts whichever it finds first.
 [language_server.rqx]
 command = "rqx"
 args = ["lsp"]
-filetypes = ["typescript", "tsx", "python", "go", "java", "cpp"]
+filetypes = ["typescript", "tsx", "javascript", "jsx", "python", "go", "java", "cpp"]
 roots = ["RQX.toml", ".git"]
 
 [language_server.rqx.settings]
@@ -305,7 +312,7 @@ In Kate's **Settings → LSP Client → User Server Settings**:
   "servers": {
     "rqx": {
       "command": ["rqx", "lsp"],
-      "highlightingModeRegex": "^(TypeScript|Python|Go|Java|C\\+\\+)$",
+      "highlightingModeRegex": "^(TypeScript|JavaScript|Python|Go|Java|C\\+\\+)$",
       "initializationOptions": { "scanOnStartup": true }
     }
   }

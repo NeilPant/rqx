@@ -191,6 +191,17 @@ struct PortedGroup {
     sites: SmallVec<[SourceRange; 2]>,
 }
 
+impl PortedGroup {
+    /// A block copied between TypeScript and JavaScript is plain duplication, which
+    /// `duplicate-code` already reports; only another family makes it a port.
+    fn families(&self) -> std::collections::BTreeSet<Language> {
+        self.languages
+            .iter()
+            .map(|language| language.family())
+            .collect()
+    }
+}
+
 /// Findings are capped for display while `counts` stays exact, because a health
 /// score that moved with the display cap would not mean anything.
 struct Collector {
@@ -481,7 +492,7 @@ impl Collector {
             .drain()
             .map(|(_, group)| group)
             .filter(|group| {
-                group.languages.len() > 1
+                group.families().len() > 1
                     && group.sites.len() > 1
                     && group.statements >= MIN_STATEMENTS
                     && group.nodes >= MIN_NODES
@@ -1956,9 +1967,11 @@ pub(crate) fn analyze_file(
     }
 }
 
-/// One graph per language, merged. Import syntax means different things in different
-/// languages, so resolving a Python module against a Java classpath would invent
-/// edges — and a missing edge is a dead-code finding about live code.
+/// One graph per language family, merged. Import syntax means different things in
+/// different languages, so resolving a Python module against a Java classpath would
+/// invent edges — and a missing edge is a dead-code finding about live code.
+/// TypeScript and JavaScript are one family, so a JavaScript module imported from
+/// TypeScript is an edge rather than a dead export.
 fn graph_report(
     modules: Vec<rqx_lang::module_graph::ModuleEntry>,
     root: &Path,
@@ -1967,7 +1980,10 @@ fn graph_report(
     let mut by_language: HashMap<Language, Vec<rqx_lang::module_graph::ModuleEntry>> =
         HashMap::new();
     for module in modules {
-        by_language.entry(module.language).or_default().push(module);
+        by_language
+            .entry(module.language.family())
+            .or_default()
+            .push(module);
     }
 
     let mut languages: Vec<Language> = by_language.keys().copied().collect();

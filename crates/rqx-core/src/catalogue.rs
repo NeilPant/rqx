@@ -84,6 +84,7 @@ catalogue! {
             (Go, "Go has no union types, so the string-literal alias this measures cannot be written"),
             (Java, "Java has no union types, so the string-literal alias this measures cannot be written"),
             (Cpp, "C++ has no union types, so the string-literal alias this measures cannot be written"),
+            (JavaScript, "JavaScript has no type aliases, so the string-literal alias this measures cannot be written"),
         ],
     },
 
@@ -154,6 +155,7 @@ catalogue! {
               instance is frozen for every subclass and every test that wants to fake it",
         not_applicable: [
             (Go, "Go has no methods on the type itself, only on values of it, so the static-on-own-type shape cannot be written"),
+            (JavaScript, "a parameter declares no type, so nothing says it is an instance of its own class"),
         ],
     },
 
@@ -352,6 +354,7 @@ catalogue! {
               extra indirection every reader has to step through. Interfaces are not \
               reported: TypeScript's are structural, so nothing implementing one says \
               nothing about whether it is speculative",
+        not_applicable: [(JavaScript, "JavaScript has no abstract keyword, so no class declares itself waiting for a subclass")],
     },
     EmptyCatch {
         slug: "empty-catch",
@@ -389,6 +392,7 @@ catalogue! {
         severity: Warning,
         why: "each of these tells the checker to stop checking, so the guarantee the \
               rest of the file is written against quietly stops holding here",
+        not_applicable: [(JavaScript, "JavaScript declares no types, so there is no annotation or cast to be imprecise")],
     },
 
     MixedLanguageFile {
@@ -897,6 +901,7 @@ catalogue! {
             (Go, "there is no inheritance and no abstract keyword"),
             (Cpp, "abstractness is a member with no body, which the type never declares"),
             (Python, "abstractness is a base class it inherits, not a word on the type"),
+            (JavaScript, "JavaScript has no abstract keyword to leave a member for a subclass"),
         ],
     },
     SilentFallthrough {
@@ -1187,6 +1192,7 @@ catalogue! {
         not_applicable: [
             (Go, "errors are values, so there is no handler to order"),
             (TypeScript, "the language allows one handler per block"),
+            (JavaScript, "the language allows one handler per block"),
         ],
     },
     NestedThen {
@@ -1519,6 +1525,7 @@ catalogue! {
         severity: Info,
         why: "a reader has to open it to learn which way round the answer runs, and \
               a name that asks the question says it in one word",
+        not_applicable: [(JavaScript, "a function declares no return type, so nothing says it answers true or false")],
     },
     UnnamedTest {
         slug: "unnamed-test",
@@ -1806,7 +1813,10 @@ catalogue! {
         severity: Warning,
         why: "it takes the failures it was written for and every other one too, \
               including the ones that mean the program is already wrong",
-        not_applicable: [(Go, "errors are values, so there is no handler to widen")],
+        not_applicable: [
+            (Go, "errors are values, so there is no handler to widen"),
+            (JavaScript, "a catch clause cannot name a type in JavaScript, so none can name the root of the hierarchy"),
+        ],
     },
     GenericThrow {
         slug: "generic-throw",
@@ -2111,6 +2121,7 @@ catalogue! {
         severity: Info,
         why: "the function does two things and the caller picks which, so `f(x, true)` \
               tells a reader nothing about what will happen",
+        not_applicable: [(JavaScript, "a parameter declares no type, so nothing says it is a boolean")],
     },
     OutputParameter {
         slug: "output-parameter",

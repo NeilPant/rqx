@@ -81,8 +81,8 @@ pub struct Buffer {
     pub source: String,
     /// A name for the buffer, used to pick the language and to label the findings.
     pub filename: Option<String>,
-    /// Language slug, when the filename does not say: `typescript`, `python`, `go`,
-    /// `java` or `cpp`.
+    /// Language slug, when the filename does not say: `typescript`, `javascript`,
+    /// `python`, `go`, `java` or `cpp`.
     pub language: Option<String>,
 }
 
@@ -683,8 +683,8 @@ impl Rqx {
         let language = match buffer.language.as_deref() {
             Some(slug) => Language::parse(slug).ok_or_else(|| {
                 refused(format!(
-                    "`{slug}` is not a language rqx reads. It reads typescript, python, go, java \
-                     and cpp."
+                    "`{slug}` is not a language rqx reads. It reads typescript, javascript, python, go, \
+                     java and cpp."
                 ))
             })?,
             None => Language::of_path(std::path::Path::new(display)).ok_or_else(|| {

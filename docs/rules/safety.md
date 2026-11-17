@@ -12,6 +12,7 @@ each of these tells the checker to stop checking, so the guarantee the rest of t
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
 | Fix | Replace Data Value with Object / Introduce Assertion |
+| Not in JavaScript | JavaScript declares no types, so there is no annotation or cast to be imprecise |
 
 From `fixtures/typescript/hygiene.ts`, line 89:
 
@@ -189,6 +190,7 @@ the one below it can never run, so whatever it was written to do about that fail
 | Fix | Decompose Conditional |
 | Not in Go | errors are values, so there is no handler to order |
 | Not in TypeScript | the language allows one handler per block |
+| Not in JavaScript | the language allows one handler per block |
 
 From `fixtures/python/hygiene.py`, line 156:
 
@@ -416,6 +418,7 @@ it takes the failures it was written for and every other one too, including the 
 | Reads | the syntax tree alone |
 | Fix | Decompose Conditional |
 | Not in Go | errors are values, so there is no handler to widen |
+| Not in JavaScript | a catch clause cannot name a type in JavaScript, so none can name the root of the hierarchy |
 
 From `fixtures/typescript/hygiene.ts`, line 89:
 
@@ -546,6 +549,7 @@ the function does two things and the caller picks which, so `f(x, true)` tells a
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Replace Parameter with Explicit Methods |
+| Not in JavaScript | a parameter declares no type, so nothing says it is a boolean |
 
 From `fixtures/typescript/config.ts`, line 1:
 

@@ -22,6 +22,7 @@ it makes something written against one interface usable where another is expecte
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
 | Not in Go | a type here declares no interface, so nothing says what it can stand in for |
+| Not in JavaScript | JavaScript declares no types, so nothing says what this class can stand in for |
 
 From `fixtures/typescript/patterns.ts`, line 134:
 
@@ -84,6 +85,7 @@ one of these and a tree of them answer to the same interface, so callers never b
 | Decided by | a class holding a collection whose element type is the class itself or something it implements |
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
+| Not in JavaScript | a field declares no type, so nothing says what a class holds |
 
 From `fixtures/typescript/patterns.ts`, line 144:
 
@@ -115,6 +117,7 @@ the class can stand in for what it wraps, so callers of the interface get the ex
 | Confidence | verified |
 | Reads | resolved scopes and symbols |
 | Not in Go | a type here declares no interface, so nothing says what it can stand in for |
+| Not in JavaScript | JavaScript declares no types, so nothing says what this class can stand in for |
 
 From `fixtures/typescript/patterns.ts`, line 102:
 
@@ -139,6 +142,7 @@ it wraps the thing but cannot be passed where the thing is expected, so every ca
 | Fix | Extract Interface / Replace Inheritance with Composition |
 | Not in Go | a type here declares no interface, so nothing says what it can stand in for |
 | Not in Python | nothing in the language declares an interface, so wrapping without one is ordinary composition |
+| Not in JavaScript | nothing in the language declares an interface, so wrapping without one is ordinary composition |
 
 From `fixtures/typescript/patterns.ts`, line 267:
 
@@ -201,6 +205,7 @@ instances are handed out from a pool rather than made, so the same value is one 
 | Reads | resolved scopes and symbols |
 | Not in Go | a type here has no static members, so a shared pool is a package variable rather than part of the type |
 | Not in Python | a class attribute and an instance default are written the same way, so nothing says the pool is shared |
+| Not in JavaScript | a field declares no type, so nothing says what a class holds |
 
 From `fixtures/typescript/patterns.ts`, line 210:
 
@@ -232,6 +237,7 @@ it controls reaching the thing it stands for without changing what the thing doe
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
 | Not in Go | a type here declares no interface, so nothing says what it can stand in for |
+| Not in JavaScript | JavaScript declares no types, so nothing says what this class can stand in for |
 
 From `fixtures/typescript/patterns.ts`, line 115:
 

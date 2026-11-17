@@ -237,6 +237,7 @@ it was built for a case that never arrived, and until it does it is only an extr
 | Reported as | info, verified |
 | Reads | the import graph across every file |
 | Fix | Collapse Hierarchy / Inline Class |
+| Not in JavaScript | JavaScript has no abstract keyword, so no class declares itself waiting for a subclass |
 
 From `fixtures/typescript/flow.ts`, line 202:
 

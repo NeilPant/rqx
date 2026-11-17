@@ -436,4 +436,29 @@ mod language_tests {
             "TypeScript should run every rule: {exempt:?}"
         );
     }
+
+    /// JavaScript is TypeScript without its type syntax, so what it gives up is exactly
+    /// what reads a type. Each is listed so that adding one is a decision.
+    #[test]
+    fn javascript_runs_every_rule_typescript_does_but_the_ones_that_read_a_type() {
+        const READS_A_TYPE: [&str; 8] = [
+            "abstract-nothing",
+            "boolean-not-a-question",
+            "catch-all-handler",
+            "flag-argument",
+            "imprecise-type",
+            "inappropriate-static",
+            "primitive-obsession",
+            "speculative-generality",
+        ];
+        let mut given_up: Vec<&str> = RuleId::ALL
+            .iter()
+            .filter(|rule| {
+                rule.applies_to(Language::TypeScript) && !rule.applies_to(Language::JavaScript)
+            })
+            .map(|rule| rule.slug())
+            .collect();
+        given_up.sort_unstable();
+        assert_eq!(given_up, READS_A_TYPE);
+    }
 }

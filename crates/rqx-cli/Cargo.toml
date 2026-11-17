@@ -9,7 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Finds dead code, duplication and architectural drift in TypeScript, Python, Go, Java and C++, and names the refactoring that fixes each one."
+description = "Finds dead code, duplication and architectural drift in TypeScript, JavaScript, Python, Go, Java and C++, and names the refactoring that fixes each one."
 readme = "../../README.md"
 documentation = "https://github.com/jadhamwi21/rqx/tree/main/docs"
 

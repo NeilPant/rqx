@@ -9,6 +9,7 @@ pub mod go;
 pub mod hierarchy;
 pub mod hygiene;
 pub mod java;
+pub mod javascript;
 pub mod metrics;
 pub mod module_graph;
 pub mod parameters;
@@ -143,11 +144,21 @@ pub fn support(language: Language) -> &'static Support {
         Language::Go => &GO_SUPPORT,
         Language::Java => &JAVA_SUPPORT,
         Language::Cpp => &CPP_SUPPORT,
+        Language::JavaScript => &JAVASCRIPT_SUPPORT,
     }
 }
 
 static TYPESCRIPT_SUPPORT: Support = Support {
     profile: &typescript::TYPESCRIPT,
+    surface: typescript::module_facts,
+    resolver: |root| Box::new(typescript::TypeScriptResolver::new(root)),
+    units: classes::units,
+};
+
+/// The surface reader and the resolver are TypeScript's: a project mixing the two
+/// resolves an import from either into either.
+static JAVASCRIPT_SUPPORT: Support = Support {
+    profile: &javascript::JAVASCRIPT,
     surface: typescript::module_facts,
     resolver: |root| Box::new(typescript::TypeScriptResolver::new(root)),
     units: classes::units,
@@ -191,9 +202,12 @@ thread_local! {
 }
 
 /// Extensions whose contents are markup as well as code, and so need the second
-/// grammar where the language has one.
+/// grammar where the language has one. Any JavaScript file may hold JSX, whatever its
+/// extension says.
 pub fn holds_markup(display: &str) -> bool {
-    display.ends_with(".tsx") || display.ends_with(".jsx")
+    display.rsplit_once('.').is_some_and(|(_, extension)| {
+        extension == "tsx" || Language::JavaScript.extensions().contains(&extension)
+    })
 }
 
 /// Long enough that no file anybody maintains reaches it, short enough that one
@@ -436,8 +450,9 @@ pub fn analyze_as(
     rqx_core::signature::iterating(&classes, profile.iteration_members, &advisor, &mut advice);
 
     // Two languages can produce the same shape hash for unrelated code, and a finding
-    // saying a Go block duplicates a Java one would be true and useless.
-    let salt = language as u64 + 1;
+    // saying a Go block duplicates a Java one would be true and useless. TypeScript
+    // and JavaScript share a salt because a block copied between them is a copy.
+    let salt = language.family() as u64 + 1;
     let clones = measured
         .clones
         .iter()

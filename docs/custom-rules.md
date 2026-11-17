@@ -39,7 +39,7 @@ it.
 | Field | |
 |---|---|
 | `id` | Required. The name everything calls it. Cannot be a rule rqx already ships. |
-| `languages` | Required. Any of `typescript`, `python`, `go`, `java`, `cpp`. |
+| `languages` | Required. Any of `typescript`, `javascript`, `python`, `go`, `java`, `cpp`. |
 | `query` | Required. A [tree-sitter query](https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html). |
 | `message` | Required. What the reader sees. Say what is wrong, not what the query matched. |
 | `family` | Required. Any family slug: `size`, `abstraction`, `change`, `waste`, `coupling`, `flow`, `naming`, `safety`, `tests`. |

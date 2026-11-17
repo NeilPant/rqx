@@ -16,7 +16,7 @@ level = "standard"
 [languages]
 # Empty means all of them. Naming one costs the others nothing either way: the
 # file walker never opens a path no enabled language claims.
-# enabled = ["typescript", "python", "go", "java", "cpp"]
+# enabled = ["typescript", "javascript", "python", "go", "java", "cpp"]
 enabled = []
 
 [rules]

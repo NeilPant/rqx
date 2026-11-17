@@ -10,6 +10,22 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Added
+
+- **JavaScript is analysed.** `.js`, `.jsx`, `.mjs` and `.cjs` files are now read, and
+  176 of the 185 rules apply to them. This changes what a scan reports: a repository
+  that contains JavaScript will show more findings after upgrading, and `rqx check` can
+  fail on code it never looked at before. JavaScript is read as TypeScript without its
+  types, so the eight rules that read type syntax (`imprecise-type`, `flag-argument`,
+  `boolean-not-a-question`, `catch-all-handler`, `primitive-obsession`,
+  `abstract-nothing`, `speculative-generality` and `inappropriate-static`) and the
+  pattern advisories that decide from a declared type do not apply. TypeScript and
+  JavaScript share one module graph. An import written `./util.js` now finds `util.ts`,
+  which also fixes TypeScript projects that use that convention being told the module
+  is unused. To keep the old behaviour, name the languages you want with
+  `[languages] enabled = ["typescript", "python", "go", "java", "cpp"]`, or skip the
+  files with `[ignore] patterns = ["**/*.js"]`.
+
 ### Fixed
 
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding

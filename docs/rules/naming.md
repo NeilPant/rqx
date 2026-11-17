@@ -204,6 +204,7 @@ a reader has to open it to learn which way round the answer runs, and a name tha
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Rename Method |
+| Not in JavaScript | a function declares no return type, so nothing says it answers true or false |
 
 From `fixtures/typescript/flow.ts`, line 1:
 

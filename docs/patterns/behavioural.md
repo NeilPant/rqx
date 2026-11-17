@@ -129,6 +129,7 @@ callers walk it with the language's own loop and never learn how it is stored, s
 | Confidence | verified |
 | Reads | resolved scopes and symbols |
 | Not in Go | there is no iteration protocol to implement, so a method named Next is a convention rather than a promise |
+| Not in JavaScript | a field declares no type, so nothing says what a class holds |
 
 From `fixtures/typescript/patterns.ts`, line 217:
 
@@ -190,6 +191,7 @@ state is captured and put back without the caller learning what is in it, so the
 | Confidence | low confidence |
 | Reads | resolved scopes and symbols |
 | Default | off; name it under `[patterns] enabled` |
+| Not in JavaScript | a method declares no return type, so nothing says it hands back itself or a copy |
 
 From `fixtures/typescript/patterns.ts`, line 247:
 
@@ -220,6 +222,7 @@ the thing that changes does not know who cares, so a new dependant is a registra
 | Decided by | a collection of listeners, a method that adds to it, and a method that tells them all |
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
+| Not in JavaScript | a field declares no type, so nothing says what a class holds |
 
 From `fixtures/typescript/patterns.ts`, line 224:
 
@@ -242,6 +245,7 @@ nothing that subscribes can ever be released, so the collection and everything i
 | Confidence | measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Add Parameter / Remove Setter |
+| Not in JavaScript | a field declares no type, so nothing says what a class holds |
 
 From `fixtures/typescript/patterns.ts`, line 237:
 
@@ -351,6 +355,7 @@ the order of the steps is fixed in one place and only the steps vary, so a subcl
 | Confidence | verified |
 | Reads | resolved scopes and symbols |
 | Not in Go | there are no abstract members for a base to leave unimplemented |
+| Not in JavaScript | JavaScript has no abstract keyword to leave a member for a subclass |
 
 From `fixtures/typescript/patterns.ts`, line 257:
 

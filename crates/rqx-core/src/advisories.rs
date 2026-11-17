@@ -79,7 +79,10 @@ advisories! {
         confidence: Verified,
         why: "the class can stand in for what it wraps, so callers of the interface get \
               the extra behaviour without knowing it is there",
-        not_applicable: [(Go, "a type here declares no interface, so nothing says what it can stand in for")],
+        not_applicable: [
+            (Go, "a type here declares no interface, so nothing says what it can stand in for"),
+            (JavaScript, "JavaScript declares no types, so nothing says what this class can stand in for"),
+        ],
     },
     DecoratorNotSubstitutable {
         slug: "decorator-not-substitutable",
@@ -94,6 +97,7 @@ advisories! {
         not_applicable: [
             (Go, "a type here declares no interface, so nothing says what it can stand in for"),
             (Python, "nothing in the language declares an interface, so wrapping without one is ordinary composition"),
+            (JavaScript, "nothing in the language declares an interface, so wrapping without one is ordinary composition"),
         ],
     },
     ProxyFound {
@@ -106,7 +110,10 @@ advisories! {
         confidence: Heuristic,
         why: "it controls reaching the thing it stands for without changing what the \
               thing does, which is the whole of what a proxy is",
-        not_applicable: [(Go, "a type here declares no interface, so nothing says what it can stand in for")],
+        not_applicable: [
+            (Go, "a type here declares no interface, so nothing says what it can stand in for"),
+            (JavaScript, "JavaScript declares no types, so nothing says what this class can stand in for"),
+        ],
     },
     AdapterFound {
         slug: "adapter-found",
@@ -118,7 +125,10 @@ advisories! {
         confidence: Heuristic,
         why: "it makes something written against one interface usable where another is \
               expected, and the translation lives in one place",
-        not_applicable: [(Go, "a type here declares no interface, so nothing says what it can stand in for")],
+        not_applicable: [
+            (Go, "a type here declares no interface, so nothing says what it can stand in for"),
+            (JavaScript, "JavaScript declares no types, so nothing says what this class can stand in for"),
+        ],
     },
     CompositeFound {
         slug: "composite-found",
@@ -130,6 +140,7 @@ advisories! {
         confidence: Heuristic,
         why: "one of these and a tree of them answer to the same interface, so callers \
               never branch on which they were handed",
+        not_applicable: [(JavaScript, "a field declares no type, so nothing says what a class holds")],
     },
     BuilderFound {
         slug: "builder-found",
@@ -141,6 +152,7 @@ advisories! {
         confidence: Verified,
         why: "the object is assembled a step at a time and handed over once, so no \
               caller ever holds a half-built one",
+        not_applicable: [(JavaScript, "a method declares no return type, so nothing says it hands back itself or a copy")],
     },
     BuilderWithoutBuild {
         slug: "builder-without-build",
@@ -152,6 +164,7 @@ advisories! {
         confidence: Heuristic,
         why: "the chain never ends in the thing being built, so callers reach past it \
               for the state it was supposed to hand over",
+        not_applicable: [(JavaScript, "a method declares no return type, so nothing says it hands back itself or a copy")],
     },
     PrototypeFound {
         slug: "prototype-found",
@@ -163,6 +176,7 @@ advisories! {
         confidence: Heuristic,
         why: "a new one is made from an existing one, so the caller never has to know \
               which concrete class it is holding",
+        not_applicable: [(JavaScript, "a method declares no return type, so nothing says it hands back itself or a copy")],
     },
     SingletonFound {
         slug: "singleton-found",
@@ -177,6 +191,7 @@ advisories! {
         not_applicable: [
             (Go, "there are no constructors to make private; a single instance is a package-level variable"),
             (Python, "nothing in the language stops a second call to the constructor"),
+            (JavaScript, "a field declares no type, so nothing says what a class holds"),
         ],
     },
     SingletonEscapable {
@@ -192,6 +207,7 @@ advisories! {
         not_applicable: [
             (Go, "there are no constructors to make private; a single instance is a package-level variable"),
             (Python, "nothing in the language stops a second call to the constructor"),
+            (JavaScript, "a field declares no type, so nothing says what a class holds"),
         ],
     },
     FlyweightFound {
@@ -207,6 +223,7 @@ advisories! {
         not_applicable: [
             (Go, "a type here has no static members, so a shared pool is a package variable rather than part of the type"),
             (Python, "a class attribute and an instance default are written the same way, so nothing says the pool is shared"),
+            (JavaScript, "a field declares no type, so nothing says what a class holds"),
         ],
     },
     IteratorFound {
@@ -219,7 +236,10 @@ advisories! {
         confidence: Verified,
         why: "callers walk it with the language's own loop and never learn how it is \
               stored, so the storage can change without them",
-        not_applicable: [(Go, "there is no iteration protocol to implement, so a method named Next is a convention rather than a promise")],
+        not_applicable: [
+            (Go, "there is no iteration protocol to implement, so a method named Next is a convention rather than a promise"),
+            (JavaScript, "a field declares no type, so nothing says what a class holds"),
+        ],
     },
     ObserverFound {
         slug: "observer-found",
@@ -231,6 +251,7 @@ advisories! {
         confidence: Heuristic,
         why: "the thing that changes does not know who cares, so a new dependant is a \
               registration rather than an edit",
+        not_applicable: [(JavaScript, "a field declares no type, so nothing says what a class holds")],
     },
     ObserverWithoutRemoval {
         slug: "observer-without-removal",
@@ -242,6 +263,7 @@ advisories! {
         confidence: Heuristic,
         why: "nothing that subscribes can ever be released, so the collection and \
               everything it points at outlive the objects that registered",
+        not_applicable: [(JavaScript, "a field declares no type, so nothing says what a class holds")],
     },
     MementoFound {
         slug: "memento-found",
@@ -254,6 +276,7 @@ advisories! {
         why: "state is captured and put back without the caller learning what is in it, \
               so the object keeps its own invariants",
         off_by_default: true,
+        not_applicable: [(JavaScript, "a method declares no return type, so nothing says it hands back itself or a copy")],
     },
     TemplateMethodFound {
         slug: "template-method-found",
@@ -265,7 +288,10 @@ advisories! {
         confidence: Verified,
         why: "the order of the steps is fixed in one place and only the steps vary, so \
               a subclass cannot get the sequence wrong",
-        not_applicable: [(Go, "there are no abstract members for a base to leave unimplemented")],
+        not_applicable: [
+            (Go, "there are no abstract members for a base to leave unimplemented"),
+            (JavaScript, "JavaScript has no abstract keyword to leave a member for a subclass"),
+        ],
     },
 
     FactoryMethodFound {
@@ -278,7 +304,10 @@ advisories! {
         confidence: Heuristic,
         why: "which concrete class is made is decided by the subclass rather than by \
               the caller, so a new one is a new subclass and no edit anywhere else",
-        not_applicable: [(Go, "the language has no inheritance, so nothing can override the decision")],
+        not_applicable: [
+            (Go, "the language has no inheritance, so nothing can override the decision"),
+            (JavaScript, "JavaScript has no abstract keyword to leave a member for a subclass"),
+        ],
     },
     AbstractFactoryFound {
         slug: "abstract-factory-found",
@@ -290,7 +319,10 @@ advisories! {
         confidence: Heuristic,
         why: "the whole family is chosen once, so nothing downstream can mix a part \
               from one family with a part from another",
-        not_applicable: [(Go, "the language has no inheritance, so nothing can implement the family twice")],
+        not_applicable: [
+            (Go, "the language has no inheritance, so nothing can implement the family twice"),
+            (JavaScript, "JavaScript has no abstract keyword to leave a member for a subclass"),
+        ],
     },
     BridgeFits {
         slug: "bridge-fits",

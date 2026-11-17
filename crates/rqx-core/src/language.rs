@@ -8,22 +8,28 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "kebab-case")]
 pub enum Language {
     /// Spelled out, because kebab-case would make it `type-script` in `RQX.toml`
-    /// while `rqx rules --language` takes the slug — one name, two spellings.
+    /// while `rqx rules --language` takes the slug — one name, two spellings. The
+    /// same goes for `JavaScript`.
     #[serde(rename = "typescript")]
     TypeScript,
     Python,
     Cpp,
     Java,
     Go,
+    /// Last, so the order the other languages were added in — which the clone salt
+    /// and the per-language counters are built on — does not move.
+    #[serde(rename = "javascript")]
+    JavaScript,
 }
 
 impl Language {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::TypeScript,
         Self::Python,
         Self::Cpp,
         Self::Java,
         Self::Go,
+        Self::JavaScript,
     ];
 
     pub const fn slug(self) -> &'static str {
@@ -33,6 +39,7 @@ impl Language {
             Self::Cpp => "cpp",
             Self::Java => "java",
             Self::Go => "go",
+            Self::JavaScript => "javascript",
         }
     }
 
@@ -43,6 +50,7 @@ impl Language {
             Self::Cpp => "C++",
             Self::Java => "Java",
             Self::Go => "Go",
+            Self::JavaScript => "JavaScript",
         }
     }
 
@@ -55,6 +63,18 @@ impl Language {
             Self::Cpp => &["cpp", "cc", "cxx", "c++", "hpp", "hh", "hxx", "h", "ipp"],
             Self::Java => &["java"],
             Self::Go => &["go"],
+            Self::JavaScript => &["js", "jsx", "mjs", "cjs"],
+        }
+    }
+
+    /// The languages whose files import one another: a TypeScript file imports
+    /// `./util.js` and means `util.ts`, and a JavaScript file imports a `.ts` module
+    /// through a bundler. They share a module graph and a notion of one block being
+    /// the same as another, where every other language stands alone.
+    pub const fn family(self) -> Self {
+        match self {
+            Self::JavaScript => Self::TypeScript,
+            other => other,
         }
     }
 
@@ -116,6 +136,12 @@ mod tests {
             Some(Language::Java)
         );
         assert_eq!(Language::of_path(Path::new("a/b.go")), Some(Language::Go));
+        for script in ["a/b.js", "a/b.jsx", "a/b.mjs", "a/b.cjs"] {
+            assert_eq!(
+                Language::of_path(Path::new(script)),
+                Some(Language::JavaScript)
+            );
+        }
         assert_eq!(Language::of_path(Path::new("a/b.md")), None);
         assert_eq!(Language::of_path(Path::new("Makefile")), None);
     }
@@ -131,6 +157,16 @@ mod tests {
             let held: Holder = toml::from_str(&toml)
                 .unwrap_or_else(|error| panic!("{}: {error}", language.slug()));
             assert_eq!(held.value, language);
+        }
+    }
+
+    #[test]
+    fn javascript_shares_a_family_with_typescript_and_nothing_else_does() {
+        assert_eq!(Language::JavaScript.family(), Language::TypeScript);
+        for language in Language::ALL {
+            if language != Language::JavaScript {
+                assert_eq!(language.family(), language);
+            }
         }
     }
 

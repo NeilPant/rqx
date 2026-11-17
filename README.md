@@ -4,7 +4,7 @@
 
 # rqx
 
-**A static analyser for TypeScript, Python, Go, Java and C++.** It reports dead code,
+**A static analyser for TypeScript, JavaScript, Python, Go, Java and C++.** It reports dead code,
 duplication, complexity and architectural drift; states why each finding matters and
 what it costs; names the refactoring that resolves it; applies the fixes that have a
 single correct answer; and grades a diff against the base branch.
@@ -14,7 +14,7 @@ A single Rust binary with no runtime dependencies.
 [![CI](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml/badge.svg)](https://github.com/jadhamwi21/rqx/actions/workflows/rqx.yml)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
 ![Rules](https://img.shields.io/badge/rules-185-0a84ff)
-![Languages](https://img.shields.io/badge/languages-5-0a84ff)
+![Languages](https://img.shields.io/badge/languages-6-0a84ff)
 ![No runtime dependencies](https://img.shields.io/badge/runtime%20deps-none-1f9e55)
 
 `static-analysis` · `code-quality` · `refactoring` · `dead-code` · `lsp` · `mcp` · `rust`
@@ -306,7 +306,7 @@ layers = ["domain", "application", "adapters"]
 
 `layers` is ordered inner to outer: a file may import its own layer and any layer
 before it, so the domain cannot reach for an adapter. The finding points at the import
-line, in whichever of the five languages wrote it, because it reads the same module
+line, in whichever of the six languages wrote it, because it reads the same module
 graph the cycle detection already uses.
 
 The check is silent until declared: an architecture that has not been written down
@@ -316,9 +316,9 @@ rather than a rule that silently governs nothing.
 ## Language support
 
 ```toml
-# RQX.toml — all five are enabled unless stated otherwise
+# RQX.toml — all six are enabled unless stated otherwise
 [languages]
-enabled = ["typescript", "python", "go", "java", "cpp"]
+enabled = ["typescript", "javascript", "python", "go", "java", "cpp"]
 ```
 
 Every rule is written once, against measurements a language backend fills in: how
@@ -326,14 +326,19 @@ many statements a body holds, which names it binds, what it takes from other fil
 A language contributes a table of node kinds, a reader for its module surface and an
 import resolver; nothing else about it reaches the rules.
 
-| | TypeScript | Python | Go | Java | C++ |
-|---|---|---|---|---|---|
-| **Extensions** | `.ts .tsx .mts .cts` | `.py .pyi` | `.go` | `.java` | `.cpp .cc .cxx .hpp .hh .h .ipp` |
-| **Export is** | `export` | a module-level name without `_`, or `__all__` | a capital initial | `public` | a declaration in a header |
-| **Imports resolve via** | extensions, `index`, `tsconfig` paths, `package.json` | packages and `__init__.py`, relative dots | `go.mod` module path, package directories | package to directory under a source root | `#include "…"` against the file and include roots |
-| **Entry points** | `package.json` `main`/`exports`/`bin` | `__main__.py`, `main.py`, `conftest.py`, `test_*`, `[project.scripts]` | `package main`, `_test.go` | `static void main`, `@Test` | every translation unit, `TEST(…)` |
-| **Tests** | Jest/Mocha/Vitest | pytest, unittest | `go test` | JUnit | GoogleTest |
-| **Rules that apply** | 184 | 174 | 139 | 171 | 169 |
+| | TypeScript | JavaScript | Python | Go | Java | C++ |
+|---|---|---|---|---|---|---|
+| **Extensions** | `.ts .tsx .mts .cts` | `.js .jsx .mjs .cjs` | `.py .pyi` | `.go` | `.java` | `.cpp .cc .cxx .hpp .hh .h .ipp` |
+| **Export is** | `export` | `export` | a module-level name without `_`, or `__all__` | a capital initial | `public` | a declaration in a header |
+| **Imports resolve via** | extensions, `index`, `tsconfig` paths, `package.json` | the same, and one graph with TypeScript: `./x.js` finds `x.ts` | packages and `__init__.py`, relative dots | `go.mod` module path, package directories | package to directory under a source root | `#include "…"` against the file and include roots |
+| **Entry points** | `package.json` `main`/`exports`/`bin` | `package.json` `main`/`exports`/`bin` | `__main__.py`, `main.py`, `conftest.py`, `test_*`, `[project.scripts]` | `package main`, `_test.go` | `static void main`, `@Test` | every translation unit, `TEST(…)` |
+| **Tests** | Jest/Mocha/Vitest | Jest/Mocha/Vitest | pytest, unittest | `go test` | JUnit | GoogleTest |
+| **Rules that apply** | 184 | 176 | 174 | 139 | 171 | 169 |
+
+JavaScript is read as TypeScript without its types. TypeScript and JavaScript files
+in one project share a module graph, so an import of `./util.js` that is really
+`util.ts` counts, and neither language reports the other's exports as dead. The eight
+rules that read type syntax do not apply to JavaScript.
 
 A rule that cannot exist in a language says so, in the catalogue, with a reason:
 
