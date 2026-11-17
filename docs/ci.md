@@ -83,7 +83,7 @@ rqx scan . \
 needs stdout, or a file, to itself.
 
 The commands that print their own view instead of the findings (`fix`, `verify`,
-`plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`,
+`plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `hotspots`, `health`,
 `patterns`, `graph` and `config`) also take `--reporter`, with two names: `terminal`
 and `json`. `rqx health --reporter terminal --reporter json=health.json` prints the
 table and writes the document. On these commands `--json` is short for `--reporter

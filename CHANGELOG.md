@@ -11,6 +11,12 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Added
 
+- **`rqx hotspots` ranks files by churn and by what is wrong with them.** The score is
+  the commits in the churn window multiplied by the file's weight: the severity weight
+  of its findings that count toward the health score, plus one point per ten points of
+  cognitive complexity. A column states each factor. `--top` sets the length, `--since`
+  the window in days, and `--reporter terminal|json` the output. `/hotspots` runs it in
+  the interactive session. See `docs/hotspots.md`.
 - **`rqx check` and `rqx comment` report the debt a change paid off.** A finding that
   the base revision has and the change removed is listed in a `Resolved` section of the
   pull request comment and in a `Resolved` row of the terminal summary, with the health

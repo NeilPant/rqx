@@ -62,6 +62,11 @@ impl FindingCounts {
         finding.confidence != Confidence::Low && !finding.is_external()
     }
 
+    /// The severity weight of the findings that count toward the score in one file.
+    pub fn weight_of(&self, file: &str) -> f64 {
+        self.weighted_by_file.get(file).copied().unwrap_or(0.0)
+    }
+
     /// One file's own score, on the same curve as the project's. A second formula
     /// would let a file grade well while dragging the total down.
     pub fn file_score(&self, file: &str, lines: u32) -> u32 {

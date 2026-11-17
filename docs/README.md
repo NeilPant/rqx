@@ -9,6 +9,7 @@
 | [baseline.md](baseline.md) | Recording the findings a project already has, so a gate judges only what a change adds |
 | [recommend.md](recommend.md) | Threshold fit, the refactoring that addresses the most findings, and a reading order |
 | [slop.md](slop.md) | The `noise` family, and the score for files that read as unreviewed |
+| [hotspots.md](hotspots.md) | Ranking files by churn and by what is wrong with them |
 | [health.md](health.md) | How the health score is computed, and what fixing each part would change |
 | [perf.md](perf.md) | Functions whose cost grows faster than their input, and what a CPU profile shows was executed |
 | [complexity.md](complexity.md) | The measurements behind the thresholds, as a distribution |

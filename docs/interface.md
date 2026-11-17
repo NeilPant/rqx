@@ -62,6 +62,7 @@ without scanning again.
 | Command | Runs |
 |---|---|
 | `/findings` | `rqx scan`, with every filter and display flag it takes |
+| `/hotspots` | `rqx hotspots`, which scans again with the churn window and the findings cap it needs |
 | `/plan` `/health` `/complexity` `/perf` `/graph` `/recommend` `/patterns` `/suppressions` | the command of the same name, on the held scan |
 | `/waive` | `rqx waive`; without `--reason` the prompt asks for one |
 | `/explain` `/rules` `/techniques` `/levels` | the catalogue commands |

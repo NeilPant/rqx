@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-scan \- Analyze a project and report every finding
 .SH SYNOPSIS
-\fBrqx scan\fR [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-advice\fR] [\fB\-\-no\-tui\fR] [\fB\-\-coverage\fR] [\fB\-\-color\fR] [\fB\-\-profile\fR] [\fB\-\-motion\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-\-watch\fR] [\fB\-\-level\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx scan\fR [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-advice\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-tui\fR] [\fB\-\-profile\fR] [\fB\-\-color\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-watch\fR] [\fB\-\-level\fR] [\fB\-\-progress\fR] [\fB\-\-threads\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-config\fR] [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze a project and report every finding
 .SH OPTIONS
@@ -12,11 +12,14 @@ Analyze a project and report every finding
 \fB\-\-advice\fR
 Append design pattern advice for the same files
 .TP
+\fB\-\-coverage\fR \fI<FILE>\fR
+A coverage file that can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content
+.TP
 \fB\-\-no\-tui\fR
 Do not open the interactive interface; bare `rqx` prints the report instead
 .TP
-\fB\-\-coverage\fR \fI<FILE>\fR
-A coverage file that can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content
+\fB\-\-profile\fR \fI<FILE>\fR
+A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
@@ -33,8 +36,11 @@ always
 never
 .RE
 .TP
-\fB\-\-profile\fR \fI<FILE>\fR
-A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
+\fB\-\-sarif\-in\fR \fI<FILE>\fR
+A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score
+.TP
+\fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
+Maximum number of findings listed; 0 lists every finding. Does not affect the health score
 .TP
 \fB\-\-motion\fR \fI<MOTION>\fR [default: on]
 Animation in the interactive interface
@@ -49,14 +55,14 @@ on
 off
 .RE
 .TP
-\fB\-\-sarif\-in\fR \fI<FILE>\fR
-A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score
-.TP
-\fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
-Maximum number of findings listed; 0 lists every finding. Does not affect the health score
-.TP
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-\-watch\fR
+Rescan whenever a file changes, until interrupted
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-progress\fR \fI<PROGRESS>\fR [default: auto]
 How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
@@ -75,14 +81,14 @@ plain: A line on stderr every two seconds and at each phase, for a job log
 none: Nothing
 .RE
 .TP
-\fB\-\-watch\fR
-Rescan whenever a file changes, until interrupted
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
+\fB\-\-threads\fR \fI<N>\fR
+Worker threads. Defaults to the machine\*(Aqs parallelism
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
 Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks
@@ -98,12 +104,6 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
-.TP
-\fB\-\-threads\fR \fI<N>\fR
-Worker threads. Defaults to the machine\*(Aqs parallelism
-.TP
-\fB\-\-config\fR \fI<FILE>\fR
-Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

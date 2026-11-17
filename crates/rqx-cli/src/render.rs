@@ -15,7 +15,7 @@ use rqx_core::rule::{Category, RuleId};
 use crate::brand::Palette;
 use crate::config::Resolved;
 use crate::scan::ScanOutcome;
-use crate::{complexity, health, perf, plan, recommend, report, slop};
+use crate::{complexity, health, hotspots, perf, plan, recommend, report, slop};
 
 pub struct Plan {
     pub budget: Option<u32>,
@@ -121,6 +121,45 @@ pub fn slop(
 
 /// A scan with the signals `slop` reads switched on. They are Info rules and several
 /// ship off, so the command turns its own family on rather than reporting nothing.
+/// What `hotspots` was asked for.
+#[derive(Clone, Copy)]
+pub struct Hotspots {
+    pub top: usize,
+    pub days: u32,
+    pub json: bool,
+}
+
+impl Hotspots {
+    /// The request, with the churn window written into the settings so the scan reads
+    /// the history the request names.
+    pub fn over(settings: &mut Resolved, top: usize, since: Option<u32>) -> Self {
+        if let Some(days) = since {
+            settings.config.scan.churn_days = days;
+        }
+        Self {
+            top,
+            days: settings.config.scan.churn_days,
+            json: false,
+        }
+    }
+
+    pub const fn printed_as(self, json: bool) -> Self {
+        Self { json, ..self }
+    }
+}
+
+pub fn hotspots(
+    outcome: &ScanOutcome,
+    request: &Hotspots,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    if request.json {
+        return hotspots::json(outcome, request.top, request.days, out);
+    }
+    hotspots::render(outcome, request.top, request.days, palette, out)
+}
+
 pub fn slop_settings(settings: &mut Resolved) {
     for (rule, _) in rqx_core::slop::SIGNALS {
         settings.config.rules.enabled.insert(rule.slug().to_owned());

@@ -86,6 +86,6 @@ summary:
 problem has no location in a file. `valid` is `true` when the command exits 0, so
 under `--strict` a warning makes it `false`.
 
-The commands that print a table as data (`complexity`, `perf`, `health`, `slop`,
+The commands that print a table as data (`complexity`, `perf`, `health`, `slop`, `hotspots`,
 `recommend`, `waivers`, `patterns`) write one object per row and no summary. Their
 keys follow the same rules.

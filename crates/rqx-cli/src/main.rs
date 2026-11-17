@@ -23,6 +23,7 @@ mod gate;
 mod graph;
 mod health;
 mod history;
+mod hotspots;
 mod listed;
 mod lsp;
 mod mcp;
@@ -147,6 +148,7 @@ const GROUPS: [(&str, &[&str]); 5] = [
             "perf",
             "health",
             "slop",
+            "hotspots",
             "graph",
             "plan",
             "patterns",
@@ -535,6 +537,26 @@ enum Command {
         /// Skip anything scoring below this
         #[arg(long, default_value_t = 1)]
         min: u32,
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
+        run: Run,
+    },
+    /// Rank files by how often they change and how much is wrong with them
+    #[command(
+        after_help = "Examples:\n  rqx hotspots                        the ten files that are both churned and flagged\n  rqx hotspots --top 25 --since 180   a longer list over half a year of history"
+    )]
+    Hotspots {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        /// How many files to list
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+        /// Days of git history to count commits over. Defaults to `scan.churn_days`
+        #[arg(long, value_name = "DAYS")]
+        since: Option<u32>,
         #[arg(long)]
         json: bool,
         #[command(flatten)]
@@ -2137,6 +2159,29 @@ fn run() -> Result<Exit> {
                     json: rendering.is_json(),
                 };
                 render::slop(&outcome, &request, palette, out)
+            })
+            .map(|()| Exit::Clean)
+        }
+        Command::Hotspots {
+            path,
+            top,
+            since,
+            json,
+            printing,
+            run,
+        } => {
+            let mut settings = run.resolve(&path)?;
+            settings.config.scan.max_findings = 0;
+            let request = render::Hotspots::over(&mut settings, top, since);
+            let sinks = printing.sinks(json)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::hotspots(
+                    &outcome,
+                    &request.printed_as(rendering.is_json()),
+                    palette,
+                    out,
+                )
             })
             .map(|()| Exit::Clean)
         }

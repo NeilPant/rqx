@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-check \- Analyze changed files against a base revision and fail if the gate is not met
 .SH SYNOPSIS
-\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-no\-tui\fR] [\fB\-\-min\-grade\fR] [\fB\-\-color\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-profile\fR] [\fB\-\-progress\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-no\-tui\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-color\fR] [\fB\-\-coverage\fR] [\fB\-\-motion\fR] [\fB\-\-profile\fR] [\fB\-\-no\-progress\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-progress\fR] [\fB\-\-level\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze changed files against a base revision and fail if the gate is not met
 .SH OPTIONS
@@ -52,11 +52,17 @@ on
 off
 .RE
 .TP
+\fB\-\-profile\fR \fI<FILE>\fR
+A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
+.TP
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it
 .TP
-\fB\-\-profile\fR \fI<FILE>\fR
-A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
+\fB\-\-sarif\-in\fR \fI<FILE>\fR
+A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score
+.TP
+\fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
+Maximum number of findings listed; 0 lists every finding. Does not affect the health score
 .TP
 \fB\-\-progress\fR \fI<PROGRESS>\fR [default: auto]
 How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
@@ -75,11 +81,8 @@ plain: A line on stderr every two seconds and at each phase, for a job log
 none: Nothing
 .RE
 .TP
-\fB\-\-sarif\-in\fR \fI<FILE>\fR
-A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score
-.TP
-\fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
-Maximum number of findings listed; 0 lists every finding. Does not affect the health score
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
@@ -98,9 +101,6 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
-.TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism

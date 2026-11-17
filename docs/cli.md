@@ -283,6 +283,27 @@ Break the health score down by component and report what removing each would gai
 Print this message or the help of the given subcommand(s)
 
 
+## `rqx hotspots`
+
+Rank files by how often they change and how much is wrong with them
+
+| Flag | What it does |
+| --- | --- |
+| `--top` | How many files to list |
+| `--since` | Days of git history to count commits over. Defaults to `scan.churn_days` |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
+| `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--help` | Print help (see more with '--help') |
+
 ## `rqx init`
 
 Write a commented rqx.yaml with every setting at its default

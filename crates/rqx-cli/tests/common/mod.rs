@@ -88,7 +88,12 @@ pub struct Repository {
 
 impl Repository {
     pub fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!("rqx-{name}-{}", std::process::id()));
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "rqx-{name}-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("a temp repository");
         let repository = Self { root };

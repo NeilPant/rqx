@@ -162,14 +162,14 @@ but only when you run it.
 
 ## The commands
 
-Twenty-nine of them, under five headings. `rqx --help` prints this list; each
+Thirty of them, under five headings. `rqx --help` prints this list; each
 command's own `--help` prints its flags, and [docs/cli.md](docs/cli.md) is the whole
 reference.
 
 | | |
 |---|---|
 | **The loop** | `scan` · `check` · `fix` · `verify` · `comment` |
-| **Look closer** | `complexity` · `perf` · `health` · `slop` · `graph` · `plan` · `patterns` · `recommend` |
+| **Look closer** | `complexity` · `perf` · `health` · `slop` · `hotspots` · `graph` · `plan` · `patterns` · `recommend` |
 | **Reference** | `rules` · `explain` · `techniques` · `levels` |
 | **Project** | `init` · `config` · `baseline` · `suppressions` · `waive` · `cache` |
 | **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` · `update` |
@@ -595,6 +595,7 @@ rqx complexity     # the measurements, as a distribution rather than a tail
 rqx health --by rule
 rqx graph --cycles --format mermaid
 rqx slop           # which files read as written rather than read
+rqx hotspots       # which files are changed often and have findings
 ```
 
 `rqx complexity` shows the distribution of function complexity in a tree:
@@ -625,6 +626,10 @@ in a constant, a leftover *Here's the implementation you asked for!*. Each is we
 evidence alone. Together and at density they suggest code that was generated and not
 reviewed. It is labelled a heuristic wherever it appears and gates nothing unless
 configured to.
+
+`rqx hotspots` ranks files by the commits they received in the churn window multiplied
+by the weight of their findings and of their cognitive complexity, with a column that
+states each factor. See [docs/hotspots.md](docs/hotspots.md).
 
 ## Editing configuration
 

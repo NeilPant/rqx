@@ -848,6 +848,7 @@ help fix
 help graph
 help health
 help help
+help hotspots
 help init
 help levels
 help lsp
@@ -866,6 +867,43 @@ help techniques
 help update
 help verify
 help waive
+hotspots
+hotspots --color
+hotspots --color =always
+hotspots --color =auto
+hotspots --color =never
+hotspots --config
+hotspots --help
+hotspots --hyperlinks
+hotspots --hyperlinks =always
+hotspots --hyperlinks =auto
+hotspots --hyperlinks =never
+hotspots --hyperlinks [env RQX_HYPERLINKS]
+hotspots --json
+hotspots --level
+hotspots --level [env RQX_LEVEL]
+hotspots --motion
+hotspots --motion =off
+hotspots --motion =on
+hotspots --no-mouse
+hotspots --no-progress
+hotspots --no-progress [env RQX_NO_PROGRESS]
+hotspots --no-tui
+hotspots --progress
+hotspots --progress =auto
+hotspots --progress =bar
+hotspots --progress =none
+hotspots --progress =plain
+hotspots --progress [env RQX_PROGRESS]
+hotspots --reporter
+hotspots --since
+hotspots --threads
+hotspots --threads [env RQX_THREADS]
+hotspots --top
+hotspots --verbose
+hotspots -h
+hotspots -v
+hotspots <path>
 init
 init --color
 init --color =always
