@@ -396,3 +396,38 @@ fn the_merge_request_comment_has_no_section_when_regressions_were_not_asked_for(
 
     assert!(!String::from_utf8_lossy(&output.stdout).contains("Complexity"));
 }
+
+#[test]
+fn sarif_carries_a_result_per_regression_at_the_level_the_gate_sets() {
+    let repository =
+        callee_got_slower_under("regress-sarif", "gate:\n  complexity_regression: warning\n");
+
+    let output = repository.rqx_output(&["check", ".", "--base", "HEAD~1", "--reporter", "sarif"]);
+
+    let document: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("a SARIF document");
+    let results = document["runs"][0]["results"].as_array().unwrap();
+    let regressed: Vec<&serde_json::Value> = results
+        .iter()
+        .filter(|result| result["ruleId"] == "complexity-regression")
+        .collect();
+    assert_eq!(regressed.len(), 2, "{document}");
+    assert!(regressed.iter().all(|result| result["level"] == "warning"));
+    let caller = regressed
+        .iter()
+        .find(|result| result["properties"]["function"] == "reconcileBatch")
+        .expect("the caller");
+    assert_eq!(
+        caller["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+        "src/caller.ts"
+    );
+}
+
+#[test]
+fn sarif_has_no_regression_results_when_they_were_not_asked_for() {
+    let repository = callee_got_slower("regress-sarif-silent");
+
+    let output = repository.rqx_output(&["check", ".", "--base", "HEAD~1", "--reporter", "sarif"]);
+
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("complexity-regression"));
+}
