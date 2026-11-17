@@ -9,6 +9,7 @@ use rqx_core::{Identity, Language};
 use rqx_lang::rewrite::{Rewriter, Withheld};
 
 use crate::config::Resolved;
+use crate::progress::Mode;
 use crate::report::Report;
 use crate::scan::{self, ScanOutcome};
 
@@ -89,12 +90,22 @@ impl Outcome {
 }
 
 pub fn run(root: &Path, settings: &Resolved, options: Options) -> Result<Outcome> {
+    run_drawn(root, settings, options, Mode::hidden())
+}
+
+/// `run`, with the scans' progress drawn on stderr as `progress` says.
+pub fn run_drawn(
+    root: &Path,
+    settings: &Resolved,
+    options: Options,
+    progress: Mode,
+) -> Result<Outcome> {
     // The display cap keeps the highest-ranked findings, which are the least
     // mechanical; a fixer that only saw those would miss most of its own work.
     let mut settings = settings.clone();
     settings.config.scan.max_findings = 0;
 
-    let mut scanned = scan::scan(root, &settings)?;
+    let mut scanned = scan::scan_drawn(root, &settings, progress)?;
     let health_before = Report::everything(&scanned).health();
     let mut rounds: Vec<Round> = Vec::new();
     let mut projected;
@@ -111,7 +122,7 @@ pub fn run(root: &Path, settings: &Resolved, options: Options) -> Result<Outcome
         for fix in &round.fixes {
             write_atomically(&root.join(&fix.file), &fix.after)?;
         }
-        let next = scan::scan(root, &settings)?;
+        let next = scan::scan_drawn(root, &settings, progress)?;
         round.introduced = new_project_scoped(&scanned, &next);
         scanned = next;
         projected = Report::everything(&scanned).health();

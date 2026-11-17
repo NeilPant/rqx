@@ -144,6 +144,10 @@ pub struct ScanOutcome {
     /// What the scan did, as counts, so a change in the work can be told apart from a
     /// change in the machine.
     pub stats: ScanStats,
+    /// Every `git` command the scan ran, as typed, in the order they were taken.
+    pub git_commands: Vec<String>,
+    /// The configuration files that were in effect, lowest layer first, then the policy.
+    pub config_files: Vec<PathBuf>,
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
@@ -268,6 +272,7 @@ struct Staged {
     importers: Vec<(Arc<str>, u32)>,
     commits: Vec<(Arc<str>, u32)>,
     blames: u32,
+    git_commands: Vec<String>,
 }
 
 impl Staged {
@@ -307,9 +312,9 @@ struct Collector {
     phase_began: std::time::Instant,
     timings: Vec<(&'static str, u128)>,
     stats: ScanStats,
-    /// Where the interface's own progress goes. The bar draws for a plain run and is
-    /// hidden for an interactive one, so without this the interface heard about the
-    /// walk and about nothing that came after it.
+    git_commands: Vec<String>,
+    /// Where progress goes, whoever is drawing it: the command line's bar, the
+    /// interface, the language server.
     watcher: Option<SyncSender<ScanProgress>>,
     showing: Option<Arc<str>>,
     shape_by_file: std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
@@ -333,7 +338,6 @@ struct Collector {
     code_lines: u64,
     files_scanned: u32,
     skipped: Vec<(PathBuf, String)>,
-    bar: crate::progress::Bar,
     total: Option<u32>,
     started: Instant,
 }
@@ -344,7 +348,6 @@ impl Collector {
         track_clones: bool,
         track_ported: bool,
         track_modules: bool,
-        bar: crate::progress::Bar,
         total: Option<u32>,
     ) -> Self {
         Self {
@@ -367,6 +370,7 @@ impl Collector {
             phase_began: std::time::Instant::now(),
             timings: Vec::new(),
             stats: ScanStats::default(),
+            git_commands: Vec::new(),
             watcher: None,
             showing: None,
             shape_by_file: std::collections::BTreeMap::new(),
@@ -385,7 +389,6 @@ impl Collector {
             code_lines: 0,
             files_scanned: 0,
             skipped: Vec::new(),
-            bar,
             total,
             started: Instant::now(),
         }
@@ -430,6 +433,7 @@ impl Collector {
         }
         self.stats.blames += staged.blames;
         self.stats.git_processes += staged.blames;
+        self.git_commands.extend(staged.git_commands);
     }
 
     /// The waiver that covers this finding, if its file wrote one. Cross-file
@@ -532,16 +536,6 @@ impl Collector {
         }
     }
 
-    fn report_progress(&mut self, file: &str) {
-        self.bar.update(
-            crate::progress::Phase::Scanning,
-            self.files_scanned,
-            self.total,
-            self.counts.total,
-            file,
-        );
-    }
-
     /// The phases after the walk used to run with the line already wiped, so a large
     /// repository ended every scan with a silent pause that looked like a hang.
     /// Each phase closes the one before it, so the walk is timed by the first call
@@ -554,12 +548,7 @@ impl Collector {
         ));
         self.phase = phase;
         self.phase_began = now;
-        // The interface hears about it too. Its bar is `Bar::hidden`, so for as long
-        // as this only spoke to the bar every phase after the walk ran with the
-        // screen still saying "scanning" and the gauge stuck at full.
         self.tick(Some(phase));
-        self.bar
-            .update(phase, self.files_scanned, None, self.counts.total, "");
     }
 
     /// Blocks whose shape appears in more than one language. Same-language repeats
@@ -1362,6 +1351,9 @@ impl Collector {
         let names: Vec<Arc<str>> = noted.iter().map(|(file, _)| Arc::clone(file)).collect();
         let blamed = crate::history::blame_dates_for(root, &names);
         staged.blames += names.len() as u32;
+        staged
+            .git_commands
+            .extend(names.iter().map(|file| crate::history::blame_command(file)));
         for ((file, spots), dates) in noted.into_iter().zip(blamed) {
             if dates.is_empty() {
                 continue;
@@ -1585,6 +1577,7 @@ impl Collector {
             self.report_phase(Phase::History);
             let (history, noted, together) = joined(git);
             self.stats.git_processes += history.git_processes();
+            self.git_commands.extend(history.commands().iter().cloned());
             self.absorb(noted);
             self.finish_churn(analyzed_ref, config, &mut Positions::new(root), &history);
             self.report_phase(Phase::CoChange);
@@ -1612,7 +1605,6 @@ impl Collector {
         if !stopped {
             versioned = self.finish_cross_file(root, settings, history);
         }
-        self.bar.clear();
         let retained = self.retained.len() as u32;
         let mut findings: Vec<Finding> = self
             .retained
@@ -1692,6 +1684,13 @@ impl Collector {
             baseline_size: self.baseline_findings,
             timings: self.timings,
             stats: self.stats,
+            git_commands: self.git_commands,
+            config_files: settings
+                .sources
+                .iter()
+                .chain(settings.policy.as_ref())
+                .cloned()
+                .collect(),
             code_lines: self.code_lines,
             files_scanned: self.files_scanned,
             skipped: self.skipped,
@@ -2037,7 +2036,6 @@ pub(crate) fn collect(
     receiver: Receiver<ScanMessage>,
     root: &Path,
     settings: &Resolved,
-    bar: crate::progress::Bar,
     total: Option<u32>,
     watch: Option<&Watch>,
     // A thunk rather than the history itself: reading git is the one part of a scan
@@ -2050,7 +2048,6 @@ pub(crate) fn collect(
         settings.enabled_anywhere(RuleId::DuplicateCode),
         settings.enabled_anywhere(RuleId::CrossLanguageDuplicate),
         settings.needs_modules(),
-        bar,
         total,
     );
     collector.watcher = watch.map(|watch| watch.updates.clone());
@@ -2099,7 +2096,6 @@ pub(crate) fn collect(
                     .lines_by_file
                     .insert(Arc::clone(&shared), code_lines);
                 collector.shape_by_file.insert(Arc::clone(&shared), shape);
-                collector.report_progress(&display);
                 if let Some(path) = canonical {
                     collector.modules.push(rqx_lang::module_graph::ModuleEntry {
                         language,
@@ -2408,6 +2404,18 @@ pub fn scan_with_progress(root: &Path, settings: &Resolved, watch: Watch) -> Res
     scan_with(root, settings, Some(watch), CachePolicy::FromSettings)
 }
 
+/// A scan whose progress is drawn on stderr as `mode` says. The command line's way of
+/// scanning; the library entry points stay silent.
+pub fn scan_drawn(
+    root: &Path,
+    settings: &Resolved,
+    mode: crate::progress::Mode,
+) -> Result<ScanOutcome> {
+    crate::progress::drawing(mode, |watch| {
+        scan_with(root, settings, watch, CachePolicy::FromSettings)
+    })
+}
+
 /// Who decides whether a scan reads and writes the cache. The commands leave it to the
 /// settings; an in-process caller that has to prove the cache's behaviour cannot, because
 /// a development build never uses it.
@@ -2465,9 +2473,6 @@ pub(crate) fn scan_with(
     policy: CachePolicy,
 ) -> Result<ScanOutcome> {
     let config = &settings.config;
-    // A caller watching the channel is drawing its own progress on this terminal,
-    // and a second writer scribbling over it corrupts both.
-    let drawing = watch.is_none();
     // Git depends on nothing the walk produces, so it reads while the files are being
     // parsed rather than after — four processes on the critical path became one, off it.
     let history = {
@@ -2480,12 +2485,6 @@ pub(crate) fn scan_with(
     // wait for it only when they have a file to look up.
     let loading = policy.enabled(config).then(crate::cache::Loading::new);
 
-    let bar = if drawing {
-        crate::progress::Bar::new(crate::brand::Palette::detect())
-    } else {
-        crate::progress::Bar::hidden()
-    };
-
     let counter = build_walker(root, config)?;
     let walker = build_walker(root, config)?;
     let walks = AtomicU32::new(0);
@@ -2497,7 +2496,7 @@ pub(crate) fn scan_with(
         let watch = watch.as_ref();
         let root_ref = root;
         let handle = scope.spawn(move || {
-            collect(receiver, root_ref, settings_ref, bar, None, watch, || {
+            collect(receiver, root_ref, settings_ref, None, watch, || {
                 Arc::new(history.join().unwrap_or_default())
             })
         });
@@ -2947,14 +2946,7 @@ mod tests {
 
     #[test]
     fn what_the_stages_found_is_counted_whichever_collector_takes_it() {
-        let mut collector = Collector::new(
-            10,
-            false,
-            false,
-            false,
-            crate::progress::Bar::hidden(),
-            None,
-        );
+        let mut collector = Collector::new(10, false, false, false, None);
         let mut staged = Staged::default();
         staged.findings.push(ranked("a.ts", 1).0);
         staged.importers.push((Arc::from("a.ts"), 3));

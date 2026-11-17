@@ -66,9 +66,34 @@ have the stream, or a file, to itself.
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.
 
-The progress bar draws only when stderr is a terminal, so a CI log never holds it.
-`--no-progress`, or `RQX_NO_PROGRESS=1`, turns it off on a terminal too, and `--quiet`
-implies it.
+On a terminal that opens links (iTerm2, WezTerm, VS Code, Ghostty, kitty, Windows
+Terminal, VTE 0.50 and later) the report makes each `file:line` clickable. `--hyperlinks
+auto|always|never`, or `RQX_HYPERLINKS`, overrides the guess; `always` is for a log viewer
+that understands OSC 8 links, and still needs colour. A link opens the file by default;
+`RQX_EDITOR_URL` swaps in an editor's own scheme, with `{path}`, `{line}` and `{column}`
+filled in, such as `vscode://file/{path}:{line}:{column}`. A report written to a file or
+a pipe never holds a link unless colour is forced on.
+
+The progress bar draws only when stderr is a terminal and the run is not in CI, so a
+CI log never holds it. `--progress` (or `RQX_PROGRESS`) chooses what a scan reports:
+
+| `--progress` | |
+| --- | --- |
+| `auto` | the bar on a terminal outside CI, nothing otherwise; the default |
+| `bar` | the bar whenever stderr is a terminal, CI included |
+| `plain` | one line on stderr every two seconds and at each phase, with or without a terminal |
+| `none` | nothing |
+
+`plain` is for a long job, where a log that stays silent for minutes looks like a hang:
+
+```
+rqx: scanning 1,204/3,456 files · 31 findings · 4.2s
+rqx: grouping duplicates · 3,456 files · 31 findings · 9.0s
+```
+
+`--no-progress`, or `RQX_NO_PROGRESS=1`, is the same as `--progress none`, and `--quiet`
+implies it. Progress goes to stderr only, so stdout and every report file are the same
+whichever you pick.
 
 ### Where the verdict lives
 

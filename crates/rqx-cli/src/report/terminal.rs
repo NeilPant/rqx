@@ -9,7 +9,7 @@ use rqx_core::rule::RuleId;
 use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
 use crate::preview::{self, HEAD_LINES};
 use crate::report::tally::{RuleCount, Tally};
-use crate::report::{Report, plural};
+use crate::report::{Links, Report, plural, wrap};
 use crate::scan::ScanOutcome;
 
 /// How much of the report a person asked for. Only the console report reads it;
@@ -68,6 +68,79 @@ pub struct Layout {
     pub stats: bool,
     /// Lines of unmarked code shown either side of the offence.
     pub context: u32,
+    /// `-v`: what the run read and how long it took, and every skipped file instead of
+    /// the first few.
+    pub verbose: bool,
+    /// Columns of the terminal the report is being written to, when a person is reading
+    /// it there. Prose is wrapped to it; a file or a pipe has none, and its lines run
+    /// as long as they always have.
+    pub width: Option<usize>,
+    /// Present only when the terminal this is written to opens OSC 8 links, so a file,
+    /// a pipe and a terminal that would print the escape as text never see one.
+    pub links: Option<Links>,
+}
+
+impl Layout {
+    /// Past this a line is harder to read, however wide the window is.
+    const MOST_PROSE_COLUMNS: usize = 100;
+    /// Narrower than this a hanging indent leaves no room for words, and a ragged
+    /// column of one word per line reads worse than a line the terminal wraps itself.
+    const LEAST_PROSE_ROOM: usize = 20;
+
+    /// What is left of a line for prose after `hang` columns of indent and label.
+    fn prose_room(&self, hang: usize) -> Option<usize> {
+        let columns = self.width?.min(Self::MOST_PROSE_COLUMNS);
+        Some(columns.saturating_sub(hang)).filter(|room| *room >= Self::LEAST_PROSE_ROOM)
+    }
+}
+
+/// `text`, as a link to the file at the line and column when the terminal opens them.
+fn linked(
+    layout: &Layout,
+    outcome: &ScanOutcome,
+    at: (&str, u32, u32),
+    text: impl std::fmt::Display,
+) -> String {
+    let (file, line, column) = at;
+    match &layout.links {
+        Some(links) => links.wrap(text, &outcome.root.join(file), line, column),
+        None => text.to_string(),
+    }
+}
+
+/// A label and then prose, wrapped to the terminal with the continuation lines hung
+/// under the first word rather than under the label. `ink` colours each line on its
+/// own, so a wrapped line never leaves its colour open across the indent.
+fn write_prose(
+    out: &mut dyn Write,
+    layout: &Layout,
+    indent: usize,
+    label: &str,
+    text: &str,
+    ink: Option<Ink>,
+) -> Result<()> {
+    let lead = if label.is_empty() {
+        String::new()
+    } else {
+        format!("{} ", paint(layout.palette.style(Ink::Muted), label))
+    };
+    let hang = indent + wrap::visible_width(label) + usize::from(!label.is_empty());
+    let lines = match layout.prose_room(hang) {
+        Some(room) => wrap::lines(text, room),
+        None => vec![text.to_owned()],
+    };
+    for (position, line) in lines.into_iter().enumerate() {
+        let line = match ink {
+            Some(ink) => paint(layout.palette.style(ink), line),
+            None => line,
+        };
+        if position == 0 {
+            writeln!(out, "{:indent$}{lead}{line}", "")?;
+        } else {
+            writeln!(out, "{:hang$}{line}", "")?;
+        }
+    }
+    Ok(())
 }
 
 /// One listing in progress: what to print, what to print it from, and what has
@@ -273,13 +346,15 @@ fn write_footer(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Re
     write_hotspots(out, layout, report, &prefix)?;
     write_skipped(out, layout, report.outcome)?;
     write_notes(out, layout, report.outcome)?;
-    write_gate(out, layout, report)
+    write_gate(out, layout, report)?;
+    write_run(out, layout, report.outcome)
 }
 
 /// The same findings under a heading that is not a file. The file listing shows a
 /// grade and an excerpt per file; these headings have neither, so they are a count
 /// and the findings under it.
 fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
+    write_header(out, layout, report)?;
     let mut listing = Listing::new(layout, report);
     let mut groups: std::collections::BTreeMap<String, Vec<&Finding>> =
         std::collections::BTreeMap::new();
@@ -326,9 +401,18 @@ fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<
                 "     {}",
                 paint(
                     layout.palette.style(Ink::Muted),
-                    format!(
-                        "{prefix}{}:{}",
-                        finding.location.file, finding.location.line
+                    linked(
+                        layout,
+                        report.outcome,
+                        (
+                            &finding.location.file,
+                            finding.location.line,
+                            finding.location.column
+                        ),
+                        format_args!(
+                            "{prefix}{}:{}",
+                            finding.location.file, finding.location.line
+                        )
                     )
                 )
             )?;
@@ -432,7 +516,12 @@ fn write_file(
         out,
         "\n {}  {}  {} {}",
         paint(layout.palette.badge(grade_ink(grade)), " FAIL "),
-        format_args!("{prefix}{file}"),
+        linked(
+            layout,
+            report.outcome,
+            (file, 1, 1),
+            format_args!("{prefix}{file}")
+        ),
         paint(layout.palette.style(grade_ink(grade)), grade.label()),
         paint(layout.palette.style(Ink::Muted), format!("\u{b7} {tally}"))
     )?;
@@ -446,12 +535,7 @@ fn write_file(
     if layout.detail != Detail::Full
         && let Some(cost) = impact_line(report.outcome, file)
     {
-        writeln!(
-            out,
-            "        {} {}",
-            paint(layout.palette.style(Ink::Muted), "Cost:"),
-            paint(layout.palette.style(Ink::Warn), cost)
-        )?;
+        write_prose(out, layout, 8, "Cost:", &cost, Some(Ink::Warn))?;
     }
     // Full repeats the cost on every finding; anything else has just printed it once
     // above, where it belongs — it is the file's number, not the finding's.
@@ -477,15 +561,26 @@ fn write_finding(
     let ink = severity_ink(finding.severity);
     let dim = palette.style(Ink::Muted);
 
+    let at = (
+        &*finding.location.file,
+        finding.location.line,
+        finding.location.column,
+    );
+    let place = || {
+        linked(
+            layout,
+            listing.report.outcome,
+            at,
+            format!("{}:{}", finding.location.line, finding.location.column),
+        )
+    };
+
     if layout.detail == Detail::Terse {
         return writeln!(
             out,
             "   {} {}  {}  {}",
             paint(palette.style(ink), finding.severity.label()),
-            paint(
-                palette.style(Ink::Muted),
-                format!("{}:{}", finding.location.line, finding.location.column)
-            ),
+            paint(palette.style(Ink::Muted), place()),
             paint(palette.style(Ink::Accent), finding.slug()),
             finding.evidence
         )
@@ -497,10 +592,7 @@ fn write_finding(
         "\n   {} {}  {}  {}",
         paint(palette.style(ink), "\u{25cf}"),
         paint(palette.style(Ink::Accent), finding.slug()),
-        paint(
-            palette.style(Ink::Muted),
-            format!("{}:{}", finding.location.line, finding.location.column)
-        ),
+        paint(palette.style(Ink::Muted), place()),
         paint(palette.style(ink), finding.severity.label())
     )?;
 
@@ -508,20 +600,15 @@ fn write_finding(
         write_excerpt(out, layout, finding, index)?;
     }
 
-    writeln!(out, "     {}", finding.evidence)?;
+    write_prose(out, layout, 5, "", &finding.evidence.to_string(), None)?;
     // A rule the project wrote has already said why in its own message; the
     // catalogue's rationale belongs to a rule rqx ships.
     let fresh = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
     if fresh && !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
-        writeln!(out, "     {} {}", paint(dim, "Why: "), spec.why)?;
+        write_prose(out, layout, 5, "Why: ", spec.why, None)?;
     }
     if let Some(cost) = cost {
-        writeln!(
-            out,
-            "     {} {}",
-            paint(dim, "Cost:"),
-            paint(palette.style(Ink::Warn), cost)
-        )?;
+        write_prose(out, layout, 5, "Cost:", cost, Some(Ink::Warn))?;
     }
     let techniques = spec
         .fixes
@@ -543,7 +630,7 @@ fn write_finding(
                 finding.fix_hint
             )
         };
-        writeln!(out, "     {} {named}", paint(dim, "Fix: "))?;
+        write_prose(out, layout, 5, "Fix: ", &named, None)?;
     }
 
     for site in &finding.related {
@@ -984,6 +1071,43 @@ fn write_notes(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> R
     Ok(())
 }
 
+/// What `-v` adds: the inputs the run used and what it cost, which a report about the
+/// code does not say and a reader debugging a surprising result needs.
+fn write_run(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Result<()> {
+    if !layout.verbose {
+        return Ok(());
+    }
+    let dim = layout.palette.style(Ink::Muted);
+    let configuration = if outcome.config_files.is_empty() {
+        "none, the defaults".to_owned()
+    } else {
+        outcome
+            .config_files
+            .iter()
+            .map(|file| file.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let stats = &outcome.stats;
+    let cache = if stats.cache_hits + stats.cache_misses == 0 {
+        "not used".to_owned()
+    } else {
+        format!("{} hits, {} misses", stats.cache_hits, stats.cache_misses)
+    };
+    writeln!(out, "\n  {}", paint(layout.palette.bold(Ink::Text), "Run"))?;
+    for (label, value) in [
+        ("config", configuration),
+        ("cache", cache),
+        (
+            "time",
+            format!("{:.2}s", outcome.elapsed_ms as f64 / 1000.0),
+        ),
+    ] {
+        writeln!(out, "    {}  {value}", paint(dim, format!("{label:<6}")))?;
+    }
+    Ok(())
+}
+
 fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Result<()> {
     if outcome.skipped.is_empty() {
         return Ok(());
@@ -994,11 +1118,16 @@ fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) ->
         "\n  {} skipped:",
         plural(outcome.skipped.len() as u32, "file", "files")
     )?;
-    for (path, reason) in outcome.skipped.iter().take(MAX_SKIPPED_ROWS) {
+    let shown = if layout.verbose {
+        outcome.skipped.len()
+    } else {
+        MAX_SKIPPED_ROWS
+    };
+    for (path, reason) in outcome.skipped.iter().take(shown) {
         writeln!(out, "    {} \u{2014} {reason}", paint(dim, path.display()))?;
     }
-    if outcome.skipped.len() > MAX_SKIPPED_ROWS {
-        let extra = outcome.skipped.len() - MAX_SKIPPED_ROWS;
+    if outcome.skipped.len() > shown {
+        let extra = outcome.skipped.len() - shown;
         writeln!(
             out,
             "    {}",
@@ -1061,6 +1190,9 @@ mod tests {
             quiet: false,
             stats: false,
             context: 1,
+            verbose: false,
+            width: None,
+            links: None,
         }
     }
 
@@ -1171,5 +1303,226 @@ mod tests {
         )
         .unwrap();
         assert!(String::from_utf8(loud).unwrap().contains("PASS"));
+    }
+    fn rendered_text(outcome: &ScanOutcome, layout: &Layout) -> String {
+        let report = Report::scan(outcome, &FindingFilter::default());
+        let mut out = Vec::new();
+        render(&report, layout, &mut out).unwrap();
+        String::from_utf8(out).unwrap()
+    }
+
+    #[test]
+    fn the_run_footer_appears_only_when_asked_for() {
+        let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+        outcome.config_files = vec!["rqx.yaml".into(), "policy.yaml".into()];
+        outcome.stats.cache_hits = 7;
+        outcome.stats.cache_misses = 2;
+
+        let quiet = rendered_text(&outcome, &layout());
+        assert!(!quiet.contains("config"), "{quiet}");
+
+        let loud = rendered_text(
+            &outcome,
+            &Layout {
+                verbose: true,
+                ..layout()
+            },
+        );
+        assert!(loud.contains("rqx.yaml, policy.yaml"), "{loud}");
+        assert!(loud.contains("7 hits, 2 misses"), "{loud}");
+        assert!(loud.contains("0.84s"), "{loud}");
+    }
+
+    #[test]
+    fn a_run_with_no_configuration_says_it_used_the_defaults() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let loud = rendered_text(
+            &outcome,
+            &Layout {
+                verbose: true,
+                ..layout()
+            },
+        );
+
+        assert!(loud.contains("none, the defaults"), "{loud}");
+        assert!(loud.contains("not used"), "{loud}");
+    }
+
+    #[test]
+    fn every_skipped_file_is_listed_when_verbose() {
+        let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+        outcome.skipped = (0..MAX_SKIPPED_ROWS + 5)
+            .map(|n| (format!("big-{n}.ts").into(), "too large".to_owned()))
+            .collect();
+
+        let capped = rendered_text(&outcome, &layout());
+        assert!(capped.contains("and 5 more"), "{capped}");
+        assert!(!capped.contains("big-14.ts"), "{capped}");
+
+        let full = rendered_text(
+            &outcome,
+            &Layout {
+                verbose: true,
+                ..layout()
+            },
+        );
+        assert!(!full.contains("more"), "{full}");
+        assert!(full.contains("big-14.ts"), "{full}");
+    }
+
+    #[test]
+    fn prose_wraps_to_the_terminal_with_a_hanging_indent() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                width: Some(50),
+                ..layout()
+            },
+        );
+
+        let why: Vec<&str> = text
+            .lines()
+            .skip_while(|line| !line.contains("Why:"))
+            .take_while(|line| !line.contains("Fix:"))
+            .collect();
+        assert!(why.len() > 1, "the reason did not wrap:\n{text}");
+        for line in text.lines().filter(|line| line.starts_with("     ")) {
+            assert!(wrap::visible_width(line) <= 50, "{line:?} is too wide");
+        }
+        for continuation in &why[1..] {
+            assert!(
+                continuation.starts_with(&" ".repeat(11)),
+                "{continuation:?} does not hang under the text"
+            );
+        }
+    }
+
+    #[test]
+    fn prose_is_capped_at_a_readable_width_on_a_wide_terminal() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                width: Some(400),
+                ..layout()
+            },
+        );
+
+        for line in text.lines().filter(|line| line.starts_with("     ")) {
+            assert!(wrap::visible_width(line) <= 100, "{line:?} is too wide");
+        }
+    }
+
+    #[test]
+    fn without_a_terminal_prose_is_one_line_as_it_always_was() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(&outcome, &layout());
+
+        let why = RuleId::LongFunction.spec().why;
+        assert!(text.contains(&format!("Why:  {why}")), "{text}");
+    }
+
+    #[test]
+    fn a_terminal_too_narrow_to_hold_words_is_left_to_wrap_itself() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                width: Some(16),
+                ..layout()
+            },
+        );
+
+        let why = RuleId::LongFunction.spec().why;
+        assert!(text.contains(&format!("Why:  {why}")), "{text}");
+    }
+
+    #[test]
+    fn a_place_becomes_a_link_only_when_the_layout_carries_links() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let plain = rendered_text(&outcome, &layout());
+        assert!(!plain.contains("\u{1b}]8"), "{plain:?}");
+
+        let linked = rendered_text(
+            &outcome,
+            &Layout {
+                links: Some(Links::default()),
+                ..layout()
+            },
+        );
+        assert!(linked.contains("\u{1b}]8;;file://"), "{linked:?}");
+        assert!(linked.contains("a.ts"), "{linked:?}");
+    }
+
+    #[test]
+    fn every_grouping_links_the_place_of_a_finding() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        for grouping in [Grouping::File, Grouping::Rule, Grouping::Severity] {
+            let text = rendered_text(
+                &outcome,
+                &Layout {
+                    grouping,
+                    links: Some(Links::default()),
+                    ..layout()
+                },
+            );
+            assert!(text.contains("\u{1b}]8;;file://"), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn every_arrangement_opens_with_the_same_header() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error), ("b.ts", Severity::Warning)], 3);
+        let first_line = |layout: &Layout| {
+            rendered_text(&outcome, layout)
+                .lines()
+                .find(|line| !line.trim().is_empty())
+                .map(str::to_owned)
+                .unwrap()
+        };
+
+        let by_file = first_line(&layout());
+
+        assert!(by_file.contains("3 files"), "{by_file}");
+        for grouping in [Grouping::Rule, Grouping::Family, Grouping::Severity] {
+            let grouped = first_line(&Layout {
+                grouping,
+                ..layout()
+            });
+            assert_eq!(grouped, by_file);
+        }
+    }
+
+    #[test]
+    fn a_single_line_offence_is_underlined_beneath_its_code() {
+        let root = std::env::temp_dir().join(format!("rqx-ruler-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.ts"), "const total = 1;\n").unwrap();
+        let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 1);
+        outcome.root = root.clone();
+        let location = &mut outcome.findings[0].location;
+        location.line = 1;
+        location.column = 7;
+        location.end_line = 1;
+        location.start = 6;
+        location.end = 11;
+
+        let text = rendered_text(&outcome, &layout());
+        let _ = std::fs::remove_dir_all(&root);
+
+        let code = text
+            .lines()
+            .position(|line| line.contains("const total = 1;"))
+            .expect("the code frame");
+        let ruler = text.lines().nth(code + 1).unwrap();
+        assert!(ruler.trim_end().ends_with("      ^^^^^"), "{ruler:?}");
     }
 }

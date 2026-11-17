@@ -23,6 +23,26 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   YYYY-MM-DD` dates it, `--whole-file` waives the rule for the file, and `--dry-run`
   prints the diff and changes nothing. An unknown rule is refused with the closest
   real one, and so is a blank reason, since the scan would not honour either.
+- **Clickable `file:line` in the terminal report.** On iTerm2, WezTerm, VS Code,
+  Ghostty, kitty, Windows Terminal and newer VTE terminals, the file and the line of each
+  finding open in your editor. `--hyperlinks auto|always|never` (or `RQX_HYPERLINKS`)
+  overrides the guess, and `RQX_EDITOR_URL`, such as
+  `vscode://file/{path}:{line}:{column}`, picks where a click goes. Nothing changes in a
+  pipe, a file or a report without colour.
+- **The terminal report wraps its prose to the window.** The evidence, the reason, the
+  fix and the cost of a finding break at word boundaries with the same hanging indent
+  they had, and never run wider than 100 columns. Only a report written to a terminal
+  is wrapped; a file or a pipe is byte for byte what it was.
+- **`-v` and `-vv`.** `-v` adds a short block to the end of the terminal report: the
+  configuration files that were in effect, cache hits and misses, and the time the run
+  took. It also lists every skipped file instead of the first ten. `-vv` also prints the
+  stage timings and every `git` command the scan ran, on stderr, so a document on
+  stdout stays parseable.
+- **`--progress auto|bar|plain|none`** (or `RQX_PROGRESS`). `plain` prints a line to
+  stderr every two seconds and when the scan moves to its next phase, such as
+  `rqx: scanning 1,204/3,456 files · 31 findings · 4.2s`, so a long CI job does not sit
+  silent. `auto` is the old behaviour with one change: it also stays quiet under CI when
+  stderr happens to be a terminal. `--no-progress` still works and means `none`.
 - **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs that
   release instead of the newest, which also lets you step back to an older one.
   `--dry-run` prints how the update would be done, the download URLs and the file it
@@ -177,6 +197,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   unchanged and come out in the same order. With `--timings`, the stage times show
   what the scan was waiting on at that point, so a stage that finished while an earlier
   one was still running shows no time of its own.
+
+- **`--group-by rule|family|severity` opens with the same header as the default
+  listing.** The directory, the file count, the finding count and the health score now
+  head every arrangement instead of only the one grouped by file.
 
 ### Fixed
 

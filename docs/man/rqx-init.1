@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-init \- Write a commented rqx.yaml with every setting at its default
 .SH SYNOPSIS
-\fBrqx init\fR [\fB\-\-force\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx init\fR [\fB\-\-force\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Write a commented rqx.yaml with every setting at its default
 .SH OPTIONS
@@ -46,8 +46,43 @@ off
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it
 .TP
+\fB\-\-progress\fR \fI<PROGRESS>\fR [default: auto]
+How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto: A bar on a terminal, nothing in CI or when stderr is redirected
+.IP \(bu 2
+bar: A bar whenever stderr is a terminal, CI included
+.IP \(bu 2
+plain: A line on stderr every two seconds and at each phase, for a job log
+.IP \(bu 2
+none: Nothing
+.RE
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Say more: \-v adds the configuration, the cache and every skipped file to the report; \-vv also prints stage timings and git commands on stderr
+.TP
+\fB\-\-hyperlinks\fR \fI<HYPERLINKS>\fR [default: auto]
+Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto: On a terminal that is known to open them
+.IP \(bu 2
+always: Whenever the report is coloured
+.IP \(bu 2
+never: Never
+.RE
+.TP
 \fB\-h\fR, \fB\-\-help\fR
-Print help
+Print help (see a summary with \*(Aq\-h\*(Aq)
 .TP
 [\fIPATH\fR] [default: .]
 

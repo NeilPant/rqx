@@ -24,6 +24,33 @@ pub struct History {
     authors: Vec<String>,
     prefix: String,
     git_processes: u32,
+    /// What was run, as it would be typed, for a reader who asked to see it.
+    commands: Vec<String>,
+}
+
+const PREFIX_ARGS: [&str; 2] = ["rev-parse", "--show-prefix"];
+const LOG_ARGS: [&str; 4] = [
+    "log",
+    "--name-only",
+    "--pretty=format:%x00%an",
+    "--no-merges",
+];
+const BLAME_ARGS: [&str; 3] = ["blame", "--porcelain", "--"];
+
+fn since(days: u32) -> String {
+    format!("--since={days} days ago")
+}
+
+/// A command as it would be typed, which is what `-vv` prints for each one the scan ran.
+fn typed(arguments: &[&str], last: Option<&str>) -> String {
+    let mut words = vec!["git"];
+    words.extend(arguments);
+    words.extend(last);
+    words.join(" ")
+}
+
+pub fn blame_command(file: &str) -> String {
+    typed(&BLAME_ARGS, Some(file))
 }
 
 impl History {
@@ -35,10 +62,12 @@ impl History {
             versioned: found.is_some(),
             prefix: found.unwrap_or_default(),
             git_processes: 1,
+            commands: vec![typed(&PREFIX_ARGS, None)],
             ..Self::default()
         };
         if days > 0 {
             history.git_processes += 1;
+            history.commands.push(typed(&LOG_ARGS, Some(&since(days))));
             if let Some((commits, authors)) = recent_commits(root, days) {
                 history.commits = commits;
                 history.authors = authors;
@@ -50,6 +79,10 @@ impl History {
     /// How many `git` processes reading this took, so a scan can say what it cost.
     pub const fn git_processes(&self) -> u32 {
         self.git_processes
+    }
+
+    pub fn commands(&self) -> &[String] {
+        &self.commands
     }
 
     pub const fn versioned(&self) -> bool {
@@ -102,13 +135,8 @@ fn recent_commits(root: &Path, days: u32) -> Option<(Vec<Vec<String>>, Vec<Strin
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args([
-            "log",
-            "--name-only",
-            "--pretty=format:%x00%an",
-            "--no-merges",
-        ])
-        .arg(format!("--since={days} days ago"))
+        .args(LOG_ARGS)
+        .arg(since(days))
         .output()
         .ok()?;
     if !output.status.success() {
@@ -139,7 +167,7 @@ pub fn repository_prefix(root: &Path) -> Option<String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args(["rev-parse", "--show-prefix"])
+        .args(PREFIX_ARGS)
         .output()
         .ok()?;
     if !output.status.success() {
@@ -313,7 +341,7 @@ pub fn blame_file(root: &Path, file: &str) -> HashMap<u32, (String, String)> {
     let Ok(output) = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args(["blame", "--porcelain", "--"])
+        .args(BLAME_ARGS)
         .arg(file)
         .output()
     else {
@@ -362,7 +390,7 @@ pub fn blame_dates(root: &Path, file: &str) -> HashMap<u32, String> {
     let Ok(output) = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args(["blame", "--porcelain", "--"])
+        .args(BLAME_ARGS)
         .arg(file)
         .output()
     else {
@@ -434,6 +462,25 @@ pub fn uncommitted(root: &Path) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_command_is_described_as_it_would_be_typed() {
+        assert_eq!(
+            blame_command("src/a.ts"),
+            "git blame --porcelain -- src/a.ts"
+        );
+        assert_eq!(typed(&PREFIX_ARGS, None), "git rev-parse --show-prefix");
+    }
+
+    #[test]
+    fn reading_history_records_each_command_it_ran() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+        let history = History::read(root, 30);
+
+        assert_eq!(history.commands().len() as u32, history.git_processes());
+        assert_eq!(history.commands()[0], "git rev-parse --show-prefix");
+    }
 
     #[test]
     fn a_blame_that_panicked_keeps_its_place() {

@@ -3,6 +3,11 @@
 --color =auto
 --color =never
 --help
+--hyperlinks
+--hyperlinks =always
+--hyperlinks =auto
+--hyperlinks =never
+--hyperlinks [env RQX_HYPERLINKS]
 --motion
 --motion =off
 --motion =on
@@ -10,9 +15,17 @@
 --no-progress
 --no-progress [env RQX_NO_PROGRESS]
 --no-tui
+--progress
+--progress =auto
+--progress =bar
+--progress =none
+--progress =plain
+--progress [env RQX_PROGRESS]
+--verbose
 --version
 -V
 -h
+-v
 alias c -> check
 alias f -> fix
 alias s -> scan
@@ -25,6 +38,11 @@ baseline --color =never
 baseline --config
 baseline --force
 baseline --help
+baseline --hyperlinks
+baseline --hyperlinks =always
+baseline --hyperlinks =auto
+baseline --hyperlinks =never
+baseline --hyperlinks [env RQX_HYPERLINKS]
 baseline --level
 baseline --level [env RQX_LEVEL]
 baseline --motion
@@ -34,10 +52,18 @@ baseline --no-mouse
 baseline --no-progress
 baseline --no-progress [env RQX_NO_PROGRESS]
 baseline --no-tui
+baseline --progress
+baseline --progress =auto
+baseline --progress =bar
+baseline --progress =none
+baseline --progress =plain
+baseline --progress [env RQX_PROGRESS]
 baseline --threads
 baseline --threads [env RQX_THREADS]
 baseline --update
+baseline --verbose
 baseline -h
+baseline -v
 baseline <path>
 cache
 cache --color
@@ -45,6 +71,11 @@ cache --color =always
 cache --color =auto
 cache --color =never
 cache --help
+cache --hyperlinks
+cache --hyperlinks =always
+cache --hyperlinks =auto
+cache --hyperlinks =never
+cache --hyperlinks [env RQX_HYPERLINKS]
 cache --motion
 cache --motion =off
 cache --motion =on
@@ -52,13 +83,26 @@ cache --no-mouse
 cache --no-progress
 cache --no-progress [env RQX_NO_PROGRESS]
 cache --no-tui
+cache --progress
+cache --progress =auto
+cache --progress =bar
+cache --progress =none
+cache --progress =plain
+cache --progress [env RQX_PROGRESS]
+cache --verbose
 cache -h
+cache -v
 cache clear
 cache clear --color
 cache clear --color =always
 cache clear --color =auto
 cache clear --color =never
 cache clear --help
+cache clear --hyperlinks
+cache clear --hyperlinks =always
+cache clear --hyperlinks =auto
+cache clear --hyperlinks =never
+cache clear --hyperlinks [env RQX_HYPERLINKS]
 cache clear --motion
 cache clear --motion =off
 cache clear --motion =on
@@ -66,7 +110,15 @@ cache clear --no-mouse
 cache clear --no-progress
 cache clear --no-progress [env RQX_NO_PROGRESS]
 cache clear --no-tui
+cache clear --progress
+cache clear --progress =auto
+cache clear --progress =bar
+cache clear --progress =none
+cache clear --progress =plain
+cache clear --progress [env RQX_PROGRESS]
+cache clear --verbose
 cache clear -h
+cache clear -v
 cache clear <path>
 cache help
 cache help clear
@@ -79,6 +131,11 @@ cache status --color =auto
 cache status --color =never
 cache status --config
 cache status --help
+cache status --hyperlinks
+cache status --hyperlinks =always
+cache status --hyperlinks =auto
+cache status --hyperlinks =never
+cache status --hyperlinks [env RQX_HYPERLINKS]
 cache status --motion
 cache status --motion =off
 cache status --motion =on
@@ -86,7 +143,15 @@ cache status --no-mouse
 cache status --no-progress
 cache status --no-progress [env RQX_NO_PROGRESS]
 cache status --no-tui
+cache status --progress
+cache status --progress =auto
+cache status --progress =bar
+cache status --progress =none
+cache status --progress =plain
+cache status --progress [env RQX_PROGRESS]
+cache status --verbose
 cache status -h
+cache status -v
 cache status <path>
 check
 check --allow-findings
@@ -130,6 +195,11 @@ check --group-by =file
 check --group-by =rule
 check --group-by =severity
 check --help
+check --hyperlinks
+check --hyperlinks =always
+check --hyperlinks =auto
+check --hyperlinks =never
+check --hyperlinks [env RQX_HYPERLINKS]
 check --level
 check --level [env RQX_LEVEL]
 check --min-grade
@@ -151,6 +221,12 @@ check --not-category
 check --not-path
 check --not-rule
 check --path
+check --progress
+check --progress =auto
+check --progress =bar
+check --progress =none
+check --progress =plain
+check --progress [env RQX_PROGRESS]
 check --quiet
 check --reporter
 check --rule
@@ -169,9 +245,11 @@ check --sort =severity
 check --stats
 check --timings
 check --top
+check --verbose
 check --write
 check -h
 check -q
+check -v
 check -w
 check <path>
 comment
@@ -190,6 +268,11 @@ comment --fail-on =never
 comment --fail-on =warning
 comment --fail-on-incomplete
 comment --help
+comment --hyperlinks
+comment --hyperlinks =always
+comment --hyperlinks =auto
+comment --hyperlinks =never
+comment --hyperlinks [env RQX_HYPERLINKS]
 comment --level
 comment --level [env RQX_LEVEL]
 comment --marker
@@ -209,9 +292,17 @@ comment --no-progress
 comment --no-progress [env RQX_NO_PROGRESS]
 comment --no-status
 comment --no-tui
+comment --progress
+comment --progress =auto
+comment --progress =bar
+comment --progress =none
+comment --progress =plain
+comment --progress [env RQX_PROGRESS]
 comment --threads
 comment --threads [env RQX_THREADS]
+comment --verbose
 comment -h
+comment -v
 comment <path>
 completions
 completions --color
@@ -219,6 +310,11 @@ completions --color =always
 completions --color =auto
 completions --color =never
 completions --help
+completions --hyperlinks
+completions --hyperlinks =always
+completions --hyperlinks =auto
+completions --hyperlinks =never
+completions --hyperlinks [env RQX_HYPERLINKS]
 completions --motion
 completions --motion =off
 completions --motion =on
@@ -226,7 +322,15 @@ completions --no-mouse
 completions --no-progress
 completions --no-progress [env RQX_NO_PROGRESS]
 completions --no-tui
+completions --progress
+completions --progress =auto
+completions --progress =bar
+completions --progress =none
+completions --progress =plain
+completions --progress [env RQX_PROGRESS]
+completions --verbose
 completions -h
+completions -v
 completions <shell>
 complexity
 complexity --by
@@ -240,6 +344,11 @@ complexity --color =never
 complexity --config
 complexity --help
 complexity --histogram
+complexity --hyperlinks
+complexity --hyperlinks =always
+complexity --hyperlinks =auto
+complexity --hyperlinks =never
+complexity --hyperlinks [env RQX_HYPERLINKS]
 complexity --json
 complexity --level
 complexity --level [env RQX_LEVEL]
@@ -251,6 +360,12 @@ complexity --no-mouse
 complexity --no-progress
 complexity --no-progress [env RQX_NO_PROGRESS]
 complexity --no-tui
+complexity --progress
+complexity --progress =auto
+complexity --progress =bar
+complexity --progress =none
+complexity --progress =plain
+complexity --progress [env RQX_PROGRESS]
 complexity --sort
 complexity --sort =complexity
 complexity --sort =nesting
@@ -259,7 +374,9 @@ complexity --sort =statements
 complexity --threads
 complexity --threads [env RQX_THREADS]
 complexity --top
+complexity --verbose
 complexity -h
+complexity -v
 complexity <path>
 config
 config --color
@@ -268,6 +385,11 @@ config --color =auto
 config --color =never
 config --config
 config --help
+config --hyperlinks
+config --hyperlinks =always
+config --hyperlinks =auto
+config --hyperlinks =never
+config --hyperlinks [env RQX_HYPERLINKS]
 config --json
 config --level
 config --level [env RQX_LEVEL]
@@ -278,7 +400,15 @@ config --no-mouse
 config --no-progress
 config --no-progress [env RQX_NO_PROGRESS]
 config --no-tui
+config --progress
+config --progress =auto
+config --progress =bar
+config --progress =none
+config --progress =plain
+config --progress [env RQX_PROGRESS]
+config --verbose
 config -h
+config -v
 config <path>
 config explain
 config explain --color
@@ -286,6 +416,11 @@ config explain --color =always
 config explain --color =auto
 config explain --color =never
 config explain --help
+config explain --hyperlinks
+config explain --hyperlinks =always
+config explain --hyperlinks =auto
+config explain --hyperlinks =never
+config explain --hyperlinks [env RQX_HYPERLINKS]
 config explain --motion
 config explain --motion =off
 config explain --motion =on
@@ -293,7 +428,15 @@ config explain --no-mouse
 config explain --no-progress
 config explain --no-progress [env RQX_NO_PROGRESS]
 config explain --no-tui
+config explain --progress
+config explain --progress =auto
+config explain --progress =bar
+config explain --progress =none
+config explain --progress =plain
+config explain --progress [env RQX_PROGRESS]
+config explain --verbose
 config explain -h
+config explain -v
 config explain <key>
 config files
 config files --color
@@ -301,6 +444,11 @@ config files --color =always
 config files --color =auto
 config files --color =never
 config files --help
+config files --hyperlinks
+config files --hyperlinks =always
+config files --hyperlinks =auto
+config files --hyperlinks =never
+config files --hyperlinks [env RQX_HYPERLINKS]
 config files --motion
 config files --motion =off
 config files --motion =on
@@ -308,7 +456,15 @@ config files --no-mouse
 config files --no-progress
 config files --no-progress [env RQX_NO_PROGRESS]
 config files --no-tui
+config files --progress
+config files --progress =auto
+config files --progress =bar
+config files --progress =none
+config files --progress =plain
+config files --progress [env RQX_PROGRESS]
+config files --verbose
 config files -h
+config files -v
 config help
 config help explain
 config help files
@@ -325,6 +481,11 @@ config migrate --color =auto
 config migrate --color =never
 config migrate --dry-run
 config migrate --help
+config migrate --hyperlinks
+config migrate --hyperlinks =always
+config migrate --hyperlinks =auto
+config migrate --hyperlinks =never
+config migrate --hyperlinks [env RQX_HYPERLINKS]
 config migrate --motion
 config migrate --motion =off
 config migrate --motion =on
@@ -332,7 +493,15 @@ config migrate --no-mouse
 config migrate --no-progress
 config migrate --no-progress [env RQX_NO_PROGRESS]
 config migrate --no-tui
+config migrate --progress
+config migrate --progress =auto
+config migrate --progress =bar
+config migrate --progress =none
+config migrate --progress =plain
+config migrate --progress [env RQX_PROGRESS]
+config migrate --verbose
 config migrate -h
+config migrate -v
 config migrate <path>
 config schema
 config schema --color
@@ -340,6 +509,11 @@ config schema --color =always
 config schema --color =auto
 config schema --color =never
 config schema --help
+config schema --hyperlinks
+config schema --hyperlinks =always
+config schema --hyperlinks =auto
+config schema --hyperlinks =never
+config schema --hyperlinks [env RQX_HYPERLINKS]
 config schema --motion
 config schema --motion =off
 config schema --motion =on
@@ -347,7 +521,15 @@ config schema --no-mouse
 config schema --no-progress
 config schema --no-progress [env RQX_NO_PROGRESS]
 config schema --no-tui
+config schema --progress
+config schema --progress =auto
+config schema --progress =bar
+config schema --progress =none
+config schema --progress =plain
+config schema --progress [env RQX_PROGRESS]
+config schema --verbose
 config schema -h
+config schema -v
 config set
 config set --color
 config set --color =always
@@ -355,6 +537,11 @@ config set --color =auto
 config set --color =never
 config set --file
 config set --help
+config set --hyperlinks
+config set --hyperlinks =always
+config set --hyperlinks =auto
+config set --hyperlinks =never
+config set --hyperlinks [env RQX_HYPERLINKS]
 config set --motion
 config set --motion =off
 config set --motion =on
@@ -363,7 +550,15 @@ config set --no-progress
 config set --no-progress [env RQX_NO_PROGRESS]
 config set --no-tui
 config set --pick
+config set --progress
+config set --progress =auto
+config set --progress =bar
+config set --progress =none
+config set --progress =plain
+config set --progress [env RQX_PROGRESS]
+config set --verbose
 config set -h
+config set -v
 config set <key>
 config set <value>
 config unset
@@ -373,6 +568,11 @@ config unset --color =auto
 config unset --color =never
 config unset --file
 config unset --help
+config unset --hyperlinks
+config unset --hyperlinks =always
+config unset --hyperlinks =auto
+config unset --hyperlinks =never
+config unset --hyperlinks [env RQX_HYPERLINKS]
 config unset --motion
 config unset --motion =off
 config unset --motion =on
@@ -381,7 +581,15 @@ config unset --no-progress
 config unset --no-progress [env RQX_NO_PROGRESS]
 config unset --no-tui
 config unset --pick
+config unset --progress
+config unset --progress =auto
+config unset --progress =bar
+config unset --progress =none
+config unset --progress =plain
+config unset --progress [env RQX_PROGRESS]
+config unset --verbose
 config unset -h
+config unset -v
 config unset <key>
 config validate
 config validate --color
@@ -390,6 +598,11 @@ config validate --color =auto
 config validate --color =never
 config validate --config
 config validate --help
+config validate --hyperlinks
+config validate --hyperlinks =always
+config validate --hyperlinks =auto
+config validate --hyperlinks =never
+config validate --hyperlinks [env RQX_HYPERLINKS]
 config validate --json
 config validate --level
 config validate --level [env RQX_LEVEL]
@@ -400,8 +613,16 @@ config validate --no-mouse
 config validate --no-progress
 config validate --no-progress [env RQX_NO_PROGRESS]
 config validate --no-tui
+config validate --progress
+config validate --progress =auto
+config validate --progress =bar
+config validate --progress =none
+config validate --progress =plain
+config validate --progress [env RQX_PROGRESS]
 config validate --strict
+config validate --verbose
 config validate -h
+config validate -v
 config validate <path>
 docs
 docs --color
@@ -410,6 +631,11 @@ docs --color =auto
 docs --color =never
 docs --fixtures
 docs --help
+docs --hyperlinks
+docs --hyperlinks =always
+docs --hyperlinks =auto
+docs --hyperlinks =never
+docs --hyperlinks [env RQX_HYPERLINKS]
 docs --motion
 docs --motion =off
 docs --motion =on
@@ -418,13 +644,26 @@ docs --no-progress
 docs --no-progress [env RQX_NO_PROGRESS]
 docs --no-tui
 docs --out
+docs --progress
+docs --progress =auto
+docs --progress =bar
+docs --progress =none
+docs --progress =plain
+docs --progress [env RQX_PROGRESS]
+docs --verbose
 docs -h
+docs -v
 explain
 explain --color
 explain --color =always
 explain --color =auto
 explain --color =never
 explain --help
+explain --hyperlinks
+explain --hyperlinks =always
+explain --hyperlinks =auto
+explain --hyperlinks =never
+explain --hyperlinks [env RQX_HYPERLINKS]
 explain --motion
 explain --motion =off
 explain --motion =on
@@ -432,7 +671,15 @@ explain --no-mouse
 explain --no-progress
 explain --no-progress [env RQX_NO_PROGRESS]
 explain --no-tui
+explain --progress
+explain --progress =auto
+explain --progress =bar
+explain --progress =none
+explain --progress =plain
+explain --progress [env RQX_PROGRESS]
+explain --verbose
 explain -h
+explain -v
 explain <name>
 fix
 fix --color
@@ -441,6 +688,11 @@ fix --color =auto
 fix --color =never
 fix --config
 fix --help
+fix --hyperlinks
+fix --hyperlinks =always
+fix --hyperlinks =auto
+fix --hyperlinks =never
+fix --hyperlinks [env RQX_HYPERLINKS]
 fix --json
 fix --level
 fix --level [env RQX_LEVEL]
@@ -454,10 +706,18 @@ fix --no-progress
 fix --no-progress [env RQX_NO_PROGRESS]
 fix --no-tui
 fix --plan
+fix --progress
+fix --progress =auto
+fix --progress =bar
+fix --progress =none
+fix --progress =plain
+fix --progress [env RQX_PROGRESS]
 fix --threads
 fix --threads [env RQX_THREADS]
+fix --verbose
 fix --write
 fix -h
+fix -v
 fix -w
 fix <path>
 graph
@@ -475,6 +735,11 @@ graph --format =json
 graph --format =mermaid
 graph --format =text
 graph --help
+graph --hyperlinks
+graph --hyperlinks =always
+graph --hyperlinks =auto
+graph --hyperlinks =never
+graph --hyperlinks [env RQX_HYPERLINKS]
 graph --level
 graph --level [env RQX_LEVEL]
 graph --motion
@@ -484,9 +749,17 @@ graph --no-mouse
 graph --no-progress
 graph --no-progress [env RQX_NO_PROGRESS]
 graph --no-tui
+graph --progress
+graph --progress =auto
+graph --progress =bar
+graph --progress =none
+graph --progress =plain
+graph --progress [env RQX_PROGRESS]
 graph --threads
 graph --threads [env RQX_THREADS]
+graph --verbose
 graph -h
+graph -v
 graph <path>
 health
 health --by
@@ -500,6 +773,11 @@ health --color =auto
 health --color =never
 health --config
 health --help
+health --hyperlinks
+health --hyperlinks =always
+health --hyperlinks =auto
+health --hyperlinks =never
+health --hyperlinks [env RQX_HYPERLINKS]
 health --json
 health --level
 health --level [env RQX_LEVEL]
@@ -510,9 +788,17 @@ health --no-mouse
 health --no-progress
 health --no-progress [env RQX_NO_PROGRESS]
 health --no-tui
+health --progress
+health --progress =auto
+health --progress =bar
+health --progress =none
+health --progress =plain
+health --progress [env RQX_PROGRESS]
 health --threads
 health --threads [env RQX_THREADS]
+health --verbose
 health -h
+health -v
 health <path>
 help
 help baseline
@@ -562,6 +848,11 @@ init --color =auto
 init --color =never
 init --force
 init --help
+init --hyperlinks
+init --hyperlinks =always
+init --hyperlinks =auto
+init --hyperlinks =never
+init --hyperlinks [env RQX_HYPERLINKS]
 init --motion
 init --motion =off
 init --motion =on
@@ -569,7 +860,15 @@ init --no-mouse
 init --no-progress
 init --no-progress [env RQX_NO_PROGRESS]
 init --no-tui
+init --progress
+init --progress =auto
+init --progress =bar
+init --progress =none
+init --progress =plain
+init --progress [env RQX_PROGRESS]
+init --verbose
 init -h
+init -v
 init <path>
 levels
 levels --color
@@ -577,6 +876,11 @@ levels --color =always
 levels --color =auto
 levels --color =never
 levels --help
+levels --hyperlinks
+levels --hyperlinks =always
+levels --hyperlinks =auto
+levels --hyperlinks =never
+levels --hyperlinks [env RQX_HYPERLINKS]
 levels --motion
 levels --motion =off
 levels --motion =on
@@ -584,7 +888,15 @@ levels --no-mouse
 levels --no-progress
 levels --no-progress [env RQX_NO_PROGRESS]
 levels --no-tui
+levels --progress
+levels --progress =auto
+levels --progress =bar
+levels --progress =none
+levels --progress =plain
+levels --progress [env RQX_PROGRESS]
+levels --verbose
 levels -h
+levels -v
 lsp
 lsp --color
 lsp --color =always
@@ -592,6 +904,11 @@ lsp --color =auto
 lsp --color =never
 lsp --config
 lsp --help
+lsp --hyperlinks
+lsp --hyperlinks =always
+lsp --hyperlinks =auto
+lsp --hyperlinks =never
+lsp --hyperlinks [env RQX_HYPERLINKS]
 lsp --motion
 lsp --motion =off
 lsp --motion =on
@@ -599,7 +916,15 @@ lsp --no-mouse
 lsp --no-progress
 lsp --no-progress [env RQX_NO_PROGRESS]
 lsp --no-tui
+lsp --progress
+lsp --progress =auto
+lsp --progress =bar
+lsp --progress =none
+lsp --progress =plain
+lsp --progress [env RQX_PROGRESS]
+lsp --verbose
 lsp -h
+lsp -v
 lsp <path>
 mcp
 mcp --color
@@ -609,6 +934,11 @@ mcp --color =never
 mcp --config
 mcp --help
 mcp --http
+mcp --hyperlinks
+mcp --hyperlinks =always
+mcp --hyperlinks =auto
+mcp --hyperlinks =never
+mcp --hyperlinks [env RQX_HYPERLINKS]
 mcp --motion
 mcp --motion =off
 mcp --motion =on
@@ -616,7 +946,15 @@ mcp --no-mouse
 mcp --no-progress
 mcp --no-progress [env RQX_NO_PROGRESS]
 mcp --no-tui
+mcp --progress
+mcp --progress =auto
+mcp --progress =bar
+mcp --progress =none
+mcp --progress =plain
+mcp --progress [env RQX_PROGRESS]
+mcp --verbose
 mcp -h
+mcp -v
 mcp <path>
 patterns
 patterns --color
@@ -626,6 +964,11 @@ patterns --color =never
 patterns --config
 patterns --coverage
 patterns --help
+patterns --hyperlinks
+patterns --hyperlinks =always
+patterns --hyperlinks =auto
+patterns --hyperlinks =never
+patterns --hyperlinks [env RQX_HYPERLINKS]
 patterns --json
 patterns --level
 patterns --level [env RQX_LEVEL]
@@ -636,9 +979,17 @@ patterns --no-mouse
 patterns --no-progress
 patterns --no-progress [env RQX_NO_PROGRESS]
 patterns --no-tui
+patterns --progress
+patterns --progress =auto
+patterns --progress =bar
+patterns --progress =none
+patterns --progress =plain
+patterns --progress [env RQX_PROGRESS]
 patterns --threads
 patterns --threads [env RQX_THREADS]
+patterns --verbose
 patterns -h
+patterns -v
 patterns <path>
 perf
 perf --by
@@ -651,6 +1002,11 @@ perf --color =auto
 perf --color =never
 perf --config
 perf --help
+perf --hyperlinks
+perf --hyperlinks =always
+perf --hyperlinks =auto
+perf --hyperlinks =never
+perf --hyperlinks [env RQX_HYPERLINKS]
 perf --json
 perf --level
 perf --level [env RQX_LEVEL]
@@ -663,6 +1019,12 @@ perf --no-progress
 perf --no-progress [env RQX_NO_PROGRESS]
 perf --no-tui
 perf --profile
+perf --progress
+perf --progress =auto
+perf --progress =bar
+perf --progress =none
+perf --progress =plain
+perf --progress [env RQX_PROGRESS]
 perf --sort
 perf --sort =io
 perf --sort =order
@@ -672,7 +1034,9 @@ perf --sort =weight
 perf --threads
 perf --threads [env RQX_THREADS]
 perf --top
+perf --verbose
 perf -h
+perf -v
 perf <path>
 plan
 plan --budget
@@ -682,6 +1046,11 @@ plan --color =auto
 plan --color =never
 plan --config
 plan --help
+plan --hyperlinks
+plan --hyperlinks =always
+plan --hyperlinks =auto
+plan --hyperlinks =never
+plan --hyperlinks [env RQX_HYPERLINKS]
 plan --json
 plan --level
 plan --level [env RQX_LEVEL]
@@ -693,10 +1062,18 @@ plan --no-mouse
 plan --no-progress
 plan --no-progress [env RQX_NO_PROGRESS]
 plan --no-tui
+plan --progress
+plan --progress =auto
+plan --progress =bar
+plan --progress =none
+plan --progress =plain
+plan --progress [env RQX_PROGRESS]
 plan --simulate
 plan --threads
 plan --threads [env RQX_THREADS]
+plan --verbose
 plan -h
+plan -v
 plan <path>
 query
 query --captures
@@ -706,6 +1083,11 @@ query --color =auto
 query --color =never
 query --config
 query --help
+query --hyperlinks
+query --hyperlinks =always
+query --hyperlinks =auto
+query --hyperlinks =never
+query --hyperlinks [env RQX_HYPERLINKS]
 query --motion
 query --motion =off
 query --motion =on
@@ -713,7 +1095,15 @@ query --no-mouse
 query --no-progress
 query --no-progress [env RQX_NO_PROGRESS]
 query --no-tui
+query --progress
+query --progress =auto
+query --progress =bar
+query --progress =none
+query --progress =plain
+query --progress [env RQX_PROGRESS]
+query --verbose
 query -h
+query -v
 query <language>
 query <path>
 query <query>
@@ -724,6 +1114,11 @@ recommend --color =auto
 recommend --color =never
 recommend --config
 recommend --help
+recommend --hyperlinks
+recommend --hyperlinks =always
+recommend --hyperlinks =auto
+recommend --hyperlinks =never
+recommend --hyperlinks [env RQX_HYPERLINKS]
 recommend --json
 recommend --level
 recommend --level [env RQX_LEVEL]
@@ -739,9 +1134,17 @@ recommend --only =config
 recommend --only =perf
 recommend --only =reading
 recommend --only =refactor
+recommend --progress
+recommend --progress =auto
+recommend --progress =bar
+recommend --progress =none
+recommend --progress =plain
+recommend --progress [env RQX_PROGRESS]
 recommend --threads
 recommend --threads [env RQX_THREADS]
+recommend --verbose
 recommend -h
+recommend -v
 recommend <path>
 rules
 rules --color
@@ -749,6 +1152,11 @@ rules --color =always
 rules --color =auto
 rules --color =never
 rules --help
+rules --hyperlinks
+rules --hyperlinks =always
+rules --hyperlinks =auto
+rules --hyperlinks =never
+rules --hyperlinks [env RQX_HYPERLINKS]
 rules --language
 rules --motion
 rules --motion =off
@@ -757,8 +1165,16 @@ rules --no-mouse
 rules --no-progress
 rules --no-progress [env RQX_NO_PROGRESS]
 rules --no-tui
+rules --progress
+rules --progress =auto
+rules --progress =bar
+rules --progress =none
+rules --progress =plain
+rules --progress [env RQX_PROGRESS]
 rules --slugs
+rules --verbose
 rules -h
+rules -v
 rules <category>
 scan
 scan --advice
@@ -802,6 +1218,11 @@ scan --group-by =file
 scan --group-by =rule
 scan --group-by =severity
 scan --help
+scan --hyperlinks
+scan --hyperlinks =always
+scan --hyperlinks =auto
+scan --hyperlinks =never
+scan --hyperlinks [env RQX_HYPERLINKS]
 scan --level
 scan --level [env RQX_LEVEL]
 scan --max-findings
@@ -825,6 +1246,12 @@ scan --not-path
 scan --not-rule
 scan --path
 scan --profile
+scan --progress
+scan --progress =auto
+scan --progress =bar
+scan --progress =none
+scan --progress =plain
+scan --progress [env RQX_PROGRESS]
 scan --quiet
 scan --reporter
 scan --rule
@@ -845,9 +1272,11 @@ scan --threads
 scan --threads [env RQX_THREADS]
 scan --timings
 scan --top
+scan --verbose
 scan --watch
 scan -h
 scan -q
+scan -v
 scan <path>
 setup
 setup --color
@@ -855,6 +1284,11 @@ setup --color =always
 setup --color =auto
 setup --color =never
 setup --help
+setup --hyperlinks
+setup --hyperlinks =always
+setup --hyperlinks =auto
+setup --hyperlinks =never
+setup --hyperlinks [env RQX_HYPERLINKS]
 setup --motion
 setup --motion =off
 setup --motion =on
@@ -862,8 +1296,16 @@ setup --no-mouse
 setup --no-progress
 setup --no-progress [env RQX_NO_PROGRESS]
 setup --no-tui
+setup --progress
+setup --progress =auto
+setup --progress =bar
+setup --progress =none
+setup --progress =plain
+setup --progress [env RQX_PROGRESS]
+setup --verbose
 setup --write
 setup -h
+setup -v
 setup -w
 setup <editor>
 slop
@@ -873,6 +1315,11 @@ slop --color =auto
 slop --color =never
 slop --config
 slop --help
+slop --hyperlinks
+slop --hyperlinks =always
+slop --hyperlinks =auto
+slop --hyperlinks =never
+slop --hyperlinks [env RQX_HYPERLINKS]
 slop --json
 slop --level
 slop --level [env RQX_LEVEL]
@@ -884,10 +1331,18 @@ slop --no-mouse
 slop --no-progress
 slop --no-progress [env RQX_NO_PROGRESS]
 slop --no-tui
+slop --progress
+slop --progress =auto
+slop --progress =bar
+slop --progress =none
+slop --progress =plain
+slop --progress [env RQX_PROGRESS]
 slop --threads
 slop --threads [env RQX_THREADS]
 slop --top
+slop --verbose
 slop -h
+slop -v
 slop <path>
 suppressions
 suppressions --color
@@ -897,6 +1352,11 @@ suppressions --color =never
 suppressions --config
 suppressions --expiring
 suppressions --help
+suppressions --hyperlinks
+suppressions --hyperlinks =always
+suppressions --hyperlinks =auto
+suppressions --hyperlinks =never
+suppressions --hyperlinks [env RQX_HYPERLINKS]
 suppressions --json
 suppressions --level
 suppressions --level [env RQX_LEVEL]
@@ -907,9 +1367,17 @@ suppressions --no-mouse
 suppressions --no-progress
 suppressions --no-progress [env RQX_NO_PROGRESS]
 suppressions --no-tui
+suppressions --progress
+suppressions --progress =auto
+suppressions --progress =bar
+suppressions --progress =none
+suppressions --progress =plain
+suppressions --progress [env RQX_PROGRESS]
 suppressions --threads
 suppressions --threads [env RQX_THREADS]
+suppressions --verbose
 suppressions -h
+suppressions -v
 suppressions <path>
 techniques
 techniques --color
@@ -917,6 +1385,11 @@ techniques --color =always
 techniques --color =auto
 techniques --color =never
 techniques --help
+techniques --hyperlinks
+techniques --hyperlinks =always
+techniques --hyperlinks =auto
+techniques --hyperlinks =never
+techniques --hyperlinks [env RQX_HYPERLINKS]
 techniques --motion
 techniques --motion =off
 techniques --motion =on
@@ -924,7 +1397,15 @@ techniques --no-mouse
 techniques --no-progress
 techniques --no-progress [env RQX_NO_PROGRESS]
 techniques --no-tui
+techniques --progress
+techniques --progress =auto
+techniques --progress =bar
+techniques --progress =none
+techniques --progress =plain
+techniques --progress [env RQX_PROGRESS]
+techniques --verbose
 techniques -h
+techniques -v
 update
 update --check
 update --color
@@ -933,6 +1414,11 @@ update --color =auto
 update --color =never
 update --dry-run
 update --help
+update --hyperlinks
+update --hyperlinks =always
+update --hyperlinks =auto
+update --hyperlinks =never
+update --hyperlinks [env RQX_HYPERLINKS]
 update --motion
 update --motion =off
 update --motion =on
@@ -941,8 +1427,16 @@ update --no-progress
 update --no-progress [env RQX_NO_PROGRESS]
 update --no-tui
 update --notes
+update --progress
+update --progress =auto
+update --progress =bar
+update --progress =none
+update --progress =plain
+update --progress [env RQX_PROGRESS]
+update --verbose
 update --version
 update -h
+update -v
 verify
 verify --base
 verify --color
@@ -952,6 +1446,11 @@ verify --color =never
 verify --config
 verify --expect
 verify --help
+verify --hyperlinks
+verify --hyperlinks =always
+verify --hyperlinks =auto
+verify --hyperlinks =never
+verify --hyperlinks [env RQX_HYPERLINKS]
 verify --json
 verify --level
 verify --level [env RQX_LEVEL]
@@ -962,9 +1461,17 @@ verify --no-mouse
 verify --no-progress
 verify --no-progress [env RQX_NO_PROGRESS]
 verify --no-tui
+verify --progress
+verify --progress =auto
+verify --progress =bar
+verify --progress =none
+verify --progress =plain
+verify --progress [env RQX_PROGRESS]
 verify --threads
 verify --threads [env RQX_THREADS]
+verify --verbose
 verify -h
+verify -v
 verify <path>
 waive
 waive --color

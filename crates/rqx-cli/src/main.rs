@@ -93,12 +93,37 @@ pub struct Cli {
     /// Do not draw the progress bar on stderr; `--quiet` implies it
     #[arg(long, global = true, env = "RQX_NO_PROGRESS")]
     no_progress: bool,
+    /// How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = progress::Style::Auto,
+        global = true,
+        env = "RQX_PROGRESS"
+    )]
+    progress: progress::Style,
+    /// Say more: -v adds the configuration, the cache and every skipped file to the report; -vv also prints stage timings and git commands on stderr
+    #[arg(short = 'v', long, action = clap::ArgAction::Count, global = true)]
+    verbose: u8,
+    /// Make file:line in the report a link that opens in your editor; `auto` only where the terminal is known to support it
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = term::LinkChoice::Auto,
+        global = true,
+        env = "RQX_HYPERLINKS"
+    )]
+    hyperlinks: term::LinkChoice,
 }
 
-/// The bar is for a person watching a terminal, and a request for quiet output is a
-/// request not to be drawn at either.
-const fn progress_wanted(no_progress: bool, quiet: bool) -> bool {
-    !no_progress && !quiet
+/// `--no-progress` is the older spelling of `--progress none`, and a request for
+/// quiet output is a request not to be drawn at either.
+fn progress_style(requested: progress::Style, no_progress: bool, quiet: bool) -> progress::Style {
+    if no_progress || quiet {
+        progress::Style::None
+    } else {
+        requested
+    }
 }
 
 /// The commands, in five groups. Order inside a group is the order a reader meets
@@ -847,6 +872,16 @@ impl From<OrderArg> for report::Order {
 /// with a display flag would not mean anything.
 #[derive(Args, Default)]
 struct View {
+    /// Set from the global `-v` after parsing, so the report can see it without every
+    /// command that flattens a view declaring the flag again.
+    #[arg(skip)]
+    verbose: u8,
+    /// Columns to wrap prose to; set when stdout is a terminal, so a pipe is never wrapped
+    #[arg(skip)]
+    width: Option<usize>,
+    /// Set when the terminal opens links and `--hyperlinks` allows them
+    #[arg(skip)]
+    links: Option<report::Links>,
     /// Show only findings at or above this severity
     #[arg(long, value_enum, help_heading = "Filtering")]
     severity: Option<SeverityArg>,
@@ -1238,6 +1273,23 @@ impl FromStr for Sink {
 /// A document interleaved with anything else on one stream is silent corruption, so
 /// it is rejected before a byte is written rather than discovered by whatever tries
 /// to parse the result.
+impl View {
+    /// What the run itself knows and a flag cannot say: how chatty it was asked to be
+    /// and how wide the screen is. Only the command line sets these; a view built any
+    /// other way keeps the plain, unwrapped report.
+    fn on_terminal(self, verbose: u8, hyperlinks: term::LinkChoice) -> Self {
+        let on_screen = term::is_terminal(term::Stream::Stdout);
+        Self {
+            verbose,
+            width: term::terminal_width(term::Stream::Stdout),
+            links: hyperlinks
+                .wanted(on_screen)
+                .then(report::Links::from_environment),
+            ..self
+        }
+    }
+}
+
 fn sinks(view: &View) -> Result<Vec<Sink>> {
     let mut sinks = view.reporters.clone();
     if let Some(reporter) = view.format {
@@ -1316,6 +1368,9 @@ fn companion_stream(sinks: &[Sink]) -> Box<dyn std::io::Write> {
 }
 
 fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
+    if view.verbose > 1 {
+        write_diagnostics(report.outcome, view, palette)?;
+    }
     if !view.timings {
         for sink in sinks {
             write_sink(report, sink, view, palette, &mut stdout_for(sink))?;
@@ -1331,6 +1386,16 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     )?;
     anstream::stdout().lock().write_all(&held)?;
     Ok(())
+}
+
+/// What `-vv` adds on stderr, where it cannot corrupt a document on stdout. The stage
+/// timings are left out when `--timings` is already printing them.
+fn write_diagnostics(outcome: &scan::ScanOutcome, view: &View, palette: Palette) -> Result<()> {
+    let mut stderr = anstream::stderr().lock();
+    if !view.timings {
+        report::timings(outcome, &[], palette, &mut stderr)?;
+    }
+    report::git_commands(outcome, palette, &mut stderr)
 }
 
 /// The timed report into one writer, stages first, for a caller whose output is
@@ -1390,6 +1455,9 @@ fn write_sink(
         show_passed: view.show_passed,
         stats: view.stats,
         quiet: view.quiet,
+        verbose: view.verbose > 0,
+        width: None,
+        links: None,
         // Full is the level that shows everything, so it is the one that pays
         // for surrounding lines; at 285 findings they are most of the scroll.
         context: view.context.unwrap_or(match view.detail {
@@ -1405,7 +1473,12 @@ fn write_sink(
             file.flush()?;
         }
         None if sink.reporter.is_coloured() => {
-            let layout = Layout { palette, ..plain };
+            let layout = Layout {
+                palette,
+                width: view.width,
+                links: view.links.clone().filter(|_| !palette.is_monochrome()),
+                ..plain
+            };
             report::emit(report, sink.reporter, &layout, stdout)?;
         }
         None => report::emit(report, sink.reporter, &plain, stdout)?,
@@ -1616,8 +1689,12 @@ fn run() -> Result<Exit> {
     // Set before anything draws: `anstream::stdout()` and `Palette::detect()` both
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();
-    progress::set_animated(!matches!(cli.motion, Motion::Off));
-    progress::set_shown(progress_wanted(cli.no_progress, false));
+    let animated = !matches!(cli.motion, Motion::Off);
+    let (requested, no_progress, verbosity) = (cli.progress, cli.no_progress, cli.verbose);
+    let hyperlinks = cli.hyperlinks;
+    let progress_for =
+        |quiet| progress::Mode::new(progress_style(requested, no_progress, quiet), animated);
+    let progress = progress_for(false);
     let palette = Palette::detect();
 
     let command = match cli.command {
@@ -1680,12 +1757,13 @@ fn run() -> Result<Exit> {
             }
             gate.apply(&mut settings.config);
 
-            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
+            let progress = progress_for(view.quiet);
+            let view = view.on_terminal(verbosity, hyperlinks);
             let sinks = sinks(&view)?;
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
-                let outcome = scan::scan(&path, settings)?;
+                let outcome = scan::scan_drawn(&path, settings, progress)?;
 
                 // A bare `rqx scan` reports; it only gates when asked to, so adding a
                 // flag is the whole opt-in and no existing pipeline changes meaning.
@@ -1734,7 +1812,7 @@ fn run() -> Result<Exit> {
             }
             let mut out = anstream::stdout().lock();
             if plan {
-                let scanned = scan::scan(&path, &settings)?;
+                let scanned = scan::scan_drawn(&path, &settings, progress)?;
                 return if json {
                     report::brief_json(&scanned, &settings, &mut out)
                 } else if markdown {
@@ -1745,7 +1823,7 @@ fn run() -> Result<Exit> {
                 .map(|()| Exit::Clean);
             }
             let rounds = max_rounds.unwrap_or(settings.config.fix.max_rounds).max(1);
-            let outcome = fix::run(
+            let outcome = fix::run_drawn(
                 &path,
                 &settings,
                 fix::Options {
@@ -1753,6 +1831,7 @@ fn run() -> Result<Exit> {
                     max_rounds: rounds,
                     ..fix::Options::default()
                 },
+                progress,
             )?;
             if json {
                 return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
@@ -1780,7 +1859,7 @@ fn run() -> Result<Exit> {
             }
             settings.config.scan.max_findings = 0;
             verify::ensure_repository(&path, &base)?;
-            let verified = verify::verify(&path, &settings, &base, &expect)?;
+            let verified = verify::verify_drawn(&path, &settings, &base, &expect, progress)?;
             let mut out = anstream::stdout().lock();
             if json {
                 report::verify_json(&verified, &mut out)?;
@@ -1832,7 +1911,7 @@ fn run() -> Result<Exit> {
             // The display cap keeps the highest-ranked findings, and the plan is a
             // ranking of its own: capping first would hide the cheap work entirely.
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let request = render::Plan {
                 budget,
                 limit,
@@ -1867,7 +1946,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::patterns(&outcome, json, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
         }
@@ -1883,7 +1962,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let taken = baseline::take(&path, &settings, update, force)?;
+            let taken = baseline::take_drawn(&path, &settings, update, force, progress)?;
             println!(
                 "  recorded {} findings in {}{}",
                 taken.recorded,
@@ -1916,7 +1995,7 @@ fn run() -> Result<Exit> {
             // A waiver is only visible when the finding it covers was found, and the
             // display cap drops findings before anything can read them.
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::suppressions(
                 &path,
                 &outcome,
@@ -1964,7 +2043,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = complexity::View {
                 by,
                 sort,
@@ -2006,7 +2085,7 @@ fn run() -> Result<Exit> {
                     .map(|path| path.display().to_string())
                     .collect();
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = perf::View {
                 by,
                 sort,
@@ -2044,7 +2123,7 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::recommend(
                 &outcome,
                 &settings,
@@ -2070,7 +2149,7 @@ fn run() -> Result<Exit> {
             }
             settings.config.scan.max_findings = 0;
             render::slop_settings(&mut settings);
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let request = render::Slop { top, min, json };
             render::slop(&outcome, &request, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
@@ -2090,7 +2169,7 @@ fn run() -> Result<Exit> {
             // Every finding, not the first five hundred: a bucket judged on a capped
             // list would understate whichever rule fires most.
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::health(&outcome, by, json, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
         }
@@ -2108,7 +2187,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = graph::View {
                 shape: format,
                 cycles_only: cycles,
@@ -2196,7 +2275,8 @@ fn run() -> Result<Exit> {
             let base = base
                 .or_else(forge::base_revision)
                 .unwrap_or_else(|| "origin/HEAD".to_owned());
-            let review = check::review(&path, &settings, &base)?;
+            let review =
+                check::review_drawn(&path, &settings, check::Reviewed::Since(&base), progress)?;
             let verdict = review.judge(&settings.config);
             let report = Report::reviewed(&review, &verdict);
 
@@ -2333,7 +2413,8 @@ fn run() -> Result<Exit> {
             update::start(settings.config.update.check);
             gate.apply(&mut settings.config);
 
-            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
+            let progress = progress_for(view.quiet);
+            let view = view.on_terminal(verbosity, hyperlinks);
             let sinks = sinks(&view)?;
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.
@@ -2343,12 +2424,12 @@ fn run() -> Result<Exit> {
                 None => check::Reviewed::Since(&base),
             };
             let filter = filter_of(&view, &path, None)?;
-            let mut review = check::review_of(&path, &settings, source, None)?;
+            let mut review = check::review_drawn(&path, &settings, source, progress)?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
             // mechanical passes rather than failing on work rqx could have done.
             if fix {
-                let fixed = fix::run(
+                let fixed = fix::run_drawn(
                     &path,
                     &settings,
                     fix::Options {
@@ -2356,12 +2437,13 @@ fn run() -> Result<Exit> {
                         max_rounds: settings.config.fix.max_rounds.max(1),
                         only: review.reviewed.clone(),
                     },
+                    progress,
                 )?;
                 let mut out = companion_stream(&sinks);
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
-                    review = check::review_of(&path, &settings, source, None)?;
+                    review = check::review_drawn(&path, &settings, source, progress)?;
                 }
             }
             let verdict = review.judge(&settings.config);
@@ -2635,11 +2717,43 @@ mod flags {
             .collect()
     }
 
+    fn cli_of(arguments: &[&str]) -> super::Cli {
+        let matches = super::parser()
+            .try_get_matches_from(arguments)
+            .unwrap_or_else(|error| panic!("{arguments:?}: {error}"));
+        <super::Cli as clap::FromArgMatches>::from_arg_matches(&matches).unwrap()
+    }
+
     #[test]
-    fn quiet_implies_no_progress() {
-        assert!(super::progress_wanted(false, false));
-        assert!(!super::progress_wanted(true, false));
-        assert!(!super::progress_wanted(false, true));
+    fn quiet_and_no_progress_both_mean_no_progress() {
+        use crate::progress::Style;
+
+        assert_eq!(
+            super::progress_style(Style::Plain, false, false),
+            Style::Plain
+        );
+        assert_eq!(
+            super::progress_style(Style::Plain, false, true),
+            Style::None
+        );
+        assert_eq!(
+            super::progress_style(Style::Plain, true, false),
+            Style::None
+        );
+    }
+
+    #[test]
+    fn progress_is_accepted_before_and_after_the_command() {
+        for arguments in [
+            ["rqx", "--progress", "plain", "scan"],
+            ["rqx", "scan", "--progress", "plain"],
+        ] {
+            assert_eq!(
+                cli_of(&arguments).progress,
+                crate::progress::Style::Plain,
+                "{arguments:?}"
+            );
+        }
     }
 
     #[test]

@@ -8,7 +8,6 @@ use anyhow::Result;
 
 use crate::config::Resolved;
 use crate::history::History;
-use crate::progress::Bar;
 use crate::scan::{self, ScanMessage, ScanOutcome};
 use crate::watch::{Stamp, stamps};
 
@@ -160,9 +159,7 @@ fn rebuild_from(
     }
     drop(sender);
 
-    scan::collect(receiver, root, settings, Bar::hidden(), None, None, || {
-        Arc::clone(history)
-    })
+    scan::collect(receiver, root, settings, None, None, || Arc::clone(history))
 }
 
 #[cfg(test)]
