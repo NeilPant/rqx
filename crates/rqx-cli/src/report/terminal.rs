@@ -149,8 +149,7 @@ fn stats(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()
             paint(dim, bar(*count, total))
         )?;
     }
-    writeln!(out)?;
-    write_summary(out, layout, report, &report.totals_by_file())
+    write_footer(out, layout, report)
 }
 
 /// Proportional to the largest, not to the total: the point is the ranking.
@@ -175,35 +174,7 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
     let totals = report.totals_by_file();
     let prefix = report.path_prefix();
 
-    if let Some(base) = report.base {
-        writeln!(
-            out,
-            "\n  {} against {}",
-            paint(layout.palette.bold(Ink::Text), "Reviewing changes"),
-            paint(layout.palette.style(Ink::Accent), base)
-        )?;
-    } else {
-        // The summary is at the end where the eye lands, but a listing this long is
-        // scrolled from the top, and the top used to say nothing about what it was.
-        let outcome = report.outcome;
-        writeln!(
-            out,
-            "\n  {}  {}",
-            paint(
-                layout.palette.bold(Ink::Text),
-                outcome.root.display().to_string()
-            ),
-            paint(
-                layout.palette.style(Ink::Muted),
-                format!(
-                    "{} \u{b7} {} \u{b7} health {}/100",
-                    plural(outcome.files_scanned, "file", "files"),
-                    plural(report.totals.findings, "finding", "findings"),
-                    report.health()
-                )
-            )
-        )?;
-    }
+    write_header(out, layout, report)?;
 
     let mut listed: Vec<(&&str, &Vec<&Finding>)> = shown.iter().collect();
     if layout.top.is_some() {
@@ -264,9 +235,49 @@ pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Resu
         )?;
     }
 
+    write_footer(out, layout, report)
+}
+
+fn write_header(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Result<()> {
+    if let Some(base) = report.base {
+        writeln!(
+            out,
+            "\n  {} against {}",
+            paint(layout.palette.bold(Ink::Text), "Reviewing changes"),
+            paint(layout.palette.style(Ink::Accent), base)
+        )?;
+    } else {
+        // The summary is at the end where the eye lands, but a listing this long is
+        // scrolled from the top, and the top used to say nothing about what it was.
+        let outcome = report.outcome;
+        writeln!(
+            out,
+            "\n  {}  {}",
+            paint(
+                layout.palette.bold(Ink::Text),
+                outcome.root.display().to_string()
+            ),
+            paint(
+                layout.palette.style(Ink::Muted),
+                format!(
+                    "{} \u{b7} {} \u{b7} health {}/100",
+                    plural(outcome.files_scanned, "file", "files"),
+                    plural(report.totals.findings, "finding", "findings"),
+                    report.health()
+                )
+            )
+        )?;
+    }
+    Ok(())
+}
+
+/// What every listing ends with, however it is arranged: the answer to "is this
+/// project all right" and, when a gate was asked for, whether it passed.
+fn write_footer(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Result<()> {
+    let prefix = report.path_prefix();
     write_cycles(out, layout, report)?;
     write_architecture(out, layout, report, &prefix)?;
-    write_summary(out, layout, report, &totals)?;
+    write_summary(out, layout, report, &report.totals_by_file())?;
     write_hotspots(out, layout, report, &prefix)?;
     write_skipped(out, layout, report.outcome)?;
     write_notes(out, layout, report.outcome)?;
@@ -343,7 +354,7 @@ fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<
             )
         )?;
     }
-    Ok(())
+    write_footer(out, layout, report)
 }
 
 fn sort_findings(findings: &mut [&Finding], order: Order) {
@@ -1097,6 +1108,53 @@ mod tests {
         );
         assert_eq!(row(&rows, "Health"), "100/100");
         assert_eq!(row(&rows, "Grades"), "12 pristine");
+    }
+
+    fn failing_gate() -> crate::check::Verdict {
+        crate::check::Verdict {
+            failures: vec!["1 error found".to_owned()],
+            counted: 1,
+            known: 0,
+        }
+    }
+
+    #[test]
+    fn every_arrangement_ends_with_the_summary_and_the_gate() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error), ("b.ts", Severity::Warning)], 3);
+        let verdict = failing_gate();
+        let report = Report::scan(&outcome, &FindingFilter::default()).judged(&verdict);
+
+        let arrangements = [
+            Layout {
+                grouping: Grouping::File,
+                ..layout()
+            },
+            Layout {
+                grouping: Grouping::Rule,
+                ..layout()
+            },
+            Layout {
+                grouping: Grouping::Family,
+                ..layout()
+            },
+            Layout {
+                grouping: Grouping::Severity,
+                ..layout()
+            },
+            Layout {
+                stats: true,
+                ..layout()
+            },
+        ];
+        for arrangement in arrangements {
+            let mut out = Vec::new();
+            render(&report, &arrangement, &mut out).unwrap();
+            let text = String::from_utf8(out).unwrap();
+            let summary = text.find("Health").expect("no summary");
+            let gate = text.find("gate failed").expect("no gate verdict");
+            assert!(summary < gate, "{text}");
+            assert!(text.contains("1 error found"), "{text}");
+        }
     }
 
     #[test]

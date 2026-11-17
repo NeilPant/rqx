@@ -12,6 +12,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **Every `--group-by` ends with the summary and the gate.** Grouping by rule, family
+  or severity stopped after the last group, so a gated run printed no summary and no
+  `gate failed` line and the exit code was the only sign. `--stats` printed no gate
+  either. All of them now end the way the per-file listing does: cycles,
+  architecture, summary, hotspots, skipped files, notes, gate.
 - **A document on stdout is the only thing on stdout.** `--timings`, `scan --advice`
   and the fix report of `check --fix` wrote their lines to stdout beside the JSON,
   SARIF, JUnit, GitLab or Markdown document, so a pipeline that parsed the output
