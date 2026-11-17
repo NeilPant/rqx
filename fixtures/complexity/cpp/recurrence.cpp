@@ -2,7 +2,7 @@
 #include <unordered_map>
 #include <vector>
 
-// @complexity time=O(n) space=O(n) conf=verified
+// @complexity time=O(n) space=O(n) conf=verified rule=deep-recursion
 long long factorial(int n) {
     return n <= 1 ? 1 : n * factorial(n - 1);
 }

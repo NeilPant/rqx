@@ -6,7 +6,8 @@
 //!
 //! `#` replaces `//` in Python. `time` and `space` are orders in the grammar of
 //! `rqx_core::cost::Order`; `space` is the auxiliary space, counting the call stack.
-//! `rule` names a rule that must fire on the function and `none` one that must not.
+//! `rule` names the rules that must fire on the function, separated by commas, and
+//! `none` one that must not.
 //! `scope=local` says the time is what the function costs on its own, with no call to
 //! another function and no recursion in it, so the per-file extraction alone can be
 //! held to it. Values may hold spaces (`O(n log n)`), so a field runs until the next

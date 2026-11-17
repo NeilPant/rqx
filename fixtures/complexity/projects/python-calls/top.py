@@ -1,7 +1,7 @@
 from leaf import total
 
 
-# @complexity time=O(n^2) space=O(1) conf=verified
+# @complexity time=O(n^2) space=O(1) conf=verified rule=repeated-computation-in-loop
 def shares(values: list[int]) -> float:
     largest = 0.0
     for value in values:

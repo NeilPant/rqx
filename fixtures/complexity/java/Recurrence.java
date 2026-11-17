@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 public final class Recurrence {
-    // @complexity time=O(n) space=O(n) conf=verified
+    // @complexity time=O(n) space=O(n) conf=verified rule=deep-recursion
     public static long factorial(int n) {
         return n <= 1 ? 1 : n * factorial(n - 1);
     }
@@ -20,7 +20,7 @@ public final class Recurrence {
         return exponent % 2 == 0 ? half * half : half * half * base;
     }
 
-    // @complexity time=O(n) space=O(n) conf=verified
+    // @complexity time=O(n) space=O(n) conf=verified rule=deep-recursion
     public static int sumTail(List<Integer> values) {
         if (values.isEmpty()) {
             return 0;

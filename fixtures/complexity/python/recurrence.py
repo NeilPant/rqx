@@ -2,7 +2,7 @@
 from functools import lru_cache
 
 
-# @complexity time=O(n) space=O(n) conf=verified
+# @complexity time=O(n) space=O(n) conf=verified rule=deep-recursion
 def factorial(n: int) -> int:
     return 1 if n <= 1 else n * factorial(n - 1)
 
@@ -34,7 +34,7 @@ def merge_sort(values: list[int]) -> list[int]:
     return merged + left[i:] + right[j:]
 
 
-# @complexity time=O(n^2) space=O(n^2) conf=verified
+# @complexity time=O(n^2) space=O(n^2) conf=verified rule=deep-recursion
 def sum_tail(values: list[int]) -> int:
     if not values:
         return 0

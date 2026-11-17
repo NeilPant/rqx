@@ -3,7 +3,7 @@ package corpus;
 import java.util.List;
 
 public final class Report {
-    // @complexity time=O(n^2) space=O(1) conf=verified
+    // @complexity time=O(n^2) space=O(1) conf=verified rule=repeated-computation-in-loop
     public static int shares(List<Integer> values) {
         int largest = 0;
         for (int value : values) {

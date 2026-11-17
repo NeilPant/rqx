@@ -25,7 +25,7 @@ func HasDuplicate(values []int) bool {
 	return false
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=pair-scan-could-hash scope=local
 func CountMatches(left []string, right []string) int {
 	matches := 0
 	for _, a := range left {
