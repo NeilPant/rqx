@@ -555,23 +555,56 @@ pub struct Gate {
     /// that owner answers for. Needs a CODEOWNERS file; the verdict names each owner
     /// that fell short.
     pub owners: BTreeMap<String, OwnerGate>,
-    /// What a function whose time or space order grew against the base revision does
-    /// to the verdict of `rqx check`: nothing (`off`), a warning, or a failure. Read
-    /// by the complexity regression check, which is not implemented yet, so the value
-    /// is validated and otherwise unused.
+    /// What a function whose time order grew against the base revision does to the
+    /// verdict of `rqx check`: nothing (`off`), a report that does not fail the run
+    /// (`warning`), or a failure (`error`). Anything but `off` also makes `rqx check`
+    /// and `rqx comment` compare against the base revision, which `--regressions` does
+    /// for one run.
     pub complexity_regression: RegressionGate,
 }
 
 /// Whether, and how loudly, a complexity regression counts against the gate.
-#[derive(
-    Copy, Clone, Debug, Default, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema,
-)]
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RegressionGate {
     #[default]
     Off,
     Warning,
     Error,
+}
+
+/// YAML 1.1 reads an unquoted `off` as the boolean `false`, and `rqx init` writes the
+/// setting that way, so the boolean is accepted as `off` rather than refused.
+impl<'de> Deserialize<'de> for RegressionGate {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(RegressionGateVisitor)
+    }
+}
+
+struct RegressionGateVisitor;
+
+impl serde::de::Visitor<'_> for RegressionGateVisitor {
+    type Value = RegressionGate;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("`off`, `warning` or `error`")
+    }
+
+    fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<Self::Value, E> {
+        if value {
+            return Err(E::invalid_value(serde::de::Unexpected::Bool(value), &self));
+        }
+        Ok(RegressionGate::Off)
+    }
+
+    fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+        match value {
+            "off" => Ok(RegressionGate::Off),
+            "warning" => Ok(RegressionGate::Warning),
+            "error" => Ok(RegressionGate::Error),
+            other => Err(E::unknown_variant(other, &["off", "warning", "error"])),
+        }
+    }
 }
 
 /// What one owner's files must meet. Both checks are off until set, so an entry names
@@ -1117,8 +1150,7 @@ pub struct Performance {
     #[serde(deserialize_with = "cost_entries")]
     pub costs: Vec<CostEntry>,
     /// The largest time order a reviewed function may have, such as `O(n log n)`.
-    /// Unset means no limit. Read by the complexity regression check, which is not
-    /// implemented yet, so the value is validated and otherwise unused.
+    /// Unset means no limit. A function in the reviewed files above it fails the run.
     #[serde(deserialize_with = "optional_order")]
     pub max_order: Option<String>,
 }
@@ -1469,6 +1501,19 @@ mod tests {
         assert_eq!(config.gate.complexity_regression, RegressionGate::Error);
         assert!(
             serde_saphyr::from_str::<RqxConfig>("gate:\n  complexity_regression: loud\n").is_err()
+        );
+    }
+
+    #[test]
+    fn an_unquoted_off_is_the_regression_gate_off() {
+        for written in ["off", "\"off\"", "false"] {
+            let config: RqxConfig =
+                serde_saphyr::from_str(&format!("gate:\n  complexity_regression: {written}\n"))
+                    .unwrap();
+            assert_eq!(config.gate.complexity_regression, RegressionGate::Off);
+        }
+        assert!(
+            serde_saphyr::from_str::<RqxConfig>("gate:\n  complexity_regression: true\n").is_err()
         );
     }
 

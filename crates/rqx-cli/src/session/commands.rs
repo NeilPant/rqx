@@ -16,8 +16,8 @@ use crate::config::Resolved;
 use crate::report::{self, Report};
 use crate::scan::{self, ScanOutcome};
 use crate::{
-    Cli, Command, DisplayCap, Evidence, Standard, check, complexity, fix, graph, parser, perf,
-    render, verify,
+    Cli, Command, Complexity, DisplayCap, Evidence, Standard, check, complexity, fix, graph,
+    parser, perf, render, verify,
 };
 
 /// What a typed line turned out to be.
@@ -303,6 +303,13 @@ fn refuse_trend_options(trending: &crate::trend::Options) -> Result<()> {
     Ok(())
 }
 
+fn refuse_regressions(compared: &Complexity) -> Result<()> {
+    if compared.regressions {
+        bail!("`--regressions` reads the base revision's files; run it from a shell");
+    }
+    Ok(())
+}
+
 fn refuse_scan_changes(evidence: &Evidence, cap: &DisplayCap) -> Result<()> {
     if evidence.is_empty() && !cap.is_set() {
         return Ok(());
@@ -354,7 +361,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             let mut settings = context.settings.clone();
             gate.apply(&mut settings.config);
             let verdict = gate.is_set().then(|| {
-                crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config)
+                crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config, &[])
             });
             let sinks = crate::sinks(&view)?;
             let filter = crate::filter_of(&view, &path, listed(&view, &path)?.as_ref())?;
@@ -677,10 +684,12 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             evidence,
             cap,
             trending,
+            complexity: compared,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
             refuse_scan_changes(&evidence, &cap)?;
+            refuse_regressions(&compared)?;
             if staged {
                 bail!("`--staged` reads the index; run `rqx check --staged` from a shell");
             }

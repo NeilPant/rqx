@@ -98,11 +98,11 @@ A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule sl
 
 `gate.owners` sets a health floor and a severity limit for each owner named in a CODEOWNERS file. See [ownership.md](ownership.md). `comment.mention_owners` makes `rqx comment` write those owners as real mentions.
 
-`gate.complexity_regression` takes `off` (the default), `warning` or `error`. It will set what a function whose time or space order grew against the base revision does to the verdict of `rqx check`. The key is validated and not yet read.
+`gate.complexity_regression` takes `off` (the default), `warning` or `error`. It sets what a function whose time order grew against the base revision does to the verdict of `rqx check`: `warning` reports it, and `error` fails the run. Anything but `off` makes `rqx check` and `rqx comment` compare against the base revision, which `--regressions` does for one run. See [ci.md](ci.md#complexity-regressions).
 
 ## Performance cost settings
 
-`performance.receivers` and `performance.methods` add names to the vocabulary of the I/O rules. Two further keys belong to the complexity analysis. They are validated when the config loads and are not yet read by any rule or report.
+`performance.receivers` and `performance.methods` add names to the vocabulary of the I/O rules. Two further keys belong to the complexity analysis. They are validated when the config loads.
 
 ```yaml
 performance:
@@ -112,7 +112,7 @@ performance:
     - {id: acme.merge, fn: acme::merge, size_of: arg0.receiver, cost: n*m}
 ```
 
-`max_order` is the largest time order a reviewed function may have. It is written as `O(1)`, `O(log n)`, `O(n)`, `O(n log n)`, `O(n^2)`, `O(n^3)`, `O(n*m)` or `exp`, and an unset value means no limit. `costs` lists library calls the built-in cost tables do not know. An entry names the call with `receiver` and `method`, or with `fn`, and gives its `cost` in the same notation, where `n` is the size of the receiver and `m` the size of the first argument. `space`, `size_of`, `when` and `pure` are optional. `id` must be unique, and a value that is not an order is an error with its line and column.
+`max_order` is the largest time order a reviewed function may have, and a function above it fails `rqx check`. It is written as `O(1)`, `O(log n)`, `O(n)`, `O(n log n)`, `O(n^2)`, `O(n^3)`, `O(n*m)` or `exp`, and an unset value means no limit. `costs` lists library calls the built-in cost tables do not know. An entry names the call with `receiver` and `method`, or with `fn`, and gives its `cost` in the same notation, where `n` is the size of the receiver and `m` the size of the first argument. `space`, `size_of`, `when` and `pure` are optional. `id` must be unique, and a value that is not an order is an error with its line and column.
 
 ## Design pattern advice
 

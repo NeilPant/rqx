@@ -3,11 +3,13 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::Cleanliness;
 use rqx_core::LineIndex;
+use rqx_core::config::RegressionGate;
 use rqx_core::finding::{Finding, Severity};
 use rqx_core::rule::RuleId;
 
 use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
 use crate::preview::{self, HEAD_LINES};
+use crate::regressions::{Regressions, State, named};
 use crate::report::tally::{RuleCount, Tally};
 use crate::report::{Links, Report, plural, wrap};
 use crate::scan::ScanOutcome;
@@ -890,6 +892,10 @@ pub(super) fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row
             },
         );
     }
+    if let Some(regressions) = report.regressions {
+        let at = rows.len() - 2;
+        rows.insert(at, regression_row(regressions));
+    }
     let waived = report.outcome.suppressed.len();
     if waived > 0 {
         let at = rows.len() - 2;
@@ -905,6 +911,42 @@ pub(super) fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row
         );
     }
     rows
+}
+
+/// What the review found out about functions that cost more than at the base: the first
+/// few by name, or why nothing was compared.
+fn regression_row(regressions: &Regressions) -> Row {
+    let (value, ink) = match &regressions.state {
+        State::Skipped(reason) => (format!("not compared: {reason}"), Ink::Muted),
+        State::Found(found) if found.is_empty() => (
+            "no function costs more than at the base".to_owned(),
+            Ink::Good,
+        ),
+        State::Found(found) => {
+            let described: Vec<String> = found.iter().map(ToString::to_string).collect();
+            let ink = match regressions.gate {
+                RegressionGate::Error => Ink::Danger,
+                RegressionGate::Warning | RegressionGate::Off => Ink::Warn,
+            };
+            (
+                format!(
+                    "{} \u{b7} {}",
+                    plural(
+                        found.len() as u32,
+                        "function got slower",
+                        "functions got slower"
+                    ),
+                    named(&described)
+                ),
+                ink,
+            )
+        }
+    };
+    Row {
+        label: "Complexity",
+        value,
+        ink: Some(ink),
+    }
 }
 
 fn write_summary(
@@ -1288,6 +1330,70 @@ mod tests {
         );
         assert_eq!(row(&rows, "Health"), "100/100");
         assert_eq!(row(&rows, "Grades"), "12 pristine");
+    }
+
+    fn regression(qual: &str, line: u32) -> crate::regressions::Regression {
+        crate::regressions::Regression {
+            file: "src/x.ts".to_owned(),
+            qual: qual.to_owned(),
+            line,
+            before: "O(n)".parse().unwrap(),
+            after: "O(n^2)".parse().unwrap(),
+            trace: Vec::new(),
+        }
+    }
+
+    fn rows_with(regressions: Option<&Regressions>) -> Vec<Row> {
+        let outcome = outcome_with(&[], 2);
+        let mut report = Report::scan(&outcome, &FindingFilter::default());
+        report.regressions = regressions;
+        summary_rows(&report, 0)
+    }
+
+    #[test]
+    fn a_report_that_was_not_asked_about_regressions_has_no_row_for_them() {
+        let rows = rows_with(None);
+
+        assert!(rows.iter().all(|row| row.label != "Complexity"));
+    }
+
+    #[test]
+    fn the_summary_names_the_functions_that_got_slower() {
+        let found = Regressions {
+            gate: RegressionGate::Warning,
+            state: State::Found(vec![
+                regression("reconcileBatch", 90),
+                regression("merge", 4),
+            ]),
+        };
+
+        let rows = rows_with(Some(&found));
+
+        assert_eq!(
+            row(&rows, "Complexity"),
+            "2 functions got slower \u{b7} `reconcileBatch` O(n) \u{2192} O(n\u{b2}) \
+             (src/x.ts:90), `merge` O(n) \u{2192} O(n\u{b2}) (src/x.ts:4)"
+        );
+        let labels: Vec<&str> = rows.iter().map(|row| row.label).collect();
+        assert_eq!(labels[labels.len() - 2..], ["Health", "Duration"]);
+    }
+
+    #[test]
+    fn the_summary_says_when_nothing_got_slower_or_nothing_was_compared() {
+        let none = Regressions {
+            gate: RegressionGate::Error,
+            state: State::Found(Vec::new()),
+        };
+        let skipped = Regressions::without_base(RegressionGate::Off);
+
+        assert_eq!(
+            row(&rows_with(Some(&none)), "Complexity"),
+            "no function costs more than at the base"
+        );
+        assert_eq!(
+            row(&rows_with(Some(&skipped)), "Complexity"),
+            "not compared: there is no base revision to compare with"
+        );
     }
 
     fn failing_gate() -> crate::gate::Verdict {

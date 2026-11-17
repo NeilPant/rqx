@@ -211,9 +211,9 @@ gate:
   # what it wraps, a subscribe with no unsubscribe. The only way pattern advice reaches
   # an exit code; nothing else under `patterns` can.
   fail_on_incomplete: false
-  # What a function whose time or space order grew against the base revision does to
-  # the verdict of `rqx check`: off, warning, error. Not read yet; the complexity
-  # regression check is not implemented.
+  # What a function whose time order grew against the base revision does to the verdict
+  # of `rqx check`: off, warning (report it), error (fail the run). Anything but off
+  # also makes `rqx check` and `rqx comment` compare against the base revision.
   complexity_regression: off
 
 fix:
@@ -240,8 +240,8 @@ performance:
   # costs:
   #   - {id: acme.queue.contains, receiver: [AcmeQueue], method: contains, cost: n}
   costs: []
-  # The largest time order a reviewed function may have, such as O(n log n). Unset means
-  # no limit. Not read yet; the complexity regression check is not implemented.
+  # The largest time order a reviewed function may have, such as O(n log n). A function
+  # above it fails `rqx check`. Unset means no limit.
   # max_order: O(n log n)
 
 architecture:

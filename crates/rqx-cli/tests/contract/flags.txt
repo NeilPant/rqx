@@ -273,6 +273,7 @@ check --progress =plain
 check --progress [env RQX_PROGRESS]
 check --quiet
 check --record
+check --regressions
 check --reporter
 check --rule
 check --sarif-in
@@ -355,6 +356,7 @@ comment --progress =bar
 comment --progress =none
 comment --progress =plain
 comment --progress [env RQX_PROGRESS]
+comment --regressions
 comment --sarif-in
 comment --threads
 comment --threads [env RQX_THREADS]

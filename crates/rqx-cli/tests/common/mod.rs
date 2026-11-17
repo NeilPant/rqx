@@ -136,9 +136,9 @@ impl Repository {
         self.git(&["commit", "-qm", message]);
     }
 
-    /// Runs rqx in the repository and returns its parsed JSON lines.
-    pub fn rqx_lines(&self, args: &[&str]) -> Vec<serde_json::Value> {
-        let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+    /// Runs rqx in the repository and returns what it printed and how it exited.
+    pub fn rqx_output(&self, args: &[&str]) -> Output {
+        Command::new(env!("CARGO_BIN_EXE_rqx"))
             .args(args)
             .current_dir(&self.root)
             .env("HOME", &self.root)
@@ -147,7 +147,12 @@ impl Repository {
             .env_remove("RQX_POLICY")
             .env_remove("RQX_LEVEL")
             .output()
-            .expect("rqx runs");
+            .expect("rqx runs")
+    }
+
+    /// Runs rqx in the repository and returns its parsed JSON lines.
+    pub fn rqx_lines(&self, args: &[&str]) -> Vec<serde_json::Value> {
+        let output = self.rqx_output(args);
         String::from_utf8_lossy(&output.stdout)
             .lines()
             .filter_map(|line| serde_json::from_str(line).ok())

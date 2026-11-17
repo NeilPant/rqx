@@ -145,6 +145,14 @@ are counted in the footer and are not attributed to any function:
     profile: 41062 samples, 318 matched, 12 frames unplaced
 ```
 
+## Regressions in review
+
+The same orders are compared between the base revision and the change by `rqx check` and
+`rqx comment`. A function that went from `O(n)` to `O(n²)`, including one that only calls
+something that did, is reported, and `gate.complexity_regression` can fail the run on it.
+`performance.max_order` fails a review that holds a function above a limit. See
+[Complexity regressions](ci.md#complexity-regressions).
+
 ## JSON
 
 `--json` writes one object per row with the keys `name`, `at`, `order`, `loops`, `io`,

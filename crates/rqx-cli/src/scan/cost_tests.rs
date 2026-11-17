@@ -182,3 +182,41 @@ fn the_stage_is_timed() {
         outcome.timings
     );
 }
+
+fn scan_keeping_costs(tree: &Tree) -> ScanOutcome {
+    scan_against(
+        &tree.root,
+        &tree.settings,
+        None,
+        CachePolicy::Off,
+        Comparison {
+            reference: None,
+            keep_costs: true,
+        },
+        None,
+    )
+    .unwrap()
+}
+
+#[test]
+fn the_cost_facts_are_kept_only_for_a_scan_that_asks_for_them() {
+    let tree = Tree::with(&[("caller.ts", CALLER), ("finder.ts", FINDER_LINEAR)]);
+
+    assert!(tree.scan().cost_inputs.is_none());
+
+    let kept = scan_keeping_costs(&tree);
+    let inputs = kept.cost_inputs.expect("the facts were asked for");
+    let mut names: Vec<&str> = inputs.files().map(|file| file.name).collect();
+    names.sort_unstable();
+    assert_eq!(names, ["caller.ts", "finder.ts"]);
+}
+
+#[test]
+fn a_configured_max_order_keeps_the_cost_facts_without_being_asked() {
+    let mut tree = Tree::with(&[("finder.ts", FINDER_LINEAR)]);
+    let mut config = tree.settings.config.clone();
+    config.performance.max_order = Some("O(n)".to_owned());
+    tree.settings = Resolved::of(config);
+
+    assert!(tree.scan().cost_inputs.is_some());
+}

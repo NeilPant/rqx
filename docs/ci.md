@@ -148,6 +148,9 @@ Two variables change that matching, and both are off by default:
 | `RQX_SARIF_FINGERPRINTS=1` | Adds `partialFingerprints` to every result. The fingerprint is built from the finding's identity, the same one the GitLab report uses, so an alert stays attached to its finding when code above it moves. |
 | `RQX_SARIF_CATEGORY=<id>` | Adds `automationDetails.id`, which files the run under that category. |
 
+A review that reports [complexity regressions](#complexity-regressions) adds results of
+the rule `complexity-regression` to the same run.
+
 Enabling either variable on a repository that already has open alerts re-keys them.
 GitHub sees new fingerprints or a new category, closes the old alerts and opens the
 same findings again. Set a category when one repository uploads several SARIF runs
@@ -641,6 +644,89 @@ no matching unsubscribe. A pattern that is in use or that would fit does not aff
 the exit code, and pattern advice does not change the health score in any
 configuration. `rqx check` and `rqx comment` apply the option to the files they
 review. `rqx scan` applies it to all files.
+
+## Complexity regressions
+
+`rqx check` and `rqx comment` can list the functions whose time order grew against the
+base revision, such as `reconcileBatch` going from `O(n)` to `O(n²)`. The orders are the
+ones `rqx perf` reports, composed across calls and files (see [perf.md](perf.md)). A
+function whose own code did not change is listed when a function it calls got slower.
+
+The check runs when `gate.complexity_regression` is `warning` or `error`, or for one run
+when `--regressions` is passed to `rqx check` or `rqx comment`. With the setting `off`
+and no flag, no output changes.
+
+| `gate.complexity_regression` | Effect |
+|---|---|
+| `off` (default) | Nothing is compared, unless `--regressions` is passed. Then the regressions are listed and the exit code does not change. |
+| `warning` | The regressions are listed. The exit code does not change. |
+| `error` | The regressions are listed, and any regression fails the run with exit code `1`. The verdict names the first three functions and counts the rest. |
+
+```yaml
+gate:
+  complexity_regression: error
+performance:
+  max_order: O(n log n)
+```
+
+`performance.max_order` is a separate limit that needs no base revision. Any function in
+the reviewed files whose time order is above it fails the run, and the verdict names the
+function. A function whose cost the analysis marks `unknown` is not counted. `rqx scan`
+applies the limit to every file when a gate flag turns its gate on.
+
+**How the base is read.** The base revision is not scanned for this. The orders at the
+head are the scan's own. The orders at the base are composed over the same project with
+only the files the change touched read as they were at the base revision, from
+`git show`. Every other file contributes the facts the head scan already holds. A change
+to a callee therefore reaches its callers in files nobody edited.
+
+**What counts as the same function.** A function is identified by its file and its name
+qualified by its class. A renamed function, a function moved to another file and a
+function added by the change are new, and are never reported as regressions. A function
+that the base revision held with a constant cost, and that the change gave a loop, is
+compared as `O(1)`. Overloads that share a qualified name and functions with no name are
+not compared. A change that deletes a file is compared without it, so a caller of a
+deleted function is costed as if the call were constant at the base.
+
+**Output.**
+
+| Output | Where the regressions appear |
+|---|---|
+| Terminal | A `Complexity` row in the summary, with the first three functions. |
+| `rqx comment` | A `Complexity regressions` section above the folded detail. Each function is a line with its orders and location, and the trace, from the dominant loop down to the callee that sets the order, is folded under `Trace`. |
+| JSON | A `regressions` array on the summary line. See [json.md](json.md). |
+| SARIF | One `complexity-regression` result per function. |
+
+```
+### Complexity regressions
+
+- **`reconcileBatch`** O(n) → O(n²) · `src/x.ts:90`
+
+<details><summary>Trace</summary>
+
+**`reconcileBatch`**
+
+- loop · `src/x.ts:90` · O(n²)
+- findMatch · `src/y.ts:12` · O(n)
+
+</details>
+```
+
+**When nothing is compared.** The comment, the terminal and the JSON say why instead of
+reporting an empty list. There is no comparison for a review of `--files-from` or
+`--staged`, which name no base revision, or when the scan did not read the whole project,
+because a call into a file the scan skipped would be costed as constant. A skipped
+comparison never fails the run.
+
+**Code scanning.** A SARIF run carries the regressions as results of the rule
+`complexity-regression`. The level follows the gate: `error`, `warning`, or `note` for a
+review that was asked with `--regressions` and has the gate off. A result is placed at its
+function, which may be in a file the change did not touch, so GitHub shows it in the
+Security tab and not as an annotation on the diff. The regressions exist only relative to
+a base revision, so a full `rqx scan` upload never reports them. When both are uploaded
+to the same category, the next full scan closes the alerts the review opened. Give the
+review its own category with `RQX_SARIF_CATEGORY`, as described under
+[SARIF and GitHub code scanning](#sarif-and-github-code-scanning).
 
 ## Commenting on the merge request
 
