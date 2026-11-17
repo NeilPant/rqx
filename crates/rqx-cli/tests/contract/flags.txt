@@ -231,6 +231,7 @@ check --format =terminal
 check --group-by
 check --group-by =family
 check --group-by =file
+check --group-by =owner
 check --group-by =rule
 check --group-by =severity
 check --help
@@ -1323,6 +1324,7 @@ scan --format =terminal
 scan --group-by
 scan --group-by =family
 scan --group-by =file
+scan --group-by =owner
 scan --group-by =rule
 scan --group-by =severity
 scan --help

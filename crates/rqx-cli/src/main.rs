@@ -957,6 +957,7 @@ enum GroupArg {
     Rule,
     Family,
     Severity,
+    Owner,
 }
 
 impl From<GroupArg> for report::Grouping {
@@ -966,6 +967,7 @@ impl From<GroupArg> for report::Grouping {
             GroupArg::Rule => Self::Rule,
             GroupArg::Family => Self::Family,
             GroupArg::Severity => Self::Severity,
+            GroupArg::Owner => Self::Owner,
         }
     }
 }
