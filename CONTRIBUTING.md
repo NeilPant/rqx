@@ -50,7 +50,7 @@ usually does too.
 | Directory | Holds |
 |---|---|
 | `crates/rqx-core` | the catalogue, findings, scoring, configuration |
-| `crates/rqx-lang` | the tree-sitter collectors — one rule set, five languages |
+| `crates/rqx-lang` | the tree-sitter collectors — one rule set, six languages |
 | `crates/rqx-cli` | the command line, the interface, LSP, MCP, the reporters |
 | `fixtures/` | one deliberately broken file per language per rule |
 | `docs/` | the prose reference; `docs/rules/` is generated |
@@ -82,7 +82,7 @@ The compiler will walk you through most of this. In order:
 5. **The collector** — `crates/rqx-lang/src/hygiene.rs` for most things,
    `metrics.rs` for measurements, `classes.rs` and `patterns.rs` for structure. Reach
    for a `LanguageProfile` table before writing per-language code; that is what makes
-   one rule work in five languages.
+   one rule work in six languages.
 6. **`crates/rqx-core/src/rules.rs`** — turn the fact into a finding.
 7. **Fixtures** — one per language it applies to, firing the exact number of times
    the count table in `crates/rqx-cli/tests/fixtures.rs` says.
