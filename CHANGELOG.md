@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **The GitHub Action keeps the scan cache between runs.** A new `cache` input, on by
+  default, restores and saves `.rqx/cache.bin` with `actions/cache`, keyed on the rqx
+  version, the `rqx.yaml` files and the OS, so a pull request analyses only the files it
+  changed. `cache: "false"` turns it off. `docs/ci.md` has the GitLab `cache:` recipe.
 - **`--reporter` on every command that prints.** `fix`, `verify`, `plan`,
   `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`, `patterns`,
   `graph`, `config` and `config validate` take `--reporter terminal|json`, and

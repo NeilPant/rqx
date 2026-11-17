@@ -198,6 +198,38 @@ the binary its own tag was released with and checking it against `SHA256SUMS`; a
 with no published binary — a fork, or `@main` ahead of the last release — compiles
 from the checkout instead.
 
+### The scan cache
+
+rqx keeps one analysis per file in `.rqx/cache.bin`, and a run that finds the file
+unchanged skips it. The action carries that file from one run to the next with
+`actions/cache`, so a pull request re-analyses only what it touched. It is on by
+default; `cache: "false"` turns it off.
+
+A fresh clone still hits. The cache looks a file up by its path and its modification
+time first, and a clone has new modification times, but when they do not match it reads
+the file and compares a hash of the contents, which are the same. The cache is keyed on
+the rqx version, a hash of the `rqx.yaml` files and the OS, with the commit on the end
+so every run saves a cache of its own; a run starts from the newest one with the same
+version, configuration and OS. A cache written under another rqx version or other
+settings is not used, whatever the key says, so a stale restore costs a full scan and
+nothing more.
+
+Without the action, cache `.rqx/cache.bin` yourself. The GitLab form:
+
+```yaml
+rqx:
+  cache:
+    key:
+      prefix: rqx
+      files: [rqx.yaml]       # a new cache whenever the config changes
+    paths: [.rqx/cache.bin]
+    when: always              # saved when the gate fails too
+```
+
+Put a pinned rqx version in the prefix (`prefix: rqx-0.2.1`) if the job installs a
+specific one. The cache is a best-effort speedup: a missing, old or damaged file is
+rebuilt on the next scan, and nothing in a report depends on it.
+
 ## GitLab CI
 
 ```yaml
