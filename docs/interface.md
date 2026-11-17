@@ -34,7 +34,7 @@ tools, and what the session printed is still there after you leave.
 ────────────────────────────────────────────────────
 > /plan --budget 20
 ────────────────────────────────────────────────────
- /help  /findings  /fix  /watch  /open  /waive  /exit    health 82 · fair · 31 findings
+ ? for shortcuts                    health 82 · fair · 31 findings · watching
 ```
 
 The owl is three rows of half blocks, eight columns wide; the sketch above is the
@@ -47,9 +47,11 @@ findings go into scrollback, and the prompt takes the bottom of the window acros
 whole width. The plumage follows the health score. `--motion off` draws the owl
 still.
 
-The status line at the bottom is right-aligned: health, grade, findings, `watching`
-when it is on, and how many files came from the cache. The key hints on the left
-give way when the window is too narrow for both.
+The line under the prompt says `? for shortcuts` on the left and, on the right, the
+health, the grade, the findings and `watching` when it is on. The pointer gives way
+when the window is too narrow for both. Nothing else is drawn: no permanent key
+list, no panels, and nothing that has to be dismissed, because everything a command
+prints goes into scrollback.
 
 ## Commands
 
@@ -120,9 +122,10 @@ project scanned again. `esc` cancels. `--dry-run` prints the diff instead.
 | `ctrl-u` | delete everything before the cursor |
 | `ctrl-w` | delete the word before the cursor |
 | `↑` `↓` | walk the history, or the menu when it is open |
-| `tab` | accept the highlighted suggestion |
-| `esc` | close the menu |
-| `enter` | accept the suggestion if it would change the line, otherwise run the line |
+| `?` on an empty line | print the keys into scrollback |
+| `tab` | accept the highlighted command |
+| `esc` | close the list |
+| `enter` | accept the highlighted command if it would change the line, otherwise run the line |
 | `ctrl-c` | stop the running job; at the prompt, clear the line, and twice within a second, leave |
 | `ctrl-d` | leave |
 
@@ -131,12 +134,17 @@ History is kept per user in the platform state directory (`$XDG_STATE_HOME/rqx` 
 
 ### Completion
 
-Typing `/` opens a menu. It offers command names first, ranked by how tightly the
-letters you typed sit together, so `cplx` reaches `/complexity`. After a command it
-offers that command's flags, read from the same definition the command line parses
-with. After a flag it offers the values the flag takes: the choices clap lists, rule
-slugs for `--rule` and `--not-rule`, families for `--category`, and files from the
-scan for `--focus`. `/explain` offers rule slugs.
+A line that starts with `/` shows a list of commands under the prompt, one to a
+row with the sentence `rqx <command> --help` opens with, and the highlighted row is
+the one `tab` or `enter` takes. The list is ranked by how tightly the letters you
+typed sit together, so `cplx` reaches `/complexity`. A line that does not start with
+`/` shows no list at all.
+
+Once a command is typed and a space follows it, the list offers that command's
+flags, read from the same definition the command line parses with. After a flag it
+offers the values the flag takes: the choices clap lists, rule slugs for `--rule`
+and `--not-rule`, families for `--category`, and files from the scan for `--focus`.
+`/explain` offers rule slugs.
 
 ## Leaving
 

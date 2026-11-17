@@ -23,6 +23,7 @@ pub const SCANNING_ROWS: u16 = 4;
 pub const IDLE_ROWS: u16 = 4;
 
 const TOP_FINDINGS: usize = 5;
+const SHORTCUTS_HINT: &str = "? for shortcuts";
 const OWL_GAP: &str = "  ";
 
 pub struct Look {
@@ -135,7 +136,6 @@ pub struct Idle<'a> {
     pub input: &'a str,
     pub cursor: usize,
     pub menu: Option<Menu<'a>>,
-    pub hints: &'a str,
     pub status: &'a str,
 }
 
@@ -177,7 +177,7 @@ pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
         frame.render_widget(Paragraph::new(menu_lines(look, menu, below.width)), below);
     }
     frame.render_widget(
-        Paragraph::new(status_line(look, state.hints, state.status, status.width)),
+        Paragraph::new(status_line(look, state.status, status.width)),
         status,
     );
 }
@@ -189,31 +189,30 @@ fn menu_lines(look: &Look, menu: &Menu<'_>, width: u16) -> Vec<Line<'static>> {
         .map(|row| row.label.width())
         .max()
         .unwrap_or(0);
-    let room = usize::from(width).saturating_sub(label_width + 5);
+    let room = usize::from(width).saturating_sub(label_width + 4);
     menu.rows
         .iter()
         .enumerate()
         .map(|(at, row)| {
-            let (marker, label) = if at == menu.selected {
-                (" \u{203a} ", look.bold(Ink::Accent))
+            let (label, about) = if at == menu.selected {
+                (look.bold(Ink::Accent), look.style(Ink::Accent))
             } else {
-                ("   ", look.style(Ink::Text))
+                (look.style(Ink::Text), look.dim())
             };
             let padding = " ".repeat(label_width - row.label.width());
             Line::from(vec![
-                Span::styled(marker, label),
-                Span::styled(format!("{}{padding}  ", row.label), label),
-                Span::styled(clip(row.about, room), look.dim()),
+                Span::styled(format!("  {}{padding}  ", row.label), label),
+                Span::styled(clip(row.about, room), about),
             ])
         })
         .collect()
 }
 
-/// The hints on the left and the project's state on the right. When both do not fit
-/// the hints give way, because the state is what the line is for.
-fn status_line(look: &Look, hints: &str, status: &str, width: u16) -> Line<'static> {
+/// The one pointer at the keys on the left and the project's state on the right. When
+/// both do not fit the pointer gives way, because the state is what the line is for.
+fn status_line(look: &Look, status: &str, width: u16) -> Line<'static> {
     let right = format!("{status} ");
-    let left = format!(" {hints}");
+    let left = format!(" {SHORTCUTS_HINT}");
     let room = usize::from(width);
     let left = if left.width() + right.width() < room {
         left
@@ -427,6 +426,46 @@ pub fn note(look: &Look, message: &str) -> Line<'static> {
     Line::styled(format!(" {message}"), look.dim())
 }
 
+/// The keys, for `?` on an empty prompt.
+const SHORTCUTS: [(&str, &str); 8] = [
+    (
+        "/",
+        "commands: type to narrow them, tab or enter takes one, esc closes the list",
+    ),
+    (
+        "\u{2191} \u{2193}",
+        "walk the history, or the command list while it is open",
+    ),
+    ("text", "a line without a slash searches the findings"),
+    ("ctrl-u", "delete to the start of the line"),
+    ("ctrl-w", "delete the word before the cursor"),
+    (
+        "ctrl-c",
+        "stop a running command; clear the line; twice leaves",
+    ),
+    ("ctrl-d", "leave"),
+    ("?", "this list, on an empty line"),
+];
+
+/// Printed into scrollback like everything else, so there is nothing to dismiss.
+pub fn shortcuts(look: &Look) -> Vec<Line<'static>> {
+    let key_width = SHORTCUTS
+        .iter()
+        .map(|(key, _)| key.width())
+        .max()
+        .unwrap_or(0);
+    SHORTCUTS
+        .iter()
+        .map(|(key, what)| {
+            let padding = " ".repeat(key_width - key.width());
+            Line::from(vec![
+                Span::styled(format!("  {key}{padding}  "), look.bold(Ink::Accent)),
+                Span::styled((*what).to_owned(), look.style(Ink::Text)),
+            ])
+        })
+        .collect()
+}
+
 /// Every command and what it is for, in the order they are offered.
 pub fn help(look: &Look, rows: &[(String, String)], width: u16) -> Vec<Line<'static>> {
     let name_width = rows.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
@@ -566,7 +605,6 @@ mod tests {
             input: "/plan --budget 20",
             cursor: 17,
             menu: None,
-            hints: "/help  /plan",
             status: "health 82",
         };
         terminal.draw(|frame| idle(frame, &look(), &state)).unwrap();
@@ -574,8 +612,9 @@ mod tests {
         assert_eq!(rows[0], "\u{2500}".repeat(60));
         assert_eq!(rows[1], "> /plan --budget 20");
         assert_eq!(rows[2], "\u{2500}".repeat(60));
-        assert!(rows[3].starts_with(" /help  /plan"), "{rows:?}");
+        assert!(rows[3].starts_with(" ? for shortcuts"), "{rows:?}");
         assert!(rows[3].ends_with("health 82"));
+        assert_eq!(rows.len(), 4, "the prompt has no other row");
         terminal.backend_mut().assert_cursor_position((19, 1));
     }
 
@@ -599,14 +638,13 @@ mod tests {
                 rows: &choices,
                 selected: 1,
             }),
-            hints: "/help",
             status: "health 82",
         };
         terminal.draw(|frame| idle(frame, &look(), &state)).unwrap();
         let shown = screen(&terminal);
         assert_eq!(shown[1], "> /p");
-        assert_eq!(shown[2], "   /plan  Rank the work");
-        assert_eq!(shown[3], " \u{203a} /perf  Where the work grows");
+        assert_eq!(shown[2], "  /plan  Rank the work");
+        assert_eq!(shown[3], "  /perf  Where the work grows");
         assert!(shown[2 + usize::from(MENU_ROWS)].starts_with('\u{2500}'));
         assert!(shown[3 + usize::from(MENU_ROWS)].ends_with("health 82"));
     }
@@ -618,10 +656,51 @@ mod tests {
     }
 
     #[test]
-    fn the_status_gives_up_its_hints_before_its_state() {
-        let line = status_line(&look(), "a hint that is far too long", "health 82", 20).to_string();
+    fn the_status_gives_up_its_pointer_before_its_state() {
+        let line = status_line(&look(), "health 82", 20).to_string();
         assert_eq!(line.trim(), "health 82");
         assert_eq!(line.width(), 20);
+        let roomy = status_line(&look(), "health 82", 60).to_string();
+        assert!(roomy.trim_start().starts_with("? for shortcuts"), "{roomy}");
+    }
+
+    #[test]
+    fn the_menu_marks_its_choice_with_colour_and_not_with_a_box_or_a_marker() {
+        let look = Look {
+            palette: Palette::with_depth(ColorDepth::Truecolor),
+        };
+        let choices = [
+            MenuRow {
+                label: "/plan",
+                about: "Rank the work",
+            },
+            MenuRow {
+                label: "/perf",
+                about: "Where the work grows",
+            },
+        ];
+        let lines = menu_lines(
+            &look,
+            &Menu {
+                rows: &choices,
+                selected: 1,
+            },
+            60,
+        );
+        assert_eq!(lines[0].to_string(), "  /plan  Rank the work");
+        assert_eq!(lines[1].to_string(), "  /perf  Where the work grows");
+        assert_ne!(lines[0].spans[0].style, lines[1].spans[0].style);
+    }
+
+    #[test]
+    fn the_shortcuts_are_lines_of_scrollback_that_name_the_keys() {
+        let lines = plain(&shortcuts(&look()));
+        assert_eq!(lines.len(), SHORTCUTS.len());
+        let text = lines.join("\n");
+        assert!(
+            text.contains("ctrl-d") && text.contains("tab or enter"),
+            "{text}"
+        );
     }
 
     #[test]

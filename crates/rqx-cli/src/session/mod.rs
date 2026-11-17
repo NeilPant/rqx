@@ -278,7 +278,6 @@ impl App {
                 rows: &rows,
                 selected: self.menu.selected,
             }),
-            hints: "/help  /findings  /fix  /watch  /open  /waive  /exit",
             status: &status,
         };
         self.viewport
@@ -299,14 +298,6 @@ impl App {
         ];
         if self.watcher.is_some() {
             parts.push("watching".to_owned());
-        }
-        let lookups = outcome.stats.cache_hits + outcome.stats.cache_misses;
-        if lookups > 0 {
-            parts.push(format!(
-                "cache {}/{}",
-                text::thousands(outcome.stats.cache_hits),
-                text::thousands(lookups)
-            ));
         }
         parts.join(" \u{b7} ")
     }
@@ -444,6 +435,11 @@ impl App {
             KeyCode::Char('c') if control => self.interrupt(),
             _ if self.job.is_some() => {}
             KeyCode::Esc if self.asking.is_some() => self.cancel_asking()?,
+            KeyCode::Char('?')
+                if !control && self.asking.is_none() && self.prompt.text().is_empty() =>
+            {
+                self.viewport.print(&view::shortcuts(&self.look))?;
+            }
             KeyCode::Enter => self.enter()?,
             KeyCode::Tab => self.accept(),
             KeyCode::Esc => self.menu.dismissed = true,
