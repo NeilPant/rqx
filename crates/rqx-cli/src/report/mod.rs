@@ -21,6 +21,7 @@ mod tally;
 mod terminal;
 mod validation;
 mod waivers;
+mod wrap;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -609,6 +610,7 @@ mod plainness {
             stats: false,
             context: 2,
             verbose: false,
+            width: None,
         };
         for reporter in Reporter::ALL {
             rendered(reporter.name(), |out| {

@@ -12,6 +12,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **The terminal report wraps its prose to the window.** The evidence, the reason, the
+  fix and the cost of a finding break at word boundaries with the same hanging indent
+  they had, and never run wider than 100 columns. Only a report written to a terminal
+  is wrapped; a file or a pipe is byte for byte what it was.
 - **`-v` and `-vv`.** `-v` adds a short block to the end of the terminal report: the
   configuration files that were in effect, cache hits and misses, and the time the run
   took. It also lists every skipped file instead of the first ten. `-vv` also prints the

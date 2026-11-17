@@ -9,7 +9,7 @@ use rqx_core::rule::RuleId;
 use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
 use crate::preview::{self, HEAD_LINES};
 use crate::report::tally::{RuleCount, Tally};
-use crate::report::{Report, plural};
+use crate::report::{Report, plural, wrap};
 use crate::scan::ScanOutcome;
 
 /// How much of the report a person asked for. Only the console report reads it;
@@ -71,6 +71,59 @@ pub struct Layout {
     /// `-v`: what the run read and how long it took, and every skipped file instead of
     /// the first few.
     pub verbose: bool,
+    /// Columns of the terminal the report is being written to, when a person is reading
+    /// it there. Prose is wrapped to it; a file or a pipe has none, and its lines run
+    /// as long as they always have.
+    pub width: Option<usize>,
+}
+
+impl Layout {
+    /// Past this a line is harder to read, however wide the window is.
+    const MOST_PROSE_COLUMNS: usize = 100;
+    /// Narrower than this a hanging indent leaves no room for words, and a ragged
+    /// column of one word per line reads worse than a line the terminal wraps itself.
+    const LEAST_PROSE_ROOM: usize = 20;
+
+    /// What is left of a line for prose after `hang` columns of indent and label.
+    fn prose_room(&self, hang: usize) -> Option<usize> {
+        let columns = self.width?.min(Self::MOST_PROSE_COLUMNS);
+        Some(columns.saturating_sub(hang)).filter(|room| *room >= Self::LEAST_PROSE_ROOM)
+    }
+}
+
+/// A label and then prose, wrapped to the terminal with the continuation lines hung
+/// under the first word rather than under the label. `ink` colours each line on its
+/// own, so a wrapped line never leaves its colour open across the indent.
+fn write_prose(
+    out: &mut dyn Write,
+    layout: &Layout,
+    indent: usize,
+    label: &str,
+    text: &str,
+    ink: Option<Ink>,
+) -> Result<()> {
+    let lead = if label.is_empty() {
+        String::new()
+    } else {
+        format!("{} ", paint(layout.palette.style(Ink::Muted), label))
+    };
+    let hang = indent + wrap::visible_width(label) + usize::from(!label.is_empty());
+    let lines = match layout.prose_room(hang) {
+        Some(room) => wrap::lines(text, room),
+        None => vec![text.to_owned()],
+    };
+    for (position, line) in lines.into_iter().enumerate() {
+        let line = match ink {
+            Some(ink) => paint(layout.palette.style(ink), line),
+            None => line,
+        };
+        if position == 0 {
+            writeln!(out, "{:indent$}{lead}{line}", "")?;
+        } else {
+            writeln!(out, "{:hang$}{line}", "")?;
+        }
+    }
+    Ok(())
 }
 
 /// One listing in progress: what to print, what to print it from, and what has
@@ -450,12 +503,7 @@ fn write_file(
     if layout.detail != Detail::Full
         && let Some(cost) = impact_line(report.outcome, file)
     {
-        writeln!(
-            out,
-            "        {} {}",
-            paint(layout.palette.style(Ink::Muted), "Cost:"),
-            paint(layout.palette.style(Ink::Warn), cost)
-        )?;
+        write_prose(out, layout, 8, "Cost:", &cost, Some(Ink::Warn))?;
     }
     // Full repeats the cost on every finding; anything else has just printed it once
     // above, where it belongs — it is the file's number, not the finding's.
@@ -512,20 +560,15 @@ fn write_finding(
         write_excerpt(out, layout, finding, index)?;
     }
 
-    writeln!(out, "     {}", finding.evidence)?;
+    write_prose(out, layout, 5, "", &finding.evidence.to_string(), None)?;
     // A rule the project wrote has already said why in its own message; the
     // catalogue's rationale belongs to a rule rqx ships.
     let fresh = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
     if fresh && !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
-        writeln!(out, "     {} {}", paint(dim, "Why: "), spec.why)?;
+        write_prose(out, layout, 5, "Why: ", spec.why, None)?;
     }
     if let Some(cost) = cost {
-        writeln!(
-            out,
-            "     {} {}",
-            paint(dim, "Cost:"),
-            paint(palette.style(Ink::Warn), cost)
-        )?;
+        write_prose(out, layout, 5, "Cost:", cost, Some(Ink::Warn))?;
     }
     let techniques = spec
         .fixes
@@ -547,7 +590,7 @@ fn write_finding(
                 finding.fix_hint
             )
         };
-        writeln!(out, "     {} {named}", paint(dim, "Fix: "))?;
+        write_prose(out, layout, 5, "Fix: ", &named, None)?;
     }
 
     for site in &finding.related {
@@ -1108,6 +1151,7 @@ mod tests {
             stats: false,
             context: 1,
             verbose: false,
+            width: None,
         }
     }
 
@@ -1284,5 +1328,77 @@ mod tests {
         );
         assert!(!full.contains("more"), "{full}");
         assert!(full.contains("big-14.ts"), "{full}");
+    }
+
+    #[test]
+    fn prose_wraps_to_the_terminal_with_a_hanging_indent() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                width: Some(50),
+                ..layout()
+            },
+        );
+
+        let why: Vec<&str> = text
+            .lines()
+            .skip_while(|line| !line.contains("Why:"))
+            .take_while(|line| !line.contains("Fix:"))
+            .collect();
+        assert!(why.len() > 1, "the reason did not wrap:\n{text}");
+        for line in text.lines().filter(|line| line.starts_with("     ")) {
+            assert!(wrap::visible_width(line) <= 50, "{line:?} is too wide");
+        }
+        for continuation in &why[1..] {
+            assert!(
+                continuation.starts_with(&" ".repeat(11)),
+                "{continuation:?} does not hang under the text"
+            );
+        }
+    }
+
+    #[test]
+    fn prose_is_capped_at_a_readable_width_on_a_wide_terminal() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                width: Some(400),
+                ..layout()
+            },
+        );
+
+        for line in text.lines().filter(|line| line.starts_with("     ")) {
+            assert!(wrap::visible_width(line) <= 100, "{line:?} is too wide");
+        }
+    }
+
+    #[test]
+    fn without_a_terminal_prose_is_one_line_as_it_always_was() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(&outcome, &layout());
+
+        let why = RuleId::LongFunction.spec().why;
+        assert!(text.contains(&format!("Why:  {why}")), "{text}");
+    }
+
+    #[test]
+    fn a_terminal_too_narrow_to_hold_words_is_left_to_wrap_itself() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
+
+        let text = rendered_text(
+            &outcome,
+            &Layout {
+                width: Some(16),
+                ..layout()
+            },
+        );
+
+        let why = RuleId::LongFunction.spec().why;
+        assert!(text.contains(&format!("Why:  {why}")), "{text}");
     }
 }

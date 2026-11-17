@@ -835,6 +835,9 @@ struct View {
     /// command that flattens a view declaring the flag again.
     #[arg(skip)]
     verbose: u8,
+    /// Columns to wrap prose to; set when stdout is a terminal, so a pipe is never wrapped
+    #[arg(skip)]
+    width: Option<usize>,
     /// Show only findings at or above this severity
     #[arg(long, value_enum, help_heading = "Filtering")]
     severity: Option<SeverityArg>,
@@ -1226,6 +1229,19 @@ impl FromStr for Sink {
 /// A document interleaved with anything else on one stream is silent corruption, so
 /// it is rejected before a byte is written rather than discovered by whatever tries
 /// to parse the result.
+impl View {
+    /// What the run itself knows and a flag cannot say: how chatty it was asked to be
+    /// and how wide the screen is. Only the command line sets these; a view built any
+    /// other way keeps the plain, unwrapped report.
+    fn on_terminal(self, verbose: u8) -> Self {
+        Self {
+            verbose,
+            width: term::terminal_width(term::Stream::Stdout),
+            ..self
+        }
+    }
+}
+
 fn sinks(view: &View) -> Result<Vec<Sink>> {
     let mut sinks = view.reporters.clone();
     if let Some(reporter) = view.format {
@@ -1392,6 +1408,7 @@ fn write_sink(
         stats: view.stats,
         quiet: view.quiet,
         verbose: view.verbose > 0,
+        width: None,
         // Full is the level that shows everything, so it is the one that pays
         // for surrounding lines; at 285 findings they are most of the scroll.
         context: view.context.unwrap_or(match view.detail {
@@ -1407,7 +1424,11 @@ fn write_sink(
             file.flush()?;
         }
         None if sink.reporter.is_coloured() => {
-            let layout = Layout { palette, ..plain };
+            let layout = Layout {
+                palette,
+                width: view.width,
+                ..plain
+            };
             report::emit(report, sink.reporter, &layout, stdout)?;
         }
         None => report::emit(report, sink.reporter, &plain, stdout)?,
@@ -1686,10 +1707,7 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let progress = progress_for(view.quiet);
-            let view = View {
-                verbose: verbosity,
-                ..view
-            };
+            let view = view.on_terminal(verbosity);
             let sinks = sinks(&view)?;
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
@@ -2324,10 +2342,7 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings.config);
 
             let progress = progress_for(view.quiet);
-            let view = View {
-                verbose: verbosity,
-                ..view
-            };
+            let view = view.on_terminal(verbosity);
             let sinks = sinks(&view)?;
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.

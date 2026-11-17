@@ -54,6 +54,12 @@ pub fn width(stream: Stream) -> Option<usize> {
     })
 }
 
+/// Columns on a stream, but only when a person is looking at it. `width` also answers
+/// for a pipe when `COLUMNS` is set, and prose is never re-wrapped for a file.
+pub fn terminal_width(stream: Stream) -> Option<usize> {
+    is_terminal(stream).then(|| width(stream)).flatten()
+}
+
 fn columns_from(variable: Option<&str>) -> Option<usize> {
     variable?.trim().parse().ok().filter(|columns| *columns > 0)
 }
