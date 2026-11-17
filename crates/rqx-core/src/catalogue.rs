@@ -234,6 +234,17 @@ catalogue! {
         why: "a fix applied to one copy leaves the others unfixed, and nothing in the code links \
               the edited copy to the others",
     },
+    ReimplementedExisting {
+        slug: "reimplemented-existing",
+        category: Waste,
+        analysis: Syntax,
+        metric: "added function whose normalised body matches a function that exists at the base revision",
+        fixes: [ReplaceAlgorithm, ExtractSharedModule],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "a second copy of an existing function has to be changed together with the original, \
+              and nothing in the code connects the two",
+    },
     UnusedExport {
         slug: "unused-export",
         category: Waste,

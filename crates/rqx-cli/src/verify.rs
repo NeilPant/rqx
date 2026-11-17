@@ -181,12 +181,35 @@ pub fn verify_drawn(
         .context("scanning the base revision")?;
     let after = scan::scan_drawn(root, settings, progress).context("scanning the working tree")?;
 
+    let changes = changes_between(&before, &after);
+
+    let unmet = expect
+        .iter()
+        .filter(|wanted| {
+            !changes
+                .iter()
+                .any(|change| change.outcome.is_progress() && matches(change, wanted))
+        })
+        .cloned()
+        .collect();
+
+    Ok(Verified {
+        base: base.to_owned(),
+        health_before: crate::report::Report::everything(&before).health(),
+        health_after: crate::report::Report::everything(&after).health(),
+        changes,
+        unmet,
+    })
+}
+
+/// What happened to every finding between two scans, sorted by rule and subject.
+pub fn changes_between(before: &ScanOutcome, after: &ScanOutcome) -> Vec<Change> {
     let mut base_sources = HashMap::new();
     let mut head_sources = HashMap::new();
-    let was = key(&before, &mut base_sources);
-    let is = key(&after, &mut head_sources);
+    let was = key(before, &mut base_sources);
+    let is = key(after, &mut head_sources);
 
-    let shapes = shape_of(&before, &after);
+    let shapes = shape_of(before, after);
     let mut changes = Vec::new();
     let mut matched: BTreeSet<usize> = BTreeSet::new();
 
@@ -276,24 +299,7 @@ pub fn verify_drawn(
             .cmp(&right.slug)
             .then(left.subject.cmp(&right.subject))
     });
-
-    let unmet = expect
-        .iter()
-        .filter(|wanted| {
-            !changes
-                .iter()
-                .any(|change| change.outcome.is_progress() && matches(change, wanted))
-        })
-        .cloned()
-        .collect();
-
-    Ok(Verified {
-        base: base.to_owned(),
-        health_before: crate::report::Report::everything(&before).health(),
-        health_after: crate::report::Report::everything(&after).health(),
-        changes,
-        unmet,
-    })
+    changes
 }
 
 /// `rule` or `rule@file`, so a reviewer can ask for a specific finding rather than

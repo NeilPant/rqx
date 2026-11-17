@@ -3,6 +3,7 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::finding::Severity;
 
+use crate::credit::{Credit, Scope};
 use crate::report::{Report, plural};
 
 const TOP_FINDINGS: usize = 10;
@@ -70,6 +71,10 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         }
     }
 
+    if let Some(credit) = report.credit.filter(|credit| !credit.resolved.is_empty()) {
+        write_resolved(credit, &prefix, report.base, out)?;
+    }
+
     if let Some(verdict) = report.verdict {
         writeln!(out, "\n### Gate\n")?;
         if verdict.passed() {
@@ -82,6 +87,59 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// The findings the base revision had that the change removed, and what that did to
+/// the score.
+fn write_resolved(
+    credit: &Credit,
+    prefix: &str,
+    base: Option<&str>,
+    out: &mut dyn Write,
+) -> Result<()> {
+    writeln!(out, "\n### Resolved\n")?;
+    writeln!(
+        out,
+        "{} present at `{}` and gone now{}.{}\n",
+        plural(credit.resolved.len() as u32, "finding", "findings"),
+        escape(base.unwrap_or("the base")),
+        scope_note(credit),
+        health_change(credit)
+    )?;
+    for resolved in credit.resolved.iter().take(TOP_FINDINGS) {
+        writeln!(
+            out,
+            "- `{}:{}` **{}**",
+            escape(&format!("{prefix}{}", resolved.file)),
+            resolved.line,
+            escape(&resolved.rule)
+        )?;
+    }
+    let extra = credit.resolved.len().saturating_sub(TOP_FINDINGS);
+    if extra > 0 {
+        writeln!(out, "\n_… and {extra} more._")?;
+    }
+    Ok(())
+}
+
+/// The credit of a change whose base was not scanned covers the files it touched.
+fn scope_note(credit: &Credit) -> &'static str {
+    match credit.scope {
+        Scope::Project => "",
+        Scope::ChangedFiles => " in the files it changed",
+    }
+}
+
+/// A sentence, with its leading space, or nothing when no score was taken at the base.
+fn health_change(credit: &Credit) -> String {
+    credit.health.map_or_else(String::new, |health| {
+        format!(
+            " Health went from {} to {} ({:+}).",
+            health.before,
+            health.after,
+            health.after as i32 - health.before as i32
+        )
+    })
 }
 
 /// The same report, shaped for a merge request: a verdict anyone reads at a glance,
@@ -117,6 +175,16 @@ pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
         severity(Severity::Warning),
         severity(Severity::Info),
     )?;
+
+    if let Some(credit) = report.credit.filter(|credit| !credit.resolved.is_empty()) {
+        writeln!(
+            out,
+            "Resolves {}{}.{}\n",
+            plural(credit.resolved.len() as u32, "finding", "findings"),
+            scope_note(credit),
+            health_change(credit)
+        )?;
+    }
 
     // Folded, because a merge request is a conversation and this is one voice in it.
     writeln!(out, "<details><summary>What it found</summary>\n")?;

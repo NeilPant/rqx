@@ -617,9 +617,10 @@ pub struct Thresholds {
     pub class_members: u32,
     /// Statements across all the methods of one class. Tunes `large-class`.
     pub class_statements: u32,
-    /// Smallest repeated block, in statements, that is reported as duplicate code. Tunes `duplicate-code`.
+    /// Smallest repeated block, in statements, that is reported as duplicate code or as a
+    /// function that repeats an existing one. Tunes `duplicate-code` and `reimplemented-existing`.
     pub clone_min_statements: u32,
-    /// Tunes `duplicate-code`. A floor on AST nodes rather than statements, to reject a block of three
+    /// Tunes `duplicate-code` and `reimplemented-existing`. A floor on AST nodes rather than statements, to reject a block of three
     /// bare identifiers. Statement count is the primary filter: candidates are
     /// only taken at extractable block boundaries, where a real three-statement
     /// block runs to roughly twenty nodes.
@@ -709,8 +710,14 @@ impl Thresholds {
         ("max_params", &[RuleId::LongParameterList]),
         ("class_members", &[RuleId::LargeClass]),
         ("class_statements", &[RuleId::LargeClass]),
-        ("clone_min_statements", &[RuleId::DuplicateCode]),
-        ("clone_min_nodes", &[RuleId::DuplicateCode]),
+        (
+            "clone_min_statements",
+            &[RuleId::DuplicateCode, RuleId::ReimplementedExisting],
+        ),
+        (
+            "clone_min_nodes",
+            &[RuleId::DuplicateCode, RuleId::ReimplementedExisting],
+        ),
         ("condition_operands", &[RuleId::ComplexCondition]),
         ("message_chain_depth", &[RuleId::MessageChain]),
         ("commented_code_lines", &[RuleId::CommentedOutCode]),
@@ -1085,6 +1092,9 @@ pub struct Scan {
     /// CPU profiles to read, so a run can say which performance findings are on a
     /// path that executes.
     pub profile: Vec<String>,
+    /// SARIF 2.1.0 files other tools wrote. Their results become findings in the
+    /// `external` family, under rule ids prefixed with the tool's name.
+    pub sarif_in: Vec<String>,
     /// Days of git history to read for churn; 0 turns the signal off.
     pub churn_days: u32,
     /// Reuse `.rqx/cache.bin` for files whose contents have not changed. It was
@@ -1106,6 +1116,7 @@ impl Default for Scan {
             cache: true,
             coverage: Vec::new(),
             profile: Vec::new(),
+            sarif_in: Vec::new(),
             // A glob still has to descend into a directory to produce the paths it
             // then rejects, which on a populated `node_modules` or `.venv` is the
             // difference between skipping a directory and walking every file in it.

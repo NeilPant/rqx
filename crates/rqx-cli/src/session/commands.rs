@@ -75,7 +75,7 @@ pub const SESSION_ONLY: [(&str, &str); 6] = [
 
 /// The command line commands the session runs against its own scan. `findings` is
 /// `scan`, named for what it shows.
-pub const TWINS: [&str; 18] = [
+pub const TWINS: [&str; 19] = [
     "findings",
     "plan",
     "health",
@@ -84,6 +84,7 @@ pub const TWINS: [&str; 18] = [
     "graph",
     "recommend",
     "slop",
+    "hotspots",
     "patterns",
     "suppressions",
     "waive",
@@ -560,6 +561,28 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
                 let outcome = scan::scan(&path, &settings)?;
                 let mut out = Vec::new();
                 render::slop(&outcome, &request, palette, &mut out)?;
+                Ok(out)
+            })
+        }
+        Command::Hotspots {
+            path,
+            top,
+            since,
+            json,
+            printing,
+            run,
+        } => {
+            context.same_scan(&path, &run.standard, run.config.as_ref())?;
+            refuse_reporter(printing.is_given())?;
+            // The session's scan reads the churn window of its own settings and caps its
+            // findings, so this one scans again with the window and the cap it needs.
+            let mut settings = context.settings.clone();
+            settings.config.scan.max_findings = 0;
+            let request = render::Hotspots::over(&mut settings, top, since).printed_as(json);
+            background(false, move || {
+                let outcome = scan::scan(&path, &settings)?;
+                let mut out = Vec::new();
+                render::hotspots(&outcome, &request, palette, &mut out)?;
                 Ok(out)
             })
         }

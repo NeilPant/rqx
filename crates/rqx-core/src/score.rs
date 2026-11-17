@@ -48,12 +48,23 @@ impl FindingCounts {
             *self.new_by_severity.entry(finding.severity).or_default() += 1;
         }
         self.total += 1;
-        if finding.confidence != Confidence::Low {
+        if Self::is_scored(finding) {
             *self
                 .weighted_by_file
                 .entry(Arc::clone(&finding.location.file))
                 .or_default() += finding.severity.weight();
         }
+    }
+
+    /// Another tool's finding is counted, gated and reported, and left out of the
+    /// score: its severities were not calibrated against this catalogue's weights.
+    fn is_scored(finding: &Finding) -> bool {
+        finding.confidence != Confidence::Low && !finding.is_external()
+    }
+
+    /// The severity weight of the findings that count toward the score in one file.
+    pub fn weight_of(&self, file: &str) -> f64 {
+        self.weighted_by_file.get(file).copied().unwrap_or(0.0)
     }
 
     /// One file's own score, on the same curve as the project's. A second formula
@@ -101,7 +112,7 @@ impl FindingCounts {
                 *count = count.saturating_sub(1);
             }
             counts.total = counts.total.saturating_sub(1);
-            if finding.confidence != Confidence::Low
+            if Self::is_scored(finding)
                 && let Some(weight) = counts.weighted_by_file.get_mut(&finding.location.file)
             {
                 *weight = (*weight - finding.severity.weight()).max(0.0);

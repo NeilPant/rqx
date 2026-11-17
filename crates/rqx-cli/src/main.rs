@@ -8,20 +8,24 @@ use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 
 mod agent_setup;
+mod badge;
 mod baseline;
 mod brand;
 mod cache;
 mod check;
 mod complexity;
 mod config;
+mod credit;
 mod edit_config;
 mod explain;
+mod external;
 mod fix;
 mod forge;
 mod gate;
 mod graph;
 mod health;
 mod history;
+mod hotspots;
 mod listed;
 mod lsp;
 mod mcp;
@@ -34,6 +38,7 @@ mod progress;
 mod project;
 mod query;
 mod recommend;
+mod reimplemented;
 mod release;
 mod render;
 mod report;
@@ -147,6 +152,7 @@ const GROUPS: [(&str, &[&str]); 5] = [
             "perf",
             "health",
             "slop",
+            "hotspots",
             "graph",
             "plan",
             "patterns",
@@ -167,7 +173,15 @@ const GROUPS: [(&str, &[&str]); 5] = [
     ),
     (
         "Integrations",
-        &["lsp", "mcp", "setup", "completions", "query", "update"],
+        &[
+            "lsp",
+            "mcp",
+            "setup",
+            "completions",
+            "badge",
+            "query",
+            "update",
+        ],
     ),
 ];
 
@@ -545,6 +559,39 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
+    /// Rank files by how often they change and how much is wrong with them
+    #[command(
+        after_help = "Examples:\n  rqx hotspots                        the ten files that are both churned and flagged\n  rqx hotspots --top 25 --since 180   a longer list over half a year of history"
+    )]
+    Hotspots {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        /// How many files to list
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+        /// Days of git history to count commits over. Defaults to `scan.churn_days`
+        #[arg(long, value_name = "DAYS")]
+        since: Option<u32>,
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        printing: Printing,
+        #[command(flatten)]
+        run: Run,
+    },
+    /// Write the health score as a small SVG badge
+    #[command(
+        after_help = "Examples:\n  rqx badge --output badge.svg        write the badge for this project\n  rqx badge > badge.svg               the same, through the shell"
+    )]
+    Badge {
+        #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
+        path: PathBuf,
+        /// Write the SVG to this file. Without it, the SVG goes to standard output
+        #[arg(long, short, value_name = "PATH", value_hint = ValueHint::FilePath)]
+        output: Option<PathBuf>,
+        #[command(flatten)]
+        run: Run,
+    },
     /// Break the health score down by component and report what removing each would gain
     Health {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
@@ -838,11 +885,16 @@ struct Evidence {
     /// .cpuprofile, a Go pprof and collapsed stacks are detected by content.
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     profile: Vec<PathBuf>,
+    /// A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings
+    /// in the `external` family. They count for the gate and the reports and not for
+    /// the health score
+    #[arg(long = "sarif-in", value_name = "FILE", value_hint = ValueHint::FilePath)]
+    sarif_in: Vec<PathBuf>,
 }
 
 impl Evidence {
     fn is_empty(&self) -> bool {
-        self.coverage.is_empty() && self.profile.is_empty()
+        self.coverage.is_empty() && self.profile.is_empty() && self.sarif_in.is_empty()
     }
 
     fn apply(&self, settings: &mut config::Resolved) {
@@ -852,6 +904,9 @@ impl Evidence {
         }
         if !self.profile.is_empty() {
             scan.profile = display_all(&self.profile);
+        }
+        if !self.sarif_in.is_empty() {
+            scan.sarif_in = display_all(&self.sarif_in);
         }
     }
 }
@@ -2171,6 +2226,44 @@ fn run() -> Result<Exit> {
                 render::slop(&outcome, &request, palette, out)
             })
             .map(|()| Exit::Clean)
+        }
+        Command::Hotspots {
+            path,
+            top,
+            since,
+            json,
+            printing,
+            run,
+        } => {
+            let mut settings = run.resolve(&path)?;
+            settings.config.scan.max_findings = 0;
+            let request = render::Hotspots::over(&mut settings, top, since);
+            let sinks = printing.sinks(json)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            sink::deliver(&sinks, palette, |rendering, palette, out| {
+                render::hotspots(
+                    &outcome,
+                    &request.printed_as(rendering.is_json()),
+                    palette,
+                    out,
+                )
+            })
+            .map(|()| Exit::Clean)
+        }
+        Command::Badge { path, output, run } => {
+            let settings = run.resolve(&path)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            let health = Report::everything(&outcome).health();
+            let badge = badge::svg(health, outcome.counts.total);
+            match output {
+                Some(file) => {
+                    std::fs::write(&file, badge)
+                        .with_context(|| format!("writing {}", file.display()))?;
+                    eprintln!("  wrote the badge to {}", file.display());
+                }
+                None => std::io::Write::write_all(&mut std::io::stdout().lock(), badge.as_bytes())?,
+            }
+            Ok(Exit::Clean)
         }
         Command::Health {
             path,

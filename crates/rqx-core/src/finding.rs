@@ -101,6 +101,30 @@ pub(crate) fn plural(count: u32, one: &str, many: &str) -> String {
     format!("{count} {}", if count == 1 { one } else { many })
 }
 
+/// How closely a new function's body matches an existing one, in the order the clone
+/// detector's fingerprints can tell apart.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Likeness {
+    /// The same normalised syntax, differing only in local names.
+    Identical,
+    /// The same control flow and constants in one language, with other member names.
+    SameLogic,
+    /// The same control flow and constants in another language.
+    Ported,
+}
+
+impl Likeness {
+    /// The confidence the match supports: only the first is a proof of equality.
+    pub const fn confidence(self) -> Confidence {
+        match self {
+            Self::Identical => Confidence::Verified,
+            Self::SameLogic => Confidence::Heuristic,
+            Self::Ported => Confidence::Low,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "metric", rename_all = "snake_case")]
 pub enum Evidence {
@@ -131,6 +155,15 @@ pub enum Evidence {
         statements: u32,
         nodes: u32,
         occurrences: u32,
+    },
+    /// A function added since the base revision whose body matches one that already
+    /// existed there, and still exists.
+    Reimplemented {
+        added: String,
+        existing: String,
+        existing_file: String,
+        existing_line: u32,
+        likeness: Likeness,
     },
     Name {
         identifier: String,
@@ -432,6 +465,30 @@ impl fmt::Display for Evidence {
                 f,
                 "{statements}-statement block ({nodes} AST nodes) repeated at {occurrences} sites."
             ),
+            Self::Reimplemented {
+                added,
+                existing,
+                existing_file,
+                existing_line,
+                likeness,
+            } => {
+                let place = format!("`{existing}` in {existing_file}:{existing_line}");
+                match likeness {
+                    Likeness::Identical => write!(
+                        f,
+                        "`{added}` has the same body as {place}, apart from local names."
+                    ),
+                    Likeness::SameLogic => write!(
+                        f,
+                        "`{added}` has the same control flow and constants as {place}."
+                    ),
+                    Likeness::Ported => write!(
+                        f,
+                        "`{added}` has the same control flow and constants as {place}, \
+                         written in another language."
+                    ),
+                }
+            }
             Self::Name { identifier, reason } => write!(f, "`{identifier}` {reason}."),
             Self::UnusedExport {
                 symbol,
@@ -796,6 +853,29 @@ impl Finding {
         match &self.evidence {
             Evidence::Custom { family, .. } => *family,
             _ => self.rule.spec().category,
+        }
+    }
+
+    /// Whether another tool reported this, and rqx only carries it.
+    pub fn is_external(&self) -> bool {
+        self.category() == crate::rule::Category::External
+    }
+
+    /// Why the rule matters. A result another tool reported has no catalogue entry,
+    /// so the text says where it came from.
+    pub fn why(&self) -> &'static str {
+        if self.is_external() {
+            "reported by another tool and read from its SARIF output"
+        } else {
+            self.rule.spec().why
+        }
+    }
+
+    pub fn metric(&self) -> &'static str {
+        if self.is_external() {
+            "a result in another tool's SARIF output"
+        } else {
+            self.rule.spec().metric
         }
     }
 }

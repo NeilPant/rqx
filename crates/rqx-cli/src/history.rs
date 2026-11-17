@@ -228,17 +228,67 @@ impl Drop for Worktree {
     }
 }
 
+/// The revision `base` and the working tree last had in common, which is what a
+/// change is measured from.
+pub fn merge_base(root: &Path, base: &str) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["merge-base", base, "HEAD"])
+        .output()
+        .ok()?;
+    let revision = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (output.status.success() && !revision.is_empty()).then_some(revision)
+}
+
+/// A file as a revision held it, or `None` when the revision has no such file.
+/// `relative` is relative to `root`, as findings name files.
+pub fn file_at(root: &Path, revision: &str, relative: &str) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("show")
+        .arg(format!("{revision}:./{relative}"))
+        .output()
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
 /// Files that differ from a base revision. Uses the merge base so a stale branch is
 /// judged on what it actually changed rather than on everything that landed on the
 /// base since it forked.
 pub fn changed_since(root: &Path, base: &str) -> Option<Vec<String>> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["diff", "--name-only", "--diff-filter=d"])
-        .arg(format!("{base}...HEAD"))
-        .output()
-        .ok()?;
+    names_from(
+        root,
+        &["diff", "--name-only", "--diff-filter=d"],
+        Some(base),
+    )
+}
+
+/// Files a revision had that the working tree no longer has: deleted in a commit since
+/// the merge base, or removed from the working tree and not yet committed. Named from
+/// the repository root, as `changed_since` names them.
+pub fn deleted_since(root: &Path, base: &str) -> Vec<String> {
+    let committed = names_from(
+        root,
+        &["diff", "--name-only", "--diff-filter=D"],
+        Some(base),
+    );
+    let uncommitted = names_from(root, &["ls-files", "--deleted", "--full-name"], None);
+    committed.into_iter().chain(uncommitted).flatten().collect()
+}
+
+/// The lines `git` prints for a command that lists paths, or `None` when it fails.
+fn names_from(root: &Path, args: &[&str], base: Option<&str>) -> Option<Vec<String>> {
+    let mut command = Command::new("git");
+    command.arg("-C").arg(root).args(args);
+    if let Some(base) = base {
+        command.arg(format!("{base}...HEAD"));
+    }
+    let output = command.output().ok()?;
     if !output.status.success() {
         return None;
     }

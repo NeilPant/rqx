@@ -39,6 +39,9 @@ The summary line has `"kind": "summary"` and:
 | `grades` | A letter grade per file in scope |
 | `gate` | Present when a verdict exists: `{ "passed": bool, "failures": [string] }` |
 | `review` | Present for `rqx check`: the base, the reviewed counts and the verdict |
+| `resolved` | Present for `rqx check` and `rqx comment` against a revision: the findings the base had that the change removed, each as `{ "rule", "subject", "file", "line" }` |
+| `resolved_scope` | Present with `resolved`: `project` when the base was scanned whole, `changed-files` when the credit covers only the findings one file's analysis produces in the files the change touched |
+| `health_delta` | Present when `resolved_scope` is `project`: the health score after the change minus the score at the base |
 
 `gate` is present for a scan only when the run was gated by a flag (`--fail-on`,
 `--allow-findings`, `--min-health`, `--min-grade` or `--fail-on-incomplete`), and
@@ -84,6 +87,6 @@ summary:
 problem has no location in a file. `valid` is `true` when the command exits 0, so
 under `--strict` a warning makes it `false`.
 
-The commands that print a table as data (`complexity`, `perf`, `health`, `slop`,
+The commands that print a table as data (`complexity`, `perf`, `health`, `slop`, `hotspots`,
 `recommend`, `waivers`, `patterns`) write one object per row and no summary. Their
 keys follow the same rules.

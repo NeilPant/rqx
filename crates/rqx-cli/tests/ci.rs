@@ -1255,7 +1255,7 @@ fn slugs_are_narrowed_the_same_way_the_listing_is() {
     let go = rqx_bare(&["rules", "--language", "go", "--slugs"]);
 
     let count = |text: &str| text.lines().filter(|line| !line.is_empty()).count();
-    assert_eq!(count(&all), 185, "the catalogue is not 185 rules");
+    assert_eq!(count(&all), 186, "the catalogue is not 186 rules");
     assert!(
         count(&performance) < count(&all) && count(&performance) > 0,
         "the family was ignored: {} of {}",
@@ -1288,6 +1288,7 @@ fn the_readme_counts_the_commands_correctly() {
         ("Twenty-eight", 28),
         ("Twenty-nine", 29),
         ("Thirty", 30),
+        ("Thirty-one", 31),
     ];
     let claimed = spelled
         .iter()

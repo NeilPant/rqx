@@ -27,6 +27,42 @@ them. `tools/release.sh` turns that section into the release notes.
 - **MCP `fix_preview` tool.** Returns the edits `rqx fix` would make to one file as a
   unified diff, with the findings they resolve. An optional `rule` narrows it to one
   rule. It reuses the fixer's planning and verification and never writes a file.
+- **`rqx badge` writes the health score as an SVG badge.** The badge reads
+  `rqx | health 82 fair`, coloured by the grade's band with the rqx palette, and has no
+  external references. `--output PATH` writes a file; without it the SVG goes to standard
+  output. `docs/ci.md` has a GitHub Actions workflow that keeps the badge on a branch.
+- **`rqx hotspots` ranks files by churn and by what is wrong with them.** The score is
+  the commits in the churn window multiplied by the file's weight: the severity weight
+  of its findings that count toward the health score, plus one point per ten points of
+  cognitive complexity. A column states each factor. `--top` sets the length, `--since`
+  the window in days, and `--reporter terminal|json` the output. `/hotspots` runs it in
+  the interactive session. See `docs/hotspots.md`.
+- **`rqx check` and `rqx comment` report the debt a change paid off.** A finding that
+  the base revision has and the change removed is listed in a `Resolved` section of the
+  pull request comment and in a `Resolved` row of the terminal summary, with the health
+  score before and after. The JSON summary line gains `resolved`, `resolved_scope` and
+  `health_delta` keys, absent from `rqx scan` and from `--files-from` reviews. A change
+  that adds a function has its base scanned whole (`resolved_scope: "project"`, with a
+  health delta). Any other change is credited from the files it touched, read at the
+  base with `git show` and analysed on their own (`"changed-files"`, no health delta,
+  and no finding that needs more than one file). See `docs/ci.md`.
+- **`reimplemented-existing` reports new functions that repeat existing ones.**
+  `rqx check` and `rqx comment` scan the revision the change forked from and compare
+  the bodies of the functions the change adds with the functions that exist at both
+  revisions, using the fingerprints of the clone detector. A match is reported with the
+  existing function and its location as the one to call. Confidence is `verified` for
+  the same normalised syntax, `heuristic` for the same control flow and constants in one
+  language, and `low` for a match across languages. Renamed and moved functions are not
+  reported. The base is scanned only when the change adds a function, and it reads the
+  working tree's scan cache without writing it. `rqx scan` and `--files-from` do not
+  report the rule. See `docs/ci.md`.
+- **`--sarif-in` reads other tools' SARIF results.** `rqx scan`, `rqx check` and
+  `rqx comment` accept SARIF 2.1.0 files from ruff, Biome, ESLint, Semgrep or any tool
+  that writes the format, and report each result as a finding in the new `external`
+  family. Rule ids carry the tool name (`eslint/no-unused-vars`). Baselines,
+  `gate.fail_on`, the reporters and the pull request comment cover these findings; the
+  health score does not. `scan.sarif_in` in `rqx.yaml` sets the files. See
+  `docs/ci.md`.
 
 ## 0.3.0 — 2026-11-17
 

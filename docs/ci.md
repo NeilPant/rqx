@@ -83,7 +83,7 @@ rqx scan . \
 needs stdout, or a file, to itself.
 
 The commands that print their own view instead of the findings (`fix`, `verify`,
-`plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `health`,
+`plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `hotspots`, `health`,
 `patterns`, `graph` and `config`) also take `--reporter`, with two names: `terminal`
 and `json`. `rqx health --reporter terminal --reporter json=health.json` prints the
 table and writes the document. On these commands `--json` is short for `--reporter
@@ -199,6 +199,56 @@ upload and a job summary from that pass. It installs rqx by downloading the bina
 released with its own tag and verifying it against `SHA256SUMS`. A ref with no
 published binary, such as a fork or `@main` ahead of the last release, compiles rqx
 from the checkout instead.
+
+### A health badge
+
+`rqx badge --output badge.svg` writes the health score as a small self-contained SVG:
+`rqx` on the left, and the score with its grade, such as `health 82 fair`, on the
+right. The right side takes the colour of the grade: green for `pristine` and `clean`,
+tan for `fair`, amber for `poor` and red for `critical`. The file has no external
+references, so a README, a wiki or a static site can serve it directly. Without
+`--output`, the SVG is written to standard output.
+
+This workflow regenerates the badge on every push to the default branch and keeps it
+on a `badges` branch, which a README embeds from `raw.githubusercontent.com`:
+
+```yaml
+name: rqx badge
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install rqx
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/jadhamwi21/rqx/main/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Write the badge
+        run: rqx badge --output "$RUNNER_TEMP/rqx-health.svg"
+      - name: Publish it to the badges branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin badges || git switch --orphan badges
+          git switch badges
+          cp "$RUNNER_TEMP/rqx-health.svg" rqx-health.svg
+          git add rqx-health.svg
+          git diff --cached --quiet || git commit -m "Update the rqx health badge"
+          git push origin badges
+```
+
+The README then embeds it:
+
+```markdown
+![rqx health](https://raw.githubusercontent.com/OWNER/REPO/badges/rqx-health.svg)
+```
 
 ### The scan cache
 
@@ -343,6 +393,32 @@ rule name that is not in the catalogue, exits `0` by default and `1` under `--st
 With `--json`, the command prints one line per problem with its file, line and column.
 See [json.md](json.md).
 
+## Functions that repeat existing code
+
+When a change adds a function, `rqx check` and `rqx comment` also scan the revision the
+change forked from, the merge base of `--base` and `HEAD`. A function that exists only in the working tree and whose
+body matches a function that exists at both revisions is reported as
+`reimplemented-existing`. The finding names the existing function and its location.
+
+| Match | Confidence |
+|---|---|
+| The same normalised syntax, differing only in local names. | `verified` |
+| The same control flow and constants in one language, with other member names, in a body of at least 8 statements and 40 syntax nodes. | `heuristic` |
+| The same control flow and constants in a file of another language, with the same size floor. | `low` |
+
+A function that was renamed or moved is not reported, because the function it replaced
+no longer exists to call. `clone_min_statements` and `clone_min_nodes` set the smallest
+body that is compared. `--files-from` names no revision, so the rule does not run
+there, and `rqx scan` never reports it.
+
+The base scan costs time, so it is limited in two ways. It runs only when a new or
+changed file holds a named function that the file did not hold at the base. Both sides
+of each such file are analysed on their own to decide this, without a checkout. A change
+that adds no function is reviewed on one scan and reports neither this rule nor the
+`Resolved` credit described under [Commenting on the merge request](#commenting-on-the-merge-request).
+When the base is scanned, it reads the `.rqx/cache.bin` of the working tree and never
+writes it, so a file with the same content at both revisions is not analysed again.
+
 ## Review without git history
 
 `rqx check` normally asks git which files differ from `--base`. A shallow clone has no
@@ -454,6 +530,33 @@ In `.husky/pre-commit`:
 rqx check --staged
 ```
 
+## Other tools' results
+
+`--sarif-in FILE` reads a SARIF 2.1.0 file that another linter wrote and reports each
+result as a finding in the `external` family. It is accepted by `scan`, `check` and
+`comment`, can be repeated, and can be set as `scan.sarif_in` in `rqx.yaml`.
+
+```sh
+ruff check --output-format sarif --output-file ruff.sarif
+rqx check --base origin/main --sarif-in ruff.sarif --fail-on error
+```
+
+| Property | Value |
+|---|---|
+| Rule id | The tool name in lower case, a slash, and the tool's rule id: `eslint/no-unused-vars`, `ruff/F401`. |
+| Severity | SARIF `error` maps to `error`, `warning` and an absent level to `warning`, `note` and `none` to `info`. A result without a level uses the rule's `defaultConfiguration.level`. |
+| Location and message | The first physical location and the message text, with line breaks collapsed. The rule's help text becomes the fix hint. |
+| Skipped | Results suppressed in the SARIF file, results without a physical location, and results in files outside the scanned directory. |
+| Unknown fields | Ignored. |
+
+External findings take part in baselines, `gate.fail_on`, every
+reporter and the pull request comment. They are not part of the health score: the
+severities of other tools are not calibrated against the weights of the rqx catalogue,
+so counting them would make the score depend on which linters a project runs. A file
+that cannot be read or is not SARIF is reported on stderr and skipped. `rqx baseline`
+has no `--sarif-in` flag; it records external findings when `scan.sarif_in` is set in
+`rqx.yaml`.
+
 ## Adopting a gate on an existing codebase
 
 A gate that fails on the first run is often disabled. To avoid that, start from the
@@ -488,6 +591,26 @@ comment, which later runs edit in place, and a commit status that carries the gr
 ```sh
 rqx comment --fail-on error
 ```
+
+The comment has a `Resolved` section when the change removed findings that the base
+revision had. A finding counts as resolved when the base reports it and the working
+tree does not, using the matching that `rqx verify` uses, so a finding that moved to
+another file is not credited. The section lists the findings. `rqx check` reports the
+same data in the terminal summary and in the `resolved`, `resolved_scope` and
+`health_delta` keys of the JSON summary line.
+
+What the credit covers depends on whether the base was scanned (see
+[Functions that repeat existing code](#functions-that-repeat-existing-code)):
+
+| `resolved_scope` | When | Covers | `health_delta` |
+|---|---|---|---|
+| `project` | The change adds a function, so the base was scanned whole. | Every finding of the base scan, including those that read more than one file. | The health score after the change minus the score at the base. |
+| `changed-files` | The change adds no function. | The findings that one file's analysis produces, in the files the change touched or deleted. A finding that needs the whole project, such as `unused-export`, `unused-file`, `duplicate-code` or an import cycle, is not credited. | Absent: a score needs every finding of both sides. |
+
+The base side of a `changed-files` credit is each touched file's text at the merge
+base, read with `git show` and analysed on its own. The section is omitted when
+`--max-findings` dropped findings from the working tree's scan, because a dropped
+finding cannot be told from a resolved one.
 
 It finds the merge request from the pipeline's own variables: GitLab's
 `CI_MERGE_REQUEST_IID` and `CI_PROJECT_ID`, and GitHub's `GITHUB_REPOSITORY` and event

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file://{root}/app/main.py"
+                },
+                "region": {
+                  "endColumn": 10,
+                  "endLine": 1,
+                  "startColumn": 8,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`os` imported but unused"
+          },
+          "ruleId": "F401"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///somewhere/else/util.py"
+                },
+                "region": {
+                  "endColumn": 4,
+                  "endLine": 3,
+                  "startColumn": 1,
+                  "startLine": 3
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Undefined name `foo`"
+          },
+          "ruleId": "F821"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/astral-sh/ruff",
+          "name": "ruff",
+          "rules": [
+            {
+              "fullDescription": {
+                "text": "Checks for unused imports."
+              },
+              "help": {
+                "text": "`os` imported but unused"
+              },
+              "helpUri": "https://docs.astral.sh/ruff/rules/unused-import",
+              "id": "F401",
+              "shortDescription": {
+                "text": "`os` imported but unused"
+              }
+            }
+          ],
+          "version": "0.6.9"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

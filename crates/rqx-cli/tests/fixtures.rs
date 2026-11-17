@@ -1659,11 +1659,12 @@ fn every_applicable_rule_fires_on_every_language() {
     use std::collections::BTreeSet;
 
     // These read something one language directory cannot carry: two read git history,
-    // two are silent until a project declares `[architecture]`, and one is about the
+    // two are silent until a project declares `[architecture]`, one is about the
     // same logic appearing in two languages, which a single-language corpus cannot
-    // contain by definition. They are covered by
-    // `history_rules_fire_on_a_repository_with_a_shared_decision` and by
-    // `tests/architecture.rs`.
+    // contain by definition, and one compares a change with the revision it forked
+    // from, which a scan has none of. They are covered by
+    // `history_rules_fire_on_a_repository_with_a_shared_decision`, by
+    // `tests/architecture.rs` and by `tests/reimplemented.rs`.
     let history_backed: BTreeSet<String> = [
         "stale-todo",
         "hotspot",
@@ -1673,6 +1674,7 @@ fn every_applicable_rule_fires_on_every_language() {
         "layer-violation",
         "forbidden-import",
         "cross-language-duplicate",
+        "reimplemented-existing",
     ]
     .map(str::to_owned)
     .into();

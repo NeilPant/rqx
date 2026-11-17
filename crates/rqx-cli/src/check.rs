@@ -1,13 +1,17 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use rqx_core::config::RqxConfig;
 
 use crate::config::Resolved;
+use crate::credit::Credit;
 use crate::gate::{Scope, Verdict};
 use crate::history;
-use crate::scan::ScanOutcome;
+use crate::progress::Mode;
+use crate::reimplemented::Reference;
+use crate::scan::{self, ScanOutcome};
 
 /// What a review is shown in place of a revision when the files were listed instead.
 const LISTED: &str = "--files-from";
@@ -17,6 +21,8 @@ pub struct Review {
     pub outcome: ScanOutcome,
     pub reviewed: BTreeSet<String>,
     pub base: String,
+    /// What the change paid off, when the base revision was scanned.
+    pub credit: Option<Credit>,
 }
 
 impl Review {
@@ -74,14 +80,43 @@ pub fn review(root: &Path, settings: &Resolved, base: &str) -> Result<Review> {
     review_of(root, settings, Reviewed::Since(base), None)
 }
 
-/// A review whose scan is drawn on stderr as `mode` says.
+/// A review whose scan is drawn on stderr as `mode` says. Against a revision, the
+/// revision is scanned too when the change adds a function, because what it added can
+/// only be told from what was already there by reading both. A change that adds none
+/// has nothing to compare, so it is reviewed on one scan, and its credit is read from
+/// the files it touched alone. A review of listed files has no revision.
 pub fn review_drawn(
     root: &Path,
     settings: &Resolved,
     source: Reviewed<'_>,
-    mode: crate::progress::Mode,
+    mode: Mode,
 ) -> Result<Review> {
-    crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch))
+    let Reviewed::Since(base) = source else {
+        return crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch));
+    };
+    let changed = source.files(root)?;
+    let forked_from = history::merge_base(root, base).unwrap_or_else(|| base.to_owned());
+    let held = held_at(root, &forked_from, &changed);
+    if !adds_functions(root, settings, &held, &changed) {
+        let mut review =
+            crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch))?;
+        review.credit = Credit::in_files(&held, root, settings, &review.outcome);
+        return Ok(review);
+    }
+    let before = scan_base(root, settings, &forked_from, mode)?;
+    let reference = Arc::new(Reference::of(&before.outcome.shape_by_file));
+    let outcome = crate::progress::drawing(mode, |watch| {
+        scan::scan_against(
+            root,
+            settings,
+            watch,
+            scan::CachePolicy::FromSettings,
+            Some(reference),
+            None,
+        )
+    })?;
+    let credit = Credit::between(&before.outcome, &outcome);
+    Ok(assemble(changed, outcome, source.label(), credit))
 }
 
 pub fn review_of(
@@ -96,7 +131,118 @@ pub fn review_of(
         Some(watch) => crate::scan::scan_with_progress(root, settings, watch)?,
         None => crate::scan::scan(root, settings)?,
     };
+    Ok(assemble(changed, outcome, source.label(), None))
+}
 
+/// What the files the change touched held at the base revision, as text: the changed
+/// files and the ones it deleted, that have source rqx reads and existed then. Read
+/// with `git show`, so no checkout is needed.
+fn held_at(root: &Path, revision: &str, changed: &BTreeSet<String>) -> BTreeMap<String, String> {
+    let prefix = history::repository_prefix(root).unwrap_or_default();
+    let deleted = history::deleted_since(root, revision)
+        .into_iter()
+        .filter_map(|path| path.strip_prefix(&prefix).map(str::to_owned));
+    changed
+        .iter()
+        .cloned()
+        .chain(deleted)
+        .filter(|file| rqx_core::Language::of_path(Path::new(file)).is_some())
+        .filter_map(|file| {
+            let text = history::file_at(root, revision, &file)?;
+            Some((file, text))
+        })
+        .collect()
+}
+
+/// Whether any changed file holds a named function that the file did not hold at the
+/// base revision, given what the files held then. Only a new or changed file can add
+/// one, so the rest are not read. Both sides of each file are analysed on their own,
+/// which costs a few files rather than a checkout of the project. A file that cannot
+/// be told apart counts as adding one, because the answer "no" skips the comparison.
+fn adds_functions(
+    root: &Path,
+    settings: &Resolved,
+    held: &BTreeMap<String, String>,
+    changed: &BTreeSet<String>,
+) -> bool {
+    changed
+        .iter()
+        .any(|file| file_adds_functions(root, settings, held.get(file), file))
+}
+
+fn file_adds_functions(root: &Path, settings: &Resolved, was: Option<&String>, file: &str) -> bool {
+    let path = root.join(file);
+    let Some(now) = std::fs::read_to_string(&path).ok() else {
+        return false;
+    };
+    let config = settings.for_file(&path);
+    let names_in = |source: &str| -> Result<BTreeSet<String>, rqx_lang::AnalysisError> {
+        let analysis = rqx_lang::analyze(&path, file, source, config)?;
+        Ok(analysis
+            .shape
+            .functions
+            .into_iter()
+            .filter_map(|function| function.name)
+            .collect())
+    };
+    let had = match was {
+        Some(source) => names_in(source).unwrap_or_default(),
+        None => BTreeSet::new(),
+    };
+    match names_in(&now) {
+        Ok(has) => has.difference(&had).next().is_some(),
+        Err(rqx_lang::AnalysisError::UnsupportedFile) => false,
+        Err(_) => true,
+    }
+}
+
+/// The revision the change forked from, scanned in a checkout that lasts as long as
+/// this value: reading a finding's text later needs the files to still be there. The
+/// base is scanned with the same settings as the change, so the two sides are judged
+/// by the same rules, and with no display cap, so a finding is never absent from it
+/// only because there were too many.
+struct Base {
+    outcome: ScanOutcome,
+    _checkout: history::Worktree,
+}
+
+fn scan_base(root: &Path, settings: &Resolved, revision: &str, mode: Mode) -> Result<Base> {
+    let checkout = history::Worktree::add(root, revision)
+        .map_err(|error| anyhow::anyhow!("cannot read `{revision}`: {error}"))?;
+    let mut rebased = settings
+        .rebased(root, checkout.path())
+        .context("re-reading the configuration against the base checkout")?;
+    // Other tools' results describe the working tree, so they are not read from the
+    // base checkout, where the files they name are not.
+    rebased.config.scan.sarif_in.clear();
+    rebased.config.scan.max_findings = 0;
+    // The base reads the working tree's cache and never writes it: an unchanged file
+    // has the same content at both revisions, so its entry is the base's answer too,
+    // and the base's own results are never kept where the next run of the working
+    // tree could find them.
+    let outcome = crate::progress::drawing(mode, |watch| {
+        scan::scan_against(
+            checkout.path(),
+            &rebased,
+            watch,
+            scan::CachePolicy::FromSettings,
+            None,
+            Some(root),
+        )
+    })
+    .context("scanning the base revision")?;
+    Ok(Base {
+        outcome,
+        _checkout: checkout,
+    })
+}
+
+fn assemble(
+    changed: BTreeSet<String>,
+    outcome: ScanOutcome,
+    base: String,
+    credit: Option<Credit>,
+) -> Review {
     // Direct dependents are reviewed too, because deleting an export is only visible
     // as a problem in the file that was importing it.
     let mut reviewed = changed.clone();
@@ -110,11 +256,12 @@ pub fn review_of(
     // has an opinion about; counting it would overstate what was reviewed.
     reviewed.retain(|file| outcome.analyzed.contains(file));
 
-    Ok(Review {
+    Review {
         outcome,
         reviewed,
-        base: source.label(),
-    })
+        base,
+        credit,
+    }
 }
 
 /// Paths relative to the scan root, as findings name them.

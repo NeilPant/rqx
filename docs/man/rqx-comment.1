@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-comment \- Post the review as a comment on its merge request, and grade the commit
 .SH SYNOPSIS
-\fBrqx comment\fR [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx comment\fR [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Post the review as a comment on its merge request, and grade the commit
 .SH OPTIONS
@@ -26,6 +26,9 @@ A coverage file that can contradict a dead\-code finding. lcov, a Go cover profi
 .TP
 \fB\-\-profile\fR \fI<FILE>\fR
 A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content
+.TP
+\fB\-\-sarif\-in\fR \fI<FILE>\fR
+A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score
 .TP
 \fB\-\-level\fR \fI<LEVEL>\fR
 relaxed, standard, strict or pristine

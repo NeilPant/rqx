@@ -18,6 +18,25 @@ Reports dead code, duplication, complexity and architectural drift in TypeScript
 | `--help` | Print help (see more with '--help') |
 | `--version` | Print version |
 
+## `rqx badge`
+
+Write the health score as a small SVG badge
+
+| Flag | What it does |
+| --- | --- |
+| `--output` | Write the SVG to this file. Without it, the SVG goes to standard output |
+| `--level` | relaxed, standard, strict or pristine |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
+| `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--help` | Print help (see more with '--help') |
+
 ## `rqx baseline`
 
 Record the findings this project already has, so the gate evaluates only what a change adds
@@ -94,6 +113,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
 | `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content |
+| `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
 | `--max-findings` | Maximum number of findings listed; 0 lists every finding. Does not affect the health score |
 | `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
@@ -124,6 +144,7 @@ Post the review as a comment on its merge request, and grade the commit
 | `--fail-on-incomplete` | Fail when a design pattern is half applied |
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
 | `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content |
+| `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
 | `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
@@ -281,6 +302,27 @@ Break the health score down by component and report what removing each would gai
 
 Print this message or the help of the given subcommand(s)
 
+
+## `rqx hotspots`
+
+Rank files by how often they change and how much is wrong with them
+
+| Flag | What it does |
+| --- | --- |
+| `--top` | How many files to list |
+| `--since` | Days of git history to count commits over. Defaults to `scan.churn_days` |
+| `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
+| `--level` | relaxed, standard, strict or pristine |
+| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
+| `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
+| `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--help` | Print help (see more with '--help') |
 
 ## `rqx init`
 
@@ -509,6 +551,7 @@ Analyze a project and report every finding
 | `--advice` | Append design pattern advice for the same files |
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
 | `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are detected by content |
+| `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
 | `--max-findings` | Maximum number of findings listed; 0 lists every finding. Does not affect the health score |
 | `--watch` | Rescan whenever a file changes, until interrupted |
 | `--level` | relaxed, standard, strict or pristine |

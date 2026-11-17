@@ -30,6 +30,41 @@ alias c -> check
 alias f -> fix
 alias s -> scan
 alias v -> verify
+badge
+badge --color
+badge --color =always
+badge --color =auto
+badge --color =never
+badge --config
+badge --help
+badge --hyperlinks
+badge --hyperlinks =always
+badge --hyperlinks =auto
+badge --hyperlinks =never
+badge --hyperlinks [env RQX_HYPERLINKS]
+badge --level
+badge --level [env RQX_LEVEL]
+badge --motion
+badge --motion =off
+badge --motion =on
+badge --no-mouse
+badge --no-progress
+badge --no-progress [env RQX_NO_PROGRESS]
+badge --no-tui
+badge --output
+badge --progress
+badge --progress =auto
+badge --progress =bar
+badge --progress =none
+badge --progress =plain
+badge --progress [env RQX_PROGRESS]
+badge --threads
+badge --threads [env RQX_THREADS]
+badge --verbose
+badge -h
+badge -o
+badge -v
+badge <path>
 baseline
 baseline --color
 baseline --color =always
@@ -238,6 +273,7 @@ check --progress [env RQX_PROGRESS]
 check --quiet
 check --reporter
 check --rule
+check --sarif-in
 check --search
 check --severity
 check --severity =error
@@ -316,6 +352,7 @@ comment --progress =bar
 comment --progress =none
 comment --progress =plain
 comment --progress [env RQX_PROGRESS]
+comment --sarif-in
 comment --threads
 comment --threads [env RQX_THREADS]
 comment --verbose
@@ -825,6 +862,7 @@ health -h
 health -v
 health <path>
 help
+help badge
 help baseline
 help cache
 help cache clear
@@ -847,6 +885,7 @@ help fix
 help graph
 help health
 help help
+help hotspots
 help init
 help levels
 help lsp
@@ -866,6 +905,43 @@ help techniques
 help update
 help verify
 help waive
+hotspots
+hotspots --color
+hotspots --color =always
+hotspots --color =auto
+hotspots --color =never
+hotspots --config
+hotspots --help
+hotspots --hyperlinks
+hotspots --hyperlinks =always
+hotspots --hyperlinks =auto
+hotspots --hyperlinks =never
+hotspots --hyperlinks [env RQX_HYPERLINKS]
+hotspots --json
+hotspots --level
+hotspots --level [env RQX_LEVEL]
+hotspots --motion
+hotspots --motion =off
+hotspots --motion =on
+hotspots --no-mouse
+hotspots --no-progress
+hotspots --no-progress [env RQX_NO_PROGRESS]
+hotspots --no-tui
+hotspots --progress
+hotspots --progress =auto
+hotspots --progress =bar
+hotspots --progress =none
+hotspots --progress =plain
+hotspots --progress [env RQX_PROGRESS]
+hotspots --reporter
+hotspots --since
+hotspots --threads
+hotspots --threads [env RQX_THREADS]
+hotspots --top
+hotspots --verbose
+hotspots -h
+hotspots -v
+hotspots <path>
 init
 init --color
 init --color =always
@@ -1289,6 +1365,7 @@ scan --progress [env RQX_PROGRESS]
 scan --quiet
 scan --reporter
 scan --rule
+scan --sarif-in
 scan --search
 scan --severity
 scan --severity =error

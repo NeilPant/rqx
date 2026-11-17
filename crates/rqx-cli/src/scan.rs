@@ -30,6 +30,10 @@ use crate::stats::{FileReads, ScanStats};
 /// worker count rather than file count.
 const CHANNEL_DEPTH: usize = 256;
 const MAX_CLONE_SITES: usize = 8;
+/// What a block needs before sharing its shape and constants with a block in another
+/// language says more than sharing a few branches and returns.
+pub(crate) const PORT_MIN_STATEMENTS: u32 = 8;
+pub(crate) const PORT_MIN_NODES: u32 = 40;
 
 /// Everything the collector needs about one file, and nothing it would have to work
 /// out for itself. Boxed because the channel holds `CHANNEL_DEPTH` of these and the
@@ -331,6 +335,8 @@ struct Collector {
     track_clones: bool,
     track_ported: bool,
     track_modules: bool,
+    /// The base revision's functions, when this scan is a review that compares with it.
+    reference: Option<Arc<crate::reimplemented::Reference>>,
     /// What a test run reached, when the project pointed at a coverage file.
     coverage: Option<rqx_core::Hits>,
     /// What a run actually spent its time in, when the project pointed at a profile.
@@ -384,6 +390,7 @@ impl Collector {
             track_clones,
             track_ported,
             track_modules,
+            reference: None,
             coverage: None,
             profile: None,
             code_lines: 0,
@@ -450,7 +457,7 @@ impl Collector {
         // it and nothing has tagged it yet. There are a handful of these against a
         // file per worker, so reading their text here costs almost nothing.
         if let Some(baseline) = &self.baseline
-            && finding.rule.is_project_scoped()
+            && (finding.rule.is_project_scoped() || finding.is_external())
         {
             let text = self
                 .texts
@@ -563,16 +570,13 @@ impl Collector {
         // Ported code keeps its constants even when its syntax changes completely, so
         // a shared literal is what separates the same rule written twice from two
         // blocks that merely branch and return in the same order.
-        const MIN_STATEMENTS: u32 = 8;
-        const MIN_NODES: u32 = 40;
-
         let mut groups: Vec<PortedGroup> = ported
             .into_values()
             .filter(|group| {
                 group.families().len() > 1
                     && group.sites.len() > 1
-                    && group.statements >= MIN_STATEMENTS
-                    && group.nodes >= MIN_NODES
+                    && group.statements >= PORT_MIN_STATEMENTS
+                    && group.nodes >= PORT_MIN_NODES
                     && group.literals != 0
             })
             .collect();
@@ -1515,6 +1519,33 @@ impl Collector {
         staged
     }
 
+    /// The functions this change added that repeat one the base revision had. Nothing
+    /// when the scan has no base to compare with.
+    fn reimplemented_findings(
+        shape_by_file: &std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
+        reference: Option<&crate::reimplemented::Reference>,
+        root: &Path,
+        settings: &Resolved,
+    ) -> Staged {
+        let mut staged = Staged::default();
+        let Some(reference) = reference else {
+            return staged;
+        };
+        for finding in crate::reimplemented::findings(shape_by_file, reference) {
+            let config = settings.for_file(&root.join(&*finding.location.file));
+            staged.accept_if_enabled(config, finding);
+        }
+        staged
+    }
+
+    /// What other tools reported, read from the SARIF files the project named.
+    fn external_findings(root: &Path, config: &RqxConfig) -> Staged {
+        Staged {
+            findings: crate::external::read_all(root, &config.scan.sarif_in),
+            ..Staged::default()
+        }
+    }
+
     /// The stages that need every file, run side by side: duplicates, the import graph,
     /// and what git knows touch nothing but what the walk collected, so none waits for
     /// another. What they found is taken in the order the stages are written in, which
@@ -1541,7 +1572,9 @@ impl Collector {
         let shapes = std::mem::take(&mut self.shape_by_file);
         let analyzed = std::mem::take(&mut self.analyzed);
         let coverage = self.coverage.take();
+        let reference = self.reference.clone();
         let (shapes_ref, analyzed_ref, coverage_ref) = (&shapes, &analyzed, coverage.as_ref());
+        let reference_ref = reference.as_deref();
 
         let versioned = thread::scope(|scope| {
             let duplicates = scope.spawn(move || {
@@ -1555,6 +1588,7 @@ impl Collector {
                 [
                     Self::module_findings(modules, root, config, coverage_ref, &mut at),
                     Self::size_findings(shapes_ref, root, config, &mut at),
+                    Self::reimplemented_findings(shapes_ref, reference_ref, root, settings),
                 ]
             });
             let git = scope.spawn(move || {
@@ -1582,6 +1616,7 @@ impl Collector {
             self.finish_churn(analyzed_ref, config, &mut Positions::new(root), &history);
             self.report_phase(Phase::CoChange);
             self.absorb(together);
+            self.absorb(Self::external_findings(root, config));
             history.versioned()
         });
 
@@ -2041,6 +2076,19 @@ pub(crate) fn collect(
     settings: &Resolved,
     total: Option<u32>,
     watch: Option<&Watch>,
+    history: impl FnOnce() -> Arc<crate::history::History> + Send,
+) -> ScanOutcome {
+    collect_against(receiver, root, settings, total, watch, None, history)
+}
+
+/// `collect`, comparing with the functions of a base revision when `reference` is given.
+pub(crate) fn collect_against(
+    receiver: Receiver<ScanMessage>,
+    root: &Path,
+    settings: &Resolved,
+    total: Option<u32>,
+    watch: Option<&Watch>,
+    reference: Option<Arc<crate::reimplemented::Reference>>,
     // A thunk rather than the history itself: reading git is the one part of a scan
     // that does not depend on the walk, and waiting for it before draining the
     // channel stalls every worker behind it once the buffer fills.
@@ -2059,6 +2107,7 @@ pub(crate) fn collect(
     collector.baseline = settings.baseline.clone();
     collector.baseline_findings = settings.baseline_findings;
     collector.root = root.to_path_buf();
+    collector.reference = reference;
     for message in receiver {
         match message {
             ScanMessage::File(file) => {
@@ -2475,6 +2524,21 @@ pub(crate) fn scan_with(
     watch: Option<Watch>,
     policy: CachePolicy,
 ) -> Result<ScanOutcome> {
+    scan_against(root, settings, watch, policy, None, None)
+}
+
+/// A scan that also reports what it added to `reference`, the functions of a base
+/// revision. With `lent_cache`, the scan reads the cache of that directory instead of
+/// its own and does not write one: a file whose content is the same in both trees is
+/// then served from the other tree's cache, and nothing this tree holds can reach it.
+pub(crate) fn scan_against(
+    root: &Path,
+    settings: &Resolved,
+    watch: Option<Watch>,
+    policy: CachePolicy,
+    reference: Option<Arc<crate::reimplemented::Reference>>,
+    lent_cache: Option<&Path>,
+) -> Result<ScanOutcome> {
     let config = &settings.config;
     // Git depends on nothing the walk produces, so it reads while the files are being
     // parsed rather than after — four processes on the critical path became one, off it.
@@ -2499,13 +2563,19 @@ pub(crate) fn scan_with(
         let watch = watch.as_ref();
         let root_ref = root;
         let handle = scope.spawn(move || {
-            collect(receiver, root_ref, settings_ref, None, watch, || {
-                Arc::new(history.join().unwrap_or_default())
-            })
+            collect_against(
+                receiver,
+                root_ref,
+                settings_ref,
+                None,
+                watch,
+                reference,
+                || Arc::new(history.join().unwrap_or_default()),
+            )
         });
         let loading = loading.as_ref();
         if let Some(loading) = loading {
-            scope.spawn(move || loading.load(root_ref, settings_ref));
+            scope.spawn(move || loading.load(lent_cache.unwrap_or(root_ref), settings_ref));
         }
         // The count only decorates the bar, so it runs beside the walk and sends its
         // total when it is done; until then the bar is indeterminate.
@@ -2559,7 +2629,9 @@ pub(crate) fn scan_with(
         outcome.stats.cache_misses = cache.miss_count();
         let saving = Instant::now();
         let loaded = cache.loaded_in().as_millis();
-        cache.save();
+        if lent_cache.is_none() {
+            cache.save();
+        }
         outcome.timings.push(("cache load", loaded));
         outcome
             .timings
@@ -2982,6 +3054,36 @@ mod tests {
             (collector.stats.blames, collector.stats.git_processes),
             (2, 2)
         );
+    }
+
+    /// The base revision of a review is a second checkout of the same files. It reads
+    /// the working tree's cache so its unchanged files are not analysed again, and it
+    /// must leave that cache exactly as it found it.
+    #[test]
+    fn a_scan_that_borrows_a_cache_is_served_by_it_and_writes_nothing() {
+        let lender = Project::copied_from_fixtures();
+        lender.scan();
+        let cache_file = lender.root.join(".rqx").join("cache.bin");
+        let kept = std::fs::read(&cache_file).unwrap();
+
+        let borrower = Project::copied_from_fixtures();
+        let outcome = scan_against(
+            &borrower.root,
+            &borrower.settings,
+            None,
+            CachePolicy::Forced,
+            None,
+            Some(&lender.root),
+        )
+        .unwrap();
+
+        assert!(outcome.stats.cache_hits > 0);
+        assert_eq!(outcome.stats.cache_misses, 0, "every file is the lender's");
+        assert!(
+            !borrower.root.join(".rqx").exists(),
+            "the borrower wrote a cache"
+        );
+        assert_eq!(std::fs::read(&cache_file).unwrap(), kept);
     }
 
     #[test]

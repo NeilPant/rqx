@@ -32,6 +32,19 @@ struct JsonSummary<'a> {
     /// Present only for `check`.
     #[serde(skip_serializing_if = "Option::is_none")]
     review: Option<JsonReview<'a>>,
+    /// Findings the base revision had that the change no longer has. Present only for
+    /// a review that scanned its base.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved: Option<&'a [crate::credit::Resolved]>,
+    /// What `resolved` was counted over: `project` for a scan of the whole base, and
+    /// `changed-files` for the findings one file's analysis produces in the files the
+    /// change touched.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved_scope: Option<crate::credit::Scope>,
+    /// The health score after the change minus the score at the base. Present only
+    /// when `resolved_scope` is `project`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    health_delta: Option<i32>,
 }
 
 #[derive(Serialize)]
@@ -62,13 +75,13 @@ pub fn finding_of(finding: &Finding) -> serde_json::Value {
         _ => serde_json::Map::new(),
     };
     object.insert("rule".to_owned(), finding.slug().into());
-    object.insert("why".to_owned(), spec.why.into());
+    object.insert("why".to_owned(), finding.why().into());
     object.insert(
         "fixes".to_owned(),
         spec.fixes.iter().map(|fix| fix.name()).collect(),
     );
     object.insert("category".to_owned(), finding.category().slug().into());
-    object.insert("metric".to_owned(), spec.metric.into());
+    object.insert("metric".to_owned(), finding.metric().into());
     serde_json::Value::Object(object)
 }
 
@@ -121,6 +134,9 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
                 passed: verdict.passed(),
                 failures: &verdict.failures,
             }),
+        resolved: report.credit.map(|credit| credit.resolved.as_slice()),
+        resolved_scope: report.credit.map(|credit| credit.scope),
+        health_delta: report.credit.and_then(crate::credit::Credit::health_delta),
     };
     writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())
