@@ -1055,7 +1055,7 @@ mod tests {
         let page = page_of(&outcome);
         assert!(!page.contains("gate"), "{page}");
         let health = Report::scan(&outcome, &FindingFilter::default()).health();
-        assert!(page.contains(&format!("verdict")));
+        assert!(page.contains("verdict"));
         assert!(
             page.contains(&format!(">health {health}/100</h1>")),
             "{page}"
