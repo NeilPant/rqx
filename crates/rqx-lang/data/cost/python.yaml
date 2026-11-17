@@ -1,0 +1,89 @@
+# Library costs for Python. See javascript.yaml for how an entry reads. `in` on a value
+# is looked up as the method `__contains__`.
+
+# Lists and tuples.
+- {id: py.list.append, receiver: [list], method: append, cost: 1}
+- {id: py.list.extend, receiver: [list], method: extend, size_of: arg0, cost: n}
+- {id: py.list.pop, receiver: [list], method: pop, when: {arg0: absent}, cost: 1}
+- {id: py.list.pop0, receiver: [list], method: pop, when: {arg0: literal 0}, cost: n}
+- {id: py.list.popAt, receiver: [list], method: pop, when: {arg0: present}, cost: n}
+- {id: py.list.insert, receiver: [list], method: insert, cost: n}
+- {id: py.list.remove, receiver: [list], method: remove, cost: n}
+- {id: py.list.index, receiver: [list, tuple], method: index, cost: n, pure: true}
+- {id: py.list.count, receiver: [list, tuple], method: count, cost: n, pure: true}
+- {id: py.list.in, receiver: [list, tuple], method: __contains__, cost: n, pure: true}
+- {id: py.list.sort, receiver: [list], method: sort, cost: n log n}
+- {id: py.list.reverse, receiver: [list], method: reverse, cost: n}
+- {id: py.list.copy, receiver: [list], method: copy, cost: n, space: n, pure: true}
+- {id: py.list.clear, receiver: [list], method: clear, cost: n}
+
+# Dictionaries and sets answer by key.
+- {id: py.dict.get, receiver: [dict], method: get, cost: 1}
+- {id: py.dict.setdefault, receiver: [dict], method: setdefault, cost: 1}
+- {id: py.dict.pop, receiver: [dict], method: pop, cost: 1}
+- {id: py.dict.in, receiver: [dict], method: __contains__, cost: 1}
+- {id: py.dict.keys, receiver: [dict], method: keys, cost: 1}
+- {id: py.dict.values, receiver: [dict], method: values, cost: 1}
+- {id: py.dict.items, receiver: [dict], method: items, cost: 1}
+- {id: py.dict.update, receiver: [dict], method: update, size_of: arg0, cost: n}
+- {id: py.dict.copy, receiver: [dict], method: copy, cost: n, space: n, pure: true}
+- {id: py.set.add, receiver: [set], method: add, cost: 1}
+- {id: py.set.remove, receiver: [set], method: remove, cost: 1}
+- {id: py.set.discard, receiver: [set], method: discard, cost: 1}
+- {id: py.set.in, receiver: [set], method: __contains__, cost: 1}
+- {id: py.set.update, receiver: [set], method: update, size_of: arg0, cost: n}
+- {id: py.set.union, receiver: [set], method: union, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.set.intersection, receiver: [set], method: intersection, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.set.copy, receiver: [set], method: copy, cost: n, space: n, pure: true}
+
+# Deques.
+- {id: py.deque.append, receiver: [deque], method: append, cost: 1}
+- {id: py.deque.appendleft, receiver: [deque], method: appendleft, cost: 1}
+- {id: py.deque.pop, receiver: [deque], method: pop, cost: 1}
+- {id: py.deque.popleft, receiver: [deque], method: popleft, cost: 1}
+- {id: py.deque.in, receiver: [deque], method: __contains__, cost: n, pure: true}
+- {id: py.deque.remove, receiver: [deque], method: remove, cost: n}
+
+# Strings.
+- {id: py.str.join, receiver: [str], method: join, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.str.split, receiver: [str], method: split, cost: n, space: n, pure: true}
+- {id: py.str.replace, receiver: [str], method: replace, cost: n, space: n, pure: true}
+- {id: py.str.strip, receiver: [str], method: strip, cost: n, space: n, pure: true}
+- {id: py.str.find, receiver: [str], method: find, cost: n, pure: true}
+- {id: py.str.index, receiver: [str], method: index, cost: n, pure: true}
+- {id: py.str.count, receiver: [str], method: count, cost: n, pure: true}
+- {id: py.str.in, receiver: [str], method: __contains__, cost: n, pure: true}
+- {id: py.str.lower, receiver: [str], method: lower, cost: n, space: n, pure: true}
+- {id: py.str.upper, receiver: [str], method: upper, cost: n, space: n, pure: true}
+- {id: py.str.format, receiver: [str], method: format, cost: n, space: n, pure: true}
+- {id: py.str.encode, receiver: [str], method: encode, cost: n, space: n, pure: true}
+
+# Free functions.
+- {id: py.sorted, fn: sorted, size_of: arg0, cost: n log n, space: n, pure: true}
+- {id: py.sum, fn: sum, size_of: arg0, cost: n, pure: true}
+- {id: py.min, fn: min, size_of: arg0, when: {arg1: absent}, cost: n, pure: true}
+- {id: py.max, fn: max, size_of: arg0, when: {arg1: absent}, cost: n, pure: true}
+- {id: py.any, fn: any, size_of: arg0, cost: n, pure: true}
+- {id: py.all, fn: all, size_of: arg0, cost: n, pure: true}
+- {id: py.list, fn: list, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.set, fn: set, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.dict, fn: dict, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.tuple, fn: tuple, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.deepcopy, fn: copy.deepcopy, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.shuffle, fn: random.shuffle, size_of: arg0, cost: n}
+- {id: py.bisect.left, fn: bisect.bisect_left, size_of: arg0, cost: log n, pure: true}
+- {id: py.bisect.right, fn: bisect.bisect_right, size_of: arg0, cost: log n, pure: true}
+- {id: py.bisect.insort, fn: bisect.insort, size_of: arg0, cost: n}
+- {id: py.heappush, fn: heapq.heappush, size_of: arg0, cost: log n}
+- {id: py.heappop, fn: heapq.heappop, size_of: arg0, cost: log n}
+- {id: py.heapify, fn: heapq.heapify, size_of: arg0, cost: n}
+- {id: py.json.dumps, fn: json.dumps, size_of: arg0, cost: n, space: n, pure: true}
+- {id: py.json.loads, fn: json.loads, size_of: arg0, cost: n, space: n, pure: true}
+
+# Names that mean one thing on every type that has them.
+- {id: py.any.index, receiver: ["*"], method: index, cost: n, pure: true}
+- {id: py.any.count, receiver: ["*"], method: count, cost: n, pure: true}
+- {id: py.any.sort, receiver: ["*"], method: sort, cost: n log n}
+- {id: py.any.insert, receiver: ["*"], method: insert, cost: n}
+- {id: py.any.reverse, receiver: ["*"], method: reverse, cost: n}
+- {id: py.any.join, receiver: ["*"], method: join, size_of: arg0, cost: n, space: n, pure: true}

@@ -1,0 +1,111 @@
+# Library costs for Java. See javascript.yaml for how an entry reads. A declared
+# `List` can be any implementation, so the entries for `List` are the ones that hold for
+# all of them; `LinkedList` has its own where it differs.
+
+# Array-backed lists.
+- {id: java.list.add, receiver: [ArrayList, List, Collection, Vector, CopyOnWriteArrayList], method: add, when: {arg1: absent}, cost: 1}
+- {id: java.list.addAt, receiver: [ArrayList, List, Vector], method: add, when: {arg1: present}, cost: n}
+- {id: java.list.get, receiver: [ArrayList, List, Vector], method: get, cost: 1}
+- {id: java.list.set, receiver: [ArrayList, List, Vector], method: set, cost: 1}
+- {id: java.list.remove, receiver: [ArrayList, List, Vector, LinkedList], method: remove, cost: n}
+- {id: java.list.contains, receiver: [ArrayList, List, Vector, LinkedList, Collection], method: contains, cost: n, pure: true}
+- {id: java.list.indexOf, receiver: [ArrayList, List, Vector, LinkedList], method: indexOf, cost: n, pure: true}
+- {id: java.list.lastIndexOf, receiver: [ArrayList, List, Vector, LinkedList], method: lastIndexOf, cost: n, pure: true}
+- {id: java.list.containsAll, receiver: [ArrayList, List, Vector, LinkedList], method: containsAll, cost: "n*m", pure: true}
+- {id: java.list.removeAll, receiver: [ArrayList, List, Vector, LinkedList], method: removeAll, cost: "n*m"}
+- {id: java.list.retainAll, receiver: [ArrayList, List, Vector, LinkedList], method: retainAll, cost: "n*m"}
+- {id: java.list.addAll, receiver: [ArrayList, List, Vector, LinkedList, Collection], method: addAll, size_of: arg0, cost: n}
+- {id: java.list.sort, receiver: [ArrayList, List, Vector, LinkedList], method: sort, cost: n log n}
+- {id: java.list.clear, receiver: [ArrayList, List, Vector, LinkedList], method: clear, cost: n}
+- {id: java.list.toArray, receiver: [ArrayList, List, Vector, LinkedList], method: toArray, cost: n, space: n, pure: true}
+- {id: java.list.subList, receiver: [ArrayList, List, LinkedList], method: subList, cost: 1}
+- {id: java.list.size, receiver: [ArrayList, List, Vector, LinkedList, Collection], method: size, cost: 1}
+
+# Linked lists walk to an index.
+- {id: java.linked.get, receiver: [LinkedList], method: get, cost: n}
+- {id: java.linked.set, receiver: [LinkedList], method: set, cost: n}
+- {id: java.linked.addAt, receiver: [LinkedList], method: add, when: {arg1: present}, cost: n}
+- {id: java.linked.add, receiver: [LinkedList], method: add, when: {arg1: absent}, cost: 1}
+- {id: java.linked.addFirst, receiver: [LinkedList, ArrayDeque, Deque, Queue], method: addFirst, cost: 1}
+- {id: java.linked.addLast, receiver: [LinkedList, ArrayDeque, Deque, Queue], method: addLast, cost: 1}
+- {id: java.linked.poll, receiver: [LinkedList, ArrayDeque, Deque, Queue], method: poll, cost: 1}
+- {id: java.linked.offer, receiver: [LinkedList, ArrayDeque, Deque, Queue], method: offer, cost: 1}
+- {id: java.linked.peek, receiver: [LinkedList, ArrayDeque, Deque, Queue], method: peek, cost: 1}
+- {id: java.deque.contains, receiver: [ArrayDeque, Deque, Queue], method: contains, cost: n, pure: true}
+
+# Hash-keyed collections.
+- {id: java.hash.get, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: get, cost: 1}
+- {id: java.hash.put, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: put, cost: 1}
+- {id: java.hash.getOrDefault, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: getOrDefault, cost: 1}
+- {id: java.hash.containsKey, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: containsKey, cost: 1}
+- {id: java.hash.containsValue, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: containsValue, cost: n, pure: true}
+- {id: java.hash.remove, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap, HashSet, Set, LinkedHashSet], method: remove, cost: 1}
+- {id: java.hash.putAll, receiver: [HashMap, Map, LinkedHashMap], method: putAll, size_of: arg0, cost: n}
+- {id: java.hash.computeIfAbsent, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: computeIfAbsent, cost: 1}
+- {id: java.hash.merge, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: merge, cost: 1}
+- {id: java.hash.contains, receiver: [HashSet, Set, LinkedHashSet], method: contains, cost: 1}
+- {id: java.hash.add, receiver: [HashSet, Set, LinkedHashSet], method: add, cost: 1}
+- {id: java.hash.addAll, receiver: [HashSet, Set, LinkedHashSet], method: addAll, size_of: arg0, cost: n}
+- {id: java.hash.containsAll, receiver: [HashSet, Set, LinkedHashSet], method: containsAll, size_of: arg0, cost: n, pure: true}
+- {id: java.hash.removeAll, receiver: [HashSet, Set, LinkedHashSet], method: removeAll, size_of: arg0, cost: n}
+- {id: java.hash.size, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap, HashSet, Set, LinkedHashSet], method: size, cost: 1}
+- {id: java.hash.keySet, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: keySet, cost: 1}
+- {id: java.hash.values, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: values, cost: 1}
+- {id: java.hash.entrySet, receiver: [HashMap, Map, LinkedHashMap, ConcurrentHashMap], method: entrySet, cost: 1}
+
+# Sorted collections and heaps.
+- {id: java.tree.get, receiver: [TreeMap, SortedMap, NavigableMap], method: get, cost: log n}
+- {id: java.tree.put, receiver: [TreeMap, SortedMap, NavigableMap], method: put, cost: log n}
+- {id: java.tree.containsKey, receiver: [TreeMap, SortedMap, NavigableMap], method: containsKey, cost: log n}
+- {id: java.tree.contains, receiver: [TreeSet, SortedSet, NavigableSet], method: contains, cost: log n}
+- {id: java.tree.add, receiver: [TreeSet, SortedSet, NavigableSet], method: add, cost: log n}
+- {id: java.tree.remove, receiver: [TreeMap, TreeSet, SortedMap, SortedSet], method: remove, cost: log n}
+- {id: java.heap.add, receiver: [PriorityQueue], method: add, cost: log n}
+- {id: java.heap.offer, receiver: [PriorityQueue], method: offer, cost: log n}
+- {id: java.heap.poll, receiver: [PriorityQueue], method: poll, cost: log n}
+- {id: java.heap.remove, receiver: [PriorityQueue], method: remove, cost: n}
+- {id: java.heap.contains, receiver: [PriorityQueue], method: contains, cost: n, pure: true}
+- {id: java.heap.peek, receiver: [PriorityQueue], method: peek, cost: 1}
+
+# Strings and builders.
+- {id: java.string.indexOf, receiver: [String], method: indexOf, cost: n, pure: true}
+- {id: java.string.lastIndexOf, receiver: [String], method: lastIndexOf, cost: n, pure: true}
+- {id: java.string.contains, receiver: [String], method: contains, cost: n, pure: true}
+- {id: java.string.substring, receiver: [String], method: substring, cost: n, space: n, pure: true}
+- {id: java.string.split, receiver: [String], method: split, cost: n, space: n, pure: true}
+- {id: java.string.replace, receiver: [String], method: replace, cost: n, space: n, pure: true}
+- {id: java.string.replaceAll, receiver: [String], method: replaceAll, cost: n, space: n, pure: true}
+- {id: java.string.toLowerCase, receiver: [String], method: toLowerCase, cost: n, space: n, pure: true}
+- {id: java.string.toUpperCase, receiver: [String], method: toUpperCase, cost: n, space: n, pure: true}
+- {id: java.string.trim, receiver: [String], method: trim, cost: n, space: n, pure: true}
+- {id: java.string.equals, receiver: [String], method: equals, cost: n, pure: true}
+- {id: java.string.concat, receiver: [String], method: concat, cost: n, space: n, pure: true}
+- {id: java.string.toCharArray, receiver: [String], method: toCharArray, cost: n, space: n, pure: true}
+- {id: java.string.matches, receiver: [String], method: matches, cost: n, pure: true}
+- {id: java.builder.append, receiver: [StringBuilder, StringBuffer], method: append, cost: 1}
+- {id: java.builder.insert, receiver: [StringBuilder, StringBuffer], method: insert, cost: n}
+- {id: java.builder.reverse, receiver: [StringBuilder, StringBuffer], method: reverse, cost: n}
+- {id: java.builder.deleteCharAt, receiver: [StringBuilder, StringBuffer], method: deleteCharAt, cost: n}
+- {id: java.builder.toString, receiver: [StringBuilder, StringBuffer], method: toString, cost: n, space: n, pure: true}
+
+# Static helpers.
+- {id: java.collections.sort, fn: Collections.sort, size_of: arg0, cost: n log n}
+- {id: java.collections.reverse, fn: Collections.reverse, size_of: arg0, cost: n}
+- {id: java.collections.shuffle, fn: Collections.shuffle, size_of: arg0, cost: n}
+- {id: java.collections.max, fn: Collections.max, size_of: arg0, cost: n, pure: true}
+- {id: java.collections.min, fn: Collections.min, size_of: arg0, cost: n, pure: true}
+- {id: java.collections.frequency, fn: Collections.frequency, size_of: arg0, cost: n, pure: true}
+- {id: java.collections.binarySearch, fn: Collections.binarySearch, size_of: arg0, cost: log n, pure: true}
+- {id: java.arrays.sort, fn: Arrays.sort, size_of: arg0, cost: n log n}
+- {id: java.arrays.fill, fn: Arrays.fill, size_of: arg0, cost: n}
+- {id: java.arrays.copyOf, fn: Arrays.copyOf, size_of: arg0, cost: n, space: n, pure: true}
+- {id: java.arrays.copyOfRange, fn: Arrays.copyOfRange, size_of: arg0, cost: n, space: n, pure: true}
+- {id: java.arrays.equals, fn: Arrays.equals, size_of: arg0, cost: n, pure: true}
+- {id: java.arrays.binarySearch, fn: Arrays.binarySearch, size_of: arg0, cost: log n, pure: true}
+- {id: java.arrays.toString, fn: Arrays.toString, size_of: arg0, cost: n, space: n, pure: true}
+- {id: java.list.copyOf, fn: List.copyOf, size_of: arg0, cost: n, space: n, pure: true}
+- {id: java.system.arraycopy, fn: System.arraycopy, size_of: arg0, cost: n}
+
+# Names that mean one thing on every type that has them.
+- {id: java.any.indexOf, receiver: ["*"], method: indexOf, cost: n, pure: true}
+- {id: java.any.lastIndexOf, receiver: ["*"], method: lastIndexOf, cost: n, pure: true}

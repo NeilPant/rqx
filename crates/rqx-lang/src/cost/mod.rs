@@ -7,6 +7,7 @@
 pub mod bindings;
 pub mod bounds;
 pub mod env;
+pub mod tables;
 pub mod types;
 
 #[cfg(test)]

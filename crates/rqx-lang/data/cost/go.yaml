@@ -1,0 +1,49 @@
+# Library costs for Go. See javascript.yaml for how an entry reads. Go's built-in types
+# have no methods, so nearly everything here is a function of the `sort`, `slices`,
+# `strings` and `bytes` packages, sized by its first argument.
+
+- {id: go.sort.ints, fn: sort.Ints, cost: n log n}
+- {id: go.sort.strings, fn: sort.Strings, cost: n log n}
+- {id: go.sort.float64s, fn: sort.Float64s, cost: n log n}
+- {id: go.sort.slice, fn: sort.Slice, cost: n log n}
+- {id: go.sort.sliceStable, fn: sort.SliceStable, cost: n log n}
+- {id: go.sort.search, fn: sort.Search, cost: log n, pure: true}
+- {id: go.sort.searchInts, fn: sort.SearchInts, cost: log n, pure: true}
+- {id: go.slices.sort, fn: slices.Sort, cost: n log n}
+- {id: go.slices.sortFunc, fn: slices.SortFunc, cost: n log n}
+- {id: go.slices.contains, fn: slices.Contains, cost: n, pure: true}
+- {id: go.slices.index, fn: slices.Index, cost: n, pure: true}
+- {id: go.slices.indexFunc, fn: slices.IndexFunc, cost: n, pure: true}
+- {id: go.slices.reverse, fn: slices.Reverse, cost: n}
+- {id: go.slices.max, fn: slices.Max, cost: n, pure: true}
+- {id: go.slices.min, fn: slices.Min, cost: n, pure: true}
+- {id: go.slices.equal, fn: slices.Equal, cost: n, pure: true}
+- {id: go.slices.clone, fn: slices.Clone, cost: n, space: n, pure: true}
+- {id: go.slices.insert, fn: slices.Insert, cost: n}
+- {id: go.slices.delete, fn: slices.Delete, cost: n}
+- {id: go.slices.compact, fn: slices.Compact, cost: n}
+- {id: go.slices.binarySearch, fn: slices.BinarySearch, cost: log n, pure: true}
+- {id: go.copy, fn: copy, size_of: arg1, cost: n}
+- {id: go.strings.contains, fn: strings.Contains, cost: n, pure: true}
+- {id: go.strings.index, fn: strings.Index, cost: n, pure: true}
+- {id: go.strings.split, fn: strings.Split, cost: n, space: n, pure: true}
+- {id: go.strings.join, fn: strings.Join, cost: n, space: n, pure: true}
+- {id: go.strings.replace, fn: strings.Replace, cost: n, space: n, pure: true}
+- {id: go.strings.replaceAll, fn: strings.ReplaceAll, cost: n, space: n, pure: true}
+- {id: go.strings.toLower, fn: strings.ToLower, cost: n, space: n, pure: true}
+- {id: go.strings.toUpper, fn: strings.ToUpper, cost: n, space: n, pure: true}
+- {id: go.strings.trimSpace, fn: strings.TrimSpace, cost: n, pure: true}
+- {id: go.strings.fields, fn: strings.Fields, cost: n, space: n, pure: true}
+- {id: go.strings.repeat, fn: strings.Repeat, cost: n, space: n, pure: true}
+- {id: go.strings.count, fn: strings.Count, cost: n, pure: true}
+- {id: go.bytes.contains, fn: bytes.Contains, cost: n, pure: true}
+- {id: go.bytes.index, fn: bytes.Index, cost: n, pure: true}
+- {id: go.bytes.equal, fn: bytes.Equal, cost: n, pure: true}
+- {id: go.heap.push, fn: heap.Push, cost: log n}
+- {id: go.heap.pop, fn: heap.Pop, cost: log n}
+- {id: go.heap.fix, fn: heap.Fix, cost: log n}
+- {id: go.heap.init, fn: heap.Init, cost: n}
+- {id: go.builder.writeString, receiver: [Builder, Buffer], method: WriteString, cost: 1}
+- {id: go.builder.string, receiver: [Builder, Buffer], method: String, cost: n, space: n, pure: true}
+- {id: go.json.marshal, fn: json.Marshal, cost: n, space: n, pure: true}
+- {id: go.json.unmarshal, fn: json.Unmarshal, cost: n, space: n}
