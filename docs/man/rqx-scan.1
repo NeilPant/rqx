@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-scan \- Analyze a project and report every finding
 .SH SYNOPSIS
-\fBrqx scan\fR [\fB\-\-level\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-no\-tui\fR] [\fB\-\-advice\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-coverage\fR] [\fB\-\-motion\fR] [\fB\-\-profile\fR] [\fB\-\-max\-findings\fR] [\fB\-\-no\-progress\fR] [\fB\-\-watch\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx scan\fR [\fB\-\-level\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-advice\fR] [\fB\-\-no\-tui\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-profile\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-watch\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze a project and report every finding
 .SH OPTIONS
@@ -12,11 +12,14 @@ Analyze a project and report every finding
 \fB\-\-level\fR \fI<LEVEL>\fR
 relaxed, standard, strict or pristine
 .TP
+\fB\-\-advice\fR
+Append what the design\-pattern catalogue makes of the same files
+.TP
 \fB\-\-no\-tui\fR
 Never open the interactive interface; bare `rqx` prints the report instead
 .TP
-\fB\-\-advice\fR
-Append what the design\-pattern catalogue makes of the same files
+\fB\-\-coverage\fR \fI<FILE>\fR
+A coverage file, so a test run can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are read by content
 .TP
 \fB\-\-no\-mouse\fR
 Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working
@@ -36,8 +39,11 @@ always
 never
 .RE
 .TP
-\fB\-\-coverage\fR \fI<FILE>\fR
-A coverage file, so a test run can contradict a dead\-code finding. lcov, a Go cover profile and coverage.py JSON are read by content
+\fB\-\-profile\fR \fI<FILE>\fR
+A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content
+.TP
+\fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
+Display cap; 0 shows every finding. Never affects the health score
 .TP
 \fB\-\-motion\fR \fI<MOTION>\fR [default: on]
 Animation in the interactive interface
@@ -51,12 +57,6 @@ on
 .IP \(bu 2
 off
 .RE
-.TP
-\fB\-\-profile\fR \fI<FILE>\fR
-A CPU profile, so a run can contradict a performance finding. A V8 .cpuprofile, a Go pprof and collapsed stacks are read by content
-.TP
-\fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
-Display cap; 0 shows every finding. Never affects the health score
 .TP
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it

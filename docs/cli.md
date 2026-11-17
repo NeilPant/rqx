@@ -555,3 +555,23 @@ Compare the working tree against a base revision and say what happened to each f
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
 | `--help` | Print help |
+
+## `rqx waive`
+
+Waive one finding with a comment in the source, and the reason a reviewer reads
+
+| Flag | What it does |
+| --- | --- |
+| `<at>` | Where the finding is, as FILE:LINE; FILE alone with --whole-file |
+| `<rule>` | The rule to waive, as `rqx rules` lists it |
+| `--reason` | Why the finding stands. A waiver without one is not honoured |
+| `--until` | The waiver stops being honoured after this date |
+| `--whole-file` | Waive the rule for the whole file, not the line |
+| `--dry-run` | Print the diff the waiver would make and change nothing |
+| `--config` | Read settings from this file, layered over any `rqx.yaml` found |
+| `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working |
+| `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
+| `--motion` | Animation in the interactive interface |
+| `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
+| `--help` | Print help |

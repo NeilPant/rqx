@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-check \- Analyze changed files against a base revision and fail if the gate is not met
 .SH SYNOPSIS
-\fBrqx check\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-no\-tui\fR] [\fB\-\-min\-health\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-motion\fR] [\fB\-\-config\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx check\fR [\fB\-\-level\fR] [\fB\-\-base\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-no\-tui\fR] [\fB\-\-min\-grade\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-config\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze changed files against a base revision and fail if the gate is not met
 .SH OPTIONS
@@ -42,6 +42,9 @@ always
 never
 .RE
 .TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
+.TP
 \fB\-\-motion\fR \fI<MOTION>\fR [default: on]
 Animation in the interactive interface
 .br
@@ -54,9 +57,6 @@ on
 .IP \(bu 2
 off
 .RE
-.TP
-\fB\-\-config\fR \fI<FILE>\fR
-Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-progress\fR
 Do not draw the progress bar on stderr; `\-\-quiet` implies it

@@ -1,0 +1,77 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH rqx-waive 1  "waive " 
+.SH NAME
+rqx\-waive \- Waive one finding with a comment in the source, and the reason a reviewer reads
+.SH SYNOPSIS
+\fBrqx waive\fR [\fB\-\-until\fR] [\fB\-\-whole\-file\fR] [\fB\-\-dry\-run\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fB\-\-reason\fR> <\fIFILE:LINE\fR> <\fIRULE\fR> 
+.SH DESCRIPTION
+Waive one finding with a comment in the source, and the reason a reviewer reads
+.SH OPTIONS
+.TP
+\fB\-\-reason\fR \fI<TEXT>\fR
+Why the finding stands. A waiver without one is not honoured
+.TP
+\fB\-\-until\fR \fI<YYYY\-MM\-DD>\fR
+The waiver stops being honoured after this date
+.TP
+\fB\-\-whole\-file\fR
+Waive the rule for the whole file, not the line
+.TP
+\fB\-\-dry\-run\fR
+Print the diff the waiver would make and change nothing
+.TP
+\fB\-\-config\fR \fI<FILE>\fR
+Read settings from this file, layered over any `rqx.yaml` found
+.TP
+\fB\-\-no\-tui\fR
+Never open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-motion\fR \fI<MOTION>\fR [default: on]
+Animation in the interactive interface
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+on
+.IP \(bu 2
+off
+.RE
+.TP
+\fB\-\-no\-progress\fR
+Do not draw the progress bar on stderr; `\-\-quiet` implies it
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+<\fIFILE:LINE\fR>
+Where the finding is, as FILE:LINE; FILE alone with \-\-whole\-file
+.TP
+<\fIRULE\fR>
+The rule to waive, as `rqx rules` lists it
+.SH EXTRA
+Examples:
+  rqx waive src/api.ts:42 unused\-export \-\-reason "called from the plugin host"
+  rqx waive src/api.ts:42 unused\-export \-\-reason kept \-\-until 2027\-03\-01
+  rqx waive src/gen.ts unused\-export \-\-reason generated \-\-whole\-file
+  rqx waive src/api.ts:42 unused\-export \-\-reason kept \-\-dry\-run

@@ -12,6 +12,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`rqx waive FILE:LINE RULE --reason TEXT`.** Writes the `rqx-ignore` comment above
+  the line for you, with the file's indentation and comment style. `--until
+  YYYY-MM-DD` dates it, `--whole-file` waives the rule for the file, and `--dry-run`
+  prints the diff and changes nothing. An unknown rule is refused with the closest
+  real one, and so is a blank reason, since the scan would not honour either.
 - **`rqx update --version X.Y.Z` and `rqx update --dry-run`.** `--version` installs that
   release instead of the newest, which also lets you step back to an older one.
   `--dry-run` prints how the update would be done, the download URLs and the file it

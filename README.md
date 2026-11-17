@@ -139,7 +139,7 @@ prints the configuration each one needs — see [Editors](#editors).
 
 ## The commands
 
-Twenty-eight of them, under five headings. `rqx --help` prints this list; each
+Twenty-nine of them, under five headings. `rqx --help` prints this list; each
 command's own `--help` prints its flags, and [docs/cli.md](docs/cli.md) is the whole
 reference.
 
@@ -148,11 +148,11 @@ reference.
 | **The loop** | `scan` · `check` · `fix` · `verify` · `comment` |
 | **Look closer** | `complexity` · `perf` · `health` · `slop` · `graph` · `plan` · `patterns` · `recommend` |
 | **Reference** | `rules` · `explain` · `techniques` · `levels` |
-| **Project** | `init` · `config` · `baseline` · `suppressions` · `cache` |
+| **Project** | `init` · `config` · `baseline` · `suppressions` · `waive` · `cache` |
 | **Integrations** | `lsp` · `mcp` · `setup` · `completions` · `query` · `update` |
 
 The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`,
-`rqx v`. A twenty-ninth command fails the build until it is placed under a heading,
+`rqx v`. A thirtieth command fails the build until it is placed under a heading,
 so the list cannot quietly go back to being flat.
 
 Inside the interface the same list is `/help`.
