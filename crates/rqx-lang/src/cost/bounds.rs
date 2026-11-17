@@ -224,6 +224,9 @@ impl<'e, 'a> Bounds<'e, 'a> {
         if !self.names.profile.is_call(node) {
             return None;
         }
+        if let Some(size) = self.made_with_a_size(node) {
+            return Some(Some(size));
+        }
         let called = self.names.called_name(node)?;
         let tail = called.rsplit('.').next().unwrap_or(&called);
         let vocabulary = self.vocabulary();
@@ -239,6 +242,29 @@ impl<'e, 'a> Bounds<'e, 'a> {
             None
         }?;
         Some(self.collection(source))
+    }
+
+    /// How large a collection is when it is made with a size or with another collection
+    /// to copy: `make([]T, n)`, `new Array(n)`, `new Set(xs)`, `new ArrayList<>(xs)`. One
+    /// made with nothing says nothing, because the code that follows will fill it.
+    fn made_with_a_size(&mut self, call: Node<'a>) -> Option<SizeRef> {
+        let profile = self.names.profile;
+        let arguments = self.names.arguments(call);
+        let sizing = if self.names.called_name(call).as_deref() == Some("make") {
+            // `make(T, 0, cap)` is as large as the capacity it will be filled to.
+            let length = arguments.get(1)?;
+            let empty_with_capacity =
+                profile.number_kinds.contains(&kind_of(*length)) && self.names.text(*length) == "0";
+            arguments.get(if empty_with_capacity { 2 } else { 1 })?
+        } else if profile
+            .constructor_field
+            .is_some_and(|field| call.child_by_field_name(field).is_some())
+        {
+            arguments.first()?
+        } else {
+            return None;
+        };
+        self.count(*sizing).or_else(|| self.collection(*sizing))
     }
 
     /// The expression a method call is made on, which a grammar holds in the callee or
@@ -372,7 +398,7 @@ impl<'e, 'a> Bounds<'e, 'a> {
                 .is_none_or(|fact| is_integer(self.names.profile.language, &fact.head));
             return counts.then(|| SizeRef::Var(self.env.var(name, SizeSrc::Param(position))));
         }
-        is_constant_name(name).then_some(SizeRef::Const)
+        (is_constant_name(name) || self.env.is_constant(name)).then_some(SizeRef::Const)
     }
 
     fn counted_bound(&mut self, header: Node<'a>, spec: &CountedLoop) -> Bound {
@@ -475,17 +501,18 @@ impl<'e, 'a> Bounds<'e, 'a> {
             return Step::Unknown;
         };
         let own = target.unwrap_or_default();
-        let from_another = value
+        let reads_itself = value
             .split(|c: char| !(c.is_alphanumeric() || c == '_'))
-            .filter(|word| !word.is_empty() && !word.chars().all(|c| c.is_ascii_digit()))
-            .any(|word| word != own);
-        if from_another {
+            .any(|word| word == own);
+        // `lo = mid + 1` is set from somewhere else, which is how the ends of a search
+        // close in; `n = n / 2` and `i = i + 1` are set from themselves.
+        if !reads_itself {
             return Step::Converging;
         }
-        if value.contains(['+', '-']) {
-            Step::Linear
-        } else if value.contains(['*', '/', '>', '<']) {
+        if value.contains(['*', '/', '>', '<']) {
             Step::Geometric
+        } else if value.contains(['+', '-']) {
+            Step::Linear
         } else {
             Step::Unknown
         }

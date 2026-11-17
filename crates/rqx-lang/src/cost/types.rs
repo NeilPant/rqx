@@ -375,17 +375,18 @@ pub fn declarations<'a>(names: &Names<'a>, node: Node<'a>) -> Vec<Declaration<'a
             .map(|kind| names.text(kind))
     };
     let spelled_type = typed_by(node).or_else(|| node.parent().and_then(typed_by));
-    let value = node
+    let values = node
         .child_by_field_name("value")
         .or_else(|| node.child_by_field_name("right"))
-        .map(|value| unwrap_list(names, value));
+        .map(|value| elements(names, value))
+        .unwrap_or_default();
 
     let mut declared = Vec::new();
     let mut cursor = node.walk();
     let labelled: Vec<Node<'a>> = node
         .children_by_field_name("name", &mut cursor)
         .collect::<Vec<_>>();
-    let holders = if labelled.is_empty() {
+    let holders: Vec<Node<'a>> = if labelled.is_empty() {
         ["pattern", "declarator", "left"]
             .iter()
             .find_map(|field| node.child_by_field_name(field))
@@ -394,9 +395,22 @@ pub fn declarations<'a>(names: &Names<'a>, node: Node<'a>) -> Vec<Declaration<'a
     } else {
         labelled
     };
-    for holder in holders {
-        let holder = unwrap_list(names, holder);
-        if let Some(name) = bound_identifier(profile, holder) {
+    let holders: Vec<Node<'a>> = holders
+        .into_iter()
+        .flat_map(|holder| elements(names, holder))
+        .collect();
+    // `low, high = 0, n` sets each name from the value in its place; a single call
+    // returning several values says nothing about any one of them.
+    let paired = holders.len() > 1 && values.len() == holders.len();
+    for (index, holder) in holders.iter().enumerate() {
+        let value = if paired {
+            values.get(index).copied()
+        } else if holders.len() == 1 {
+            values.first().copied()
+        } else {
+            None
+        };
+        if let Some(name) = bound_identifier(profile, *holder) {
             declared.push(Declaration {
                 name: names.text(name),
                 spelled_type,
@@ -452,13 +466,18 @@ pub fn fact_of_declaration(names: &Names<'_>, declaration: &Declaration<'_>) -> 
         })
 }
 
-/// Go writes the left of an assignment as a list even when it holds one name.
-fn unwrap_list<'a>(names: &Names<'a>, node: Node<'a>) -> Node<'a> {
+/// What a list of names or of values holds, one by one: Go writes the left of an
+/// assignment as a list even when it holds one name, and Python a tuple.
+fn elements<'a>(names: &Names<'a>, node: Node<'a>) -> Vec<Node<'a>> {
     let node = names.see_through(node);
-    if names.profile.expression_list_kinds.contains(&kind_of(node)) {
-        return node.named_child(0).unwrap_or(node);
+    let kind = kind_of(node);
+    let is_list = names.profile.expression_list_kinds.contains(&kind)
+        || matches!(kind, "pattern_list" | "tuple_pattern" | "tuple");
+    if !is_list {
+        return vec![node];
     }
-    node
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor).collect()
 }
 
 /// The identifier a declarator binds, through the pointer, reference and initializer
@@ -504,6 +523,15 @@ pub fn is_fixed_literal(profile: &LanguageProfile, node: Node<'_>) -> bool {
         && !kind.contains("comprehension")
         && kind != "array_creation_expression"
         && node.named_child_count() > 0
+        && !spreads_another(node)
+}
+
+/// `[...xs]` and `[*xs]` are as long as what they spread.
+fn spreads_another(literal: Node<'_>) -> bool {
+    let mut cursor = literal.walk();
+    literal
+        .named_children(&mut cursor)
+        .any(|element| kind_of(element).contains("spread") || kind_of(element).contains("splat"))
 }
 
 /// Names that say a value is a lookup table: a set, a map, an index, a cache.

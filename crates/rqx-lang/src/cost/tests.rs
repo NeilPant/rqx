@@ -265,6 +265,42 @@ fn methods_are_named_by_their_class_and_see_its_members() {
 }
 
 #[test]
+fn a_collection_made_with_a_size_is_that_large() {
+    let go = "package a\nfunc f(values []int) {\n\tordered := make([]int, len(values))\n\tbuffer := make([]int, 0, len(values))\n\tfor _, o := range ordered { sink(o) }\n\tfor _, b := range buffer { sink(b) }\n}\n";
+    assert_eq!(time_of(Language::Go, go, "f"), "O(n)");
+
+    let java = "class A { void f(List<Integer> xs) {\n  Set<Integer> copy = new HashSet<>(xs);\n  for (int c : copy) { sink(c); }\n} }\n";
+    assert_eq!(time_of(Language::Java, java, "f"), "O(n)");
+
+    let typescript = "function f(n: number) {\n  const slots = new Array(n);\n  for (const s of slots) { sink(s); }\n}\n";
+    assert_eq!(time_of(Language::TypeScript, typescript, "f"), "O(n)");
+}
+
+#[test]
+fn names_set_together_are_set_from_the_values_in_their_places() {
+    let python = "def f(xs):\n    lo, hi = 0, len(xs) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        lo = mid + 1\n        hi = mid - 1\n";
+    assert_eq!(time_of(Language::Python, python, "f"), "O(log n)");
+    let go = "package a\nfunc f(xs []int) {\n\tlow, high := 0, len(xs)\n\tfor i := low; i < high; i++ { sink(i) }\n}\n";
+    assert_eq!(time_of(Language::Go, go, "f"), "O(n)");
+}
+
+#[test]
+fn a_constant_the_file_names_in_lower_case_is_still_a_constant() {
+    let go = "package a\nconst window = 8\nfunc f(xs []int) {\n\tfor i := 0; i < window; i++ { sink(xs[i]) }\n}\n";
+    assert_eq!(time_of(Language::Go, go, "f"), "O(1)");
+    let not_a_constant = "package a\nvar window = 8\nfunc f(xs []int) {\n\tfor i := 0; i < window; i++ { sink(xs[i]) }\n}\n";
+    assert_ne!(time_of(Language::Go, not_a_constant, "f"), "O(1)");
+}
+
+#[test]
+fn a_method_called_on_a_literal_is_still_costed() {
+    let python = "def f(parts: list[str]):\n    return \",\".join(parts)\n";
+    assert_eq!(time_of(Language::Python, python, "f"), "O(n)");
+    let negated = "def f(values: list[int], other: list[int]):\n    for v in values:\n        if v not in other:\n            pass\n";
+    assert_eq!(time_of(Language::Python, negated, "f"), "O(n·m)");
+}
+
+#[test]
 fn an_extraction_is_the_same_each_time() {
     let source = "function f(a: number[], b: number[]) {\n  for (const x of a) { for (const y of b) { sink(x, y); } }\n}\n";
     assert_eq!(

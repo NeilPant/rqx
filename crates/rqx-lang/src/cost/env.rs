@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use rqx_core::cost::{SizeSrc, SizeVar};
 
@@ -37,14 +38,22 @@ pub struct Env {
     receiver: Option<String>,
     /// Variables found to be the same size as an earlier one.
     same_as: HashMap<u16, u16>,
+    /// Names the file fixes to a number, which a loop up to one runs a fixed number of
+    /// times.
+    constants: Arc<HashSet<String>>,
 }
 
 impl Env {
-    pub fn with_fields(fields: HashMap<String, TypeFact>) -> Self {
+    pub fn new(fields: HashMap<String, TypeFact>, constants: Arc<HashSet<String>>) -> Self {
         Self {
             fields,
+            constants,
             ..Self::default()
         }
+    }
+
+    pub fn is_constant(&self, name: &str) -> bool {
+        self.constants.contains(name)
     }
 
     pub fn set_receiver(&mut self, name: &str) {

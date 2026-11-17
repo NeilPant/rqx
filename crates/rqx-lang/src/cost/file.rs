@@ -4,6 +4,7 @@
 //! functions found on the way are handed back to be read afterwards.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use rqx_core::facts::ModuleFacts;
 use tree_sitter::Node;
@@ -40,6 +41,9 @@ pub struct FileFacts {
     pub imports: HashMap<String, Import>,
     /// The names this file makes available to others.
     pub exports: HashSet<String>,
+    /// Module-level names fixed to a number: a loop up to one runs that many times
+    /// whatever its case.
+    pub constants: Arc<HashSet<String>>,
 }
 
 impl FileFacts {
@@ -113,7 +117,17 @@ pub fn read<'a>(
         }
     }
     let mut sites = Vec::new();
-    scan(names, root, None, true, &mut facts, &mut sites);
+    let mut constants = HashSet::new();
+    scan(
+        names,
+        root,
+        None,
+        true,
+        &mut facts,
+        &mut sites,
+        &mut constants,
+    );
+    facts.constants = Arc::new(constants);
     (facts, sites)
 }
 
@@ -125,6 +139,7 @@ fn scan<'a>(
     at_module_level: bool,
     facts: &mut FileFacts,
     sites: &mut Vec<Site<'a>>,
+    constants: &mut HashSet<String>,
 ) {
     let profile = names.profile;
     let mut cursor = node.walk();
@@ -146,12 +161,21 @@ fn scan<'a>(
                 false,
                 facts,
                 sites,
+                constants,
             );
         } else {
             if at_module_level && declares(profile, child) {
-                note_global(names, child, facts);
+                note_global(names, child, facts, constants);
             }
-            scan(names, child, class, at_module_level, facts, sites);
+            scan(
+                names,
+                child,
+                class,
+                at_module_level,
+                facts,
+                sites,
+                constants,
+            );
         }
     }
 }
@@ -173,9 +197,22 @@ fn register<'a>(
     });
 }
 
-/// A module-level name that holds a collection is shared by every caller.
-fn note_global(names: Names<'_>, node: Node<'_>, facts: &mut FileFacts) {
+/// A module-level name that holds a collection is shared by every caller, and one that
+/// is set once to a number is a constant.
+fn note_global(
+    names: Names<'_>,
+    node: Node<'_>,
+    facts: &mut FileFacts,
+    constants: &mut HashSet<String>,
+) {
     for declaration in declarations(&names, node) {
+        if declaration
+            .value
+            .is_some_and(|value| names.profile.number_kinds.contains(&kind_of(value)))
+            && is_fixed_by_keyword(&names, node)
+        {
+            constants.insert(declaration.name.to_owned());
+        }
         if declaration
             .value
             .and_then(|value| super::types::constructed_fact(&names, value))
@@ -184,6 +221,14 @@ fn note_global(names: Names<'_>, node: Node<'_>, facts: &mut FileFacts) {
             facts.globals.insert(declaration.name.to_owned());
         }
     }
+}
+
+/// Whether the statement a name is declared in says it cannot change.
+fn is_fixed_by_keyword(names: &Names<'_>, declarator: Node<'_>) -> bool {
+    let statement = declarator.parent().unwrap_or(declarator);
+    let head = names.text(statement).split('=').next().unwrap_or_default();
+    head.split_whitespace()
+        .any(|word| names.profile.immutable_markers.contains(&word))
 }
 
 /// The members a class declares, and the ones its constructor sets. A `static` member

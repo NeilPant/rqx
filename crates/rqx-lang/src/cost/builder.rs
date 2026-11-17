@@ -3,6 +3,7 @@
 //! Subtrees that cost nothing are not written down.
 
 use std::collections::{BTreeSet, HashSet};
+use std::sync::Arc;
 
 use rqx_core::config::Performance;
 use rqx_core::cost::{
@@ -91,7 +92,10 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         shared,
         class: site.class.clone(),
         name: identity(&names, function),
-        env: Env::with_fields(shared.file.fields_of(site.class.as_deref())),
+        env: Env::new(
+            shared.file.fields_of(site.class.as_deref()),
+            Arc::clone(&shared.file.constants),
+        ),
         params: Vec::new(),
         calls: Vec::new(),
         depth: 0,
@@ -382,7 +386,10 @@ impl<'a> Visitor<'a, '_> {
 
     fn call(&mut self, node: Node<'a>) -> Parts {
         let profile = self.names.profile;
-        let dotted = self.names.called_name(node);
+        let dotted = self
+            .names
+            .called_name(node)
+            .or_else(|| self.called_on_an_expression(node));
         let tail = dotted.as_deref().map(tail_of);
         let is_hof = tail.is_some_and(|tail| profile.hof_loops.contains(&tail));
         let arguments = self.names.arguments(node);
@@ -415,6 +422,17 @@ impl<'a> Visitor<'a, '_> {
             parts.push(self.call_itself(node, &dotted, &arguments));
         }
         Parts::sequence(parts)
+    }
+
+    /// `",".join(parts)` and `[1, 2].includes(x)` are called on something with no name
+    /// to spell; the method is still the last thing written.
+    fn called_on_an_expression(&self, call: Node<'a>) -> Option<String> {
+        let callee = call.child_by_field_name(self.names.profile.callee_field)?;
+        if !self.names.profile.is_member_access(callee) {
+            return None;
+        }
+        let property = self.names.member_property(callee)?;
+        Some(format!("<expression>.{}", self.names.text(property)))
     }
 
     /// The callee and the arguments, which run once before the call does.
@@ -936,7 +954,7 @@ impl<'a> Visitor<'a, '_> {
         let mut cursor = comparison.walk();
         let is_membership = comparison
             .children(&mut cursor)
-            .any(|child| !child.is_named() && self.names.text(child) == "in");
+            .any(|child| !child.is_named() && matches!(self.names.text(child), "in" | "not in"));
         if !is_membership
             || operator_of(comparison, self.names.source).is_some_and(|operator| operator == "is")
         {
