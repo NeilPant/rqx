@@ -22,6 +22,7 @@ mod health;
 mod history;
 mod lsp;
 mod mcp;
+mod path_suffixes;
 mod perf;
 mod plan;
 mod preview;

@@ -716,11 +716,11 @@ impl Collector {
     /// The direction a project said its dependencies may point, checked against the
     /// direction they actually do. Silent unless `[architecture]` is declared: an
     /// architecture nobody wrote down is not one rqx should infer.
-    fn finish_architecture(
+    fn finish_architecture<'graph>(
         &mut self,
         root: &Path,
         config: &RqxConfig,
-        report: &rqx_lang::module_graph::GraphReport,
+        report: &'graph rqx_lang::module_graph::GraphReport,
         at: &mut Positions,
     ) {
         let plan = &config.architecture;
@@ -731,13 +731,21 @@ impl Collector {
             return;
         };
 
+        // A module is the target of many edges, and each lookup canonicalises the path.
+        let mut relative: HashMap<&Path, String> = HashMap::new();
+        let mut relative_to_root = |path: &'graph Path| {
+            relative
+                .entry(path)
+                .or_insert_with(|| relative_to(root, path))
+                .clone()
+        };
         for (importer, imported) in &report.edges {
-            let from = relative_to(root, importer);
+            let from = relative_to_root(importer);
             let Some(rules) = assignments.of(&from) else {
                 continue;
             };
             for target in imported {
-                let to = relative_to(root, target);
+                let to = relative_to_root(target);
                 let span = report
                     .edge_spans
                     .get(&(importer.clone(), target.clone()))
@@ -747,7 +755,7 @@ impl Collector {
                     continue;
                 };
 
-                if let Some(glob) = assignments.forbids(rules, &to) {
+                if let Some(glob) = rules.forbids(&to) {
                     self.accept_if_enabled(
                         config,
                         build(
@@ -768,10 +776,10 @@ impl Collector {
                 // A file in no declared layer is not governed rather than free: the
                 // project named the subtrees it cares about.
                 let (Some(inner), Some(outer)) = (
-                    rules.layer.as_deref().and_then(|name| plan.rank(name)),
+                    rules.layer().and_then(|name| plan.rank(name)),
                     assignments
                         .of(&to)
-                        .and_then(|other| other.layer.as_deref())
+                        .and_then(Governed::layer)
                         .and_then(|name| plan.rank(name)),
                 ) else {
                     continue;
@@ -1461,22 +1469,14 @@ impl Collector {
                 .then(a.at.start.cmp(&b.at.start))
         });
         let profile = self.profile.take().map(|samples| {
-            let shapes = &self.shape_by_file;
+            let shapes = crate::path_suffixes::PathSuffixes::of(&self.shape_by_file);
             rqx_core::runtime::Profile::placed(samples, |file, line| {
-                // A profile records the path the runtime saw and rqx records the one
-                // the scan walked, so the two agree on the end of a path, not its start.
-                shapes
-                    .iter()
-                    .find(|(known, _)| {
-                        known.as_ref() == file
-                            || file.ends_with(&format!("/{known}"))
-                            || known.ends_with(&format!("/{file}"))
-                    })
-                    .is_some_and(|(_, shape)| {
-                        shape.functions.iter().any(|function| {
-                            function.range.line <= line && line <= function.last_line
-                        })
-                    })
+                shapes.find(file).is_some_and(|shape| {
+                    shape
+                        .functions
+                        .iter()
+                        .any(|function| function.range.line <= line && line <= function.last_line)
+                })
             })
         });
         if let Some(profile) = &profile {
@@ -1575,7 +1575,59 @@ const FACADE_IMPORTERS: usize = 3;
 /// an `Override` only answers whether something matched.
 struct Assignments<'plan> {
     matcher: globset::GlobSet,
-    order: Vec<(&'plan String, &'plan rqx_core::config::Assignment)>,
+    order: Vec<Governed<'plan>>,
+}
+
+/// What one `[architecture.paths]` entry says, with the globs it names compiled once
+/// rather than once per import edge it is asked about.
+struct Governed<'plan> {
+    assignment: &'plan rqx_core::config::Assignment,
+    may_not_import: Vec<(&'plan String, globset::GlobMatcher)>,
+    may_only_import: Vec<globset::GlobMatcher>,
+}
+
+impl<'plan> Governed<'plan> {
+    fn new(assignment: &'plan rqx_core::config::Assignment) -> Self {
+        // A pattern that is not a valid glob matches nothing, as it always has.
+        let compile = |pattern: &'plan String| {
+            globset::Glob::new(pattern)
+                .ok()
+                .map(|glob| (pattern, glob.compile_matcher()))
+        };
+        Self {
+            assignment,
+            may_not_import: assignment
+                .may_not_import
+                .iter()
+                .filter_map(compile)
+                .collect(),
+            may_only_import: assignment
+                .may_only_import
+                .iter()
+                .filter_map(compile)
+                .map(|(_, matcher)| matcher)
+                .collect(),
+        }
+    }
+
+    fn layer(&self) -> Option<&str> {
+        self.assignment.layer.as_deref()
+    }
+
+    fn forbids(&self, target: &str) -> Option<String> {
+        if let Some((glob, _)) = self
+            .may_not_import
+            .iter()
+            .find(|(_, matcher)| matcher.is_match(target))
+        {
+            return Some((*glob).clone());
+        }
+        let allowed = &self.assignment.may_only_import;
+        if !allowed.is_empty() && !self.may_only_import.iter().any(|m| m.is_match(target)) {
+            return Some(format!("may_only_import {allowed:?}"));
+        }
+        None
+    }
 }
 
 impl<'plan> Assignments<'plan> {
@@ -1584,7 +1636,7 @@ impl<'plan> Assignments<'plan> {
         let mut order = Vec::new();
         for (glob, assignment) in &plan.paths {
             builder.add(globset::Glob::new(glob)?);
-            order.push((glob, assignment));
+            order.push(Governed::new(assignment));
         }
         Ok(Self {
             matcher: builder.build()?,
@@ -1594,28 +1646,11 @@ impl<'plan> Assignments<'plan> {
 
     /// The last declaration wins, the way the most specific rule a project wrote is
     /// the one that answers elsewhere in the config.
-    fn of(&self, path: &str) -> Option<&'plan rqx_core::config::Assignment> {
+    fn of(&self, path: &str) -> Option<&Governed<'plan>> {
         self.matcher
             .matches(path)
             .last()
-            .map(|index| self.order[*index].1)
-    }
-
-    fn forbids(&self, rules: &rqx_core::config::Assignment, target: &str) -> Option<String> {
-        fn matches<'a>(patterns: &'a [String], target: &str) -> Option<&'a String> {
-            patterns.iter().find(|pattern| {
-                globset::Glob::new(pattern)
-                    .map(|glob| glob.compile_matcher().is_match(target))
-                    .unwrap_or(false)
-            })
-        }
-        if let Some(glob) = matches(&rules.may_not_import, target) {
-            return Some(glob.clone());
-        }
-        if !rules.may_only_import.is_empty() && matches(&rules.may_only_import, target).is_none() {
-            return Some(format!("may_only_import {:?}", rules.may_only_import));
-        }
-        None
+            .map(|index| &self.order[*index])
     }
 }
 
