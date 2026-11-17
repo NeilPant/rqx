@@ -33,13 +33,10 @@ pub fn validate(rules: &[CustomRule]) -> Result<(), String> {
     let mut seen: Vec<&str> = Vec::new();
     for rule in rules {
         if rule.id.trim().is_empty() {
-            return Err("a `[[rule]]` has no `id`".to_owned());
+            return Err("a `rule` entry has no `id`".to_owned());
         }
         if seen.contains(&rule.id.as_str()) {
-            return Err(format!(
-                "two `[[rule]]` blocks are both called `{}`",
-                rule.id
-            ));
+            return Err(format!("two `rule` entries are both called `{}`", rule.id));
         }
         seen.push(&rule.id);
         if rqx_core::rule::RuleId::ALL

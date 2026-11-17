@@ -731,7 +731,7 @@ fn enforce_locks(
                 "locked",
                 format!(
                     "{} locks `{key}`, which it does not set. Give it a value or drop it \
-                     from `[locked] keys`.",
+                     from `locked.keys`.",
                     policy.display()
                 ),
             ));

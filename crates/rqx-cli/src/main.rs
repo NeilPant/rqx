@@ -2195,7 +2195,7 @@ fn run() -> Result<Exit> {
                         None => println!("  nothing cached yet"),
                     }
                     if !settings.config.scan.cache {
-                        println!("  the cache is off; `[scan] cache = true` turns it on");
+                        println!("  the cache is off; setting `scan.cache: true` turns it on");
                     }
                 }
                 CacheAction::Clear { path } => {

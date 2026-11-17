@@ -1043,7 +1043,7 @@ fn write_notes(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> R
             paint(layout.palette.bold(Ink::Warn), "No files to analyse."),
             paint(
                 dim,
-                format!("rqx reads {languages}. Check the path, `[languages]` and `[ignore]`.")
+                format!("rqx reads {languages}. Check the path, `languages` and `ignore`.")
             )
         )?;
         return Ok(());
