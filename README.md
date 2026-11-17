@@ -881,6 +881,7 @@ a context window.
 | `scan` · `findings` | The project's health, then its findings a page at a time |
 | `check` | The diff against a base revision, and whether the gate passes |
 | `plan` | The findings `rqx fix` will not touch, each with its source, metric and named refactoring |
+| `fix_preview` | The mechanical fixes `rqx fix` would make to one file, as a unified diff with the findings they resolve |
 | `verify` | What a diff did to every finding: resolved, improved, relocated, introduced |
 | `analyze` | An unsaved buffer, without touching the disk |
 | `perf` | Where the work grows faster than the data, ranked by cost against reach |
@@ -888,8 +889,8 @@ a context window.
 | `recommend` · `graph` | What to do about the project, and what imports what |
 | `patterns` · `explain` · `rules` · `config` | The catalogues, and the settings in force |
 
-All fifteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
-the brief and the agent does the writing. `--http` serves
+All sixteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
+the brief and `fix_preview` the diff, and the agent does the writing. `--http` serves
 the same tools over Streamable HTTP for clients that cannot spawn a process, and
 refuses a public address without `RQX_MCP_TOKEN`.
 [docs/mcp.md](docs/mcp.md) has the payload shapes and a config snippet per client.

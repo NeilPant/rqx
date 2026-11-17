@@ -24,6 +24,9 @@ them. `tools/release.sh` turns that section into the release notes.
   `AGENTS.md`. The instructions sit between `<!-- rqx:begin -->` and `<!-- rqx:end -->`,
   appended once and replaced on later runs, and the rest of the file is kept. For
   `claude`, `--write` also merges a Stop hook into `.claude/settings.json`.
+- **MCP `fix_preview` tool.** Returns the edits `rqx fix` would make to one file as a
+  unified diff, with the findings they resolve. An optional `rule` narrows it to one
+  rule. It reuses the fixer's planning and verification and never writes a file.
 
 ## 0.3.0 — 2026-11-17
 

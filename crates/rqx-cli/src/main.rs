@@ -46,6 +46,7 @@ mod slop;
 mod staged;
 mod stats;
 mod term;
+mod unified_diff;
 mod update;
 mod verify;
 mod waive;
@@ -2474,6 +2475,7 @@ fn run() -> Result<Exit> {
                         write,
                         max_rounds: settings.config.fix.max_rounds.max(1),
                         only: review.reviewed.clone(),
+                        rule: None,
                     },
                     progress,
                 )?;

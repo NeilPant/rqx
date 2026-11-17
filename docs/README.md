@@ -19,7 +19,7 @@
 | [rules/](rules/README.md) | Every rule, by family: what each measures, its threshold, and a worked example |
 | [patterns/](patterns/README.md) | The design-pattern catalogue: what rqx recognises, what it reports as half applied, and where a pattern would fit |
 | [editor.md](editor.md) | `rqx lsp`, and a configuration to paste for each supported editor |
-| [mcp.md](mcp.md) | The fifteen MCP tools, their payloads, paging, and HTTP with a token |
+| [mcp.md](mcp.md) | The sixteen MCP tools, their payloads, paging, and HTTP with a token |
 | [json.md](json.md) | The JSON stream: what each line contains and the compatibility rules |
 | [ci.md](ci.md) | The exit-code contract, every reporter, commenting on a merge request, and a snippet per CI system |
 | [architecture.md](architecture.md) | For contributors: the scan pipeline, the crates, the cache, determinism, and guides for adding a rule, a language and a slash command |

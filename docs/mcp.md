@@ -11,7 +11,8 @@ Answers are summaries with drill-down. A scan of a large repository through
 themselves are paged out of `findings`.
 
 Every tool is read-only. No tool writes a file. The fix each finding names is a
-refactoring for a person to make, not an edit that rqx applies.
+refactoring for a person to make, not an edit that rqx applies. The mechanical fixes
+that `rqx fix` applies are returned by `fix_preview` as diffs and are not written.
 
 ## Tools
 
@@ -20,6 +21,7 @@ refactoring for a person to make, not an edit that rqx applies.
 | `scan` | Analyse the project: health, counts by rule and severity, grade distribution, what to open first |
 | `findings` | The findings themselves, paged, narrowed by severity, rule, family or path glob |
 | `plan` | The findings `rqx fix` will not touch, each with the source at its span, the metric that decided it and the named refactoring. Paged like `findings`. |
+| `fix_preview` | The edits `rqx fix` would make to one file, as a unified diff, with the findings they resolve |
 | `verify` | Compare the working tree against a base revision and grade what the diff did to each finding. Propose, grade, retry. |
 | `check` | Review the diff against a base revision and say whether the gate passes |
 | `analyze` | Analyse source held in memory, such as an unsaved buffer, without writing to disk |
@@ -84,6 +86,42 @@ Pass `next_cursor` back to get the next page. When it is absent, there are no mo
 pages. A cursor records the scan it came from, and a cursor used after the project has
 been scanned again is refused instead of being answered from a different set of
 findings.
+
+## Previewing a fix
+
+`fix_preview` takes `file`, relative to the server's root, and optionally `rule`, a rule
+slug. It runs the same planning as `rqx fix` on that file and returns the result
+without writing anything. Each edit is applied to a copy of the file and the copy is
+analysed again. An edit is kept only if its finding is gone and no new finding
+appears, so every edit in the diff has been verified. `rule` narrows the preview to
+that rule's fixes. A rule with no mechanical fix, or an unknown rule, is refused.
+Which fixes `rqx fix` may apply is still set by the `fix` section of the configuration.
+
+```json
+{
+  "file": "src/orders.ts",
+  "rule": null,
+  "fixable": true,
+  "diff": "--- a/src/orders.ts\n+++ b/src/orders.ts\n@@ -10,7 +10,6 @@\n …",
+  "edits": [
+    { "rule": "unreachable-code", "kind": "deletion", "line": 12, "column": 3,
+      "start": 214, "end": 241, "removed": "console.log('dead')", "replacement": "" }
+  ],
+  "resolves": [ { "rule": "unreachable-code", "file": "src/orders.ts", "line": 12 } ],
+  "withheld": null
+}
+```
+
+`diff` is a unified diff that `git apply` and `patch` accept. `resolves` holds the
+findings the edits answer, in the shape `findings` returns. When no edit is proven,
+`fixable` is false and `diff` is empty. If edits were planned and then withheld, for
+example because applying them would introduce a finding, `withheld` gives the number
+of edits and the reason.
+
+The preview is the first round of fixing. `rqx fix --write` repeats until a round
+finds nothing, up to `fix.max_rounds`, so a second preview taken after applying the diff
+can show further edits. After applying a diff, call `verify` to confirm the findings
+are gone.
 
 ## Analysing a buffer
 
