@@ -12,6 +12,12 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **`/waive`, `/watch` and `/open` in the session.** `/waive src/a.ts:42 rule` is
+  `rqx waive`, and asks on the prompt for the reason when `--reason` is missing.
+  `/watch on` re-analyses files as they are saved and prints what moved, such as
+  `src/a.ts  −1 finding · health 82 → 83`, with `watching` in the status line.
+  `/open 2` or `/open src/a.ts:42` opens a finding in `$VISUAL` or `$EDITOR` at its
+  line, and the session comes back when the editor exits.
 - **`rqx waive FILE:LINE RULE --reason TEXT`.** Writes the `rqx-ignore` comment above
   the line for you, with the file's indentation and comment style. `--until
   YYYY-MM-DD` dates it, `--whole-file` waives the rule for the file, and `--dry-run`

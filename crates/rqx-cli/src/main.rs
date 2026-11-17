@@ -419,9 +419,10 @@ enum Command {
         at: String,
         /// The rule to waive, as `rqx rules` lists it
         rule: String,
-        /// Why the finding stands. A waiver without one is not honoured
+        /// Why the finding stands. A waiver without one is not honoured, so this is
+        /// required; the interactive session asks for it when it is left out
         #[arg(long, value_name = "TEXT")]
-        reason: String,
+        reason: Option<String>,
         /// The waiver stops being honoured after this date
         #[arg(long, value_name = "YYYY-MM-DD")]
         until: Option<String>,
@@ -1844,7 +1845,7 @@ fn run() -> Result<Exit> {
             &waive::Order {
                 at,
                 rule,
-                reason,
+                reason: reason.unwrap_or_default(),
                 until,
                 whole_file,
                 dry_run,

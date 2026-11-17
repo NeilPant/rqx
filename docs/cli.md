@@ -564,7 +564,7 @@ Waive one finding with a comment in the source, and the reason a reviewer reads
 | --- | --- |
 | `<at>` | Where the finding is, as FILE:LINE; FILE alone with --whole-file |
 | `<rule>` | The rule to waive, as `rqx rules` lists it |
-| `--reason` | Why the finding stands. A waiver without one is not honoured |
+| `--reason` | Why the finding stands. A waiver without one is not honoured, so this is required; the interactive session asks for it when it is left out |
 | `--until` | The waiver stops being honoured after this date |
 | `--whole-file` | Waive the rule for the whole file, not the line |
 | `--dry-run` | Print the diff the waiver would make and change nothing |

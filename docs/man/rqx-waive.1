@@ -4,13 +4,13 @@
 .SH NAME
 rqx\-waive \- Waive one finding with a comment in the source, and the reason a reviewer reads
 .SH SYNOPSIS
-\fBrqx waive\fR [\fB\-\-until\fR] [\fB\-\-whole\-file\fR] [\fB\-\-dry\-run\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fB\-\-reason\fR> <\fIFILE:LINE\fR> <\fIRULE\fR> 
+\fBrqx waive\fR [\fB\-\-reason\fR] [\fB\-\-until\fR] [\fB\-\-whole\-file\fR] [\fB\-\-dry\-run\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIFILE:LINE\fR> <\fIRULE\fR> 
 .SH DESCRIPTION
 Waive one finding with a comment in the source, and the reason a reviewer reads
 .SH OPTIONS
 .TP
 \fB\-\-reason\fR \fI<TEXT>\fR
-Why the finding stands. A waiver without one is not honoured
+Why the finding stands. A waiver without one is not honoured, so this is required; the interactive session asks for it when it is left out
 .TP
 \fB\-\-until\fR \fI<YYYY\-MM\-DD>\fR
 The waiver stops being honoured after this date

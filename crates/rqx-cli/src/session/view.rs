@@ -377,20 +377,29 @@ pub fn summary(look: &Look, outcome: &ScanOutcome) -> Vec<Line<'static>> {
     }
     let worst = worst_findings(outcome);
     let slug_width = worst.iter().map(|f| f.slug().len()).max().unwrap_or(0);
-    for finding in &worst {
-        lines.push(finding_line(look, finding, slug_width));
+    for (at, finding) in worst.iter().enumerate() {
+        lines.push(finding_line(look, at + 1, finding, slug_width));
     }
     let more = outcome.counts.total as usize - worst.len().min(outcome.counts.total as usize);
     if more > 0 {
         lines.push(Line::styled(
             format!(
-                "   \u{2026} {} more \u{b7} /findings to list them",
+                "   \u{2026} {} more \u{b7} /findings to list them \u{b7} /open 1 to edit one",
                 thousands(more as u32)
             ),
             look.dim(),
         ));
     }
     lines
+}
+
+/// Where each finding in the summary is, in the order it was listed, which is what
+/// `/open 2` counts in.
+pub fn listed_places(outcome: &ScanOutcome) -> Vec<(String, u32)> {
+    worst_findings(outcome)
+        .into_iter()
+        .map(|finding| (finding.location.file.to_string(), finding.location.line))
+        .collect()
 }
 
 fn worst_findings(outcome: &ScanOutcome) -> Vec<&Finding> {
@@ -400,10 +409,11 @@ fn worst_findings(outcome: &ScanOutcome) -> Vec<&Finding> {
     ranked
 }
 
-fn finding_line(look: &Look, finding: &Finding, slug_width: usize) -> Line<'static> {
+fn finding_line(look: &Look, number: usize, finding: &Finding, slug_width: usize) -> Line<'static> {
     let ink = severity_ink(finding.severity);
     Line::from(vec![
-        Span::styled(" \u{25cf} ", look.style(ink)),
+        Span::styled(format!(" {number} "), look.dim()),
+        Span::styled("\u{25cf} ", look.style(ink)),
         Span::styled(format!("{:<8}", finding.severity.label()), look.style(ink)),
         Span::styled(
             format!("{:<slug_width$}  ", finding.slug()),
@@ -427,6 +437,11 @@ pub fn echo(look: &Look, line: &str) -> Line<'static> {
 /// A line that did not work, short enough to read at a glance.
 pub fn failure(look: &Look, message: &str) -> Line<'static> {
     Line::styled(format!(" \u{2717} {message}"), look.style(Ink::Danger))
+}
+
+/// What a watch saw change, in the ordinary text colour: it is news, not a footnote.
+pub fn update(look: &Look, message: &str) -> Line<'static> {
+    Line::styled(format!(" {message}"), look.style(Ink::Text))
 }
 
 pub fn note(look: &Look, message: &str) -> Line<'static> {
@@ -554,6 +569,7 @@ mod tests {
         let lines = plain(&summary(&look, &outcome));
         assert!(lines[0].contains("Scanned 10 files"));
         assert!(lines[1].contains("error") && lines[1].contains("src/api/client.ts:1"));
+        assert!(lines[1].trim_start().starts_with("1 "), "{lines:?}");
         assert!(lines.last().unwrap().contains("3 more"), "{lines:?}");
     }
 

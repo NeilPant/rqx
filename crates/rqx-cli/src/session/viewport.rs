@@ -52,6 +52,22 @@ impl Viewport {
         Ok(())
     }
 
+    /// Gives the terminal back for a program that wants all of it, such as an editor:
+    /// the rows are cleared and raw mode is dropped.
+    pub fn suspend(&mut self) -> io::Result<()> {
+        self.vacate()?;
+        disable_raw_mode()?;
+        execute!(io::stdout(), Show)
+    }
+
+    /// Takes the terminal again after `suspend`, with a fresh viewport where the old
+    /// one was.
+    pub fn resume(&mut self) -> io::Result<()> {
+        enable_raw_mode()?;
+        self.screen = screen(self.height)?;
+        Ok(())
+    }
+
     /// Wipes what is visible and puts the viewport back at the top. The terminal's
     /// scrollback is left alone: that is the user's, not the session's.
     pub fn clear_screen(&mut self) -> io::Result<()> {
