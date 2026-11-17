@@ -2267,7 +2267,7 @@ catalogue! {
         analysis: Semantics,
         metric: "an accumulator rebuilt by copying itself on every pass of a loop",
         fixes: [AccumulateInPlace],
-        confidence: Heuristic,
+        confidence: Verified,
         severity: Warning,
         why: "each step copies everything gathered so far, so building a result of n items \
               touches about half of n squared items",
@@ -2299,5 +2299,170 @@ catalogue! {
             (Cpp, "a coroutine is decided by co_return in its body rather than by a marker on \
                    its signature, so there is nothing to test a call against"),
         ],
+    },
+    LinearOpInLoop {
+        slug: "linear-op-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a library call that walks or shifts its whole collection, on a collection of a \
+                 known type, inside a loop that scan-in-loop does not report",
+        fixes: [ReplaceLoopWithLookup],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the call costs time proportional to the size of the collection on every pass, so \
+              the loop grows with the product of its own length and the collection's",
+    },
+    SortInLoop {
+        slug: "sort-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a sort of a collection that the loop does not change, inside a loop that \
+                 scan-in-loop does not report",
+        fixes: [HoistInvariant],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every pass after the first sorts input that is already sorted, at a cost of n log n \
+              each time",
+    },
+    AllocationInLoop {
+        slug: "allocation-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "three or more allocations, or one fixed allocation of a thousand elements or \
+                 more, in each pass of an innermost loop",
+        fixes: [HoistInvariant],
+        confidence: Heuristic,
+        severity: Info,
+        why: "each pass pays for memory it could have reused, which adds allocator and \
+              collection work to every iteration",
+        off_by_default: true,
+    },
+    MissingCapacity {
+        slug: "missing-capacity",
+        category: Performance,
+        analysis: Semantics,
+        metric: "an empty collection appended to in a loop over a collection whose size is known \
+                 before the loop starts",
+        fixes: [PresizeCollection],
+        confidence: Heuristic,
+        severity: Info,
+        why: "the collection grows by reallocating and copying its contents as it fills, work \
+              that a capacity set from the loop's size avoids",
+        off_by_default: true,
+        not_applicable: [
+            (JavaScript, "arrays grow without a capacity to set"),
+            (TypeScript, "arrays grow without a capacity to set"),
+            (Python, "lists grow without a capacity to set"),
+        ],
+    },
+    LockInLoop {
+        slug: "lock-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a lock taken inside a loop on a lock the loop does not change",
+        fixes: [HoistInvariant],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "each pass pays to acquire and release the same lock, and other threads can only \
+              interleave at those points instead of waiting once for the whole loop",
+    },
+    UnboundedCache {
+        slug: "unbounded-cache",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a shared collection that functions add keyed entries to and nothing removes \
+                 from or measures, or an lru_cache with no maximum size",
+        fixes: [BoundTheCache],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "it holds an entry for every distinct key the program has ever been given, so \
+              memory grows with the variety of the input for as long as the process runs",
+    },
+    DeferInLoop {
+        slug: "defer-in-loop",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a defer statement with a loop between it and its enclosing function",
+        fixes: [ExtractMethod],
+        confidence: Verified,
+        severity: Warning,
+        why: "a deferred call runs when the function returns, not when the pass ends, so every \
+              pass holds what it opened until the whole loop is done",
+        not_applicable: [
+            (JavaScript, "JavaScript has no defer statement; cleanup is written in a finally block"),
+            (TypeScript, "TypeScript has no defer statement; cleanup is written in a finally block"),
+            (Python, "a with block releases what it opens when the block ends, inside the pass"),
+            (Java, "try-with-resources releases what it opens when its block ends, inside the pass"),
+            (Cpp, "a destructor runs when its scope ends, which is inside the pass"),
+        ],
+    },
+    BoxingInLoop {
+        slug: "boxing-in-loop",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a local declared as Integer, Long, Double or another boxed number and changed \
+                 with an arithmetic update inside a loop",
+        fixes: [UsePrimitiveType],
+        confidence: Verified,
+        severity: Warning,
+        why: "each update unboxes the value and boxes the result as a new object, which the \
+              primitive type does in place",
+        not_applicable: [
+            (JavaScript, "numbers have one representation; there is no boxed form to avoid"),
+            (TypeScript, "numbers have one representation; there is no boxed form to avoid"),
+            (Python, "every int is an object; there is no primitive form to use instead"),
+            (Go, "numeric values are stored directly; nothing is boxed"),
+            (Cpp, "numeric values are stored directly; nothing is boxed"),
+        ],
+    },
+    CopyInRangeFor {
+        slug: "copy-in-range-for",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a range-for variable declared by value with a string or container type, \
+                 that the loop body does not change",
+        fixes: [TakeByReference],
+        confidence: Verified,
+        severity: Warning,
+        why: "each pass copies the element into the variable, allocating and copying its \
+              contents, when a reference to it would read the same value",
+        not_applicable: [
+            (JavaScript, "the loop variable refers to the element; nothing is copied"),
+            (TypeScript, "the loop variable refers to the element; nothing is copied"),
+            (Python, "the loop variable is a name for the element; nothing is copied"),
+            (Go, "range always copies the element and offers no reference form to choose instead"),
+            (Java, "the loop variable refers to the element; nothing is copied"),
+        ],
+    },
+    LargeByValue {
+        slug: "large-by-value",
+        category: Performance,
+        analysis: Syntax,
+        metric: "a string or container parameter taken by value that the function neither \
+                 changes nor passes on with std::move",
+        fixes: [TakeByReference],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every call copies the whole argument for a function that only reads it, and the \
+              cost grows with the size of what callers pass",
+        not_applicable: [
+            (JavaScript, "arguments are references to the value; nothing is copied"),
+            (TypeScript, "arguments are references to the value; nothing is copied"),
+            (Python, "arguments are references to the value; nothing is copied"),
+            (Go, "a slice, map or string argument copies only its small header"),
+            (Java, "arguments are references to the object; nothing is copied"),
+        ],
+    },
+    UnboundedConcurrency {
+        slug: "unbounded-concurrency",
+        category: Performance,
+        analysis: Semantics,
+        metric: "work that leaves the process started once per element of a collection of any \
+                 size, in a function that mentions no limit",
+        fixes: [BoundConcurrency],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the number of requests in flight equals the size of the collection, so a large \
+              input exhausts connections, memory or the other side's rate limit",
     },
 }

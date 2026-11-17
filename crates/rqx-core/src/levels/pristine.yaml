@@ -1,4 +1,4 @@
-# Every rule in the catalogue, including the twenty-one that are off by default
+# Every rule in the catalogue, including the twenty-three that are off by default
 # because they are noisy or encode a convention not every project shares. Suited to
 # a new codebase, or one that adopts every rule.
 
@@ -55,6 +55,8 @@ rules:
     - method-ignores-instance
     - eager-test
     - assign-once-field
+    - allocation-in-loop
+    - missing-capacity
 
 gate:
   fail_on: info

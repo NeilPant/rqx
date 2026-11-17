@@ -68,6 +68,29 @@ by reading:
 | `branching-recursion` | a function calling itself twice with no memo in sight |
 | `blocking-call-in-async` | a synchronous file, process or sleep call in an async function |
 
+The cost analysis behind `rqx perf` feeds another set of rules. Each reads one function
+at a time, from the declared types and the library cost tables, so a finding does not
+depend on any other file:
+
+| rule | |
+|---|---|
+| `linear-op-in-loop` | a library call that walks or shifts a collection of a declared type, inside a loop, where `scan-in-loop` does not already report it |
+| `sort-in-loop` | a sort of a collection the loop does not change |
+| `allocation-in-loop` | three or more allocations, or one fixed allocation of a thousand elements or more, per pass of an innermost loop (off by default) |
+| `missing-capacity` | an empty Go, Java or C++ collection appended to in a loop over something of known size (off by default) |
+| `lock-in-loop` | a lock taken on every pass when the loop does not change which lock it is |
+| `unbounded-concurrency` | work that leaves the process, started once per element of a collection, with no limiter, semaphore or pool in the function |
+| `unbounded-cache` | a shared collection that functions only add keyed entries to, or `lru_cache(maxsize=None)` |
+| `defer-in-loop` | a Go `defer` with a loop between it and its function |
+| `copy-in-range-for` | a C++ range-for variable declared by value with a string or container type |
+| `large-by-value` | a C++ string or container parameter taken by value and only read |
+| `boxing-in-loop` | a Java `Integer`, `Long` or `Double` local that a loop updates with `+=` or `++` |
+
+`accumulate-by-copy` also reports a name declared as `String`, `string` or `str` that a
+loop adds to with `+=`, at `verified` confidence. A call that `scan-in-loop` reports is
+never reported again by `linear-op-in-loop` or `sort-in-loop`. The `perf` preset switches
+on the two rules above that ship off.
+
 Names are weak evidence, so the rules that depend on one are `heuristic` and are not
 reported as `error`. A receiver that is already keyed (a `Set`, a `Map`, a `dict`, or
 anything named `index`, `lookup` or `cache`) is treated as a lookup, not as a scan or

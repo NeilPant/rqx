@@ -101,12 +101,12 @@ every pass pays a round trip, so listing a hundred rows makes a hundred and one 
 | Reads | resolved scopes and symbols |
 | Fix | Batch the Work |
 
-From `fixtures/typescript/performance.ts`, line 31:
+From `fixtures/typescript/cost-unbounded-concurrency.ts`, line 4:
 
 ```ts
-  for (const id of ids) {
-    rows.push(client.get(id));
-  }
+async function loadEveryPage(ids: string[]): Promise<unknown[]> {
+  return Promise.all(ids.map((id) => fetch(id)));
+}
 ```
 
 Suggested fix: gather the keys first and ask for all of them in one call
@@ -162,7 +162,7 @@ each step copies everything gathered so far, so building a result of n items tou
 | | |
 |---|---|
 | Measures | an accumulator rebuilt by copying itself on every pass of a loop |
-| Reported as | warning, measured threshold |
+| Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
 | Fix | Accumulate in Place |
 
@@ -220,4 +220,262 @@ export async function settingsOf(path: string): Promise<string> {
 ```
 
 Suggested fix: call the asynchronous form of `readFileSync`, or move the work off this thread
+
+## `linear-op-in-loop`
+
+the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's
+
+| | |
+|---|---|
+| Measures | a library call that walks or shifts its whole collection, on a collection of a known type, inside a loop that scan-in-loop does not report |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Replace Loop with Lookup |
+
+From `fixtures/typescript/cost-linear-op-in-loop.ts`, line 5:
+
+```ts
+  while (entries.length > 0) {
+    total += (entries.shift() ?? 0);
+  }
+```
+
+Suggested fix: use a structure whose operation takes constant time, or take the operation out of the loop
+
+## `sort-in-loop`
+
+every pass after the first sorts input that is already sorted, at a cost of n log n each time
+
+| | |
+|---|---|
+| Measures | a sort of a collection that the loop does not change, inside a loop that scan-in-loop does not report |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Hoist Invariant |
+
+From `fixtures/typescript/cost-sort-in-loop.ts`, line 4:
+
+```ts
+  for (const group of groups) {
+    ranked.push([...base].sort());
+    ranked.push(group);
+```
+
+Suggested fix: sort once above the loop: nothing in the loop changes what is being sorted
+
+## `allocation-in-loop`
+
+each pass pays for memory it could have reused, which adds allocator and collection work to every iteration
+
+| | |
+|---|---|
+| Measures | three or more allocations, or one fixed allocation of a thousand elements or more, in each pass of an innermost loop |
+| Reported as | info, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Hoist Invariant |
+| Default | off; name it under `rules.enabled` |
+
+From `fixtures/typescript/cost-allocation-in-loop.ts`, line 4:
+
+```ts
+  for (const row of rows) {
+    const pair = [row, row + 1];
+    const label = { row, next: row + 1 };
+```
+
+Suggested fix: allocate once above the loop and reuse it, clearing it between passes
+
+## `missing-capacity`
+
+the collection grows by reallocating and copying its contents as it fills, work that a capacity set from the loop's size avoids
+
+| | |
+|---|---|
+| Measures | an empty collection appended to in a loop over a collection whose size is known before the loop starts |
+| Reported as | info, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Presize the Collection |
+| Default | off; name it under `rules.enabled` |
+| Not in JavaScript | arrays grow without a capacity to set |
+| Not in TypeScript | arrays grow without a capacity to set |
+| Not in Python | lists grow without a capacity to set |
+
+From `fixtures/go/fixtures/cost-linear-op-in-loop.go`, line 16:
+
+```go
+	for _, item := range items {
+		results = append(results, item)
+	}
+```
+
+Suggested fix: give it the loop's size as its capacity where it is made
+
+## `lock-in-loop`
+
+each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop
+
+| | |
+|---|---|
+| Measures | a lock taken inside a loop on a lock the loop does not change |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Hoist Invariant |
+
+From `fixtures/typescript/cost-lock-in-loop.ts`, line 9:
+
+```ts
+  for (const row of rows) {
+    latch.lock();
+    total += row;
+```
+
+Suggested fix: take the lock once around the whole loop, or keep it per pass only if other threads need the gaps
+
+## `unbounded-cache`
+
+it holds an entry for every distinct key the program has ever been given, so memory grows with the variety of the input for as long as the process runs
+
+| | |
+|---|---|
+| Measures | a shared collection that functions add keyed entries to and nothing removes from or measures, or an lru_cache with no maximum size |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Bound the Cache |
+
+From `fixtures/typescript/cost-unbounded-cache.ts`, line 4:
+
+```ts
+function rememberPage(key: string, size: number): number {
+  pageSizes.set(key, size);
+  return size;
+```
+
+Suggested fix: bound it with a maximum size and an eviction rule, or key it by something that has a limited number of values
+
+## `defer-in-loop`
+
+a deferred call runs when the function returns, not when the pass ends, so every pass holds what it opened until the whole loop is done
+
+| | |
+|---|---|
+| Measures | a defer statement with a loop between it and its enclosing function |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Extract Method |
+| Not in JavaScript | JavaScript has no defer statement; cleanup is written in a finally block |
+| Not in TypeScript | TypeScript has no defer statement; cleanup is written in a finally block |
+| Not in Python | a with block releases what it opens when the block ends, inside the pass |
+| Not in Java | try-with-resources releases what it opens when its block ends, inside the pass |
+| Not in C++ | a destructor runs when its scope ends, which is inside the pass |
+
+From `fixtures/go/fixtures/cost-defer-in-loop.go`, line 12:
+
+```go
+		}
+		defer file.Close()
+		info, err := file.Stat()
+```
+
+Suggested fix: move the loop body into its own function, so the deferred call runs at the end of each pass
+
+## `boxing-in-loop`
+
+each update unboxes the value and boxes the result as a new object, which the primitive type does in place
+
+| | |
+|---|---|
+| Measures | a local declared as Integer, Long, Double or another boxed number and changed with an arithmetic update inside a loop |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Use a Primitive Type |
+| Not in JavaScript | numbers have one representation; there is no boxed form to avoid |
+| Not in TypeScript | numbers have one representation; there is no boxed form to avoid |
+| Not in Python | every int is an object; there is no primitive form to use instead |
+| Not in Go | numeric values are stored directly; nothing is boxed |
+| Not in C++ | numeric values are stored directly; nothing is boxed |
+
+From `fixtures/java/src/main/java/rqx/CostBoxingInLoop.java`, line 9:
+
+```java
+        for (Integer row : rows) {
+            total += row;
+        }
+```
+
+Suggested fix: declare it with the primitive type
+
+## `copy-in-range-for`
+
+each pass copies the element into the variable, allocating and copying its contents, when a reference to it would read the same value
+
+| | |
+|---|---|
+| Measures | a range-for variable declared by value with a string or container type, that the loop body does not change |
+| Reported as | warning, verified |
+| Reads | the syntax tree alone |
+| Fix | Take by Reference |
+| Not in JavaScript | the loop variable refers to the element; nothing is copied |
+| Not in TypeScript | the loop variable refers to the element; nothing is copied |
+| Not in Python | the loop variable is a name for the element; nothing is copied |
+| Not in Go | range always copies the element and offers no reference form to choose instead |
+| Not in Java | the loop variable refers to the element; nothing is copied |
+
+From `fixtures/cpp/src/cost_copy_in_range_for.cpp`, line 5:
+
+```cpp
+  std::size_t total = 0;
+  for (std::string name : names) {
+    total += name.size();
+  }
+  return total;
+```
+
+Suggested fix: declare the variable as a const reference
+
+## `large-by-value`
+
+every call copies the whole argument for a function that only reads it, and the cost grows with the size of what callers pass
+
+| | |
+|---|---|
+| Measures | a string or container parameter taken by value that the function neither changes nor passes on with std::move |
+| Reported as | warning, measured threshold |
+| Reads | the syntax tree alone |
+| Fix | Take by Reference |
+| Not in JavaScript | arguments are references to the value; nothing is copied |
+| Not in TypeScript | arguments are references to the value; nothing is copied |
+| Not in Python | arguments are references to the value; nothing is copied |
+| Not in Go | a slice, map or string argument copies only its small header |
+| Not in Java | arguments are references to the object; nothing is copied |
+
+From `fixtures/cpp/src/cost_large_by_value.cpp`, line 3:
+
+```cpp
+
+std::size_t count_characters(std::vector<std::string> lines) {
+  std::size_t total = 0;
+```
+
+Suggested fix: take it as a const reference, or take it by value and std::move it if the function keeps it
+
+## `unbounded-concurrency`
+
+the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit
+
+| | |
+|---|---|
+| Measures | work that leaves the process started once per element of a collection of any size, in a function that mentions no limit |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Bound Concurrency |
+
+From `fixtures/typescript/cost-unbounded-concurrency.ts`, line 4:
+
+```ts
+async function loadEveryPage(ids: string[]): Promise<unknown[]> {
+  return Promise.all(ids.map((id) => fetch(id)));
+}
+```
+
+Suggested fix: run the work through a semaphore, a limiter or a fixed-size pool
 

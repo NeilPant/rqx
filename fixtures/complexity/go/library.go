@@ -36,7 +36,7 @@ func ContainsAnyKeyed(values []int, wanted map[int]bool) int {
 	return hits
 }
 
-// @complexity time=O(n*m log m) space=O(m) conf=verified rule=sort-in-loop scope=local
+// @complexity time=O(n*m log m) space=O(m) conf=verified rule=scan-in-loop scope=local
 func SortEach(batches [][]int, pool []int) {
 	for range batches {
 		sorted := slices.Clone(pool)

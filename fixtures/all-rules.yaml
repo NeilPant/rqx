@@ -28,6 +28,8 @@ rules:
     - method-ignores-instance
     - eager-test
     - assign-once-field
+    - allocation-in-loop
+    - missing-capacity
 
 patterns:
   enabled: [memento, interpreter]

@@ -17,7 +17,7 @@ public final class Basics {
         return total;
     }
 
-    // @complexity time=O(n^2) space=O(n) conf=verified rule=linear-op-in-loop scope=local
+    // @complexity time=O(n^2) space=O(n) conf=verified rule=scan-in-loop scope=local
     public static List<Integer> dedupeWithList(List<Integer> values) {
         List<Integer> unique = new ArrayList<>();
         for (int value : values) {

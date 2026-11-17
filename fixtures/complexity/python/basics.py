@@ -30,7 +30,7 @@ def dedupe_with_set(values: list[int]) -> list[int]:
     return unique
 
 
-# @complexity time=O(n*m log m) space=O(m) conf=verified rule=sort-in-loop scope=local
+# @complexity time=O(n*m log m) space=O(m) conf=verified rule=scan-in-loop scope=local
 def rank_each(queries: list[int], pool: list[int]) -> list[int]:
     ranked: list[int] = []
     for query in queries:

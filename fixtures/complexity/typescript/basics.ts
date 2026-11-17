@@ -22,7 +22,7 @@ export function hasDuplicate(values: number[]): boolean {
   return false;
 }
 
-// @complexity time=O(n^2) space=O(n) conf=verified rule=linear-op-in-loop scope=local
+// @complexity time=O(n^2) space=O(n) conf=verified rule=scan-in-loop scope=local
 export function dedupeWithIncludes(values: number[]): number[] {
   const unique: number[] = [];
   for (const value of values) {
