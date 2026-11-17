@@ -4,7 +4,10 @@ Notable changes, newest first, in the shape
 [keep a changelog](https://keepachangelog.com/en/1.1.0/) suggests: Added, Changed,
 Removed, Fixed. Dates are when the release was tagged.
 
-Anything user-visible goes under `## Unreleased
+User-visible changes are recorded under `## Unreleased` in the change that introduces
+them. `tools/release.sh` turns that section into the release notes.
+
+## Unreleased
 
 ### Added
 
