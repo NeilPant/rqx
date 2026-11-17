@@ -9,7 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "The tree-sitter collectors behind rqx: one rule set across five languages."
+description = "The tree-sitter collectors behind rqx: one rule set across six languages."
 documentation = "https://docs.rs/rqx-lang"
 
 [dependencies]
