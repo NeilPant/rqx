@@ -1,0 +1,20 @@
+# Real projects the benchmark runs against, one per language: name, URL, commit.
+#
+# tools/bench/corpus.sh checks out exactly the commit on each line, so a benchmark
+# number means the same code on every machine. Move a commit on purpose, in its own
+# commit, and say in the message why the new one was chosen.
+#
+#   name     directory under target/bench-corpus/
+#   url      where the project is fetched from
+#   sha      the commit to check out (the default branch's HEAD when it was chosen)
+#
+# typescript  vite
+# python      flask
+# go          cobra
+# java        gson
+# cpp         fmt
+vite https://github.com/vitejs/vite 60c260dea1fa9f628c22e32b14dddf6ca3088f2b
+flask https://github.com/pallets/flask 49943b5a94413a530761350f04e896f76e8d620e
+cobra https://github.com/spf13/cobra adbc8813901bba65827259daa8e22ff94ec1f30e
+gson https://github.com/google/gson e67037d17f94415179066c8301fee4a610d9515e
+fmt https://github.com/fmtlib/fmt 14ac0d5a9d40aef14f50954069c1e10971abb0b2
