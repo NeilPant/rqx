@@ -216,6 +216,20 @@ impl Resolved {
         )
     }
 
+    /// Everything that shapes what the cost extraction records: the tables the library
+    /// calls were costed against, the client names that make a call a round trip, and the
+    /// order a reviewed function may not pass. A cached analysis holds indexes into the
+    /// tables, so it is only as good as the tables it was made with.
+    pub fn cost_signature(&self) -> impl std::hash::Hash + '_ {
+        let performance = &self.config.performance;
+        (
+            self.cost_tables.version(),
+            &performance.receivers,
+            &performance.methods,
+            &performance.max_order,
+        )
+    }
+
     /// The project file that wrote `table.key`, addressed as one string, which is not
     /// always the last file to touch its table. `set` defaults to it. A preset or an
     /// extended file never answers: neither is the project's to edit.

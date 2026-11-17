@@ -1112,9 +1112,8 @@ pub struct Performance {
     /// How much a library call costs, for the calls the built-in cost tables do not
     /// list. Each entry names a call by `receiver` and `method`, or by `fn`, and gives
     /// its time as `cost`: `1`, `log n`, `n`, `n log n`, `n^2` or `n*m`, where `n` is the
-    /// size of the receiver and `m` the size of the first argument. Read by the cost
-    /// analysis, which is not implemented yet, so entries are validated and otherwise
-    /// unused.
+    /// size of the receiver and `m` the size of the first argument. Entries are read by
+    /// the cost analysis and are part of the cache key; no report shows its result yet.
     #[serde(deserialize_with = "cost_entries")]
     pub costs: Vec<CostEntry>,
     /// The largest time order a reviewed function may have, such as `O(n log n)`.
