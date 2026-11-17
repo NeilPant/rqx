@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::Write;
 
 use anyhow::Result;
@@ -45,6 +46,36 @@ struct JsonSummary<'a> {
     /// when `resolved_scope` is `project`.
     #[serde(skip_serializing_if = "Option::is_none")]
     health_delta: Option<i32>,
+    /// Health per owner, present only when the project has a CODEOWNERS file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    owners: Option<BTreeMap<String, JsonOwner>>,
+}
+
+#[derive(Serialize)]
+struct JsonOwner {
+    files: u32,
+    findings: u32,
+    health: u32,
+    grade: &'static str,
+}
+
+fn owners_of(report: &Report<'_>) -> Option<BTreeMap<String, JsonOwner>> {
+    report.outcome.owners.as_ref()?;
+    Some(
+        report
+            .owner_rows()
+            .into_iter()
+            .map(|row| {
+                let owner = JsonOwner {
+                    files: row.files,
+                    findings: row.findings,
+                    health: row.health,
+                    grade: row.grade.label(),
+                };
+                (row.owner, owner)
+            })
+            .collect(),
+    )
 }
 
 #[derive(Serialize)]
@@ -87,15 +118,22 @@ pub fn finding_of(finding: &Finding) -> serde_json::Value {
 
 /// A line of the stream, tagged so a consumer can switch on `kind` instead of
 /// guessing from which keys are present.
-fn finding_line(finding: &Finding) -> serde_json::Value {
+fn finding_line(finding: &Finding, report: &Report<'_>) -> serde_json::Value {
     let mut line = finding_of(finding);
     line["kind"] = "finding".into();
+    if report.outcome.owners.is_some() {
+        line["owners"] = report.owners_of(&finding.location.file).into();
+    }
     line
 }
 
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     for finding in &report.findings {
-        writeln!(out, "{}", serde_json::to_string(&finding_line(finding))?)?;
+        writeln!(
+            out,
+            "{}",
+            serde_json::to_string(&finding_line(finding, report))?
+        )?;
     }
     let outcome = report.outcome;
     let summary = JsonSummary {
@@ -137,7 +175,48 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         resolved: report.credit.map(|credit| credit.resolved.as_slice()),
         resolved_scope: report.credit.map(|credit| credit.scope),
         health_delta: report.credit.and_then(crate::credit::Credit::health_delta),
+        owners: owners_of(report),
     };
     writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use rqx_core::finding::Severity;
+    use rqx_core::ownership::{CodeOwners, Dialect};
+
+    use super::*;
+    use crate::report::tests::outcome_with;
+
+    fn lines_of(outcome: &crate::scan::ScanOutcome) -> Vec<serde_json::Value> {
+        let mut out = Vec::new();
+        render(&Report::everything(outcome), &mut out).expect("rendering to memory");
+        String::from_utf8(out)
+            .expect("utf-8")
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("a JSON line"))
+            .collect()
+    }
+
+    #[test]
+    fn without_a_codeowners_file_nothing_about_owners_is_written() {
+        let outcome = outcome_with(&[("web/a.ts", Severity::Error)], 1);
+        let lines = lines_of(&outcome);
+        assert!(lines.iter().all(|line| line.get("owners").is_none()));
+    }
+
+    #[test]
+    fn findings_and_the_summary_name_owners_when_a_codeowners_file_exists() {
+        let mut outcome = outcome_with(&[("web/a.ts", Severity::Error)], 2);
+        outcome.owners = Some(CodeOwners::parse("web/ @web @lead\n", Dialect::GitHub));
+        let lines = lines_of(&outcome);
+
+        assert_eq!(lines[0]["owners"], serde_json::json!(["@web", "@lead"]));
+        let summary = &lines[1]["owners"];
+        assert_eq!(summary["@web"]["findings"], 1);
+        assert_eq!(summary["@web"]["files"], 1);
+        assert_eq!(summary["(unowned)"]["files"], 1);
+        assert!(summary["@web"]["grade"].is_string());
+    }
 }

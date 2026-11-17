@@ -312,6 +312,22 @@ impl<'a> Report<'a> {
         ranked
     }
 
+    /// The owners of one file, empty when the project has no CODEOWNERS file or no rule
+    /// names the file.
+    pub fn owners_of(&self, file: &str) -> Vec<&'a str> {
+        self.outcome
+            .owners
+            .as_ref()
+            .map(|owners| owners.owners_of(file))
+            .unwrap_or_default()
+    }
+
+    /// Each owner's files and health over what this report covers, worst first. Empty
+    /// when the project has no CODEOWNERS file.
+    pub fn owner_rows(&self) -> Vec<crate::ownership::OwnerRow> {
+        crate::ownership::table(self.outcome, self.files)
+    }
+
     pub fn health(&self) -> u32 {
         self.outcome
             .counts
@@ -515,6 +531,7 @@ pub mod tests {
             stats: Default::default(),
             git_commands: Vec::new(),
             config_files: Vec::new(),
+            owners: None,
             omitted: 0,
             code_lines: 10_000,
             files_scanned,

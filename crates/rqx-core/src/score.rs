@@ -89,6 +89,18 @@ impl FindingCounts {
             .sum()
     }
 
+    /// The weighted total of some files alone, on the same terms as `weighted_total`:
+    /// what a group of files contributes to the score, before the curve.
+    pub fn weighted_in<'a>(&self, files: impl Iterator<Item = &'a str>, impact: &ImpactMap) -> f64 {
+        files
+            .filter_map(|file| {
+                self.weighted_by_file
+                    .get(file)
+                    .map(|weight| weight * impact.get(file).multiplier())
+            })
+            .sum()
+    }
+
     /// These counts with some findings removed. The inverse of `record`, for asking
     /// what a project would look like after the work rather than before it.
     pub fn without<'a>(&self, gone: impl Iterator<Item = &'a Finding>) -> Self {
@@ -288,6 +300,20 @@ mod tests {
         // not a repository in trouble.
         let score = counts.health_score(45);
         assert!(score > 80, "3 warnings in 45 lines scored {score}");
+    }
+
+    #[test]
+    fn the_weight_of_some_files_adds_up_to_the_weight_of_all_of_them() {
+        let mut counts = FindingCounts::default();
+        for _ in 0..3 {
+            counts.record(&finding(Severity::Warning, Confidence::Heuristic));
+        }
+        let impact = ImpactMap::default();
+        let whole = counts.weighted_total(&impact);
+
+        assert_eq!(counts.weighted_in(["a.ts"].into_iter(), &impact), whole);
+        assert_eq!(counts.weighted_in(["b.ts"].into_iter(), &impact), 0.0);
+        assert_eq!(counts.weighted_in(std::iter::empty(), &impact), 0.0);
     }
 
     #[test]

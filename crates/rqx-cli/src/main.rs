@@ -30,6 +30,7 @@ mod listed;
 mod lsp;
 mod mcp;
 mod migrate;
+mod ownership;
 mod path_suffixes;
 mod perf;
 mod plan;
