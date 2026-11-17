@@ -31,6 +31,13 @@ pub enum Scope<'a> {
 }
 
 impl Scope<'_> {
+    fn covers(&self, file: &str) -> bool {
+        match self {
+            Self::Project => true,
+            Self::Files(files) => files.contains(file),
+        }
+    }
+
     fn files<'s>(&'s self, outcome: &'s ScanOutcome) -> &'s BTreeSet<String> {
         match self {
             Self::Project => &outcome.analyzed,
@@ -50,8 +57,8 @@ struct Checks {
 }
 
 /// Today's behaviour, written down. A project gate keeps its grade, half applied and
-/// ratchet checks when `fail_on` is `never`; a review turns every check off with it
-/// and never runs the last two at all.
+/// ratchet checks when `fail_on` is `never`; a review turns severity, health and
+/// grade off with it.
 fn checks(scope: &Scope<'_>, gate: &Gate) -> Checks {
     let counts_severity = threshold(gate).is_some();
     match scope {
@@ -66,8 +73,8 @@ fn checks(scope: &Scope<'_>, gate: &Gate) -> Checks {
             severity: counts_severity,
             health: counts_severity,
             grade: counts_severity,
-            incomplete: false,
-            ratchet: false,
+            incomplete: true,
+            ratchet: true,
         },
     }
 }
@@ -92,7 +99,7 @@ pub fn judge(outcome: &ScanOutcome, scope: Scope<'_>, config: &RqxConfig) -> Ver
         failures.extend(grade_failure(outcome, scope.files(outcome), gate));
     }
     if checks.incomplete {
-        failures.extend(half_applied(outcome, gate));
+        failures.extend(half_applied(outcome, &scope, gate));
     }
     if checks.ratchet {
         failures.extend(ratchet(outcome, gate));
@@ -121,11 +128,11 @@ fn tally(outcome: &ScanOutcome, scope: &Scope<'_>, threshold: Severity) -> (u32,
             let counted = at_or_above(&outcome.counts.new_by_severity);
             (counted, total - counted)
         }
-        Scope::Files(files) => {
+        Scope::Files(_) => {
             let reviewed: Vec<_> = outcome
                 .findings
                 .iter()
-                .filter(|finding| files.contains(finding.location.file.as_ref()))
+                .filter(|finding| scope.covers(&finding.location.file))
                 .filter(|finding| finding.severity >= threshold)
                 .collect();
             // With a baseline, the gate is about what this change added; without one,
@@ -176,7 +183,9 @@ fn health_failure(outcome: &ScanOutcome, gate: &Gate) -> Option<String> {
 }
 
 /// A baseline says which debt is tolerated. The ratchet says it may not grow, which
-/// is the difference between recording debt and accepting it.
+/// is the difference between recording debt and accepting it. The baseline records
+/// one number for the project, so a review compares the project's total too: debt
+/// that grew anywhere is debt the ratchet exists to stop.
 fn ratchet(outcome: &ScanOutcome, gate: &Gate) -> Option<String> {
     let recorded = gate.ratchet.then_some(outcome.baseline_size).flatten()?;
     let total = outcome.counts.total;
@@ -191,8 +200,9 @@ fn ratchet(outcome: &ScanOutcome, gate: &Gate) -> Option<String> {
 
 /// The one route from advice to an exit code, and only for the stance that names
 /// something broken. A recognised pattern is inventory and one that would merely fit
-/// is a suggestion; failing a build on either would make the gate meaningless.
-fn half_applied(outcome: &ScanOutcome, gate: &Gate) -> Option<String> {
+/// is a suggestion; failing a build on either would make the gate meaningless. A
+/// review answers for the patterns in the files it names, not for the whole tree.
+fn half_applied(outcome: &ScanOutcome, scope: &Scope<'_>, gate: &Gate) -> Option<String> {
     if !gate.fail_on_incomplete {
         return None;
     }
@@ -200,6 +210,7 @@ fn half_applied(outcome: &ScanOutcome, gate: &Gate) -> Option<String> {
         .advice
         .iter()
         .filter(|advice| advice.advisory.stance() == rqx_core::Stance::Incomplete)
+        .filter(|advice| scope.covers(&advice.location.file))
         .map(|advice| advice.advisory.pattern().name())
         .collect();
     if broken.is_empty() {
@@ -414,22 +425,14 @@ mod gates {
                 ..all()
             }
         );
-        assert_eq!(
-            table(Scope::Files(&files), Error),
-            Checks {
-                incomplete: false,
-                ratchet: false,
-                ..all()
-            }
-        );
+        assert_eq!(table(Scope::Files(&files), Error), all());
         assert_eq!(
             table(Scope::Files(&files), Never),
             Checks {
                 severity: false,
                 health: false,
                 grade: false,
-                incomplete: false,
-                ratchet: false,
+                ..all()
             }
         );
     }
@@ -586,29 +589,53 @@ mod gates {
                 known: 0,
             },
             Case {
-                // pinned: known gap, fixed in 0.3.0 (A9–A11)
-                name: "a review ignores a half applied pattern",
+                name: "a review fails on a half applied pattern in a file it names",
                 gate: Gate {
                     fail_on_incomplete: true,
                     max_findings: 10,
                     ..gate(Error, 0, NoGrade)
                 },
                 tweak: with_half_applied_pattern,
-                failures: &[],
+                failures: &["1 pattern half applied: Decorator"],
                 counted: 10,
                 known: 0,
             },
             Case {
-                // pinned: known gap, fixed in 0.3.0 (A9–A11)
-                name: "a review ignores the ratchet",
+                name: "a review enforces the ratchet",
                 gate: Gate {
                     ratchet: true,
                     max_findings: 10,
                     ..gate(Error, 0, NoGrade)
                 },
                 tweak: with_baseline_of_five,
-                failures: &[],
+                failures: &[
+                    "12 findings against the 5 the baseline recorded; remove 7 or run `rqx baseline --update`",
+                ],
                 counted: 10,
+                known: 0,
+            },
+            Case {
+                name: "a review holds a half applied pattern when fail_on is never",
+                gate: Gate {
+                    fail_on_incomplete: true,
+                    ..gate(Never, 0, NoGrade)
+                },
+                tweak: with_half_applied_pattern,
+                failures: &["1 pattern half applied: Decorator"],
+                counted: 0,
+                known: 0,
+            },
+            Case {
+                name: "a review holds the ratchet when fail_on is never",
+                gate: Gate {
+                    ratchet: true,
+                    ..gate(Never, 0, NoGrade)
+                },
+                tweak: with_baseline_of_five,
+                failures: &[
+                    "12 findings against the 5 the baseline recorded; remove 7 or run `rqx baseline --update`",
+                ],
+                counted: 0,
                 known: 0,
             },
         ];
@@ -651,6 +678,25 @@ mod gates {
             [HEALTH],
             "health is the whole project's, whichever files were reviewed"
         );
+    }
+
+    #[test]
+    fn a_review_answers_only_for_the_patterns_in_its_files() {
+        let mut outcome = scenario();
+        with_half_applied_pattern(&mut outcome);
+        let config = config(Gate {
+            fail_on_incomplete: true,
+            ..gate(Never, 0, NoGrade)
+        });
+
+        let in_the_review = reviewing(outcome, &["ok.ts"]);
+        assert_eq!(
+            judge_review(&in_the_review, &config).failures,
+            ["1 pattern half applied: Decorator"]
+        );
+
+        let elsewhere = reviewing(in_the_review.outcome, &["bad.ts"]);
+        assert!(judge_review(&elsewhere, &config).passed());
     }
 
     #[test]

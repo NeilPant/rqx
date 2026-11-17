@@ -234,7 +234,8 @@ history you inherited.
 pattern advice reaches an exit code. It sees the half-applied stance and nothing else:
 a decorator that cannot substitute for what it wraps, a subscribe with no unsubscribe.
 A pattern that is merely in use, or would merely fit, can never fail a run, and none
-of the advice moves the health score in any configuration.
+of the advice moves the health score in any configuration. `rqx check` and
+`rqx comment` apply it to the files they review; `rqx scan` applies it to all of them.
 
 ## Commenting on the merge request
 

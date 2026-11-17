@@ -40,6 +40,14 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Fixed
 
+- **`check` and `comment` honour `ratchet` and `fail_on_incomplete`.** Both settings
+  were read only by `rqx scan`, so a pipeline that gated merge requests with
+  `rqx check` or `rqx comment` passed branches that grew the baseline's total or left
+  a design pattern half applied, however the gate was configured. A project with
+  `[gate] ratchet = true` or `fail_on_incomplete = true` that used to pass `check` now
+  fails when the total outgrows the baseline, or when a half applied pattern sits in a
+  file the review covers. The ratchet compares the project's total, because the
+  baseline records one number; the pattern check looks only at the reviewed files.
 - **Every `--group-by` ends with the summary and the gate.** Grouping by rule, family
   or severity stopped after the last group, so a gated run printed no summary and no
   `gate failed` line and the exit code was the only sign. `--stats` printed no gate
