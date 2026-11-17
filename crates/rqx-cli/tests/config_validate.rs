@@ -77,6 +77,75 @@ fn an_error_is_exit_two_and_names_the_line_and_column() {
 }
 
 #[test]
+fn a_cost_table_in_the_documented_shape_is_valid() {
+    let root = project(
+        "cost-table",
+        &[(
+            "rqx.yaml",
+            "performance:\n  max_order: O(n log n)\n  costs:\n    \
+             - {id: acme.contains, receiver: [AcmeQueue], method: contains, cost: n}\n    \
+             - {id: acme.size, receiver: [AcmeQueue], method: size, cost: 1}\n\
+             gate:\n  complexity_regression: warning\n",
+        )],
+    );
+    let output = rqx(&root, &["config", "validate"]);
+    assert_eq!(code(&output), 0, "{output:?}");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_max_order_that_is_not_an_order_is_an_error_at_its_line() {
+    let root = project(
+        "max-order",
+        &[("rqx.yaml", "performance:\n  max_order: quadratic\n")],
+    );
+    let output = rqx(&root, &["config", "validate"]);
+    assert_eq!(code(&output), 2, "{output:?}");
+    let report = stdout(&output);
+    assert!(
+        report.starts_with("rqx.yaml:2:14: error: `quadratic` is not an order"),
+        "{report}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_unknown_regression_gate_is_an_error_at_its_line() {
+    let root = project(
+        "regression-gate",
+        &[("rqx.yaml", "gate:\n  complexity_regression: loud\n")],
+    );
+    let output = rqx(&root, &["config", "validate"]);
+    assert_eq!(code(&output), 2, "{output:?}");
+    assert!(
+        stdout(&output).starts_with("rqx.yaml:2:"),
+        "{}",
+        stdout(&output)
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_cost_entry_that_names_no_call_is_an_error_in_the_file() {
+    let root = project(
+        "cost-entry",
+        &[(
+            "rqx.yaml",
+            "performance:\n  costs:\n    - {id: a, cost: n}\n",
+        )],
+    );
+    let output = rqx(&root, &["config", "validate"]);
+    assert_eq!(code(&output), 2, "{output:?}");
+    let report = stdout(&output);
+    assert!(
+        report.contains("`a` names neither a `method` nor an `fn`"),
+        "{report}"
+    );
+    assert!(report.starts_with("rqx.yaml:"), "{report}");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn a_retired_toml_file_is_an_error_that_points_at_the_migration() {
     let root = project("retired", &[("RQX.toml", "[gate]\nfail_on = \"info\"\n")]);
     let output = rqx(&root, &["config", "validate"]);

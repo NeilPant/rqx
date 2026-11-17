@@ -210,6 +210,10 @@ gate:
   # what it wraps, a subscribe with no unsubscribe. The only way pattern advice reaches
   # an exit code; nothing else under `patterns` can.
   fail_on_incomplete: false
+  # What a function whose time or space order grew against the base revision does to
+  # the verdict of `rqx check`: off, warning, error. Not read yet; the complexity
+  # regression check is not implemented.
+  complexity_regression: off
 
 fix:
   # Which mechanical fixes `rqx fix` may apply: autofix kinds (deletion, rewrite) or
@@ -228,6 +232,16 @@ performance:
   # vocabulary, never replacing it. One segment per entry: no dots, no spaces.
   receivers: []
   methods: []
+  # How much a library call costs, for the calls the built-in cost tables do not list.
+  # Each entry names a call by `receiver` and `method`, or by `fn`, and gives its time
+  # as `cost` (1, log n, n, n log n, n^2, n*m; n is the receiver's size, m the first
+  # argument's). Not read yet; the cost analysis is not implemented.
+  # costs:
+  #   - {id: acme.queue.contains, receiver: [AcmeQueue], method: contains, cost: n}
+  costs: []
+  # The largest time order a reviewed function may have, such as O(n log n). Unset means
+  # no limit. Not read yet; the complexity regression check is not implemented.
+  # max_order: O(n log n)
 
 architecture:
   # The direction dependencies may point. `layers` is ordered inner to outer: a file

@@ -122,6 +122,10 @@ pub struct FileAnalysis {
     /// old a note is can only be answered by the repository.
     #[serde(default)]
     pub todos: Vec<rqx_core::facts::Spot>,
+    /// What the file's functions cost, for the complexity analysis to compose across
+    /// files. Empty until the extraction exists.
+    #[serde(default)]
+    pub cost: rqx_core::cost::FileCost,
 }
 
 #[derive(Debug)]
@@ -552,6 +556,7 @@ pub fn analyze_as(
         shape,
         suppressions: hygiene.waivers,
         todos: hygiene.todos,
+        cost: rqx_core::cost::FileCost::default(),
     })
 }
 

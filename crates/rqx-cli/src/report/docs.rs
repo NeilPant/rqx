@@ -712,6 +712,27 @@ fn configuration_page() -> String {
          `gate.owners` sets a health floor and a severity limit for each owner named in a \
          CODEOWNERS file. See [ownership.md](ownership.md). `comment.mention_owners` makes \
          `rqx comment` write those owners as real mentions.\n\n\
+         `gate.complexity_regression` takes `off` (the default), `warning` or `error`. It will \
+         set what a function whose time or space order grew against the base revision does to \
+         the verdict of `rqx check`. The key is validated and not yet read.\n\n\
+         ## Performance cost settings\n\n\
+         `performance.receivers` and `performance.methods` add names to the vocabulary of the \
+         I/O rules. Two further keys belong to the complexity analysis. They are validated when \
+         the config loads and are not yet read by any rule or report.\n\n\
+         ```yaml\n\
+         performance:\n\
+         \x20 max_order: O(n log n)\n\
+         \x20 costs:\n\
+         \x20   - {id: acme.contains, receiver: [AcmeQueue], method: contains, cost: n}\n\
+         \x20   - {id: acme.merge, fn: acme::merge, size_of: arg0.receiver, cost: n*m}\n\
+         ```\n\n\
+         `max_order` is the largest time order a reviewed function may have. It is written as \
+         `O(1)`, `O(log n)`, `O(n)`, `O(n log n)`, `O(n^2)`, `O(n^3)`, `O(n*m)` or `exp`, and an \
+         unset value means no limit. `costs` lists library calls the built-in cost tables do not \
+         know. An entry names the call with `receiver` and `method`, or with `fn`, and gives its \
+         `cost` in the same notation, where `n` is the size of the receiver and `m` the size of \
+         the first argument. `space`, `size_of`, `when` and `pure` are optional. `id` must be \
+         unique, and a value that is not an order is an error with its line and column.\n\n\
          ## Design pattern advice\n\n\
          `patterns` decides which of the twenty-three Gang of Four patterns rqx reports \
          on. It can be addressed four ways: by advisory, when one claim does not apply to the \

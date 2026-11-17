@@ -1,5 +1,6 @@
 pub mod advice;
 pub mod config;
+pub mod cost;
 pub mod coverage;
 pub mod edit;
 pub mod facts;
