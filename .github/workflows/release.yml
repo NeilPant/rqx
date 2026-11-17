@@ -304,7 +304,7 @@ jobs:
   # variable on publishes something that has already been checked.
   npm:
     needs: [check, publish]
-    if: github.event_name == 'workflow_dispatch' || vars.PUBLISH_NPM == 'true'
+    if: github.ref_type != 'tag' || vars.PUBLISH_NPM == 'true'
     runs-on: ubuntu-latest
     environment: npm
     permissions:
