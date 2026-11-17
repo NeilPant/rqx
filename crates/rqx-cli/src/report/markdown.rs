@@ -185,6 +185,7 @@ pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
             health_change(credit)
         )?;
     }
+    write_owners_to_notify(&mut out, report)?;
 
     // Folded, because a merge request is a conversation and this is one voice in it.
     writeln!(out, "<details><summary>What it found</summary>\n")?;
@@ -195,6 +196,25 @@ pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
         writeln!(out, "\n<sub>[Full report]({job})</sub>")?;
     }
     Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
+/// Who to look at the findings, by the CODEOWNERS file, written as plain mentions so
+/// the forge notifies them as it would for a review request.
+fn write_owners_to_notify(out: &mut Vec<u8>, report: &Report<'_>) -> Result<()> {
+    let owners = report.owners_of_new_findings();
+    if owners.is_empty() {
+        return Ok(());
+    }
+    let named: Vec<String> = owners
+        .iter()
+        .map(|(owner, count)| format!("{owner} ({})", plural(*count, "finding", "findings")))
+        .collect();
+    writeln!(
+        out,
+        "Owners of files with new findings: {}.\n",
+        named.join(", ")
+    )?;
+    Ok(())
 }
 
 /// One line for a commit status, which has a hard limit and no markdown.
@@ -238,5 +258,28 @@ mod tests {
             !classification(&report).contains('\n'),
             "a commit status is one line"
         );
+        assert!(!body.contains("Owners of files"), "no CODEOWNERS file");
+    }
+
+    #[test]
+    fn the_comment_names_the_owners_of_files_with_new_findings() {
+        let mut outcome = crate::report::tests::outcome_with(
+            &[("web/a.ts", Severity::Error), ("web/b.ts", Severity::Info)],
+            3,
+        );
+        outcome.owners = Some(rqx_core::ownership::CodeOwners::parse(
+            "web/ @web\nweb/b.ts @web @lead\n",
+            rqx_core::ownership::Dialect::GitHub,
+        ));
+        outcome.findings[1].known = true;
+        let filter = crate::report::FindingFilter::default();
+        let report = Report::scan(&outcome, &filter);
+        let body = comment(&report, None).expect("a comment");
+
+        assert!(
+            body.contains("Owners of files with new findings: @web (1 finding)."),
+            "{body}"
+        );
+        assert!(!body.contains("@lead"), "only a known finding: {body}");
     }
 }

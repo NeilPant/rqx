@@ -331,6 +331,21 @@ impl<'a> Report<'a> {
         crate::ownership::table(self.outcome, &self.outcome.analyzed)
     }
 
+    /// The owners of files that carry findings a baseline does not already hold, with how
+    /// many each owner has, most first. A file with several owners counts for each of
+    /// them; a file no rule names is left out, since there is no one to tell.
+    pub fn owners_of_new_findings(&self) -> Vec<(&'a str, u32)> {
+        let mut counts: BTreeMap<&'a str, u32> = BTreeMap::new();
+        for finding in self.findings.iter().filter(|finding| !finding.known) {
+            for owner in self.owners_of(&finding.location.file) {
+                *counts.entry(owner).or_default() += 1;
+            }
+        }
+        let mut owners: Vec<(&'a str, u32)> = counts.into_iter().collect();
+        owners.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(right.0)));
+        owners
+    }
+
     pub fn health(&self) -> u32 {
         self.outcome
             .counts
