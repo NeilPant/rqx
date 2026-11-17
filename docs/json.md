@@ -43,6 +43,8 @@ The summary line has `"kind": "summary"` and:
 | `resolved_scope` | Present with `resolved`: `project` when the base was scanned whole, `changed-files` when the credit covers only the findings one file's analysis produces in the files the change touched |
 | `health_delta` | Present when `resolved_scope` is `project`: the health score after the change minus the score at the base |
 | `owners` | Present when the project has a CODEOWNERS file: per owner, `files`, `findings`, `health` and `grade`. See [ownership.md](ownership.md) |
+| `regressions` | Present for `rqx check` when `gate.complexity_regression` is not `off` or `--regressions` was passed: the functions whose time order grew against the base revision, each as `{ "file", "qual", "line", "before", "after", "trace" }`. `qual` is the function's name qualified by its class, `before` and `after` are orders such as `O(n)` and `O(n²)`, and `trace` is a list of `{ "file", "line", "what", "order" }` steps from the dominant loop or call down to the cost. Empty when `regressions_skipped` is present. See [ci.md](ci.md#complexity-regressions) |
+| `regressions_skipped` | Present with `regressions` when no comparison could be made, with the reason as a string |
 
 `gate` is present for a scan only when the run was gated by a flag (`--fail-on`,
 `--allow-findings`, `--min-health`, `--min-grade` or `--fail-on-incomplete`), and

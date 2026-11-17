@@ -555,10 +555,11 @@ pub struct Gate {
     /// that owner answers for. Needs a CODEOWNERS file; the verdict names each owner
     /// that fell short.
     pub owners: BTreeMap<String, OwnerGate>,
-    /// What a function whose time or space order grew against the base revision does
-    /// to the verdict of `rqx check`: nothing (`off`), a warning, or a failure. Read
-    /// by the complexity regression check, which is not implemented yet, so the value
-    /// is validated and otherwise unused.
+    /// What a function whose time order grew against the base revision does to the
+    /// verdict of `rqx check`: nothing (`off`), a report that does not fail the run
+    /// (`warning`), or a failure (`error`). Anything but `off` also makes `rqx check`
+    /// and `rqx comment` compare against the base revision, which `--regressions` does
+    /// for one run.
     pub complexity_regression: RegressionGate,
 }
 
@@ -1149,8 +1150,7 @@ pub struct Performance {
     #[serde(deserialize_with = "cost_entries")]
     pub costs: Vec<CostEntry>,
     /// The largest time order a reviewed function may have, such as `O(n log n)`.
-    /// Unset means no limit. Read by the complexity regression check, which is not
-    /// implemented yet, so the value is validated and otherwise unused.
+    /// Unset means no limit. A function in the reviewed files above it fails the run.
     #[serde(deserialize_with = "optional_order")]
     pub max_order: Option<String>,
 }

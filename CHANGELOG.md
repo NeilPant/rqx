@@ -9,6 +9,31 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **Complexity regressions in `rqx check` and `rqx comment`.** A function whose time
+  order grew against the base revision is reported with its orders before and after, such
+  as `reconcileBatch  O(n) → O(n²)`, and the trace that explains it. A caller that nobody
+  edited is reported when a function it calls got slower. The base revision is not
+  scanned: only the files the change touched are read as they were at the base, and the
+  rest reuse the facts of the scan. A renamed function is new, not a regression. The check
+  runs when `gate.complexity_regression` is `warning` or `error`, or for one run with the
+  new `--regressions` flag; with neither, no output changes. The regressions appear as a
+  `Complexity` row in the terminal summary, as a `Complexity regressions` section in the
+  merge request comment, as a `regressions` array on the JSON summary line, and as
+  `complexity-regression` results in SARIF. See `docs/ci.md`.
+- **`gate.complexity_regression: error` and `performance.max_order` now gate.** `error`
+  fails `rqx check` when any function got slower, and the verdict names the functions.
+  `max_order` fails a review that holds a function in the reviewed files with a time order
+  above the limit. Costs the analysis marks `unknown` are not counted.
+
+### Fixed
+
+- **`rqx init` wrote a configuration that did not load.** The template sets
+  `gate.complexity_regression: off`, which YAML reads as the boolean `false`, and the
+  setting refused it with "expected string or map". The boolean `false` is now read as
+  `off`.
+
 ## 0.4.0 — 2026-11-17
 
 ### Added
