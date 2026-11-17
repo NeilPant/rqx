@@ -36,6 +36,7 @@ use rqx_core::span::Span;
 use rqx_core::{Language, rules};
 use tree_sitter::Node;
 
+use crate::cost::tables::CostTables;
 use crate::module_graph::Resolver;
 use crate::profile::LanguageProfile;
 
@@ -125,7 +126,7 @@ pub struct FileAnalysis {
     #[serde(default)]
     pub todos: Vec<rqx_core::facts::Spot>,
     /// What the file's functions cost, for the complexity analysis to compose across
-    /// files. Empty until the extraction exists.
+    /// files.
     #[serde(default)]
     pub cost: rqx_core::cost::FileCost,
 }
@@ -287,8 +288,26 @@ pub fn analyze(
     source: &str,
     config: &RqxConfig,
 ) -> Result<FileAnalysis, AnalysisError> {
+    analyze_with(
+        path,
+        display,
+        source,
+        config,
+        &CostTables::for_performance(&config.performance),
+    )
+}
+
+/// As [`analyze`], for a caller that already holds the cost tables for the project, so
+/// that a scan of thousands of files builds them once.
+pub fn analyze_with(
+    path: &Path,
+    display: &str,
+    source: &str,
+    config: &RqxConfig,
+    tables: &CostTables,
+) -> Result<FileAnalysis, AnalysisError> {
     let language = Language::of_path(path).ok_or(AnalysisError::UnsupportedFile)?;
-    analyze_as(language, display, source, config)
+    analyze_as_with(language, display, source, config, tables)
 }
 
 pub fn analyze_as(
@@ -296,6 +315,22 @@ pub fn analyze_as(
     display: &str,
     source: &str,
     config: &RqxConfig,
+) -> Result<FileAnalysis, AnalysisError> {
+    analyze_as_with(
+        language,
+        display,
+        source,
+        config,
+        &CostTables::for_performance(&config.performance),
+    )
+}
+
+pub fn analyze_as_with(
+    language: Language,
+    display: &str,
+    source: &str,
+    config: &RqxConfig,
+    tables: &CostTables,
 ) -> Result<FileAnalysis, AnalysisError> {
     let support = support(language);
     let profile = support.profile;
@@ -380,6 +415,17 @@ pub fn analyze_as(
             },
         ),
     };
+
+    let cost = cost::extract(
+        profile,
+        source,
+        root,
+        &cost::Inputs {
+            tables,
+            performance: &config.performance,
+            module: deep.then_some(&module),
+        },
+    );
 
     // An exported binding has a reader this file cannot see, and whether that reader
     // exists is the module graph's question, not this one's.
@@ -558,7 +604,7 @@ pub fn analyze_as(
         shape,
         suppressions: hygiene.waivers,
         todos: hygiene.todos,
-        cost: rqx_core::cost::FileCost::default(),
+        cost,
     })
 }
 
