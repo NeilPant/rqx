@@ -81,6 +81,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   and about 3% more peak memory on a synthetic 4,400-file corpus. It is the `mimalloc`
   cargo feature, on by default; `cargo install rqx --no-default-features` builds with
   the system allocator.
+- **Bare `rqx` opens an inline session instead of the full-screen interface.** It
+  scans the working directory, prints a header and the worst findings into your
+  terminal's own scrollback, and keeps a prompt at the bottom. Nothing takes over the
+  screen or captures the mouse, so selecting and scrolling work as usual and what it
+  printed is still there after you exit. It needs a window of at least 50x14; a
+  smaller one, a pipe, CI or `--no-tui` still gets the plain scan. `--no-mouse` is
+  still accepted and does nothing.
 
 ### Fixed
 

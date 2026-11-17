@@ -29,6 +29,12 @@ impl Motion {
         self.reduced
     }
 
+    /// Time since the clock started, which is what anything that keeps its own schedule
+    /// (a blink every few seconds) measures itself against.
+    pub fn elapsed(&self) -> Duration {
+        self.started.elapsed()
+    }
+
     /// Cubic ease-out over `over`, clamped to `0..=1`. With motion off everything is
     /// already finished, so a screen written against this draws its end state.
     pub fn eased(&self, since: Instant, over: Duration) -> f32 {

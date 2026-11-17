@@ -290,7 +290,7 @@ mod tests {
         assert_ne!(shown(&danger[0].spans[0]), shown(&good[0].spans[0]));
     }
 
-    const FRAMES: [&str; 2] = ["idle", "blink"];
+    const FRAMES: [&str; 4] = ["idle", "blink", "glance-left", "glance-right"];
 
     fn mascot() -> Sprite {
         Sprite::parse(include_str!("../../assets/mascot.txt"))
@@ -440,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn the_blink_is_the_only_difference_between_the_two_frames() {
+    fn the_blink_is_the_only_difference_between_idle_and_blink() {
         let sprite = mascot();
         assert_eq!(sprite.frames(), FRAMES.len());
         assert_eq!(sprite.width(), 12);
@@ -470,6 +470,42 @@ mod tests {
                 plain(&shut[row..=row]),
                 "cell row {row} moved during the blink"
             );
+        }
+    }
+
+    /// A glance moves the pupils inside irises that stay where they were: any other cell
+    /// changing would mean the face moved rather than the eyes.
+    #[test]
+    fn a_glance_moves_only_the_pupils() {
+        let sprite = mascot();
+        let palette = Palette::with_depth(ColorDepth::Truecolor);
+        let drawn =
+            |name: &str| sprite.render_frame(palette, sprite.frame(name), Ink::Danger, usize::MAX);
+        let idle = drawn("idle");
+        let pupil = palette.color(Ink::Ground);
+        let pupils = |rows: &[Line<'_>]| -> Vec<usize> {
+            rows[2]
+                .spans
+                .iter()
+                .enumerate()
+                .filter(|(_, span)| span.style.bg == Some(pupil))
+                .map(|(column, _)| column)
+                .collect()
+        };
+        assert_eq!(pupils(&idle), [2, 3, 8, 9]);
+        for (name, columns) in [
+            ("glance-left", [1, 2, 7, 8]),
+            ("glance-right", [3, 4, 9, 10]),
+        ] {
+            let looking = drawn(name);
+            assert_eq!(pupils(&looking), columns, "{name}");
+            for row in [0, 1, 4, 5] {
+                assert_eq!(
+                    plain(&idle[row..=row]),
+                    plain(&looking[row..=row]),
+                    "{name} moved cell row {row}"
+                );
+            }
         }
     }
 

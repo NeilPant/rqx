@@ -3,7 +3,7 @@
 | Page | What it covers |
 |---|---|
 | [cli.md](cli.md) | Every command and every flag, read off the parser |
-| [interface.md](interface.md) | The full-screen interface: when it opens, its nine tabs, the palette, and the mouse |
+| [interface.md](interface.md) | The interactive session: when it opens, its slash commands, the prompt and completion |
 | [configuration.md](configuration.md) | Every table in `rqx.yaml`, how the layers merge, levels, and per-subtree overrides |
 | [presets.md](presets.md) | `extends`, the built-in presets, and where they sit in the precedence |
 | [baseline.md](baseline.md) | Recording the debt a project already has, so a gate can judge only what a change adds |

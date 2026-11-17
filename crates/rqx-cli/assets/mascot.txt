@@ -1,4 +1,5 @@
-# rqx. An owl, seen head on. 12x12 pixels, two frames.
+# rqx. An owl, seen head on. 12x12 pixels, four frames: idle, blink, and the two glances
+# it makes while a scan runs.
 #
 # S the plumage, H its shade, T the iris, K the pupil.
 #
@@ -23,6 +24,9 @@
 #
 # The lid is the deliberate exception to cell alignment: it is a line, and which half of
 # the cell it sits in is what separates a blink from a squint.
+#
+# A glance moves only the pupils, one pixel to the side inside the same iris, and both
+# eyes look the same way. The irises stay put so the face does not shift under the look.
 #: idle
 .HH......HH.
 .HHH....HHH.
@@ -45,6 +49,32 @@ HSSSSSSSSSSH
 HHHHHSSHHHHH
 HSSSSHHSSSSH
 HSSSSHHSSSSH
+HSSSSHHSSSSH
+HSSSSSSSSSSH
+.HHHHHHHHHH.
+..HHHHHHHH..
+#: glance-left
+.HH......HH.
+.HHH....HHH.
+.HHSSSSSSHH.
+HSSSSSSSSSSH
+HTTTTSSTTTTH
+HKKTTSSKKTTH
+HKKTTHHKKTTH
+HTTTTHHTTTTH
+HSSSSHHSSSSH
+HSSSSSSSSSSH
+.HHHHHHHHHH.
+..HHHHHHHH..
+#: glance-right
+.HH......HH.
+.HHH....HHH.
+.HHSSSSSSHH.
+HSSSSSSSSSSH
+HTTTTSSTTTTH
+HTTKKSSTTKKH
+HTTKKHHTTKKH
+HTTTTHHTTTTH
 HSSSSHHSSSSH
 HSSSSSSSSSSH
 .HHHHHHHHHH.

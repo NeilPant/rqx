@@ -25,7 +25,7 @@ With \-\-fix, write the fixes. Without it nothing on disk changes
 Never open the interactive interface; bare `rqx` prints the report instead
 .TP
 \fB\-\-no\-mouse\fR
-Leave the mouse to the terminal. Capture takes drag\-select away from it, and not every emulator passes shift+drag through
+Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal

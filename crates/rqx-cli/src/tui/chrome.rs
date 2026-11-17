@@ -376,17 +376,7 @@ pub fn centred(area: Rect, width: u16, height: u16) -> Rect {
     }
 }
 
-pub fn thousands(value: u32) -> String {
-    let digits = value.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(digit);
-    }
-    out
-}
+pub use crate::session::text::thousands;
 
 #[cfg(test)]
 mod tests {

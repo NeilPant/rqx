@@ -155,7 +155,7 @@ The four most frequently used have one-letter aliases: `rqx s`, `rqx c`, `rqx f`
 `rqx v`. A twenty-ninth command fails the build until it is placed under a heading,
 so the list cannot quietly go back to being flat.
 
-Inside the interface the same list is `ctrl-p`, by name.
+Inside the interface the same list is `/help`.
 
 ## The report
 
@@ -862,80 +862,41 @@ a public address without `RQX_MCP_TOKEN` rather than exposing the source to a ne
 
 ## The interface
 
-`rqx` on its own opens a full-screen interface when it has a terminal to open it in.
-Piped, redirected, run under CI or given `--no-tui`, it scans the working directory
-instead, exactly as `rqx scan` would. `rqx scan` and every other subcommand always
-print their report.
+`rqx` on its own opens an interactive session when it has a terminal to open it in.
+Piped, redirected, run under CI, in a window smaller than 50 by 14 or given
+`--no-tui`, it scans the working directory instead, exactly as `rqx scan` would.
+`rqx scan` and every other subcommand always print their report.
 
-**It starts scanning before it draws the first frame**, so the project is on
-screen without a keypress. While it runs, the scan screen names the phase it is
-in — counting, scanning, duplicates, imports, history, co-change — ticks off the
-ones behind it with what each took, shows files done against files found, the
-rate in lines per second and what is left, a bar per language filling as files
-land, and the last few paths going past.
+The session lives at the bottom of your terminal. It uses no alternate screen and
+does not capture the mouse, so what it prints lands in your scrollback and stays
+there after you leave, and you select, search and scroll it with the terminal's own
+tools.
 
-| Tab | Shows |
-|---|---|
-| Overview | health, severity and grade distributions, what to open first |
-| Findings | every finding with the offending code marked, and the keys to filter, group, open, fix or waive it |
-| Files | one row per file, worst grade first, with churn and blast radius |
-| Complexity | every function it measured — `m` flips the same table to the bottlenecks |
-| Graph | the cycles as rings, then what imports what; `m` for cycles only |
-| Health | which family the score is losing to and what removing it would buy; `m` flips to slop |
-| Plan | the work ranked by what it buys against what it costs, with a budget |
-| Patterns | which design patterns are in use, which are half applied, and where one would fit |
-| Rules | the catalogue, searchable, with each rule's family, metric, fix and why |
+It scans as it opens. While it works, the owl glances left and right beside the
+phase and the files done; when the scan lands, a header and the worst findings go
+into scrollback and the owl settles into the colour of the verdict and blinks. The
+status line shows health, grade, findings, watch state and cache hits.
 
-**The mouse works.** The wheel scrolls, a click selects a row, a second click on
-it opens it, and the tab bar and the key hints along the bottom are buttons — a
-hint sends the key it names, so there is nothing to learn twice.
+**A slash command is the command line's command.** `/plan --budget 20` is parsed by
+the same definition as `rqx plan --budget 20`, runs on the scan the session already
+holds, and prints through the same functions, so the two cannot differ. Text with no
+slash searches the findings.
 
-Capture is the cost: while it is on, dragging selects nothing, because the
-terminal is handing the drag to rqx. Most emulators pass `shift`+drag through to
-their own selection. `--no-mouse` turns capture off for a session if yours does
-not.
+```
+> /plan --budget 20
+> /findings --severity error --group-by rule
+> dead export
+```
 
-**`ctrl-p` opens the palette.** Type a few letters of anything — a tab, a
-command, a file in the scan, a rule to explain — and it is the first row. It is
-how `complexity` gets found without reading the list at all.
-`recommend`, `suppressions`, `techniques` and `levels` open in a reading pane
-through the same functions the command line calls.
+Typing `/` opens a completion menu: command names, then that command's flags, then
+the values a flag takes, which are rule slugs, families, files from the scan or the
+choices the flag lists. `tab` accepts, `esc` closes. The line edits with the arrow
+keys, `home`, `end`, `ctrl-u` and `ctrl-w`; `↑` and `↓` walk a history that is kept
+per user outside the repository. `/rescan` scans again, `/clear` clears the screen,
+`/help` lists the commands, and `/exit`, `ctrl-d` or `ctrl-c` twice leaves.
 
-**The palette is also the map.** Opened with nothing typed, it is the whole list
-under five headings — **Analyse**, **Browse**, **Report**, **Set up** and
-**Session** — and flattens into ranked matches as soon as anything is typed. There is no
-separate menu to keep in step with it. Set up is the three commands that write a
-file — `rqx.yaml`, a baseline, clearing the cache — kept under a heading of their
-own and each saying what it did on the footer line.
-
-**One key, one meaning.** `/` searches, `f` filters by rule, family and path in
-the same spelling the flags take, `>` raises the severity floor, `g` groups, `s`
-sorts, `m` flips the screen's other mode, `enter` opens. A screen says what its
-own version acts on — `mode · slop`, `mode · cycles only` — and a test holds
-every screen to it.
-
-`tab` cycles the nine tabs and `1`–`9` jump to one; `r` scans, `w` watches and
-re-analyses on every save, `,` opens the settings, `?` lists the keys of the
-current screen, `q` leaves and prints what the session found. Those are
-answered everywhere, so no screen claims them and the `?` overlay adds them once
-— which it did not before, leaving `r` and `w` bound and documented nowhere.
-
-`esc` steps back through the navigation history and quits at the root.
-
-`enter` on a finding opens it in `$EDITOR` at its line and returns on exit; `enter` on a file, a function, a ranked item or a module shows that file's
-findings. `a` proves the fixes for a file and shows what they would change, `y`
-writes them, and `x` waives the selected finding once a reason is given. After
-either, only the file that changed is re-analysed — the cross-file stage still
-runs over everything, so the answer is the one a full scan would give.
-
-A tab opened before a scan says what it will hold rather than refusing to open.
-It animates only while something is moving — a still screen blocks on input and
-costs nothing to leave open; `--motion off` stops the movement without losing
-anything the screen says. Raw mode, the alternate screen and mouse capture come
-off on a normal exit, an error, and a panic.
-
-[docs/interface.md](docs/interface.md) has every key, every tab and the rules for
-when it opens.
+`--motion off` draws the owl still. [docs/interface.md](docs/interface.md) has the
+commands, the keys and the rules for when it opens.
 
 ## CI
 

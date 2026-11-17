@@ -13,6 +13,8 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragra
 
 use crate::brand::{Ink, Palette};
 
+use crate::session::fuzzy::score;
+
 use super::app::{Nav, Page, Session, Tab, Task, is_press, row_at, wheel};
 use super::chrome::centred;
 
@@ -429,28 +431,6 @@ impl CommandPalette {
     }
 }
 
-/// A subsequence match, ranked by how tightly the letters sit together and how early
-/// they start. Not a full fuzzy scorer: the labels are short, and "cplx" reaching
-/// Complexity is the whole requirement.
-fn score(label: &str, typed: &str) -> Option<usize> {
-    if typed.is_empty() {
-        return Some(0);
-    }
-    let label = label.to_lowercase();
-    if let Some(at) = label.find(typed) {
-        return Some(at);
-    }
-    let mut rank = 0;
-    let mut last = None;
-    let mut haystack = label.char_indices();
-    for wanted in typed.chars() {
-        let at = haystack.find(|(_, character)| *character == wanted)?.0;
-        rank += at - last.unwrap_or(0) + 1;
-        last = Some(at);
-    }
-    Some(rank + label.len())
-}
-
 fn trim(text: &str, width: usize) -> String {
     if text.chars().count() <= width {
         return text.to_owned();
@@ -459,30 +439,4 @@ fn trim(text: &str, width: usize) -> String {
         .take(width.saturating_sub(1))
         .collect::<String>()
         + "\u{2026}"
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_prefix_beats_a_scattered_match() {
-        let prefix = score("complexity", "com").expect("a match");
-        let scattered = score("cross-module", "com").expect("a match");
-        assert!(prefix < scattered, "{prefix} !< {scattered}");
-    }
-
-    #[test]
-    fn the_letters_of_a_word_reach_it_in_order() {
-        assert!(score("complexity", "cplx").is_some());
-        assert!(
-            score("complexity", "xlpc").is_none(),
-            "order does not matter"
-        );
-    }
-
-    #[test]
-    fn nothing_typed_matches_everything_equally() {
-        assert_eq!(score("anything", ""), Some(0));
-    }
 }

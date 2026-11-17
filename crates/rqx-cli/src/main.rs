@@ -6,7 +6,6 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint};
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
-use rqx_core::rule::RuleId;
 
 mod baseline;
 mod brand;
@@ -34,12 +33,16 @@ mod project;
 mod query;
 mod recommend;
 mod release;
+mod render;
 mod report;
 mod scan;
+mod session;
 mod setup;
 mod slop;
 mod stats;
 mod term;
+// The full-screen interface is no longer opened by anything; a later change deletes it.
+#[allow(dead_code)]
 mod tui;
 mod update;
 mod verify;
@@ -77,9 +80,10 @@ pub struct Cli {
     /// Never open the interactive interface; bare `rqx` prints the report instead
     #[arg(long, global = true)]
     no_tui: bool,
-    /// Leave the mouse to the terminal. Capture takes drag-select away from it, and
-    /// not every emulator passes shift+drag through.
+    /// Leave the mouse to the terminal. The session never captures it; the flag is
+    /// still accepted so an existing invocation keeps working.
     #[arg(long, global = true)]
+    #[allow(dead_code)]
     no_mouse: bool,
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
     #[arg(long, value_enum, default_value_t = Color::Auto, global = true)]
@@ -1241,14 +1245,7 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
         }
         return Ok(());
     }
-    // Held back so rendering can be timed and still printed beneath the stages it
-    // is one of, which come above the report.
-    let mut held = Vec::new();
-    let rendering = std::time::Instant::now();
-    for sink in sinks {
-        write_sink(report, sink, view, palette, &mut held)?;
-    }
-    let render = rendering.elapsed().as_millis();
+    let (held, render) = render_held(report, sinks, view, palette)?;
     report::timings(
         report.outcome,
         &[("render", render)],
@@ -1257,6 +1254,37 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     )?;
     anstream::stdout().lock().write_all(&held)?;
     Ok(())
+}
+
+/// The timed report into one writer, stages first, for a caller whose output is
+/// never a document, such as the session's scrollback.
+fn emit_timed(
+    report: &Report<'_>,
+    sinks: &[Sink],
+    view: &View,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let (held, render) = render_held(report, sinks, view, palette)?;
+    report::timings(report.outcome, &[("render", render)], palette, out)?;
+    out.write_all(&held)?;
+    Ok(())
+}
+
+/// Every sink rendered into memory and how long that took. Held back so rendering
+/// can be timed and still printed beneath the stages it is one of.
+fn render_held(
+    report: &Report<'_>,
+    sinks: &[Sink],
+    view: &View,
+    palette: Palette,
+) -> Result<(Vec<u8>, u128)> {
+    let mut held = Vec::new();
+    let rendering = std::time::Instant::now();
+    for sink in sinks {
+        write_sink(report, sink, view, palette, &mut held)?;
+    }
+    Ok((held, rendering.elapsed().as_millis()))
 }
 
 fn stdout_for(sink: &Sink) -> Box<dyn Write> {
@@ -1363,30 +1391,33 @@ fn filter_of(view: &View, root: &Path) -> Result<FindingFilter> {
     })
 }
 
-/// How the interface was asked for, so the launch reads the same flags rather than
-/// reaching into `Cli` for a different subset.
-#[derive(Copy, Clone)]
-struct Interface {
-    motion: Motion,
-    mouse: bool,
-}
-
-/// Opens the interface on the working directory. `None` means the terminal could not
+/// Opens the session on the working directory. `None` means the terminal could not
 /// host it after all, and the caller prints the report instead.
-fn open_tui(interface: Interface) -> Result<Option<Exit>> {
+fn open_session(motion: Motion) -> Result<Option<Exit>> {
+    let Command::Scan {
+        standard,
+        threads,
+        config,
+        ..
+    } = bare_scan()?
+    else {
+        bail!("bare `rqx` did not parse as a scan");
+    };
     let path = Path::new(".");
-    let settings = config::resolve(path, None, None)?;
-    let options = tui::Launch {
+    let mut settings = config::resolve(path, config.as_deref(), standard.chosen()?)?;
+    if let Some(count) = threads {
+        settings.config.scan.threads = count;
+    }
+    let options = session::Launch {
         path,
         config: &settings,
-        reduced_motion: matches!(interface.motion, Motion::Off),
-        mouse: interface.mouse,
-        filters: tui::Filters::default(),
+        level: standard.level.as_deref(),
+        reduced_motion: matches!(motion, Motion::Off),
     };
-    match tui::launch(options) {
+    match session::launch(options) {
         Ok(()) => Ok(Some(Exit::Clean)),
         Err(reason) => {
-            eprintln!("  interactive interface unavailable: {reason}");
+            eprintln!("  interactive session unavailable: {reason}");
             Ok(None)
         }
     }
@@ -1460,10 +1491,6 @@ fn run() -> Result<Exit> {
     progress::set_animated(!matches!(cli.motion, Motion::Off));
     progress::set_shown(progress_wanted(cli.no_progress, false));
     let palette = Palette::detect();
-    let interface = Interface {
-        motion: cli.motion,
-        mouse: !cli.no_mouse,
-    };
 
     let command = match cli.command {
         Some(command) => command,
@@ -1472,8 +1499,8 @@ fn run() -> Result<Exit> {
             // for all of them the answer is the report, so a pipeline running `rqx`
             // gets the scan's exit code rather than a help page that exits 0.
             if !cli.no_tui
-                && tui::gate().is_ok()
-                && let Some(exit) = open_tui(interface)?
+                && session::gate().is_ok()
+                && let Some(exit) = open_session(cli.motion)?
             {
                 return Ok(exit);
             }
@@ -1677,34 +1704,17 @@ fn run() -> Result<Exit> {
             // ranking of its own: capping first would hide the cheap work entirely.
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let ranked = plan::rank(&outcome, budget, limit);
-            let mut out = anstream::stdout().lock();
-            if json {
-                return report::plan_json(&outcome, &ranked, &mut out).map(|()| Exit::Clean);
-            }
-            report::plan(&outcome, &ranked, budget, simulate, palette, &mut out)
+            let request = render::Plan {
+                budget,
+                limit,
+                simulate,
+                json,
+            };
+            render::plan(&outcome, &request, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
         }
         Command::Explain { name } => {
-            if let Some(rule) = RuleId::parse(&name) {
-                return report::explain(rule, palette).map(|()| Exit::Clean);
-            }
-            // An advisory slug resolves to its pattern: `strategy-fits` and `strategy`
-            // are the same question asked two ways.
-            let pattern = rqx_core::Pattern::parse(&name)
-                .or_else(|| rqx_core::AdviceId::parse(&name).map(rqx_core::AdviceId::pattern));
-            let Some(pattern) = pattern else {
-                let mut names: Vec<&str> = RuleId::ALL.iter().map(|rule| rule.slug()).collect();
-                names.extend(rqx_core::Pattern::ALL.iter().map(|p| p.slug()));
-                names.extend(rqx_core::AdviceId::ALL.iter().map(|a| a.slug()));
-                return Err(report::unknown(
-                    "rule or pattern",
-                    &name,
-                    &names,
-                    "Run `rqx rules` for the rules and `rqx patterns --coverage` for the patterns.",
-                ));
-            };
-            report::explain_pattern(pattern, palette).map(|()| Exit::Clean)
+            render::explain(&name, palette, &mut anstream::stdout().lock()).map(|()| Exit::Clean)
         }
         Command::Patterns {
             path,
@@ -1715,7 +1725,8 @@ fn run() -> Result<Exit> {
             config,
         } => {
             if coverage {
-                return report::pattern_coverage(palette).map(|()| Exit::Clean);
+                return report::pattern_coverage(palette, &mut anstream::stdout().lock())
+                    .map(|()| Exit::Clean);
             }
             if !path.exists() {
                 bail!(
@@ -1728,11 +1739,8 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return report::advice_json(&outcome, &mut out).map(|()| Exit::Clean);
-            }
-            report::advice(&outcome, palette, &mut out).map(|()| Exit::Clean)
+            render::patterns(&outcome, json, palette, &mut anstream::stdout().lock())
+                .map(|()| Exit::Clean)
         }
         Command::Baseline {
             path,
@@ -1780,11 +1788,15 @@ fn run() -> Result<Exit> {
             // display cap drops findings before anything can read them.
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return report::waivers_json(&path, &outcome, &mut out).map(|()| Exit::Clean);
-            }
-            report::waivers(&path, &outcome, expiring, palette, &mut out).map(|()| Exit::Clean)
+            render::suppressions(
+                &path,
+                &outcome,
+                expiring,
+                json,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Complexity {
             path,
@@ -1802,7 +1814,6 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let threshold = settings.config.thresholds.cognitive_complexity;
             let outcome = scan::scan(&path, &settings)?;
             let view = complexity::View {
                 by,
@@ -1811,11 +1822,15 @@ fn run() -> Result<Exit> {
                 min,
                 histogram,
             };
-            let mut out = anstream::stdout().lock();
-            if json {
-                return complexity::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
-            }
-            complexity::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+            render::complexity(
+                &outcome,
+                &view,
+                json,
+                &settings,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Perf {
             path,
@@ -1841,7 +1856,6 @@ fn run() -> Result<Exit> {
                     .map(|path| path.display().to_string())
                     .collect();
             }
-            let threshold = settings.config.thresholds.loop_nesting;
             let outcome = scan::scan(&path, &settings)?;
             let view = perf::View {
                 by,
@@ -1849,11 +1863,15 @@ fn run() -> Result<Exit> {
                 top,
                 min_depth,
             };
-            let mut out = anstream::stdout().lock();
-            if json {
-                return perf::json(&outcome, &view, &mut out).map(|()| Exit::Clean);
-            }
-            perf::render(&outcome, &view, threshold, palette, &mut out).map(|()| Exit::Clean)
+            render::perf(
+                &outcome,
+                &view,
+                json,
+                &settings,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Completions { shell } => {
             // Generated from the parser itself, so a flag added anywhere is
@@ -1877,11 +1895,15 @@ fn run() -> Result<Exit> {
             }
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return recommend::json(&outcome, &settings, only, &mut out).map(|()| Exit::Clean);
-            }
-            recommend::render(&outcome, &settings, only, palette, &mut out).map(|()| Exit::Clean)
+            render::recommend(
+                &outcome,
+                &settings,
+                only,
+                json,
+                palette,
+                &mut anstream::stdout().lock(),
+            )
+            .map(|()| Exit::Clean)
         }
         Command::Slop {
             path,
@@ -1897,17 +1919,11 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             settings.config.scan.max_findings = 0;
-            // The signals are Info rules and several ship off by default, so the
-            // command turns its own family on rather than reporting nothing.
-            for (rule, _) in rqx_core::slop::SIGNALS {
-                settings.config.rules.enabled.insert(rule.slug().to_owned());
-            }
+            render::slop_settings(&mut settings);
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return slop::json(&outcome, top, min, &mut out).map(|()| Exit::Clean);
-            }
-            slop::render(&outcome, top, min, palette, &mut out).map(|()| Exit::Clean)
+            let request = render::Slop { top, min, json };
+            render::slop(&outcome, &request, palette, &mut anstream::stdout().lock())
+                .map(|()| Exit::Clean)
         }
         Command::Health {
             path,
@@ -1925,11 +1941,8 @@ fn run() -> Result<Exit> {
             // list would understate whichever rule fires most.
             settings.config.scan.max_findings = 0;
             let outcome = scan::scan(&path, &settings)?;
-            let mut out = anstream::stdout().lock();
-            if json {
-                return health::json(&outcome, by, &mut out).map(|()| Exit::Clean);
-            }
-            health::render(&outcome, by, palette, &mut out).map(|()| Exit::Clean)
+            render::health(&outcome, by, json, palette, &mut anstream::stdout().lock())
+                .map(|()| Exit::Clean)
         }
         Command::Graph {
             path,
@@ -2187,66 +2200,13 @@ fn run() -> Result<Exit> {
             language,
             slugs,
         } => {
+            let mut out = anstream::stdout().lock();
             if slugs {
-                // The same narrowing the printed listing does. Without this a script
-                // asking for one family's slugs got all 185 and no sign it had been
-                // ignored.
-                let only = category
-                    .as_deref()
-                    .map(|name| {
-                        rqx_core::rule::Category::parse(name).ok_or_else(|| {
-                            report::unknown(
-                                "family",
-                                name,
-                                &rqx_core::rule::Category::ALL.map(rqx_core::rule::Category::slug),
-                                &format!(
-                                    "The families are: {}.",
-                                    rqx_core::rule::Category::ALL
-                                        .map(rqx_core::rule::Category::slug)
-                                        .join(", ")
-                                ),
-                            )
-                        })
-                    })
-                    .transpose()?;
-                let spoken = language
-                    .as_deref()
-                    .map(|name| {
-                        rqx_core::Language::parse(name).ok_or_else(|| {
-                            report::unknown(
-                                "language",
-                                name,
-                                &rqx_core::Language::ALL.map(rqx_core::Language::slug),
-                                &format!(
-                                    "rqx reads: {}.",
-                                    rqx_core::Language::ALL
-                                        .map(rqx_core::Language::slug)
-                                        .join(", ")
-                                ),
-                            )
-                        })
-                    })
-                    .transpose()?;
-                // `writeln!` rather than `println!`, which panics when the reader
-                // closes the pipe. `rqx rules --slugs | head` is the shape a shell
-                // completion uses, and `reader_went_away` can only forgive an error
-                // that is returned to it.
-                use std::io::Write;
-                let mut out = std::io::stdout().lock();
-                for rule in rqx_core::rule::RuleId::ALL {
-                    let spec = rule.spec();
-                    if only.is_some_and(|family| spec.category != family) {
-                        continue;
-                    }
-                    if spoken.is_some_and(|language| !rule.applies_to(language)) {
-                        continue;
-                    }
-                    writeln!(out, "{}", spec.slug)?;
-                }
-                out.flush()?;
-                return Ok(Exit::Clean);
+                render::rule_slugs(category.as_deref(), language.as_deref(), &mut out)
+            } else {
+                render::rules(category.as_deref(), language.as_deref(), palette, &mut out)
             }
-            report::rules(category.as_deref(), language.as_deref(), palette).map(|()| Exit::Clean)
+            .map(|()| Exit::Clean)
         }
         Command::Update {
             check,
