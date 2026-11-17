@@ -21,11 +21,12 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   Release archives carry them in a `man/` directory beside the binary, which stays at
   the archive root, so the installers and the action extract it as before.
 - **`--reporter html=PATH` writes a report you can open in a browser.** One file with
-  its own styles and no scripts or network requests: the grade distribution, findings
-  by family and by rule, then every file worst grade first with each finding's code
-  frame, why it matters and the technique that fixes it, waived findings listed
-  separately, and the gate's verdict when one was asked for. It switches between a
-  dark and a light theme with the system setting. Like `json` and `sarif` it is a
+  its own styles and no scripts or network requests, laid out like an rqx terminal
+  session: the owl and the gate's verdict at the top, a summary with the grade
+  distribution and findings by family and by rule drawn as block bars, then every file
+  worst grade first with each finding's syntax-highlighted code frame, why it matters
+  and the technique that fixes it, and waived findings listed separately. The page is
+  dark, like the CLI, and prints in a light theme. Like `json` and `sarif` it is a
   document, so on stdout it cannot share the stream with another report.
   `docs/ci.md` has the artifact upload for GitHub Actions and GitLab.
 - **JavaScript is analysed.** `.js`, `.jsx`, `.mjs` and `.cjs` files are now read, and

@@ -651,15 +651,15 @@ fn impact_line(outcome: &ScanOutcome, file: &str) -> Option<String> {
     Some(parts.join(", "))
 }
 
-struct Row {
-    label: &'static str,
-    value: String,
-    ink: Option<Ink>,
+pub(super) struct Row {
+    pub(super) label: &'static str,
+    pub(super) value: String,
+    pub(super) ink: Option<Ink>,
 }
 
 /// Built as plain strings so the summary can be asserted on without a terminal;
 /// `render` is the only thing that knows how to paint them.
-fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
+pub(super) fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row> {
     let scanned = report.files.len();
     let severity = |level: Severity| report.totals.by_severity.get(&level).copied().unwrap_or(0);
     let health = report.health();

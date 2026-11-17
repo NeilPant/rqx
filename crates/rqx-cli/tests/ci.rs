@@ -622,8 +622,12 @@ fn the_html_report_is_one_file_that_shows_the_gate() {
 
     let body = std::fs::read_to_string(&page).expect("the report");
     assert!(body.starts_with("<!doctype html>"), "{body:.80}");
-    assert!(body.contains("Gate failed."));
-    assert!(body.contains("console.log"), "no code frame");
+    assert!(body.contains("gate failed"));
+    assert!(body.contains("<div class=\"row hit\">"), "no code frame");
+    assert!(
+        body.contains("<span class=\"f\">log</span>"),
+        "not highlighted"
+    );
     assert!(!body.contains('\u{1b}'), "an escape sequence in a page");
     let _ = std::fs::remove_dir_all(root);
 }

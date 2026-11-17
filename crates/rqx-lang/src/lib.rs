@@ -7,6 +7,7 @@ pub mod cpp;
 pub mod custom;
 pub mod go;
 pub mod hierarchy;
+pub mod highlight;
 pub mod hygiene;
 pub mod java;
 pub mod javascript;
@@ -214,7 +215,7 @@ pub fn holds_markup(display: &str) -> bool {
 /// pathological file costs a scan seconds rather than the whole run.
 const PARSE_BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
 
-fn parse(
+pub(crate) fn parse(
     language: Language,
     profile: &'static LanguageProfile,
     markup: bool,
