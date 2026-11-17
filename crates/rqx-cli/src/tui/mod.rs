@@ -1,11 +1,10 @@
 pub mod app;
 pub mod chrome;
-pub mod motion;
 pub mod palette;
 pub mod screens;
-pub mod sprite;
 
-use std::fmt;
+pub use crate::session::{motion, sprite};
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
@@ -25,7 +24,7 @@ use crate::check;
 use crate::config::Resolved;
 use crate::project::Project;
 use crate::scan::{self, ScanOutcome, ScanProgress};
-use crate::term::{self, Stream};
+use crate::term;
 
 use app::{Nav, Screen, Session, Tab};
 use chrome::{Chrome, Hits, Landing};
@@ -37,53 +36,13 @@ const MASCOT: &str = include_str!("../../assets/mascot.txt");
 const MIN_WIDTH: u16 = 60;
 const MIN_HEIGHT: u16 = 20;
 
-/// Why the interface declined to start. Every variant is a condition under which
-/// taking over the terminal would corrupt output or hang a pipeline, so each one
-/// falls back to plain help rather than degrading the interface.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Decline {
-    NotATerminal,
-    DumbTerminal,
-    ContinuousIntegration,
-    TooSmall { width: u16, height: u16 },
-    SetupFailed(String),
-}
-
-impl fmt::Display for Decline {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NotATerminal => f.write_str("output is not a terminal"),
-            Self::DumbTerminal => f.write_str("TERM does not support a full-screen interface"),
-            Self::ContinuousIntegration => f.write_str("running under CI"),
-            Self::TooSmall { width, height } => write!(
-                f,
-                "terminal is {width}x{height}; the interface needs at least {MIN_WIDTH}x{MIN_HEIGHT}"
-            ),
-            Self::SetupFailed(error) => write!(f, "terminal setup failed ({error})"),
-        }
-    }
-}
+pub use crate::term::Decline;
 
 /// Checked before any terminal state is touched: a TUI that starts inside a pipe
 /// writes escape sequences into whatever is reading, and one that starts in CI
 /// hangs the job waiting for a keypress nobody will send.
 pub fn gate() -> Result<(), Decline> {
-    if !term::is_terminal(Stream::Stdout) {
-        return Err(Decline::NotATerminal);
-    }
-    if term::in_ci() {
-        return Err(Decline::ContinuousIntegration);
-    }
-    match std::env::var("TERM") {
-        Err(_) => return Err(Decline::DumbTerminal),
-        Ok(term) if term.is_empty() || term == "dumb" => return Err(Decline::DumbTerminal),
-        Ok(_) => {}
-    }
-    let (width, height) = crossterm::terminal::size().map_err(|_| Decline::NotATerminal)?;
-    if width < MIN_WIDTH || height < MIN_HEIGHT {
-        return Err(Decline::TooSmall { width, height });
-    }
-    Ok(())
+    term::interactive((MIN_WIDTH, MIN_HEIGHT))
 }
 
 /// What a worker was asked for. A review is a scan of the whole project that reports

@@ -58,6 +58,66 @@ fn columns_from(variable: Option<&str>) -> Option<usize> {
     variable?.trim().parse().ok().filter(|columns| *columns > 0)
 }
 
+/// Why an interface declined to start. Every variant is a condition under which
+/// taking over the terminal would corrupt output or hang a pipeline, so each one
+/// falls back to the plain report rather than degrading the interface.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Decline {
+    NotATerminal,
+    DumbTerminal,
+    ContinuousIntegration,
+    TooSmall {
+        width: u16,
+        height: u16,
+        needs: (u16, u16),
+    },
+    SetupFailed(String),
+}
+
+impl std::fmt::Display for Decline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotATerminal => f.write_str("output is not a terminal"),
+            Self::DumbTerminal => f.write_str("TERM does not support an interactive interface"),
+            Self::ContinuousIntegration => f.write_str("running under CI"),
+            Self::TooSmall {
+                width,
+                height,
+                needs: (needs_width, needs_height),
+            } => write!(
+                f,
+                "terminal is {width}x{height}; the interface needs at least {needs_width}x{needs_height}"
+            ),
+            Self::SetupFailed(error) => write!(f, "terminal setup failed ({error})"),
+        }
+    }
+}
+
+/// Whether an interface that draws on this terminal can start, given the smallest
+/// window it can lay out in.
+pub fn interactive(needs: (u16, u16)) -> Result<(), Decline> {
+    if !is_terminal(Stream::Stdout) {
+        return Err(Decline::NotATerminal);
+    }
+    if in_ci() {
+        return Err(Decline::ContinuousIntegration);
+    }
+    match std::env::var("TERM") {
+        Err(_) => return Err(Decline::DumbTerminal),
+        Ok(term) if term.is_empty() || term == "dumb" => return Err(Decline::DumbTerminal),
+        Ok(_) => {}
+    }
+    let (width, height) = crossterm::terminal::size().map_err(|_| Decline::NotATerminal)?;
+    if width < needs.0 || height < needs.1 {
+        return Err(Decline::TooSmall {
+            width,
+            height,
+            needs,
+        });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::columns_from;

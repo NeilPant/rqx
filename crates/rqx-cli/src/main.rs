@@ -31,6 +31,7 @@ mod query;
 mod recommend;
 mod report;
 mod scan;
+mod session;
 mod setup;
 mod slop;
 mod stats;
