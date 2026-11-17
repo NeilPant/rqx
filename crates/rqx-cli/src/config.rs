@@ -5,9 +5,19 @@ use std::sync::Arc;
 use anyhow::{Context, Result, bail};
 use ignore::overrides::{Override, OverrideBuilder};
 use rqx_core::config::{
-    CONFIG_FILE_NAME, LEGACY_CONFIG_FILE_NAME, Level, RqxConfig, SCOPED_TABLES, TABLES,
+    CONFIG_FILE_NAME, Level, RqxConfig, SCOPED_TABLES, SubtreeOverride, TABLES,
 };
-use toml::Value;
+use serde_json::{Map, Value};
+
+mod extends;
+mod files;
+mod hoist;
+mod origin;
+mod quickfix;
+
+pub use files::{check_text, config_path_in, user_config_directories};
+pub use origin::Origin;
+pub use quickfix::disable_entry;
 
 pub const CONFIG_ENV: &str = "RQX_CONFIG";
 pub const POLICY_ENV: &str = "RQX_POLICY";
@@ -28,14 +38,16 @@ struct Scope {
 pub struct Resolved {
     pub config: RqxConfig,
     pub sources: Vec<PathBuf>,
-    pub provenance: BTreeMap<&'static str, PathBuf>,
+    pub provenance: BTreeMap<&'static str, Origin>,
     /// Which file wrote each individual `table.key`. The per-table map cannot answer
     /// that once two layers both touch `[thresholds]`, and a locked key has to be
     /// able to name the file that set it.
-    key_sources: BTreeMap<String, PathBuf>,
+    key_sources: BTreeMap<String, Origin>,
     /// The keys the policy will not let a project change.
     locked: BTreeSet<String>,
     pub policy: Option<PathBuf>,
+    /// The presets the run built on, in the order they were laid down.
+    pub presets: Vec<String>,
     /// What the project actually wrote, before the level's layer went under it, so
     /// the `from` column can tell a value a file set from one a level moved.
     written: Value,
@@ -57,6 +69,7 @@ impl Clone for Resolved {
             key_sources: self.key_sources.clone(),
             locked: self.locked.clone(),
             policy: self.policy.clone(),
+            presets: self.presets.clone(),
             written: self.written.clone(),
             scopes: self
                 .scopes
@@ -93,7 +106,8 @@ impl Resolved {
             key_sources: BTreeMap::new(),
             locked: BTreeSet::new(),
             policy: None,
-            written: Value::Table(toml::Table::new()),
+            presets: Vec::new(),
+            written: files::empty(),
             scopes: Vec::new(),
             baseline: None,
             baseline_findings: None,
@@ -161,14 +175,11 @@ impl Resolved {
         Some(path.file_name()?.to_string_lossy().into_owned())
     }
 
-    /// The file that set a table, for the `from` column. Falls back to the last file
-    /// read, so a value that came from a layer rqx merged still names a real file.
-    /// The file that wrote one setting, which is not always the last file to touch
-    /// its table.
-    /// The file that wrote `table.key`, addressed as one string. `set` needs this
-    /// to default to the file already holding the setting.
-    pub fn source_of_key_public(&self, key: &str) -> Option<&Path> {
-        self.key_sources.get(key).map(PathBuf::as_path)
+    /// The project file that wrote `table.key`, addressed as one string, which is not
+    /// always the last file to touch its table. `set` defaults to it. A preset or an
+    /// extended file never answers: neither is the project's to edit.
+    pub fn file_that_set(&self, key: &str) -> Option<&Path> {
+        self.key_sources.get(key).and_then(Origin::file)
     }
 
     /// Every locked key, so a writer can refuse before it touches the file.
@@ -176,22 +187,24 @@ impl Resolved {
         self.locked.iter().map(String::as_str)
     }
 
-    pub fn source_of_key(&self, table: &str, key: &str) -> Option<&Path> {
-        self.key_sources
-            .get(&format!("{table}.{key}"))
-            .map(PathBuf::as_path)
+    /// What wrote the setting at a dotted path such as `rules.long-function.severity`.
+    /// `None` when nothing did, which is to say it is a default.
+    pub fn origin_of_path(&self, path: &str) -> Option<Origin> {
+        self.key_sources.get(path).cloned()
+    }
+
+    /// What wrote a setting, whether a file, a preset or a flag. The key is the more
+    /// precise answer; the table is what is left when two layers both touched it.
+    pub fn origin_of(&self, table: &str, key: Option<&str>) -> Option<Origin> {
+        key.and_then(|key| self.key_sources.get(&format!("{table}.{key}")))
+            .or_else(|| self.provenance.get(table))
+            .cloned()
+            .or_else(|| self.sources.last().cloned().map(Origin::File))
     }
 
     /// Whether a policy forbids this project changing one setting.
     pub fn is_locked(&self, table: &str, key: &str) -> bool {
         self.locked.contains(&format!("{table}.{key}"))
-    }
-
-    pub fn source_of(&self, table: &str) -> Option<&Path> {
-        self.provenance
-            .get(table)
-            .or_else(|| self.sources.last())
-            .map(PathBuf::as_path)
     }
 
     /// Whether a key was written down rather than moved by the level.
@@ -242,6 +255,7 @@ impl Resolved {
             key_sources: self.key_sources.clone(),
             locked: self.locked.clone(),
             policy: self.policy.clone(),
+            presets: self.presets.clone(),
             written: self.written.clone(),
             scopes,
             baseline: self.baseline.clone(),
@@ -255,9 +269,9 @@ impl Resolved {
 /// user saying which file they mean, so it is the only one whose absence is an error.
 pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Result<Resolved> {
     let anchor = anchor_of(root);
-    let project = project_configs(&anchor);
+    let project = project_configs(&anchor)?;
     let mut layers: Vec<PathBuf> = Vec::new();
-    layers.extend(user_config());
+    layers.extend(files::user_config()?);
     // Under the project rather than over it: a repository may tighten anything the
     // policy did not lock, and a policy that sat on top would make every project
     // identical rather than every project compliant.
@@ -265,6 +279,7 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
     layers.extend(policy.clone());
     layers.extend(project);
     if let Some(path) = std::env::var_os(CONFIG_ENV).map(PathBuf::from) {
+        files::refuse_retired(&path)?;
         if !path.exists() {
             bail!(
                 "{CONFIG_ENV} points at `{}`, which does not exist. Unset it, or point it \
@@ -275,6 +290,7 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         layers.push(path);
     }
     if let Some(path) = explicit {
+        files::refuse_retired(path)?;
         if !path.exists() {
             bail!(
                 "`{}` does not exist. Drop `--config` to let rqx find `{CONFIG_FILE_NAME}` \
@@ -285,38 +301,66 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         layers.push(path.to_path_buf());
     }
 
-    let mut merged = Value::Table(toml::Table::new());
+    let loaded: Vec<(PathBuf, Value)> = layers
+        .into_iter()
+        .map(|path| files::read(&path).map(|value| (path, value)))
+        .collect::<Result<_>>()?;
+    let mut stack = Vec::new();
+    for (path, value) in &loaded {
+        stack.extend(extends::inherited(path, value)?);
+    }
+    stack.extend(loaded.into_iter().map(|(path, value)| extends::Layer {
+        origin: Origin::File(path),
+        value,
+    }));
+
+    let mut merged = files::empty();
     let mut provenance = BTreeMap::new();
     let mut raw_overrides: Vec<(PathBuf, Value)> = Vec::new();
     let mut sources = Vec::new();
+    let mut presets: Vec<String> = Vec::new();
     let mut locked: Vec<String> = Vec::new();
-    let mut key_sources: BTreeMap<String, PathBuf> = BTreeMap::new();
-    let mut written: Vec<(PathBuf, Vec<(String, Value)>)> = Vec::new();
+    let mut key_sources: BTreeMap<String, Origin> = BTreeMap::new();
+    let mut written: Vec<(Origin, Vec<(String, Value)>)> = Vec::new();
 
-    for path in layers {
-        let mut value = read(&path)?;
-        for entry in take_overrides(&mut value, &path)? {
+    for extends::Layer { origin, mut value } in stack {
+        let path = match &origin {
+            Origin::File(path) | Origin::Extended(path) => path.clone(),
+            Origin::Preset(name) => {
+                presets.push(name.clone());
+                PathBuf::from(format!("preset:{name}"))
+            }
+            Origin::Flag(_) => continue,
+        };
+        extends::take_extends(&mut value);
+        for mut entry in take_overrides(&mut value, &path)? {
+            hoist::thresholds(&mut entry, &format!("an entry of `overrides` in {origin}"))?;
             raw_overrides.push((path.clone(), entry));
         }
-        let is_policy = policy.as_deref() == Some(path.as_path());
+        hoist::thresholds(&mut value, &origin.to_string())?;
+        let is_policy =
+            matches!(&origin, Origin::File(file) if policy.as_deref() == Some(file.as_path()));
         locked.extend(take_locked(&mut value, &path, is_policy)?);
         take_policy(&mut value);
-        if let Some(table) = value.as_table() {
+        if let Some(table) = value.as_object() {
             for key in table.keys() {
                 if let Some(known) = TABLES.iter().find(|table| *table == key) {
-                    provenance.insert(*known, path.clone());
+                    provenance.insert(*known, origin.clone());
                 }
             }
         }
         let mut leaves = Vec::new();
         flatten("", &value, &mut leaves);
         for (key, _) in &leaves {
-            key_sources.insert(key.clone(), path.clone());
+            key_sources.insert(key.clone(), origin.clone());
         }
-        written.push((path.clone(), leaves));
+        written.push((origin.clone(), leaves));
         merge(&mut merged, value);
-        sources.push(path);
+        if !matches!(origin, Origin::Preset(_)) {
+            sources.push(path);
+        }
     }
+    presets.dedup();
 
     if let Some(policy) = &policy {
         enforce_locks(&locked, policy, &written, &raw_overrides, level)?;
@@ -334,10 +378,11 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
     };
     let effective = under(chosen, &merged)?;
 
-    let config: RqxConfig = effective.try_into().with_context(|| describe(&sources))?;
+    let config: RqxConfig =
+        serde_json::from_value(effective).with_context(|| describe(&sources))?;
     reject_unknown_names(&config, &describe(&sources))?;
     if level.is_some() {
-        provenance.insert("level", PathBuf::from("--level"));
+        provenance.insert("level", Origin::Flag("--level"));
     }
 
     let mut scopes = Vec::new();
@@ -358,7 +403,7 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
             let file = crate::baseline::path_of(&anchor, Some(named));
             if !file.exists() {
                 bail!(
-                    "`[gate] baseline` names {}, which does not exist. \
+                    "`gate.baseline` names {}, which does not exist. \
                      Run `rqx baseline` to record what this project already has.",
                     file.display()
                 );
@@ -375,6 +420,7 @@ pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Re
         key_sources,
         locked: locked.into_iter().collect(),
         policy,
+        presets,
         written: merged,
         scopes,
         modules,
@@ -397,16 +443,21 @@ fn describe(sources: &[PathBuf]) -> String {
     }
 }
 
-fn read(path: &Path) -> Result<Value> {
-    let text =
-        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    document(&text).with_context(|| format!("{} is not valid TOML", path.display()))
-}
-
-/// A config file is a document, not a bare value: `"a = 1".parse::<Value>()` reads
-/// the `a` and then rejects the rest of the line.
-fn document(text: &str) -> Result<Value> {
-    Ok(Value::Table(text.parse::<toml::Table>()?))
+/// Writes the commented starting config. Returns where it went, so each front end can
+/// say so in its own words.
+pub fn init(directory: &Path, force: bool) -> Result<PathBuf> {
+    let existing = files::in_directory(directory)?;
+    if let Some(path) = existing.as_ref().filter(|_| !force) {
+        bail!(
+            "`{}` is already there. Pass --force to replace it, or `rqx config` to see what \
+             it resolves to.",
+            path.display()
+        );
+    }
+    let path = existing.unwrap_or_else(|| directory.join(CONFIG_FILE_NAME));
+    std::fs::write(&path, rqx_core::config::TEMPLATE)
+        .with_context(|| format!("writing {}", path.display()))?;
+    Ok(path)
 }
 
 /// A scanned file has no ancestors of its own worth searching; the directory holding
@@ -421,84 +472,34 @@ fn anchor_of(root: &Path) -> PathBuf {
     absolute
 }
 
-/// Personal defaults, applied under anything the project says. The first location
-/// that exists wins, so a machine with both an XDG directory and a macOS one does not
-/// silently read two.
-fn user_config() -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        candidates.push(PathBuf::from(xdg).join("rqx").join(CONFIG_FILE_NAME));
-    }
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-        candidates.push(home.join(".config").join("rqx").join(CONFIG_FILE_NAME));
-        if cfg!(target_os = "macos") {
-            candidates.push(
-                home.join("Library")
-                    .join("Application Support")
-                    .join("rqx")
-                    .join(CONFIG_FILE_NAME),
-            );
-        }
-    }
-    if let Some(appdata) = std::env::var_os("APPDATA") {
-        candidates.push(PathBuf::from(appdata).join("rqx").join(CONFIG_FILE_NAME));
-    }
-    candidates
-        .into_iter()
-        .flat_map(|path| {
-            let legacy = path.with_file_name(LEGACY_CONFIG_FILE_NAME);
-            [path, legacy]
-        })
-        .find(|path| path.exists())
-}
-
-/// The config a directory holds, under the name Rqx uses now or the one it used
-/// before. Checking both here is what keeps one existing checkout working without
-/// every caller knowing there were ever two spellings.
-fn named_config(directory: &Path) -> PathBuf {
-    let canonical = directory.join(CONFIG_FILE_NAME);
-    if canonical.exists() {
-        return canonical;
-    }
-    let legacy = directory.join(LEGACY_CONFIG_FILE_NAME);
-    if legacy.exists() {
-        return legacy;
-    }
-    canonical
-}
-
 /// Walks up from the scanned directory, outermost file first so the nearest one wins
 /// the merge. Stops at a repository boundary: a config above a checkout describes a
 /// different project, and reading it would make a scan depend on where the repository
 /// happens to sit.
-fn project_configs(anchor: &Path) -> Vec<PathBuf> {
+fn project_configs(anchor: &Path) -> Result<Vec<PathBuf>> {
     let mut found = Vec::new();
     for directory in anchor.ancestors() {
-        let candidate = named_config(directory);
+        let candidate = files::in_directory(directory)?;
         let declares_root = candidate
-            .exists()
-            .then(|| read(&candidate).ok())
-            .flatten()
+            .as_ref()
+            .and_then(|path| files::read(path).ok())
             .and_then(|value| value.get("root").and_then(Value::as_bool))
             .unwrap_or(false);
-        if candidate.exists() {
-            found.push(candidate);
-        }
+        found.extend(candidate);
         if declares_root || directory.join(".git").exists() {
             break;
         }
     }
     found.reverse();
-    found
+    Ok(found)
 }
 
-/// Removes `[[override]]` before the rest is deserialized, because `RqxConfig` denies
-/// unknown fields and an override is not one of its tables.
 /// The policy a project points at, if any. Read from the nearest config that names
 /// one so a monorepo can put the pointer at its root, and overridden by the
 /// environment for a CI job that has to impose one.
 fn policy_of(project: &[PathBuf]) -> Result<Option<PathBuf>> {
     if let Some(named) = std::env::var_os(POLICY_ENV).map(PathBuf::from) {
+        files::refuse_retired(&named)?;
         if !named.exists() {
             bail!(
                 "{POLICY_ENV} points at `{}`, which does not exist.",
@@ -510,7 +511,7 @@ fn policy_of(project: &[PathBuf]) -> Result<Option<PathBuf>> {
     // Nearest wins, the way every other setting does, so the innermost config that
     // names a policy is the one that chose it.
     for config in project.iter().rev() {
-        let Some(named) = read(config)?
+        let Some(named) = files::read(config)?
             .get("policy")
             .and_then(Value::as_str)
             .map(str::to_owned)
@@ -521,6 +522,7 @@ fn policy_of(project: &[PathBuf]) -> Result<Option<PathBuf>> {
             .parent()
             .unwrap_or_else(|| Path::new("."))
             .join(&named);
+        files::refuse_retired(&resolved)?;
         if !resolved.exists() {
             bail!(
                 "{} names the policy `{named}`, which does not exist at {}.",
@@ -533,16 +535,15 @@ fn policy_of(project: &[PathBuf]) -> Result<Option<PathBuf>> {
     Ok(None)
 }
 
-/// `policy` is a pointer, not a setting, so it never reaches `RqxConfig` — which
-/// denies unknown fields and would refuse it.
+/// `policy` is a pointer, not a setting, so it never reaches the resolved config.
 fn take_policy(value: &mut Value) {
-    if let Some(table) = value.as_table_mut() {
+    if let Some(table) = value.as_object_mut() {
         table.remove("policy");
     }
 }
 
 fn take_locked(value: &mut Value, path: &Path, is_policy: bool) -> Result<Vec<String>> {
-    let Some(table) = value.as_table_mut() else {
+    let Some(table) = value.as_object_mut() else {
         return Ok(Vec::new());
     };
     let Some(entry) = table.remove("locked") else {
@@ -550,7 +551,7 @@ fn take_locked(value: &mut Value, path: &Path, is_policy: bool) -> Result<Vec<St
     };
     if !is_policy {
         bail!(
-            "`[locked]` in {} does nothing: only the policy a project points at can \
+            "`locked` in {} does nothing: only the policy a project points at can \
              lock a key.",
             path.display()
         );
@@ -558,12 +559,12 @@ fn take_locked(value: &mut Value, path: &Path, is_policy: bool) -> Result<Vec<St
     let keys = entry
         .get("keys")
         .and_then(Value::as_array)
-        .ok_or_else(|| anyhow::anyhow!("`[locked] keys` in {} must be a list", path.display()))?;
+        .ok_or_else(|| anyhow::anyhow!("`locked.keys` in {} must be a list", path.display()))?;
     keys.iter()
         .map(|key| {
             key.as_str().map(str::to_owned).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "`[locked] keys` in {} holds something that is not a name",
+                    "`locked.keys` in {} holds something that is not a name",
                     path.display()
                 )
             })
@@ -575,7 +576,7 @@ fn take_locked(value: &mut Value, path: &Path, is_policy: bool) -> Result<Vec<St
 /// setting" is answerable. Arrays are leaves: a list is one value, not several.
 fn flatten(prefix: &str, value: &Value, out: &mut Vec<(String, Value)>) {
     match value {
-        Value::Table(table) => {
+        Value::Object(table) => {
             for (key, value) in table {
                 let path = if prefix.is_empty() {
                     key.clone()
@@ -595,17 +596,18 @@ fn flatten(prefix: &str, value: &Value, out: &mut Vec<(String, Value)>) {
 fn enforce_locks(
     locked: &[String],
     policy: &Path,
-    written: &[(PathBuf, Vec<(String, Value)>)],
+    written: &[(Origin, Vec<(String, Value)>)],
     overrides: &[(PathBuf, Value)],
     level: Option<Level>,
 ) -> Result<()> {
+    let is_policy = |origin: &Origin| origin.file() == Some(policy);
     let from_policy: &[(String, Value)] = written
         .iter()
-        .find(|(path, _)| path == policy)
+        .find(|(origin, _)| is_policy(origin))
         .map_or(&[], |(_, leaves)| leaves.as_slice());
     let above = written
         .iter()
-        .skip_while(|(path, _)| path != policy)
+        .skip_while(|(origin, _)| !is_policy(origin))
         .skip(1);
 
     for key in locked {
@@ -617,14 +619,13 @@ fn enforce_locks(
                 policy.display()
             );
         };
-        for (path, leaves) in above.clone() {
+        for (origin, leaves) in above.clone() {
             if let Some((_, got)) = leaves.iter().find(|(named, _)| named == key)
                 && got != want
             {
                 bail!(
-                    "`{key}` is locked to {want} by {}; {} sets {got}.",
-                    policy.display(),
-                    path.display()
+                    "`{key}` is locked to {want} by {}; {origin} sets {got}.",
+                    policy.display()
                 );
             }
         }
@@ -635,7 +636,7 @@ fn enforce_locks(
                     && got != want
                 {
                     bail!(
-                        "`{key}` is locked to {want} by {}; an `[[override]]` in {} sets {got}.",
+                        "`{key}` is locked to {want} by {}; an entry of `overrides` in {} sets {got}.",
                         policy.display(),
                         path.display()
                     );
@@ -657,69 +658,33 @@ fn enforce_locks(
 }
 
 fn take_overrides(value: &mut Value, path: &Path) -> Result<Vec<Value>> {
-    let Some(table) = value.as_table_mut() else {
-        bail!("{} must be a table of settings", path.display());
+    let Some(table) = value.as_object_mut() else {
+        bail!("{} must be a mapping of settings", path.display());
     };
-    let Some(entries) = table.remove("override") else {
-        return Ok(Vec::new());
-    };
-    let Value::Array(entries) = entries else {
-        bail!(
-            "`override` in {} must be written as `[[override]]` sections, one per subtree",
+    match table.remove("overrides") {
+        None => Ok(Vec::new()),
+        Some(Value::Array(entries)) => Ok(entries),
+        Some(_) => bail!(
+            "`overrides` in {} must be a list, one entry per subtree",
             path.display()
-        );
-    };
-    Ok(entries)
+        ),
+    }
 }
 
+/// An entry's keys were checked when its file was read, so what is left to refuse is
+/// what only the whole run can know: that it names somewhere to apply, and that the
+/// globs compile. The raw entry is merged rather than the typed one, because a typed
+/// `thresholds` carries every default and would overwrite what the project set.
 fn scope(path: &Path, entry: Value, base: &Value, level: Level) -> Result<Scope> {
-    let Some(table) = entry.as_table() else {
-        bail!("an `[[override]]` in {} is not a table", path.display());
-    };
-    for key in table.keys() {
-        // `level` joins `paths` rather than the scoped tables: it names a set of
-        // defaults for this subtree, which is exactly what a subtree may narrow.
-        if key != "paths" && key != "level" && !SCOPED_TABLES.contains(&key.as_str()) {
-            bail!(
-                "`[[override]]` in {} sets `{key}`, which applies to the whole run and \
-                 cannot be scoped to a subtree. Move it to the top level; an override \
-                 may set `level`, {}.",
-                path.display(),
-                SCOPED_TABLES.join(" or ")
-            );
-        }
-    }
-    if let Some(name) = table.get("level").and_then(Value::as_str)
-        && Level::parse(name).is_none()
-    {
+    let typed: SubtreeOverride = serde_json::from_value(entry.clone())
+        .with_context(|| format!("reading an entry of `overrides` in {}", path.display()))?;
+    if typed.paths.is_empty() {
         bail!(
-            "`[[override]]` in {} sets `level = \"{name}\"`, which is not a level. \
-             Levels are {}.",
-            path.display(),
-            Level::ALL
-                .iter()
-                .map(|level| level.slug())
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
-    }
-
-    let globs: Vec<String> = table
-        .get("paths")
-        .and_then(Value::as_array)
-        .map(|paths| {
-            paths
-                .iter()
-                .filter_map(|glob| glob.as_str().map(str::to_owned))
-                .collect()
-        })
-        .unwrap_or_default();
-    if globs.is_empty() {
-        bail!(
-            "an `[[override]]` in {} names no `paths`, so nothing would use it",
+            "an entry of `overrides` in {} names no `paths`, so nothing would use it",
             path.display()
         );
     }
+    let globs = typed.paths;
 
     let directory = path.parent().unwrap_or(Path::new("."));
     let mut builder = OverrideBuilder::new(directory);
@@ -732,36 +697,21 @@ fn scope(path: &Path, entry: Value, base: &Value, level: Level) -> Result<Scope>
         .build()
         .with_context(|| format!("building the override globs in {}", path.display()))?;
 
-    let merged = base.clone();
-    // A subtree can be held to a different level: strict in the domain, relaxed in
-    // the scripts. The gate is dropped from a scoped preset because a gate reaches
-    // one verdict for the whole run.
-    let scoped_level = table
-        .get("level")
-        .and_then(Value::as_str)
-        .and_then(Level::parse)
-        .unwrap_or(level);
-    let mut preset = document(scoped_level.layer())?;
-    if let Some(table) = preset.as_table_mut() {
+    // The gate is dropped from a scoped level because a gate reaches one verdict for
+    // the whole run.
+    let mut preset = files::parse(typed.level.unwrap_or(level).layer())?;
+    if let Some(table) = preset.as_object_mut() {
         table.remove("gate");
     }
-    let mut merged = {
-        let mut base = preset;
-        merge(&mut base, merged);
-        base
-    };
-
-    let mut scoped = toml::Table::new();
-    for name in SCOPED_TABLES {
-        if let Some(value) = table.get(name) {
-            scoped.insert(name.to_owned(), value.clone());
-        }
-    }
-    merge(&mut merged, Value::Table(scoped));
-    let config: RqxConfig = merged
-        .try_into()
-        .with_context(|| format!("reading an `[[override]]` in {}", path.display()))?;
-    reject_unknown_names(&config, &format!("an `[[override]]` in {}", path.display()))?;
+    let mut merged = preset;
+    merge(&mut merged, base.clone());
+    merge(&mut merged, scoped_settings(&entry));
+    let config: RqxConfig = serde_json::from_value(merged)
+        .with_context(|| format!("reading an entry of `overrides` in {}", path.display()))?;
+    reject_unknown_names(
+        &config,
+        &format!("an entry of `overrides` in {}", path.display()),
+    )?;
 
     Ok(Scope {
         matcher,
@@ -771,10 +721,18 @@ fn scope(path: &Path, entry: Value, base: &Value, level: Level) -> Result<Scope>
     })
 }
 
+fn scoped_settings(entry: &Value) -> Value {
+    let kept: Map<String, Value> = SCOPED_TABLES
+        .iter()
+        .filter_map(|name| Some(((*name).to_owned(), entry.get(*name)?.clone())))
+        .collect();
+    Value::Object(kept)
+}
+
 /// A level's settings with the explicit ones on top. Written as a merge rather than
-/// a set of defaults per field so a preset stays one readable TOML file.
+/// a set of defaults per field so a preset stays one readable YAML file.
 fn under(level: Level, explicit: &Value) -> Result<Value> {
-    let mut base = document(level.layer()).with_context(|| format!("the `{level}` level"))?;
+    let mut base = files::parse(level.layer()).with_context(|| format!("the `{level}` level"))?;
     merge(&mut base, explicit.clone());
     Ok(base)
 }
@@ -784,7 +742,7 @@ fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
     let undeclared = plan.undeclared_layers();
     if !undeclared.is_empty() {
         bail!(
-            "{source}: `[architecture.paths]` puts a subtree in {}, which `layers` does \
+            "{source}: `architecture.paths` puts a subtree in {}, which `layers` does \
              not declare. Layers are {:?}, ordered inner to outer.",
             undeclared
                 .iter()
@@ -797,7 +755,7 @@ fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
     let duplicates = plan.duplicate_layers();
     if !duplicates.is_empty() {
         bail!(
-            "{source}: `[architecture] layers` names {:?} twice, so which way a \
+            "{source}: `architecture.layers` names {:?} twice, so which way a \
              dependency may point between them has two answers.",
             duplicates
         );
@@ -816,7 +774,7 @@ fn reject_unknown_names(config: &RqxConfig, source: &str) -> Result<()> {
 /// unable to shorten a list the layer beneath it set.
 fn merge(base: &mut Value, layer: Value) {
     match (base, layer) {
-        (Value::Table(base), Value::Table(layer)) => {
+        (Value::Object(base), Value::Object(layer)) => {
             for (key, value) in layer {
                 match base.get_mut(&key) {
                     Some(existing) => merge(existing, value),
@@ -851,27 +809,31 @@ mod tests {
         std::fs::write(at, body).expect("write");
     }
 
+    fn refusal(root: &Path) -> String {
+        match resolve(root, None, None) {
+            Ok(_) => panic!("expected the configuration to be refused"),
+            Err(error) => format!("{error:#}"),
+        }
+    }
+
     /// A policy that cannot be enforced is a suggestion, and the whole point of the
     /// table is that a repository cannot quietly opt out of it.
     #[test]
     fn a_project_that_moves_a_locked_key_is_refused_naming_the_key_and_both_files() {
         let root = workspace("locked-moved");
         write(
-            &root.join("platform/policy.toml"),
-            "[thresholds]\ncognitive_complexity = 12\n\n[locked]\nkeys = [\"thresholds.cognitive_complexity\"]\n",
+            &root.join("platform/policy.yaml"),
+            "thresholds:\n  cognitive_complexity: 12\n\nlocked:\n  keys: [thresholds.cognitive_complexity]\n",
         );
         write(
-            &root.join("service/RQX.toml"),
-            "policy = \"../platform/policy.toml\"\n\n[thresholds]\ncognitive_complexity = 25\n",
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\n\nthresholds:\n  cognitive_complexity: 25\n",
         );
 
-        let Err(error) = resolve(&root.join("service"), None, None) else {
-            panic!("a locked key was moved");
-        };
-        let error = error.to_string();
+        let error = refusal(&root.join("service"));
         assert!(error.contains("thresholds.cognitive_complexity"), "{error}");
-        assert!(error.contains("policy.toml"), "{error}");
-        assert!(error.contains("RQX.toml"), "{error}");
+        assert!(error.contains("policy.yaml"), "{error}");
+        assert!(error.contains("rqx.yaml"), "{error}");
         assert!(error.contains("25"), "{error}");
     }
 
@@ -879,12 +841,12 @@ mod tests {
     fn a_policy_sets_what_the_project_leaves_alone_and_yields_where_it_is_not_locked() {
         let root = workspace("policy-yields");
         write(
-            &root.join("platform/policy.toml"),
-            "[thresholds]\ncognitive_complexity = 12\nmax_params = 6\n\n[locked]\nkeys = [\"thresholds.cognitive_complexity\"]\n",
+            &root.join("platform/policy.yaml"),
+            "thresholds:\n  cognitive_complexity: 12\n  max_params: 6\n\nlocked:\n  keys: [thresholds.cognitive_complexity]\n",
         );
         write(
-            &root.join("service/RQX.toml"),
-            "policy = \"../platform/policy.toml\"\n\n[thresholds]\nmax_params = 2\n",
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\n\nthresholds:\n  max_params: 2\n",
         );
 
         let settings = resolve(&root.join("service"), None, None).expect("resolves");
@@ -898,13 +860,13 @@ mod tests {
         // The per-table map cannot tell these apart; the per-key one has to.
         assert!(
             settings
-                .source_of_key("thresholds", "cognitive_complexity")
-                .is_some_and(|path| path.ends_with("policy.toml"))
+                .file_that_set("thresholds.cognitive_complexity")
+                .is_some_and(|path| path.ends_with("policy.yaml"))
         );
         assert!(
             settings
-                .source_of_key("thresholds", "max_params")
-                .is_some_and(|path| path.ends_with("RQX.toml"))
+                .file_that_set("thresholds.max_params")
+                .is_some_and(|path| path.ends_with("rqx.yaml"))
         );
     }
 
@@ -914,12 +876,12 @@ mod tests {
     fn a_project_may_restate_a_locked_value() {
         let root = workspace("restate");
         write(
-            &root.join("platform/policy.toml"),
-            "[gate]\nfail_on = \"warning\"\n\n[locked]\nkeys = [\"gate.fail_on\"]\n",
+            &root.join("platform/policy.yaml"),
+            "gate:\n  fail_on: warning\n\nlocked:\n  keys: [gate.fail_on]\n",
         );
         write(
-            &root.join("service/RQX.toml"),
-            "policy = \"../platform/policy.toml\"\n\n[gate]\nfail_on = \"warning\"\n",
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\n\ngate:\n  fail_on: warning\n",
         );
         assert!(resolve(&root.join("service"), None, None).is_ok());
     }
@@ -929,56 +891,269 @@ mod tests {
     fn an_override_cannot_move_a_locked_key_either() {
         let root = workspace("override-lock");
         write(
-            &root.join("platform/policy.toml"),
-            "[thresholds]\nmax_params = 3\n\n[locked]\nkeys = [\"thresholds.max_params\"]\n",
+            &root.join("platform/policy.yaml"),
+            "thresholds:\n  max_params: 3\n\nlocked:\n  keys: [thresholds.max_params]\n",
         );
         write(
-            &root.join("service/RQX.toml"),
-            "policy = \"../platform/policy.toml\"\n\n[[override]]\npaths = [\"legacy/**\"]\n\n[override.thresholds]\nmax_params = 9\n",
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\n\noverrides:\n  - paths: [legacy/**]\n    thresholds:\n      max_params: 9\n",
         );
-        let Err(error) = resolve(&root.join("service"), None, None) else {
-            panic!("an override moved a locked key");
-        };
-        let error = error.to_string();
-        assert!(error.contains("override"), "{error}");
+        let error = refusal(&root.join("service"));
+        assert!(error.contains("overrides"), "{error}");
     }
 
-    /// `[locked]` outside the policy would let a project lock itself against the
+    /// `locked` outside the policy would let a project lock itself against the
     /// platform, which is the wrong way round.
     #[test]
     fn only_the_policy_may_lock_anything() {
         let root = workspace("project-lock");
         write(
-            &root.join("service/RQX.toml"),
-            "[thresholds]\nmax_params = 3\n\n[locked]\nkeys = [\"thresholds.max_params\"]\n",
+            &root.join("service/rqx.yaml"),
+            "thresholds:\n  max_params: 3\n\nlocked:\n  keys: [thresholds.max_params]\n",
         );
-        let Err(error) = resolve(&root.join("service"), None, None) else {
-            panic!("a project tried to lock a key");
-        };
-        let error = error.to_string();
+        let error = refusal(&root.join("service"));
         assert!(error.contains("only the policy"), "{error}");
+    }
+
+    /// A TOML file that is skipped is a gate nobody knows has changed, so finding one
+    /// stops the run and says how to convert it.
+    #[test]
+    fn a_toml_config_is_refused_with_the_command_that_converts_it() {
+        let root = workspace("retired");
+        write(
+            &root.join("service/RQX.toml"),
+            "[gate]\nfail_on = \"info\"\n",
+        );
+        let error = refusal(&root.join("service"));
+        assert!(error.contains("RQX.toml"), "{error}");
+        assert!(error.contains("rqx config migrate"), "{error}");
+    }
+
+    #[test]
+    fn a_toml_config_is_refused_even_beside_a_yaml_one() {
+        let root = workspace("retired-beside");
+        write(&root.join("RQX.toml"), "[gate]\n");
+        write(&root.join("rqx.yaml"), "gate: {}\n");
+        assert!(refusal(&root).contains("rqx config migrate"));
+    }
+
+    #[test]
+    fn a_toml_file_named_by_a_flag_or_a_policy_pointer_is_refused() {
+        let root = workspace("retired-named");
+        write(&root.join("custom.toml"), "[gate]\n");
+        let Err(flag) = resolve(&root, Some(&root.join("custom.toml")), None) else {
+            panic!("--config accepted TOML");
+        };
+        assert!(flag.to_string().contains("rqx config migrate"), "{flag}");
+
+        write(&root.join("platform/policy.toml"), "[gate]\n");
+        write(&root.join("rqx.yaml"), "policy: platform/policy.toml\n");
+        assert!(refusal(&root).contains("rqx config migrate"));
+    }
+
+    #[test]
+    fn every_accepted_file_name_is_read() {
+        for name in rqx_core::config::CONFIG_FILE_NAMES {
+            let root = workspace("names");
+            write(&root.join(name), "thresholds:\n  max_params: 2\n");
+            let settings = resolve(&root, None, None).expect(name);
+            assert_eq!(settings.config.thresholds.max_params, 2, "{name}");
+        }
+    }
+
+    #[test]
+    fn two_config_files_in_one_directory_are_refused_naming_both() {
+        let root = workspace("two");
+        write(&root.join("rqx.yaml"), "gate: {}\n");
+        write(&root.join(".rqx.yml"), "gate: {}\n");
+        let error = refusal(&root);
+        assert!(
+            error.contains("rqx.yaml") && error.contains(".rqx.yml"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn a_mistake_in_a_file_names_the_file_and_the_line() {
+        let root = workspace("located");
+        write(
+            &root.join("rqx.yaml"),
+            "gate:\n  fail_on: error\nthresholds:\n  max_params: many\n",
+        );
+        let error = refusal(&root);
+        assert!(error.contains("rqx.yaml:4"), "{error}");
+    }
+
+    #[test]
+    fn a_misspelt_key_is_refused_with_the_keys_it_could_have_been() {
+        let root = workspace("typo");
+        write(&root.join("rqx.yaml"), "thresholds:\n  max_param: 2\n");
+        let error = refusal(&root);
+        assert!(
+            error.contains("max_param") && error.contains("max_params"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn an_empty_file_and_one_of_only_comments_set_nothing() {
+        let root = workspace("empty");
+        write(&root.join("rqx.yaml"), "# nothing yet\n");
+        let settings = resolve(&root, None, None).expect("resolves");
+        assert_eq!(settings.config.thresholds.max_params, 4);
+    }
+
+    #[test]
+    fn a_preset_sets_what_the_file_leaves_alone_and_names_itself_as_the_source() {
+        let root = workspace("preset");
+        write(
+            &root.join("rqx.yaml"),
+            "extends: [ci-gate]\n\ngate:\n  max_findings: 5\n",
+        );
+        let settings = resolve(&root, None, None).expect("resolves");
+        assert_eq!(settings.config.gate.min_health, 70);
+        assert_eq!(
+            settings.config.gate.max_findings, 5,
+            "the file's own key wins"
+        );
+        assert_eq!(settings.presets, ["ci-gate"]);
+        let from = |key| {
+            settings
+                .origin_of("gate", Some(key))
+                .expect("origin")
+                .label()
+        };
+        assert_eq!(from("min_health"), "preset:ci-gate");
+        assert_eq!(from("max_findings"), "rqx.yaml");
+    }
+
+    #[test]
+    fn a_later_entry_of_extends_wins_over_an_earlier_one() {
+        let root = workspace("extends-order");
+        write(&root.join("rqx.yaml"), "extends: [perf, legacy-adoption]\n");
+        let settings = resolve(&root, None, None).expect("resolves");
+        // perf says 2, and legacy-adoption comes through the relaxed level, which says 3.
+        assert_eq!(settings.config.thresholds.callback_depth, 2);
+        assert_eq!(settings.config.thresholds.max_params, 6);
+        assert_eq!(settings.config.thresholds.loop_nesting, 1);
+        assert_eq!(settings.presets, ["perf", "relaxed", "legacy-adoption"]);
+    }
+
+    /// presets and extends < policy < per-directory files, so a preset can never
+    /// override what a policy set, whichever file named it.
+    #[test]
+    fn a_policy_overrides_a_preset_and_a_project_file_overrides_both() {
+        let root = workspace("precedence");
+        write(
+            &root.join("platform/policy.yaml"),
+            "thresholds:\n  loop_nesting: 5\n  callback_depth: 4\n",
+        );
+        write(
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\nextends: [perf]\nthresholds:\n  callback_depth: 6\n",
+        );
+        let settings = resolve(&root.join("service"), None, None).expect("resolves");
+        assert_eq!(
+            settings.config.thresholds.loop_nesting, 5,
+            "policy over preset"
+        );
+        assert_eq!(
+            settings.config.thresholds.callback_depth, 6,
+            "file over policy"
+        );
+    }
+
+    #[test]
+    fn a_preset_cannot_move_a_key_the_policy_locks() {
+        let root = workspace("preset-lock");
+        write(
+            &root.join("platform/policy.yaml"),
+            "gate:\n  min_health: 90\n\nlocked:\n  keys: [gate.min_health]\n",
+        );
+        write(
+            &root.join("service/rqx.yaml"),
+            "policy: ../platform/policy.yaml\nextends: [ci-gate]\n",
+        );
+        let settings = resolve(&root.join("service"), None, None).expect("resolves");
+        assert_eq!(settings.config.gate.min_health, 90);
+    }
+
+    #[test]
+    fn a_file_can_extend_a_file_beside_it_and_that_file_is_not_the_one_set_edits() {
+        let root = workspace("extends-file");
+        write(
+            &root.join("shared/base.yaml"),
+            "thresholds:\n  max_params: 2\n",
+        );
+        write(
+            &root.join("rqx.yaml"),
+            "extends: [shared/base.yaml]\nthresholds:\n  nesting_depth: 2\n",
+        );
+        let settings = resolve(&root, None, None).expect("resolves");
+        assert_eq!(settings.config.thresholds.max_params, 2);
+        assert_eq!(
+            settings
+                .origin_of("thresholds", Some("max_params"))
+                .expect("origin")
+                .label(),
+            "base.yaml (extends)"
+        );
+        assert!(settings.file_that_set("thresholds.max_params").is_none());
+        assert!(settings.file_that_set("thresholds.nesting_depth").is_some());
+    }
+
+    #[test]
+    fn an_unknown_preset_is_refused_with_the_one_it_was_close_to() {
+        let root = workspace("unknown-preset");
+        write(&root.join("rqx.yaml"), "extends: [stirct]\n");
+        let error = refusal(&root);
+        assert!(error.contains("`stirct`"), "{error}");
+        assert!(error.contains("Did you mean `strict`?"), "{error}");
+        assert!(error.contains("legacy-adoption"), "{error}");
+    }
+
+    #[test]
+    fn files_that_extend_each_other_are_refused_rather_than_followed_forever() {
+        let root = workspace("extends-loop");
+        write(&root.join("a.yaml"), "extends: [b.yaml]\n");
+        write(&root.join("b.yaml"), "extends: [a.yaml]\n");
+        write(&root.join("rqx.yaml"), "extends: [a.yaml]\n");
+        assert!(refusal(&root).contains("loops"));
+    }
+
+    #[test]
+    fn extending_a_file_that_is_missing_or_toml_is_refused() {
+        let root = workspace("extends-missing");
+        write(&root.join("rqx.yaml"), "extends: [nowhere.yaml]\n");
+        assert!(refusal(&root).contains("nowhere.yaml"));
+        write(&root.join("rqx.yaml"), "extends: [old.toml]\n");
+        assert!(refusal(&root).contains("rqx config migrate"));
     }
 
     fn failure(outcome: Result<Scope>) -> String {
         match outcome {
             Ok(_) => panic!("expected the override to be refused"),
-            Err(error) => error.to_string(),
+            Err(error) => format!("{error:#}"),
         }
     }
 
+    fn tree(text: &str) -> Value {
+        files::parse(text).expect("yaml")
+    }
+
     fn merged(layers: &[&str]) -> RqxConfig {
-        let mut base = Value::Table(toml::Table::new());
+        let mut base = files::empty();
         for layer in layers {
-            merge(&mut base, document(layer).unwrap());
+            merge(&mut base, tree(layer));
         }
-        base.try_into().unwrap()
+        serde_json::from_value(base).unwrap()
     }
 
     #[test]
     fn a_later_layer_sets_one_key_without_resetting_its_neighbours() {
         let config = merged(&[
-            "[thresholds]\nmax_params = 9\nnesting_depth = 7\n",
-            "[thresholds]\nmax_params = 2\n",
+            "thresholds:\n  max_params: 9\n  nesting_depth: 7\n",
+            "thresholds:\n  max_params: 2\n",
         ]);
         assert_eq!(config.thresholds.max_params, 2);
         assert_eq!(config.thresholds.nesting_depth, 7);
@@ -987,25 +1162,31 @@ mod tests {
     #[test]
     fn a_later_layer_replaces_a_list_rather_than_growing_it() {
         let config = merged(&[
-            "[ignore]\npatterns = [\"a\", \"b\"]\n",
-            "[ignore]\npatterns = [\"c\"]\n",
+            "ignore:\n  patterns: [a, b]\n",
+            "ignore:\n  patterns: [c]\n",
         ]);
         assert_eq!(config.ignore.patterns, vec!["c".to_owned()]);
     }
 
+    /// The keys an override may carry are checked when its file is read, so the answer
+    /// to "can a subtree move the scan" is the same however the run reaches it.
     #[test]
     fn an_override_that_reaches_beyond_its_subtree_is_refused() {
-        let base = Value::Table(toml::Table::new());
-        let entry = document("paths = [\"src/**\"]\n[scan]\nthreads = 2\n").unwrap();
-        let error = failure(scope(Path::new("RQX.toml"), entry, &base, Level::Standard));
-        assert!(error.contains("cannot be scoped"), "{error}");
+        let root = workspace("override-scan");
+        write(
+            &root.join("rqx.yaml"),
+            "overrides:\n  - paths: [src/**]\n    scan:\n      threads: 2\n",
+        );
+        let error = refusal(&root);
+        assert!(error.contains("scan"), "{error}");
+        assert!(error.contains("thresholds"), "{error}");
     }
 
     #[test]
     fn an_override_without_paths_is_refused() {
-        let base = Value::Table(toml::Table::new());
-        let entry = document("[thresholds]\nmax_params = 9\n").unwrap();
-        let error = failure(scope(Path::new("RQX.toml"), entry, &base, Level::Standard));
+        let base = files::empty();
+        let entry = tree("thresholds:\n  max_params: 9\n");
+        let error = failure(scope(Path::new("rqx.yaml"), entry, &base, Level::Standard));
         assert!(error.contains("names no `paths`"), "{error}");
     }
 
@@ -1013,9 +1194,9 @@ mod tests {
     /// scoped at all; the gate is not, because a run reaches one verdict.
     #[test]
     fn an_override_may_hold_its_subtree_to_a_different_level() {
-        let base = Value::Table(toml::Table::new());
-        let entry = document("paths = [\"src/domain/**\"]\nlevel = \"strict\"\n").unwrap();
-        let scoped = scope(Path::new("RQX.toml"), entry, &base, Level::Relaxed).unwrap();
+        let base = files::empty();
+        let entry = tree("paths: [src/domain/**]\nlevel: strict\n");
+        let scoped = scope(Path::new("rqx.yaml"), entry, &base, Level::Relaxed).unwrap();
         assert_eq!(scoped.config.thresholds.cognitive_complexity, 10);
         assert_eq!(
             scoped.config.gate.fail_on.slug(),
@@ -1026,21 +1207,18 @@ mod tests {
 
     #[test]
     fn a_level_never_overrides_what_the_project_wrote() {
-        let base = Value::Table(toml::Table::new());
-        let entry =
-            document("paths = [\"src/**\"]\nlevel = \"strict\"\n[thresholds]\nmax_params = 9\n")
-                .unwrap();
-        let scoped = scope(Path::new("RQX.toml"), entry, &base, Level::Standard).unwrap();
+        let base = files::empty();
+        let entry = tree("paths: [src/**]\nlevel: strict\nthresholds:\n  max_params: 9\n");
+        let scoped = scope(Path::new("rqx.yaml"), entry, &base, Level::Standard).unwrap();
         assert_eq!(scoped.config.thresholds.max_params, 9);
         assert_eq!(scoped.config.thresholds.nesting_depth, 2);
     }
 
     #[test]
     fn an_override_naming_a_renamed_family_is_refused_with_the_new_name() {
-        let base = Value::Table(toml::Table::new());
-        let entry =
-            document("paths = [\"src/**\"]\n[rules]\ncategories = [\"bloaters\"]\n").unwrap();
-        let error = failure(scope(Path::new("RQX.toml"), entry, &base, Level::Standard));
+        let base = files::empty();
+        let entry = tree("paths: [src/**]\nrules:\n  categories: [bloaters]\n");
+        let error = failure(scope(Path::new("rqx.yaml"), entry, &base, Level::Standard));
         assert!(
             error.contains("`bloaters`") && error.contains("`size`"),
             "{error}"
@@ -1049,206 +1227,10 @@ mod tests {
 
     #[test]
     fn an_override_keeps_the_thresholds_it_does_not_mention() {
-        let base = document("[thresholds]\nmax_params = 9\nnesting_depth = 7\n").unwrap();
-        let entry = document("paths = [\"src/**\"]\n[thresholds]\nmax_params = 2\n").unwrap();
-        let scope = scope(Path::new("RQX.toml"), entry, &base, Level::Standard).unwrap();
+        let base = tree("thresholds:\n  max_params: 9\n  nesting_depth: 7\n");
+        let entry = tree("paths: [src/**]\nthresholds:\n  max_params: 2\n");
+        let scope = scope(Path::new("rqx.yaml"), entry, &base, Level::Standard).unwrap();
         assert_eq!(scope.config.thresholds.max_params, 2);
         assert_eq!(scope.config.thresholds.nesting_depth, 7);
-    }
-}
-
-/// A change to `RQX.toml` as a position and the text to put there, so an editor can
-/// apply it as a `WorkspaceEdit` rather than being handed a rewritten file.
-pub struct Insertion {
-    /// Zero-based.
-    pub line: u32,
-    pub column: u32,
-    pub text: String,
-}
-
-/// Applies an insertion the way an editor would, padding with empty lines when it
-/// lands past the end of the file. Only the tests apply one: a real client is the
-/// editor, and it applies the edit itself.
-#[cfg(test)]
-fn apply(source: &str, insertion: &Insertion) -> String {
-    let mut lines: Vec<String> = source.lines().map(str::to_owned).collect();
-    let line = insertion.line as usize;
-    while lines.len() <= line {
-        lines.push(String::new());
-    }
-    let column = (insertion.column as usize).min(lines[line].len());
-    lines[line].insert_str(column, &insertion.text);
-    let mut out = lines.join("\n");
-    if source.ends_with('\n') || source.is_empty() {
-        out.push('\n');
-    }
-    out
-}
-
-/// Finds `disabled = [...]` under `[rules]` and inserts into it, adds the key under an
-/// existing `[rules]`, or appends the whole table — in that order, because a second
-/// `[rules]` header is a TOML error rather than a merge. A shape it cannot read safely
-/// yields nothing, since a wrong edit leaves the project with an `RQX.toml` that no
-/// longer parses.
-pub fn disable_entry(source: &str, name: &str) -> Option<Insertion> {
-    let mut in_rules = false;
-    let mut rules_header: Option<u32> = None;
-    for (number, line) in source.lines().enumerate() {
-        let body = line.trim_start();
-        if body.starts_with('[') {
-            in_rules = body.trim_end().starts_with("[rules]");
-            if in_rules {
-                if rules_header.is_some() {
-                    return None;
-                }
-                rules_header = Some(number as u32);
-            }
-            continue;
-        }
-        if !in_rules {
-            continue;
-        }
-        let Some(rest) = body.strip_prefix("disabled") else {
-            continue;
-        };
-        let Some(open) = rest.find('[') else { continue };
-        // An array spread over several lines cannot be edited by looking at one of
-        // them, and falling through to the append branch would write a second
-        // `disabled` key — a duplicate key, which stops the whole file parsing.
-        let close = rest.find(']')?;
-
-        let entries = &rest[open + 1..close];
-        if entries
-            .split(',')
-            .any(|entry| entry.trim().trim_matches(['"', '\'']) == name)
-        {
-            return None;
-        }
-
-        let indent = line.len() - body.len();
-        let column = (indent + "disabled".len() + open + 1) as u32;
-        let text = if entries.trim().is_empty() {
-            format!("\"{name}\"")
-        } else {
-            format!("\"{name}\", ")
-        };
-        return Some(Insertion {
-            line: number as u32,
-            column,
-            text,
-        });
-    }
-
-    match rules_header {
-        Some(line) => Some(Insertion {
-            line: line + 1,
-            column: 0,
-            text: format!("disabled = [\"{name}\"]\n"),
-        }),
-        None => {
-            let lines = source.lines().count() as u32;
-            let separator = if source.is_empty() || source.ends_with('\n') {
-                ""
-            } else {
-                "\n"
-            };
-            Some(Insertion {
-                line: lines,
-                column: 0,
-                text: format!("{separator}\n[rules]\ndisabled = [\"{name}\"]\n"),
-            })
-        }
-    }
-}
-
-#[cfg(test)]
-mod disable_tests {
-    use super::*;
-
-    /// Applies the edit the way a client would, then parses the result — an edit that
-    /// produces a file `RQX.toml` cannot read is worse than no quick fix at all.
-    fn applied(source: &str, name: &str) -> String {
-        let insertion = disable_entry(source, name).expect("an edit");
-        let out = apply(source, &insertion);
-        out.parse::<toml::Table>()
-            .unwrap_or_else(|error| panic!("the edit broke the file: {error}\n{out}"));
-        out
-    }
-
-    #[test]
-    fn an_empty_array_gains_the_first_entry() {
-        let out = applied("[rules]\ndisabled = []\n", "magic-number");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
-    }
-
-    #[test]
-    fn a_populated_array_keeps_what_was_there() {
-        let out = applied("[rules]\ndisabled = [\"long-function\"]\n", "magic-number");
-        assert!(
-            out.contains("disabled = [\"magic-number\", \"long-function\"]"),
-            "{out}"
-        );
-    }
-
-    /// The template writes a line of prose above every key, so an edit that dropped
-    /// comments would silently delete the explanation of the setting being changed.
-    #[test]
-    fn comments_survive_the_edit() {
-        let source = "# why this table exists\n[rules]\n# slugs or families\ndisabled = []\n";
-        let out = applied(source, "magic-number");
-        assert!(out.contains("# why this table exists"), "{out}");
-        assert!(out.contains("# slugs or families"), "{out}");
-    }
-
-    #[test]
-    fn a_file_without_the_table_gains_one() {
-        let out = applied("[scan]\nthreads = 4\n", "magic-number");
-        assert!(out.contains("[rules]"), "{out}");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
-    }
-
-    #[test]
-    fn a_rule_already_disabled_is_not_added_twice() {
-        assert!(
-            disable_entry("[rules]\ndisabled = [\"magic-number\"]\n", "magic-number").is_none()
-        );
-    }
-
-    /// The name appearing anywhere in the file used to count as already-disabled, so a
-    /// commented-out example silently swallowed the quick fix.
-    #[test]
-    fn a_name_mentioned_elsewhere_does_not_count_as_disabled() {
-        let source = "# e.g. disabled = [\"magic-number\"]\n[rules]\ndisabled = []\n";
-        let out = applied(source, "magic-number");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
-    }
-
-    /// A multi-line array cannot be edited from one line, and falling through to the
-    /// append branch wrote a second `disabled` key — a duplicate that stops `RQX.toml`
-    /// parsing at all.
-    #[test]
-    fn a_multi_line_array_is_left_alone_rather_than_duplicated() {
-        let source = "[rules]\ndisabled = [\n  \"long-function\",\n]\n";
-        assert!(disable_entry(source, "magic-number").is_none());
-    }
-
-    /// The insert column came from a two-sided trim, so a trailing space moved it past
-    /// the closing bracket and produced `disabled = []\"magic-number\"`.
-    #[test]
-    fn trailing_whitespace_does_not_move_the_insert_point() {
-        let out = applied("[rules]\n  disabled = []   \n", "magic-number");
-        assert!(out.contains("disabled = [\"magic-number\"]"), "{out}");
-    }
-
-    #[test]
-    fn a_second_rules_table_is_refused_rather_than_guessed_at() {
-        assert!(disable_entry("[rules]\nenabled = []\n[a]\nx = 1\n[rules]\n", "x").is_none());
-    }
-
-    #[test]
-    fn a_file_with_no_trailing_newline_keeps_its_last_line() {
-        let out = applied("[scan]\nthreads = 4", "magic-number");
-        assert!(out.contains("threads = 4"), "{out}");
-        assert!(out.contains("[rules]"), "{out}");
     }
 }

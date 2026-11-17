@@ -49,11 +49,11 @@ impl FindingBuilder<'_> {
         fix_hint: String,
         confidence: Confidence,
     ) {
-        if !self.config.rules.enabled(rule) {
+        if !self.config.rules.admits(rule, &self.file) {
             return;
         }
         let spec = rule.spec();
-        out.push(Finding {
+        let mut finding = Finding {
             rule,
             location: self.range(span),
             severity: spec.severity,
@@ -62,7 +62,9 @@ impl FindingBuilder<'_> {
             fix_hint,
             related: Vec::new(),
             known: false,
-        });
+        };
+        self.config.rules.adjust(&mut finding);
+        out.push(finding);
     }
 }
 

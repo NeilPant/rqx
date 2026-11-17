@@ -101,7 +101,7 @@ ways. `esc` steps back through where you have been and quits at the root.
 **Set up writes to disk**, which is why it has a heading of its own rather than
 sitting among the views. Each entry says what it did on the footer line, which is
 on every screen, and clears on the next key. None of them overwrites: a baseline
-that already exists wants `rqx baseline --update`, and an `RQX.toml` that already
+that already exists wants `rqx baseline --update`, and an `rqx.yaml` that already
 exists is left alone.
 
 Review a diff asks for the revision as a second step, the way a waiver asks for

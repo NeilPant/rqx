@@ -15,6 +15,7 @@ mod check;
 mod complexity;
 mod config;
 mod edit_config;
+mod explain;
 mod fix;
 mod forge;
 mod gate;
@@ -23,6 +24,7 @@ mod health;
 mod history;
 mod lsp;
 mod mcp;
+mod migrate;
 mod perf;
 mod plan;
 mod preview;
@@ -232,7 +234,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -267,7 +269,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -291,7 +293,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -328,7 +330,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -366,7 +368,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -385,7 +387,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -418,7 +420,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -449,7 +451,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -487,7 +489,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -507,7 +509,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -525,7 +527,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -552,7 +554,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -573,7 +575,7 @@ enum Command {
         /// Show every capture of every match, not just where it starts
         #[arg(long)]
         captures: bool,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -598,7 +600,7 @@ enum Command {
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -626,7 +628,7 @@ enum Command {
         view: View,
         #[command(flatten)]
         gate: Gate,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -670,15 +672,15 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         /// Worker threads. Defaults to the machine's parallelism
         #[arg(long, value_name = "N", env = "RQX_THREADS")]
         threads: Option<usize>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
-    /// Write a commented RQX.toml with every setting at its default
+    /// Write a commented rqx.yaml with every setting at its default
     Init {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Replace an RQX.toml that is already there
+        /// Replace an rqx.yaml that is already there
         #[arg(long)]
         force: bool,
     },
@@ -688,7 +690,7 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         path: PathBuf,
         #[command(flatten)]
         standard: Standard,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
         #[command(subcommand)]
@@ -701,7 +703,7 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
         /// Serve Streamable HTTP on this address instead of speaking over stdio
         #[arg(long, value_name = "ADDR")]
         http: Option<std::net::SocketAddr>,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -709,7 +711,7 @@ merge-request notes. GitHub needs `permissions: pull-requests: write`, and
     Lsp {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -876,7 +878,7 @@ struct View {
     format: Option<Reporter>,
 }
 
-/// Overrides for `[gate]` in `RQX.toml`. The same repository often wants a strict
+/// Overrides for `gate` in `rqx.yaml`. The same repository often wants a strict
 /// gate on its default branch and a lenient one everywhere else, which a committed
 /// config file cannot express.
 #[derive(Subcommand)]
@@ -887,7 +889,7 @@ enum ConfigAction {
         key: String,
         value: String,
         /// Which file to write. Without it, the file that already holds the setting,
-        /// else the nearest `RQX.toml`.
+        /// else the nearest `rqx.yaml`.
         #[arg(long)]
         file: Option<PathBuf>,
         /// Choose the file from the ones this project reads
@@ -904,6 +906,23 @@ enum ConfigAction {
     },
     /// List the files this project's settings come from, nearest last
     Files,
+    /// Print the JSON Schema of a config file, for an editor or a validator
+    Schema,
+    /// What one setting is, what it defaults to, and what it is now and why
+    Explain {
+        /// The setting, dotted: `thresholds.max_params`, `gate.fail_on`,
+        /// `rules.long-function.severity`
+        key: String,
+    },
+    /// Convert RQX.toml files, the policies they point at and the user config to YAML
+    Migrate {
+        /// A directory to search for RQX.toml, or one TOML file to convert
+        #[arg(value_hint = ValueHint::AnyPath)]
+        path: Option<PathBuf>,
+        /// Say what would change and write nothing
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -912,7 +931,7 @@ enum CacheAction {
     Status {
         #[arg(default_value = ".", value_hint = ValueHint::AnyPath)]
         path: PathBuf,
-        /// Read settings from this file, layered over any `RQX.toml` found
+        /// Read settings from this file, layered over any `rqx.yaml` found
         #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
@@ -1183,6 +1202,9 @@ impl From<ConfigAction> for edit_config::Change {
             },
             ConfigAction::Unset { key, file, pick } => Self::Unset { key, file, pick },
             ConfigAction::Files => Self::Files,
+            ConfigAction::Migrate { .. } | ConfigAction::Schema | ConfigAction::Explain { .. } => {
+                unreachable!("answered before settings load")
+            }
         }
     }
 }
@@ -1367,16 +1389,7 @@ fn bare_scan() -> Result<Command> {
 }
 
 fn write_template(root: &Path, force: bool) -> Result<()> {
-    let path = root.join(rqx_core::config::CONFIG_FILE_NAME);
-    if path.exists() && !force {
-        bail!(
-            "`{}` is already there. Pass --force to replace it, or `rqx config` to see what \
-             it resolves to.",
-            path.display()
-        );
-    }
-    std::fs::write(&path, rqx_core::config::TEMPLATE)
-        .with_context(|| format!("writing {}", path.display()))?;
+    let path = config::init(root, force)?;
     println!(
         "\n  wrote {}\n  every value is the default; delete what you agree with.\n",
         path.display()
@@ -1733,7 +1746,7 @@ fn run() -> Result<Exit> {
             );
             if !taken.configured {
                 println!(
-                    "  set `[gate] baseline = \"{}\"` in RQX.toml to gate on new findings only",
+                    "  set `gate.baseline: {}` in rqx.yaml to gate on new findings only",
                     baseline::DEFAULT_PATH
                 );
             }
@@ -2052,9 +2065,30 @@ fn run() -> Result<Exit> {
             config,
             action,
         } => {
+            // A TOML file stops the config from loading, and converting it is the way
+            // out, so this has to run before anything reads the configuration.
+            match action {
+                Some(ConfigAction::Migrate {
+                    path: named,
+                    dry_run,
+                }) => {
+                    let mut out = anstream::stdout().lock();
+                    migrate::run(named.as_ref().unwrap_or(&path), dry_run, palette, &mut out)?;
+                    return Ok(Exit::Clean);
+                }
+                Some(ConfigAction::Schema) => {
+                    println!("{}", report::config_schema());
+                    return Ok(Exit::Clean);
+                }
+                _ => {}
+            }
             let settings = config::resolve(&path, config.as_deref(), standard.chosen()?);
             match action {
                 None => report::config(&settings?, palette).map(|()| Exit::Clean),
+                Some(ConfigAction::Explain { key }) => {
+                    let mut out = anstream::stdout().lock();
+                    explain::run(&key, &settings?, palette, &mut out).map(|()| Exit::Clean)
+                }
                 Some(action) => {
                     let change = edit_config::Change::from(action);
                     let mut out = anstream::stdout().lock();

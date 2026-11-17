@@ -975,7 +975,7 @@ fn write_notes(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> R
             "\n  {}",
             paint(
                 dim,
-                "No RQX.toml, so these are the defaults \u{2014} `rqx init` writes one to edit."
+                "No rqx.yaml, so these are the defaults \u{2014} `rqx init` writes one to edit."
             )
         )?;
     }

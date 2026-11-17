@@ -111,7 +111,7 @@ if not configs.rqx then
         "typescript", "typescriptreact", "javascript", "javascriptreact",
         "python", "go", "java", "cpp",
       },
-      root_dir = lspconfig.util.root_pattern("RQX.toml", ".git"),
+      root_dir = lspconfig.util.root_pattern("rqx.yaml", ".git"),
       init_options = { scanOnStartup = true, codeLens = false, patterns = false },
     },
   }
@@ -198,7 +198,7 @@ const VIM: &str = r#"// coc-settings.json
       "command": "rqx",
       "args": ["lsp"],
       "filetypes": ["typescript", "typescriptreact", "javascript", "javascriptreact", "python", "go", "java", "cpp"],
-      "rootPatterns": ["RQX.toml", ".git"],
+      "rootPatterns": ["rqx.yaml", ".git"],
       "initializationOptions": { "scanOnStartup": true, "patterns": false }
     }
   }
@@ -240,7 +240,7 @@ const KAKOUNE: &str = r#"# kak-lsp.toml
 command = "rqx"
 args = ["lsp"]
 filetypes = ["typescript", "tsx", "javascript", "jsx", "python", "go", "java", "cpp"]
-roots = ["RQX.toml", ".git"]
+roots = ["rqx.yaml", ".git"]
 
 [language_server.rqx.settings]
 scanOnStartup = true

@@ -39,7 +39,7 @@ and fails if the checked-in copy has drifted — `rqx docs` writes it, and a rul
 without it leaves the documentation describing a tool that no longer exists.
 
 **`fixtures/` is a minefield on purpose.** Every file in it is a deliberate violation,
-kept broken so a rule has something to fire on. The repository's `RQX.toml` tells rqx
+kept broken so a rule has something to fire on. The repository's `rqx.yaml` tells rqx
 not to read it; do not run `rqx fix` over it, and do not "clean up" a fixture you
 notice is bad code. If a fixture changes, the counts in
 `crates/rqx-cli/tests/fixtures.rs` change with it, and the checked-in rule reference

@@ -26,7 +26,7 @@ fn fixtures_dir() -> String {
 }
 
 fn config_path() -> String {
-    format!("{}/all-rules.toml", fixtures_dir())
+    format!("{}/all-rules.yaml", fixtures_dir())
 }
 
 fn scan_dir(dir: &str, extra: &[&str]) -> String {
@@ -1530,16 +1530,14 @@ fn an_advisory_declared_inapplicable_never_fires() {
 fn advice_cannot_move_the_health_score_or_the_gate() {
     let dir = std::env::temp_dir().join(format!("rqx-advice-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
-    let silent = dir.join("silent.toml");
+    let silent = dir.join("silent.yaml");
     // Same rules, only the patterns differ, or the comparison would be measuring the
     // rule catalogue instead of the advice one.
     let all = std::fs::read_to_string(config_path()).expect("read the fixture config");
-    let rules = all.split("[patterns]").next().unwrap_or_default();
+    let rules = all.split("\npatterns:").next().unwrap_or_default();
     std::fs::write(
         &silent,
-        format!(
-            "{rules}\n[patterns]\ndisabled = [\"creational\", \"structural\", \"behavioural\"]\n"
-        ),
+        format!("{rules}\npatterns:\n  disabled: [creational, structural, behavioural]\n"),
     )
     .expect("write config");
 
@@ -1586,11 +1584,11 @@ fn advise_language_with(language: &str, extra: &[&str]) -> String {
 fn only_a_half_applied_pattern_can_fail_the_gate() {
     let dir = std::env::temp_dir().join(format!("rqx-gate-advice-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
-    let strict = dir.join("strict.toml");
+    let strict = dir.join("strict.yaml");
     let all = std::fs::read_to_string(config_path()).expect("read the fixture config");
     std::fs::write(
         &strict,
-        format!("{all}\n[gate]\nfail_on_incomplete = true\n"),
+        format!("{all}\ngate:\n  fail_on_incomplete: true\n"),
     )
     .expect("write config");
     let strict = strict.to_str().expect("utf-8 path").to_owned();
@@ -1785,7 +1783,7 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
     .unwrap();
     // Every commit here is made now, so a note is never old by the calendar. The
     // rule is what is under test, not the clock.
-    fs::write(root.join("RQX.toml"), "[thresholds]\ntodo_age_days = 0\n").unwrap();
+    fs::write(root.join("rqx.yaml"), "thresholds:\n  todo_age_days: 0\n").unwrap();
     fs::write(
         root.join("src/index.ts"),
         "export { route } from \"./router\";\n",
@@ -2127,10 +2125,10 @@ fn machine_reports_name_paths_from_the_working_directory() {
 fn disabling_three_families_does_not_silence_the_others() {
     let dir = std::env::temp_dir().join(format!("rqx-gate-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let config = dir.join("RQX.toml");
+    let config = dir.join("rqx.yaml");
     std::fs::write(
         &config,
-        "[rules]\ndisabled = [\"waste\", \"coupling\", \"abstraction\"]\n",
+        "rules:\n  disabled: [waste, coupling, abstraction]\n",
     )
     .unwrap();
 

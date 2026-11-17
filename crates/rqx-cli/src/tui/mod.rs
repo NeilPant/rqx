@@ -391,11 +391,7 @@ impl App {
                 ))
             }
             app::Task::WriteConfig => {
-                let path = root.join(rqx_core::config::CONFIG_FILE_NAME);
-                if path.exists() {
-                    anyhow::bail!("{} is already there", path.display());
-                }
-                std::fs::write(&path, rqx_core::config::TEMPLATE)?;
+                let path = crate::config::init(root, false)?;
                 Ok(format!(
                     "wrote {} \u{2014} every value is the default",
                     path.display()

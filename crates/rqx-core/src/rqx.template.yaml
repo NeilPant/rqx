@@ -1,0 +1,249 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jadhamwi21/rqx/main/docs/rqx.schema.json
+# rqx.yaml — every setting rqx reads, at its default.
+#
+# Delete anything you are happy with: an absent key keeps the default, and rqx
+# merges this file over your personal one at ~/.config/rqx/rqx.yaml.
+# `rqx config` prints what a run will actually use, and where each value came from.
+
+# Stops rqx looking for another rqx.yaml above this directory. Set it in a
+# repository that lives inside another repository.
+root: false
+
+# How much this project asks of itself: relaxed, standard, strict or pristine. A
+# level is a layer of settings merged *under* everything below, so naming one moves
+# the defaults and never overrides a value written here. `rqx levels` prints them.
+level: standard
+
+languages:
+  # Empty means all of them. Naming one costs the others nothing either way: the
+  # file walker never opens a path no enabled language claims.
+  # enabled: [typescript, javascript, python, go, java, cpp]
+  enabled: []
+
+rules:
+  # Rule slugs or whole family slugs. `rqx rules` lists both.
+  disabled: []
+  # Ten rules ship off by default because their signal is real but noisy. Name one
+  # here to turn it on: meaningless-name, primitive-obsession, hungarian-notation,
+  # short-name-wide-scope, negative-conditional, divergent-change,
+  # misleading-pattern-name, inconsistent-vocabulary, alternative-classes,
+  # parallel-inheritance.
+  enabled: []
+  # When non-empty, only these families run.
+  categories: []
+  # A single rule can be given its own settings under its slug: severity, enabled,
+  # paths, confidence, and the thresholds it reads.
+  # long-parameter-list:
+  #   severity: error
+  #   max_params: 6
+  #   paths: ["src/domain/**"]
+
+patterns:
+  # Design-pattern advice: which patterns are in use, which are half applied, and where
+  # one would fit. None of it moves the health score. `rqx patterns --coverage` lists
+  # every pattern and what rqx does about it.
+  # An advisory slug, a pattern slug, or a family: creational, structural, behavioural.
+  disabled: []
+  # Advisories whose signal is real but weak ship off; name one here to turn it on.
+  enabled: []
+  # When non-empty, only these families run.
+  families: []
+  # When non-empty, only these stances are reported: recognized, incomplete, applicable.
+  stances: []
+
+thresholds:
+  # Every one of these is the highest acceptable value: a finding fires strictly
+  # above it.
+  long_function_statements: 40
+  cognitive_complexity: 15
+  nesting_depth: 3
+  max_params: 4
+  class_members: 20
+  class_statements: 200
+  clone_min_statements: 3
+  clone_min_nodes: 12
+  condition_operands: 3
+  message_chain_depth: 3
+  commented_code_lines: 2
+  magic_number_repeats: 3
+  class_public_members: 20
+  # Modules one file may import before it cannot be read or moved on its own, and
+  # modules that may import one file before every change to it reaches too far.
+  fan_out: 20
+  fan_in: 20
+  # Levels a relative import may climb before it is reaching across the project
+  # rather than through it.
+  relative_climb: 2
+  # Statements in one file, across every function in it, before it is several files
+  # that have not been separated yet.
+  module_statements: 400
+  function_locals: 15
+  try_statements: 10
+  narrated_run: 4
+  explanation_ratio: 2
+  guard_cascade: 3
+  sole_author_commits: 6
+  hotspot_commits: 12
+  cyclomatic_complexity: 12
+  max_results: 3
+  class_collaborators: 8
+  log_percent: 40
+  inheritance_depth: 3
+  todo_age_days: 180
+  # Ways out of one function body, past the guard clauses at the top.
+  max_exits: 4
+  # Arms in one switch before it stops being a table a reader scans.
+  max_cases: 12
+  # Arms below which a switch is an if spelled in more lines. Off by default.
+  min_cases: 3
+  # Function literals nested inside other function literals.
+  callback_depth: 3
+  feature_envy_ratio: 3
+  data_clump_size: 3
+  data_clump_sites: 3
+  short_name_scope_lines: 25
+  slow_test_ms: 100
+  boundary_repeats: 3
+  declaration_distance_lines: 20
+  expression_operations: 6
+  configuration_depth: 3
+  loop_nesting: 2
+
+ignore:
+  # Globs of files rqx should not read at all. Tests are deliberately absent: an
+  # ignored file's imports are invisible to the module graph, so a helper used only
+  # by its own test would be reported as an unused export.
+  patterns:
+    - "**/*.d.ts"
+    - "**/generated/**"
+    - "**/*.generated.*"
+    - "**/*.gen.ts"
+    - "**/*_pb2.py"
+    - "**/*_pb2.pyi"
+    - "**/*.pb.go"
+    - "**/*_gen.go"
+    - "**/*.pb.h"
+    - "**/*.pb.cc"
+
+entrypoints:
+  # Modules the project is entered through. Anything reachable from one is live, so
+  # these are read before an export is called unused.
+  paths: []
+
+scan:
+  # 0 lets rqx pick from the machine.
+  threads: 0
+  # Skip files carrying a generator's marker: `@generated`, `Code generated by`, or
+  # Prisma's header. Nobody refactors a file the next generator run overwrites, so
+  # every finding in one is noise. Skipped files are listed, not silently dropped.
+  skip_generated: true
+  # Bytes. A file over this is reported as skipped rather than silently dropped.
+  max_filesize: 1048576
+  # How many findings the report shows. 0 shows every one. Never moves the score.
+  max_findings: 500
+  # Days of git history read for churn. 0 turns the signal off.
+  churn_days: 90
+  # Reuse .rqx/cache.json for files whose contents have not changed. A warm scan of
+  # 3,440 files costs 298ms against 2,023ms cold. Add .rqx/ to .gitignore.
+  cache: true
+  # Directories never descended into. A glob still has to walk a directory to
+  # reject what is in it, which on a populated node_modules is the whole cost.
+  prune_dirs:
+    - node_modules
+    - dist
+    - build
+    - out
+    - coverage
+    - .git
+    - vendor
+    - __pycache__
+    - .venv
+    - venv
+    - .tox
+    - .mypy_cache
+    - .pytest_cache
+    - target
+    - .gradle
+    - .mvn
+    - bin
+    - obj
+    - cmake-build-debug
+    - cmake-build-release
+    - third_party
+
+  # Coverage files to read. rqx decides dead code from the import graph, which cannot
+  # see a dynamic import or a container wiring things by name — a test run that reached
+  # the code says so, and the finding drops to a confidence that keeps it out of the
+  # score. lcov, a Go cover profile and coverage.py JSON are all recognised by content.
+  coverage: []
+  # CPU profiles to read. A performance finding in a function the profile never
+  # sampled is shown but stops counting; one it sampled says how often. A V8
+  # .cpuprofile, a Go pprof and collapsed stacks are all recognised by content.
+  profile: []
+
+gate:
+  # What makes a run fail. `rqx check` always gates. `rqx scan` gates only when you
+  # pass one of --fail-on / --allow-findings / --min-health / --min-grade, so this
+  # table does nothing for a bare scan.
+  # Lowest severity that counts: error, warning, info, never.
+  fail_on: error
+  # Findings allowed before the run fails.
+  max_findings: 0
+  # Health score below which the run fails. 0 disables it.
+  min_health: 0
+  # Lowest grade any single file may carry, which catches a file rotting on its own
+  # that a project-wide average hides: pristine, clean, fair, poor, critical, never.
+  min_grade: never
+  # Where `rqx baseline` recorded the debt this project already had. With it set, only
+  # findings the baseline does not hold count against fail_on and max_findings, so a
+  # codebase with years of history can gate on what a change adds. min_health and
+  # min_grade still count everything. Unset means every finding counts.
+  # baseline: .rqx/baseline.json
+  # Refuse to let the total grow past what the baseline recorded.
+  ratchet: false
+  # Fail when a design pattern is half applied — a decorator that cannot substitute for
+  # what it wraps, a subscribe with no unsubscribe. The only way pattern advice reaches
+  # an exit code; nothing else under `patterns` can.
+  fail_on_incomplete: false
+
+fix:
+  # Which mechanical fixes `rqx fix` may apply: autofix kinds (deletion, rewrite) or
+  # individual rule slugs. Empty applies every kind.
+  apply: []
+  # Fixes to leave alone even when their kind is applied. A project that keeps
+  # commented-out code as documentation names it here.
+  disabled: []
+  # One fix can make the next one possible, so fixing repeats until a round finds
+  # nothing or this many rounds have run.
+  max_rounds: 3
+
+performance:
+  # Client and call names the I/O rules should recognise on top of the ones rqx
+  # ships, for a project that names its own gateway. Added to the built-in
+  # vocabulary, never replacing it. One segment per entry: no dots, no spaces.
+  receivers: []
+  methods: []
+
+architecture:
+  # The direction dependencies may point. `layers` is ordered inner to outer: a file
+  # may import its own layer and any layer before it, so the domain cannot reach for an
+  # adapter. Empty means rqx checks nothing here — an architecture nobody wrote down is
+  # not one it should infer.
+  layers: []
+
+  # Which subtree is which layer, and the boundaries that are not about layering.
+  # paths:
+  #   "src/domain/**": { layer: domain }
+  #   "src/application/**": { layer: application }
+  #   "src/adapters/**": { layer: adapters, may_not_import: ["src/scripts/**"] }
+  #   "src/scripts/**": { may_only_import: ["src/adapters/**"] }
+
+# A subtree can be held to a different level, or relax or tighten thresholds and
+# rules — and nothing else, because the walker is built once and the gate reaches one
+# verdict. A scoped level moves that subtree's defaults and leaves the gate alone.
+# overrides:
+#   - paths: ["src/domain/**"]
+#     level: strict
+#   - paths: ["src/generated/**"]
+#     rules:
+#       disabled: [waste]

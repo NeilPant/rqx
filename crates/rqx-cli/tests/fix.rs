@@ -237,7 +237,7 @@ fn the_plan_carries_what_a_reader_needs_and_omits_what_fix_can_answer() {
 }
 
 /// A project that keeps its commented-out code as documentation says so once in
-/// `RQX.toml` rather than remembering a flag on every run.
+/// `rqx.yaml` rather than remembering a flag on every run.
 #[test]
 fn a_rule_the_config_disables_is_left_to_a_person() {
     let (_, name, source, _) = FIXABLE[0];
@@ -245,7 +245,7 @@ fn a_rule_the_config_disables_is_left_to_a_person() {
         "configured",
         &[
             (name, source),
-            ("RQX.toml", "[fix]\ndisabled = [\"commented-out-code\"]\n"),
+            ("rqx.yaml", "fix:\n  disabled: [commented-out-code]\n"),
         ],
     );
     let report = fix(&root, &["--write"]);

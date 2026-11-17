@@ -31,15 +31,9 @@ impl Row {
         if let Some(level) = self.from_level {
             return format!("level:{level}");
         }
-        let named = self
-            .key
-            .and_then(|key| settings.source_of_key(self.table, key))
-            .or_else(|| settings.source_of(self.table))
-            .and_then(std::path::Path::file_name)
-            .map_or_else(
-                || "flag".to_owned(),
-                |name| name.to_string_lossy().into_owned(),
-            );
+        let named = settings
+            .origin_of(self.table, self.key)
+            .map_or_else(|| "flag".to_owned(), |origin| origin.label());
         if self
             .key
             .is_some_and(|key| settings.is_locked(self.table, key))
@@ -417,7 +411,7 @@ pub fn render(settings: &Resolved, palette: Palette) -> Result<()> {
         writeln!(
             out,
             "  {}",
-            paint(dim, "no RQX.toml found; every value below is a default")
+            paint(dim, "no rqx.yaml found; every value below is a default")
         )?;
         writeln!(
             out,
@@ -432,6 +426,14 @@ pub fn render(settings: &Resolved, palette: Palette) -> Result<()> {
         )?;
         for path in &settings.sources {
             writeln!(out, "    {}", path.display())?;
+        }
+        if !settings.presets.is_empty() {
+            writeln!(
+                out,
+                "    {} {}",
+                paint(dim, "built on"),
+                settings.presets.join(", ")
+            )?;
         }
     }
     writeln!(out)?;

@@ -2,20 +2,19 @@
 
 Every organisation has rules rqx will never ship. *Don't import `legacyClient` from
 new code.* *No `sleep` outside `tools/`.* *Every handler calls `audit()`.* The
-grammars are already in the binary; a `[[rule]]` block is what lets you ask.
+grammars are already in the binary; a `rule` entry is what lets you ask.
 
-```toml
-[[rule]]
-id = "no-legacy-client"
-languages = ["typescript"]
-query = '''
-((call_expression function: (member_expression object: (identifier) @obj)) @site
-  (#eq? @obj "legacyClient"))
-'''
-message = "legacyClient is retired; call ApiClient"
-severity = "error"
-family = "coupling"
-hint = "Replace with ApiClient and delete the import"
+```yaml
+rule:
+  - id: no-legacy-client
+    languages: [typescript]
+    query: |
+      ((call_expression function: (member_expression object: (identifier) @obj)) @site
+        (#eq? @obj "legacyClient"))
+    message: legacyClient is retired; call ApiClient
+    severity: error
+    family: coupling
+    hint: Replace with ApiClient and delete the import
 ```
 
 ```

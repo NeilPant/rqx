@@ -1,13 +1,16 @@
 //! Changing a setting by editing the file that holds it.
 //!
-//! Config composes from several files — a user config, a policy, one `RQX.toml` per
+//! Config composes from several files — a user config, a policy, one `rqx.yaml` per
 //! directory up to the repository root — so "set this threshold" has to answer *in
 //! which file* before it can answer anything else.
 
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use toml_edit::{DocumentMut, Item, Table, value};
+use std::str::FromStr;
+
+use yaml_edit::path::YamlPath;
+use yaml_edit::{Document, YamlValue};
 
 use crate::config::Resolved;
 
@@ -55,67 +58,53 @@ fn label_of(path: &Path, root: &Path) -> String {
 /// else the nearest project config. Anything else surprises someone.
 pub fn default_target(settings: &Resolved, key: &str) -> Option<PathBuf> {
     settings
-        .source_of_key_public(key)
+        .file_that_set(key)
         .map(Path::to_path_buf)
         .or_else(|| settings.sources.last().cloned())
 }
 
-pub fn read(path: &Path) -> Result<DocumentMut> {
+pub fn read(path: &Path) -> Result<Document> {
     let text =
         std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    text.parse::<DocumentMut>()
-        .with_context(|| format!("{} is not valid TOML", path.display()))
+    parse(&text).with_context(|| format!("{} is not valid YAML", path.display()))
 }
 
-fn show(document: &DocumentMut, key: &str) -> Option<String> {
-    let mut item = document.as_item();
-    for part in key.split('.') {
-        item = item.get(part)?;
-    }
-    Some(item.to_string().trim().to_owned())
+fn parse(text: &str) -> Result<Document> {
+    let document = Document::from_str(text).map_err(|error| anyhow::anyhow!("{error}"))?;
+    Ok(document)
 }
 
-/// Written as the type the key already has where there is one, so `max_params = "3"`
-/// cannot happen by typing a number at a prompt.
-fn typed(raw: &str) -> Item {
-    if let Ok(number) = raw.parse::<i64>() {
-        return value(number);
-    }
-    if let Ok(number) = raw.parse::<f64>() {
-        return value(number);
-    }
-    match raw {
-        "true" => value(true),
-        "false" => value(false),
-        _ if raw.starts_with('[') => raw
-            .parse::<Item>()
-            .unwrap_or_else(|_| value(raw.trim_matches('"'))),
-        _ => value(raw.trim_matches('"')),
-    }
+fn show(document: &Document, key: &str) -> Option<String> {
+    let found = document.try_get_path(key).ok()?;
+    Some(found.to_string().trim().to_owned())
 }
 
-/// Writes one `table.key`, creating the table if the file does not have it yet.
-/// Formatting, comments and key order elsewhere in the file are preserved, which is
-/// the whole reason this does not go through `toml::Value`.
+/// Written as the type the key already reads as, so `max_params: "3"` cannot happen by
+/// typing a number at a prompt. A value that is not YAML of its own — `a: b`, an
+/// unclosed bracket — is written as the text it was.
+fn typed(raw: &str) -> YamlValue {
+    YamlValue::parse_raw(raw).unwrap_or_else(|_| YamlValue::scalar(raw))
+}
+
+/// Writes one dotted key, creating the mappings above it if the file does not have
+/// them yet. Formatting, comments and key order elsewhere in the file are preserved,
+/// which is the whole reason this edits the syntax tree rather than the values.
 pub fn set(path: &Path, key: &str, raw: &str) -> Result<String> {
-    let mut document = if path.exists() {
+    require_table(key)?;
+    let document = if path.exists() {
         read(path)?
     } else {
-        DocumentMut::new()
+        Document::new_mapping()
     };
     let before = show(&document, key);
-    let (table, field) = split(key)?;
+    document
+        .try_set_path(key, typed(raw))
+        .map_err(|error| anyhow::anyhow!("cannot set `{key}` in {}: {error}", path.display()))?;
 
-    let entry = document
-        .as_table_mut()
-        .entry(table)
-        .or_insert_with(|| Item::Table(Table::new()));
-    let Some(entry) = entry.as_table_mut() else {
-        bail!("`{table}` in {} is not a table", path.display());
-    };
-    entry.set_implicit(false);
-    entry[field] = typed(raw);
-
+    // A value the config would refuse is refused here, with the file untouched, rather
+    // than written and found on the next run.
+    crate::config::check_text(&document.to_string(), path)
+        .with_context(|| format!("`{raw}` is not a value for `{key}`, so nothing was written"))?;
     write(path, &document)?;
     Ok(match before {
         Some(was) => format!("{was} \u{2192} {raw}"),
@@ -124,26 +113,36 @@ pub fn set(path: &Path, key: &str, raw: &str) -> Result<String> {
 }
 
 pub fn unset(path: &Path, key: &str) -> Result<bool> {
+    require_table(key)?;
     if !path.exists() {
         return Ok(false);
     }
-    let mut document = read(path)?;
-    let (table, field) = split(key)?;
-    let Some(entry) = document.get_mut(table).and_then(Item::as_table_mut) else {
-        return Ok(false);
-    };
-    if entry.remove(field).is_none() {
+    let document = read(path)?;
+    if document.try_remove_path(key).is_err() {
         return Ok(false);
     }
-    // A table left empty by the removal is noise, and the next `set` recreates it.
-    if entry.is_empty() {
-        document.as_table_mut().remove(table);
-    }
+    remove_empty_parents(&document, key);
     write(path, &document)?;
     Ok(true)
 }
 
-fn write(path: &Path, document: &DocumentMut) -> Result<()> {
+/// A mapping left empty by the removal is noise, and the next `set` recreates it.
+fn remove_empty_parents(document: &Document, key: &str) {
+    let mut parent = key;
+    while let Some((above, _)) = parent.rsplit_once('.') {
+        let empty = document
+            .try_get_path(above)
+            .ok()
+            .and_then(|node| node.as_mapping().map(|mapping| mapping.is_empty()))
+            .unwrap_or(false);
+        if !empty || document.try_remove_path(above).is_err() {
+            break;
+        }
+        parent = above;
+    }
+}
+
+fn write(path: &Path, document: &Document) -> Result<()> {
     if let Some(directory) = path.parent()
         && !directory.as_os_str().is_empty()
     {
@@ -153,13 +152,14 @@ fn write(path: &Path, document: &DocumentMut) -> Result<()> {
     crate::fix::write_atomically(path, &document.to_string())
 }
 
-fn split(key: &str) -> Result<(&str, &str)> {
-    key.split_once('.').ok_or_else(|| {
-        anyhow::anyhow!(
-            "`{key}` names no table. Settings are written `table.key`, as in \
-             `thresholds.max_params`."
-        )
-    })
+fn require_table(key: &str) -> Result<()> {
+    if key.contains('.') {
+        return Ok(());
+    }
+    bail!(
+        "`{key}` names no table. Settings are written `table.key`, as in \
+         `thresholds.max_params`."
+    )
 }
 
 /// What the `config` subcommands ask for, kept out of the clap types so the module
@@ -226,8 +226,9 @@ pub fn run(
     let target = match (file, pick) {
         (Some(named), _) => root.join(named),
         (None, true) => choose(settings, root, key)?,
-        (None, false) => default_target(settings, key)
-            .unwrap_or_else(|| root.join(rqx_core::config::CONFIG_FILE_NAME)),
+        (None, false) => {
+            default_target(settings, key).unwrap_or_else(|| crate::config::config_path_in(root))
+        }
     };
     if settings.policy.as_deref() == Some(target.as_path()) {
         bail!(
@@ -282,7 +283,7 @@ fn choose(settings: &Resolved, root: &Path, key: &str) -> Result<PathBuf> {
     use std::io::Write;
     let targets = targets(settings, root, key);
     if targets.is_empty() {
-        return Ok(root.join(rqx_core::config::CONFIG_FILE_NAME));
+        return Ok(crate::config::config_path_in(root));
     }
 
     let mut out = anstream::stdout().lock();
@@ -368,25 +369,25 @@ mod tests {
     }
 
     /// The template rqx writes is mostly comments explaining what each key is for.
-    /// Reserialising through a plain TOML value would throw all of it away the first
-    /// time anybody changed a threshold.
+    /// Reserialising through a plain value would throw all of it away the first time
+    /// anybody changed a threshold.
     #[test]
     fn writing_one_key_leaves_every_comment_and_neighbour_alone() {
         let root = workspace("comments");
-        let file = root.join("RQX.toml");
+        let file = root.join("rqx.yaml");
         std::fs::write(
             &file,
-            "# what this project holds itself to\n[thresholds]\n# how many is too many\nmax_params = 4\nnesting_depth = 3\n",
+            "# what this project holds itself to\nthresholds:\n  # how many is too many\n  max_params: 4\n  nesting_depth: 3\n",
         )
         .expect("write");
 
         assert_eq!(
             set(&file, "thresholds.max_params", "2").expect("set"),
-            "4 → 2"
+            "4 \u{2192} 2"
         );
         assert_eq!(
             std::fs::read_to_string(&file).expect("read"),
-            "# what this project holds itself to\n[thresholds]\n# how many is too many\nmax_params = 2\nnesting_depth = 3\n"
+            "# what this project holds itself to\nthresholds:\n  # how many is too many\n  max_params: 2\n  nesting_depth: 3\n"
         );
     }
 
@@ -395,27 +396,32 @@ mod tests {
     #[test]
     fn a_value_is_written_as_the_type_it_reads_as() {
         let root = workspace("types");
-        let file = root.join("RQX.toml");
+        let file = root.join("rqx.yaml");
         set(&file, "thresholds.max_params", "2").expect("number");
         set(&file, "gate.ratchet", "true").expect("boolean");
         set(&file, "gate.fail_on", "warning").expect("string");
+        set(&file, "rules.disabled", "[magic-number, long-function]").expect("list");
         let written = std::fs::read_to_string(&file).expect("read");
-        assert!(written.contains("max_params = 2"), "{written}");
-        assert!(written.contains("ratchet = true"), "{written}");
-        assert!(written.contains("fail_on = \"warning\""), "{written}");
-        // It has to still parse as the config it claims to be.
-        written.parse::<DocumentMut>().expect("valid toml");
+        let tree: serde_json::Value = serde_saphyr::from_str(&written).expect("valid yaml");
+        assert_eq!(tree["thresholds"]["max_params"], 2, "{written}");
+        assert_eq!(tree["gate"]["ratchet"], true, "{written}");
+        assert_eq!(tree["gate"]["fail_on"], "warning", "{written}");
+        assert_eq!(
+            tree["rules"]["disabled"],
+            serde_json::json!(["magic-number", "long-function"]),
+            "{written}"
+        );
     }
 
     #[test]
     fn a_key_written_into_a_file_with_no_such_table_creates_it() {
         let root = workspace("newtable");
-        let file = root.join("RQX.toml");
-        std::fs::write(&file, "[thresholds]\nmax_params = 4\n").expect("write");
+        let file = root.join("rqx.yaml");
+        std::fs::write(&file, "thresholds:\n  max_params: 4\n").expect("write");
         set(&file, "gate.fail_on", "warning").expect("set");
         let written = std::fs::read_to_string(&file).expect("read");
-        assert!(written.contains("[gate]"), "{written}");
-        assert!(written.contains("max_params = 4"), "the old table survived");
+        assert!(written.contains("gate:"), "{written}");
+        assert!(written.contains("max_params: 4"), "the old table survived");
     }
 
     /// A table left empty reads as a project that meant something by it, so the
@@ -423,18 +429,18 @@ mod tests {
     #[test]
     fn removing_the_last_key_removes_the_table_it_was_under() {
         let root = workspace("unset");
-        let file = root.join("RQX.toml");
+        let file = root.join("rqx.yaml");
         std::fs::write(
             &file,
-            "[thresholds]\nmax_params = 4\n\n[gate]\nratchet = true\n",
+            "thresholds:\n  max_params: 4\n\ngate:\n  ratchet: true\n",
         )
         .expect("write");
 
         assert!(unset(&file, "thresholds.max_params").expect("unset"));
         let written = std::fs::read_to_string(&file).expect("read");
-        assert!(!written.contains("[thresholds]"), "{written}");
+        assert!(!written.contains("thresholds"), "{written}");
         assert!(
-            written.contains("[gate]"),
+            written.contains("gate:"),
             "the other table survived: {written}"
         );
 
@@ -445,9 +451,61 @@ mod tests {
     }
 
     #[test]
+    fn a_value_the_config_would_refuse_is_not_written() {
+        let root = workspace("refused");
+        let file = root.join("rqx.yaml");
+        let before = "# mine\nthresholds:\n  max_params: 4\n";
+        std::fs::write(&file, before).expect("write");
+
+        let error = format!(
+            "{:#}",
+            set(&file, "thresholds.max_params", "many").expect_err("refused")
+        );
+        assert!(
+            error.contains("not a value for `thresholds.max_params`"),
+            "{error}"
+        );
+        assert!(
+            set(&file, "thresholds.max_param", "2").is_err(),
+            "a misspelt key"
+        );
+        assert_eq!(std::fs::read_to_string(&file).expect("read"), before);
+    }
+
+    #[test]
+    fn a_rule_option_is_written_under_the_rule_and_survives_a_comment() {
+        let root = workspace("rule-option");
+        let file = root.join("rqx.yaml");
+        std::fs::write(
+            &file,
+            "# mine\nrules:\n  disabled: [magic-number] # noisy\n",
+        )
+        .expect("write");
+        set(&file, "rules.long-function.severity", "error").expect("set");
+        let written = std::fs::read_to_string(&file).expect("read");
+        assert!(
+            written.contains("# mine") && written.contains("# noisy"),
+            "{written}"
+        );
+        let tree: serde_json::Value = serde_saphyr::from_str(&written).expect("valid yaml");
+        assert_eq!(
+            tree["rules"]["long-function"]["severity"], "error",
+            "{written}"
+        );
+
+        assert!(unset(&file, "rules.long-function.severity").expect("unset"));
+        let written = std::fs::read_to_string(&file).expect("read");
+        assert!(!written.contains("long-function"), "{written}");
+        assert!(
+            written.contains("disabled: [magic-number] # noisy"),
+            "{written}"
+        );
+    }
+
+    #[test]
     fn a_key_that_names_no_table_is_refused_with_the_shape_it_wanted() {
         let root = workspace("bare");
-        let error = set(&root.join("RQX.toml"), "max_params", "2")
+        let error = set(&root.join("rqx.yaml"), "max_params", "2")
             .expect_err("a bare key")
             .to_string();
         assert!(error.contains("thresholds.max_params"), "{error}");

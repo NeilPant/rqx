@@ -6,13 +6,12 @@ use std::process::Command;
 /// same shape: an inner layer reaching for an outer one, and a subtree reaching past
 /// what it was allowed.
 const PLAN: &str = r#"
-[architecture]
-layers = ["domain", "adapters"]
-
-[architecture.paths]
-"domain/**" = { layer = "domain" }
-"adapters/**" = { layer = "adapters" }
-"scripts/**" = { may_only_import = ["adapters/**"] }
+architecture:
+  layers: [domain, adapters]
+  paths:
+    "domain/**": { layer: domain }
+    "adapters/**": { layer: adapters }
+    "scripts/**": { may_only_import: ["adapters/**"] }
 "#;
 
 struct Case {
@@ -80,7 +79,7 @@ fn project(case: &Case) -> PathBuf {
         std::env::temp_dir().join(format!("rqx-arch-{}-{}", case.language, std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("a temp project");
-    std::fs::write(root.join("RQX.toml"), PLAN).expect("the plan");
+    std::fs::write(root.join("rqx.yaml"), PLAN).expect("the plan");
     for (path, text) in case.files {
         let file = root.join(path);
         std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
@@ -150,7 +149,7 @@ fn an_outer_layer_depending_inward_is_allowed() {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("domain")).expect("a directory");
     std::fs::create_dir_all(root.join("adapters")).expect("a directory");
-    std::fs::write(root.join("RQX.toml"), PLAN).expect("the plan");
+    std::fs::write(root.join("rqx.yaml"), PLAN).expect("the plan");
     std::fs::write(
         root.join("domain/pricing.ts"),
         "export function price(): number {\n  return 1\n}\n",
@@ -178,8 +177,8 @@ fn a_layer_that_was_never_declared_is_refused() {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("a directory");
     std::fs::write(
-        root.join("RQX.toml"),
-        "[architecture]\nlayers = [\"domain\"]\n\n[architecture.paths]\n\"src/**\" = { layer = \"adaptors\" }\n",
+        root.join("rqx.yaml"),
+        "architecture:\n  layers: [domain]\n  paths:\n    \"src/**\": { layer: adaptors }\n",
     )
     .expect("the plan");
     std::fs::write(root.join("a.ts"), "export const a = 1\n").expect("a file");
@@ -206,8 +205,8 @@ fn the_same_rule_written_in_two_languages_is_found() {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("a directory");
     std::fs::write(
-        root.join("RQX.toml"),
-        "[rules]\nenabled = [\"cross-language-duplicate\"]\n",
+        root.join("rqx.yaml"),
+        "rules:\n  enabled: [cross-language-duplicate]\n",
     )
     .expect("the config");
     std::fs::write(
@@ -249,8 +248,8 @@ fn two_unrelated_blocks_that_merely_branch_alike_are_not_reported() {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("a directory");
     std::fs::write(
-        root.join("RQX.toml"),
-        "[rules]\nenabled = [\"cross-language-duplicate\"]\n",
+        root.join("rqx.yaml"),
+        "rules:\n  enabled: [cross-language-duplicate]\n",
     )
     .expect("the config");
     std::fs::write(

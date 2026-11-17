@@ -8,7 +8,19 @@ use crate::technique::FixTechnique;
 
 /// The top-level organisation, because eight axes are what a reader can hold in
 /// their head where sixty rules are not.
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum Category {
     Size,

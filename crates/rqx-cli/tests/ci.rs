@@ -17,7 +17,9 @@ fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("a temp project");
     for (path, text) in files {
-        std::fs::write(root.join(path), text).expect("a file");
+        let file = root.join(path);
+        std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
+        std::fs::write(file, text).expect("a file");
     }
     root
 }
@@ -77,10 +79,225 @@ fn being_unable_to_run_is_a_different_exit_from_failing() {
 
     let broken = project(
         "broken-config",
-        &[("RQX.toml", "[rules]\ncategories = [\"nope\"]\n")],
+        &[("rqx.yaml", "rules:\n  categories: [nope]\n")],
     );
     assert_eq!(code(&rqx(&broken, &["scan"])), 2);
     let _ = std::fs::remove_dir_all(broken);
+}
+
+/// A TOML file that was skipped would be a gate nobody knows has changed, so it stops
+/// the run; converting it brings the same gate back, with the original kept.
+#[test]
+fn a_toml_config_stops_the_run_until_it_is_migrated() {
+    let root = project(
+        "retired",
+        &[
+            ("a.ts", DIRTY),
+            ("index.ts", "export * from './a'\n"),
+            ("RQX.toml", "# the bar\n[gate]\nfail_on = \"info\"\n"),
+        ],
+    );
+    assert_eq!(code(&rqx(&root, &["scan"])), 2);
+    let refusal = String::from_utf8_lossy(&rqx(&root, &["scan"]).stderr).into_owned();
+    assert!(refusal.contains("rqx config migrate"), "{refusal}");
+
+    // The user's own config directories point at the project, so the test never
+    // converts the real one.
+    let migrated = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["config", "migrate"])
+        .arg(&root)
+        .env("HOME", &root)
+        .env("XDG_CONFIG_HOME", &root)
+        .env_remove("APPDATA")
+        .output()
+        .expect("failed to run rqx");
+    assert_eq!(code(&migrated), 0, "{migrated:?}");
+    assert!(root.join("rqx.yaml").exists());
+    assert!(root.join("RQX.toml.bak").exists());
+    assert!(!root.join("RQX.toml").exists());
+    assert!(
+        std::fs::read_to_string(root.join("rqx.yaml"))
+            .expect("rqx.yaml")
+            .contains("# the bar\ngate:\n  fail_on: info\n")
+    );
+
+    assert_eq!(code(&rqx(&root, &["scan"])), 0, "a bare scan never gates");
+    assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// The schema is derived from the config types, so it can be printed without a config
+/// and is the file an editor reads from `docs/`.
+#[test]
+fn the_config_schema_prints_without_a_config_and_matches_the_checked_in_one() {
+    let printed = rqx_bare(&["config", "schema"]);
+    let schema: serde_json::Value = serde_json::from_str(&printed).expect("JSON");
+    assert_eq!(schema["title"], "rqx configuration");
+    assert!(schema["properties"]["thresholds"].is_object(), "{printed}");
+    let checked_in = std::fs::read_to_string(format!(
+        "{}/../../docs/rqx.schema.json",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("docs/rqx.schema.json");
+    assert_eq!(printed.trim_end(), checked_in.trim_end());
+}
+
+/// `unreachable-code` is an error by default and fires on `DIRTY`; these show what a
+/// project can say about one rule without touching the rest of the catalogue.
+fn one_rule(name: &str, config: &str) -> PathBuf {
+    project(
+        name,
+        &[
+            ("a.ts", DIRTY),
+            ("index.ts", "export * from './a'\n"),
+            ("rqx.yaml", config),
+        ],
+    )
+}
+
+#[test]
+fn a_rules_severity_can_be_set_in_the_config() {
+    let lowered = one_rule(
+        "severity",
+        "rules:\n  unreachable-code:\n    severity: info\n",
+    );
+    assert_eq!(code(&rqx(&lowered, &["scan", "--fail-on", "error"])), 0);
+    assert_eq!(code(&rqx(&lowered, &["scan", "--fail-on", "info"])), 1);
+    let _ = std::fs::remove_dir_all(lowered);
+}
+
+#[test]
+fn a_rule_restricted_to_paths_stays_quiet_elsewhere() {
+    let elsewhere = one_rule(
+        "paths-elsewhere",
+        "rules:\n  unreachable-code:\n    paths: [\"lib/**\"]\n",
+    );
+    assert_eq!(code(&rqx(&elsewhere, &["scan", "--fail-on", "info"])), 0);
+
+    let here = one_rule(
+        "paths-here",
+        "rules:\n  unreachable-code:\n    paths: [\"*.ts\"]\n",
+    );
+    assert_eq!(code(&rqx(&here, &["scan", "--fail-on", "info"])), 1);
+    for root in [elsewhere, here] {
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[test]
+fn a_rule_can_be_switched_off_and_a_threshold_set_where_it_is_read() {
+    let off = one_rule(
+        "switch",
+        "rules:\n  unreachable-code:\n    enabled: false\n",
+    );
+    assert_eq!(code(&rqx(&off, &["scan", "--fail-on", "info"])), 0);
+
+    let two_parameters = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
+    let tuned = project(
+        "tuned",
+        &[
+            ("a.ts", two_parameters),
+            ("index.ts", "export * from './a'\n"),
+            (
+                "rqx.yaml",
+                "rules:\n  long-parameter-list:\n    max_params: 1\n",
+            ),
+        ],
+    );
+    assert_eq!(code(&rqx(&tuned, &["scan", "--fail-on", "info"])), 1);
+    let untuned = project(
+        "untuned",
+        &[
+            ("a.ts", two_parameters),
+            ("index.ts", "export * from './a'\n"),
+        ],
+    );
+    assert_eq!(code(&rqx(&untuned, &["scan", "--fail-on", "info"])), 0);
+    for root in [off, tuned, untuned] {
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[test]
+fn an_override_can_hold_a_subtree_to_its_own_rule_settings() {
+    let created = project(
+        "override-rule",
+        &[
+            ("legacy/a.ts", DIRTY),
+            ("legacy/index.ts", "export * from './a'\n"),
+            (
+                "rqx.yaml",
+                "overrides:\n  - paths: [\"legacy/**\"]\n    rules:\n      unreachable-code:\n        enabled: false\n",
+            ),
+        ],
+    );
+    // Override globs are matched against the canonical path of the config's directory,
+    // and a temp directory on macOS is reached through a symlink.
+    let root = created.canonicalize().expect("a real path");
+    assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 0);
+    std::fs::write(root.join("fresh.ts"), DIRTY).expect("a file outside the subtree");
+    assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_unknown_rule_or_option_is_refused_with_what_it_could_have_been() {
+    let rule = one_rule(
+        "typo-rule",
+        "rules:\n  unreachable-cod:\n    severity: info\n",
+    );
+    let output = rqx(&rule, &["scan"]);
+    assert_eq!(code(&output), 2);
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(said.contains("Did you mean `unreachable-code`?"), "{said}");
+
+    let option = one_rule(
+        "typo-option",
+        "rules:\n  unreachable-code:\n    severty: info\n",
+    );
+    let output = rqx(&option, &["scan"]);
+    assert_eq!(code(&output), 2);
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(said.contains("Did you mean `severity`?"), "{said}");
+    assert!(
+        said.contains("rqx.yaml:"),
+        "the file and line are named: {said}"
+    );
+    for root in [rule, option] {
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[test]
+fn explain_says_what_a_setting_is_and_which_preset_or_file_set_it() {
+    let root = project(
+        "explain",
+        &[(
+            "rqx.yaml",
+            "extends: [ci-gate]\nthresholds:\n  max_params: 6\n",
+        )],
+    );
+    let said = |key: &str| {
+        let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+            .args(["config"])
+            .arg(&root)
+            .args(["explain", key])
+            .output()
+            .expect("failed to run rqx");
+        (
+            code(&output),
+            String::from_utf8_lossy(&output.stdout).into_owned(),
+        )
+    };
+    let (status, preset) = said("gate.min_health");
+    assert_eq!(status, 0);
+    assert!(preset.contains("current  70  preset:ci-gate"), "{preset}");
+    let (_, file) = said("thresholds.max_params");
+    assert!(file.contains("Parameters one function may take"), "{file}");
+    assert!(file.contains("default  4"), "{file}");
+    assert!(file.contains("current  6  rqx.yaml"), "{file}");
+    assert_eq!(said("gate.fial_on").0, 2);
+    let _ = std::fs::remove_dir_all(root);
 }
 
 /// A bare scan reports; it gates only when asked. A pipeline that added a config file
@@ -92,7 +309,7 @@ fn a_bare_scan_never_gates() {
         &[
             ("a.ts", DIRTY),
             ("index.ts", "export * from './a'\n"),
-            ("RQX.toml", "[gate]\nfail_on = \"info\"\nmax_findings = 0\n"),
+            ("rqx.yaml", "gate:\n  fail_on: info\n  max_findings: 0\n"),
         ],
     );
     assert_eq!(code(&rqx(&root, &["scan"])), 0);
@@ -534,7 +751,7 @@ fn bare_rqx_without_a_terminal_is_the_scan() {
 fn bare_rqx_that_cannot_run_exits_two() {
     let root = project(
         "bare-broken",
-        &[("RQX.toml", "[rules]\ncategories = [\"nope\"]\n")],
+        &[("rqx.yaml", "rules:\n  categories: [nope]\n")],
     );
     assert_eq!(code(&rqx_in(&root, &[])), 2);
     let _ = std::fs::remove_dir_all(&root);
@@ -723,10 +940,10 @@ fn every_command_is_in_exactly_one_help_group() {
 fn a_first_run_is_told_what_it_has_no_way_to_know() {
     let bare = project("bare", &[("a.ts", CLEAN)]);
     let said = String::from_utf8_lossy(&rqx(&bare, &["scan", "--no-tui"]).stdout).into_owned();
-    assert!(said.contains("No RQX.toml"), "{said}");
+    assert!(said.contains("No rqx.yaml"), "{said}");
     assert!(said.contains("Not a git repository"), "{said}");
 
-    let settled = project("settled", &[("a.ts", CLEAN), ("RQX.toml", "[gate]\n")]);
+    let settled = project("settled", &[("a.ts", CLEAN), ("rqx.yaml", "gate: {}\n")]);
     assert!(
         Command::new("git")
             .arg("-C")
@@ -738,7 +955,7 @@ fn a_first_run_is_told_what_it_has_no_way_to_know() {
             .success()
     );
     let said = String::from_utf8_lossy(&rqx(&settled, &["scan", "--no-tui"]).stdout).into_owned();
-    assert!(!said.contains("No RQX.toml"), "{said}");
+    assert!(!said.contains("No rqx.yaml"), "{said}");
     assert!(!said.contains("Not a git repository"), "{said}");
 }
 

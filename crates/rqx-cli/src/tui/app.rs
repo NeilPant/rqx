@@ -61,7 +61,7 @@ impl Task {
     pub const fn title(self) -> &'static str {
         match self {
             Self::Baseline => "Record a baseline",
-            Self::WriteConfig => "Write RQX.toml",
+            Self::WriteConfig => "Write rqx.yaml",
             Self::ClearCache => "Clear the cache",
         }
     }

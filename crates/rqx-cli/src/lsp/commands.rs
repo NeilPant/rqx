@@ -8,7 +8,6 @@ use lsp_types::{
     OptionalVersionedTextDocumentIdentifier, Position, Range, ResourceOp, TextDocumentEdit,
     TextEdit, WorkspaceEdit,
 };
-use rqx_core::config::CONFIG_FILE_NAME;
 use rqx_core::rule::{Category, RuleId};
 use serde_json::{Value, json};
 
@@ -287,15 +286,15 @@ fn disable(server: &Server, argument: Option<&Value>, family: bool) -> Value {
     if !known {
         return json!({ "error": format!("`{name}` is not a rule or a family") });
     }
-    let Some(edit) = config_edit(&server.root().join(CONFIG_FILE_NAME), name) else {
-        return json!({ "error": format!("`{name}` is already disabled, or RQX.toml has a shape rqx will not edit blind") });
+    let Some(edit) = config_edit(&crate::config::config_path_in(server.root()), name) else {
+        return json!({ "error": format!("`{name}` is already disabled, or rqx.yaml has a shape rqx will not edit blind") });
     };
     server.apply_edit(format!("rqx: disable `{name}`"), edit);
     json!({ "disabled": name })
 }
 
 /// An insertion rather than a re-serialisation: `rqx init` writes a line of prose per
-/// table, and round-tripping the file through a TOML writer would delete all of it.
+/// table, and round-tripping the file through a YAML writer would delete all of it.
 fn config_edit(path: &PathBuf, name: &str) -> Option<WorkspaceEdit> {
     let uri = uri_of(path)?;
     let existing = std::fs::read_to_string(path).ok();
@@ -305,7 +304,7 @@ fn config_edit(path: &PathBuf, name: &str) -> Option<WorkspaceEdit> {
         new_text: insertion.text,
     };
 
-    // `changes` cannot create a file, so a project with no RQX.toml — the default —
+    // `changes` cannot create a file, so a project with no rqx.yaml — the default —
     // would silently apply nothing.
     let mut operations = Vec::new();
     if existing.is_none() {
@@ -344,7 +343,7 @@ fn at(line: u32, character: u32) -> Range {
 /// runs, so accepting one from an editor is no less proven than accepting one from the
 /// command line.
 pub fn actions_for(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrCommand> {
-    let config = server.root().join(CONFIG_FILE_NAME);
+    let config = crate::config::config_path_in(server.root());
     let mut actions = source_fixes(server, params);
     // The client asks for actions on every cursor move, and the same rule usually
     // appears on several of the diagnostics in range.

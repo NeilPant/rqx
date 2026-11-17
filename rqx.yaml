@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jadhamwi21/rqx/main/docs/rqx.schema.json
 # rqx, on rqx.
 #
 # `fixtures/` is the test corpus: every file in it is a deliberate violation, kept
@@ -8,5 +9,5 @@
 # paths relative to whatever was scanned, not to this file. `fixtures/go/fixtures/`
 # is a real directory, so scanning `fixtures/go` would make the shorter pattern
 # match its contents and hide the corpus from the tests that exist to read it.
-[ignore]
-patterns = ["fixtures/*/**"]
+ignore:
+  patterns: [fixtures/*/**]

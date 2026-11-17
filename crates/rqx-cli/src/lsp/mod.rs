@@ -303,7 +303,7 @@ pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync +
         .unwrap_or_else(|| root.to_path_buf());
 
     // Re-resolved against the client's root rather than the directory rqx was launched
-    // from, or a monorepo package's own RQX.toml would be read from the wrong place.
+    // from, or a monorepo package's own rqx.yaml would be read from the wrong place.
     let config =
         crate::config::resolve(&root, options.config_file.as_deref(), None).unwrap_or(config);
 
