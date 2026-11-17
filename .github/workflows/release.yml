@@ -298,8 +298,13 @@ jobs:
   # The version lives in `Cargo.toml` and is written in here, never committed — which
   # is how the tag-matches-the-manifest check above covers npm too, with nothing new
   # that can drift.
+  #
+  # A tag publishes to npm only once the repository variable PUBLISH_NPM is `true`.
+  # Until then the packages are still built and dry-run on a rehearsal, so turning the
+  # variable on publishes something that has already been checked.
   npm:
     needs: [check, publish]
+    if: github.event_name == 'workflow_dispatch' || vars.PUBLISH_NPM == 'true'
     runs-on: ubuntu-latest
     environment: npm
     permissions:

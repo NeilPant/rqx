@@ -72,6 +72,9 @@ looking for the latest version skips it.
 | `CARGO_REGISTRY_TOKEN` | crates.io | the publish is skipped with a notice |
 | `NPM_TOKEN` | npm | the publish is skipped with a notice |
 
+npm also needs the repository variable `PUBLISH_NPM` set to `true` before a tag
+publishes there. Without it the `npm` job runs on rehearsals only.
+
 `GITHUB_TOKEN` is the one the runner already provides, so the binaries and the
 release itself need no configuration at all. Both registries are skipped rather than
 required, so a fork cutting a tag gets binaries instead of a red pipeline about a
