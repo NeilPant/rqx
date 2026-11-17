@@ -1584,8 +1584,8 @@ fn run() -> Result<Exit> {
     // Set before anything draws: `anstream::stdout()` and `Palette::detect()` both
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();
-    progress::set_animated(!matches!(cli.motion, Motion::Off));
-    progress::set_shown(progress_wanted(cli.no_progress, false));
+    let animated = !matches!(cli.motion, Motion::Off);
+    let progress = progress::Mode::new(progress_wanted(cli.no_progress, false), animated);
     let palette = Palette::detect();
 
     let command = match cli.command {
@@ -1648,12 +1648,13 @@ fn run() -> Result<Exit> {
             }
             gate.apply(&mut settings.config);
 
-            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
+            let progress =
+                progress::Mode::new(progress_wanted(cli.no_progress, view.quiet), animated);
             let sinks = sinks(&view)?;
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
-                let outcome = scan::scan(&path, settings)?;
+                let outcome = scan::scan_drawn(&path, settings, progress)?;
 
                 // A bare `rqx scan` reports; it only gates when asked to, so adding a
                 // flag is the whole opt-in and no existing pipeline changes meaning.
@@ -1702,7 +1703,7 @@ fn run() -> Result<Exit> {
             }
             let mut out = anstream::stdout().lock();
             if plan {
-                let scanned = scan::scan(&path, &settings)?;
+                let scanned = scan::scan_drawn(&path, &settings, progress)?;
                 return if json {
                     report::brief_json(&scanned, &settings, &mut out)
                 } else if markdown {
@@ -1713,7 +1714,7 @@ fn run() -> Result<Exit> {
                 .map(|()| Exit::Clean);
             }
             let rounds = max_rounds.unwrap_or(settings.config.fix.max_rounds).max(1);
-            let outcome = fix::run(
+            let outcome = fix::run_drawn(
                 &path,
                 &settings,
                 fix::Options {
@@ -1721,6 +1722,7 @@ fn run() -> Result<Exit> {
                     max_rounds: rounds,
                     ..fix::Options::default()
                 },
+                progress,
             )?;
             if json {
                 return report::fixes_json(&outcome, &mut out).map(|()| Exit::Clean);
@@ -1748,7 +1750,7 @@ fn run() -> Result<Exit> {
             }
             settings.config.scan.max_findings = 0;
             verify::ensure_repository(&path, &base)?;
-            let verified = verify::verify(&path, &settings, &base, &expect)?;
+            let verified = verify::verify_drawn(&path, &settings, &base, &expect, progress)?;
             let mut out = anstream::stdout().lock();
             if json {
                 report::verify_json(&verified, &mut out)?;
@@ -1800,7 +1802,7 @@ fn run() -> Result<Exit> {
             // The display cap keeps the highest-ranked findings, and the plan is a
             // ranking of its own: capping first would hide the cheap work entirely.
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let request = render::Plan {
                 budget,
                 limit,
@@ -1835,7 +1837,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::patterns(&outcome, json, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
         }
@@ -1851,7 +1853,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let taken = baseline::take(&path, &settings, update, force)?;
+            let taken = baseline::take_drawn(&path, &settings, update, force, progress)?;
             println!(
                 "  recorded {} findings in {}{}",
                 taken.recorded,
@@ -1884,7 +1886,7 @@ fn run() -> Result<Exit> {
             // A waiver is only visible when the finding it covers was found, and the
             // display cap drops findings before anything can read them.
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::suppressions(
                 &path,
                 &outcome,
@@ -1911,7 +1913,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = complexity::View {
                 by,
                 sort,
@@ -1953,7 +1955,7 @@ fn run() -> Result<Exit> {
                     .map(|path| path.display().to_string())
                     .collect();
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = perf::View {
                 by,
                 sort,
@@ -1991,7 +1993,7 @@ fn run() -> Result<Exit> {
                 settings.config.scan.threads = count;
             }
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::recommend(
                 &outcome,
                 &settings,
@@ -2017,7 +2019,7 @@ fn run() -> Result<Exit> {
             }
             settings.config.scan.max_findings = 0;
             render::slop_settings(&mut settings);
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let request = render::Slop { top, min, json };
             render::slop(&outcome, &request, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
@@ -2037,7 +2039,7 @@ fn run() -> Result<Exit> {
             // Every finding, not the first five hundred: a bucket judged on a capped
             // list would understate whichever rule fires most.
             settings.config.scan.max_findings = 0;
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             render::health(&outcome, by, json, palette, &mut anstream::stdout().lock())
                 .map(|()| Exit::Clean)
         }
@@ -2055,7 +2057,7 @@ fn run() -> Result<Exit> {
             if let Some(count) = threads {
                 settings.config.scan.threads = count;
             }
-            let outcome = scan::scan(&path, &settings)?;
+            let outcome = scan::scan_drawn(&path, &settings, progress)?;
             let view = graph::View {
                 shape: format,
                 cycles_only: cycles,
@@ -2143,7 +2145,8 @@ fn run() -> Result<Exit> {
             let base = base
                 .or_else(forge::base_revision)
                 .unwrap_or_else(|| "origin/HEAD".to_owned());
-            let review = check::review(&path, &settings, &base)?;
+            let review =
+                check::review_drawn(&path, &settings, check::Reviewed::Since(&base), progress)?;
             let verdict = review.judge(&settings.config);
             let report = Report::reviewed(&review, &verdict);
 
@@ -2280,7 +2283,8 @@ fn run() -> Result<Exit> {
             update::start(settings.config.update.check);
             gate.apply(&mut settings.config);
 
-            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
+            let progress =
+                progress::Mode::new(progress_wanted(cli.no_progress, view.quiet), animated);
             let sinks = sinks(&view)?;
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.
@@ -2290,12 +2294,12 @@ fn run() -> Result<Exit> {
                 None => check::Reviewed::Since(&base),
             };
             let filter = filter_of(&view, &path, None)?;
-            let mut review = check::review_of(&path, &settings, source, None)?;
+            let mut review = check::review_drawn(&path, &settings, source, progress)?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
             // mechanical passes rather than failing on work rqx could have done.
             if fix {
-                let fixed = fix::run(
+                let fixed = fix::run_drawn(
                     &path,
                     &settings,
                     fix::Options {
@@ -2303,12 +2307,13 @@ fn run() -> Result<Exit> {
                         max_rounds: settings.config.fix.max_rounds.max(1),
                         only: review.reviewed.clone(),
                     },
+                    progress,
                 )?;
                 let mut out = companion_stream(&sinks);
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
-                    review = check::review_of(&path, &settings, source, None)?;
+                    review = check::review_drawn(&path, &settings, source, progress)?;
                 }
             }
             let verdict = review.judge(&settings.config);

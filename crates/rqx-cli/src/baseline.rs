@@ -10,6 +10,7 @@ use rqx_core::identity::Identity;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Resolved;
+use crate::progress::Mode;
 use crate::scan::ScanOutcome;
 
 pub const DEFAULT_PATH: &str = ".rqx/baseline.json";
@@ -126,6 +127,17 @@ pub struct Taken {
 /// baseline unless `update`, and to grow one unless `force`, because a baseline that
 /// silently absorbs new debt is the opposite of what one is for.
 pub fn take(root: &Path, settings: &Resolved, update: bool, force: bool) -> Result<Taken> {
+    take_drawn(root, settings, update, force, Mode::hidden())
+}
+
+/// `take`, with the scan's progress drawn on stderr as `progress` says.
+pub fn take_drawn(
+    root: &Path,
+    settings: &Resolved,
+    update: bool,
+    force: bool,
+    progress: Mode,
+) -> Result<Taken> {
     let file = path_of(root, settings.config.gate.baseline.as_deref());
     let previous = file.exists().then(|| Baseline::read(&file)).transpose()?;
     if previous.is_some() && !update {
@@ -141,7 +153,7 @@ pub fn take(root: &Path, settings: &Resolved, update: bool, force: bool) -> Resu
     // Recording against an existing baseline would tag everything `known`, which
     // changes nothing here but makes the counts confusing to read.
     settings.baseline = None;
-    let outcome = crate::scan::scan(root, &settings)?;
+    let outcome = crate::scan::scan_drawn(root, &settings, progress)?;
     let taken = Baseline::of(&outcome);
     if let Some(previous) = &previous
         && taken.len() > previous.len()

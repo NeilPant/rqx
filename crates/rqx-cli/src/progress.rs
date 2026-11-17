@@ -1,9 +1,13 @@
 use std::io::Write;
+use std::sync::mpsc::{self, Receiver};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+use anyhow::Result;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::brand::{Ink, Palette, paint};
+use crate::scan::{ScanProgress, Watch};
 use crate::term::{self, Stream};
 
 /// Paced by the clock rather than by file count: 500 files is 20ms on a tree of small
@@ -66,38 +70,79 @@ impl Phase {
     }
 }
 
-/// Set once from `--no-progress` and `--quiet`, and read wherever a bar is built, for
-/// the same reason as `ANIMATED`.
-static SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
-
-pub fn set_shown(shown: bool) {
-    SHOWN.store(shown, std::sync::atomic::Ordering::Relaxed);
+/// Where the scan's progress goes, decided once from the flags and handed to whatever
+/// scans. It is a value rather than a process-wide setting so that two scans in one
+/// process (a test, a watch loop, the interface) cannot disagree about it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Mode {
+    display: Display,
+    animated: bool,
 }
 
-fn shown() -> bool {
-    SHOWN.load(std::sync::atomic::Ordering::Relaxed)
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Display {
+    Hidden,
+    Bar,
 }
 
-/// Set once from `--motion`, and read wherever a bar is built. Colour is already a
-/// process-wide choice that `Palette::detect` reads back from `anstream`; motion is the
-/// same kind of decision, and threading it through `scan`'s signature would put a
-/// display setting in the analysis API.
-static ANIMATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+impl Mode {
+    /// A bar needs a terminal on stderr to redraw in; a redirected run writes nothing,
+    /// so a pipe stays clean whatever was asked for.
+    pub fn new(shown: bool, animated: bool) -> Self {
+        let live = shown && term::is_terminal(Stream::Stderr);
+        Self {
+            display: if live { Display::Bar } else { Display::Hidden },
+            animated,
+        }
+    }
 
-pub fn set_animated(animated: bool) {
-    ANIMATED.store(animated, std::sync::atomic::Ordering::Relaxed);
+    pub const fn hidden() -> Self {
+        Self {
+            display: Display::Hidden,
+            animated: false,
+        }
+    }
+
+    const fn is_hidden(self) -> bool {
+        matches!(self.display, Display::Hidden)
+    }
 }
 
-fn animated() -> bool {
-    ANIMATED.load(std::sync::atomic::Ordering::Relaxed)
+/// How many updates may wait for the drawer. The scan never blocks on it: a full queue
+/// drops the update, and the drawer only ever wants the newest.
+const QUEUE: usize = 64;
+
+/// Runs `work` with a watch that is drawn as `mode` says, and has finished drawing, and
+/// cleared its line, by the time this returns. Nothing is spawned when there is nothing
+/// to draw, so a scan in a pipeline pays for no updates at all.
+pub fn drawing<T>(mode: Mode, work: impl FnOnce(Option<Watch>) -> Result<T>) -> Result<T> {
+    if mode.is_hidden() {
+        return work(None);
+    }
+    let (updates, receiver) = mpsc::sync_channel(QUEUE);
+    let drawer = follow(receiver, mode);
+    let result = work(Some(Watch::new(updates)));
+    let _ = drawer.join();
+    result
 }
 
-/// Draws one line, in place, on the terminal. Silent when stderr is not one, so a
-/// redirected run writes nothing and a pipe stays clean.
-pub struct Bar {
+/// Draws a scan's updates until the scan drops its end of the channel.
+pub fn follow(updates: Receiver<ScanProgress>, mode: Mode) -> JoinHandle<()> {
+    thread::spawn(move || {
+        if mode.is_hidden() {
+            return;
+        }
+        let mut bar = Bar::new(Palette::detect(), mode.animated);
+        for progress in updates {
+            bar.update(&progress);
+        }
+    })
+}
+
+/// Draws one line, in place, on stderr. Clears it when dropped.
+struct Bar {
     palette: Palette,
     animated: bool,
-    live: bool,
     painted: Instant,
     frame: usize,
     width: usize,
@@ -105,28 +150,14 @@ pub struct Bar {
 }
 
 impl Bar {
-    pub fn new(palette: Palette) -> Self {
+    fn new(palette: Palette, animated: bool) -> Self {
         Self {
             palette,
-            animated: animated(),
-            live: shown() && term::is_terminal(Stream::Stderr),
+            animated,
             // Far enough in the past that the first update paints rather than waiting.
             painted: Instant::now() - REPAINT,
             frame: 0,
             width: terminal_width(),
-            dirty: false,
-        }
-    }
-
-    /// A silent bar still answers, so callers never branch on whether one is drawing.
-    pub fn hidden() -> Self {
-        Self {
-            palette: Palette::with_depth(crate::brand::ColorDepth::Monochrome),
-            animated: false,
-            live: false,
-            painted: Instant::now(),
-            frame: 0,
-            width: 0,
             dirty: false,
         }
     }
@@ -139,15 +170,8 @@ impl Bar {
         SPINNER[self.frame]
     }
 
-    pub fn update(
-        &mut self,
-        phase: Phase,
-        done: u32,
-        total: Option<u32>,
-        findings: u32,
-        file: &str,
-    ) {
-        if !self.live || self.painted.elapsed() < REPAINT {
+    fn update(&mut self, progress: &ScanProgress) {
+        if self.painted.elapsed() < REPAINT {
             return;
         }
         self.painted = Instant::now();
@@ -155,9 +179,24 @@ impl Bar {
         // to the new width instead of wrapping for the rest of the scan.
         self.width = terminal_width();
         let spinner = self.spinner();
-        let line = match total.filter(|total| *total > 0 && phase == Phase::Scanning) {
-            Some(total) => self.scanning(spinner, done, total, findings, file),
-            None => self.working(spinner, phase, done, findings),
+        let file = progress.file.as_deref().unwrap_or("");
+        let counted = progress
+            .total
+            .filter(|total| *total > 0 && progress.phase == Phase::Scanning);
+        let line = match counted {
+            Some(total) => self.scanning(
+                spinner,
+                progress.files_scanned,
+                total,
+                progress.findings,
+                file,
+            ),
+            None => self.working(
+                spinner,
+                progress.phase,
+                progress.files_scanned,
+                progress.findings,
+            ),
         };
         self.paint(&line);
     }
@@ -225,8 +264,8 @@ impl Bar {
         self.dirty = true;
     }
 
-    pub fn clear(&mut self) {
-        if self.live && self.dirty {
+    fn clear(&mut self) {
+        if self.dirty {
             let mut stderr = std::io::stderr();
             let _ = write!(stderr, "\r\x1b[2K");
             let _ = stderr.flush();
@@ -270,6 +309,34 @@ fn elide(path: &str, room: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_hidden_mode_gives_the_work_nothing_to_report_to() {
+        let handed = drawing(Mode::hidden(), |watch| Ok(watch.is_some())).unwrap();
+
+        assert!(!handed);
+    }
+
+    #[test]
+    fn a_failed_scan_is_still_reported_once_drawing_has_finished() {
+        let failed: Result<()> = drawing(Mode::hidden(), |_| anyhow::bail!("no such directory"));
+
+        assert!(
+            failed
+                .unwrap_err()
+                .to_string()
+                .contains("no such directory")
+        );
+    }
+
+    #[test]
+    fn the_drawer_stops_when_the_scan_drops_its_end() {
+        let (updates, receiver) = mpsc::sync_channel(1);
+        let drawer = follow(receiver, Mode::hidden());
+        drop(updates);
+
+        assert!(drawer.join().is_ok());
+    }
 
     #[test]
     fn a_short_path_is_left_alone() {

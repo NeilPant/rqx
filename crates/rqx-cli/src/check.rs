@@ -78,6 +78,16 @@ pub fn review_watched(
     review_of(root, settings, Reviewed::Since(base), watch)
 }
 
+/// A review whose scan is drawn on stderr as `mode` says.
+pub fn review_drawn(
+    root: &Path,
+    settings: &Resolved,
+    source: Reviewed<'_>,
+    mode: crate::progress::Mode,
+) -> Result<Review> {
+    crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch))
+}
+
 pub fn review_of(
     root: &Path,
     settings: &Resolved,

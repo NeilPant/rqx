@@ -8,6 +8,7 @@ use rqx_core::rule::RuleId;
 
 use crate::config::Resolved;
 use crate::history;
+use crate::progress::Mode;
 use crate::scan::{self, ScanOutcome};
 
 /// What happened to one finding between the base revision and now.
@@ -153,6 +154,17 @@ fn key<'a>(outcome: &'a ScanOutcome, sources: &mut HashMap<String, String>) -> V
 }
 
 pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -> Result<Verified> {
+    verify_drawn(root, settings, base, expect, Mode::hidden())
+}
+
+/// `verify`, with both scans' progress drawn on stderr as `progress` says.
+pub fn verify_drawn(
+    root: &Path,
+    settings: &Resolved,
+    base: &str,
+    expect: &[String],
+    progress: Mode,
+) -> Result<Verified> {
     let worktree = history::Worktree::add(root, base).map_err(|error| {
         anyhow::anyhow!(
             "cannot read `{base}`: {error}\nrqx compares against a revision, so it needs a \
@@ -165,8 +177,9 @@ pub fn verify(root: &Path, settings: &Resolved, base: &str, expect: &[String]) -
     let rebased = settings
         .rebased(root, worktree.path())
         .context("re-reading the configuration against the base checkout")?;
-    let before = scan::scan(worktree.path(), &rebased).context("scanning the base revision")?;
-    let after = scan::scan(root, settings).context("scanning the working tree")?;
+    let before = scan::scan_drawn(worktree.path(), &rebased, progress)
+        .context("scanning the base revision")?;
+    let after = scan::scan_drawn(root, settings, progress).context("scanning the working tree")?;
 
     let mut base_sources = HashMap::new();
     let mut head_sources = HashMap::new();
