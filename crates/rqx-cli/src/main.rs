@@ -13,6 +13,7 @@ mod cache;
 mod check;
 mod complexity;
 mod config;
+mod credit;
 mod edit_config;
 mod explain;
 mod external;

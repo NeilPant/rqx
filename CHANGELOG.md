@@ -11,6 +11,12 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Added
 
+- **`rqx check` and `rqx comment` report the debt a change paid off.** A finding that
+  the base revision has and the change removed is listed in a `Resolved` section of the
+  pull request comment and in a `Resolved` row of the terminal summary, with the health
+  score before and after. The JSON summary line gains `resolved` and `health_delta`
+  keys. Both keys are absent from `rqx scan` and from `--files-from` reviews. See
+  `docs/ci.md`.
 - **`reimplemented-existing` reports new functions that repeat existing ones.**
   `rqx check` and `rqx comment` scan the revision the change forked from and compare
   the bodies of the functions the change adds with the functions that exist at both

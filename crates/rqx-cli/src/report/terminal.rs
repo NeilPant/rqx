@@ -820,6 +820,23 @@ pub(super) fn summary_rows(report: &Report<'_>, with_findings: usize) -> Vec<Row
             ink: None,
         },
     ];
+    if let Some(credit) = report.credit.filter(|credit| !credit.resolved.is_empty()) {
+        let at = rows.len() - 2;
+        rows.insert(
+            at,
+            Row {
+                label: "Resolved",
+                value: format!(
+                    "{} fixed since the base \u{b7} health {} to {} ({:+})",
+                    plural(credit.resolved.len() as u32, "finding", "findings"),
+                    credit.health_before,
+                    credit.health_after,
+                    credit.health_delta()
+                ),
+                ink: Some(Ink::Good),
+            },
+        );
+    }
     // Only when there are any: a project that waives nothing should not have to read
     // a row saying so.
     if let Some(verdict) = report.verdict

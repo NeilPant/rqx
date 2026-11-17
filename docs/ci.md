@@ -445,6 +445,15 @@ comment, which later runs edit in place, and a commit status that carries the gr
 rqx comment --fail-on error
 ```
 
+The comment has a `Resolved` section when the change removed findings that the base
+revision had. It lists them and states the health score at the base and after the
+change. A finding counts as resolved when the base scan reports it and the scan of the
+working tree does not, using the matching that `rqx verify` uses, so a finding that
+moved to another file is not credited. The section is omitted when `--max-findings`
+dropped findings from either scan, because a dropped finding cannot be told from a
+resolved one. `rqx check` reports the same data in the terminal summary and in the
+`resolved` and `health_delta` keys of the JSON summary line.
+
 It finds the merge request from the pipeline's own variables: GitLab's
 `CI_MERGE_REQUEST_IID` and `CI_PROJECT_ID`, and GitHub's `GITHUB_REPOSITORY` and event
 payload. Outside a merge request it exits `2` with an explanation.

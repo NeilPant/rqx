@@ -6,6 +6,7 @@ use anyhow::{Context, Result, bail};
 use rqx_core::config::RqxConfig;
 
 use crate::config::Resolved;
+use crate::credit::Credit;
 use crate::gate::{Scope, Verdict};
 use crate::history;
 use crate::progress::Mode;
@@ -19,6 +20,8 @@ pub struct Review {
     pub outcome: ScanOutcome,
     pub reviewed: BTreeSet<String>,
     pub base: String,
+    /// What the change paid off, when the base revision was scanned.
+    pub credit: Option<Credit>,
 }
 
 impl Review {
@@ -84,17 +87,19 @@ pub fn review_drawn(
         return crate::progress::drawing(mode, |watch| review_of(root, settings, source, watch));
     };
     let changed = source.files(root)?;
-    let reference = Arc::new(reference_at(root, settings, base, mode)?);
+    let before = scan_base(root, settings, base, mode)?;
+    let reference = Arc::new(Reference::of(&before.outcome.shape_by_file));
     let outcome = crate::progress::drawing(mode, |watch| {
         scan::scan_against(
             root,
             settings,
             watch,
             scan::CachePolicy::FromSettings,
-            Some(Arc::clone(&reference)),
+            Some(reference),
         )
     })?;
-    Ok(assemble(changed, outcome, source.label()))
+    let credit = Credit::between(&before.outcome, &outcome);
+    Ok(assemble(changed, outcome, source.label(), credit))
 }
 
 pub fn review_of(
@@ -109,28 +114,44 @@ pub fn review_of(
         Some(watch) => crate::scan::scan_with_progress(root, settings, watch)?,
         None => crate::scan::scan(root, settings)?,
     };
-    Ok(assemble(changed, outcome, source.label()))
+    Ok(assemble(changed, outcome, source.label(), None))
 }
 
-/// What the base revision had, read from a checkout of the revision the change forked
-/// from. The base is scanned with the same settings as the change, so the two sides
-/// are judged by the same rules.
-fn reference_at(root: &Path, settings: &Resolved, base: &str, mode: Mode) -> Result<Reference> {
+/// The revision the change forked from, scanned in a checkout that lasts as long as
+/// this value: reading a finding's text later needs the files to still be there. The
+/// base is scanned with the same settings as the change, so the two sides are judged
+/// by the same rules, and with no display cap, so a finding is never absent from it
+/// only because there were too many.
+struct Base {
+    outcome: ScanOutcome,
+    _checkout: history::Worktree,
+}
+
+fn scan_base(root: &Path, settings: &Resolved, base: &str, mode: Mode) -> Result<Base> {
     let forked_from = history::merge_base(root, base).unwrap_or_else(|| base.to_owned());
-    let worktree = history::Worktree::add(root, &forked_from)
+    let checkout = history::Worktree::add(root, &forked_from)
         .map_err(|error| anyhow::anyhow!("cannot read `{base}`: {error}"))?;
     let mut rebased = settings
-        .rebased(root, worktree.path())
+        .rebased(root, checkout.path())
         .context("re-reading the configuration against the base checkout")?;
     // Other tools' results describe the working tree, so they are not read from the
     // base checkout, where the files they name are not.
     rebased.config.scan.sarif_in.clear();
-    let before =
-        scan::scan_drawn(worktree.path(), &rebased, mode).context("scanning the base revision")?;
-    Ok(Reference::of(&before.shape_by_file))
+    rebased.config.scan.max_findings = 0;
+    let outcome =
+        scan::scan_drawn(checkout.path(), &rebased, mode).context("scanning the base revision")?;
+    Ok(Base {
+        outcome,
+        _checkout: checkout,
+    })
 }
 
-fn assemble(changed: BTreeSet<String>, outcome: ScanOutcome, base: String) -> Review {
+fn assemble(
+    changed: BTreeSet<String>,
+    outcome: ScanOutcome,
+    base: String,
+    credit: Option<Credit>,
+) -> Review {
     // Direct dependents are reviewed too, because deleting an export is only visible
     // as a problem in the file that was importing it.
     let mut reviewed = changed.clone();
@@ -148,6 +169,7 @@ fn assemble(changed: BTreeSet<String>, outcome: ScanOutcome, base: String) -> Re
         outcome,
         reviewed,
         base,
+        credit,
     }
 }
 

@@ -288,6 +288,7 @@ mod gates {
             outcome,
             reviewed: files.iter().map(|file| (*file).to_owned()).collect(),
             base: "main".to_owned(),
+            credit: None,
         }
     }
 

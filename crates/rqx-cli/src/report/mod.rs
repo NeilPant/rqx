@@ -194,6 +194,8 @@ pub struct Report<'a> {
     pub base: Option<&'a str>,
     pub verdict: Option<&'a Verdict>,
     pub totals: Totals,
+    /// What the change paid off. Present only on a review that scanned its base.
+    pub credit: Option<&'a crate::credit::Credit>,
 }
 
 /// What is in scope before any display filter, so the summary can say how much the
@@ -217,6 +219,7 @@ impl<'a> Report<'a> {
             files: &outcome.analyzed,
             base: None,
             verdict: None,
+            credit: None,
             totals: Totals {
                 findings: outcome.counts.total,
                 by_severity: outcome.counts.by_severity.clone(),
@@ -251,6 +254,7 @@ impl<'a> Report<'a> {
             files: &review.reviewed,
             base: Some(&review.base),
             verdict: Some(verdict),
+            credit: review.credit.as_ref(),
             totals: totals_of(review.findings()),
         }
     }

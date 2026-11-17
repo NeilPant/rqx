@@ -32,6 +32,13 @@ struct JsonSummary<'a> {
     /// Present only for `check`.
     #[serde(skip_serializing_if = "Option::is_none")]
     review: Option<JsonReview<'a>>,
+    /// Findings the base revision had that the change no longer has. Present only for
+    /// a review that scanned its base.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved: Option<&'a [crate::credit::Resolved]>,
+    /// The health score after the change minus the score at the base.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    health_delta: Option<i32>,
 }
 
 #[derive(Serialize)]
@@ -121,6 +128,8 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
                 passed: verdict.passed(),
                 failures: &verdict.failures,
             }),
+        resolved: report.credit.map(|credit| credit.resolved.as_slice()),
+        health_delta: report.credit.map(crate::credit::Credit::health_delta),
     };
     writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())
