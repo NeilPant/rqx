@@ -9,6 +9,7 @@ fn repository(name: &str, before: &[(&str, &str)], after: &[(&str, &str)]) -> Pa
     std::fs::create_dir_all(&root).expect("a temp repository");
 
     git(&root, &["init", "-q"]);
+    git(&root, &["config", "core.autocrlf", "false"]);
     git(&root, &["config", "user.email", "test@example.com"]);
     git(&root, &["config", "user.name", "test"]);
 

@@ -179,7 +179,11 @@ fn project(name: &str) -> PathBuf {
         .arg("-q")
         .output()
         .expect("git init");
-    for (key, value) in [("user.email", "t@t"), ("user.name", "Tester")] {
+    for (key, value) in [
+        ("user.email", "t@t"),
+        ("user.name", "Tester"),
+        ("core.autocrlf", "false"),
+    ] {
         let _ = Command::new("git")
             .arg("-C")
             .arg(&root)

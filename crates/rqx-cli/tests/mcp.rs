@@ -5,11 +5,15 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+use common::Watchdog;
+
 /// The server speaks JSON-RPC over a pipe, so the only test that proves it works is one
 /// that speaks it back. MCP frames each message as a line rather than with the
 /// `Content-Length` header the language server uses.
 struct Session {
     child: Child,
+    _watchdog: Watchdog,
     input: Option<ChildStdin>,
     output: BufReader<ChildStdout>,
     next_id: i64,
@@ -25,17 +29,12 @@ impl Session {
             .stderr(Stdio::null())
             .spawn()
             .expect("failed to start `rqx mcp`");
-        // Reading a pipe blocks with no deadline, so without this a server that stops
-        // answering hangs the suite forever rather than failing it.
-        let pid = child.id();
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(120));
-            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
-        });
+        let watchdog = Watchdog::arm(child.id(), Duration::from_secs(120));
         let input = child.stdin.take();
         let output = BufReader::new(child.stdout.take().expect("stdout"));
         let mut session = Self {
             child,
+            _watchdog: watchdog,
             input,
             output,
             next_id: 0,

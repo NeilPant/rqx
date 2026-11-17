@@ -5,11 +5,15 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
+mod common;
+use common::{Watchdog, file_uri};
+
 /// The server speaks JSON-RPC over a pipe, so the only test that proves it works is one
 /// that speaks it back. Every capability it advertises is exercised here rather than in
 /// each of the editors that consume it.
 struct Session {
     child: Child,
+    _watchdog: Watchdog,
     input: ChildStdin,
     output: BufReader<ChildStdout>,
     next_id: i64,
@@ -25,17 +29,12 @@ impl Session {
             .stderr(Stdio::null())
             .spawn()
             .expect("failed to start `rqx lsp`");
-        // Reading a pipe blocks with no deadline, so without this a server that stops
-        // answering hangs the suite forever rather than failing it.
-        let pid = child.id();
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(120));
-            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).status();
-        });
+        let watchdog = Watchdog::arm(child.id(), Duration::from_secs(120));
         let input = child.stdin.take().expect("stdin");
         let output = BufReader::new(child.stdout.take().expect("stdout"));
         Self {
             child,
+            _watchdog: watchdog,
             input,
             output,
             next_id: 0,
@@ -95,7 +94,7 @@ impl Session {
     }
 
     fn initialize(&mut self, root: &Path) -> Value {
-        let uri = format!("file://{}", root.display().to_string().replace(' ', "%20"));
+        let uri = file_uri(root);
         let id = self.request(
             "initialize",
             json!({
@@ -208,7 +207,7 @@ fn an_opened_file_under_a_path_with_a_space_gets_diagnostics() {
         "textDocument/didOpen",
         json!({
             "textDocument": {
-                "uri": format!("file://{}", file.display().to_string().replace(' ', "%20")),
+                "uri": file_uri(&file),
                 "languageId": "typescript",
                 "version": 1,
                 "text": text,
@@ -251,7 +250,7 @@ fn a_mechanical_finding_offers_the_edit_and_not_only_a_way_to_silence_it() {
 
     let mut session = Session::start(&root);
     session.initialize(&root);
-    let uri = format!("file://{}", file.display().to_string().replace(' ', "%20"));
+    let uri = file_uri(&file);
     session.notify(
         "textDocument/didOpen",
         json!({
