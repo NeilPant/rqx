@@ -2,6 +2,7 @@ mod brief;
 mod catalogue;
 mod clients;
 mod docs;
+mod escape;
 mod filter;
 mod fixes;
 mod github;
