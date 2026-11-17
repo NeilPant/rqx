@@ -891,7 +891,7 @@ impl Collector {
     }
 
     fn module_findings(
-        modules: Vec<rqx_lang::module_graph::ModuleEntry>,
+        modules: &[rqx_lang::module_graph::ModuleEntry],
         root: &Path,
         config: &RqxConfig,
         coverage: Option<&rqx_core::Hits>,
@@ -901,7 +901,7 @@ impl Collector {
         if modules.is_empty() {
             return staged;
         }
-        Self::advise_hierarchy(&modules, config, at, &mut staged);
+        Self::advise_hierarchy(modules, config, at, &mut staged);
         let report = graph_report(modules, root, config);
         Self::check_architecture(root, config, &report, at, &mut staged);
 
@@ -1577,6 +1577,7 @@ impl Collector {
         let coverage = self.coverage.take();
         let reference = self.reference.clone();
         let (shapes_ref, analyzed_ref, coverage_ref) = (&shapes, &analyzed, coverage.as_ref());
+        let modules_ref = &modules;
         let reference_ref = reference.as_deref();
 
         let versioned = thread::scope(|scope| {
@@ -1589,7 +1590,7 @@ impl Collector {
             let imports = scope.spawn(move || {
                 let mut at = Positions::new(root);
                 [
-                    Self::module_findings(modules, root, config, coverage_ref, &mut at),
+                    Self::module_findings(modules_ref, root, config, coverage_ref, &mut at),
                     Self::size_findings(shapes_ref, root, config, &mut at),
                     Self::reimplemented_findings(shapes_ref, reference_ref, root, settings),
                 ]
@@ -2304,35 +2305,37 @@ fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -
     }))
 }
 
+/// The modules of each language family, in the order the families sort.
+fn by_family(
+    modules: &[rqx_lang::module_graph::ModuleEntry],
+) -> std::collections::BTreeMap<Language, Vec<&rqx_lang::module_graph::ModuleEntry>> {
+    let mut families: std::collections::BTreeMap<Language, Vec<_>> =
+        std::collections::BTreeMap::new();
+    for module in modules {
+        families
+            .entry(module.language.family())
+            .or_default()
+            .push(module);
+    }
+    families
+}
+
 /// One graph per language family, merged. Import syntax means different things in
 /// different languages, so resolving a Python module against a Java classpath would
 /// invent edges — and a missing edge is a dead-code finding about live code.
 /// TypeScript and JavaScript are one family, so a JavaScript module imported from
 /// TypeScript is an edge rather than a dead export.
 fn graph_report(
-    modules: Vec<rqx_lang::module_graph::ModuleEntry>,
+    modules: &[rqx_lang::module_graph::ModuleEntry],
     root: &Path,
     config: &RqxConfig,
 ) -> rqx_lang::module_graph::GraphReport {
-    let mut by_language: HashMap<Language, Vec<rqx_lang::module_graph::ModuleEntry>> =
-        HashMap::new();
-    for module in modules {
-        by_language
-            .entry(module.language.family())
-            .or_default()
-            .push(module);
-    }
-
-    let mut languages: Vec<Language> = by_language.keys().copied().collect();
-    languages.sort();
-
     let mut merged = rqx_lang::module_graph::GraphReport::default();
-    for language in languages {
+    for (language, entries) in by_family(modules) {
         let support = rqx_lang::support(language);
-        let entries = by_language.remove(&language).unwrap_or_default();
         let resolver = (support.resolver)(root);
         let report = rqx_lang::module_graph::analyze(
-            entries,
+            &entries,
             root,
             &config.entrypoints.paths,
             resolver.as_ref(),
