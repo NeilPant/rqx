@@ -99,6 +99,11 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   printed is still there after you exit. It needs a window of at least 50x14; a
   smaller one, a pipe, CI or `--no-tui` still gets the plain scan. `--no-mouse` is
   still accepted and does nothing.
+- **The terminal library is built with only what rqx draws.** `ratatui` came with
+  its calendar widget, its macros and a layout cache, none of which rqx uses, and the
+  `time` crates the calendar needs. Building rqx now compiles 9 fewer crates (255 to
+  246), and `termwiz` and `terminfo`, the one dependency under the WTFPL licence, no
+  longer appear in `Cargo.lock`.
 
 ### Removed
 
