@@ -211,17 +211,17 @@ fn examples(fixtures: &Path) -> BTreeMap<RuleId, Example> {
     if !fixtures.exists() {
         return found;
     }
-    let config = fixtures.join("all-rules.toml");
+    let config = fixtures.join("all-rules.yaml");
     for language in ["typescript", "python", "go", "java", "cpp"] {
         let root = fixtures.join(language);
         if !root.exists() {
             continue;
         }
         // Read straight from the fixture config rather than through discovery: a
-        // personal `~/.config/rqx/RQX.toml` must not change the checked-in pages.
+        // personal `~/.config/rqx/rqx.yaml` must not change the checked-in pages.
         let Ok(settings) = std::fs::read_to_string(&config)
             .map_err(anyhow::Error::from)
-            .and_then(|text| Ok(Resolved::of(toml::from_str(&text)?)))
+            .and_then(|text| Ok(Resolved::of(serde_saphyr::from_str(&text)?)))
         else {
             continue;
         };
@@ -245,7 +245,7 @@ fn advice_examples(fixtures: &Path) -> BTreeMap<AdviceId, Example> {
     if !fixtures.exists() {
         return found;
     }
-    let config = fixtures.join("all-rules.toml");
+    let config = fixtures.join("all-rules.yaml");
     for language in ["typescript", "python", "go", "java", "cpp"] {
         let root = fixtures.join(language);
         if !root.exists() {
@@ -253,7 +253,7 @@ fn advice_examples(fixtures: &Path) -> BTreeMap<AdviceId, Example> {
         }
         let Ok(settings) = std::fs::read_to_string(&config)
             .map_err(anyhow::Error::from)
-            .and_then(|text| Ok(Resolved::of(toml::from_str(&text)?)))
+            .and_then(|text| Ok(Resolved::of(serde_saphyr::from_str(&text)?)))
         else {
             continue;
         };
@@ -541,7 +541,7 @@ fn family_page(family: Category, examples: &BTreeMap<RuleId, Example>) -> String
 fn configuration_page() -> String {
     let mut page = String::from(
         "# Configuring rqx\n\n\
-         Everything lives in `RQX.toml`. `rqx init` writes one with every setting at \
+         Everything lives in `rqx.yaml`. `rqx init` writes one with every setting at \
          its default and a line of prose per table; `rqx config` prints what a run will \
          actually use and which file each value came from.\n\n\
          ## Where rqx looks\n\n\
@@ -552,31 +552,35 @@ fn configuration_page() -> String {
          | | Source |\n\
          |---|---|\n\
          | 1 | the built-in defaults |\n\
-         | 2 | `$XDG_CONFIG_HOME/rqx/RQX.toml`, else `~/.config/rqx/RQX.toml` (`%APPDATA%\\\\rqx\\\\RQX.toml` on Windows) |\n\
-         | 3 | every `RQX.toml` from the scanned directory upward, outermost first |\n\
+         | 2 | `$XDG_CONFIG_HOME/rqx/rqx.yaml`, else `~/.config/rqx/rqx.yaml` (`%APPDATA%\\\\rqx\\\\rqx.yaml` on Windows) |\n\
+         | 3 | every `rqx.yaml` from the scanned directory upward, outermost first |\n\
          | 4 | `RQX_CONFIG`, if it is set |\n\
          | 5 | `--config <path>` |\n\
          | 6 | the command's own flags |\n\n\
+         A directory may call its config `rqx.yaml`, `.rqx.yml`, `rqx.yml` or \
+         `.rqx.yaml`; holding two is an error. A `RQX.toml` is an error too: rqx no \
+         longer reads TOML, and skipping one could change what a pipeline gates on. \
+         `rqx config migrate` converts it.\n\n\
          The upward search stops at a directory holding `.git`, or at a file that sets \
-         `root = true` — a config above a checkout describes a different project, and \
+         `root: true` — a config above a checkout describes a different project, and \
          reading it would make a scan depend on where the repository happens to sit.\n\n\
          **An `ignore.patterns` glob is matched against paths relative to the \
          directory being scanned**, not to the file the pattern is written in. \
          `rqx scan .` and `rqx scan src` therefore see different things from one \
-         `patterns = [\"src/**\"]`, and a pattern naming a directory whose name \
+         `patterns: [src/**]`, and a pattern naming a directory whose name \
          appears again deeper in the tree — `fixtures/**` against a \
          `fixtures/go/fixtures/` — matches in both places. Name one level more when \
          that matters: `fixtures/*/**`.\n\n\
          ## A subtree with different standards\n\n\
-         ```toml\n\
-         [[override]]\n\
-         paths = [\"src/generated/**\", \"vendor/**\"]\n\n\
-         [override.thresholds]\n\
-         long_function_statements = 200\n\n\
-         [override.rules]\n\
-         disabled = [\"waste\"]\n\
+         ```yaml\n\
+         overrides:\n\
+         \x20 - paths: [src/generated/**, vendor/**]\n\
+         \x20   thresholds:\n\
+         \x20     long_function_statements: 200\n\
+         \x20   rules:\n\
+         \x20     disabled: [waste]\n\
          ```\n\n\
-         An override may set `thresholds` and `rules` and nothing else. Every other \
+         An override may set `thresholds`, `rules`, `patterns` and `level` and nothing else. Every other \
          table describes the run as a whole — the file walker is built once and the gate \
          reaches one verdict — so naming one in an override is an error rather than a \
          setting that quietly does nothing.\n\n\
@@ -585,29 +589,29 @@ fn configuration_page() -> String {
          unknown families would otherwise turn every rule off. `rqx rules` lists every \
          name that is valid.\n\n\
          ## Levels\n\n\
-         `level = \"strict\"` in `RQX.toml`, or `--level strict` on the command line, \
+         `level: strict` in `rqx.yaml`, or `--level strict` on the command line, \
          picks a named set of defaults. A level is merged *under* everything you wrote, \
          so it moves the defaults and never overrides a value you stated; `rqx config` \
          shows `level:strict` in the `from` column for a value the level moved. An \
-         `[[override]]` may name its own `level`, so a project can be strict in its \
+         entry of `overrides` may name its own `level`, so a project can be strict in its \
          domain and relaxed in its scripts. `rqx levels` prints each one as the \
          settings it would take to write by hand.\n\n\
          ## The gate\n\n\
          `rqx check` always gates. **`rqx scan` gates only when you pass one of \
-         `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade`**, so a `[gate]` \
-         table in `RQX.toml` does nothing for a bare scan. That is deliberate: a scan that \
+         `--fail-on`, `--allow-findings`, `--min-health` or `--min-grade`**, so a `gate` \
+         mapping in `rqx.yaml` does nothing for a bare scan. That is deliberate: a scan that \
          started failing because a config file appeared above it would change the exit code \
          of pipelines that never asked for a gate.\n\n\
          ## Design pattern advice\n\n\
-         `[patterns]` decides which of the twenty-three Gang of Four patterns rqx reports \
+         `patterns` decides which of the twenty-three Gang of Four patterns rqx reports \
          on. It is addressable four ways, because the useful question differs: by advisory \
          when one claim is wrong for this project, by pattern when the whole pattern is, by \
          family (`creational`, `structural`, `behavioural`), and by stance.\n\n\
-         ```toml\n\
-         [patterns]\n\
-         # only report patterns that are here and broken, not ones that would fit\n\
-         stances = [\"incomplete\"]\n\
-         disabled = [\"strategy-fits\"]\n\
+         ```yaml\n\
+         patterns:\n\
+         \x20 # only report patterns that are here and broken, not ones that would fit\n\
+         \x20 stances: [incomplete]\n\
+         \x20 disabled: [strategy-fits]\n\
          ```\n\n\
          **None of it moves the health score and none of it decides the gate.** A pattern \
          that would fit is not a defect, and a score that fell because code declined to use \
@@ -624,7 +628,7 @@ fn configuration_page() -> String {
     for (key, rules) in Thresholds::TUNES {
         let tunes = if rules.is_empty() {
             "nothing yet: the count it compares against is collected, but no rule reports \
-             on it. Kept so an existing `RQX.toml` still parses."
+             on it. Kept so an existing `rqx.yaml` still parses."
                 .to_owned()
         } else {
             rules
@@ -645,17 +649,17 @@ fn configuration_page() -> String {
 /// Read out of the template rather than written by hand, so the table cannot claim a
 /// default the code does not use. The template is pinned to `Thresholds::default()`
 /// by its own test.
-struct Defaults(toml::Table);
+struct Defaults(serde_json::Map<String, serde_json::Value>);
 
 impl Defaults {
     fn read() -> Self {
-        let table: toml::Table =
-            toml::from_str(rqx_core::config::TEMPLATE).expect("the template parses");
+        let template: serde_json::Value =
+            serde_saphyr::from_str(rqx_core::config::TEMPLATE).expect("the template parses");
         Self(
-            table["thresholds"]
-                .as_table()
+            template["thresholds"]
+                .as_object()
                 .cloned()
-                .expect("[thresholds] is a table"),
+                .expect("`thresholds` is a mapping"),
         )
     }
 

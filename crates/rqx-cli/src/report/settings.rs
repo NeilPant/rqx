@@ -417,7 +417,7 @@ pub fn render(settings: &Resolved, palette: Palette) -> Result<()> {
         writeln!(
             out,
             "  {}",
-            paint(dim, "no RQX.toml found; every value below is a default")
+            paint(dim, "no rqx.yaml found; every value below is a default")
         )?;
         writeln!(
             out,

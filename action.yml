@@ -15,11 +15,11 @@ inputs:
     required: false
     default: ""
   config:
-    description: "Path to RQX.toml."
+    description: "Path to a YAML config file, such as rqx.yaml."
     required: false
     default: ""
   fail-on:
-    description: "Lowest severity that fails the job: error, warning, info or never. Empty uses RQX.toml."
+    description: "Lowest severity that fails the job: error, warning, info or never. Empty uses rqx.yaml."
     required: false
     default: ""
   sarif-file:

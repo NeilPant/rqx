@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Language {
-    /// Spelled out, because kebab-case would make it `type-script` in `RQX.toml`
+    /// Spelled out, because kebab-case would make it `type-script` in `rqx.yaml`
     /// while `rqx rules --language` takes the slug — one name, two spellings.
     #[serde(rename = "typescript")]
     TypeScript,
@@ -123,12 +123,12 @@ mod tests {
     #[test]
     fn a_slug_is_also_how_the_config_spells_it() {
         for language in Language::ALL {
-            let toml = format!("value = \"{}\"\n", language.slug());
+            let yaml = format!("value: {}\n", language.slug());
             #[derive(serde::Deserialize)]
             struct Holder {
                 value: Language,
             }
-            let held: Holder = toml::from_str(&toml)
+            let held: Holder = serde_saphyr::from_str(&yaml)
                 .unwrap_or_else(|error| panic!("{}: {error}", language.slug()));
             assert_eq!(held.value, language);
         }

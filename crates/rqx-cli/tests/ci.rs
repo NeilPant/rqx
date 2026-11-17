@@ -74,7 +74,7 @@ fn being_unable_to_run_is_a_different_exit_from_failing() {
 
     let broken = project(
         "broken-config",
-        &[("RQX.toml", "[rules]\ncategories = [\"nope\"]\n")],
+        &[("rqx.yaml", "rules:\n  categories: [nope]\n")],
     );
     assert_eq!(code(&rqx(&broken, &["scan"])), 2);
     let _ = std::fs::remove_dir_all(broken);
@@ -89,7 +89,7 @@ fn a_bare_scan_never_gates() {
         &[
             ("a.ts", DIRTY),
             ("index.ts", "export * from './a'\n"),
-            ("RQX.toml", "[gate]\nfail_on = \"info\"\nmax_findings = 0\n"),
+            ("rqx.yaml", "gate:\n  fail_on: info\n  max_findings: 0\n"),
         ],
     );
     assert_eq!(code(&rqx(&root, &["scan"])), 0);
@@ -520,10 +520,10 @@ fn every_command_is_in_exactly_one_help_group() {
 fn a_first_run_is_told_what_it_has_no_way_to_know() {
     let bare = project("bare", &[("a.ts", CLEAN)]);
     let said = String::from_utf8_lossy(&rqx(&bare, &["scan", "--no-tui"]).stdout).into_owned();
-    assert!(said.contains("No RQX.toml"), "{said}");
+    assert!(said.contains("No rqx.yaml"), "{said}");
     assert!(said.contains("Not a git repository"), "{said}");
 
-    let settled = project("settled", &[("a.ts", CLEAN), ("RQX.toml", "[gate]\n")]);
+    let settled = project("settled", &[("a.ts", CLEAN), ("rqx.yaml", "gate: {}\n")]);
     assert!(
         Command::new("git")
             .arg("-C")
@@ -535,7 +535,7 @@ fn a_first_run_is_told_what_it_has_no_way_to_know() {
             .success()
     );
     let said = String::from_utf8_lossy(&rqx(&settled, &["scan", "--no-tui"]).stdout).into_owned();
-    assert!(!said.contains("No RQX.toml"), "{said}");
+    assert!(!said.contains("No rqx.yaml"), "{said}");
     assert!(!said.contains("Not a git repository"), "{said}");
 }
 

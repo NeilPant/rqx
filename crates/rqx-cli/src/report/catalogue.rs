@@ -213,13 +213,13 @@ fn prescribed() -> BTreeSet<FixTechnique> {
         .collect()
 }
 
-/// Each level printed as the TOML it is, because a preset that changed twelve
+/// Each level printed as the YAML it is, because a preset that changed twelve
 /// thresholds and nine rules invisibly would be the trap the config file avoids.
 pub fn levels(palette: Palette, out: &mut dyn Write) -> Result<()> {
     let dim = palette.style(Ink::Muted);
 
     for level in rqx_core::config::Level::ALL {
-        let config: rqx_core::RqxConfig = toml::from_str(level.layer()).unwrap_or_default();
+        let config: rqx_core::RqxConfig = serde_saphyr::from_str(level.layer()).unwrap_or_default();
         let on = RuleId::ALL
             .iter()
             .copied()

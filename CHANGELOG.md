@@ -12,6 +12,12 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **Configuration is YAML.** `rqx init` writes `rqx.yaml`, and rqx also reads
+  `.rqx.yml`, `rqx.yml` and `.rqx.yaml`; two in one directory is an error that names
+  both. The keys and structure are the ones `RQX.toml` had, with each table now a
+  mapping, `[[override]]` written as an `overrides:` list, and the user config, policy
+  files and `--config` all YAML. A mistake in a file is reported as `rqx.yaml:12:3`,
+  and a misspelt key lists the keys it could have been.
 - **`npm install --save-dev @rqx/cli`.** Every release now carries a prebuilt binary
   for macOS, Linux and Windows on x64 and arm64, behind an npm package that resolves
   the right one at install time. Nothing to compile and no Rust toolchain: a CI job
@@ -19,6 +25,13 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   is static musl, so one binary covers Alpine, Debian and RHEL with no glibc floor.
   The tarballs are on the GitHub release with a `SHA256SUMS` beside them, and the npm
   packages publish with Sigstore provenance.
+
+### Removed
+
+- **TOML configuration.** rqx no longer reads `RQX.toml` or `rqx.toml`, in a
+  directory, as the user config, as a policy, or through `--config` and `RQX_CONFIG`.
+  Finding one stops the run with exit 2 and a message saying so, because ignoring it
+  could quietly loosen a CI gate.
 
 ### Changed
 

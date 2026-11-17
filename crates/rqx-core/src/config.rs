@@ -10,14 +10,21 @@ use crate::pattern::{Pattern, PatternFamily};
 use crate::rule::{Analysis, Autofix, Category, RuleId};
 use crate::score::Cleanliness;
 
-/// Uppercase and unmistakable, the way `README`, `LICENSE` and `Dockerfile` are: a
-/// file that decides how a whole repository is judged should be visible at the top of
-/// a directory listing rather than sorted in among the source.
-pub const CONFIG_FILE_NAME: &str = "RQX.toml";
+/// The name `rqx init` writes. Lowercase, because YAML tooling and editors recognise
+/// the extension rather than the capitalisation.
+pub const CONFIG_FILE_NAME: &str = "rqx.yaml";
 
-/// The name Rqx used before the convention settled. Still read where it is the only
-/// one present, so an existing checkout keeps working.
-pub const LEGACY_CONFIG_FILE_NAME: &str = "rqx.toml";
+/// Every spelling rqx reads, in the order it looks. A directory holding two of them is
+/// an error rather than a choice: which one wins would depend on this list.
+pub const CONFIG_FILE_NAMES: [&str; 4] = ["rqx.yaml", ".rqx.yml", "rqx.yml", ".rqx.yaml"];
+
+/// The TOML names rqx used to read. Finding one is a refusal, never a fallback: a
+/// config that is silently skipped can loosen a CI gate without anyone choosing to.
+pub const RETIRED_CONFIG_FILE_NAMES: [&str; 2] = ["RQX.toml", "rqx.toml"];
+
+/// The first line of a config file `rqx init` or `rqx config migrate` writes, which
+/// editors with a YAML language server read to offer completion and validation.
+pub const SCHEMA_DIRECTIVE: &str = "# yaml-language-server: $schema=https://raw.githubusercontent.com/jadhamwi21/rqx/main/docs/rqx.schema.json";
 
 /// How much a project asks of itself. A level is a layer of settings merged *under*
 /// everything written by hand, so naming one changes the defaults and never overrides
@@ -53,14 +60,14 @@ impl Level {
         }
     }
 
-    /// The whole of what a level changes, as the TOML it would take to write by hand.
+    /// The whole of what a level changes, as the YAML it would take to write by hand.
     /// Standard is empty because it is the catalogue's own defaults.
     pub const fn layer(self) -> &'static str {
         match self {
-            Self::Relaxed => include_str!("levels/relaxed.toml"),
+            Self::Relaxed => include_str!("levels/relaxed.yaml"),
             Self::Standard => "",
-            Self::Strict => include_str!("levels/strict.toml"),
-            Self::Pristine => include_str!("levels/pristine.toml"),
+            Self::Strict => include_str!("levels/strict.yaml"),
+            Self::Pristine => include_str!("levels/pristine.yaml"),
         }
     }
 
@@ -98,6 +105,37 @@ pub struct RqxConfig {
     /// the binary; this is what lets a team ask a question rqx will never ship.
     #[serde(rename = "rule")]
     pub custom: Vec<CustomRule>,
+    /// A shared policy file, relative to this one, that every repository pointing at
+    /// it inherits. Read by the loader; it never reaches a resolved config.
+    pub policy: Option<String>,
+    /// Only meaningful in a policy: the keys a project may not change.
+    pub locked: Option<Locked>,
+    /// Settings for a subtree, matched by glob against this file's directory. Read by
+    /// the loader, which turns each entry into its own resolved config.
+    pub overrides: Vec<SubtreeOverride>,
+}
+
+/// Keys a policy forbids a project to change, as `table.key`.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Locked {
+    pub keys: Vec<String>,
+}
+
+/// What a subtree may say differently. Only thresholds, rules and patterns, because
+/// the walker is built once and the gate reaches one verdict: honouring a scoped
+/// `scan` would mean walking the tree twice.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SubtreeOverride {
+    /// Globs, relative to the directory of the file that wrote them.
+    pub paths: Vec<String>,
+    /// A subtree can be held to a different level: strict in the domain, relaxed in
+    /// the scripts. The gate is not moved by it.
+    pub level: Option<Level>,
+    pub thresholds: Option<Thresholds>,
+    pub rules: Option<Rules>,
+    pub patterns: Option<Patterns>,
 }
 
 /// A rule written as a tree-sitter query. The query is not compiled here — core has
@@ -162,7 +200,7 @@ pub struct Architecture {
     pub layers: Vec<String>,
     /// Glob to what it belongs to. A sub-table because `flatten` and
     /// `deny_unknown_fields` cannot both apply to one struct, and losing the typo
-    /// check would cost more than the extra line of TOML.
+    /// check would cost more than the extra line of YAML.
     pub paths: BTreeMap<String, Assignment>,
 }
 
@@ -301,7 +339,7 @@ impl fmt::Display for UnknownName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "`{}` in [{}] {} names nothing",
+            "`{}` in `{}.{}` names nothing",
             self.name, self.table, self.key
         )?;
         match self.renamed_to {
@@ -333,10 +371,10 @@ fn unknown_in<'a>(
         })
 }
 
-/// A starting `RQX.toml`, every table present and every value at the default the
+/// A starting `rqx.yaml`, every table present and every value at the default the
 /// code already uses. Written out rather than generated because a generator would
 /// have to carry the prose anyway; the test below is what keeps it honest.
-pub const TEMPLATE: &str = include_str!("rqx.template.toml");
+pub const TEMPLATE: &str = include_str!("rqx.template.yaml");
 
 pub const TABLES: [&str; 11] = [
     "languages",
@@ -353,7 +391,7 @@ pub const TABLES: [&str; 11] = [
 ];
 
 /// Only these three, because every other table describes the run as a whole: the walker
-/// is built once and the gate reaches one verdict, so honouring a scoped `[scan]` would
+/// is built once and the gate reaches one verdict, so honouring a scoped `scan` would
 /// mean walking the tree twice.
 pub const SCOPED_TABLES: [&str; 3] = ["thresholds", "rules", "patterns"];
 
@@ -950,10 +988,11 @@ mod tests {
     /// moment a threshold is added or renamed.
     #[test]
     fn every_threshold_appears_in_the_table_that_says_what_it_tunes() {
-        let template: toml::Table = toml::from_str(TEMPLATE).expect("the template parses");
+        let template: serde_json::Value =
+            serde_saphyr::from_str(TEMPLATE).expect("the template parses");
         let declared: Vec<&String> = template["thresholds"]
-            .as_table()
-            .expect("[thresholds] is a table")
+            .as_object()
+            .expect("`thresholds` is a mapping")
             .keys()
             .collect();
         for (key, _) in Thresholds::TUNES {
@@ -977,8 +1016,8 @@ mod tests {
     #[test]
     fn every_level_parses_and_names_only_things_that_exist() {
         for level in Level::ALL {
-            let parsed: RqxConfig =
-                toml::from_str(level.layer()).unwrap_or_else(|error| panic!("{level}: {error}"));
+            let parsed: RqxConfig = serde_saphyr::from_str(level.layer())
+                .unwrap_or_else(|error| panic!("{level}: {error}"));
             assert!(
                 parsed.unknown_names().is_empty(),
                 "{level}: {:?}",
@@ -987,16 +1026,16 @@ mod tests {
         }
     }
 
-    /// A level moves the defaults. Letting one set `[scan]` or `[ignore]` would let
+    /// A level moves the defaults. Letting one set `scan` or `ignore` would let
     /// it change what is read rather than how strictly it is judged.
     #[test]
     fn a_level_only_moves_thresholds_rules_patterns_and_the_gate() {
         for level in Level::ALL {
-            let table: toml::Table = toml::from_str(level.layer()).expect("a level");
-            for key in table.keys() {
+            let layer: serde_json::Value = serde_saphyr::from_str(level.layer()).expect("a level");
+            for key in layer.as_object().into_iter().flat_map(|table| table.keys()) {
                 assert!(
                     ["thresholds", "rules", "patterns", "gate"].contains(&key.as_str()),
-                    "{level} sets [{key}]"
+                    "{level} sets `{key}`"
                 );
             }
         }
@@ -1004,7 +1043,8 @@ mod tests {
 
     #[test]
     fn pristine_turns_on_exactly_the_rules_that_ship_off() {
-        let pristine: RqxConfig = toml::from_str(Level::Pristine.layer()).expect("pristine");
+        let pristine: RqxConfig =
+            serde_saphyr::from_str(Level::Pristine.layer()).expect("pristine");
         let off: BTreeSet<&str> = RuleId::ALL
             .iter()
             .filter(|rule| rule.spec().off_by_default)
@@ -1026,7 +1066,7 @@ mod tests {
     #[test]
     fn a_stricter_level_never_raises_a_threshold() {
         let of = |level: Level| -> Thresholds {
-            toml::from_str::<RqxConfig>(level.layer())
+            serde_saphyr::from_str::<RqxConfig>(level.layer())
                 .expect("a level")
                 .thresholds
         };
@@ -1075,11 +1115,11 @@ mod tests {
 
     #[test]
     fn the_template_states_the_defaults_it_claims_to() {
-        let written: RqxConfig = toml::from_str(TEMPLATE).expect("the template parses");
+        let written: RqxConfig = serde_saphyr::from_str(TEMPLATE).expect("the template parses");
         let defaults = RqxConfig::default();
         assert_eq!(
-            toml::to_string(&Comparable::of(&written)).unwrap(),
-            toml::to_string(&Comparable::of(&defaults)).unwrap()
+            serde_json::to_string(&Comparable::of(&written)).unwrap(),
+            serde_json::to_string(&Comparable::of(&defaults)).unwrap()
         );
     }
 

@@ -1,0 +1,44 @@
+# A codebase held to what a reader can follow without effort. Thresholds are close
+# to what a well-factored module already meets, four naming rules are on, and the
+# gate fails on a warning rather than only on an error.
+
+thresholds:
+  relative_climb: 2
+  fan_out: 12
+  fan_in: 12
+  long_function_statements: 25
+  cognitive_complexity: 10
+  nesting_depth: 2
+  max_params: 3
+  class_members: 15
+  class_statements: 150
+  module_statements: 300
+  function_locals: 12
+  try_statements: 8
+  narrated_run: 3
+  explanation_ratio: 2
+  guard_cascade: 3
+  sole_author_commits: 5
+  hotspot_commits: 10
+  cyclomatic_complexity: 8
+  max_results: 3
+  class_collaborators: 6
+  log_percent: 30
+  inheritance_depth: 2
+  todo_age_days: 90
+  condition_operands: 2
+  message_chain_depth: 2
+  magic_number_repeats: 2
+  expression_operations: 4
+  declaration_distance_lines: 12
+
+rules:
+  enabled:
+    - negative-conditional
+    - short-name-wide-scope
+    - hungarian-notation
+    - inconsistent-vocabulary
+
+gate:
+  fail_on: warning
+  min_grade: fair

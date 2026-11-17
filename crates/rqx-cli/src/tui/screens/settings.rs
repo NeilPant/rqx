@@ -28,7 +28,7 @@ impl Screen for Settings {
             ratatui::layout::Layout::vertical([Constraint::Length(2), Constraint::Min(0)])
                 .areas(area);
         let read = if settings.sources.is_empty() {
-            "  no RQX.toml found; `rqx init` writes one".to_owned()
+            "  no rqx.yaml found; `rqx init` writes one".to_owned()
         } else {
             format!(
                 "  read {}",
