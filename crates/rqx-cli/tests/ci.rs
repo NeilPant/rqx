@@ -300,6 +300,35 @@ fn a_failed_gate_is_written_into_the_sarif_run() {
 }
 
 #[test]
+fn junit_and_github_carry_the_gate_only_when_there_is_one() {
+    let root = project("gate-lines", &[("a.ts", DIRTY)]);
+    let said = |reporter: &str, extra: &[&str]| {
+        let mut args = vec!["scan", "--reporter", reporter, "--no-tui"];
+        args.extend_from_slice(extra);
+        String::from_utf8_lossy(&rqx(&root, &args).stdout).into_owned()
+    };
+
+    let junit = said("junit", &["--fail-on", "warning"]);
+    assert!(junit.contains(r#"<testsuite name="rqx gate" tests="1" failures="1">"#));
+    let github = said("github", &["--fail-on", "warning"]);
+    assert!(
+        github
+            .lines()
+            .last()
+            .unwrap()
+            .starts_with("::error title=rqx gate::")
+    );
+    let github = said("github", &["--fail-on", "error", "--allow-findings", "100"]);
+    assert_eq!(
+        github.lines().last(),
+        Some("::notice title=rqx gate::gate passed")
+    );
+
+    assert!(!said("junit", &[]).contains("rqx gate"));
+    assert!(!said("github", &[]).contains("rqx gate"));
+}
+
+#[test]
 fn sarif_fingerprints_and_category_are_opt_in_through_the_environment() {
     let root = project("sarif-opt-in", &[("a.ts", DIRTY)]);
     let output = Command::new(env!("CARGO_BIN_EXE_rqx"))

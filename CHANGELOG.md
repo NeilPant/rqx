@@ -12,6 +12,12 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ### Added
 
+- **JUnit and GitHub annotations carry the gate.** A gated run adds a
+  `<testsuite name="rqx gate">` to the JUnit report with one test that fails when the
+  gate does, and ends the GitHub annotations with `::error title=rqx gate::` and the
+  failures, or `::notice title=rqx gate::gate passed`. A provider that shows only
+  tests or only annotations no longer has to infer a failed gate from a red exit
+  code. A run with no gate writes exactly what it wrote before.
 - **The SARIF run records its verdict.** `runs[0].invocations[0]` carries the exit
   code the run ends with and one error notification per gate failure, and
   `runs[0].properties.rqx` carries `schema_version` and, for a gated run, the gate. A

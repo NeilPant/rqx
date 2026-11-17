@@ -71,6 +71,8 @@ does not reach. A gated run writes its verdict into the document too:
 |---|---|
 | `terminal` | the `gate passed` or `gate failed` line, with each failure under it |
 | `json` | `gate` on the summary line: `{ "passed": bool, "failures": [...] }` |
+| `junit` | a `<testsuite name="rqx gate">` with one test, failing when the gate fails; the totals on `<testsuites>` count it |
+| `github` | the last annotation: `::error title=rqx gate::` with the failures, or `::notice title=rqx gate::gate passed` |
 | `sarif` | `runs[0].invocations[0].exitCode`, one `toolExecutionNotifications` entry per failure at level `error`, and `runs[0].properties.rqx.gate` |
 
 A scan that was not gated has no verdict, so these are absent rather than reading
