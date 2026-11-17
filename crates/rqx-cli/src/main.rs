@@ -463,7 +463,7 @@ enum Command {
     },
     /// Install the newest release, or say what it would change
     #[command(
-        after_help = "Examples:\n  rqx update                          install the newest release\n  rqx update --check                  say whether one exists, install nothing\n  rqx update --notes                  read what changed\n  rqx update --version 0.2.1          install that release, newer or older\n  rqx update --dry-run                show how and from where, change nothing"
+        after_help = "Examples:\n  rqx update                          install the newest release\n  rqx update --check                  say whether one exists, install nothing\n  rqx update --notes                  read what changed\n  rqx update --version 1.2.3          install that release, newer or older\n  rqx update --dry-run                show how and from where, change nothing"
     )]
     Update {
         /// Report whether a newer release exists and stop
@@ -472,7 +472,7 @@ enum Command {
         /// Print the release notes for the newest release
         #[arg(long, conflicts_with_all = ["version", "dry_run"])]
         notes: bool,
-        /// Install this release, such as 0.2.1, instead of the newest
+        /// Install this release, such as 1.2.3, instead of the newest
         #[arg(long, value_name = "X.Y.Z")]
         version: Option<String>,
         /// Print the method, the URLs and the file that would be replaced, and change nothing

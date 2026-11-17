@@ -528,7 +528,7 @@ Install the newest release, or say what it would change
 | --- | --- |
 | `--check` | Report whether a newer release exists and stop |
 | `--notes` | Print the release notes for the newest release |
-| `--version` | Install this release, such as 0.2.1, instead of the newest |
+| `--version` | Install this release, such as 1.2.3, instead of the newest |
 | `--dry-run` | Print the method, the URLs and the file that would be replaced, and change nothing |
 | `--no-tui` | Never open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Leave the mouse to the terminal. Capture takes drag-select away from it, and not every emulator passes shift+drag through |
