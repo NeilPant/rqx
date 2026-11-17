@@ -364,6 +364,96 @@ Any program can produce the list, for example a changed-files API call or the
 affected-projects output of a build tool. `--base` and `--files-from` cannot be
 combined.
 
+## Review what is staged
+
+`rqx check --staged` reviews what `git commit` would record:
+
+```sh
+git add src/router.ts
+rqx check --staged
+```
+
+The staged files are read from the index, not the working tree. rqx builds a temporary
+copy of the repository in which every staged file has its staged content, scans that
+copy, and removes it afterwards. An unstaged edit to a staged file cannot change the
+verdict in either direction: unstaged bad code passes, and an unstaged fix does not
+rescue staged bad code. The working tree is never written to.
+
+Every file that is not staged is read from the working tree, so a staged file is judged
+against its neighbours as they are on disk. Whatever imports a staged file is reviewed
+as well, and the gate is the same one `rqx check` uses. When nothing is staged, nothing
+is reviewed and the check passes.
+
+`--staged` cannot be combined with `--base`, `--files-from`, `--fix` or `--write`. It
+needs a git repository, and a path given to it must be a directory. In a repository
+subdirectory, `rqx check packages/app --staged` reviews the staged files under that
+directory.
+
+## Checking before every commit
+
+`rqx check --staged` exits 1 when the gate fails, which is what a git hook needs. Each
+snippet below runs it before a commit is recorded. Pass the usual gate flags after it,
+such as `--fail-on error`. Committing with `--no-verify` skips the hook. A hook run for
+a commit made with `-a` or with a path reads the index git prepared for that commit, so
+the review matches what is recorded.
+
+### pre-commit
+
+The repository ships a [pre-commit](https://pre-commit.com) hook definition in
+`.pre-commit-hooks.yaml`. It runs `rqx check --staged` as a `system` hook, so `rqx`
+must be on the `PATH`. It passes no file names, because rqx reads the index itself, and
+`always_run: true` keeps it running on commits that pre-commit would otherwise skip.
+It needs pre-commit 3.2.0 or later.
+
+```yaml
+repos:
+  - repo: https://github.com/jadhamwi21/rqx
+    rev: v0.4.0
+    hooks:
+      - id: rqx-check
+```
+
+Use a release tag that contains `.pre-commit-hooks.yaml`. To add gate flags, override
+the entry:
+
+```yaml
+      - id: rqx-check
+        entry: rqx check --staged --fail-on error
+```
+
+### A plain git hook
+
+Save this as `.git/hooks/pre-commit` and make it executable with
+`chmod +x .git/hooks/pre-commit`:
+
+```sh
+#!/bin/sh
+exec rqx check --staged
+```
+
+`.git/hooks` is not versioned. To share the hook, keep the script in the repository, for
+example in `.githooks/pre-commit`, and set the `core.hooksPath` configuration value to
+that directory.
+
+### lefthook
+
+In `lefthook.yml`:
+
+```yaml
+pre-commit:
+  commands:
+    rqx:
+      run: rqx check --staged
+```
+
+### husky
+
+In `.husky/pre-commit`:
+
+```sh
+rqx check --staged
+```
+
 ## Adopting a gate on an existing codebase
 
 A gate that fails on the first run is often disabled. To avoid that, start from the

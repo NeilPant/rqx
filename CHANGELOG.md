@@ -9,6 +9,25 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **`rqx check --staged`.** Reviews what `git commit` would record. The staged files are
+  read from the index and analysed in a temporary copy of the repository, so unstaged
+  edits do not change the verdict. Every other file is read from the working tree.
+  It cannot be combined with `--base`, `--files-from`, `--fix` or `--write`.
+- **A pre-commit hook definition.** `.pre-commit-hooks.yaml` declares `rqx-check`, which
+  runs `rqx check --staged` for the [pre-commit](https://pre-commit.com) framework.
+  `docs/ci.md` also has the plain git hook, lefthook and husky equivalents.
+- **`rqx setup agent`.** Prints, or with `--write` adds, the instructions that make a
+  coding agent run `rqx check --staged`, apply the named refactoring and confirm it with
+  `rqx verify`. `--for claude|codex|cursor|generic` picks the file: `CLAUDE.md` or
+  `AGENTS.md`. The instructions sit between `<!-- rqx:begin -->` and `<!-- rqx:end -->`,
+  appended once and replaced on later runs, and the rest of the file is kept. For
+  `claude`, `--write` also merges a Stop hook into `.claude/settings.json`.
+- **MCP `fix_preview` tool.** Returns the edits `rqx fix` would make to one file as a
+  unified diff, with the findings they resolve. An optional `rule` narrows it to one
+  rule. It reuses the fixer's planning and verification and never writes a file.
+
 ## 0.3.0 — 2026-11-17
 
 ### Added

@@ -11,7 +11,8 @@ Answers are summaries with drill-down. A scan of a large repository through
 themselves are paged out of `findings`.
 
 Every tool is read-only. No tool writes a file. The fix each finding names is a
-refactoring for a person to make, not an edit that rqx applies.
+refactoring for a person to make, not an edit that rqx applies. The mechanical fixes
+that `rqx fix` applies are returned by `fix_preview` as diffs and are not written.
 
 ## Tools
 
@@ -20,6 +21,7 @@ refactoring for a person to make, not an edit that rqx applies.
 | `scan` | Analyse the project: health, counts by rule and severity, grade distribution, what to open first |
 | `findings` | The findings themselves, paged, narrowed by severity, rule, family or path glob |
 | `plan` | The findings `rqx fix` will not touch, each with the source at its span, the metric that decided it and the named refactoring. Paged like `findings`. |
+| `fix_preview` | The edits `rqx fix` would make to one file, as a unified diff, with the findings they resolve |
 | `verify` | Compare the working tree against a base revision and grade what the diff did to each finding. Propose, grade, retry. |
 | `check` | Review the diff against a base revision and say whether the gate passes |
 | `analyze` | Analyse source held in memory, such as an unsaved buffer, without writing to disk |
@@ -85,6 +87,42 @@ pages. A cursor records the scan it came from, and a cursor used after the proje
 been scanned again is refused instead of being answered from a different set of
 findings.
 
+## Previewing a fix
+
+`fix_preview` takes `file`, relative to the server's root, and optionally `rule`, a rule
+slug. It runs the same planning as `rqx fix` on that file and returns the result
+without writing anything. Each edit is applied to a copy of the file and the copy is
+analysed again. An edit is kept only if its finding is gone and no new finding
+appears, so every edit in the diff has been verified. `rule` narrows the preview to
+that rule's fixes. A rule with no mechanical fix, or an unknown rule, is refused.
+Which fixes `rqx fix` may apply is still set by the `fix` section of the configuration.
+
+```json
+{
+  "file": "src/orders.ts",
+  "rule": null,
+  "fixable": true,
+  "diff": "--- a/src/orders.ts\n+++ b/src/orders.ts\n@@ -10,7 +10,6 @@\n …",
+  "edits": [
+    { "rule": "unreachable-code", "kind": "deletion", "line": 12, "column": 3,
+      "start": 214, "end": 241, "removed": "console.log('dead')", "replacement": "" }
+  ],
+  "resolves": [ { "rule": "unreachable-code", "file": "src/orders.ts", "line": 12 } ],
+  "withheld": null
+}
+```
+
+`diff` is a unified diff that `git apply` and `patch` accept. `resolves` holds the
+findings the edits answer, in the shape `findings` returns. When no edit is proven,
+`fixable` is false and `diff` is empty. If edits were planned and then withheld, for
+example because applying them would introduce a finding, `withheld` gives the number
+of edits and the reason.
+
+The preview is the first round of fixing. `rqx fix --write` repeats until a round
+finds nothing, up to `fix.max_rounds`, so a second preview taken after applying the diff
+can show further edits. After applying a diff, call `verify` to confirm the findings
+are gone.
+
 ## Analysing a buffer
 
 `analyze` takes `source`, and either a `filename` to read the language from or an
@@ -95,6 +133,58 @@ A single buffer cannot be checked against every rule. Unused exports, unused fil
 import cycles, duplication and the two co-change rules need the whole project. The
 result states this, so that the absence of an `unused-export` finding is not
 read as a clean result.
+
+## Instructing a coding agent
+
+`rqx setup agent` prints the instructions that make a coding agent run rqx before it
+finishes a task. `--for` selects the agent: `claude`, `codex`, `cursor` or `generic`,
+which is the default. Without `--write` it only prints.
+
+```sh
+rqx setup agent --for claude          # print
+rqx setup agent --for claude --write  # add to the project's files
+```
+
+The instructions tell the agent to stage its changes and run `rqx check --staged`, or
+`rqx check --base <branch>` for committed work, then to read each finding, apply the
+named refactoring, and confirm it with `rqx verify --base <branch> --expect
+<rule>@<file>`. They also point at the MCP tools when the server is configured.
+
+| `--for` | Instructions file | Also |
+|---|---|---|
+| `claude` | `CLAUDE.md` | A Stop hook in `.claude/settings.json` |
+| `codex`, `cursor`, `generic` | `AGENTS.md` | |
+
+`--write` never replaces a file. The instructions go between `<!-- rqx:begin -->` and
+`<!-- rqx:end -->`. The first run appends that block to the file, and a later run
+replaces only the text between the markers. A file whose markers are missing one end,
+repeated or in the wrong order is left as it is and the command fails.
+
+For `claude`, `--write` also adds a Stop hook to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "rqx check --staged >&2; [ $? -ne 1 ] || exit 2" }] }
+    ]
+  }
+}
+```
+
+Claude Code holds the agent back when a Stop hook exits with 2 and shows it the error
+output. The command exits 2 only when the gate fails, which is exit code 1 of
+`rqx check`, and sends the report to the error output. Any other result, including
+rqx not being installed, lets the agent finish. The command needs a POSIX shell.
+
+The file is parsed as JSON, and the hook is added next to every other key and every
+other Stop hook. The file is rewritten as indented JSON with its keys in alphabetical
+order. If a Stop hook running `rqx check --staged` is already there, the file is not
+changed. A file that is not valid JSON, or whose `hooks` or `Stop` value is not an
+object or list, is left as it is and the command fails.
+
+`rqx check --staged` reads the index, so the hook reports on changes the agent has
+staged with `git add`. Unstaged edits are not part of the verdict.
 
 ## Over HTTP
 

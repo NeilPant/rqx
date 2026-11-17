@@ -7,6 +7,7 @@ use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint, value
 use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
 use rqx_core::finding::Severity;
 
+mod agent_setup;
 mod baseline;
 mod brand;
 mod cache;
@@ -42,8 +43,10 @@ mod setting;
 mod setup;
 mod sink;
 mod slop;
+mod staged;
 mod stats;
 mod term;
+mod unified_diff;
 mod update;
 mod verify;
 mod waive;
@@ -321,13 +324,16 @@ enum Command {
         #[command(flatten)]
         run: Run,
     },
-    /// Print the configuration an editor needs to connect to rqx, or list the supported editors
+    /// Print the configuration an editor or a coding agent needs to use rqx, or list the supported editors
+    #[command(args_conflicts_with_subcommands = true)]
     Setup {
         /// Editor name. Omit to list the supported editors.
         editor: Option<String>,
         /// Append the configuration to the editor's configuration file, after showing what will be added
         #[arg(long, short)]
         write: bool,
+        #[command(subcommand)]
+        target: Option<SetupTarget>,
     },
     /// Rank the work by value against effort, and report the health score after it
     #[command(
@@ -632,6 +638,14 @@ enum Command {
         /// Revision to compare against
         #[arg(long, default_value = "origin/HEAD", conflicts_with = "files_from")]
         base: String,
+        /// Review what `git commit` would record: the staged contents, read from the
+        /// index. Unstaged edits do not affect the verdict. The rest of the project is
+        /// read from the working tree
+        #[arg(
+            long,
+            conflicts_with_all = ["base", "files_from", "fix", "write"]
+        )]
+        staged: bool,
         /// Apply the mechanical fixes to the files the branch changed before gating, so
         /// a branch whose only failures are mechanical passes
         #[arg(long)]
@@ -1100,6 +1114,20 @@ has no effect: a rule name not in the catalogue, a threshold no enabled rule rea
         /// Say what would change and write nothing
         #[arg(long)]
         dry_run: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum SetupTarget {
+    /// Print the instructions that make a coding agent run rqx before it finishes
+    Agent {
+        /// The agent the instructions are for. Claude Code also gets a Stop hook
+        #[arg(long = "for", value_enum, default_value_t = agent_setup::Agent::Generic)]
+        agent: agent_setup::Agent,
+        /// Add the instructions to the project's files, keeping what they already hold.
+        /// Without it nothing on disk changes
+        #[arg(long, short)]
+        write: bool,
     },
 }
 
@@ -1865,7 +1893,22 @@ fn run() -> Result<Exit> {
             })?;
             Ok(Exit::of(!verified.passed()))
         }
-        Command::Setup { editor, write } => {
+        Command::Setup {
+            target: Some(SetupTarget::Agent { agent, write }),
+            ..
+        } => {
+            let mut out = anstream::stdout().lock();
+            let outputs = agent_setup::outputs(agent);
+            if !write {
+                return report::agent(&outputs, palette, &mut out).map(|()| Exit::Clean);
+            }
+            for output in &outputs {
+                let change = output.apply(Path::new("."))?;
+                report::agent_change(output.path, change, palette, &mut out)?;
+            }
+            Ok(Exit::Clean)
+        }
+        Command::Setup { editor, write, .. } => {
             let mut out = anstream::stdout().lock();
             let Some(name) = editor else {
                 return report::editors(palette, &mut out).map(|()| Exit::Clean);
@@ -2379,6 +2422,7 @@ fn run() -> Result<Exit> {
         Command::Check {
             path,
             base,
+            staged,
             fix,
             write,
             view,
@@ -2393,7 +2437,13 @@ fn run() -> Result<Exit> {
                     path.display()
                 );
             }
-            let mut settings = run.resolve(&path)?;
+            // Built before the settings, because a scope in the configuration names the
+            // directory it was resolved for, and the scan reads the overlay.
+            let overlay = staged.then(|| staged::Overlay::build(&path)).transpose()?;
+            let scan_root = overlay
+                .as_ref()
+                .map_or(path.as_path(), staged::Overlay::root);
+            let mut settings = run.resolve(scan_root)?;
             // Started before the scan rather than after it: the answer needs the length
             // of the work to arrive in, and `process::exit` does not wait for a thread.
             update::start(settings.config.update.check);
@@ -2407,23 +2457,25 @@ fn run() -> Result<Exit> {
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.
             let listed = listed_files(&view, &path)?;
-            let source = match &listed {
-                Some(listed) => check::Reviewed::Listed(&listed.files),
-                None => check::Reviewed::Since(&base),
+            let source = match (&listed, &overlay) {
+                (Some(listed), _) => check::Reviewed::Listed(&listed.files),
+                (None, Some(overlay)) => check::Reviewed::Staged(&overlay.files),
+                (None, None) => check::Reviewed::Since(&base),
             };
             let filter = filter_of(&view, &path, None)?;
-            let mut review = check::review_drawn(&path, &settings, source, progress)?;
+            let mut review = check::review_drawn(scan_root, &settings, source, progress)?;
 
             // The gate is judged after the fixes, so a branch whose only failures were
             // mechanical passes rather than failing on work rqx could have done.
             if fix {
                 let fixed = fix::run_drawn(
-                    &path,
+                    scan_root,
                     &settings,
                     fix::Options {
                         write,
                         max_rounds: settings.config.fix.max_rounds.max(1),
                         only: review.reviewed.clone(),
+                        rule: None,
                     },
                     progress,
                 )?;
@@ -2431,7 +2483,7 @@ fn run() -> Result<Exit> {
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
-                    review = check::review_drawn(&path, &settings, source, progress)?;
+                    review = check::review_drawn(scan_root, &settings, source, progress)?;
                 }
             }
             let verdict = review.judge(&settings.config);

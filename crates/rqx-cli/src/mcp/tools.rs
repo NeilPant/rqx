@@ -16,7 +16,7 @@ use crate::brand::{ColorDepth, Palette};
 use crate::report::{
     self, FindingFilter, Layout, Report, Reporter, finding_of, projection, setting_rows,
 };
-use crate::{check, scan};
+use crate::{check, fix, scan, unified_diff};
 
 const PAGE: usize = 20;
 const MAX_PAGE: usize = 100;
@@ -73,6 +73,15 @@ pub struct Graded {
     /// Rules that must be resolved, as `rule` or `rule@file`.
     #[serde(default)]
     pub expect: Vec<String>,
+}
+
+#[derive(Deserialize, JsonSchema, Default)]
+pub struct Mechanical {
+    /// The file to preview fixes for, relative to the server's root.
+    pub file: String,
+    /// A rule slug, e.g. `dead-code-after-return`, to preview that rule's fixes alone.
+    /// Defaults to every rule `rqx fix` applies.
+    pub rule: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema, Default)]
@@ -666,6 +675,57 @@ impl Rqx {
     }
 
     #[tool(
+        name = "fix_preview",
+        description = "The edits `rqx fix` would make to one file, as a unified diff, \
+                       with the findings they resolve. Only fixes rqx has proven safe \
+                       are included: each was re-analysed and none leaves its finding \
+                       in place or adds a new one. Shows the first round of fixing. \
+                       Nothing is written; apply the diff yourself, or run \
+                       `rqx fix --write`.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn fix_preview(
+        &self,
+        Parameters(asked): Parameters<Mechanical>,
+    ) -> Result<CallToolResult, McpError> {
+        let file = within(&self.root, Some(&asked.file)).map_err(refused)?;
+        if !file.is_file() {
+            return Err(refused(format!(
+                "`{}` is not a file. `fix_preview` takes one file.",
+                asked.file
+            )));
+        }
+        let rule = fixable_rule(asked.rule.as_deref())?;
+        let relative = self.relative(&file);
+
+        let root = std::sync::Arc::clone(&self.root);
+        let settings = std::sync::Arc::clone(&self.settings);
+        let only = std::collections::BTreeSet::from([relative.clone()]);
+        let outcome = tokio::task::spawn_blocking(move || {
+            fix::run(
+                &root,
+                &settings,
+                fix::Options {
+                    write: false,
+                    max_rounds: 1,
+                    only,
+                    rule,
+                },
+            )
+        })
+        .await
+        .map_err(|error| McpError::internal_error(error.to_string(), None))?
+        .map_err(|error| refused(format!("{error:#}")))?;
+
+        let preview = FixPreview::of(&relative, &outcome);
+        Ok(answer(preview.digest(), preview.structured(asked.rule)))
+    }
+
+    #[tool(
         name = "analyze",
         description = "Analyse source held in memory — an unsaved buffer or code you just \
                        wrote — without touching the disk.",
@@ -942,6 +1002,100 @@ fn answer(digest: String, structured: Value) -> CallToolResult {
 
 fn refused(why: impl Into<String>) -> McpError {
     McpError::invalid_params(why.into(), None)
+}
+
+fn fixable_rule(named: Option<&str>) -> Result<Option<RuleId>, McpError> {
+    let Some(slug) = named.map(str::trim).filter(|slug| !slug.is_empty()) else {
+        return Ok(None);
+    };
+    let rule = RuleId::parse(slug).ok_or_else(|| {
+        refused(format!(
+            "there is no rule called `{slug}`. `rules` lists the catalogue."
+        ))
+    })?;
+    if !rule.spec().autofix.is_automatic() {
+        return Err(refused(format!(
+            "`{slug}` has no mechanical fix. `plan` lists the findings that need a person, \
+             with the refactoring each names."
+        )));
+    }
+    Ok(Some(rule))
+}
+
+/// What the fixer made of one file: the diff, the edits behind it and the findings it
+/// answers, or why nothing was proven.
+struct FixPreview<'a> {
+    file: &'a str,
+    fixed: Option<&'a fix::FileFix>,
+    withheld: Option<&'a fix::Withholding>,
+}
+
+impl<'a> FixPreview<'a> {
+    fn of(file: &'a str, outcome: &'a fix::Outcome) -> Self {
+        Self {
+            file,
+            fixed: outcome.fixes().find(|fixed| fixed.file == file),
+            withheld: outcome.withheld().find(|held| held.file == file),
+        }
+    }
+
+    fn diff(&self) -> String {
+        self.fixed
+            .map(|fixed| unified_diff::of(self.file, &fixed.before, &fixed.applied))
+            .unwrap_or_default()
+    }
+
+    fn digest(&self) -> String {
+        let Some(fixed) = self.fixed else {
+            return match self.withheld {
+                Some(held) => format!(
+                    "{} fixes were planned for {} and none is shown: {}",
+                    held.edits, self.file, held.reason
+                ),
+                None => format!("No mechanical fix applies to {}.", self.file),
+            };
+        };
+        format!(
+            "{} resolves {} of its findings.\n\n```diff\n{}```",
+            self.file,
+            fixed.resolved.len(),
+            self.diff()
+        )
+    }
+
+    fn structured(&self, rule: Option<String>) -> Value {
+        let Some(fixed) = self.fixed else {
+            return json!({
+                "file": self.file,
+                "rule": rule,
+                "fixable": false,
+                "diff": "",
+                "edits": [],
+                "resolves": [],
+                "withheld": self.withheld.map(|held| json!({
+                    "edits": held.edits,
+                    "reason": held.reason.to_string(),
+                })),
+            });
+        };
+        let index = rqx_core::LineIndex::new(&fixed.before);
+        let edits: Vec<Value> = fixed
+            .applied
+            .iter()
+            .map(|edit| projection::edit(edit, &fixed.before, &index))
+            .collect();
+        json!({
+            "file": self.file,
+            "rule": rule,
+            "fixable": true,
+            "diff": self.diff(),
+            "edits": edits,
+            "resolves": fixed.resolved.iter().map(finding_of).collect::<Vec<_>>(),
+            "withheld": null,
+            "next": "Apply the diff, then call `verify` to confirm the findings are gone. \
+                     `rqx fix --write` repeats fixing until a round finds nothing.",
+        })
+    }
 }
 
 fn severity_of(named: Option<&str>) -> Result<Option<Severity>, McpError> {

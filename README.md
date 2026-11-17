@@ -31,6 +31,7 @@ rqx plan --budget 20            # rank the work, and say what the score will be 
 rqx perf --profile cpu.pprof    # what grows faster than its input, and what ran
 rqx verify --base main          # was the named refactoring actually made
 rqx check --base main           # review only what changed, fail CI on the gate
+rqx check --staged              # review what the next commit would record
 rqx comment --fail-on error     # post that review onto the merge request
 rqx mcp                         # serve the analysis to an agent over MCP
 ```
@@ -880,6 +881,7 @@ a context window.
 | `scan` · `findings` | The project's health, then its findings a page at a time |
 | `check` | The diff against a base revision, and whether the gate passes |
 | `plan` | The findings `rqx fix` will not touch, each with its source, metric and named refactoring |
+| `fix_preview` | The mechanical fixes `rqx fix` would make to one file, as a unified diff with the findings they resolve |
 | `verify` | What a diff did to every finding: resolved, improved, relocated, introduced |
 | `analyze` | An unsaved buffer, without touching the disk |
 | `perf` | Where the work grows faster than the data, ranked by cost against reach |
@@ -887,8 +889,8 @@ a context window.
 | `recommend` · `graph` | What to do about the project, and what imports what |
 | `patterns` · `explain` · `rules` · `config` | The catalogues, and the settings in force |
 
-All fifteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
-the brief and the agent does the writing. `--http` serves
+All sixteen are read-only: nothing rqx exposes to an agent writes a file. `plan` returns
+the brief and `fix_preview` the diff, and the agent does the writing. `--http` serves
 the same tools over Streamable HTTP for clients that cannot spawn a process, and
 refuses a public address without `RQX_MCP_TOKEN`.
 [docs/mcp.md](docs/mcp.md) has the payload shapes and a config snippet per client.

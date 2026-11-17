@@ -180,6 +180,7 @@ fn the_handshake_advertises_every_tool_with_a_schema() {
             "config",
             "explain",
             "findings",
+            "fix_preview",
             "graph",
             "health",
             "patterns",
@@ -418,6 +419,130 @@ fn plan_returns_the_work_fix_will_not_do() {
         items.iter().all(|item| item["rule"] != "unreachable-code"),
         "a mechanical finding reached the plan: {answer}"
     );
+    session.shutdown();
+}
+
+const DEAD_CODE: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
+
+fn with_dead_code(test: &str) -> PathBuf {
+    let root = workspace(test);
+    std::fs::write(root.join("dead.ts"), DEAD_CODE).expect("a file");
+    root
+}
+
+/// The point of the tool is that an agent can see a fix before anything changes, so the
+/// diff has to be one `git apply` accepts and the file has to be as it was.
+#[test]
+fn fix_preview_answers_with_a_diff_that_applies_and_writes_nothing() {
+    let root = with_dead_code("fix-preview");
+    let mut session = Session::start(&root);
+
+    let preview = session.structured("fix_preview", json!({ "file": "dead.ts" }));
+
+    assert_eq!(preview["fixable"], json!(true), "{preview}");
+    let diff = preview["diff"].as_str().expect("a diff");
+    assert!(
+        diff.starts_with("--- a/dead.ts\n+++ b/dead.ts\n@@ "),
+        "{diff}"
+    );
+    assert!(diff.contains("-  console.log('dead')\n"), "{diff}");
+    let resolved: Vec<&str> = preview["resolves"]
+        .as_array()
+        .expect("findings")
+        .iter()
+        .map(|finding| finding["rule"].as_str().expect("a slug"))
+        .collect();
+    assert!(resolved.contains(&"unreachable-code"), "{resolved:?}");
+    assert!(!preview["edits"].as_array().expect("edits").is_empty());
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("dead.ts")).expect("a file"),
+        DEAD_CODE,
+        "a preview wrote the file"
+    );
+    let patch = root.join("preview.patch");
+    std::fs::write(&patch, diff).expect("a patch");
+    let applied = Command::new("git")
+        .args(["apply", "--check", "preview.patch"])
+        .current_dir(&root)
+        .output()
+        .expect("git");
+    assert!(
+        applied.status.success(),
+        "{}",
+        String::from_utf8_lossy(&applied.stderr)
+    );
+    session.shutdown();
+}
+
+#[test]
+fn fix_preview_can_be_narrowed_to_one_rule() {
+    let root = with_dead_code("fix-preview-rule");
+    let mut session = Session::start(&root);
+
+    let same = session.structured(
+        "fix_preview",
+        json!({ "file": "dead.ts", "rule": "unreachable-code" }),
+    );
+    assert_eq!(same["fixable"], json!(true), "{same}");
+    assert!(
+        same["resolves"]
+            .as_array()
+            .expect("findings")
+            .iter()
+            .all(|finding| finding["rule"] == "unreachable-code")
+    );
+
+    let other = session.structured(
+        "fix_preview",
+        json!({ "file": "dead.ts", "rule": "unused-private-member" }),
+    );
+    assert_eq!(other["fixable"], json!(false), "{other}");
+    assert_eq!(other["diff"], json!(""));
+    session.shutdown();
+}
+
+#[test]
+fn fix_preview_on_a_file_with_nothing_to_fix_says_so() {
+    let root = workspace("fix-preview-clean");
+    std::fs::write(
+        root.join("clean.ts"),
+        "export function add(a: number, b: number): number {\n  return a + b\n}\n",
+    )
+    .expect("a file");
+    let mut session = Session::start(&root);
+
+    let preview = session.structured("fix_preview", json!({ "file": "clean.ts" }));
+
+    assert_eq!(preview["fixable"], json!(false), "{preview}");
+    assert_eq!(preview["diff"], json!(""));
+    session.shutdown();
+}
+
+#[test]
+fn fix_preview_refuses_what_it_cannot_preview() {
+    let root = with_dead_code("fix-preview-refused");
+    std::fs::create_dir_all(root.join("folder")).expect("a directory");
+    let mut session = Session::start(&root);
+
+    for (arguments, expected) in [
+        (json!({ "file": "../outside.ts" }), "not inside"),
+        (json!({ "file": "folder" }), "is not a file"),
+        (
+            json!({ "file": "dead.ts", "rule": "no-such-rule" }),
+            "no rule called",
+        ),
+        (
+            json!({ "file": "dead.ts", "rule": "long-function" }),
+            "no mechanical fix",
+        ),
+    ] {
+        let answer = session.call("fix_preview", arguments.clone());
+        let message = answer["error"]["message"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{arguments} was not refused: {answer}"));
+        assert!(message.contains(expected), "{arguments}: {message}");
+    }
     session.shutdown();
 }
 

@@ -1,0 +1,9 @@
+- id: rqx-check
+  name: rqx check --staged
+  description: Review the staged changes and fail the commit when the gate is not met.
+  entry: rqx check --staged
+  language: system
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit]
+  minimum_pre_commit_version: "3.2.0"

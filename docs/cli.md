@@ -60,6 +60,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | Flag | What it does |
 | --- | --- |
 | `--base` | Revision to compare against |
+| `--staged` | Review what `git commit` would record: the staged contents, read from the index. Unstaged edits do not affect the verdict. The rest of the project is read from the working tree |
 | `--fix` | Apply the mechanical fixes to the files the branch changed before gating, so a branch whose only failures are mechanical passes |
 | `--write` | With --fix, write the fixes. Without it no file changes |
 | `--severity` | Show only findings at or above this severity |
@@ -524,7 +525,7 @@ Analyze a project and report every finding
 
 ## `rqx setup`
 
-Print the configuration an editor needs to connect to rqx, or list the supported editors
+Print the configuration an editor or a coding agent needs to use rqx, or list the supported editors
 
 | Flag | What it does |
 | --- | --- |

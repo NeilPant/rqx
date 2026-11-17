@@ -2,8 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use rqx_core::edit::Edit;
+use rqx_core::edit::{Edit, Resolution};
 use rqx_core::finding::Finding;
+use rqx_core::rule::RuleId;
 use rqx_core::score::FindingCounts;
 use rqx_core::{Identity, Language};
 use rqx_lang::rewrite::{Rewriter, Withheld};
@@ -21,6 +22,9 @@ pub struct Options {
     /// narrows it to the branch so a feature branch does not produce an unreviewable
     /// diff of the whole repository.
     pub only: BTreeSet<String>,
+    /// Plan edits for this rule alone. The other findings still take part in
+    /// verification, so a narrowed fix is held to the same standard as a full one.
+    pub rule: Option<RuleId>,
 }
 
 /// One file's proven edits, with the text before and after so a preview renders
@@ -32,6 +36,8 @@ pub struct FileFix {
     pub after: String,
     pub applied: Vec<Edit>,
     pub dropped: Vec<Edit>,
+    /// The findings the applied edits answer, which verification found gone.
+    pub resolved: Vec<Finding>,
     pub findings_after: Vec<Finding>,
 }
 
@@ -111,7 +117,7 @@ pub fn run_drawn(
     let mut projected;
 
     loop {
-        let mut round = plan_round(root, &settings, &scanned, &options.only)?;
+        let mut round = plan_round(root, &settings, &scanned, &options)?;
         let produced = !round.fixes.is_empty();
 
         if !options.write {
@@ -145,8 +151,9 @@ fn plan_round(
     root: &Path,
     settings: &Resolved,
     scanned: &ScanOutcome,
-    only: &BTreeSet<String>,
+    options: &Options,
 ) -> Result<Round> {
+    let only = &options.only;
     let mut by_file: BTreeMap<&str, Vec<&Finding>> = BTreeMap::new();
     for finding in &scanned.findings {
         if !only.is_empty() && !only.contains(&*finding.location.file) {
@@ -170,10 +177,9 @@ fn plan_round(
 
     for (file, findings) in by_file {
         let path = root.join(file);
-        if !findings
-            .iter()
-            .any(|finding| settings.for_file(&path).fix.allows(finding.rule))
-        {
+        if !findings.iter().any(|finding| {
+            wanted(options, finding) && settings.for_file(&path).fix.allows(finding.rule)
+        }) {
             continue;
         }
         let Some(language) = Language::of_path(&path) else {
@@ -193,13 +199,19 @@ fn plan_round(
                 continue;
             }
         };
-        let plan = rewriter.plan(&owned, &settings.for_file(&path).fix);
+        let asked: Vec<Finding> = owned
+            .iter()
+            .filter(|finding| wanted(options, finding))
+            .cloned()
+            .collect();
+        let plan = rewriter.plan(&asked, &settings.for_file(&path).fix);
         if plan.is_empty() {
             continue;
         }
         match rewriter.verify(file, settings.for_file(&path), &owned, &plan) {
             Ok(verified) => round.fixes.push(FileFix {
                 file: file.to_owned(),
+                resolved: answered(&owned, &plan, &before),
                 before,
                 after: verified.source,
                 applied: plan.kept,
@@ -214,6 +226,19 @@ fn plan_round(
         }
     }
     Ok(round)
+}
+
+fn wanted(options: &Options, finding: &Finding) -> bool {
+    options.rule.is_none_or(|rule| finding.rule == rule)
+}
+
+fn answered(findings: &[Finding], plan: &Resolution, source: &str) -> Vec<Finding> {
+    let answers: BTreeSet<Identity> = plan.kept.iter().map(|edit| edit.answers).collect();
+    findings
+        .iter()
+        .filter(|finding| answers.contains(&Identity::resolved(finding, source)))
+        .cloned()
+        .collect()
 }
 
 /// The health the project would have with the verified files' findings replacing
