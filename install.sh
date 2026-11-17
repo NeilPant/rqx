@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/jadhamwi21/rqx/main/install.sh | sh
 #   sh install.sh [--version X.Y.Z] [--dir DIR] [--dry-run] [--help]
 #
-# What it does: works out the release's target triple from `uname`, downloads the
+# What it does: works out the release's platform name from `uname`, downloads the
 # tarball and SHA256SUMS over HTTPS into a throwaway directory, checks the tarball
 # against SHA256SUMS, and only then copies the binary into the install directory.
 # Any mismatch, missing checksum or missing hash tool stops it with nothing installed.
@@ -103,8 +103,8 @@ detect_target() {
   machine="$(uname -m)"
 
   case "$machine" in
-    x86_64 | amd64) arch="x86_64" ;;
-    arm64 | aarch64) arch="aarch64" ;;
+    x86_64 | amd64) arch="x64" ;;
+    arm64 | aarch64) arch="arm64" ;;
     *) die_with_fallback "no rqx binary is published for the $machine architecture" ;;
   esac
 
@@ -112,12 +112,12 @@ detect_target() {
     Darwin)
       # A shell started under Rosetta reports x86_64 on an Apple Silicon Mac, and
       # the native binary is the one worth installing there.
-      if [ "$arch" = "x86_64" ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" = "1" ]; then
-        arch="aarch64"
+      if [ "$arch" = "x64" ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" = "1" ]; then
+        arch="arm64"
       fi
-      triple="$arch-apple-darwin"
+      platform="darwin-$arch"
       ;;
-    Linux) triple="$arch-unknown-linux-musl" ;;
+    Linux) platform="linux-$arch" ;;
     *) die_with_fallback "no rqx binary is published for $os; Windows has install.ps1" ;;
   esac
 }
@@ -224,7 +224,7 @@ main() {
   fi
   check_version
 
-  archive_name="rqx-$version-$triple.tar.gz"
+  archive_name="rqx-$version-$platform.tar.gz"
   download_base="$RELEASES_URL/download/v$version"
   archive_url="$download_base/$archive_name"
   checksums_url="$download_base/SHA256SUMS"
@@ -233,7 +233,7 @@ main() {
   if [ -n "$dry_run" ]; then
     echo "rqx install, dry run: nothing will be downloaded or changed"
     step "version    $version"
-    step "platform   $triple"
+    step "platform   $platform"
     step "archive    $archive_url"
     step "checksums  $checksums_url"
     step "verify     $archive_name against SHA256SUMS before installing"
@@ -246,10 +246,10 @@ main() {
   trap 'exit 130' INT
   trap 'exit 143' TERM
 
-  echo "Installing rqx $version for $triple"
+  echo "Installing rqx $version for $platform"
   step "downloading $archive_url"
   download "$archive_url" "$work_dir/$archive_name" ||
-    die_with_fallback "could not download $archive_url (no binary published for v$version on $triple, or the network failed)"
+    die_with_fallback "could not download $archive_url (no binary published for v$version on $platform, or the network failed)"
   step "downloading $checksums_url"
   download "$checksums_url" "$work_dir/SHA256SUMS" ||
     die_with_fallback "could not download $checksums_url"
