@@ -9,6 +9,8 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+## 0.4.0 — 2026-11-17
+
 ### Added
 
 - **Complexity settings.** `performance.costs` lists library calls with their cost,

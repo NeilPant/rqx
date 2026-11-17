@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/rqx-core", "crates/rqx-lang", "crates/rqx-cli"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"
@@ -17,8 +17,8 @@ categories = ["development-tools", "command-line-utilities"]
 # and three manifests each carrying their own is three chances for a release to bump
 # the package and leave its siblings depending on the version before it.
 [workspace.dependencies]
-rqx-core = { version = "0.3.0", path = "crates/rqx-core" }
-rqx-lang = { version = "0.3.0", path = "crates/rqx-lang" }
+rqx-core = { version = "0.4.0", path = "crates/rqx-core" }
+rqx-lang = { version = "0.4.0", path = "crates/rqx-lang" }
 
 # `codegen-units = 1` built the binary crate as one unit no core could share: 183 of
 # the 228 seconds a clean install took, all of it serialised at the end. Sixteen
