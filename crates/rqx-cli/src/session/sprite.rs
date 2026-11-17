@@ -79,12 +79,14 @@ impl Sprite {
         self.frames.len()
     }
 
+    #[cfg(test)]
     pub const fn width(&self) -> u16 {
         self.width as u16
     }
 
     /// Two pixels share one cell vertically, so an odd-height sprite still needs a
     /// whole row for its last line.
+    #[cfg(test)]
     pub fn cell_height(&self) -> u16 {
         self.height.div_ceil(2) as u16
     }

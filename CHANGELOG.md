@@ -100,6 +100,15 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   smaller one, a pipe, CI or `--no-tui` still gets the plain scan. `--no-mouse` is
   still accepted and does nothing.
 
+### Removed
+
+- **The full-screen interface.** The tabbed screens, the command palette and the
+  mouse handling are gone, replaced by the inline session that bare `rqx` opens,
+  which prints into your terminal's scrollback instead of taking the window over.
+  Nothing a pipeline reads changes: `rqx scan` and every other command printed their
+  reports without it. `--no-mouse` is still accepted, hidden from `--help`, and does
+  nothing.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**

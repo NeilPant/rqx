@@ -874,8 +874,9 @@ tools.
 
 It scans as it opens. While it works, the owl glances left and right beside the
 phase and the files done; when the scan lands, a header and the worst findings go
-into scrollback and the owl settles into the colour of the verdict and blinks. The
-status line shows health, grade, findings, watch state and cache hits.
+into scrollback, with the owl in the header in the colour of the verdict. Under the
+prompt, one line says `? for shortcuts` and, on the right, the health, the grade, the
+findings and `watching` when it is on.
 
 **A slash command is the command line's command.** `/plan --budget 20` is parsed by
 the same definition as `rqx plan --budget 20`, runs on the scan the session already
@@ -888,12 +889,15 @@ slash searches the findings.
 > dead export
 ```
 
-Typing `/` opens a completion menu: command names, then that command's flags, then
-the values a flag takes, which are rule slugs, families, files from the scan or the
-choices the flag lists. `tab` accepts, `esc` closes. The line edits with the arrow
-keys, `home`, `end`, `ctrl-u` and `ctrl-w`; `↑` and `↓` walk a history that is kept
-per user outside the repository. `/rescan` scans again, `/clear` clears the screen,
-`/help` lists the commands, and `/exit`, `ctrl-d` or `ctrl-c` twice leaves.
+A line that starts with `/` lists the matching commands under the prompt: command
+names, then after a space that command's flags, then the values a flag takes, which
+are rule slugs, families, files from the scan or the choices the flag lists. `tab`
+accepts, `esc` closes. `?` on an empty line prints the keys. The line edits with the
+arrow keys, `home`, `end`, `ctrl-u` and `ctrl-w`; `↑` and `↓` walk a history that is
+kept per user outside the repository. `/rescan` scans again, `/watch on` re-analyses
+files as they are saved, `/open 2` opens a finding in `$EDITOR`, `/waive` writes a
+waiver, `/clear` clears the screen, `/help` lists the commands, and `/exit`,
+`ctrl-d` or `ctrl-c` twice leaves.
 
 `--motion off` draws the owl still. [docs/interface.md](docs/interface.md) has the
 commands, the keys and the rules for when it opens.

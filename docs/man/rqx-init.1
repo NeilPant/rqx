@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-init \- Write a commented rqx.yaml with every setting at its default
 .SH SYNOPSIS
-\fBrqx init\fR [\fB\-\-force\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx init\fR [\fB\-\-force\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Write a commented rqx.yaml with every setting at its default
 .SH OPTIONS
@@ -14,9 +14,6 @@ Replace an rqx.yaml that is already there
 .TP
 \fB\-\-no\-tui\fR
 Never open the interactive interface; bare `rqx` prints the report instead
-.TP
-\fB\-\-no\-mouse\fR
-Leave the mouse to the terminal. The session never captures it; the flag is still accepted so an existing invocation keeps working
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal

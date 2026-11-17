@@ -9,8 +9,7 @@ use rqx_core::slop;
 use crate::brand::{Ink, Palette, paint};
 use crate::scan::ScanOutcome;
 
-/// Shared with the interface's Health screen, where slop is the other half of the
-/// same question: what the score is made of, and what reads as unread.
+/// A file the slop signals single out, with the score that ranked it.
 pub struct Suspect {
     pub file: String,
     pub score: u32,

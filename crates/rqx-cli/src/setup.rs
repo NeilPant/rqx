@@ -133,7 +133,7 @@ lspconfig.rqx.setup({
     map("l", run("rqx.toggleCodeLens"), "rqx: toggle code lens")
     map("i", function()
       vim.cmd("botright split | terminal rqx")
-    end, "rqx: open the interface")
+    end, "rqx: open the session")
   end,
 })
 

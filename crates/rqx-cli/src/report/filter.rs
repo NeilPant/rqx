@@ -168,8 +168,8 @@ impl FindingFilter {
         }
         // The evidence is searched as well as the name, because "cognitive complexity
         // 25" is what a reader remembers seeing rather than the slug that produced it.
-        // Only the interface's own search sets this; the command line filters by
-        // `--rule`, `--category` and `--path`, none of which read it.
+        // Set by `--search`, and by text typed at the session's prompt; `--rule`,
+        // `--category` and `--path` never read it.
         self.text.is_empty()
             || finding.slug().contains(&self.text)
             || finding.location.file.to_lowercase().contains(&self.text)

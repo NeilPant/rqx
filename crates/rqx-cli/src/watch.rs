@@ -1,4 +1,4 @@
-//! `rqx scan --watch`, and the file stamps it shares with the interface's poll.
+//! `rqx scan --watch`, and the file stamps it shares with the session's `/watch`.
 //! Both ask the same question of the tree, so both get the same answer from here.
 
 use std::collections::BTreeMap;

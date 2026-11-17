@@ -24,7 +24,7 @@ pub enum By {
     File,
 }
 
-/// Shared with the interface's Health screen: the ledger is the same ledger.
+/// One line of the ledger: a family, a rule or a directory, and what it costs.
 pub struct Bucket {
     pub name: String,
     pub findings: u32,

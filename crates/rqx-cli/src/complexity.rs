@@ -37,8 +37,7 @@ pub struct View {
     pub histogram: bool,
 }
 
-/// Shared with the interface's Complexity screen, so the table there and the table
-/// `rqx complexity` prints are one table measured once.
+/// One row of the complexity table, whichever way it is grouped.
 pub struct Row {
     pub name: String,
     pub at: String,

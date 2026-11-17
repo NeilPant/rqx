@@ -41,9 +41,6 @@ mod setup;
 mod slop;
 mod stats;
 mod term;
-// The full-screen interface is no longer opened by anything; a later change deletes it.
-#[allow(dead_code)]
-mod tui;
 mod update;
 mod verify;
 mod waive;
@@ -81,9 +78,9 @@ pub struct Cli {
     /// Never open the interactive interface; bare `rqx` prints the report instead
     #[arg(long, global = true)]
     no_tui: bool,
-    /// Leave the mouse to the terminal. The session never captures it; the flag is
-    /// still accepted so an existing invocation keeps working.
-    #[arg(long, global = true)]
+    /// Accepted and ignored: the session never captures the mouse, so there is
+    /// nothing to leave to the terminal. It stays so an existing invocation works.
+    #[arg(long, global = true, hide = true)]
     #[allow(dead_code)]
     no_mouse: bool,
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal

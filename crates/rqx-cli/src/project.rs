@@ -189,7 +189,7 @@ mod tests {
     }
 
     /// A refreshed report and a scanned one have to be the same report, or the
-    /// interface is showing something the command line would not agree with.
+    /// session is showing something the command line would not agree with.
     #[test]
     fn refreshing_one_file_answers_what_a_whole_scan_would() {
         let root = fixture(

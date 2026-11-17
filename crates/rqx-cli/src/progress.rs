@@ -31,29 +31,6 @@ pub enum Phase {
 }
 
 impl Phase {
-    /// In the order a scan passes through them, which is what lets a reader see
-    /// where it is rather than only what it is doing.
-    pub const ALL: [Self; 6] = [
-        Self::Counting,
-        Self::Scanning,
-        Self::Duplicates,
-        Self::Imports,
-        Self::History,
-        Self::CoChange,
-    ];
-
-    /// Two words at most: the stepper shows all six at once.
-    pub const fn short(self) -> &'static str {
-        match self {
-            Self::Counting => "finding",
-            Self::Scanning => "scanning",
-            Self::Duplicates => "duplicates",
-            Self::Imports => "imports",
-            Self::History => "history",
-            Self::CoChange => "co-change",
-        }
-    }
-
     pub const fn label(self) -> &'static str {
         match self {
             Self::Counting => "finding files",
