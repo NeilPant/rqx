@@ -306,7 +306,7 @@ fn run_check(publisher: &Arc<Publisher>, job: &Job, base: &str) {
         );
         return;
     };
-    let verdict = check::judge(&review, &job.config.config);
+    let verdict = review.judge(&job.config.config);
 
     // Only the reviewed files are republished, and nothing else is cleared: a review is
     // a narrower question about the same project, not a statement that the rest of it

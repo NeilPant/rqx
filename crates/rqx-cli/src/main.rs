@@ -17,6 +17,7 @@ mod config;
 mod edit_config;
 mod fix;
 mod forge;
+mod gate;
 mod graph;
 mod health;
 mod history;
@@ -41,6 +42,7 @@ mod verify;
 mod watch;
 
 use brand::{ColorDepth, Palette};
+use gate::{Scope, judge};
 use report::{FindingFilter, Layout, Report, Reporter};
 
 #[derive(Parser)]
@@ -77,6 +79,15 @@ pub struct Cli {
     /// Animation in the interactive interface
     #[arg(long, value_enum, default_value_t = Motion::On, global = true)]
     motion: Motion,
+    /// Do not draw the progress bar on stderr; `--quiet` implies it
+    #[arg(long, global = true, env = "RQX_NO_PROGRESS")]
+    no_progress: bool,
+}
+
+/// The bar is for a person watching a terminal, and a request for quiet output is a
+/// request not to be drawn at either.
+const fn progress_wanted(no_progress: bool, quiet: bool) -> bool {
+    !no_progress && !quiet
 }
 
 /// The commands, in five groups. Order inside a group is the order a reader meets
@@ -1176,6 +1187,19 @@ impl From<ConfigAction> for edit_config::Change {
     }
 }
 
+/// Where the lines that accompany a report go. A document on stdout has to parse
+/// whole, so anything else the run wants to say goes to stderr instead.
+fn companion_stream(sinks: &[Sink]) -> Box<dyn std::io::Write> {
+    let document_on_stdout = sinks
+        .iter()
+        .any(|sink| sink.path.is_none() && sink.reporter.is_document());
+    if document_on_stdout {
+        Box::new(anstream::stderr().lock())
+    } else {
+        Box::new(anstream::stdout().lock())
+    }
+}
+
 fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> Result<()> {
     if !view.timings {
         for sink in sinks {
@@ -1191,9 +1215,13 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
         write_sink(report, sink, view, palette, &mut held)?;
     }
     let render = rendering.elapsed().as_millis();
-    let mut out = anstream::stdout().lock();
-    report::timings(report.outcome, &[("render", render)], palette, &mut out)?;
-    out.write_all(&held)?;
+    report::timings(
+        report.outcome,
+        &[("render", render)],
+        palette,
+        &mut companion_stream(sinks),
+    )?;
+    anstream::stdout().lock().write_all(&held)?;
     Ok(())
 }
 
@@ -1405,6 +1433,7 @@ fn run() -> Result<Exit> {
     // read this global, so one flag governs every writer.
     cli.color.choice().write_global();
     progress::set_animated(!matches!(cli.motion, Motion::Off));
+    progress::set_shown(progress_wanted(cli.no_progress, false));
     let palette = Palette::detect();
     let interface = Interface {
         motion: cli.motion,
@@ -1471,6 +1500,7 @@ fn run() -> Result<Exit> {
             }
             gate.apply(&mut settings.config);
 
+            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
             let filter = filter_of(&view, &path)?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
@@ -1480,7 +1510,7 @@ fn run() -> Result<Exit> {
                 // flag is the whole opt-in and no existing pipeline changes meaning.
                 let verdict = gate
                     .is_set()
-                    .then(|| check::judge_scan(&outcome, &settings.config));
+                    .then(|| judge(&outcome, Scope::Project, &settings.config));
                 let report = Report::scan(&outcome, &filter);
                 let report = match &verdict {
                     Some(verdict) => report.judged(verdict),
@@ -1488,7 +1518,7 @@ fn run() -> Result<Exit> {
                 };
                 emit(&report, &sinks, &view, palette)?;
                 if advice {
-                    let mut out = anstream::stdout().lock();
+                    let mut out = companion_stream(&sinks);
                     report::advice(&outcome, palette, &mut out)?;
                 }
                 update_notice(&view, &sinks, palette, settings.config.update.check);
@@ -1979,7 +2009,7 @@ fn run() -> Result<Exit> {
                 .or_else(forge::base_revision)
                 .unwrap_or_else(|| "origin/HEAD".to_owned());
             let review = check::review(&path, &settings, &base)?;
-            let verdict = check::judge(&review, &settings.config);
+            let verdict = review.judge(&settings.config);
             let report = Report::reviewed(&review, &verdict);
 
             // Detected before posting but after the scan, so a dry run still gets its
@@ -2066,6 +2096,7 @@ fn run() -> Result<Exit> {
             update::start(settings.config.update.check);
             gate.apply(&mut settings.config);
 
+            progress::set_shown(progress_wanted(cli.no_progress, view.quiet));
             let sinks = sinks(&view)?;
             let filter = filter_of(&view, &path)?;
             let mut review = check::review(&path, &settings, &base)?;
@@ -2082,14 +2113,14 @@ fn run() -> Result<Exit> {
                         only: review.reviewed.clone(),
                     },
                 )?;
-                let mut out = anstream::stdout().lock();
+                let mut out = companion_stream(&sinks);
                 report::fixes(&fixed, palette, "rqx check --fix --write", &mut out)?;
                 drop(out);
                 if write && fixed.applied() > 0 {
                     review = check::review(&path, &settings, &base)?;
                 }
             }
-            let verdict = check::judge(&review, &settings.config);
+            let verdict = review.judge(&settings.config);
             let report = Report::review(&review, &verdict, &filter);
             emit(&report, &sinks, &view, palette)?;
             update_notice(&view, &sinks, palette, settings.config.update.check);
@@ -2340,6 +2371,27 @@ mod flags {
             .into_iter()
             .map(|line| line.trim_start().to_owned())
             .collect()
+    }
+
+    #[test]
+    fn quiet_implies_no_progress() {
+        assert!(super::progress_wanted(false, false));
+        assert!(!super::progress_wanted(true, false));
+        assert!(!super::progress_wanted(false, true));
+    }
+
+    #[test]
+    fn no_progress_is_accepted_before_and_after_the_command() {
+        for arguments in [
+            ["rqx", "--no-progress", "scan"],
+            ["rqx", "scan", "--no-progress"],
+        ] {
+            let matches = super::parser()
+                .try_get_matches_from(arguments)
+                .unwrap_or_else(|error| panic!("{arguments:?}: {error}"));
+            let cli = <super::Cli as clap::FromArgMatches>::from_arg_matches(&matches).unwrap();
+            assert!(cli.no_progress, "{arguments:?}");
+        }
     }
 
     #[test]

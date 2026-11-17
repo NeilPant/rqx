@@ -90,7 +90,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
 pub fn comment(report: &Report<'_>, job: Option<&str>) -> Result<String> {
     let health = report.health();
     let grade = rqx_core::Cleanliness::of(health, report.totals.findings);
-    let passed = report.verdict.is_none_or(crate::check::Verdict::passed);
+    let passed = report.verdict.is_none_or(crate::gate::Verdict::passed);
 
     let mut out: Vec<u8> = Vec::new();
     writeln!(

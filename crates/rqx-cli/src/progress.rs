@@ -66,6 +66,18 @@ impl Phase {
     }
 }
 
+/// Set once from `--no-progress` and `--quiet`, and read wherever a bar is built, for
+/// the same reason as `ANIMATED`.
+static SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+pub fn set_shown(shown: bool) {
+    SHOWN.store(shown, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn shown() -> bool {
+    SHOWN.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Set once from `--motion`, and read wherever a bar is built. Colour is already a
 /// process-wide choice that `Palette::detect` reads back from `anstream`; motion is the
 /// same kind of decision, and threading it through `scan`'s signature would put a
@@ -97,7 +109,7 @@ impl Bar {
         Self {
             palette,
             animated: animated(),
-            live: term::is_terminal(Stream::Stderr),
+            live: shown() && term::is_terminal(Stream::Stderr),
             // Far enough in the past that the first update paints rather than waiting.
             painted: Instant::now() - REPAINT,
             frame: 0,

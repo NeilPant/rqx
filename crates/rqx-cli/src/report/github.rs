@@ -3,6 +3,7 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::finding::{Finding, Severity};
 
+use crate::gate::Verdict;
 use crate::report::Report;
 
 const fn level(severity: Severity) -> &'static str {
@@ -47,10 +48,29 @@ fn annotation(finding: &Finding, prefix: &str) -> String {
     )
 }
 
+/// The last line of the run: the annotation a person scrolling the log, or reading
+/// the checks tab, sees for whether the gate held.
+fn gate_annotation(verdict: &Verdict) -> String {
+    if verdict.passed() {
+        "::notice title=rqx gate::gate passed".to_owned()
+    } else {
+        format!(
+            "::error title=rqx gate::{}",
+            encode_message(&verdict.failures.join(
+                "
+"
+            ))
+        )
+    }
+}
+
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     let prefix = report.path_prefix();
     for finding in &report.findings {
         writeln!(out, "{}", annotation(finding, &prefix))?;
+    }
+    if let Some(verdict) = report.verdict {
+        writeln!(out, "{}", gate_annotation(verdict))?;
     }
     Ok(())
 }
@@ -118,6 +138,29 @@ mod tests {
 
         assert!(line.starts_with("::warning file=src/a.ts,line=3,col=5,title=no-console::"));
         assert!(line.contains("console.log, left in"));
+    }
+
+    #[test]
+    fn the_gate_closes_the_run_as_an_error_or_a_notice() {
+        let failed = Verdict {
+            failures: vec!["2 errors".to_owned(), "health 40 is below 60".to_owned()],
+            counted: 2,
+            known: 0,
+        };
+        assert_eq!(
+            gate_annotation(&failed),
+            "::error title=rqx gate::2 errors%0Ahealth 40 is below 60"
+        );
+
+        let passed = Verdict {
+            failures: Vec::new(),
+            counted: 0,
+            known: 0,
+        };
+        assert_eq!(
+            gate_annotation(&passed),
+            "::notice title=rqx gate::gate passed"
+        );
     }
 
     #[test]

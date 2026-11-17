@@ -59,9 +59,75 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   check it against `SHA256SUMS` and install it into `~/.local/bin` or
   `%LOCALAPPDATA%\rqx\bin`. Neither uses sudo or edits shell files. `--version`
   pins a release and `--dry-run` shows every step without changing anything.
+- **`--no-progress` turns the progress bar off, and `--quiet` does too.** The bar
+  already stayed away from anything but a terminal; on a terminal there was no way to
+  silence it short of redirecting stderr. `--no-progress` (or `RQX_NO_PROGRESS=1`) is a
+  global flag, and `-q` on `scan` and `check` now implies it.
+- **JUnit and GitHub annotations carry the gate.** A gated run adds a
+  `<testsuite name="rqx gate">` to the JUnit report with one test that fails when the
+  gate does, and ends the GitHub annotations with `::error title=rqx gate::` and the
+  failures, or `::notice title=rqx gate::gate passed`. A provider that shows only
+  tests or only annotations no longer has to infer a failed gate from a red exit
+  code. A run with no gate writes exactly what it wrote before.
+- **The SARIF run records its verdict.** `runs[0].invocations[0]` carries the exit
+  code the run ends with and one error notification per gate failure, and
+  `runs[0].properties.rqx` carries `schema_version` and, for a gated run, the gate. A
+  viewer that only has the document can now tell a failed gate from a clean run. Two
+  more things are available and off by default, because they change how GitHub
+  matches the alerts it already holds: `RQX_SARIF_FINGERPRINTS=1` adds
+  `partialFingerprints`, and `RQX_SARIF_CATEGORY=<id>` adds `automationDetails`.
+  `docs/ci.md` says what each one does to existing alerts.
+- **A gated scan says whether it passed.** The JSON summary line gains
+  `gate: { "passed": bool, "failures": [...] }` whenever there is a verdict: a scan
+  with a gate flag such as `--fail-on` or `--min-health`, `check`, and `comment`. Before, a pipeline reading the JSON had to rebuild the gate from the
+  counts, or trust the exit code alone. `review` is unchanged.
+- **Every JSON line says what it is.** Finding lines in `--reporter json` now carry
+  `"kind": "finding"`, so a consumer switches on `kind` for every line instead of
+  telling findings apart by the keys they lack. The summary line gains
+  `schema_version` (`1`) and `rqx_version`, and the summaries of `fix --json`,
+  `verify --json` and `plan --json` gain `schema_version`. `docs/json.md` is new and
+  states the promise: keys are never removed or renamed, and a consumer ignores keys
+  it does not know. The camelCase keys in `verify` and `plan` stay as they are.
 
 ### Fixed
 
+- **The action's `findings` output counts what was reported.** It counted every
+  `"ruleId"` in the SARIF file, and SARIF lists a finding a waiver silenced too, marked
+  suppressed, so a project that waived findings saw a number larger than the report
+  showed. The count now leaves suppressed results out and needs `jq`, which the
+  GitHub-hosted runners have.
+- **`check` counts every finding, not the 500 kept for display.** The review gate
+  counted the findings retained under `max_findings` (500 by default), so a branch
+  with more findings than that was counted as if it had 500, and a limit above 500
+  could never fail. `[gate] max_findings`, `--allow-findings` and `fail_on` now
+  count from a per-file tally taken before the cap, the way `rqx scan` already did.
+  A config such as `[gate] max_findings = 600` that used to pass `rqx check` on a large
+  change now fails when the change holds more than 600.
+- **`fail_on = "never"` no longer switches off the health and grade floors.** A
+  project that set `fail_on = "never"` together with `min_health` or `min_grade` got a
+  gate that enforced neither in `rqx check` and `rqx comment`, and not the health floor
+  in `rqx scan`: the setting meant "no finding fails the run by severity" and was read
+  as "no gate". `min_health` and `min_grade` now fail a run regardless of `fail_on`. A
+  config with `fail_on = "never"` and a floor that used to pass because of this now
+  fails when the score or a file's grade is below it.
+- **`check` and `comment` honour `ratchet` and `fail_on_incomplete`.** Both settings
+  were read only by `rqx scan`, so a pipeline that gated merge requests with
+  `rqx check` or `rqx comment` passed branches that grew the baseline's total or left
+  a design pattern half applied, however the gate was configured. A project with
+  `[gate] ratchet = true` or `fail_on_incomplete = true` that used to pass `check` now
+  fails when the total outgrows the baseline, or when a half applied pattern sits in a
+  file the review covers. The ratchet compares the project's total, because the
+  baseline records one number; the pattern check looks only at the reviewed files.
+- **Every `--group-by` ends with the summary and the gate.** Grouping by rule, family
+  or severity stopped after the last group, so a gated run printed no summary and no
+  `gate failed` line and the exit code was the only sign. `--stats` printed no gate
+  either. All of them now end the way the per-file listing does: cycles,
+  architecture, summary, hotspots, skipped files, notes, gate.
+- **A document on stdout is the only thing on stdout.** `--timings`, `scan --advice`
+  and the fix report of `check --fix` wrote their lines to stdout beside the JSON,
+  SARIF, JUnit, GitLab or Markdown document, so a pipeline that parsed the output
+  failed on the first extra line. They now go to stderr whenever a document is
+  printed to stdout; the terminal and GitHub reports keep them where they were.
 - **A cache hit is kept.** After one file changed, the cache was rewritten holding
   only that file, so the next run analysed everything else again, and the run after
   paid the same price for the next edit. The cache now keeps every file the run saw,

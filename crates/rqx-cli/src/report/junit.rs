@@ -3,6 +3,7 @@ use std::io::Write;
 use anyhow::Result;
 use rqx_core::finding::Severity;
 
+use crate::gate::Verdict;
 use crate::report::Report;
 
 /// The five characters XML reserves. Hand-written because a whole parser crate to
@@ -25,23 +26,55 @@ fn escape(text: &str) -> String {
     out
 }
 
+/// The gate as a suite of its own, so a CI provider that shows only tests shows the
+/// verdict as one that passed or failed, beside the files.
+fn write_gate(out: &mut dyn Write, verdict: &Verdict) -> Result<()> {
+    writeln!(
+        out,
+        r#"  <testsuite name="rqx gate" tests="1" failures="{}">"#,
+        usize::from(!verdict.passed())
+    )?;
+    if verdict.passed() {
+        writeln!(out, r#"    <testcase classname="rqx gate" name="gate" />"#)?;
+    } else {
+        let summary = verdict.failures.first().map_or("", String::as_str);
+        writeln!(out, r#"    <testcase classname="rqx gate" name="gate">"#)?;
+        writeln!(
+            out,
+            r#"      <failure type="gate" message="{}">{}</failure>"#,
+            escape(summary),
+            escape(&verdict.failures.join(
+                "
+"
+            ))
+        )?;
+        writeln!(out, "    </testcase>")?;
+    }
+    writeln!(out, "  </testsuite>")?;
+    Ok(())
+}
+
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     let shown = report.shown_by_file();
     let prefix = report.path_prefix();
-    let cases: usize = report
-        .files
-        .iter()
-        .map(|file| {
-            shown
-                .get(file.as_str())
-                .map_or(1, |findings| findings.len().max(1))
-        })
-        .sum();
-    let failures = report
-        .findings
-        .iter()
-        .filter(|finding| finding.severity >= Severity::Warning)
-        .count();
+    let gate_cases = usize::from(report.verdict.is_some());
+    let cases: usize = gate_cases
+        + report
+            .files
+            .iter()
+            .map(|file| {
+                shown
+                    .get(file.as_str())
+                    .map_or(1, |findings| findings.len().max(1))
+            })
+            .sum::<usize>();
+    let gate_failures = usize::from(report.verdict.is_some_and(|verdict| !verdict.passed()));
+    let failures = gate_failures
+        + report
+            .findings
+            .iter()
+            .filter(|finding| finding.severity >= Severity::Warning)
+            .count();
 
     writeln!(out, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
     writeln!(
@@ -113,6 +146,9 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         writeln!(out, "  </testsuite>")?;
     }
 
+    if let Some(verdict) = report.verdict {
+        write_gate(out, verdict)?;
+    }
     writeln!(out, "</testsuites>")?;
     Ok(())
 }
@@ -124,6 +160,34 @@ mod tests {
     #[test]
     fn every_reserved_character_is_escaped() {
         assert_eq!(escape(r#"a<b>&"c'"#), "a&lt;b&gt;&amp;&quot;c&apos;");
+    }
+
+    fn gate_suite(verdict: &Verdict) -> String {
+        let mut out = Vec::new();
+        write_gate(&mut out, verdict).unwrap();
+        String::from_utf8(out).unwrap()
+    }
+
+    #[test]
+    fn a_failed_gate_is_one_failing_test() {
+        let suite = gate_suite(&Verdict {
+            failures: vec!["2 errors <found>".to_owned()],
+            counted: 2,
+            known: 0,
+        });
+        assert!(suite.contains(r#"<testsuite name="rqx gate" tests="1" failures="1">"#));
+        assert!(suite.contains(r#"<failure type="gate" message="2 errors &lt;found&gt;">"#));
+    }
+
+    #[test]
+    fn a_passed_gate_is_one_passing_test() {
+        let suite = gate_suite(&Verdict {
+            failures: Vec::new(),
+            counted: 0,
+            known: 0,
+        });
+        assert!(suite.contains(r#"failures="0""#));
+        assert!(!suite.contains("<failure"));
     }
 
     #[test]

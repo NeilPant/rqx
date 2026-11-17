@@ -26,7 +26,8 @@ use clap::ValueEnum;
 use rqx_core::Cleanliness;
 use rqx_core::finding::{Finding, Severity};
 
-use crate::check::{Review, Verdict};
+use crate::check::Review;
+use crate::gate::Verdict;
 use crate::scan::ScanOutcome;
 
 pub use brief::{json as brief_json, markdown as brief_markdown, render as brief};
@@ -118,6 +119,11 @@ pub use json::finding_of;
 pub use markdown::{classification, comment};
 pub use settings::{render as config, rows as setting_rows};
 pub use terminal::{Detail, Grouping, Layout, Order};
+
+/// The shape of the machine formats. Bumped only when a key is removed or changes
+/// meaning, which `docs/json.md` promises never to do, so a consumer can refuse a
+/// document newer than it understands.
+pub const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum Reporter {
@@ -438,6 +444,11 @@ pub mod tests {
                 .findings_by_file
                 .entry(Arc::clone(&finding.location.file))
                 .or_default() += 1;
+            outcome
+                .severity_by_file
+                .entry(Arc::clone(&finding.location.file))
+                .or_default()
+                .record(&finding);
             outcome.analyzed.insert((*file).to_owned());
             outcome.findings.push(finding);
         }
@@ -458,6 +469,7 @@ pub mod tests {
             findings: Vec::new(),
             advice: Vec::new(),
             findings_by_file: BTreeMap::new(),
+            severity_by_file: BTreeMap::new(),
             lines_by_file: BTreeMap::new(),
             shape_by_file: BTreeMap::new(),
             suppressed: Vec::new(),
@@ -497,6 +509,11 @@ pub mod tests {
                 .findings_by_file
                 .entry(Arc::clone(&finding.location.file))
                 .or_default() += 1;
+            outcome
+                .severity_by_file
+                .entry(Arc::clone(&finding.location.file))
+                .or_default()
+                .record(&finding);
             outcome.analyzed.insert((*file).to_owned());
             outcome.findings.push(finding);
         }

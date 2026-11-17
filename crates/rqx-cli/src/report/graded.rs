@@ -219,6 +219,7 @@ pub fn json(verified: &Verified, out: &mut dyn Write) -> Result<()> {
         "{}",
         json!({
             "kind": "summary",
+            "schema_version": super::SCHEMA_VERSION,
             "base": verified.base,
             "resolved": verified.counted(&Outcome::Resolved),
             "introduced": verified.counted(&Outcome::Introduced),

@@ -52,22 +52,35 @@ fn fingerprint(finding: &Finding, repeat: usize) -> String {
     }
 }
 
+/// One fingerprint per finding, in order, with repeats numbered. Shared with SARIF,
+/// whose `partialFingerprints` mean the same thing: the same problem, wherever it
+/// has moved to.
+pub(super) fn fingerprints<'a>(findings: impl IntoIterator<Item = &'a Finding>) -> Vec<String> {
+    let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    findings
+        .into_iter()
+        .map(|finding| {
+            let repeat = seen
+                .entry(Identity::exact(finding).to_string())
+                .or_default();
+            let ordinal = *repeat;
+            *repeat += 1;
+            fingerprint(finding, ordinal)
+        })
+        .collect()
+}
+
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     let prefix = report.path_prefix();
-    let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let fingerprints = fingerprints(report.findings.iter().copied());
     let entries: Vec<Entry> = report
         .findings
         .iter()
-        .map(|finding| Entry {
+        .zip(fingerprints)
+        .map(|(finding, fingerprint)| Entry {
             description: format!("{} — {}", finding.evidence, finding.rule.spec().why),
             check_name: finding.slug().to_owned(),
-            fingerprint: {
-                let identity = Identity::exact(finding).to_string();
-                let repeat = seen.entry(identity).or_default();
-                let ordinal = *repeat;
-                *repeat += 1;
-                fingerprint(finding, ordinal)
-            },
+            fingerprint,
             severity: severity(finding.severity),
             location: Location {
                 path: format!("{prefix}{}", finding.location.file),

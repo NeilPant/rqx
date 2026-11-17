@@ -33,6 +33,9 @@ run `pristine`, `clean`, `fair`, `poor`, `critical`, and `never` turns the gate 
 Passing any gate flag opts a scan into gating, so the rest of `[gate]` applies too
 — `--min-grade poor` on a repo with `fail_on = "error"` gates on both.
 
+`fail_on = "never"` turns off only the count of findings by severity. The health floor,
+the grade floor, the ratchet and `fail_on_incomplete` still apply when they are set.
+
 ## Reporters
 
 `--reporter <name>` writes to stdout. `--reporter <name>=<path>` writes to a file.
@@ -49,7 +52,7 @@ rqx scan . \
 | Reporter | Consumer |
 |---|---|
 | `terminal` | the job log |
-| `json` | newline-delimited JSON, one object per finding then a summary |
+| `json` | newline-delimited JSON, one object per finding then a summary; [what it promises](json.md) |
 | `sarif` | GitHub code scanning, Azure DevOps advanced security |
 | `junit` | GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket, Buildkite |
 | `gitlab` | GitLab Code Quality — inline merge-request annotations |
@@ -61,6 +64,42 @@ have the stream, or a file, to itself.
 
 Colour follows `NO_COLOR` and whether stdout is a terminal. `--color never`
 forces it off, `--color always` forces it on for a log viewer that renders ANSI.
+
+The progress bar draws only when stderr is a terminal, so a CI log never holds it.
+`--no-progress`, or `RQX_NO_PROGRESS=1`, turns it off on a terminal too, and `--quiet`
+implies it.
+
+### Where the verdict lives
+
+The exit code is the contract, but a report is often read somewhere the exit code
+does not reach. A gated run writes its verdict into the document too:
+
+| Reporter | Where to read it |
+|---|---|
+| `terminal` | the `gate passed` or `gate failed` line, with each failure under it |
+| `json` | `gate` on the summary line: `{ "passed": bool, "failures": [...] }` |
+| `junit` | a `<testsuite name="rqx gate">` with one test, failing when the gate fails; the totals on `<testsuites>` count it |
+| `github` | the last annotation: `::error title=rqx gate::` with the failures, or `::notice title=rqx gate::gate passed` |
+| `sarif` | `runs[0].invocations[0].exitCode`, one `toolExecutionNotifications` entry per failure at level `error`, and `runs[0].properties.rqx.gate` |
+
+A scan that was not gated has no verdict, so these are absent rather than reading
+`passed`. `rqx check` and `rqx comment` always have one.
+
+### SARIF and GitHub code scanning
+
+Code scanning matches the alerts in a new upload against the ones it already holds.
+Two things change that matching, so both are off until you ask:
+
+| Variable | Effect |
+|---|---|
+| `RQX_SARIF_FINGERPRINTS=1` | adds `partialFingerprints` to every result, built from the finding's identity (the same one the GitLab report uses), so an alert follows its finding when code above it moves |
+| `RQX_SARIF_CATEGORY=<id>` | adds `automationDetails.id`, which files the run under that category |
+
+Turning either on for a repository that already has open alerts re-keys them: GitHub
+sees new fingerprints or a new category, closes the old alerts and opens the same
+findings again. Set them once, deliberately, on a repository whose alert history you
+can afford to reset. Set a category when one repository uploads several SARIF runs
+that would otherwise overwrite each other.
 
 ## GitHub Actions
 
@@ -202,7 +241,8 @@ history you inherited.
 pattern advice reaches an exit code. It sees the half-applied stance and nothing else:
 a decorator that cannot substitute for what it wraps, a subscribe with no unsubscribe.
 A pattern that is merely in use, or would merely fit, can never fail a run, and none
-of the advice moves the health score in any configuration.
+of the advice moves the health score in any configuration. `rqx check` and
+`rqx comment` apply it to the files they review; `rqx scan` applies it to all of them.
 
 ## Commenting on the merge request
 

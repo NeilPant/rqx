@@ -8,8 +8,8 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 
 use crate::brand::{Ink, Palette};
-use crate::check::Verdict;
 use crate::config::Resolved;
+use crate::gate::Verdict;
 use crate::scan::{ScanOutcome, ScanProgress};
 
 use super::motion::Motion;

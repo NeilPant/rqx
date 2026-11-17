@@ -270,6 +270,81 @@ fn the_sarif_report_names_a_run_and_a_rule_for_every_result() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+#[test]
+fn a_failed_gate_is_written_into_the_sarif_run() {
+    let root = project("sarif-gate", &[("a.ts", DIRTY)]);
+    let output = rqx(
+        &root,
+        &[
+            "scan",
+            "--reporter",
+            "sarif",
+            "--fail-on",
+            "warning",
+            "--no-tui",
+        ],
+    );
+    assert_eq!(code(&output), 1);
+
+    let sarif: serde_json::Value = serde_json::from_slice(&output.stdout).expect("a document");
+    let run = &sarif["runs"][0];
+    assert_eq!(run["invocations"][0]["exitCode"], 1);
+    assert!(
+        !run["invocations"][0]["toolExecutionNotifications"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(run["results"][0].get("partialFingerprints").is_none());
+    assert!(run.get("automationDetails").is_none());
+}
+
+#[test]
+fn junit_and_github_carry_the_gate_only_when_there_is_one() {
+    let root = project("gate-lines", &[("a.ts", DIRTY)]);
+    let said = |reporter: &str, extra: &[&str]| {
+        let mut args = vec!["scan", "--reporter", reporter, "--no-tui"];
+        args.extend_from_slice(extra);
+        String::from_utf8_lossy(&rqx(&root, &args).stdout).into_owned()
+    };
+
+    let junit = said("junit", &["--fail-on", "warning"]);
+    assert!(junit.contains(r#"<testsuite name="rqx gate" tests="1" failures="1">"#));
+    let github = said("github", &["--fail-on", "warning"]);
+    assert!(
+        github
+            .lines()
+            .last()
+            .unwrap()
+            .starts_with("::error title=rqx gate::")
+    );
+    let github = said("github", &["--fail-on", "error", "--allow-findings", "100"]);
+    assert_eq!(
+        github.lines().last(),
+        Some("::notice title=rqx gate::gate passed")
+    );
+
+    assert!(!said("junit", &[]).contains("rqx gate"));
+    assert!(!said("github", &[]).contains("rqx gate"));
+}
+
+#[test]
+fn sarif_fingerprints_and_category_are_opt_in_through_the_environment() {
+    let root = project("sarif-opt-in", &[("a.ts", DIRTY)]);
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan"])
+        .arg(&root)
+        .args(["--reporter", "sarif", "--no-tui"])
+        .env("RQX_SARIF_FINGERPRINTS", "1")
+        .env("RQX_SARIF_CATEGORY", "rqx/api")
+        .output()
+        .expect("failed to run rqx");
+    let sarif: serde_json::Value = serde_json::from_slice(&output.stdout).expect("a document");
+    let run = &sarif["runs"][0];
+    assert!(run["results"][0]["partialFingerprints"]["rqxIdentity/v1"].is_string());
+    assert_eq!(run["automationDetails"]["id"], "rqx/api");
+}
+
 /// One pass, several reports. Running rqx twice to get two formats doubles the slowest
 /// step in the job, so the pipeline snippets all rely on this working.
 #[test]
@@ -732,6 +807,123 @@ fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
 
     let _ = std::fs::remove_dir_all(&origin);
     let _ = std::fs::remove_dir_all(&shallow);
+}
+
+fn parses_as_json_lines(text: &str) {
+    assert!(!text.trim().is_empty(), "stdout is empty");
+    for line in text.lines() {
+        serde_json::from_str::<serde_json::Value>(line)
+            .unwrap_or_else(|error| panic!("not JSON ({error}): {line:.200}"));
+    }
+}
+
+#[test]
+fn timings_and_advice_leave_a_json_stream_whole() {
+    let root = project("json-companions", &[("a.ts", DIRTY)]);
+    let output = rqx(
+        &root,
+        &[
+            "scan",
+            "--reporter",
+            "json",
+            "--timings",
+            "--advice",
+            "--no-tui",
+        ],
+    );
+    parses_as_json_lines(&String::from_utf8_lossy(&output.stdout));
+    let said = String::from_utf8_lossy(&output.stderr);
+    assert!(said.contains("total"), "the timings went missing: {said}");
+}
+
+#[test]
+fn the_fix_report_leaves_a_sarif_document_whole() {
+    let root = project("sarif-fix", &[("seed.ts", CLEAN)]);
+    let git = |args: &[&str]| {
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["-c", "user.email=t@t", "-c", "user.name=t"])
+            .args(args)
+            .output()
+            .expect("git")
+            .status;
+        assert!(status.success(), "git {args:?} failed");
+    };
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "base"]);
+    std::fs::write(root.join("b.ts"), DIRTY).expect("a file");
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "branch"]);
+
+    let output = rqx(
+        &root,
+        &[
+            "check",
+            "--base",
+            "HEAD~1",
+            "--fix",
+            "--reporter",
+            "sarif",
+            "--no-tui",
+        ],
+    );
+    let document: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .unwrap_or_else(|error| panic!("stdout is not a document: {error}"));
+    assert_eq!(document["version"], "2.1.0");
+    assert!(!output.stderr.is_empty(), "the fix report went missing");
+}
+
+fn json_lines(output: &Output) -> Vec<serde_json::Value> {
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("a json object"))
+        .collect()
+}
+
+#[test]
+fn every_json_line_says_what_it_is() {
+    let root = project("json-kinds", &[("a.ts", DIRTY)]);
+    let lines = json_lines(&rqx(&root, &["scan", "--reporter", "json", "--no-tui"]));
+
+    let (summary, findings) = lines.split_last().expect("a summary line");
+    assert!(!findings.is_empty(), "the fixture found nothing");
+    assert!(findings.iter().all(|line| line["kind"] == "finding"));
+    assert_eq!(summary["kind"], "summary");
+    assert_eq!(summary["schema_version"], 1);
+    assert_eq!(summary["rqx_version"], env!("CARGO_PKG_VERSION"));
+}
+
+#[test]
+fn a_gated_scan_says_whether_it_passed_and_an_ungated_one_says_nothing() {
+    let root = project("json-gate", &[("a.ts", DIRTY)]);
+    let summary_of = |extra: &[&str]| {
+        let mut args = vec!["scan", "--reporter", "json", "--no-tui"];
+        args.extend_from_slice(extra);
+        json_lines(&rqx(&root, &args)).pop().expect("a summary")
+    };
+
+    let failed = summary_of(&["--fail-on", "warning"]);
+    assert_eq!(failed["gate"]["passed"], false);
+    assert!(!failed["gate"]["failures"].as_array().unwrap().is_empty());
+
+    let passed = summary_of(&["--fail-on", "error", "--allow-findings", "100"]);
+    assert_eq!(passed["gate"]["passed"], true);
+    assert_eq!(passed["gate"]["failures"], serde_json::json!([]));
+
+    assert!(summary_of(&[]).get("gate").is_none());
+}
+
+#[test]
+fn the_secondary_summaries_carry_the_schema_version() {
+    let root = project("json-secondary", &[("a.ts", DIRTY)]);
+    for command in ["fix", "plan"] {
+        let lines = json_lines(&rqx(&root, &[command, "--json", "--no-tui"]));
+        let summary = lines.last().expect("a summary line");
+        assert_eq!(summary["kind"], "summary", "{command}");
+        assert_eq!(summary["schema_version"], 1, "{command}");
+    }
 }
 
 /// `--slugs` is what a script and a shell completion read. Ignoring the family or

@@ -7,6 +7,8 @@
 --motion =off
 --motion =on
 --no-mouse
+--no-progress
+--no-progress [env RQX_NO_PROGRESS]
 --no-tui
 --version
 -V
@@ -29,6 +31,8 @@ baseline --motion
 baseline --motion =off
 baseline --motion =on
 baseline --no-mouse
+baseline --no-progress
+baseline --no-progress [env RQX_NO_PROGRESS]
 baseline --no-tui
 baseline --threads
 baseline --threads [env RQX_THREADS]
@@ -45,6 +49,8 @@ cache --motion
 cache --motion =off
 cache --motion =on
 cache --no-mouse
+cache --no-progress
+cache --no-progress [env RQX_NO_PROGRESS]
 cache --no-tui
 cache -h
 cache clear
@@ -57,6 +63,8 @@ cache clear --motion
 cache clear --motion =off
 cache clear --motion =on
 cache clear --no-mouse
+cache clear --no-progress
+cache clear --no-progress [env RQX_NO_PROGRESS]
 cache clear --no-tui
 cache clear -h
 cache clear <path>
@@ -75,6 +83,8 @@ cache status --motion
 cache status --motion =off
 cache status --motion =on
 cache status --no-mouse
+cache status --no-progress
+cache status --no-progress [env RQX_NO_PROGRESS]
 cache status --no-tui
 cache status -h
 cache status <path>
@@ -132,6 +142,8 @@ check --motion
 check --motion =off
 check --motion =on
 check --no-mouse
+check --no-progress
+check --no-progress [env RQX_NO_PROGRESS]
 check --no-tui
 check --not-category
 check --not-path
@@ -191,6 +203,8 @@ comment --motion
 comment --motion =off
 comment --motion =on
 comment --no-mouse
+comment --no-progress
+comment --no-progress [env RQX_NO_PROGRESS]
 comment --no-status
 comment --no-tui
 comment --threads
@@ -207,6 +221,8 @@ completions --motion
 completions --motion =off
 completions --motion =on
 completions --no-mouse
+completions --no-progress
+completions --no-progress [env RQX_NO_PROGRESS]
 completions --no-tui
 completions -h
 completions <shell>
@@ -230,6 +246,8 @@ complexity --motion
 complexity --motion =off
 complexity --motion =on
 complexity --no-mouse
+complexity --no-progress
+complexity --no-progress [env RQX_NO_PROGRESS]
 complexity --no-tui
 complexity --sort
 complexity --sort =complexity
@@ -254,6 +272,8 @@ config --motion
 config --motion =off
 config --motion =on
 config --no-mouse
+config --no-progress
+config --no-progress [env RQX_NO_PROGRESS]
 config --no-tui
 config -h
 config <path>
@@ -267,6 +287,8 @@ config files --motion
 config files --motion =off
 config files --motion =on
 config files --no-mouse
+config files --no-progress
+config files --no-progress [env RQX_NO_PROGRESS]
 config files --no-tui
 config files -h
 config help
@@ -285,6 +307,8 @@ config set --motion
 config set --motion =off
 config set --motion =on
 config set --no-mouse
+config set --no-progress
+config set --no-progress [env RQX_NO_PROGRESS]
 config set --no-tui
 config set --pick
 config set -h
@@ -301,6 +325,8 @@ config unset --motion
 config unset --motion =off
 config unset --motion =on
 config unset --no-mouse
+config unset --no-progress
+config unset --no-progress [env RQX_NO_PROGRESS]
 config unset --no-tui
 config unset --pick
 config unset -h
@@ -316,6 +342,8 @@ docs --motion
 docs --motion =off
 docs --motion =on
 docs --no-mouse
+docs --no-progress
+docs --no-progress [env RQX_NO_PROGRESS]
 docs --no-tui
 docs --out
 docs -h
@@ -329,6 +357,8 @@ explain --motion
 explain --motion =off
 explain --motion =on
 explain --no-mouse
+explain --no-progress
+explain --no-progress [env RQX_NO_PROGRESS]
 explain --no-tui
 explain -h
 explain <name>
@@ -348,6 +378,8 @@ fix --motion
 fix --motion =off
 fix --motion =on
 fix --no-mouse
+fix --no-progress
+fix --no-progress [env RQX_NO_PROGRESS]
 fix --no-tui
 fix --plan
 fix --threads
@@ -377,6 +409,8 @@ graph --motion
 graph --motion =off
 graph --motion =on
 graph --no-mouse
+graph --no-progress
+graph --no-progress [env RQX_NO_PROGRESS]
 graph --no-tui
 graph --threads
 graph --threads [env RQX_THREADS]
@@ -401,6 +435,8 @@ health --motion
 health --motion =off
 health --motion =on
 health --no-mouse
+health --no-progress
+health --no-progress [env RQX_NO_PROGRESS]
 health --no-tui
 health --threads
 health --threads [env RQX_THREADS]
@@ -453,6 +489,8 @@ init --motion
 init --motion =off
 init --motion =on
 init --no-mouse
+init --no-progress
+init --no-progress [env RQX_NO_PROGRESS]
 init --no-tui
 init -h
 init <path>
@@ -466,6 +504,8 @@ levels --motion
 levels --motion =off
 levels --motion =on
 levels --no-mouse
+levels --no-progress
+levels --no-progress [env RQX_NO_PROGRESS]
 levels --no-tui
 levels -h
 lsp
@@ -479,6 +519,8 @@ lsp --motion
 lsp --motion =off
 lsp --motion =on
 lsp --no-mouse
+lsp --no-progress
+lsp --no-progress [env RQX_NO_PROGRESS]
 lsp --no-tui
 lsp -h
 lsp <path>
@@ -494,6 +536,8 @@ mcp --motion
 mcp --motion =off
 mcp --motion =on
 mcp --no-mouse
+mcp --no-progress
+mcp --no-progress [env RQX_NO_PROGRESS]
 mcp --no-tui
 mcp -h
 mcp <path>
@@ -512,6 +556,8 @@ patterns --motion
 patterns --motion =off
 patterns --motion =on
 patterns --no-mouse
+patterns --no-progress
+patterns --no-progress [env RQX_NO_PROGRESS]
 patterns --no-tui
 patterns --threads
 patterns --threads [env RQX_THREADS]
@@ -536,6 +582,8 @@ perf --motion
 perf --motion =off
 perf --motion =on
 perf --no-mouse
+perf --no-progress
+perf --no-progress [env RQX_NO_PROGRESS]
 perf --no-tui
 perf --profile
 perf --sort
@@ -565,6 +613,8 @@ plan --motion
 plan --motion =off
 plan --motion =on
 plan --no-mouse
+plan --no-progress
+plan --no-progress [env RQX_NO_PROGRESS]
 plan --no-tui
 plan --simulate
 plan --threads
@@ -583,6 +633,8 @@ query --motion
 query --motion =off
 query --motion =on
 query --no-mouse
+query --no-progress
+query --no-progress [env RQX_NO_PROGRESS]
 query --no-tui
 query -h
 query <language>
@@ -602,6 +654,8 @@ recommend --motion
 recommend --motion =off
 recommend --motion =on
 recommend --no-mouse
+recommend --no-progress
+recommend --no-progress [env RQX_NO_PROGRESS]
 recommend --no-tui
 recommend --only
 recommend --only =config
@@ -623,6 +677,8 @@ rules --motion
 rules --motion =off
 rules --motion =on
 rules --no-mouse
+rules --no-progress
+rules --no-progress [env RQX_NO_PROGRESS]
 rules --no-tui
 rules --slugs
 rules -h
@@ -682,6 +738,8 @@ scan --motion
 scan --motion =off
 scan --motion =on
 scan --no-mouse
+scan --no-progress
+scan --no-progress [env RQX_NO_PROGRESS]
 scan --no-tui
 scan --not-category
 scan --not-path
@@ -722,6 +780,8 @@ setup --motion
 setup --motion =off
 setup --motion =on
 setup --no-mouse
+setup --no-progress
+setup --no-progress [env RQX_NO_PROGRESS]
 setup --no-tui
 setup --write
 setup -h
@@ -742,6 +802,8 @@ slop --motion
 slop --motion =off
 slop --motion =on
 slop --no-mouse
+slop --no-progress
+slop --no-progress [env RQX_NO_PROGRESS]
 slop --no-tui
 slop --threads
 slop --threads [env RQX_THREADS]
@@ -763,6 +825,8 @@ suppressions --motion
 suppressions --motion =off
 suppressions --motion =on
 suppressions --no-mouse
+suppressions --no-progress
+suppressions --no-progress [env RQX_NO_PROGRESS]
 suppressions --no-tui
 suppressions --threads
 suppressions --threads [env RQX_THREADS]
@@ -778,6 +842,8 @@ techniques --motion
 techniques --motion =off
 techniques --motion =on
 techniques --no-mouse
+techniques --no-progress
+techniques --no-progress [env RQX_NO_PROGRESS]
 techniques --no-tui
 techniques -h
 update
@@ -791,6 +857,8 @@ update --motion
 update --motion =off
 update --motion =on
 update --no-mouse
+update --no-progress
+update --no-progress [env RQX_NO_PROGRESS]
 update --no-tui
 update --notes
 update -h
@@ -810,6 +878,8 @@ verify --motion
 verify --motion =off
 verify --motion =on
 verify --no-mouse
+verify --no-progress
+verify --no-progress [env RQX_NO_PROGRESS]
 verify --no-tui
 verify --threads
 verify --threads [env RQX_THREADS]
