@@ -172,6 +172,10 @@ posts it as the notes, so an entry written later is an entry nobody reads.
   what the scan was waiting on at that point, so a stage that finished while an earlier
   one was still running shows no time of its own.
 
+- **`--group-by rule|family|severity` opens with the same header as the default
+  listing.** The directory, the file count, the finding count and the health score now
+  head every arrangement instead of only the one grouped by file.
+
 ### Fixed
 
 - **`scan --watch` no longer writes a clear-screen sequence into a file or a pipe.**

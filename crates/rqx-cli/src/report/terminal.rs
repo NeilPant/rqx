@@ -354,6 +354,7 @@ fn write_footer(out: &mut dyn Write, layout: &Layout, report: &Report<'_>) -> Re
 /// grade and an excerpt per file; these headings have neither, so they are a count
 /// and the findings under it.
 fn grouped(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
+    write_header(out, layout, report)?;
     let mut listing = Listing::new(layout, report);
     let mut groups: std::collections::BTreeMap<String, Vec<&Finding>> =
         std::collections::BTreeMap::new();
@@ -1475,5 +1476,53 @@ mod tests {
             );
             assert!(text.contains("\u{1b}]8;;file://"), "{text:?}");
         }
+    }
+
+    #[test]
+    fn every_arrangement_opens_with_the_same_header() {
+        let outcome = outcome_with(&[("a.ts", Severity::Error), ("b.ts", Severity::Warning)], 3);
+        let first_line = |layout: &Layout| {
+            rendered_text(&outcome, layout)
+                .lines()
+                .find(|line| !line.trim().is_empty())
+                .map(str::to_owned)
+                .unwrap()
+        };
+
+        let by_file = first_line(&layout());
+
+        assert!(by_file.contains("3 files"), "{by_file}");
+        for grouping in [Grouping::Rule, Grouping::Family, Grouping::Severity] {
+            let grouped = first_line(&Layout {
+                grouping,
+                ..layout()
+            });
+            assert_eq!(grouped, by_file);
+        }
+    }
+
+    #[test]
+    fn a_single_line_offence_is_underlined_beneath_its_code() {
+        let root = std::env::temp_dir().join(format!("rqx-ruler-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.ts"), "const total = 1;\n").unwrap();
+        let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 1);
+        outcome.root = root.clone();
+        let location = &mut outcome.findings[0].location;
+        location.line = 1;
+        location.column = 7;
+        location.end_line = 1;
+        location.start = 6;
+        location.end = 11;
+
+        let text = rendered_text(&outcome, &layout());
+        let _ = std::fs::remove_dir_all(&root);
+
+        let code = text
+            .lines()
+            .position(|line| line.contains("const total = 1;"))
+            .expect("the code frame");
+        let ruler = text.lines().nth(code + 1).unwrap();
+        assert!(ruler.trim_end().ends_with("      ^^^^^"), "{ruler:?}");
     }
 }
