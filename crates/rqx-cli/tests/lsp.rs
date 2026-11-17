@@ -146,7 +146,7 @@ fn codes(diagnostics: &[Value]) -> Vec<String> {
 /// project silently did nothing. One directory per test, because cargo runs them in
 /// parallel and a shared tree would have them deleting each other's fixtures mid-scan.
 fn workspace_with_a_space(test: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx lsp {test}"));
+    let root = std::env::temp_dir().join(format!("rqx lsp {test} {}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/typescript");
     copy(&source, &root);

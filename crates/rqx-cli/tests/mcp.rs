@@ -131,12 +131,13 @@ impl Session {
     }
 }
 
-/// One directory per test, because cargo runs them in parallel and a shared tree would
-/// have them deleting each other's fixtures mid-scan. The name carries a space for the
-/// same reason the language server's fixtures do: a path that needs quoting is the one
+/// One directory per test and per process, because cargo runs tests in parallel and
+/// separate checkouts can run the suite at the same time; a shared tree has them
+/// deleting each other's fixtures mid-scan. The name carries a space for the same
+/// reason the language server's fixtures do: a path that needs quoting is the one
 /// that breaks first.
 fn workspace(test: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx mcp {test}"));
+    let root = std::env::temp_dir().join(format!("rqx mcp {test} {}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/typescript");
     copy(&source, &root);
