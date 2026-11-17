@@ -79,6 +79,13 @@ impl Sprite {
         self.frames.len()
     }
 
+    /// The pixels of one frame as authored, for a renderer that is not a terminal.
+    pub fn pixels(&self, frame: usize) -> &[Vec<Option<Ink>>] {
+        self.frames
+            .get(frame)
+            .map_or(&[], |frame| frame.rows.as_slice())
+    }
+
     pub const fn width(&self) -> u16 {
         self.width as u16
     }
