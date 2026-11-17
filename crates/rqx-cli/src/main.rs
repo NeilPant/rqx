@@ -42,6 +42,10 @@ mod verify;
 use brand::{ColorDepth, Palette};
 use report::{FindingFilter, Layout, Report, Reporter};
 
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[derive(Parser)]
 #[command(
     name = "rqx",

@@ -13,6 +13,13 @@ description = "Finds dead code, duplication and architectural drift in TypeScrip
 readme = "../../README.md"
 documentation = "https://github.com/jadhamwi21/rqx/tree/main/docs"
 
+[features]
+# The scan allocates a great many small, short-lived nodes and strings across every
+# worker thread, which is where the system allocator spends its time. Turn it off with
+# `--no-default-features` for a target mimalloc's C build does not support.
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+
 [dependencies]
 anstream = "1.0.0"
 anstyle = "1.0.14"
@@ -25,6 +32,7 @@ globset = "0.4"
 ignore = "0.4.33"
 lsp-server = "0.10.0"
 lsp-types = "0.97.0"
+mimalloc = { version = "0.1.52", optional = true, default-features = false }
 ratatui = "0.30.2"
 rmcp = { version = "3.2.0", features = [
     "server",
