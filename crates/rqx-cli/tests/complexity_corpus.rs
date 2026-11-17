@@ -2,12 +2,14 @@
 //! an `@complexity` annotation saying what its time and space are, and the committed
 //! `baseline.json` records how many of them the inference answered correctly.
 //!
-//! The composed inference does not exist yet, so for now this checks that the corpus is
-//! well formed (every annotation parses, every language is represented, and the
-//! baseline names exactly the corpus's functions) and that the per-file extraction
-//! gets the time of every function marked `scope=local` right. `RQX_BLESS=1` rewrites
-//! the baseline; until there is a composed inference it records every function as
-//! abstained.
+//! The inference is the per-file extraction composed across calls and files. A function
+//! on its own in a file is composed with that file alone; the files of a project under
+//! `projects/` are composed together. Each function is scored exact, over, under or
+//! abstained, per language, and the run fails when a function that was exact is not, or
+//! when any language's precision or recall is lower than the baseline's. `RQX_BLESS=1`
+//! rewrites the baseline on purpose.
+//!
+//! The extraction alone is also held to the time of every function marked `scope=local`.
 
 #[path = "complexity_corpus/annotation.rs"]
 mod annotation;
@@ -15,13 +17,18 @@ mod annotation;
 mod baseline;
 #[path = "complexity_corpus/corpus.rs"]
 mod corpus;
+#[path = "complexity_corpus/inference.rs"]
+mod inference;
+#[path = "complexity_corpus/ratchet.rs"]
+mod ratchet;
 
 use std::collections::BTreeMap;
+use std::sync::{Once, OnceLock};
 
 use baseline::Baseline;
-use corpus::{Corpus, Function, LANGUAGES};
-use rqx_core::config::RqxConfig;
-use rqx_core::cost::FileCost;
+use corpus::{Corpus, LANGUAGES};
+use inference::Inference;
+use rqx_core::cost::Order;
 use rqx_lang::cost::{local, tables::CostTables};
 
 const SEED_FUNCTIONS: usize = 30;
@@ -34,14 +41,75 @@ fn baseline_path() -> std::path::PathBuf {
     corpus::root().join("baseline.json")
 }
 
-fn loaded() -> Corpus {
-    let corpus = Corpus::load(&corpus::root());
+fn loaded() -> &'static Corpus {
+    static CORPUS: OnceLock<Corpus> = OnceLock::new();
+    let corpus = CORPUS.get_or_init(|| Corpus::load(&corpus::root()));
     assert!(
         corpus.problems.is_empty(),
         "the corpus has mistakes:\n{}",
         corpus.problems.join("\n")
     );
     corpus
+}
+
+fn inferred() -> &'static Inference {
+    static INFERENCE: OnceLock<Inference> = OnceLock::new();
+    INFERENCE.get_or_init(|| Inference::of(loaded()))
+}
+
+/// What the inference says of every function of the corpus, by id.
+fn current_baseline() -> Baseline {
+    let corpus = loaded();
+    let inference = inferred();
+    Baseline::of(
+        corpus
+            .ids()
+            .into_iter()
+            .zip(&corpus.functions)
+            .map(|(id, function)| (id, inference.outcome(function)))
+            .collect(),
+    )
+}
+
+/// Rewrites the baseline when asked to, once, before any test reads it.
+fn bless_if_asked() {
+    static BLESSED: Once = Once::new();
+    BLESSED.call_once(|| {
+        if blessing() {
+            current_baseline()
+                .write(&baseline_path())
+                .expect("the baseline is written");
+        }
+    });
+}
+
+/// The language of every function, by id, for the metrics that are kept per language.
+fn languages_by_id() -> BTreeMap<String, &'static str> {
+    let corpus = loaded();
+    corpus
+        .ids()
+        .into_iter()
+        .zip(&corpus.functions)
+        .map(|(id, function)| (id, function.language))
+        .collect()
+}
+
+fn report(baseline: &Baseline, languages: &BTreeMap<String, &'static str>) {
+    let tallies =
+        baseline.tallies(&|id| languages.get(id).copied().unwrap_or("unknown").to_owned());
+    for (group, tally) in &tallies {
+        let ratio = |value: Option<f64>| value.map_or("-".to_owned(), |v| format!("{v:.3}"));
+        eprintln!(
+            "complexity corpus: {group:<10} {:>3} functions  exact {:>3} over {:>2} under {:>2} abstained {:>2}  precision {}  recall {}",
+            tally.functions(),
+            tally.exact,
+            tally.over,
+            tally.under,
+            tally.abstained,
+            ratio(tally.precision()),
+            ratio(tally.recall()),
+        );
+    }
 }
 
 #[test]
@@ -74,71 +142,52 @@ fn function_ids_are_unique() {
 #[test]
 fn the_baseline_names_exactly_the_functions_of_the_corpus() {
     let corpus = loaded();
-    let ids = corpus.ids();
-    if blessing() {
-        Baseline::all_abstained(&ids)
-            .write(&baseline_path())
-            .expect("the baseline is written");
-    }
+    bless_if_asked();
     let baseline = Baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
     let recorded: Vec<&String> = baseline.functions.keys().collect();
+    let ids = corpus.ids();
     let mut expected: Vec<&String> = ids.iter().collect();
     expected.sort();
     assert_eq!(
         recorded, expected,
         "the corpus and the baseline disagree; run `RQX_BLESS=1 cargo test -p rqx --test complexity_corpus`"
     );
-    eprintln!(
-        "complexity corpus baseline: exact {} over {} under {} abstained {}",
-        baseline.count(baseline::Outcome::Exact),
-        baseline.count(baseline::Outcome::Over),
-        baseline.count(baseline::Outcome::Under),
-        baseline.count(baseline::Outcome::Abstained),
-    );
 }
 
-/// The extraction of each corpus file, read once.
-struct Extractions {
-    files: BTreeMap<String, FileCost>,
-}
+#[test]
+fn the_composed_inference_holds_to_the_baseline() {
+    let corpus = loaded();
+    bless_if_asked();
+    let recorded = Baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
+    let current = current_baseline();
+    let languages = languages_by_id();
+    report(&current, &languages);
 
-impl Extractions {
-    fn of(corpus: &Corpus) -> Self {
-        let config = RqxConfig::default();
-        let mut files = BTreeMap::new();
-        for function in &corpus.functions {
-            files.entry(function.file.clone()).or_insert_with(|| {
-                let path = corpus::root().join(&function.file);
-                let source = std::fs::read_to_string(&path).expect("a corpus file reads");
-                rqx_lang::analyze(&path, &function.file, &source, &config)
-                    .unwrap_or_else(|error| panic!("{}: {error}", function.file))
-                    .cost
-            });
+    let ids = corpus.ids();
+    let mut missed = Vec::new();
+    for (id, function) in ids.iter().zip(&corpus.functions) {
+        if current.functions[id] != baseline::Outcome::Exact {
+            missed.push(inferred().explain(function, id));
         }
-        Self { files }
     }
+    eprintln!("complexity corpus: not exact:\n{}", missed.join("\n"));
 
-    /// The function's own time. A function the extraction did not record is constant: it
-    /// has no loop, calls nothing and has nothing to say.
-    fn local_time(&self, function: &Function) -> String {
-        let tables = CostTables::built_in();
-        let file = &self.files[&function.file];
-        file.functions
-            .iter()
-            .filter(|found| found.name == function.name)
-            .filter(|found| found.line as usize >= function.annotation.target_line)
-            .min_by_key(|found| found.line)
-            .map_or_else(
-                || rqx_core::cost::Order::one().to_string(),
-                |found| local::time(found, &tables).to_string(),
-            )
-    }
+    let violations = ratchet::violations(&recorded, &current, &|id| {
+        languages.get(id).copied().unwrap_or("unknown").to_owned()
+    });
+    assert!(
+        violations.is_empty(),
+        "the inference is worse than the baseline; fix it, or bless a lower baseline on purpose \
+         with `RQX_BLESS=1 cargo test -p rqx --test complexity_corpus`:\n{}",
+        violations.join("\n")
+    );
 }
 
 #[test]
 fn the_extraction_gets_the_own_time_of_every_local_function_right() {
     let corpus = loaded();
-    let extractions = Extractions::of(&corpus);
+    let inference = inferred();
+    let tables = CostTables::built_in();
     let ids = corpus.ids();
     let mut checked = 0;
     let mut wrong = Vec::new();
@@ -147,7 +196,19 @@ fn the_extraction_gets_the_own_time_of_every_local_function_right() {
             continue;
         }
         checked += 1;
-        let found = extractions.local_time(function);
+        // A function the extraction did not record is constant: it has no loop, calls
+        // nothing and has nothing to say.
+        let found = inference
+            .extraction(&function.file)
+            .functions
+            .iter()
+            .filter(|found| found.name == function.name)
+            .filter(|found| found.line as usize >= function.annotation.target_line)
+            .min_by_key(|found| found.line)
+            .map_or_else(
+                || Order::one().to_string(),
+                |found| local::time(found, &tables).to_string(),
+            );
         let expected = function.annotation.time.to_string();
         if found != expected {
             wrong.push(format!("{id}: annotated {expected}, extracted {found}"));
@@ -169,4 +230,25 @@ fn every_language_has_local_functions_to_hold_the_extraction_to() {
             .count();
         assert!(local >= 6, "{language} marks only {local} functions local");
     }
+}
+
+#[test]
+fn the_projects_are_part_of_the_corpus() {
+    let corpus = loaded();
+    let in_projects: Vec<&corpus::Function> = corpus
+        .functions
+        .iter()
+        .filter(|function| function.group.starts_with(corpus::PROJECTS))
+        .collect();
+    assert!(
+        in_projects.len() >= 10,
+        "only {} functions are in projects",
+        in_projects.len()
+    );
+    assert!(
+        in_projects
+            .iter()
+            .all(|function| function.file.starts_with("projects/") && !function.annotation.local),
+        "a function whose cost depends on another file is not local"
+    );
 }

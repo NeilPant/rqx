@@ -30,6 +30,7 @@ pub enum Phase {
     Scanning,
     Duplicates,
     Imports,
+    Cost,
     History,
     CoChange,
 }
@@ -40,6 +41,7 @@ impl Phase {
             Self::Scanning => "scanning",
             Self::Duplicates => "grouping duplicates",
             Self::Imports => "resolving imports",
+            Self::Cost => "composing costs",
             Self::History => "reading history",
             Self::CoChange => "comparing changes",
         }

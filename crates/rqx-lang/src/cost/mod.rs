@@ -1,12 +1,12 @@
 //! What each function in a file costs, read from its syntax alone: how many times its
 //! loops run, which library calls it makes and what they cost, which of its own
-//! functions it calls, and the signals that are not an order of growth. Composing
-//! these across calls and files is a later stage; this one produces the per-file
-//! facts that the cache holds.
+//! functions it calls, and the signals that are not an order of growth. This produces
+//! the per-file facts that the cache holds; `compose` joins them across calls and files.
 
 pub mod bindings;
 pub mod bounds;
 pub mod builder;
+pub mod compose;
 pub mod env;
 pub mod file;
 pub mod indicators;
@@ -14,6 +14,7 @@ pub mod local;
 pub mod recurrence;
 pub mod remap;
 pub mod shape;
+pub mod sizes;
 pub mod tables;
 pub mod types;
 

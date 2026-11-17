@@ -76,6 +76,8 @@ struct Visitor<'a, 'f> {
     nested: Vec<Site<'a>>,
     nested_names: HashSet<String>,
     reductions: Vec<Reduction>,
+    /// The parameter each self-call that shrinks something shrinks.
+    shrunk_params: Vec<u8>,
     is_async: bool,
     conf: Conf,
     allocations_per_pass: u32,
@@ -104,6 +106,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         nested: Vec::new(),
         nested_names: HashSet::new(),
         reductions: Vec::new(),
+        shrunk_params: Vec::new(),
         is_async: names.profile.is_async(function),
         conf: Conf::Verified,
         allocations_per_pass: 0,
@@ -790,15 +793,23 @@ impl<'a> Visitor<'a, '_> {
         let found = arguments
             .iter()
             .zip(&self.params)
-            .map(|(argument, parameter)| {
-                reduction(language, self.names.text(*argument), &parameter.name)
+            .enumerate()
+            .map(|(position, (argument, parameter))| {
+                let found = reduction(language, self.names.text(*argument), &parameter.name);
+                (position, found)
             })
-            .find(|found| found.shrink != rqx_core::cost::Shrink::Other)
-            .unwrap_or(Reduction {
+            .find(|(_, found)| found.shrink != rqx_core::cost::Shrink::Other);
+        match found {
+            Some((position, found)) => {
+                self.shrunk_params
+                    .push(u8::try_from(position).unwrap_or(u8::MAX));
+                self.reductions.push(found);
+            }
+            None => self.reductions.push(Reduction {
                 shrink: rqx_core::cost::Shrink::Other,
                 copies: false,
-            });
-        self.reductions.push(found);
+            }),
+        }
     }
 
     // -- signals ---------------------------------------------------------------------
@@ -1017,6 +1028,7 @@ impl<'a> Visitor<'a, '_> {
             .unwrap_or(0);
         let ind = Indicators {
             round_trips: parts.io.clone().unwrap_or_default(),
+            round_trip: parts.io.is_some(),
             allocs_per_iter: u8::try_from(self.allocations_per_pass).unwrap_or(u8::MAX),
             blocking_async: self.blocking_async,
             locks_in_loop: self.locks_in_loop,
@@ -1088,6 +1100,7 @@ impl<'a> Visitor<'a, '_> {
         Some(Recurrence {
             calls: u8::try_from(self.reductions.len()).unwrap_or(u8::MAX),
             shrink: shape.shrink,
+            param: self.shrunk_params.first().copied().unwrap_or(0),
             copies_arg: shape.copies,
             memo: self.is_memoised(function, body),
         })

@@ -556,6 +556,7 @@ pub mod tests {
             severity_by_file: BTreeMap::new(),
             lines_by_file: BTreeMap::new(),
             shape_by_file: BTreeMap::new(),
+            summaries: Default::default(),
             suppressed: Vec::new(),
             baseline_size: None,
             timings: Vec::new(),

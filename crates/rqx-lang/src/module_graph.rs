@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use rqx_core::facts::{ExportedSymbol, ModuleFacts};
+use rqx_core::facts::{ExportedSymbol, ImportRequest, ModuleFacts};
 use rqx_core::span::Span;
 
 /// How one language turns a written import into a file on disk, and which files the
@@ -224,53 +224,39 @@ struct Edges {
     external: BTreeMap<String, Vec<(PathBuf, Span)>>,
 }
 
-fn resolve_edges(
-    modules: &[ModuleEntry],
+/// Resolves every import request of `modules` to the project files it names, and hands
+/// each one to `visit` with the request's position among its module's imports and, when
+/// the resolver found nothing at all, `true`. Requests `wanted` turns down are skipped.
+///
+/// Both the module graph and the cost analysis read requests this way, so what an import
+/// means is decided in one place.
+fn for_each_request<'m>(
+    modules: &[&'m ModuleEntry],
     known: &HashSet<PathBuf>,
     resolver: &dyn Resolver,
-    is_vendor: fn(&str) -> bool,
-) -> Edges {
+    wanted: &dyn Fn(&ModuleEntry, usize) -> bool,
+    mut visit: impl FnMut(&'m ModuleEntry, usize, &'m ImportRequest, bool, &[PathBuf]),
+) {
     let walked = WalkedFiles::new(known);
-    let mut edges = Edges {
-        out: HashMap::new(),
-        spans: HashMap::new(),
-        used_names: HashMap::new(),
-        opaque: HashSet::new(),
-        imported_at_all: HashSet::new(),
-        external: BTreeMap::new(),
-    };
-
     // The same file is the target of many imports, and canonicalising is a syscall on
     // the one thread the whole parallel walk funnels into.
     let mut resolved: HashMap<PathBuf, Option<PathBuf>> = HashMap::new();
     // Files in one directory write the same specifiers (`./types`, `../shared`), and
     // each answer costs the filesystem probes of a resolver that has not seen it.
     let mut answers: HashMap<(&Path, &str), Vec<PathBuf>> = HashMap::new();
-    for module in modules {
+    let mut inside_project: Vec<PathBuf> = Vec::new();
+    for module in modules.iter().copied() {
         let Some(directory) = module.path.parent() else {
             continue;
         };
-        for request in &module.facts.imports {
+        for (position, request) in module.facts.imports.iter().enumerate() {
+            if !wanted(module, position) {
+                continue;
+            }
             let targets = answers
                 .entry((directory, request.specifier.as_str()))
                 .or_insert_with(|| resolver.resolve_within(directory, &request.specifier, &walked));
-            // A relative specifier that resolves to nothing is a broken import, not a
-            // dependency; only a bare package name is worth counting.
-            // Java synthesises a request per referenced type to resolve it against
-            // the package, and marks those with an empty span. They are not written
-            // dependencies, so counting them would suggest wrapping `String`.
-            let written = request.span.end > request.span.start;
-            if written
-                && targets.is_empty()
-                && !request.specifier.starts_with(['.', '/'])
-                && is_vendor(&request.specifier)
-            {
-                edges
-                    .external
-                    .entry(request.specifier.clone())
-                    .or_default()
-                    .push((module.path.clone(), request.span));
-            }
+            inside_project.clear();
             for target in targets.iter() {
                 // A path from the walked set is canonical already.
                 let target = if known.contains(target) {
@@ -284,9 +270,59 @@ fn resolve_edges(
                     };
                     target
                 };
-                if !known.contains(&target) || target == module.path {
-                    continue;
+                if known.contains(&target) && target != module.path {
+                    inside_project.push(target);
                 }
+            }
+            visit(
+                module,
+                position,
+                request,
+                targets.is_empty(),
+                &inside_project,
+            );
+        }
+    }
+}
+
+fn resolve_edges(
+    modules: &[&ModuleEntry],
+    known: &HashSet<PathBuf>,
+    resolver: &dyn Resolver,
+    is_vendor: fn(&str) -> bool,
+) -> Edges {
+    let mut edges = Edges {
+        out: HashMap::new(),
+        spans: HashMap::new(),
+        used_names: HashMap::new(),
+        opaque: HashSet::new(),
+        imported_at_all: HashSet::new(),
+        external: BTreeMap::new(),
+    };
+    for_each_request(
+        modules,
+        known,
+        resolver,
+        &|_, _| true,
+        |module, _, request, resolved_to_nothing, targets| {
+            // A relative specifier that resolves to nothing is a broken import, not a
+            // dependency; only a bare package name is worth counting.
+            // Java synthesises a request per referenced type to resolve it against
+            // the package, and marks those with an empty span. They are not written
+            // dependencies, so counting them would suggest wrapping `String`.
+            let written = request.span.end > request.span.start;
+            if written
+                && resolved_to_nothing
+                && !request.specifier.starts_with(['.', '/'])
+                && is_vendor(&request.specifier)
+            {
+                edges
+                    .external
+                    .entry(request.specifier.clone())
+                    .or_default()
+                    .push((module.path.clone(), request.span));
+            }
+            for target in targets {
                 edges
                     .out
                     .entry(module.path.clone())
@@ -304,13 +340,52 @@ fn resolve_edges(
                 }
                 edges
                     .used_names
-                    .entry(target)
+                    .entry(target.clone())
                     .or_default()
                     .extend(request.names.iter().cloned());
             }
-        }
-    }
+        },
+    );
     edges
+}
+
+/// The project files each import request names, by importing file and the request's
+/// position among that file's imports. A request that names nothing in the project
+/// (a package, a standard library module, a path that does not exist) is absent, and one
+/// that names a directory of files, as a Go import does, has them all.
+pub type ResolvedRequests = BTreeMap<(PathBuf, usize), Vec<PathBuf>>;
+
+/// What `modules` import, resolved the way the module graph resolves it: one answer for
+/// every request, without the graph built from them. `modules` should be the files of
+/// one language family, because a resolver only knows the imports of its own.
+pub fn resolve_requests(modules: &[&ModuleEntry], resolver: &dyn Resolver) -> ResolvedRequests {
+    resolve_requests_where(modules, resolver, &|_, _| true)
+}
+
+/// `resolve_requests` for only the requests `wanted` accepts, given the importing module
+/// and the request's position. Most requests are never followed by the analysis that
+/// asks, and each one costs a probe of the filesystem the first time it is seen.
+pub fn resolve_requests_where(
+    modules: &[&ModuleEntry],
+    resolver: &dyn Resolver,
+    wanted: &dyn Fn(&ModuleEntry, usize) -> bool,
+) -> ResolvedRequests {
+    let known: HashSet<PathBuf> = modules.iter().map(|module| module.path.clone()).collect();
+    let mut found = ResolvedRequests::new();
+    for_each_request(
+        modules,
+        &known,
+        resolver,
+        wanted,
+        |module, position, _, _, targets| {
+            if !targets.is_empty() {
+                let mut targets = targets.to_vec();
+                targets.sort();
+                found.insert((module.path.clone(), position), targets);
+            }
+        },
+    );
+    found
 }
 
 /// Tarjan's strongly connected components: every component of more than one module
@@ -380,7 +455,6 @@ fn strongly_connected(
         .enumerate()
         .map(|(index, path)| (path, index))
         .collect();
-    let count = nodes.len();
     // Resolved once. The traversal visits a node once per edge out of it, and looking
     // its neighbours up by path each time hashes and compares a `PathBuf` per edge.
     let adjacency: Vec<Vec<usize>> = nodes
@@ -396,6 +470,28 @@ fn strongly_connected(
                 .unwrap_or_default()
         })
         .collect();
+    let mut components: Vec<Vec<PathBuf>> = components(&adjacency)
+        .into_iter()
+        .filter(|component| component.len() > 1)
+        .map(|component| {
+            let mut members: Vec<PathBuf> = component
+                .into_iter()
+                .map(|member| nodes[member].clone())
+                .collect();
+            members.sort();
+            members
+        })
+        .collect();
+    components.sort();
+    components
+}
+
+/// Tarjan's algorithm over nodes numbered `0..adjacency.len()`: every strongly connected
+/// component, a node that is on no cycle being a component of its own. Components come
+/// out with the ones a component reaches before it, so a caller that wants callees
+/// first, or dependencies first, can take them in the order given.
+pub fn components(adjacency: &[Vec<usize>]) -> Vec<Vec<usize>> {
+    let count = adjacency.len();
     let mut index = vec![usize::MAX; count];
     let mut low = vec![0usize; count];
     let mut on_stack = vec![false; count];
@@ -438,24 +534,20 @@ fn strongly_connected(
                 let mut component = Vec::new();
                 while let Some(member) = stack.pop() {
                     on_stack[member] = false;
-                    component.push(nodes[member].clone());
+                    component.push(member);
                     if member == node {
                         break;
                     }
                 }
-                if component.len() > 1 {
-                    component.sort();
-                    components.push(component);
-                }
+                components.push(component);
             }
         }
     }
-    components.sort();
     components
 }
 
 pub fn analyze(
-    modules: Vec<ModuleEntry>,
+    modules: &[&ModuleEntry],
     root: &Path,
     configured: &[String],
     resolver: &dyn Resolver,
@@ -463,7 +555,7 @@ pub fn analyze(
 ) -> GraphReport {
     let known: HashSet<PathBuf> = modules.iter().map(|module| module.path.clone()).collect();
     let entries = resolver.entrypoints(root, configured, &known);
-    let edges = resolve_edges(&modules, &known, resolver, is_vendor);
+    let edges = resolve_edges(modules, &known, resolver, is_vendor);
 
     let mut report = GraphReport::default();
     let by_path: BTreeMap<&PathBuf, &ModuleFacts> = modules
@@ -551,7 +643,7 @@ pub fn analyze(
         })
         .collect();
 
-    let nodes: Vec<PathBuf> = modules.into_iter().map(|module| module.path).collect();
+    let nodes: Vec<PathBuf> = modules.iter().map(|module| module.path.clone()).collect();
     report.cycles = strongly_connected(&nodes, &edges.out)
         .into_iter()
         .map(|members| Cycle {
@@ -661,5 +753,124 @@ mod tests {
         let known: HashSet<PathBuf> = [PathBuf::from("/nowhere/walked.ts")].into();
         assert!(WalkedFiles::new(&known).is_file(Path::new("/nowhere/walked.ts")));
         assert!(!WalkedFiles::unknown().is_file(Path::new("/nowhere/walked.ts")));
+    }
+
+    #[test]
+    fn components_come_out_with_what_a_component_reaches_first() {
+        // 0 -> 1 -> 2 -> 1, and 3 on its own.
+        let found = components(&[vec![1], vec![2], vec![1], vec![]]);
+        let position = |node: usize| found.iter().position(|c| c.contains(&node)).unwrap();
+        assert_eq!(found.len(), 3);
+        assert_eq!(position(1), position(2));
+        assert!(position(1) < position(0), "{found:?}");
+    }
+
+    #[test]
+    fn a_node_on_no_cycle_is_a_component_of_its_own() {
+        assert_eq!(components(&[vec![], vec![0]]), [vec![0], vec![1]]);
+        assert_eq!(components(&[vec![0]]), [vec![0]]);
+    }
+
+    /// Answers `./name` with the module of that name, and nothing for anything else.
+    struct Siblings(Vec<PathBuf>);
+
+    impl Resolver for Siblings {
+        fn resolve(&self, importer: &Path, specifier: &str) -> Vec<PathBuf> {
+            let Some(name) = specifier.strip_prefix("./") else {
+                return Vec::new();
+            };
+            self.0
+                .iter()
+                .filter(|path| {
+                    path.parent() == Some(importer)
+                        && path.file_stem().and_then(|stem| stem.to_str()) == Some(name)
+                })
+                .cloned()
+                .collect()
+        }
+
+        fn entrypoints(&self, _: &Path, _: &[String], _: &HashSet<PathBuf>) -> HashSet<PathBuf> {
+            HashSet::new()
+        }
+    }
+
+    fn request(specifier: &str) -> ImportRequest {
+        ImportRequest {
+            specifier: specifier.to_owned(),
+            names: Vec::new(),
+            locals: Vec::new(),
+            span: Span::new(0, 1),
+            takes_everything: false,
+            re_export: false,
+        }
+    }
+
+    fn module(path: &str, imports: &[&str]) -> ModuleEntry {
+        ModuleEntry {
+            path: PathBuf::from(path),
+            language: rqx_core::Language::TypeScript,
+            facts: ModuleFacts {
+                imports: imports.iter().map(|specifier| request(specifier)).collect(),
+                ..ModuleFacts::default()
+            },
+        }
+    }
+
+    #[test]
+    fn a_request_resolves_to_the_files_it_names_by_importer_and_position() {
+        let modules = [
+            module("/p/a.ts", &["react", "./b", "./c"]),
+            module("/p/b.ts", &[]),
+            module("/p/c.ts", &["./a"]),
+        ];
+        let refs: Vec<&ModuleEntry> = modules.iter().collect();
+        let resolver = Siblings(modules.iter().map(|m| m.path.clone()).collect());
+
+        let found = resolve_requests(&refs, &resolver);
+
+        assert_eq!(
+            found,
+            ResolvedRequests::from([
+                (
+                    (PathBuf::from("/p/a.ts"), 1),
+                    vec![PathBuf::from("/p/b.ts")]
+                ),
+                (
+                    (PathBuf::from("/p/a.ts"), 2),
+                    vec![PathBuf::from("/p/c.ts")]
+                ),
+                (
+                    (PathBuf::from("/p/c.ts"), 0),
+                    vec![PathBuf::from("/p/a.ts")]
+                ),
+            ])
+        );
+    }
+
+    #[test]
+    fn only_the_requests_asked_for_are_resolved() {
+        let modules = [module("/p/a.ts", &["./b", "./c"]), module("/p/b.ts", &[])];
+        let refs: Vec<&ModuleEntry> = modules.iter().collect();
+        let resolver = Siblings(modules.iter().map(|m| m.path.clone()).collect());
+
+        let found = resolve_requests_where(&refs, &resolver, &|_, position| position == 0);
+
+        assert_eq!(found.len(), 1);
+        assert!(found.contains_key(&(PathBuf::from("/p/a.ts"), 0)));
+    }
+
+    /// The graph and the cost analysis read the same requests, so the graph is what it
+    /// was before they shared the reading.
+    #[test]
+    fn the_graph_built_from_borrowed_modules_has_the_same_edges() {
+        let modules = [module("/p/a.ts", &["./b"]), module("/p/b.ts", &["./a"])];
+        let refs: Vec<&ModuleEntry> = modules.iter().collect();
+        let resolver = Siblings(modules.iter().map(|m| m.path.clone()).collect());
+
+        let report = analyze(&refs, Path::new("/p"), &[], &resolver, |_| true);
+
+        assert_eq!(report.cycles.len(), 1);
+        assert_eq!(report.edges.len(), 2);
+        assert_eq!(report.importers.len(), 2);
     }
 }

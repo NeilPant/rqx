@@ -8,6 +8,8 @@
 
 mod order;
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 pub use order::{Factor, Named, Order, ParseOrderError, SizeId, Term, standard_name};
@@ -174,6 +176,10 @@ pub struct Recurrence {
     /// Self-calls in the body.
     pub calls: u8,
     pub shrink: Shrink,
+    /// The position of the parameter that shrinks, which is the one the recursion's
+    /// depth is measured in.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub param: u8,
     /// Each call copies its argument, as `xs[1:]` does.
     #[serde(default, skip_serializing_if = "is_false")]
     pub copies_arg: bool,
@@ -185,9 +191,14 @@ pub struct Recurrence {
 /// Signals that are not an order of growth but still say a function is costly.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Indicators {
-    /// Calls that leave the process, weighted by the loops around them.
+    /// Calls that leave the process, weighted by the loops around them. A single call
+    /// outside every loop weighs one, which is also what no call weighs, so
+    /// `round_trip` tells the two apart.
     #[serde(default, skip_serializing_if = "Cost::is_one")]
     pub round_trips: Cost,
+    /// The body makes a call that leaves the process, however many times.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub round_trip: bool,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub allocs_per_iter: u8,
     #[serde(default, skip_serializing_if = "is_false")]
@@ -286,6 +297,53 @@ pub struct Summary {
     pub trace: Vec<TraceStep>,
 }
 
+/// The summaries of one scan, by file and by the byte offset the function starts at.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Summaries {
+    /// Whether the scan read the whole project. A call into a file the scan did not read
+    /// is costed as constant, so a rule that concludes something from a cost that crosses
+    /// files has nothing to stand on when this is false.
+    pub complete: bool,
+    functions: BTreeMap<String, BTreeMap<u32, Summary>>,
+}
+
+impl Summaries {
+    pub fn new(complete: bool) -> Self {
+        Self {
+            complete,
+            functions: BTreeMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, file: &str, start: u32, summary: Summary) {
+        self.functions
+            .entry(file.to_owned())
+            .or_default()
+            .insert(start, summary);
+    }
+
+    pub fn get(&self, file: &str, start: u32) -> Option<&Summary> {
+        self.functions.get(file)?.get(&start)
+    }
+
+    pub fn len(&self) -> usize {
+        self.functions.values().map(BTreeMap::len).sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.functions.is_empty()
+    }
+
+    /// Every summary, by file and then by position in it.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, u32, &Summary)> {
+        self.functions.iter().flat_map(|(file, functions)| {
+            functions
+                .iter()
+                .map(move |(start, summary)| (file.as_str(), *start, summary))
+        })
+    }
+}
+
 fn is_verified(conf: &Conf) -> bool {
     *conf == Conf::Verified
 }
@@ -350,10 +408,12 @@ mod tests {
             rec: Some(Recurrence {
                 calls: 2,
                 shrink: Shrink::Dec1,
+                param: 1,
                 copies_arg: false,
                 memo: true,
             }),
             ind: Indicators {
+                round_trip: true,
                 seq_awaits: 2,
                 static_growth: vec!["REGISTRY".to_owned()],
                 ..Indicators::default()
@@ -404,6 +464,26 @@ mod tests {
         assert_eq!(Conf::default(), Conf::Verified);
         assert_eq!("heuristic".parse(), Ok(Conf::Heuristic));
         assert!("certain".parse::<Conf>().is_err());
+    }
+
+    #[test]
+    fn summaries_are_found_by_file_and_start_and_listed_in_order() {
+        let mut found = Summaries::new(true);
+        let quadratic = Summary {
+            time: "O(n²)".parse().unwrap(),
+            ..Summary::default()
+        };
+        found.insert("b.ts", 5, Summary::default());
+        found.insert("a.ts", 90, quadratic.clone());
+        found.insert("a.ts", 12, Summary::default());
+
+        assert_eq!(found.get("a.ts", 90), Some(&quadratic));
+        assert_eq!(found.get("a.ts", 13), None);
+        assert_eq!(found.len(), 3);
+        let order: Vec<(&str, u32)> = found.iter().map(|(file, at, _)| (file, at)).collect();
+        assert_eq!(order, [("a.ts", 12), ("a.ts", 90), ("b.ts", 5)]);
+        assert!(found.complete);
+        assert!(!Summaries::default().complete);
     }
 
     #[test]

@@ -11,10 +11,10 @@
 //! ```
 //!
 //! An outcome is `exact` when the inferred time and space equal the annotation,
-//! `over` when either is larger, `under` when either is smaller, and `abstained` when
-//! the analysis declined to answer. Precision is exact over the answered functions,
-//! recall is exact over all of them. Metrics are derived and never stored, so they
-//! cannot disagree with the entries.
+//! `under` when either is smaller, `over` when either is larger and neither is smaller,
+//! and `abstained` when the analysis declined to answer. Precision is exact over the
+//! answered functions, recall is exact over all of them. Metrics are derived and never
+//! stored, so they cannot disagree with the entries.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -50,15 +50,10 @@ pub struct Baseline {
 }
 
 impl Baseline {
-    /// What a run records while the inference does not exist: every function
-    /// abstained and no rule counted.
-    pub fn all_abstained(ids: &[String]) -> Self {
+    pub fn of(functions: BTreeMap<String, Outcome>) -> Self {
         Self {
             format: FORMAT,
-            functions: ids
-                .iter()
-                .map(|id| (id.clone(), Outcome::Abstained))
-                .collect(),
+            functions,
             rules: BTreeMap::new(),
         }
     }
@@ -86,13 +81,65 @@ impl Baseline {
     }
 
     pub fn precision(&self) -> Option<f64> {
-        let answered = self.functions.len() - self.count(Outcome::Abstained);
-        (answered > 0).then(|| self.count(Outcome::Exact) as f64 / answered as f64)
+        Tally::of(self.functions.values().copied()).precision()
     }
 
     pub fn recall(&self) -> Option<f64> {
-        (!self.functions.is_empty())
-            .then(|| self.count(Outcome::Exact) as f64 / self.functions.len() as f64)
+        Tally::of(self.functions.values().copied()).recall()
+    }
+
+    /// The tally of every group `group_of` sorts the functions into, by their ids, and
+    /// of all of them under `TOTAL`.
+    pub fn tallies(&self, group_of: &dyn Fn(&str) -> String) -> BTreeMap<String, Tally> {
+        let mut found: BTreeMap<String, Tally> = BTreeMap::new();
+        for (id, outcome) in &self.functions {
+            found.entry(group_of(id)).or_default().record(*outcome);
+            found.entry(TOTAL.to_owned()).or_default().record(*outcome);
+        }
+        found
+    }
+}
+
+pub const TOTAL: &str = "total";
+
+/// How many functions came out each way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Tally {
+    pub exact: usize,
+    pub over: usize,
+    pub under: usize,
+    pub abstained: usize,
+}
+
+impl Tally {
+    pub fn of(outcomes: impl IntoIterator<Item = Outcome>) -> Self {
+        let mut tally = Self::default();
+        for outcome in outcomes {
+            tally.record(outcome);
+        }
+        tally
+    }
+
+    pub fn record(&mut self, outcome: Outcome) {
+        match outcome {
+            Outcome::Exact => self.exact += 1,
+            Outcome::Over => self.over += 1,
+            Outcome::Under => self.under += 1,
+            Outcome::Abstained => self.abstained += 1,
+        }
+    }
+
+    pub fn functions(&self) -> usize {
+        self.exact + self.over + self.under + self.abstained
+    }
+
+    pub fn precision(&self) -> Option<f64> {
+        let answered = self.functions() - self.abstained;
+        (answered > 0).then(|| self.exact as f64 / answered as f64)
+    }
+
+    pub fn recall(&self) -> Option<f64> {
+        (self.functions() > 0).then(|| self.exact as f64 / self.functions() as f64)
     }
 }
 
@@ -126,9 +173,19 @@ mod tests {
         assert_eq!(baseline.count(Outcome::Abstained), 1);
         assert!((baseline.precision().unwrap() - 1.0 / 3.0).abs() < 1e-9);
         assert!((baseline.recall().unwrap() - 0.25).abs() < 1e-9);
-        let nothing = Baseline::all_abstained(&["a".to_owned()]);
+        let nothing = Baseline::of(BTreeMap::from([("a".to_owned(), Outcome::Abstained)]));
         assert_eq!(nothing.precision(), None);
         assert_eq!(nothing.recall(), Some(0.0));
+    }
+
+    #[test]
+    fn functions_are_tallied_by_the_group_their_id_names_and_in_total() {
+        let tallies = baseline().tallies(&|id| if id == "a" { "x" } else { "y" }.to_owned());
+        assert_eq!(tallies["x"], Tally::of([Outcome::Exact]));
+        assert_eq!(tallies["y"].functions(), 3);
+        assert_eq!(tallies[TOTAL].functions(), 4);
+        assert_eq!(tallies["y"].precision(), Some(0.0));
+        assert_eq!(tallies[TOTAL].recall(), Some(0.25));
     }
 
     #[test]
