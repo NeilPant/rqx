@@ -10,6 +10,21 @@ posts it as the notes, so an entry written later is an entry nobody reads.
 
 ## Unreleased
 
+### Fixed
+
+- **A cache hit is kept.** After one file changed, the cache was rewritten holding
+  only that file, so the next run analysed everything else again, and the run after
+  paid the same price for the next edit. The cache now keeps every file the run saw,
+  hit or miss, and a run that hit every file no longer rewrites it.
+- **A blame that crashed no longer shifts the dates of every file after it.** The
+  answers were collected without the crashed one, so the files after it picked up the
+  neighbouring file's blame: `TODO` ages and waiver ages could land on the wrong
+  file. A file whose blame failed now reports no dates and the rest stay in place.
+- **A comma or colon no longer cuts a GitHub annotation short.** A path or title with
+  a `,` or `:` in it ended the annotation's properties early, so GitHub dropped the
+  line number or pinned the warning to the wrong file. Properties now escape both, and
+  a rule the project wrote is titled with its own name instead of `custom`.
+
 ## 0.2.0 — 2026-11-17
 
 ### Added

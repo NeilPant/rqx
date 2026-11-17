@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -30,6 +30,7 @@ pub struct Cache {
     version: u64,
     loaded: HashMap<String, Entry>,
     fresh: Mutex<HashMap<String, Entry>>,
+    hits: Mutex<HashSet<String>>,
 }
 
 /// Everything that changes what analysing a file produces. A cache keyed on file
@@ -117,12 +118,19 @@ impl Cache {
             version,
             loaded,
             fresh: Mutex::new(HashMap::new()),
+            hits: Mutex::new(HashSet::new()),
         }
     }
 
     pub fn get(&self, key: &str, source: &str) -> Option<&FileAnalysis> {
         let entry = self.loaded.get(key)?;
-        (entry.fingerprint == fingerprint(source)).then_some(&entry.analysis)
+        if entry.fingerprint != fingerprint(source) {
+            return None;
+        }
+        if let Ok(mut hits) = self.hits.lock() {
+            hits.insert(key.to_owned());
+        }
+        Some(&entry.analysis)
     }
 
     pub fn put(&self, key: &str, source: &str, analysis: &FileAnalysis) {
@@ -138,14 +146,21 @@ impl Cache {
     }
 
     /// Only files seen in this run are written back, so deleting source eventually
-    /// evicts its entry instead of growing the cache forever.
+    /// evicts its entry instead of growing the cache forever. A hit counts as seen:
+    /// writing just the misses left one entry behind after a single edited file, and
+    /// the next run analysed everything else again.
     pub fn save(self) {
-        let Ok(entries) = self.fresh.into_inner() else {
+        let (Ok(mut entries), Ok(hits)) = (self.fresh.into_inner(), self.hits.into_inner()) else {
             return;
         };
-        if entries.is_empty() {
+        if entries.is_empty() && hits.len() == self.loaded.len() {
             return;
         }
+        entries.extend(
+            self.loaded
+                .into_iter()
+                .filter(|(key, _)| hits.contains(key)),
+        );
         let Some(directory) = self.path.parent() else {
             return;
         };

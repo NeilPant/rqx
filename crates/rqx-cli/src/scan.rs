@@ -2102,11 +2102,43 @@ impl Watch {
 pub const CANCELLED: &str = "the scan was cancelled";
 
 pub fn scan(root: &Path, settings: &Resolved) -> Result<ScanOutcome> {
-    scan_watched(root, settings, None)
+    scan_with(root, settings, None, CachePolicy::FromSettings)
 }
 
 pub fn scan_with_progress(root: &Path, settings: &Resolved, watch: Watch) -> Result<ScanOutcome> {
-    scan_watched(root, settings, Some(watch))
+    scan_with(root, settings, Some(watch), CachePolicy::FromSettings)
+}
+
+/// Who decides whether a scan reads and writes the cache. The commands leave it to the
+/// settings; an in-process caller that has to prove the cache's behaviour cannot, because
+/// a development build never uses it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CachePolicy {
+    Off,
+    FromSettings,
+    Forced,
+}
+
+impl CachePolicy {
+    fn enabled(self, config: &rqx_core::config::RqxConfig) -> bool {
+        match self {
+            Self::Off => false,
+            Self::Forced => true,
+            // Never in a development build. The key covers the version, the settings and
+            // the catalogue, but not the analyser itself — so a collector fixed between two
+            // builds of the same version would go on serving the answer it gave before it
+            // was fixed. That is a confusing hour for a contributor and it has already cost
+            // two; a released binary carries a version that moves.
+            // The environment turns it off for one run without editing a file anybody else
+            // shares: a CI job proving a cache bug should not have to commit a config.
+            Self::FromSettings => {
+                config.scan.cache
+                    && std::env::var_os("RQX_NO_CACHE").is_none()
+                    && !cfg!(debug_assertions)
+            }
+        }
+    }
 }
 
 /// The same walker the scan uses, so the total it reports cannot disagree with what is
@@ -2131,7 +2163,12 @@ fn count_files(
     Ok(Some(counted.into_inner()).filter(|total| *total > 0))
 }
 
-fn scan_watched(root: &Path, settings: &Resolved, watch: Option<Watch>) -> Result<ScanOutcome> {
+pub(crate) fn scan_with(
+    root: &Path,
+    settings: &Resolved,
+    watch: Option<Watch>,
+    policy: CachePolicy,
+) -> Result<ScanOutcome> {
     let config = &settings.config;
     // A caller watching the channel is drawing its own progress on this terminal,
     // and a second writer scribbling over it corrupts both.
@@ -2143,19 +2180,11 @@ fn scan_watched(root: &Path, settings: &Resolved, watch: Option<Watch>) -> Resul
         let days = config.scan.churn_days;
         thread::spawn(move || crate::history::History::read(&root, days))
     };
-    // Never in a development build. The key covers the version, the settings and
-    // the catalogue, but not the analyser itself — so a collector fixed between two
-    // builds of the same version would go on serving the answer it gave before it
-    // was fixed. That is a confusing hour for a contributor and it has already cost
-    // two; a released binary carries a version that moves.
-    // The environment turns it off for one run without editing a file anybody else
-    // shares: a CI job proving a cache bug should not have to commit a config.
-    let asked_off = std::env::var_os("RQX_NO_CACHE").is_some();
     // Read beside the git history rather than before the walk. It is one JSON
     // document — thirty-three megabytes on a three-thousand-file project — and
     // parsing it used to be dead time with every core idle, which on a warm run was
     // most of the run.
-    let cache = (config.scan.cache && !asked_off && !cfg!(debug_assertions)).then(|| {
+    let cache = policy.enabled(config).then(|| {
         let root = root.to_path_buf();
         let settings = settings.clone();
         thread::spawn(move || crate::cache::Cache::open(&root, &settings))
@@ -2253,6 +2282,117 @@ mod tests {
         };
 
         assert!(failed.to_string().contains(CANCELLED), "{failed:#}");
+    }
+
+    #[test]
+    fn a_forced_policy_uses_the_cache_whatever_the_settings_say() {
+        let mut config = rqx_core::config::RqxConfig::default();
+        config.scan.cache = false;
+
+        assert!(CachePolicy::Forced.enabled(&config));
+        assert!(!CachePolicy::Off.enabled(&config));
+        assert!(!CachePolicy::FromSettings.enabled(&config));
+    }
+
+    /// A copy of the TypeScript fixtures that the cache tests are free to write into
+    /// and edit, removed when it goes out of scope.
+    struct Project {
+        root: PathBuf,
+        settings: Resolved,
+    }
+
+    impl Project {
+        fn copied_from_fixtures() -> Self {
+            static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            let unique = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let root = std::env::temp_dir()
+                .join(format!("rqx-cache-test-{}-{unique}", std::process::id()));
+            std::fs::create_dir_all(&root).unwrap();
+            let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/typescript");
+            for entry in std::fs::read_dir(fixtures).unwrap() {
+                let path = entry.unwrap().path();
+                std::fs::copy(&path, root.join(path.file_name().unwrap())).unwrap();
+            }
+            Self {
+                root,
+                settings: Resolved::of(rqx_core::config::RqxConfig::default()),
+            }
+        }
+
+        fn scan(&self) -> ScanOutcome {
+            scan_with(&self.root, &self.settings, None, CachePolicy::Forced).unwrap()
+        }
+
+        fn findings_of(&self, outcome: &ScanOutcome) -> String {
+            serde_json::to_string(&outcome.findings).unwrap()
+        }
+
+        fn cached_entries(&self) -> usize {
+            crate::cache::stored(&self.root, &self.settings).map_or(0, |stored| stored.entries)
+        }
+
+        fn cache_file(&self) -> PathBuf {
+            self.root
+                .join(crate::cache::CACHE_DIRECTORY)
+                .join("cache.json")
+        }
+
+        /// A run that finds every file in the cache has nothing to write, so a cache
+        /// reformatted beforehand comes back byte for byte as it was left.
+        fn next_run_hits_every_file(&self) -> bool {
+            let document: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(self.cache_file()).unwrap()).unwrap();
+            let marked = serde_json::to_string_pretty(&document).unwrap();
+            std::fs::write(self.cache_file(), &marked).unwrap();
+            self.scan();
+            std::fs::read_to_string(self.cache_file()).unwrap() == marked
+        }
+    }
+
+    impl Drop for Project {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn a_warm_run_serves_the_same_findings_from_the_cache() {
+        let project = Project::copied_from_fixtures();
+
+        let cold = project.scan();
+        let analysed = cold.analyzed.len();
+        assert!(analysed > 1);
+        assert_eq!(project.cached_entries(), analysed);
+
+        let warm = project.scan();
+        assert_eq!(project.findings_of(&cold), project.findings_of(&warm));
+        assert!(project.next_run_hits_every_file());
+    }
+
+    #[test]
+    fn editing_one_file_leaves_every_other_entry_in_the_cache() {
+        let project = Project::copied_from_fixtures();
+        let analysed = project.scan().analyzed.len();
+
+        let edited = project.root.join("clean.ts");
+        let mut source = std::fs::read_to_string(&edited).unwrap();
+        source.push_str("\nexport const edited = 1;\n");
+        std::fs::write(&edited, source).unwrap();
+        project.scan();
+
+        assert_eq!(project.cached_entries(), analysed);
+        assert!(project.next_run_hits_every_file());
+    }
+
+    #[test]
+    fn a_deleted_file_is_evicted_from_the_cache() {
+        let project = Project::copied_from_fixtures();
+        let analysed = project.scan().analyzed.len();
+
+        std::fs::remove_file(project.root.join("clean.ts")).unwrap();
+        project.scan();
+
+        assert_eq!(project.cached_entries(), analysed - 1);
     }
 
     fn ranked(file: &str, line: u32) -> Ranked {
