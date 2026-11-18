@@ -9,6 +9,8 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+## 0.5.2 — 2026-11-18
+
 ### Changed
 
 - **The `/` menu in the session scrolls and lists every match.** It used to show the
