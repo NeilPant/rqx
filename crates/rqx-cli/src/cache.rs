@@ -913,6 +913,14 @@ mod tests {
         assert_ne!(before, analysis_version(&Resolved::of(config)));
     }
 
+    #[test]
+    fn respecting_gitattributes_changes_the_cache_key() {
+        let mut config = RqxConfig::default();
+        let before = analysis_version(&Resolved::of(config.clone()));
+        config.scan.respect_gitattributes = !config.scan.respect_gitattributes;
+        assert_ne!(before, analysis_version(&Resolved::of(config)));
+    }
+
     /// A cache written by the previous release holds analyses without the cost facts.
     /// Serving one would hide every function's cost until the file next changed, so the
     /// format number is part of the version and the whole file is a miss.

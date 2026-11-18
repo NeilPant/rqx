@@ -176,6 +176,13 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
             config.scan.skip_minified == default.scan.skip_minified,
         ),
         row(
+            "respect .gitattributes",
+            "scan",
+            "scan.respect_gitattributes",
+            config.scan.respect_gitattributes.to_string(),
+            config.scan.respect_gitattributes == default.scan.respect_gitattributes,
+        ),
+        row(
             "ignored globs",
             "ignore",
             "ignore.patterns",

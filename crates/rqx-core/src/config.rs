@@ -1423,6 +1423,10 @@ pub struct Scan {
     /// line that is one string literal, such as an SVG path, is embedded data and does
     /// not count.
     pub skip_minified: bool,
+    /// Skip files that `.gitattributes` marks `linguist-generated` or
+    /// `linguist-vendored`, and list them as skipped. The file at the scanned
+    /// directory and the one at the repository root are read.
+    pub respect_gitattributes: bool,
     /// Bytes. A larger file is reported as skipped.
     pub max_filesize: u64,
     /// How many findings the report shows. 0 shows every one. Never moves the score.
@@ -1454,6 +1458,7 @@ impl Default for Scan {
             skip_generated: true,
             skip_submodules: SubmodulePolicy::Auto,
             skip_minified: true,
+            respect_gitattributes: true,
             max_filesize: 1 << 20,
             max_findings: 500,
             churn_days: 90,
@@ -1938,6 +1943,7 @@ mod tests {
                     config.scan.skip_generated.to_string(),
                     format!("{:?}", config.scan.skip_submodules),
                     config.scan.skip_minified.to_string(),
+                    config.scan.respect_gitattributes.to_string(),
                     config.scan.max_filesize.to_string(),
                     config.scan.max_findings.to_string(),
                     config.scan.churn_days.to_string(),

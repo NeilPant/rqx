@@ -25,6 +25,7 @@ use crate::config::Resolved;
 use crate::stats::{FileReads, ScanStats};
 
 mod cost_rules;
+mod gitattributes;
 pub mod skip;
 mod submodules;
 
@@ -2620,10 +2621,16 @@ pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::Wa
 fn walker_noting(
     root: &Path,
     config: &RqxConfig,
-    on_submodule: impl Fn(&submodules::Submodule) + Send + Sync + 'static,
+    on_left_out: impl Fn(LeftOut<'_>) + Send + Sync + 'static,
 ) -> Result<ignore::WalkParallel> {
     let submodules = submodules::left_out(root, config.scan.skip_submodules);
+    let marked = config
+        .scan
+        .respect_gitattributes
+        .then(|| gitattributes::Marked::load(root))
+        .flatten();
     let pruned: Vec<String> = config.scan.prune_dirs.clone();
+    let start = root.to_path_buf();
     let mut builder = source_walk(root, root, config)?;
     builder.filter_entry(move |entry| {
         if is_pruned(entry, &pruned) {
@@ -2633,12 +2640,30 @@ fn walker_noting(
             .iter()
             .find(|submodule| submodule.path == entry.path())
         {
-            on_submodule(submodule);
+            on_left_out(LeftOut::Submodule(submodule));
+            return false;
+        }
+        if let Some(attribute) = marked.as_ref().and_then(|marked| {
+            let relative = entry.path().strip_prefix(&start).ok()?;
+            entry
+                .file_type()
+                .is_some_and(|kind| kind.is_file())
+                .then(|| marked.marking(relative))
+                .flatten()
+        }) {
+            on_left_out(LeftOut::Marked(entry.path(), attribute));
             return false;
         }
         true
     });
     Ok(builder.build_parallel())
+}
+
+/// What the walk leaves out on the project's own say, told to whoever reports it.
+enum LeftOut<'a> {
+    Submodule(&'a submodules::Submodule),
+    /// A file and the `.gitattributes` attribute that marks it.
+    Marked(&'a Path, &'static str),
 }
 
 /// A walk from `start` that yields what a scan of `root` would read below it: the
@@ -2698,37 +2723,57 @@ fn source_files_in(root: &Path, directory: &Path, config: &RqxConfig) -> u32 {
     u32::try_from(files).unwrap_or(u32::MAX)
 }
 
-/// Reports a submodule the walk left out as one skipped entry carrying the number of
-/// source files in it. One with no source files left nothing out, so it says nothing.
-fn report_submodule(
+/// Reports what the walk left out as skipped entries.
+fn report_left_out(
     root: PathBuf,
     config: RqxConfig,
     sender: SyncSender<ScanMessage>,
-) -> impl Fn(&submodules::Submodule) + Send + Sync + 'static {
-    move |submodule| {
-        let files = source_files_in(&root, &submodule.path, &config);
-        if files == 0 {
-            return;
+) -> impl Fn(LeftOut<'_>) + Send + Sync + 'static {
+    move |left_out| match left_out {
+        LeftOut::Submodule(submodule) => report_submodule(&root, &config, &sender, submodule),
+        LeftOut::Marked(path, attribute) => {
+            let _ = sender.send(skipped(
+                path,
+                SkipReason::Gitattributes,
+                format!(
+                    "marked {attribute} in .gitattributes \
+                     (set `scan.respect_gitattributes: false` to include it)"
+                ),
+            ));
         }
-        let holding = crate::report::plural(files, "source file", "source files");
-        let detail = match &submodule.foreign {
-            Some(hosted) => format!(
-                "a git submodule hosted at {hosted}, with {holding} \
-                 (set `scan.skip_submodules: none` to include it)"
-            ),
-            None => format!(
-                "a git submodule with {holding} \
-                 (set `scan.skip_submodules: auto` or `none` to include it)"
-            ),
-        };
-        let _ = sender.send(ScanMessage::Skipped(Skipped {
-            path: submodule.path.clone(),
-            reason: SkipReason::Submodule,
-            detail,
-            files,
-            foreign: submodule.foreign.clone(),
-        }));
     }
+}
+
+/// A submodule the walk left out, as one skipped entry carrying the number of source
+/// files in it. One with no source files left nothing out, so it says nothing.
+fn report_submodule(
+    root: &Path,
+    config: &RqxConfig,
+    sender: &SyncSender<ScanMessage>,
+    submodule: &submodules::Submodule,
+) {
+    let files = source_files_in(root, &submodule.path, config);
+    if files == 0 {
+        return;
+    }
+    let holding = crate::report::plural(files, "source file", "source files");
+    let detail = match &submodule.foreign {
+        Some(hosted) => format!(
+            "a git submodule hosted at {hosted}, with {holding} \
+             (set `scan.skip_submodules: none` to include it)"
+        ),
+        None => format!(
+            "a git submodule with {holding} \
+             (set `scan.skip_submodules: auto` or `none` to include it)"
+        ),
+    };
+    let _ = sender.send(ScanMessage::Skipped(Skipped {
+        path: submodule.path.clone(),
+        reason: SkipReason::Submodule,
+        detail,
+        files,
+        foreign: submodule.foreign.clone(),
+    }));
 }
 
 /// A caller following a scan, and the switch it stops one with. The two travel
@@ -2903,7 +2948,7 @@ pub(crate) fn scan_against(
     let walker = walker_noting(
         root,
         config,
-        report_submodule(root.to_path_buf(), config.clone(), sender.clone()),
+        report_left_out(root.to_path_buf(), config.clone(), sender.clone()),
     )?;
     let walks = AtomicU32::new(0);
     let reads = FileReads::default();

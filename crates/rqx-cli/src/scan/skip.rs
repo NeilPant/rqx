@@ -14,6 +14,8 @@ pub enum SkipReason {
     /// A line too long, or lines too long on average, for code a person writes.
     Minified,
     Generated,
+    /// Marked `linguist-generated` or `linguist-vendored` in `.gitattributes`.
+    Gitattributes,
     TooLarge,
     Unreadable,
     ParseTimeout,
@@ -29,6 +31,7 @@ impl SkipReason {
             Self::Submodule => "submodule",
             Self::Minified => "minified",
             Self::Generated => "generated",
+            Self::Gitattributes => "gitattributes",
             Self::TooLarge => "too-large",
             Self::Unreadable => "unreadable",
             Self::ParseTimeout => "parse-timeout",
@@ -44,6 +47,7 @@ impl SkipReason {
             Self::Submodule => "in submodules",
             Self::Minified => "minified",
             Self::Generated => "generated",
+            Self::Gitattributes => "marked in .gitattributes",
             Self::TooLarge => "too large",
             Self::Unreadable => "unreadable",
             Self::ParseTimeout => "too slow to parse",

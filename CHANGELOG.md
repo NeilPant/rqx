@@ -69,6 +69,13 @@ them. `tools/release.sh` turns that section into the release notes.
   replaces the default list, so a project that sets its own `ignore.patterns` gets the
   four new patterns only if it adds them.
 
+- **Files `.gitattributes` marks as generated or vendored are no longer analysed.** A
+  file with `linguist-generated` or `linguist-vendored` set, alone or as `=true`, is
+  skipped and reported as marked in `.gitattributes`. `-linguist-generated`, `!`, and
+  `=false` unset the attribute, and a later line overrides an earlier one, as in git.
+  The file at the scanned directory and the one at the repository root are read, and
+  the nearer one wins. `scan.respect_gitattributes: false` analyses these files again.
+
 - **More directories are pruned by default.** `scan.prune_dirs` also lists
   `vendored`, `charting_library`, `highcharts`, `lightweight-charts`, `tradingview`,
   `jquery`, `bower_components`, `jspm_packages`, `.next`, `.nuxt`, `.svelte-kit`,
@@ -106,18 +113,18 @@ them. `tools/release.sh` turns that section into the release notes.
   `.gitignore` now describes this.
 
 - **The JSON summary has a `skipped_by` object.** It counts the skipped files per
-  reason: `submodule`, `minified`, `generated`, `too-large`, `unreadable`,
-  `parse-timeout`, `unsupported` and `walk`. Each value is an object with a `files`
+  reason: `submodule`, `minified`, `generated`, `gitattributes`, `too-large`,
+  `unreadable`, `parse-timeout`, `unsupported` and `walk`. Each value is an object with a `files`
   count, and the `submodule` entry also has `paths`, the skipped submodules relative to
   the scanned directory. The `skipped` list keeps its `"path: reason"` strings. The MCP
   `scan` tool result carries the same object, and the language server's `rqx/report`
   notification carries it as `skippedBy`.
 
-- **`scan.skip_submodules` and `scan.skip_minified` settings.** `scan.skip_submodules`
-  takes `auto` (the default), `all` or `none`, and reads `true` as `all` and `false` as
-  `none`. `scan.skip_minified` defaults to `true`; `false` analyses minified files as
-  0.5.1 did. `scan.skip_minified` is part of the cache key, so changing it makes the
-  next scan analyse every file again.
+- **`scan.skip_submodules`, `scan.skip_minified` and `scan.respect_gitattributes`
+  settings.** `scan.skip_submodules` takes `auto` (the default), `all` or `none`, and
+  reads `true` as `all` and `false` as `none`. The other two default to `true`, and
+  `false` analyses those files as 0.5.1 did. Both are part of the cache key, so
+  changing one makes the next scan analyse every file again.
 
 ### Fixed
 

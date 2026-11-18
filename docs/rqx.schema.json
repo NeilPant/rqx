@@ -10327,6 +10327,11 @@
           },
           "type": "array"
         },
+        "respect_gitattributes": {
+          "default": true,
+          "description": "Skip files that `.gitattributes` marks `linguist-generated` or `linguist-vendored`, and list them as skipped. The file at the scanned directory and the one at the repository root are read.",
+          "type": "boolean"
+        },
         "sarif_in": {
           "default": [],
           "description": "SARIF 2.1.0 files other tools wrote. Their results become findings in the `external` family, under rule ids prefixed with the tool's name.",
@@ -10986,6 +10991,7 @@
           "storybook-static",
           "_next"
         ],
+        "respect_gitattributes": true,
         "sarif_in": [],
         "skip_generated": true,
         "skip_minified": true,

@@ -294,3 +294,42 @@ fn vendored_and_framework_output_directories_are_pruned_by_name() {
     let summary = summary_of(&dir);
     assert_eq!(summary["files_scanned"], 1, "{summary}");
 }
+
+#[test]
+fn files_gitattributes_marks_generated_or_vendored_are_skipped_unless_unset() {
+    let dir = scratch("gitattributes");
+    write(
+        &dir,
+        ".gitattributes",
+        "*.ts text eol=lf\n\
+         src/api/** linguist-generated=true\n\
+         lib/** linguist-vendored\n\
+         lib/own/** -linguist-vendored\n\
+         src/legacy.ts linguist-generated=false\n",
+    );
+    write(&dir, "src/api/client.ts", "export const client = 1;\n");
+    write(&dir, "lib/chart/core.js", "export const core = 1;\n");
+    write(&dir, "lib/own/helper.ts", "export const helper = 1;\n");
+    write(&dir, "src/legacy.ts", "export const legacy = 1;\n");
+    write(&dir, "src/app.ts", "export const app = 1;\n");
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 3, "{summary}");
+    assert_eq!(
+        summary["skipped_by"]["gitattributes"]["files"], 2,
+        "{summary}"
+    );
+    let skipped = summary["skipped"].to_string();
+    assert!(
+        skipped.contains("marked linguist-generated in .gitattributes"),
+        "{summary}"
+    );
+    assert!(
+        skipped.contains("marked linguist-vendored in .gitattributes"),
+        "{summary}"
+    );
+
+    write(&dir, "rqx.yaml", "scan:\n  respect_gitattributes: false\n");
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 5, "{summary}");
+}
