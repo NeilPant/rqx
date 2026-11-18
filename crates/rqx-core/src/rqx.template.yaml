@@ -151,9 +151,11 @@ scan:
   # leaves out every one; `none` scans them all. Each skipped submodule is reported
   # with the number of source files in it.
   skip_submodules: auto
-  # Skip files that read as minified: a line over 5,000 characters, or lines that
-  # average over 300 characters across at least 5. A bundle is not code anyone
-  # refactors, and its findings drown the project's own.
+  # Skip files that read as minified: a line over 4,000 characters with lines over
+  # 1,000 holding at least 80% of the file, lines that average over 300 characters
+  # across at least 5, or over 1,000 across fewer. A line that is one string literal,
+  # such as an SVG path, is embedded data and does not count. A bundle is not code
+  # anyone refactors, and its findings drown the project's own.
   skip_minified: true
   # Bytes. A file over this is reported as skipped rather than silently dropped.
   max_filesize: 1048576

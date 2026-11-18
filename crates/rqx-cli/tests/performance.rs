@@ -180,6 +180,26 @@ fn minified_files_are_skipped_and_a_long_string_in_a_normal_file_is_not() {
         "wide-lines.js",
         &format!("var b=\"{}\";\n", "x".repeat(391)).repeat(10),
     );
+    write(
+        &dir,
+        "chunk.js",
+        &format!(
+            "(self.webpackChunk=self.webpackChunk||[]).push([[1],{{{}}}]);\n",
+            "a:1,".repeat(700)
+        )
+        .repeat(3),
+    );
+    write(
+        &dir,
+        "Icon.tsx",
+        &format!(
+            "import Svg, {{ Path }} from \"react-native-svg\";\n\n\
+             export function Icon() {{\n  return (\n    <Svg viewBox=\"0 0 24 24\">\n\
+             \x20     <Path d=\"M0 0{}Z\" />\n    </Svg>\n  );\n}}\n{}",
+            " L12.5 7.25".repeat(1_500),
+            "export const size = 24;\n".repeat(21)
+        ),
+    );
     write(&dir, "vendor.min.js", "var c=1;\n");
     write(&dir, "app.bundle.js", "var d=1;\n");
     write(
@@ -193,10 +213,15 @@ fn minified_files_are_skipped_and_a_long_string_in_a_normal_file_is_not() {
     );
 
     let summary = summary_of(&dir);
-    assert_eq!(summary["files_scanned"], 1, "{summary}");
-    assert_eq!(summary["skipped_by"]["minified"]["files"], 2, "{summary}");
+    assert_eq!(summary["files_scanned"], 2, "{summary}");
+    assert_eq!(summary["skipped_by"]["minified"]["files"], 3, "{summary}");
     let skipped = summary["skipped"].to_string();
     assert!(skipped.contains("a line of 6009 characters"), "{summary}");
+    assert!(skipped.contains("chunk.js"), "{summary}");
+    assert!(
+        !skipped.contains("Icon.tsx"),
+        "one embedded SVG path does not make a component minified: {summary}"
+    );
     assert!(
         skipped.contains("its 10 lines average 400 characters"),
         "{summary}"
@@ -209,7 +234,7 @@ fn minified_files_are_skipped_and_a_long_string_in_a_normal_file_is_not() {
 
     write(&dir, "rqx.yaml", "scan:\n  skip_minified: false\n");
     let summary = summary_of(&dir);
-    assert_eq!(summary["files_scanned"], 3, "{summary}");
+    assert_eq!(summary["files_scanned"], 5, "{summary}");
     assert_eq!(summary["skipped_by"], serde_json::json!({}), "{summary}");
 }
 

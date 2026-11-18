@@ -1417,8 +1417,11 @@ pub struct Scan {
     /// skipped. `auto` leaves out those hosted under another organisation than the
     /// project's `origin`, `all` leaves out every one, `none` scans them all.
     pub skip_submodules: SubmodulePolicy,
-    /// Skip files that read as minified (a line over 5,000 characters, or lines that
-    /// average over 300 characters across at least 5), and list them as skipped.
+    /// Skip files that read as minified, and list them as skipped: a line over 4,000
+    /// characters with lines over 1,000 holding at least 80% of the file, lines that
+    /// average over 300 characters across at least 5, or over 1,000 across fewer. A
+    /// line that is one string literal, such as an SVG path, is embedded data and does
+    /// not count.
     pub skip_minified: bool,
     /// Bytes. A larger file is reported as skipped.
     pub max_filesize: u64,

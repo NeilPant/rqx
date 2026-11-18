@@ -59,8 +59,11 @@ them. `tools/release.sh` turns that section into the release notes.
   `scan.skip_submodules: none` scans every submodule and `all` leaves out every one.
 
 - **Minified files are no longer analysed by default.** A file is skipped as minified
-  when one of its lines is longer than 5,000 characters, or when it has at least 5
-  lines and they average more than 300 characters. The default `ignore.patterns` also
+  when its longest line is over 4,000 characters and lines over 1,000 characters hold
+  at least 80% of it, when it has at least 5 lines averaging over 300 characters, or
+  when it has fewer than 5 lines averaging over 1,000 characters. A line that is one
+  string literal, such as an SVG path or a data URL, is treated as data embedded in an
+  ordinary file and counts towards none of these. The default `ignore.patterns` also
   gain `**/*.min.js`, `**/*.min.mjs`, `**/*.min.css` and `**/*.bundle.js`.
   `scan.skip_minified: false` analyses minified files again. A list in `rqx.yaml`
   replaces the default list, so a project that sets its own `ignore.patterns` gets the
