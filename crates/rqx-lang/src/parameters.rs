@@ -83,13 +83,22 @@ impl<'a> Grader<'a> {
         if function.child_by_field_name("body").is_none() {
             return;
         }
-        let Some(list) = find_within(
-            function,
-            self.profile.parameter_list_kinds,
-            self.profile.block_kinds,
-        )
-        .into_iter()
-        .next_back() else {
+        // The grammar's `parameters` field first: Go writes the receiver and the
+        // results as parameter lists too, and the last list of `f(a A) (B, error)` is
+        // the results, which no caller passes.
+        let Some(list) = function
+            .child_by_field_name("parameters")
+            .filter(|list| self.profile.parameter_list_kinds.contains(&kind_of(list)))
+            .or_else(|| {
+                find_within(
+                    function,
+                    self.profile.parameter_list_kinds,
+                    self.profile.block_kinds,
+                )
+                .into_iter()
+                .next_back()
+            })
+        else {
             return;
         };
         let mut cursor = list.walk();

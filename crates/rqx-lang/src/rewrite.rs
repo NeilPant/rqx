@@ -289,6 +289,14 @@ impl<'src> Rewriter<'src> {
         let Some(function) = climb(list, |node| self.profile.is_function(node)) else {
             return Vec::new();
         };
+        // Go writes results and receivers as parameter lists too. Only the list the
+        // grammar names `parameters` is the one the call sites pass arguments to.
+        if function
+            .child_by_field_name("parameters")
+            .is_some_and(|parameters| parameters.id() != list.id())
+        {
+            return Vec::new();
+        }
         let Some(called) = function
             .child_by_field_name("name")
             .map(|node| text_of(node, self.source))
@@ -701,6 +709,53 @@ export const used = live;
             );
             assert_eq!(fixed(language, source), source, "{language:?}");
         }
+    }
+
+    /// The shape behind cobra's `completions.go:187: too many return values`: Go's
+    /// results are a parameter list too, and the fixer deleted them as if they were
+    /// unused parameters, with the "matching" argument at every call site.
+    #[test]
+    fn a_go_result_list_is_not_a_parameter_list() {
+        let source = "\
+package cobra
+
+type Func func()
+
+type Command struct{}
+
+func (c *Command) get(name string) (Func, bool) {
+\treturn nil, false
+}
+
+func check(args []string, lastArg string) (*Command, []string, string, error) {
+\treturn nil, args, \"\", nil
+}
+
+func use(c *Command, args []string, last string) {
+\tc.get(\"x\")
+\t_, _, _, _ = check(args, last)
+}
+";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::Go, "fixture", source, &config).unwrap();
+        let named: Vec<&Finding> = analysis
+            .findings
+            .iter()
+            .filter(|finding| finding.rule == RuleId::UnusedParameter)
+            .collect();
+        assert!(
+            named.iter().all(|finding| matches!(
+                &finding.evidence,
+                Evidence::UnusedParameter { name, .. } if name == "name" || name == "lastArg"
+            )),
+            "{named:?}"
+        );
+        let after = fixed(Language::Go, source);
+        assert!(after.contains(") (Func, bool) {"), "{after}");
+        assert!(
+            after.contains("(*Command, []string, string, error) {"),
+            "{after}"
+        );
     }
 
     /// One source per language carrying all four syntactic-span rules, and the file
