@@ -305,13 +305,7 @@ impl<'a> MetricsWalker<'a> {
     }
 
     fn parameter_list(&self, node: Node<'a>) -> Option<Node<'a>> {
-        find_within(
-            node,
-            self.profile.parameter_list_kinds,
-            self.profile.block_kinds,
-        )
-        .into_iter()
-        .next_back()
+        crate::parameters::input_list(self.profile, node)
     }
 
     /// Some grammars hang the name off a declarator rather than off the definition,

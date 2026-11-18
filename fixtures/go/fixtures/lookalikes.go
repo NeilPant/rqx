@@ -162,3 +162,15 @@ func Spelled(word string) int {
 	}
 	return -1
 }
+
+// long-parameter-list, flag-argument: results are not parameters, however many there
+// are and whatever their type.
+func Bounds(values []int) (low int, high int, sum int, count int, spread int, found bool) {
+	for _, value := range values {
+		low = min(low, value)
+		high = max(high, value)
+		sum += value
+		count++
+	}
+	return low, high, sum, count, high - low, count > 0
+}

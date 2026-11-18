@@ -204,13 +204,7 @@ impl<'a> Walker<'a> {
         if self.function_body(function).is_none() {
             return;
         }
-        let Some(list) = find_within(
-            function,
-            self.profile.parameter_list_kinds,
-            self.profile.block_kinds,
-        )
-        .into_iter()
-        .next_back() else {
+        let Some(list) = crate::parameters::input_list(self.profile, function) else {
             return;
         };
         let mut cursor = list.walk();

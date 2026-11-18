@@ -170,5 +170,6 @@ func main() {
 	_ = fixtures.Sink
 	_ = fixtures.HasOdd
 	_ = fixtures.Spelled
+	_ = fixtures.Bounds
 	_ = cyclea.Orbit
 }

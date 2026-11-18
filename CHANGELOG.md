@@ -27,6 +27,10 @@ them. `tools/release.sh` turns that section into the release notes.
   parameter written as a bare type, such as Go's `func(int)`, has no name to report.
   The `TEST(Suite, Name)` macros of GoogleTest are no longer read as two unused
   parameters either.
+- **`long-parameter-list` and `flag-argument` read only the parameters.** They used
+  the same last list as `unused-parameter`, so a Go function with six named results
+  was reported as taking six parameters, and a `found bool` result as a boolean flag
+  argument.
 - **`discarded-error` reads the error position of a Go assignment with several
   targets.** It looked only at the first target, so `_, err := w.Write(b)`, which keeps
   the error and drops the byte count, was reported. With several targets the rule now
