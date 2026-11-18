@@ -55,6 +55,9 @@ image changes the exit code of every scan on that runner. A variable set to an e
 string counts as unset. A workflow passes an empty string for an input that has no
 value.
 
+A key that a [policy](policy.md) locks is not overridden. A flag or variable that gives it
+a different value stops the run with exit code 2.
+
 ## Reporters
 
 `--reporter <name>` writes to stdout. `--reporter <name>=<path>` writes to a file.

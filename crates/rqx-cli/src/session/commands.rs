@@ -359,7 +359,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             }
             let outcome = context.scanned()?;
             let mut settings = context.settings.clone();
-            gate.apply(&mut settings.config);
+            gate.apply(&mut settings)?;
             let verdict = gate.is_set().then(|| {
                 crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config, &[])
             });
@@ -627,7 +627,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             // findings, so this one scans again with the window and the cap it needs.
             let mut settings = context.settings.clone();
             settings.config.scan.max_findings = 0;
-            let request = render::Hotspots::over(&mut settings, top, since).printed_as(json);
+            let request = render::Hotspots::over(&mut settings, top, since)?.printed_as(json);
             background(false, move || {
                 let outcome = scan::scan(&path, &settings)?;
                 let mut out = Vec::new();
@@ -704,7 +704,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
                 bail!("`--fix` writes files; run `rqx check --fix` from a shell, or /fix");
             }
             let mut settings = context.settings.clone();
-            gate.apply(&mut settings.config);
+            gate.apply(&mut settings)?;
             let sinks = crate::sinks(&view)?;
             background(false, move || {
                 let filter = crate::filter_of(&view, &path, listed(&view, &path)?.as_ref())?;

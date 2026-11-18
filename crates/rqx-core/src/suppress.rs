@@ -3,8 +3,10 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::CustomRule;
 use crate::finding::{Finding, SourceRange};
 use crate::language::Language;
+use crate::rule::{Category, RuleId};
 use crate::span::Span;
 
 const LINE_MARKER: &str = "rqx-ignore";
@@ -94,10 +96,42 @@ impl Suppression {
         }
     }
 
+    /// The first name it gives that no finding can carry, worded for the finding that
+    /// reports it. Such a name waives nothing, so a typo would otherwise pass unseen.
+    /// A name with a `/` is another tool's rule (`semgrep/…`), which only the SARIF
+    /// file read at scan time knows, so it is not judged here.
+    pub fn misnamed(&self, custom: &[CustomRule]) -> Option<String> {
+        let known = |name: &str| {
+            RuleId::parse(name).is_some()
+                || Category::parse(name).is_some()
+                || custom.iter().any(|rule| rule.id == name)
+                || name.contains('/')
+        };
+        let unknown = self.rules.iter().find(|name| !known(name))?;
+        let candidates = RuleId::ALL
+            .iter()
+            .map(|rule| rule.slug())
+            .chain(Category::ALL.iter().map(|family| family.slug()))
+            .chain(custom.iter().map(|rule| rule.id.as_str()));
+        let hint = crate::suggest::closest(unknown, candidates)
+            .map(|closest| format!("; did you mean `{closest}`?"))
+            .unwrap_or_default();
+        Some(format!(
+            "{LINE_MARKER} names `{unknown}`, which is not a rule or a family{hint}"
+        ))
+    }
+
     pub fn covers(&self, finding: &Finding, today: &str) -> bool {
         self.is_honoured(today)
             && self.names(finding)
-            && (self.whole_file || finding.location.line.saturating_sub(self.line) <= REACH)
+            && (self.whole_file || self.reaches(finding.location.line))
+    }
+
+    /// Its own line and `REACH` lines below it. Never a line above: a waiver at the
+    /// end of a file covers nothing before it.
+    fn reaches(&self, line: u32) -> bool {
+        line.checked_sub(self.line)
+            .is_some_and(|below| below <= REACH)
     }
 
     fn names(&self, finding: &Finding) -> bool {
@@ -246,6 +280,116 @@ mod tests {
 
     fn parsed(comment: &str) -> Suppression {
         Suppression::parse(comment, Span::new(0, 1)).expect("a directive")
+    }
+
+    fn placed(comment: &str, line: u32) -> Suppression {
+        Suppression {
+            line,
+            ..parsed(comment)
+        }
+    }
+
+    fn discarded_error_at(line: u32) -> Finding {
+        use crate::finding::{Confidence, Evidence, Severity};
+        use crate::rule::RuleId;
+        Finding {
+            rule: RuleId::DiscardedError,
+            location: SourceRange {
+                file: "args_test.go".into(),
+                start: line * 10,
+                end: line * 10 + 4,
+                line,
+                column: 1,
+                end_line: line,
+            },
+            focus: None,
+            severity: Severity::Warning,
+            confidence: Confidence::Verified,
+            evidence: Evidence::Name {
+                identifier: "Execute".to_owned(),
+                reason: String::new(),
+            },
+            fix_hint: String::new(),
+            related: Vec::new(),
+            known: false,
+        }
+    }
+
+    fn covered_lines(waiver: &Suppression, lines: std::ops::RangeInclusive<u32>) -> Vec<u32> {
+        lines
+            .filter(|line| waiver.covers(&discarded_error_at(*line), "2026-09-05"))
+            .collect()
+    }
+
+    /// docs/suppressions.md: "on its own line and on the next line".
+    #[test]
+    fn a_line_waiver_covers_its_own_line_and_the_next_one_only() {
+        let waiver = placed(
+            "// rqx-ignore discarded-error: the test discards on purpose",
+            10,
+        );
+        assert_eq!(covered_lines(&waiver, 1..=20), [10, 11]);
+    }
+
+    #[test]
+    fn a_waiver_at_the_end_of_a_file_covers_nothing_above_it() {
+        let waiver = placed(
+            "// rqx-ignore discarded-error: the test discards on purpose",
+            400,
+        );
+        assert_eq!(covered_lines(&waiver, 1..=399), Vec::<u32>::new());
+    }
+
+    #[test]
+    fn a_name_that_is_no_rule_is_reported_with_the_rule_it_was_close_to() {
+        let typo = parsed("// rqx-ignore discarded-eror: the test discards on purpose");
+        assert_eq!(
+            typo.misnamed(&[]).as_deref(),
+            Some(
+                "rqx-ignore names `discarded-eror`, which is not a rule or a family; \
+                 did you mean `discarded-error`?"
+            )
+        );
+        let unrelated = parsed("// rqx-ignore whatever: because");
+        assert_eq!(
+            unrelated.misnamed(&[]).as_deref(),
+            Some("rqx-ignore names `whatever`, which is not a rule or a family")
+        );
+    }
+
+    #[test]
+    fn rules_families_custom_rules_and_other_tools_rules_are_names() {
+        let custom: CustomRule = serde_json::from_value(serde_json::json!({
+            "id": "no-sleep-in-tests",
+            "languages": ["go"],
+            "query": "(call_expression) @site",
+            "message": "m",
+            "family": "tests",
+        }))
+        .expect("a custom rule");
+        for comment in [
+            "// rqx-ignore discarded-error, long-function: one decision",
+            "// rqx-ignore size: generated",
+            "// rqx-ignore all: vendored",
+            "// rqx-ignore no-sleep-in-tests: the clock is the subject",
+            "// rqx-ignore semgrep/go.lang.security.audit: reviewed",
+            "// rqx-ignore-file circular-dependency: being untangled",
+        ] {
+            assert_eq!(
+                parsed(comment).misnamed(std::slice::from_ref(&custom)),
+                None,
+                "{comment}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_file_waiver_still_covers_every_line() {
+        let waiver = placed(
+            "// rqx-ignore-file discarded-error: the test discards on purpose",
+            400,
+        );
+        assert_eq!(covered_lines(&waiver, 1..=401).len(), 401);
     }
 
     #[test]

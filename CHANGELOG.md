@@ -67,6 +67,37 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Fixed
 
+- **A line waiver covers only its own line and the next line.** In 0.5.0 an `rqx-ignore`
+  comment also covered matching findings on every line above it, so one waiver at the end
+  of a file silenced every finding of the rule it named in that file: on cobra 1.10.2, one
+  `// rqx-ignore discarded-error` comment at the end of `args_test.go` hid all 36 of that
+  file's `discarded-error` findings. Findings that a waiver was hiding this way are now
+  reported and count towards the health score and the gate. `rqx-ignore-file` is
+  unchanged. A waiver that names something other than a rule, a family, a custom rule or
+  another tool's rule (`tool/rule-id`) waives nothing under that name, and is now
+  reported as `unjustified-suppression` with the closest rule name when there is one.
+
+- **A policy's locked keys hold against flags and environment variables.** In 0.5.0
+  `--fail-on`, `--allow-findings`, `--min-health`, `--min-grade`, `--fail-on-incomplete`,
+  `--threads`, `--max-findings`, `--coverage`, `--profile`, `--sarif-in` and
+  `rqx hotspots --since`, and the `RQX_*` variables behind them, replaced the value of a
+  key the policy locks, so `--fail-on never --min-health 0` passed a gate the policy had
+  fixed. Giving a locked key a different value from a flag or a variable now exits 2, and
+  the error names the key, the policy file and the flag or variable. Giving the locked
+  value is still accepted.
+
+- **`rqx baseline --update` refuses when the count of any rule rises.** It compared only
+  the totals, so an update that added findings of one rule and removed more findings of
+  another was accepted. The error now lists each rule whose count rose, with the recorded
+  and the new count. `--force` still records the new set. For a baseline file written by
+  0.5.0, which has no counts, each rule is compared by its number of entries.
+
+- **Findings are reported in the same order on every run.** Two findings of one rule on
+  the same span with the same hint, such as two `repeated-computation-in-loop` findings
+  on one line of go-redis, could change places between runs and between thread counts.
+  Their evidence is now part of the sort key, so the terminal, JSON and SARIF output of a
+  scan is the same for any run and any `--threads` value.
+
 - **`oversized-module` and `cross-language-duplicate` findings counted as project-wide.** The
   health projection after `rqx fix` and the resolved credit in `rqx comment` no longer drop
   them when only some files are re-analysed.

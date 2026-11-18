@@ -2036,8 +2036,13 @@ fn hygiene_findings(
             );
         }
     }
+    let today = crate::suppress::today();
     for waiver in &hygiene.waivers {
-        let Some(refusal) = waiver.refusal(&crate::suppress::today()) else {
+        let (problem, hint) = if let Some(refusal) = waiver.refusal(&today) {
+            (refusal, "say why the finding is acceptable here, or fix it")
+        } else if let Some(misnamed) = waiver.misnamed(&builder.config.custom) {
+            (misnamed, "name a rule from `rqx rules`, or a family")
+        } else {
             continue;
         };
         emit(
@@ -2045,11 +2050,11 @@ fn hygiene_findings(
             RuleId::UnjustifiedSuppression,
             &Spot {
                 span: waiver.span,
-                detail: refusal.clone(),
+                detail: problem.clone(),
                 count: 1,
             },
-            Evidence::Suppression { directive: refusal },
-            "say why the finding is acceptable here, or fix it".to_owned(),
+            Evidence::Suppression { directive: problem },
+            hint.to_owned(),
         );
     }
     for spot in &hygiene.suppressions {

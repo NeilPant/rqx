@@ -10,8 +10,8 @@ export function parse(input: string): Ast {
 ```
 
 A waiver applies to findings on its own line and on the next line, so a comment
-directly above a declaration covers that declaration. It works in any comment syntax
-rqx parses: `//`, `#`, and `/* */`.
+directly above a declaration covers that declaration. It does not apply to findings on
+lines above it. It works in any comment syntax rqx parses: `//`, `#`, and `/* */`.
 
 ## The reason is not optional
 
@@ -30,6 +30,20 @@ reports the comment itself:
 ```
 
 Requiring a reason keeps every exemption documented in the source.
+
+## A name that is not a rule
+
+A waiver that names something other than a rule, a family, `all`, a custom rule or
+another tool's rule (`tool/rule-id`) waives nothing under that name. rqx reports the
+comment as `unjustified-suppression` and suggests the closest rule name:
+
+```
+  ● unjustified-suppression  args_test.go:412  warning
+    rqx-ignore names `discarded-eror`, which is not a rule or a family; did you mean
+    `discarded-error`?
+```
+
+Any other names in the same comment still apply.
 
 ## Forms
 

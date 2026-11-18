@@ -140,3 +140,72 @@ fn a_whole_file_waiver_needs_no_line() {
     );
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// The scan's findings by rule, from its JSON output.
+fn scanned_rules(root: &PathBuf) -> Vec<String> {
+    let scanned = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .current_dir(root)
+        .env("RQX_NO_CACHE", "1")
+        .args(["scan", ".", "--reporter", "json", "--max-findings", "0"])
+        .output()
+        .expect("failed to run rqx");
+    String::from_utf8_lossy(&scanned.stdout)
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|record| record["kind"] == "finding")
+        .map(|record| {
+            format!(
+                "{}:{}",
+                record["rule"].as_str().unwrap_or_default(),
+                record["evidence"]["directive"].as_str().unwrap_or_default()
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn a_waiver_below_a_finding_does_not_waive_it() {
+    let root = project("below");
+    std::fs::write(
+        root.join("a.ts"),
+        format!("{DIRTY}// rqx-ignore unreachable-code: placed at the end of the file\n"),
+    )
+    .expect("a file");
+    let rules = scanned_rules(&root);
+    assert!(
+        rules
+            .iter()
+            .any(|rule| rule.starts_with("unreachable-code:")),
+        "{rules:?}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_waiver_that_names_no_rule_is_reported() {
+    let root = project("misnamed");
+    std::fs::write(
+        root.join("a.ts"),
+        DIRTY.replace(
+            "  console.log",
+            "  // rqx-ignore unreachable-cod: kept for the demo\n  console.log",
+        ),
+    )
+    .expect("a file");
+    let rules = scanned_rules(&root);
+    assert!(
+        rules.contains(
+            &"unjustified-suppression:rqx-ignore names `unreachable-cod`, which is not a rule \
+              or a family; did you mean `unreachable-code`?"
+                .to_owned()
+        ),
+        "{rules:?}"
+    );
+    assert!(
+        rules
+            .iter()
+            .any(|rule| rule.starts_with("unreachable-code:")),
+        "a misnamed waiver waives nothing: {rules:?}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
