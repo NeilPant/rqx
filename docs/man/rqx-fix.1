@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-fix \- Apply the fixes that have a single correct result, proving each one before it is written. Previews by default
 .SH SYNOPSIS
-\fBrqx fix\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx fix\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-verify\-build\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Apply the fixes that have a single correct result, proving each one before it is written. Previews by default
 .SH OPTIONS
@@ -23,6 +23,9 @@ Report the findings `fix` does not change, with the span, the source, the metric
 .TP
 \fB\-\-markdown\fR
 With \-\-plan, emit Markdown for pasting instead of the terminal report
+.TP
+\fB\-\-verify\-build\fR
+Also run `go vet` on a temporary copy of each Go module with the fixes applied, and withhold a module\*(Aqs fixes if it fails. Needs `go` on PATH
 .TP
 \fB\-\-reporter\fR \fI<NAME[=PATH]>\fR
 Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json`

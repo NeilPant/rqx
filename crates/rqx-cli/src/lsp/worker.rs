@@ -188,7 +188,7 @@ fn run_fix(publisher: &Arc<Publisher>, job: &Job, write: bool, only: BTreeSet<St
         write,
         max_rounds: if write { 3 } else { 1 },
         only,
-        rule: None,
+        ..crate::fix::Options::default()
     };
     match crate::fix::run(publisher.root(), &job.config, options) {
         Ok(outcome) => {

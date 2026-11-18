@@ -320,6 +320,10 @@ enum Command {
         /// With --plan, emit Markdown for pasting instead of the terminal report
         #[arg(long)]
         markdown: bool,
+        /// Also run `go vet` on a temporary copy of each Go module with the fixes
+        /// applied, and withhold a module's fixes if it fails. Needs `go` on PATH
+        #[arg(long)]
+        verify_build: bool,
         #[command(flatten)]
         printing: Printing,
         #[command(flatten)]
@@ -1991,6 +1995,7 @@ fn run() -> Result<Exit> {
             json,
             plan,
             markdown,
+            verify_build,
             printing,
             run,
         } => {
@@ -2020,6 +2025,7 @@ fn run() -> Result<Exit> {
                 fix::Options {
                     write,
                     max_rounds: rounds,
+                    verify_build,
                     ..fix::Options::default()
                 },
                 progress,
@@ -2722,7 +2728,7 @@ fn run() -> Result<Exit> {
                         write,
                         max_rounds: settings.config.fix.max_rounds.max(1),
                         only: review.reviewed.clone(),
-                        rule: None,
+                        ..fix::Options::default()
                     },
                     progress,
                 )?;

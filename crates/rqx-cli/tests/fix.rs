@@ -478,3 +478,30 @@ func complete(c *Command, args []string, toComplete string) {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// `--verify-build` runs `go vet` on a copy, so it needs the toolchain; without it the
+/// test has nothing to check.
+#[test]
+fn verify_build_keeps_a_fix_that_builds() {
+    if Command::new("go").arg("version").output().is_err() {
+        return;
+    }
+    // A journal comment rather than dead code: `go vet` reports unreachable code, so
+    // a project holding some fails the check before any edit.
+    let source = "package keep\n\n// @author someone\nfunc Keep() int {\n\treturn 1\n}\n";
+    let root = project(
+        "verify-build",
+        &[
+            ("go.mod", "module example.com/keep\n\ngo 1.22\n"),
+            ("keep.go", source),
+        ],
+    );
+    let report = fix(&root, &["--write", "--verify-build"]);
+
+    assert_eq!(summary_field(&report, "applied"), "1", "{report}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("keep.go")).unwrap(),
+        "package keep\n\nfunc Keep() int {\n\treturn 1\n}\n"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

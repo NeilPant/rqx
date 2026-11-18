@@ -717,6 +717,7 @@ impl Rqx {
                     max_rounds: 1,
                     only,
                     rule,
+                    ..fix::Options::default()
                 },
             )
         })

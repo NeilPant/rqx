@@ -14,6 +14,7 @@ use crate::progress::Mode;
 use crate::report::Report;
 use crate::scan::{self, ScanOutcome};
 
+mod build;
 mod package;
 
 #[derive(Clone, Debug, Default)]
@@ -27,6 +28,9 @@ pub struct Options {
     /// Plan edits for this rule alone. The other findings still take part in
     /// verification, so a narrowed fix is held to the same standard as a full one.
     pub rule: Option<RuleId>,
+    /// Also run `go vet` on a copy of each Go module with the round's edits applied,
+    /// and withhold the module's edits if it fails.
+    pub verify_build: bool,
 }
 
 /// One file's proven edits, with the text before and after so a preview renders
@@ -255,7 +259,12 @@ fn plan_round(
         }
     }
     let fixes = std::mem::take(&mut round.fixes);
-    round.fixes = package::guard(root, &scanned.analyzed, fixes, &mut round.withheld);
+    let fixes = package::guard(root, &scanned.analyzed, fixes, &mut round.withheld);
+    round.fixes = if options.verify_build {
+        build::guard(root, fixes, &mut round.withheld)
+    } else {
+        fixes
+    };
     Ok(round)
 }
 
