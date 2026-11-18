@@ -157,6 +157,7 @@ func main() {
 	_ = fixtures.CanWrite
 	_ = fixtures.UpdateFailure
 	_ = fixtures.ZoneLabel
+	_ = fixtures.TimeoutBudget
 	_ = ParsedOrZero
 	_ = cyclea.Orbit
 }

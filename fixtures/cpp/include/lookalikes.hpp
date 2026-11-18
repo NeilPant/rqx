@@ -5,3 +5,4 @@ int scaled(int factor);
 int counted(int items);
 std::string update_failure(const std::string& id);
 std::string zone_label();
+int timeout_budget();

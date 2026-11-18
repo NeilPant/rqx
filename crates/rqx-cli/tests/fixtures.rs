@@ -485,7 +485,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("long-parameter-list", 2),
                 ("loop-concatenation", 3),
                 ("loop-runs-once", 1),
-                ("magic-number", 5),
+                ("magic-number", 4),
                 ("many-exits", 3),
                 ("many-locals", 1),
                 ("many-results", 1),

@@ -512,6 +512,7 @@ impl<'a> Walker<'a> {
         if CONVENTIONAL
             .iter()
             .any(|known| (known - value).abs() < f64::EPSILON)
+            || self.is_declared_value(node)
         {
             return;
         }
@@ -519,6 +520,36 @@ impl<'a> Walker<'a> {
             .entry(raw.to_owned())
             .or_default()
             .push(span_of(node));
+    }
+
+    /// A literal that is the whole value of a declaration, as in `const MAX_RETRIES = 3`,
+    /// already has the name the rule asks for. A sign, parentheses or a list of values
+    /// around it do not change that; an expression does.
+    fn is_declared_value(&self, literal: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut value = literal;
+        let mut owner = literal.parent();
+        while let Some(parent) = owner {
+            let kind = kind_of(parent);
+            let wraps = profile.negation_kinds.contains(&kind)
+                || profile.transparent_kinds.contains(&kind)
+                || profile.expression_list_kinds.contains(&kind);
+            if !wraps {
+                break;
+            }
+            value = parent;
+            owner = parent.parent();
+        }
+        owner.is_some_and(|owner| {
+            let kind = kind_of(owner);
+            let declares = profile.declarator_kinds.contains(&kind)
+                || profile.local_declaring_kinds.contains(&kind)
+                || profile.field_kinds.contains(&kind);
+            declares
+                && ["value", "right", "default_value"]
+                    .iter()
+                    .any(|field| owner.child_by_field_name(field) == Some(value))
+        })
     }
 
     /// `n + 1` and `n - 1` written about the same subject several times is where

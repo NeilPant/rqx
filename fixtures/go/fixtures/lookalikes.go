@@ -40,3 +40,14 @@ func UpdateFailure(id string) string {
 func ZoneLabel() string {
 	return "zone " + tz
 }
+
+// magic-number: each 30 below is the value of a declaration, which names it.
+const (
+	connectTimeoutSeconds = 30
+	readTimeoutSeconds    = 30
+)
+
+func TimeoutBudget() int {
+	idleTimeoutSeconds := 30
+	return connectTimeoutSeconds + readTimeoutSeconds + idleTimeoutSeconds
+}

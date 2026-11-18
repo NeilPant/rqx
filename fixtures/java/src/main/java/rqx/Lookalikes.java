@@ -2,6 +2,14 @@ package rqx;
 
 // Code that resembles a finding and is not one. Every rule should stay silent here.
 public class Lookalikes {
+    // magic-number: each 30 below is the value of a declaration, which names it.
+    public int timeoutBudget() {
+        final int connectTimeoutSeconds = 30;
+        final int readTimeoutSeconds = 30;
+        final int idleTimeoutSeconds = 30;
+        return connectTimeoutSeconds + readTimeoutSeconds + idleTimeoutSeconds;
+    }
+
     // output-parameter: `factor` in `counted` is a local that shares its name with
     // this parameter, not this parameter.
     public int scaled(int factor) {

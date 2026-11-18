@@ -43,3 +43,11 @@ def update_failure(user_id: str) -> str:
 
 def zone_label() -> str:
     return "zone " + TZ
+
+
+# magic-number: each 30 below is the value of a declaration, which names it.
+def timeout_budget() -> int:
+    connect_timeout_seconds = 30
+    read_timeout_seconds = 30
+    idle_timeout_seconds = (30)
+    return connect_timeout_seconds + read_timeout_seconds + idle_timeout_seconds

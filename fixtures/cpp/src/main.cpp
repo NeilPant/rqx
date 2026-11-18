@@ -124,5 +124,6 @@ int main() {
     counted(1);
     update_failure("a");
     zone_label();
+    timeout_budget();
     return 0;
 }

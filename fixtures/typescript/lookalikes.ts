@@ -34,3 +34,12 @@ export function updateFailure(id: string): string {
 export function zoneLabel(): string {
   return "zone " + tz;
 }
+
+// magic-number: each 30 below is the value of a declaration, which names it.
+const CONNECT_TIMEOUT_SECONDS = 30;
+const READ_TIMEOUT_SECONDS = 30;
+const SOCKET_TIMEOUT_SECONDS = -30;
+
+export function timeoutBudget(): number {
+  return CONNECT_TIMEOUT_SECONDS + READ_TIMEOUT_SECONDS - SOCKET_TIMEOUT_SECONDS;
+}

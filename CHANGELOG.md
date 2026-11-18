@@ -46,6 +46,12 @@ them. `tools/release.sh` turns that section into the release notes.
   nested casts and produced two findings on one line. A cast whose value is another
   cast of the same kind is now reported once, at the outermost cast. The same applies
   to `(Row) (Object) value` in Java and C++.
+- **`magic-number` leaves out the value of a declaration.** The rule describes itself
+  as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
+  toward the repeats of `3`, so naming a number, which is the fix the rule recommends,
+  could still produce the finding. A literal that is the whole value of a variable,
+  constant or field declaration, optionally with a sign or parentheses, is no longer
+  counted.
 
 ## 0.5.0 — 2026-11-18
 

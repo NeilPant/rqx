@@ -25,3 +25,12 @@ std::string update_failure(const std::string& id) {
 std::string zone_label() {
     return "zone " + tz;
 }
+
+// magic-number: each 30 below is the value of a declaration, which names it.
+const int connect_timeout_seconds = 30;
+const int read_timeout_seconds = 30;
+
+int timeout_budget() {
+    const int idle_timeout_seconds = 30;
+    return connect_timeout_seconds + read_timeout_seconds + idle_timeout_seconds;
+}
