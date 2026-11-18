@@ -1,5 +1,7 @@
 package main
 
+import "errors"
+
 func Restated(ready bool) bool {
 	if ready {
 		return true
@@ -138,6 +140,7 @@ func Halved(total int) int {
 	return 7/2 + total
 }
 
+// Not a discarded-error: countRows answers with a count and no error.
 func Ignored(rows []int) int {
 	_ = countRows(rows)
 	return len(rows)
@@ -145,6 +148,18 @@ func Ignored(rows []int) int {
 
 func countRows(rows []int) int {
 	return len(rows)
+}
+
+func Forgotten(rows []int) int {
+	_ = checkRows(rows)
+	return len(rows)
+}
+
+func checkRows(rows []int) error {
+	if len(rows) == 0 {
+		return errors.New("no rows")
+	}
+	return nil
 }
 
 func ParsedOrZero(text string) int {

@@ -31,7 +31,9 @@ them. `tools/release.sh` turns that section into the release notes.
   targets.** It looked only at the first target, so `_, err := w.Write(b)`, which keeps
   the error and drops the byte count, was reported. With several targets the rule now
   reads the last one, where Go returns the error, and the message says that the error
-  is the result being thrown away.
+  is the result being thrown away. In Go, `var _ io.Writer = (*Sink)(nil)` checks that
+  a type satisfies an interface and is no longer reported, and neither is a call to a
+  function declared in the same file whose results include no `error`.
 - **`ambient-dependency` no longer reports a parameter default or a test file.** A
   default such as `random: () => number = Math.random` is the injection the rule asks
   for, and it was reported. A file that registers tests with `describe`, `it` or `test`

@@ -55,6 +55,15 @@ one decision is spread across files that must be edited together, and nothing in
 | Reads | the syntax tree alone |
 | Fix | Extract Class / Move Method |
 
+From `fixtures/javascript/index.js`, line 1:
+
+```js
+export { add, describe } from "./clean";
+export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
+```
+
+Suggested fix: the decision these two share has no home; move it into one place so `lookalikes.js` stops needing an edit every time this file does
+
 ## `divergent-change`
 
 the file is edited for many unrelated reasons, which indicates that more than one responsibility lives in it

@@ -3876,6 +3876,11 @@ impl<'a> Walker<'a> {
         if !profile.is_ignored_name(self.text(*last)) || self.text(*last).len() > 2 {
             return;
         }
+        // `var _ Handler = (*server)(nil)` asks the compiler whether a type satisfies
+        // an interface; nothing is called and nothing is thrown away.
+        if node.child_by_field_name("type").is_some() {
+            return;
+        }
         let Some(value) = node
             .child_by_field_name("right")
             .or_else(|| node.child_by_field_name("value"))
@@ -3893,7 +3898,7 @@ impl<'a> Walker<'a> {
         .map(|value| self.see_through(*value)) else {
             return;
         };
-        if !profile.is_call(value) {
+        if !profile.is_call(value) || self.answers_without_an_error(value) {
             return;
         }
         self.out.discarded_errors.push(Spot {
@@ -3903,6 +3908,39 @@ impl<'a> Walker<'a> {
                 .unwrap_or_else(|| "the call".to_owned()),
             count: if paired { 1 } else { targets.len() as u32 },
         });
+    }
+
+    /// A Go call to a function this file declares, whose results do not include an
+    /// error: discarding one of them drops a value, not a failure.
+    fn answers_without_an_error(&self, call: Node<'a>) -> bool {
+        if self.profile.language != rqx_core::Language::Go {
+            return false;
+        }
+        let Some(callee) = call
+            .child_by_field_name(self.profile.callee_field)
+            .filter(|callee| self.profile.is_identifier(*callee))
+        else {
+            return false;
+        };
+        let callee = self.text(callee);
+        self.nodes
+            .iter()
+            .filter(|node| kind_of(*node) == "function_declaration")
+            .find(|function| {
+                function
+                    .child_by_field_name("name")
+                    .is_some_and(|name| self.text(name) == callee)
+            })
+            .is_some_and(|function| {
+                function
+                    .child_by_field_name("result")
+                    .is_some_and(|result| {
+                        !descendants(result)
+                            .into_iter()
+                            .chain(std::iter::once(result))
+                            .any(|node| self.text(node) == "error")
+                    })
+            })
     }
 
     /// The items of a list the grammar wraps several targets or values in, or the

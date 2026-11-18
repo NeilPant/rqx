@@ -166,5 +166,7 @@ func main() {
 	_ = fixtures.Writer
 	_ = fixtures.Branch
 	_ = ParsedOrZero
+	_ = Forgotten
+	_ = fixtures.Sink
 	_ = cyclea.Orbit
 }

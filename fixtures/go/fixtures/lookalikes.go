@@ -106,3 +106,12 @@ func HasFlag(flags *Flags, name string) bool {
 func (f *Flags) HasFlag(name string) bool {
 	return HasFlag(f, name)
 }
+
+// discarded-error: `var _ io.Writer = …` asks whether a type satisfies an interface.
+type Sink struct{}
+
+func (Sink) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+var _ io.Writer = (*Sink)(nil)
