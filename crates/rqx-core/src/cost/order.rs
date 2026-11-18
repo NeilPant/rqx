@@ -183,13 +183,39 @@ impl Order {
     /// The order with `variable` replaced by `replacement`, which is how a callee's
     /// cost is stated in the terms of the caller's sizes.
     pub fn subst(&self, variable: SizeId, replacement: &Self) -> Self {
+        self.substitute(&|own| (own == variable).then(|| replacement.clone()))
+    }
+
+    /// The order with every variable `replacement` answers for replaced at the same
+    /// time, so a replacement is never itself replaced. The terms are pruned once at the
+    /// end rather than after each one, which keeps a long order linear to rewrite.
+    pub fn substitute(&self, replacement: &dyn Fn(SizeId) -> Option<Self>) -> Self {
         if self.exp {
             return self.clone();
         }
-        self.terms
-            .iter()
-            .map(|term| term.substituted(variable, replacement))
-            .fold(Self::one(), |all, one| all.max(&one))
+        let mut terms = Vec::new();
+        for term in &self.terms {
+            let substituted = term.substituted(replacement);
+            if substituted.exp {
+                return Self::exponential();
+            }
+            terms.extend(substituted.terms);
+        }
+        Self::from_terms(terms)
+    }
+
+    /// The order with no more than `most` terms, or `None` when it already has no more.
+    /// The lightest terms are merged into one that grows at least as fast as each of
+    /// them, so the answer is never smaller than the order, only less exact.
+    pub fn widened(&self, most: usize) -> Option<Self> {
+        if self.terms.len() <= most || most == 0 {
+            return None;
+        }
+        let mut terms = self.terms.clone();
+        terms.sort_by_key(|term| std::cmp::Reverse(term.rank()));
+        let merged = terms.split_off(most - 1);
+        terms.push(Term::bounding(&merged));
+        Some(Self::from_terms(terms))
     }
 
     /// A number that grows with the order, for sorting. Orders that compare as
@@ -240,18 +266,32 @@ impl Order {
 }
 
 impl Term {
-    fn substituted(&self, variable: SizeId, replacement: &Order) -> Order {
+    fn substituted(&self, replacement: &dyn Fn(SizeId) -> Option<Order>) -> Order {
         self.factors
             .iter()
-            .map(|&(own, power, logarithm)| {
-                if own != variable {
-                    return Order::from_factor((own, power, logarithm));
-                }
-                replacement
+            .map(|&(own, power, logarithm)| match replacement(own) {
+                None => Order::from_factor((own, power, logarithm)),
+                Some(replacement) => replacement
                     .raised(power)
-                    .mul(&replacement.logarithm().raised(logarithm))
+                    .mul(&replacement.logarithm().raised(logarithm)),
             })
             .fold(Order::one(), |all, one| all.mul(&one))
+    }
+
+    /// The smallest monomial that grows at least as fast as each of `terms`: every
+    /// variable at the largest power and logarithm any of them gives it.
+    fn bounding(terms: &[Self]) -> Self {
+        let mut largest: std::collections::BTreeMap<SizeId, (u8, u8)> =
+            std::collections::BTreeMap::new();
+        for &(variable, power, logarithm) in terms.iter().flat_map(|term| &term.factors) {
+            let share = largest.entry(variable).or_default();
+            *share = (share.0.max(power), share.1.max(logarithm));
+        }
+        Self::of(
+            largest
+                .into_iter()
+                .map(|(variable, (power, logarithm))| (variable, power, logarithm)),
+        )
     }
 }
 
@@ -613,6 +653,54 @@ mod tests {
                 let subst = |order: &Order| order.subst(variable, &replacement);
                 assert_eq!(subst(&a.max(&b)), subst(&a).max(&subst(&b)), "{a} {b}");
                 assert_eq!(subst(&a.mul(&b)), subst(&a).mul(&subst(&b)), "{a} {b}");
+            }
+        }
+    }
+
+    /// The replacements name only variables no case uses, so replacing one variable after
+    /// another and replacing them all at once must agree.
+    #[test]
+    fn substituting_at_once_agrees_with_one_variable_at_a_time() {
+        let sum = Order::var(8).max(&Order::power(9, 2));
+        for (order, _, _) in cases() {
+            let stepwise = order.subst(0, &Order::var(7)).subst(1, &sum);
+            let at_once = order.substitute(&|variable| match variable {
+                0 => Some(Order::var(7)),
+                1 => Some(sum.clone()),
+                _ => None,
+            });
+            assert_eq!(at_once, stepwise, "{order}");
+        }
+    }
+
+    #[test]
+    fn a_replacement_is_not_itself_replaced() {
+        let swapped = parsed("O(n·m²)").substitute(&|variable| match variable {
+            0 => Some(Order::var(1)),
+            1 => Some(Order::var(0)),
+            _ => None,
+        });
+        assert_eq!(swapped, parsed("O(n²·m)"));
+    }
+
+    /// A widened order holds no more terms than asked and is never smaller than the
+    /// order it stands for.
+    #[test]
+    fn widening_bounds_the_terms_and_never_lowers_the_order() {
+        let many = (0..40_u16).fold(Order::one(), |all, variable| {
+            all.max(&Order::var(variable).mul(&Order::var(variable + 100)))
+        });
+        assert_eq!(many.terms().len(), 40);
+        for most in [1, 2, 8, 32] {
+            let widened = many.widened(most).expect("40 terms is over every cap here");
+            assert!(widened.terms().len() <= most, "{most}: {widened}");
+            assert_eq!(widened.max(&many), widened, "{most} must dominate");
+        }
+        assert!(many.widened(40).is_none());
+        assert!(Order::exponential().widened(1).is_none());
+        for (order, _, _) in cases() {
+            if let Some(widened) = order.widened(1) {
+                assert_eq!(widened.max(&order), widened, "{order}");
             }
         }
     }

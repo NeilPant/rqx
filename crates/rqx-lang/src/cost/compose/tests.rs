@@ -820,3 +820,45 @@ fn each_call_is_linked_to_the_functions_that_cost_something() {
     assert!(reached[1].is_empty(), "a constant callee is not a step");
     assert!(links.of_function("a.ts", 10).is_empty());
 }
+
+/// Each level runs three loops over collections nothing names, each calling the next
+/// level with an argument nothing is known about. Giving every unknown size of a callee
+/// a variable of its own grew the order threefold per level; the composed orders must
+/// stay within the cap however deep the chain goes.
+#[test]
+fn a_deep_chain_of_calls_over_unnamed_sizes_stays_short() {
+    const DEPTH: u32 = 30;
+    let functions: Vec<FunctionCost> = (0..DEPTH)
+        .map(|level| {
+            let mut function = function(&format!("level{level}"), 1000 * (level + 1), &["xs"]);
+            let loops: Vec<Cost> = (0..3)
+                .map(|nth| {
+                    let body = if level + 1 < DEPTH {
+                        function.calling(local(&format!("level{}", level + 1)), &[ArgSize::Unknown])
+                    } else {
+                        Cost::One
+                    };
+                    Cost::Loop {
+                        bound: Bound::Unknown,
+                        body: Box::new(body),
+                        line: function.line + 1 + nth,
+                    }
+                })
+                .collect();
+            function.time = Cost::Seq(loops);
+            function
+        })
+        .collect();
+    let files = [file("chain.ts", functions)];
+
+    let all = summarise(&files, &ResolvedRequests::new());
+
+    for level in 0..DEPTH {
+        let time = &summary(&all, &files[0], &format!("level{level}")).time;
+        assert!(
+            time.terms().len() <= super::fold::MOST_TERMS,
+            "level{level}: {time}"
+        );
+    }
+    assert!(summary(&all, &files[0], "level0").time.rank() > 0);
+}

@@ -24,7 +24,7 @@ use rqx_core::cost::{
 use rqx_core::cost_sites::CrossSite;
 use rqx_core::facts::{ImportRequest, ModuleFacts};
 
-use self::fold::{Done, Fold, TRACE_STEPS, Work, bind};
+use self::fold::{Binding, Done, Fold, TRACE_STEPS, Work};
 use self::graph::{Graph, NodeId};
 use self::solve::{Level, solve};
 use super::sizes::Sizes;
@@ -278,7 +278,7 @@ pub fn compose_with_sites(
         members.sort_unstable();
         let solved = solve_component(&mut graph, &done, &members, tables);
         for (node, answer) in members.into_iter().zip(solved) {
-            done[node] = Some(answer);
+            done[node] = Some(answer.capped());
         }
     }
 
@@ -568,10 +568,17 @@ impl Carried {
         let arguments: Vec<Order> = (0..node.function.params.len())
             .map(|position| sizes.param(u8::try_from(position).unwrap_or(u8::MAX)))
             .collect();
-        let mut put = |order: &Order| bind(order, &node.vars, &arguments, sizes);
+        let space = work.space.max(&work.callee_space);
+        let orders = [&work.time.order, &space, &work.below]
+            .into_iter()
+            .chain(work.io.as_ref());
+        let binding = Binding::of(orders, &node.vars, &arguments, sizes);
+        // The circle is a guess already, so widening has no confidence left to lower.
+        let mut conf = Conf::Heuristic;
+        let mut put = |order: &Order| fold::capped(binding.apply(order), &mut conf);
         Self {
             time: put(&work.time.order),
-            space: put(&work.space.max(&work.callee_space)),
+            space: put(&space),
             below: put(&work.below),
             io: work.io.as_ref().map(&mut put),
         }

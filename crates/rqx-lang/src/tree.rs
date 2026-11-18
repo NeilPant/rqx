@@ -285,6 +285,92 @@ impl<'tree> Nodes<'tree> {
     }
 }
 
+/// Every named descendant in source order, with the field its parent holds it in. The
+/// cursor knows each field as it passes, where [`field_name`] has to find the parent
+/// again for every node.
+pub fn descendants_with_fields<'tree>(
+    node: Node<'tree>,
+) -> Vec<(Node<'tree>, Option<&'static str>)> {
+    let mut found = Vec::new();
+    let mut cursor = node.walk();
+    let mut recursing = true;
+    loop {
+        if recursing {
+            let current = cursor.node();
+            if current.is_named() {
+                // The walk starts at `node`, so the cursor cannot see its field.
+                let field = if current == node {
+                    field_name(node)
+                } else {
+                    cursor.field_name()
+                };
+                found.push((current, field));
+            }
+            if cursor.goto_first_child() {
+                continue;
+            }
+        }
+        if cursor.goto_next_sibling() {
+            recursing = true;
+            continue;
+        }
+        if !cursor.goto_parent() || cursor.node() == node {
+            return found;
+        }
+        recursing = false;
+    }
+}
+
+/// What each comment under `root` is written above, by the comment's node id: the next
+/// named sibling that is not a comment, or for a comment last in a block, what owns the
+/// block. Worked out in one walk, because `Node::next_named_sibling` and `Node::parent`
+/// each search down from the root of the tree and a file can hold thousands of comments.
+pub fn comment_leads<'tree>(
+    root: Node<'tree>,
+    is_comment: impl Fn(Node<'tree>) -> bool,
+    is_block: impl Fn(Node<'tree>) -> bool,
+) -> std::collections::HashMap<usize, Node<'tree>> {
+    let mut leads = std::collections::HashMap::new();
+    let mut cursor = root.walk();
+    let mut recursing = true;
+    loop {
+        if recursing {
+            let current = cursor.node();
+            if current.is_named() && is_comment(current) {
+                let mut ahead = cursor.clone();
+                let mut lead = None;
+                while ahead.goto_next_sibling() {
+                    let next = ahead.node();
+                    if next.is_named() && !is_comment(next) {
+                        lead = Some(next);
+                        break;
+                    }
+                }
+                if lead.is_none() {
+                    let mut up = cursor.clone();
+                    if up.goto_parent() && is_block(up.node()) && up.goto_parent() {
+                        lead = Some(up.node());
+                    }
+                }
+                if let Some(lead) = lead {
+                    leads.insert(current.id(), lead);
+                }
+            }
+            if cursor.goto_first_child() {
+                continue;
+            }
+        }
+        if cursor.goto_next_sibling() {
+            recursing = true;
+            continue;
+        }
+        if !cursor.goto_parent() || cursor.node() == root {
+            return leads;
+        }
+        recursing = false;
+    }
+}
+
 /// Every named descendant, in source order.
 pub fn descendants<'tree>(node: Node<'tree>) -> Vec<Node<'tree>> {
     let mut found = Vec::new();
@@ -307,5 +393,103 @@ pub fn descendants<'tree>(node: Node<'tree>) -> Vec<Node<'tree>> {
             return found;
         }
         recursing = false;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rqx_core::Language;
+
+    use super::*;
+    use crate::cost::testing::tree_of;
+
+    /// Comments above declarations, between statements, last in a block and trailing
+    /// a file, in every language, with the walk checked against the node methods.
+    const SAMPLES: [(Language, &str); 5] = [
+        (
+            Language::TypeScript,
+            "// top\n/** doc */\nexport function f(a: number[]) {\n  // first\n  let x = 1;\n  // second\n  // third\n  for (const y of a) { x += y; /* last */ }\n  return x;\n  // trailing\n}\nclass C {\n  // field\n  n = 1;\n  /** method */\n  m() {}\n}\n// end\n",
+        ),
+        (
+            Language::Python,
+            "# top\ndef f(a):\n    \"\"\"doc\"\"\"\n    # first\n    x = 1\n    for y in a:\n        x += y\n        # last\n    return x\n# end\n",
+        ),
+        (
+            Language::Go,
+            "package p\n\n// F does it.\nfunc F(a []int) int {\n\t// first\n\tx := 0\n\tfor _, y := range a {\n\t\tx += y // inline\n\t}\n\t// trailing\n\treturn x\n}\n",
+        ),
+        (
+            Language::Java,
+            "class C {\n  // field\n  int n;\n  /** doc */\n  int f(int[] a) {\n    int x = 0;\n    // loop\n    for (int y : a) { x += y; }\n    return x; // inline\n    // trailing\n  }\n}\n",
+        ),
+        (
+            Language::Cpp,
+            "// top\n/// doc\nint f(const std::vector<int>& a) {\n  int x = 0; // inline\n  // loop\n  for (int y : a) { x += y; }\n  return x;\n  // trailing\n}\n",
+        ),
+    ];
+
+    #[test]
+    fn the_field_walk_agrees_with_asking_each_node() {
+        for (language, source) in SAMPLES {
+            let tree = tree_of(language, source);
+            let root = tree.root_node();
+            for scope in descendants(root) {
+                let walked = descendants_with_fields(scope);
+                let asked: Vec<_> = descendants(scope)
+                    .into_iter()
+                    .map(|node| (node, field_name(node)))
+                    .collect();
+                assert_eq!(walked, asked, "{language:?}: {}", kind_of(scope));
+            }
+        }
+    }
+
+    /// The node methods, which search from the root each time: what the walk replaces.
+    fn lead_by_asking<'tree>(
+        profile: &'static crate::profile::LanguageProfile,
+        comment: Node<'tree>,
+    ) -> Option<Node<'tree>> {
+        let mut next = comment.next_named_sibling();
+        while let Some(node) = next {
+            if profile.is_comment(node) {
+                next = node.next_named_sibling();
+                continue;
+            }
+            return Some(node);
+        }
+        comment
+            .parent()
+            .filter(|parent| profile.is_block(*parent))
+            .and_then(|block| block.parent())
+    }
+
+    #[test]
+    fn comment_leads_agree_with_asking_each_comment() {
+        for (language, source) in SAMPLES {
+            let profile = crate::support(language).profile;
+            let tree = tree_of(language, source);
+            let root = tree.root_node();
+            let leads = comment_leads(
+                root,
+                |node| profile.is_comment(node),
+                |node| profile.is_block(node),
+            );
+            let comments: Vec<_> = descendants(root)
+                .into_iter()
+                .filter(|node| profile.is_comment(*node))
+                .collect();
+            assert!(
+                comments.len() >= 4,
+                "{language:?} has too few comments to test"
+            );
+            for comment in comments {
+                assert_eq!(
+                    leads.get(&comment.id()).copied(),
+                    lead_by_asking(profile, comment),
+                    "{language:?}: {}",
+                    text_of(comment, source)
+                );
+            }
+        }
     }
 }

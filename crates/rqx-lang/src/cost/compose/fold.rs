@@ -419,9 +419,17 @@ impl<'g, 'a> Fold<'g, 'a> {
         if guessed {
             self.conf = self.conf.weaker(Conf::Heuristic);
         }
-        let vars = &self.graph.nodes[callee].vars;
-        let sizes = &mut self.sizes;
-        let mut put = |order: &Order| bind(order, vars, arguments, sizes);
+        let orders = [&done.time, &done.space, &done.stack]
+            .into_iter()
+            .chain(done.io.as_ref());
+        let binding = Binding::of(
+            orders,
+            &self.graph.nodes[callee].vars,
+            arguments,
+            &mut self.sizes,
+        );
+        let conf = &mut self.conf;
+        let mut put = |order: &Order| capped(binding.apply(order), conf);
         Some(Callee {
             node: callee,
             time: put(&done.time),
@@ -432,41 +440,77 @@ impl<'g, 'a> Fold<'g, 'a> {
     }
 }
 
-/// The variables a callee's temporaries are renamed to while the caller's sizes are put
-/// in, kept clear of any a function has so a replacement cannot be replaced again.
-const TEMPORARY: SizeId = SizeId::MAX / 2;
+/// The most terms an order keeps once a callee's cost is put in a caller's sizes. Past
+/// it the lightest terms are merged into one that bounds them, which no reader of a
+/// longer sum would miss and which keeps a deep call chain from growing without end.
+pub const MOST_TERMS: usize = 32;
 
-/// `order`, written in the variables of the function it is the cost of, written in
-/// the caller's: a variable that stands for a parameter becomes the size of the
-/// argument passed for it, and any other is a size the caller knows nothing about.
-pub fn bind(
-    order: &Order,
-    callee: &[SizeVar],
-    arguments: &[Order],
-    sizes: &mut Sizes<'_>,
-) -> Order {
-    if order.is_one() || order.is_exponential() {
-        return order.clone();
+/// `order` with no more than [`MOST_TERMS`] terms. A merge makes the order less exact,
+/// so it lowers `conf` to a heuristic.
+pub fn capped(order: Order, conf: &mut Conf) -> Order {
+    match order.widened(MOST_TERMS) {
+        Some(widened) => {
+            *conf = conf.weaker(Conf::Heuristic);
+            widened
+        }
+        None => order,
     }
-    let used: BTreeSet<SizeId> = order
-        .terms()
-        .iter()
-        .flat_map(|term| term.factors())
-        .map(|(variable, _, _)| *variable)
-        .collect();
-    let mut bound = order.clone();
-    for variable in &used {
-        bound = bound.subst(*variable, &Order::var(TEMPORARY.saturating_add(*variable)));
+}
+
+impl Done {
+    /// The answer with each order held to [`MOST_TERMS`].
+    pub fn capped(mut self) -> Self {
+        let conf = &mut self.conf;
+        self.time = capped(self.time, conf);
+        self.space = capped(self.space, conf);
+        self.stack = capped(self.stack, conf);
+        self.io = self.io.map(|io| capped(io, conf));
+        self
     }
-    for variable in used {
-        let replacement = match callee.get(usize::from(variable)).map(|var| &var.src) {
-            Some(SizeSrc::Param(position)) => arguments
-                .get(usize::from(*position))
-                .cloned()
-                .unwrap_or_else(|| sizes.fresh()),
-            _ => sizes.fresh(),
-        };
-        bound = bound.subst(TEMPORARY.saturating_add(variable), &replacement);
+}
+
+/// How a callee's variables read in the sizes of one function that calls it.
+pub struct Binding {
+    replacements: HashMap<SizeId, Order>,
+}
+
+impl Binding {
+    /// A variable that stands for a parameter becomes the size of the argument passed for
+    /// it. Every other size of the callee is one the caller knows nothing about, and all
+    /// of them become one variable standing for the largest of them: an upper bound, and
+    /// one unknown per call rather than one per size, so a chain of calls stays short.
+    pub fn of<'o>(
+        orders: impl IntoIterator<Item = &'o Order>,
+        callee: &[SizeVar],
+        arguments: &[Order],
+        sizes: &mut Sizes<'_>,
+    ) -> Self {
+        let used: BTreeSet<SizeId> = orders
+            .into_iter()
+            .flat_map(Order::terms)
+            .flat_map(|term| term.factors())
+            .map(|(variable, _, _)| *variable)
+            .collect();
+        let mut unknown: Option<Order> = None;
+        let replacements = used
+            .into_iter()
+            .map(|variable| {
+                let argument = match callee.get(usize::from(variable)).map(|var| &var.src) {
+                    Some(SizeSrc::Param(position)) => {
+                        arguments.get(usize::from(*position)).cloned()
+                    }
+                    _ => None,
+                };
+                let replacement = argument
+                    .unwrap_or_else(|| unknown.get_or_insert_with(|| sizes.fresh()).clone());
+                (variable, replacement)
+            })
+            .collect();
+        Self { replacements }
     }
-    bound
+
+    /// `order`, written in the callee's variables, written in the caller's.
+    pub fn apply(&self, order: &Order) -> Order {
+        order.substitute(&|variable| self.replacements.get(&variable).cloned())
+    }
 }

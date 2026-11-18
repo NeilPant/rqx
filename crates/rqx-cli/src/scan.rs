@@ -2949,9 +2949,13 @@ mod tests {
                 .join(format!("rqx-cache-test-{}-{unique}", std::process::id()));
             std::fs::create_dir_all(&root).unwrap();
             let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/typescript");
+            // Only the source files: a scan run on the fixtures by hand leaves its own
+            // `.rqx` cache beside them, which is no part of the project under test.
             for entry in std::fs::read_dir(fixtures).unwrap() {
                 let path = entry.unwrap().path();
-                std::fs::copy(&path, root.join(path.file_name().unwrap())).unwrap();
+                if path.is_file() {
+                    std::fs::copy(&path, root.join(path.file_name().unwrap())).unwrap();
+                }
             }
             let project = Self {
                 root,

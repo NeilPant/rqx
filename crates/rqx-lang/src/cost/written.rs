@@ -52,8 +52,7 @@ const INTRODUCING_FIELDS: [&str; 3] = ["declarator", "name", "pattern"];
 pub fn written_in<'a>(names: &Names<'a>, scope: Node<'a>) -> HashSet<&'a str> {
     let profile = names.profile;
     let mut written = HashSet::new();
-    for node in descendants(scope) {
-        let field = crate::tree::field_name(node);
+    for (node, field) in crate::tree::descendants_with_fields(scope) {
         match field {
             Some("left") => collect_identifiers(names, node, &mut written),
             Some(field) if INTRODUCING_FIELDS.contains(&field) => {
