@@ -67,6 +67,16 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Fixed
 
+- **A line waiver covers only its own line and the next line.** In 0.5.0 an `rqx-ignore`
+  comment also covered matching findings on every line above it, so one waiver at the end
+  of a file silenced every finding of the rule it named in that file: on cobra 1.10.2, one
+  `// rqx-ignore discarded-error` comment at the end of `args_test.go` hid all 36 of that
+  file's `discarded-error` findings. Findings that a waiver was hiding this way are now
+  reported and count towards the health score and the gate. `rqx-ignore-file` is
+  unchanged. A waiver that names something other than a rule, a family, a custom rule or
+  another tool's rule (`tool/rule-id`) waives nothing under that name, and is now
+  reported as `unjustified-suppression` with the closest rule name when there is one.
+
 - **`oversized-module` and `cross-language-duplicate` findings counted as project-wide.** The
   health projection after `rqx fix` and the resolved credit in `rqx comment` no longer drop
   them when only some files are re-analysed.
