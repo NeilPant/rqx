@@ -302,6 +302,59 @@ fn sorting_by_order_time_or_space_ranks_by_the_composed_cost() {
     assert_eq!(by_space[0]["name"], "keepWanted");
 }
 
+fn html_report(root: &Path) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan", "--reporter", "html"])
+        .current_dir(root)
+        .output()
+        .expect("failed to run rqx");
+    String::from_utf8(output.stdout).expect("utf-8")
+}
+
+/// The page is read with nothing beside it and no script, so the derivation is a native
+/// `<details>` under its row, and the row links to the file's findings further down.
+#[test]
+fn the_html_report_ranks_the_slow_functions_with_their_derivations_and_no_script() {
+    let root = shapes("html");
+    let page = html_report(&root);
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(page.contains("<section id=\"performance\""), "a section");
+    assert!(page.contains("<a href=\"#performance\">Performance</a>"));
+    let keep = page
+        .lines()
+        .find(|line| line.contains("<th scope=\"row\">keepWanted</th>"))
+        .expect("a row for the function");
+    assert!(keep.contains("<td>O(n\u{b7}m)</td>"), "{keep}");
+    assert!(keep.contains("verified"), "{keep}");
+    assert!(
+        keep.contains("<a href=\"#shapes.ts\">shapes.ts:13</a>"),
+        "{keep}"
+    );
+    assert!(
+        page.contains("<details class=\"derivation\"><summary>How the cost was derived</summary><pre>keepWanted"),
+        "the derivation sits in a details element"
+    );
+    assert!(!page.contains("<script"), "the page carries no script");
+}
+
+#[test]
+fn a_project_with_nothing_slow_has_no_performance_section() {
+    let root = std::env::temp_dir().join(format!("rqx-perf-quiet-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a temp project");
+    std::fs::write(
+        root.join("quiet.ts"),
+        "export const one = (): number => 1;\n",
+    )
+    .expect("source");
+    let page = html_report(&root);
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(page.contains("<section id=\"summary\""));
+    assert!(!page.contains("id=\"performance\""));
+}
+
 #[test]
 fn the_terminal_table_shows_the_syntactic_order_beside_the_composed_columns() {
     let root = shapes("table");

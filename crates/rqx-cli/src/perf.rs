@@ -8,6 +8,7 @@
 
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::ValueEnum;
@@ -56,6 +57,9 @@ pub struct Line {
 pub struct Row {
     pub name: String,
     pub at: String,
+    /// The file and the byte offset of the function's name, absent for a row that stands
+    /// for several functions.
+    pub place: Option<(Arc<str>, u32)>,
     pub loops: u32,
     pub self_calls: u32,
     /// Counted apart from the other shapes because a round trip shows up as latency
@@ -184,6 +188,7 @@ pub fn rows(outcome: &ScanOutcome) -> Vec<Row> {
                     .clone()
                     .unwrap_or_else(|| "(anonymous)".to_owned()),
                 at: format!("{file}:{}", function.range.line),
+                place: Some((Arc::clone(file), function.range.start)),
                 loops: function.loop_depth,
                 self_calls: function.self_calls,
                 io,
@@ -229,6 +234,13 @@ pub fn ranked(outcome: &ScanOutcome, view: &View) -> Vec<Row> {
     group(rows(outcome), view)
 }
 
+/// How the cost of the function a row stands for was derived, as the lines
+/// `--explain` prints. Absent for a row that stands for several functions.
+pub fn derivation(outcome: &ScanOutcome, row: &Row) -> Option<Vec<String>> {
+    let (file, start) = row.place.as_ref()?;
+    explain::explain_at(outcome, file, *start).map(|explanation| explanation.lines())
+}
+
 fn group(rows: Vec<Row>, view: &View) -> Vec<Row> {
     let mut grouped: Vec<Row> = match view.by {
         By::Function => rows
@@ -251,6 +263,7 @@ fn group(rows: Vec<Row>, view: &View) -> Vec<Row> {
                 let held = worst.entry(key.clone()).or_insert_with(|| Row {
                     name: key,
                     at: String::new(),
+                    place: None,
                     loops: 0,
                     self_calls: 0,
                     io: 0,

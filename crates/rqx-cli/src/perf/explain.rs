@@ -135,23 +135,34 @@ impl Candidate<'_> {
 }
 
 fn candidates(outcome: &ScanOutcome) -> Vec<Candidate<'_>> {
-    let mut found = Vec::new();
-    for (file, shape) in &outcome.shape_by_file {
-        let aligned = outcome
-            .cost_facts
-            .as_ref()
-            .and_then(|facts| facts.of_file(file))
-            .map(|costs| align(shape, costs))
-            .unwrap_or_default();
-        let mut functions: Vec<&FunctionShape> = shape.functions.iter().collect();
-        functions.sort_by_key(|function| (function.range.line, function.range.start));
-        found.extend(functions.into_iter().map(|function| Candidate {
+    outcome
+        .shape_by_file
+        .keys()
+        .flat_map(|file| candidates_in(outcome, file))
+        .collect()
+}
+
+/// The functions of one file, in the order they are written.
+fn candidates_in<'a>(outcome: &'a ScanOutcome, file: &str) -> Vec<Candidate<'a>> {
+    let Some((file, shape)) = outcome.shape_by_file.get_key_value(file) else {
+        return Vec::new();
+    };
+    let aligned = outcome
+        .cost_facts
+        .as_ref()
+        .and_then(|facts| facts.of_file(file))
+        .map(|costs| align(shape, costs))
+        .unwrap_or_default();
+    let mut functions: Vec<&FunctionShape> = shape.functions.iter().collect();
+    functions.sort_by_key(|function| (function.range.line, function.range.start));
+    functions
+        .into_iter()
+        .map(|function| Candidate {
             file,
             function,
             facts: aligned.get(&function.range.start).copied(),
-        }));
-    }
-    found
+        })
+        .collect()
 }
 
 /// The function `target` names: a name, `Class.method`, or `file:line`. More than one is
@@ -181,7 +192,19 @@ fn resolve<'a>(outcome: &'a ScanOutcome, target: &str) -> Result<Candidate<'a>> 
 }
 
 pub fn explain(outcome: &ScanOutcome, target: &str) -> Result<Explanation> {
-    let candidate = resolve(outcome, target)?;
+    resolve(outcome, target).map(|candidate| derive(outcome, &candidate))
+}
+
+/// The derivation for the function of `file` whose name starts at `start`, which is
+/// where a row of the performance table says it is.
+pub fn explain_at(outcome: &ScanOutcome, file: &str, start: u32) -> Option<Explanation> {
+    candidates_in(outcome, file)
+        .into_iter()
+        .find(|candidate| candidate.function.range.start == start)
+        .map(|candidate| derive(outcome, &candidate))
+}
+
+fn derive(outcome: &ScanOutcome, candidate: &Candidate<'_>) -> Explanation {
     let facts = candidate.facts;
     let summary = facts.and_then(|facts| outcome.summaries.get(candidate.file, facts.start));
     let measure = Measure::of(summary, facts);
@@ -222,8 +245,8 @@ pub fn explain(outcome: &ScanOutcome, target: &str) -> Result<Explanation> {
         }
         recursion = recursion_note(&place);
     }
-    let reasons = walk.reasons(&candidate, summary, outcome);
-    Ok(Explanation {
+    let reasons = walk.reasons(candidate, summary, outcome);
+    Explanation {
         name: candidate.name(),
         at: candidate.at(),
         time: measure.expression(&measure.time),
@@ -234,7 +257,7 @@ pub fn explain(outcome: &ScanOutcome, target: &str) -> Result<Explanation> {
         recursion,
         sections,
         reasons,
-    })
+    }
 }
 
 impl Place<'_> {

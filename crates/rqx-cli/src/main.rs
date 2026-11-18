@@ -1509,6 +1509,19 @@ impl View {
     }
 }
 
+/// What a scan has to keep for the reports it will write: the HTML report explains the
+/// cost of the slowest functions, and plain reports need nothing beyond the findings.
+fn comparison_for(sinks: &[Sink]) -> scan::Comparison {
+    if sinks
+        .iter()
+        .any(|sink| sink.reporter == report::Reporter::Html)
+    {
+        scan::Comparison::costed()
+    } else {
+        scan::Comparison::default()
+    }
+}
+
 fn sinks(view: &View) -> Result<Vec<Sink>> {
     let mut sinks = view.reporters.clone();
     if let Some(reporter) = view.format {
@@ -1926,7 +1939,8 @@ fn run() -> Result<Exit> {
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
-                let outcome = scan::scan_drawn(&path, settings, progress)?;
+                let outcome =
+                    scan::scan_drawn_against(&path, settings, progress, comparison_for(&sinks))?;
                 let history = trending.apply(&outcome)?;
 
                 // A bare `rqx scan` reports; it only gates when asked to, so adding a
