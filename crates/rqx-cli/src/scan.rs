@@ -2716,6 +2716,12 @@ pub fn scan(root: &Path, settings: &Resolved) -> Result<ScanOutcome> {
     scan_with(root, settings, None, CachePolicy::FromSettings)
 }
 
+/// A scan that neither reads nor writes the analysis cache, for callers that scan
+/// directories they don't own, such as the fixtures the generated docs quote.
+pub fn scan_uncached(root: &Path, settings: &Resolved) -> Result<ScanOutcome> {
+    scan_with(root, settings, None, CachePolicy::Off)
+}
+
 pub fn scan_with_progress(root: &Path, settings: &Resolved, watch: Watch) -> Result<ScanOutcome> {
     scan_with(root, settings, Some(watch), CachePolicy::FromSettings)
 }

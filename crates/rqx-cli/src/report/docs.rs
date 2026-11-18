@@ -282,7 +282,7 @@ fn examples(fixtures: &Path) -> BTreeMap<RuleId, Example> {
         else {
             continue;
         };
-        let Ok(outcome) = crate::scan::scan(&root, &settings) else {
+        let Ok(outcome) = crate::scan::scan_uncached(&root, &settings) else {
             continue;
         };
         for finding in &outcome.findings {
@@ -314,7 +314,7 @@ fn advice_examples(fixtures: &Path) -> BTreeMap<AdviceId, Example> {
         else {
             continue;
         };
-        let Ok(outcome) = crate::scan::scan(&root, &settings) else {
+        let Ok(outcome) = crate::scan::scan_uncached(&root, &settings) else {
             continue;
         };
         for advice in &outcome.advice {
