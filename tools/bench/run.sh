@@ -122,13 +122,27 @@ python3 -I - "$out" "${baseline:+yes}" <<'EOF'
 import json, os, sys
 
 out, paired = sys.argv[1], sys.argv[2] == "yes"
+
+
+def mean(result):
+    # hyperfine 1.x puts the mean on the result; newer releases, which also measure
+    # memory, nest it under the wall-time measurement.
+    if "mean" in result:
+        return result["mean"]
+    for key in ("wall_time", "time"):
+        nested = result.get(key)
+        if isinstance(nested, dict) and "mean" in nested:
+            return nested["mean"]
+    sys.exit(f"run.sh: no mean in hyperfine's result; keys: {sorted(result)}")
+
+
 print("summary (mean seconds; change is current against baseline)")
 for scenario in ("cold", "warm", "warm-after-edit"):
     with open(os.path.join(out, scenario + ".json")) as f:
         results = json.load(f)["results"]
-    current = results[-1]["mean"]
+    current = mean(results[-1])
     if paired:
-        base = results[0]["mean"]
+        base = mean(results[0])
         change = (current - base) / base * 100
         print(f"  {scenario:<17} baseline {base:8.3f}   current {current:8.3f}   {change:+6.1f}%")
     else:
