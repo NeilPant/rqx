@@ -152,6 +152,12 @@ them. `tools/release.sh` turns that section into the release notes.
   key, so the first scan after an edit analyses every file again. Projects without
   custom rules see no change.
 
+- **rqx no longer overflows the stack at startup on Windows.** On Windows the program
+  exited without printing anything, with the status `0xC00000FD`, because the command
+  line parser needs more than the 1 MB that Windows gives the main thread. rqx now runs
+  on a thread with an 8 MB stack on every platform. Exit codes, the behaviour on a
+  closed pipe and the message printed on a panic are unchanged.
+
 ## 0.5.1 — 2026-11-18
 
 
