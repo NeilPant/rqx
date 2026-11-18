@@ -32,6 +32,9 @@ struct Scope {
     /// A name assigned at class level is a field, not a local, however the language
     /// spells it.
     holds_members: bool,
+    /// Opened by a function or inside one. A name declared anywhere else is visible
+    /// to the rest of the module, package or class, which other files can read.
+    local: bool,
     /// Name to index into `bindings`. A name declared twice in one scope keeps the
     /// first, which is what a reader resolves to before the second line is reached.
     names: HashMap<String, usize>,
@@ -60,6 +63,12 @@ impl Scopes {
             .filter(move |binding| binding.kind == kind)
     }
 
+    /// Whether a binding in this scope belongs to a function body rather than to the
+    /// file, package, namespace or class that other files can reach.
+    pub fn is_local(&self, scope: usize) -> bool {
+        self.scopes.get(scope).is_some_and(|scope| scope.local)
+    }
+
     pub fn depth(&self, scope: usize) -> usize {
         let mut depth = 0;
         let mut current = Some(scope);
@@ -82,11 +91,12 @@ struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    fn open(&mut self, parent: Option<usize>, holds_members: bool) -> usize {
+    fn open(&mut self, parent: Option<usize>, holds_members: bool, local: bool) -> usize {
         self.scopes.push(Scope {
             parent,
             names: HashMap::new(),
             holds_members,
+            local,
         });
         self.scopes.len() - 1
     }
@@ -199,7 +209,8 @@ impl<'a> Builder<'a> {
         let holds_members = self.profile.is_class(node)
             || above.is_some_and(|parent| self.profile.is_class(parent));
         let inner = if opens {
-            self.open(Some(scope), holds_members)
+            let local = self.scopes[scope].local || self.profile.is_function(node);
+            self.open(Some(scope), holds_members, local)
         } else {
             scope
         };
@@ -251,7 +262,7 @@ pub fn resolve(profile: &'static LanguageProfile, source: &str, root: Node<'_>) 
         scopes: Vec::new(),
         references: Vec::new(),
     };
-    let file = builder.open(None, false);
+    let file = builder.open(None, false, false);
     builder.walk(root, None, file);
     builder.resolve()
 }

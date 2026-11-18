@@ -4786,9 +4786,13 @@ pub fn unused_imports_over(
     spots
 }
 
+/// Only names a function declares. A package, module or class level name may be read
+/// by another file, including one a build tag or platform suffix leaves out of this
+/// scan, so finding no reference in this file does not show that it is unused.
 fn unused_locals(scopes: &Scopes) -> Vec<Spot> {
     let mut spots: Vec<Spot> = scopes
         .of_kind(BindingKind::Local)
+        .filter(|binding| scopes.is_local(binding.scope))
         .filter(|binding| binding.references.is_empty() && !binding.name.starts_with('_'))
         .map(|binding| Spot {
             span: binding.span,

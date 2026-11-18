@@ -848,7 +848,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("unused-export", 46),
                 ("unused-file", 1),
                 ("unused-fixture", 1),
-                ("unused-local", 6),
+                ("unused-local", 3),
                 ("unused-parameter", 43),
                 ("unused-private-member", 10),
                 ("vague-function-name", 2),

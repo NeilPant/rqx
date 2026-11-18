@@ -355,6 +355,9 @@ impl<'src> Rewriter<'src> {
             self.profile.declarator_kinds.contains(&kind_of(node))
                 || self.profile.local_declaring_kinds.contains(&kind_of(node))
         })?;
+        // A declaration outside a function belongs to the module or package, and
+        // another file may read it.
+        climb(declarator, |node| self.profile.is_function(node))?;
         if self.has_effect(declarator, name) {
             return None;
         }
@@ -671,6 +674,33 @@ export const used = live;
             rewriter.verify("fixture", &config, &analysis.findings, &elsewhere),
             Err(Withheld::Survives(_))
         ));
+    }
+
+    /// `var preExecHookFn` in cobra's `command_win.go` is read by `command.go`, and a
+    /// C++ global by every file that includes its `extern` declaration.
+    #[test]
+    fn a_package_level_declaration_is_never_an_unused_local() {
+        for (language, source) in [
+            (
+                Language::Go,
+                "package cobra\n\nvar preExecHookFn = func(c int) {}\n",
+            ),
+            (Language::Cpp, "int retry_limit = 3;\n"),
+            (Language::Python, "retry_limit = 3\n"),
+            (Language::TypeScript, "let retryLimit = 3\n"),
+        ] {
+            let config = RqxConfig::default();
+            let analysis = crate::analyze_as(language, "fixture", source, &config).unwrap();
+            assert!(
+                !analysis
+                    .findings
+                    .iter()
+                    .any(|finding| finding.rule == RuleId::UnusedLocal),
+                "{language:?}: {:?}",
+                analysis.findings
+            );
+            assert_eq!(fixed(language, source), source, "{language:?}");
+        }
     }
 
     /// One source per language carrying all four syntactic-span rules, and the file
