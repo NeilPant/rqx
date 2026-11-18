@@ -22,6 +22,12 @@ them. `tools/release.sh` turns that section into the release notes.
   the error and drops the byte count, was reported. With several targets the rule now
   reads the last one, where Go returns the error, and the message says that the error
   is the result being thrown away.
+- **`ambient-dependency` no longer reports a parameter default or a test file.** A
+  default such as `random: () => number = Math.random` is the injection the rule asks
+  for, and it was reported. A file that registers tests with `describe`, `it` or `test`
+  was checked outside the test bodies, so setup callbacks such as `beforeEach`, mock
+  factories and helper functions were reported for reading the clock or the
+  environment. Such files are now skipped, as `import-time-work` already skips them.
 
 ## 0.5.0 — 2026-11-18
 

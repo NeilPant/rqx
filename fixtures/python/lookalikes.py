@@ -1,4 +1,5 @@
 # Code that resembles a finding and is not one. Every rule should stay silent here.
+import time
 
 
 # output-parameter: a class-level annotation declares a field, even when a method
@@ -23,3 +24,9 @@ def counted(items: list[str]) -> int:
     factor = len(items)
     factor += 1
     return factor
+
+
+# ambient-dependency: the clock is a parameter, and the ambient one is only its
+# default.
+def elapsed_since(start: float, clock=time.time) -> float:
+    return clock() - start

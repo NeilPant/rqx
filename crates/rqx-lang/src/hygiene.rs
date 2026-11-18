@@ -2105,8 +2105,9 @@ impl<'a> Walker<'a> {
             return;
         }
         // Only inside a body: a file-level constant reading the environment once is
-        // configuration, and every caller can see it happen.
-        if !self.inside_body(node) {
+        // configuration, and every caller can see it happen. A parameter's default
+        // is the injection the rule asks for, with the ambient source as the fallback.
+        if !self.inside_body(node) || self.inside_parameter(node) {
             return;
         }
         self.out.ambient_dependencies.push(Spot {
@@ -2120,6 +2121,23 @@ impl<'a> Walker<'a> {
         let mut parent = node.parent();
         while let Some(current) = parent {
             if self.profile.is_function(current) {
+                return true;
+            }
+            parent = current.parent();
+        }
+        false
+    }
+
+    /// Whether the node is part of a parameter's declaration, which in practice means
+    /// its default value: `(clock = () => Date.now())` is the fallback as much as
+    /// `(now = Date.now)` is.
+    fn inside_parameter(&self, node: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if profile.parameter_kinds.contains(&kind_of(current))
+                || profile.parameter_list_kinds.contains(&kind_of(current))
+            {
                 return true;
             }
             parent = current.parent();
@@ -5032,9 +5050,13 @@ pub fn collect_over(
         block_depth: 0,
     };
     walker.walk(root);
-    // A test file is a list of registrations, and registering is the whole of what
-    // loading it is for — which is only knowable once the file has been read.
-    if !walker.holds_tests {
+    // Whether the file holds tests is only knowable once it has been read. A test file
+    // is a list of registrations, and registering is the whole of what loading it is
+    // for. Its setup, mocks and helpers reach for the clock and the environment to
+    // arrange a case, which is the test controlling them, not depending on them.
+    if walker.holds_tests {
+        walker.out.ambient_dependencies.clear();
+    } else {
         walker.note_import_time_work(root);
     }
     // Which names the file shares is only settled once every declaration has been

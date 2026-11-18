@@ -11,3 +11,9 @@ export function counted(items) {
   factor += 1;
   return factor;
 }
+
+// ambient-dependency: the clock and the random source are parameters, and the
+// ambient ones are only their defaults.
+export function delay(base, random = Math.random, clock = () => Date.now()) {
+  return base * random() + clock();
+}
