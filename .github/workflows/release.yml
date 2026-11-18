@@ -11,8 +11,7 @@ permissions:
 
 jobs:
   # Everything that can disagree with the tag, before anything is built. A tag is
-  # hard to take back once a release, a crates.io version and seven npm packages
-  # hang off it.
+  # hard to take back once a release and seven npm packages hang off it.
   check:
     runs-on: ubuntu-latest
     outputs:
@@ -36,7 +35,7 @@ jobs:
             tagged="${GITHUB_REF_NAME#v}"
             [ "$tagged" = "$manifest" ] || {
               echo "::error::tag v$tagged does not match Cargo.toml $manifest — \
-          the assets and the published crate would carry different versions"
+          the assets and the npm packages would carry different versions"
               exit 1
             }
           fi
@@ -68,17 +67,6 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: node --test npm/exit-codes.test.js
-
-      # Catches a missing `description`, a path dependency without a version, an
-      # excluded file something needs — all of which only fail at publish time,
-      # which is after the tag exists.
-      #
-      # `--workspace` rather than one crate at a time: packaging `rqx-lang` on its own
-      # resolves `rqx-core` from the registry, which has not got this version yet, so
-      # every release would fail its own check.
-      - name: Crates would publish
-        run: cargo package --workspace --locked
-
 
   # One binary per platform npm has a name for. Every row builds natively, so there
   # is no cross-compiler, no container and no emulator anywhere in here — and every
@@ -259,39 +247,6 @@ jobs:
           files: |
             dist/rqx-*.tar.gz
             dist/SHA256SUMS
-
-  crates:
-    needs: [check, publish]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    environment: crates.io
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-
-      # `--workspace` publishes the three in dependency order and waits for each to
-      # index before the next needs it. Doing it by hand meant a `sleep` chosen by
-      # guess, and a crate that published against a version the registry had not
-      # finished serving.
-      - name: Publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          set -uo pipefail
-          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
-            echo "::notice::CARGO_REGISTRY_TOKEN is not set; skipping crates.io"
-            exit 0
-          fi
-          if output="$(cargo publish --workspace --locked 2>&1)"; then
-            echo "$output"
-          elif grep -q "already exists\|already uploaded" <<<"$output"; then
-            # A re-run after a half-finished publish, not a failure.
-            echo "$output"
-            echo "::notice::some crates were already on crates.io"
-          else
-            echo "$output" >&2
-            exit 1
-          fi
 
   # Seven packages: one binary each behind `os`/`cpu`, and `@rqx/cli` on top of them
   # as optional dependencies npm resolves at install time.

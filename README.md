@@ -120,9 +120,11 @@ the release's `SHA256SUMS`; any mismatch installs nothing and exits 2. A copy un
 package manager owns marks itself with `RQX_MANAGED`, and `rqx update` then reads the
 notes and points at that manager rather than replacing a file it does not own.
 
-A release is one tag. It builds six binaries, one per platform, and publishes them
-beside the crates from the same commit, so one version number identifies the same
-code in every channel. Every asset is checksummed in `SHA256SUMS` on the release.
+A release is one tag. It builds six binaries, one per platform, and publishes them as a
+GitHub release, and the install scripts download those same binaries, so one version
+number identifies the same code in every channel. rqx is not published on crates.io,
+where the name `rqx` belongs to another project; build from source with `--git` as
+shown above. Every asset is checksummed in `SHA256SUMS` on the release.
 
 Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
 prints the configuration each one needs. See [Editors](#editors).

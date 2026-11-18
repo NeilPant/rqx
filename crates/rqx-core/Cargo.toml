@@ -10,7 +10,7 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "The rule catalogue, findings, scoring and configuration behind rqx."
-documentation = "https://docs.rs/rqx-core"
+documentation = "https://github.com/jadhamwi21/rqx/tree/main/docs"
 
 [dependencies]
 dunce = "1.0.5"
