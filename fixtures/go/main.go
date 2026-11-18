@@ -158,6 +158,10 @@ func main() {
 	_ = fixtures.UpdateFailure
 	_ = fixtures.ZoneLabel
 	_ = fixtures.TimeoutBudget
+	_ = fixtures.Labelled
+	_ = fixtures.Divide
+	_ = fixtures.Writer
+	_ = fixtures.Branch
 	_ = ParsedOrZero
 	_ = cyclea.Orbit
 }

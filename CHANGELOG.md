@@ -15,8 +15,18 @@ them. `tools/release.sh` turns that section into the release notes.
   assignment whose target had the name of a parameter anywhere in the file, so a local
   declared with `:=`, a class-level annotation in Python, and a local that shared a name
   with another function's parameter were all reported. The target is now resolved
-  through the file's scopes and must be a parameter of an enclosing function. A named
-  result in a Go signature is not counted, and each parameter is reported once.
+  through the file's scopes and must be a parameter of an enclosing function. A Go
+  receiver, a named result in a Go signature and a name inside a function type in a
+  signature are not counted, and each parameter is reported once.
+- **`unused-parameter` reads only a function's parameter list.** The rule took the
+  last parameter list in a signature, which in Go is the result list when the results
+  are in parentheses, and in a C++ trailing return type or a TypeScript return type
+  can be the list of a function type. Result types such as `ShellCompDirective`, named
+  results, and the parameters of a returned function type were reported as unused
+  parameters. The list the grammar marks as the parameters is now read, and a
+  parameter written as a bare type, such as Go's `func(int)`, has no name to report.
+  The `TEST(Suite, Name)` macros of GoogleTest are no longer read as two unused
+  parameters either.
 - **`discarded-error` reads the error position of a Go assignment with several
   targets.** It looked only at the first target, so `_, err := w.Write(b)`, which keeps
   the error and drops the byte count, was reported. With several targets the rule now

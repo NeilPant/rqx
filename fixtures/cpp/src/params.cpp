@@ -15,3 +15,8 @@ int respects_underscore(int used, const std::string& _deliberate) {
 int two_dead_on_one_line(int used, const std::string& deadA, const std::string& deadB) {
     return used;
 }
+
+// unused-parameter: `value` belongs to the function type in the trailing return type.
+auto adder(int step) -> std::function<int(int value)> {
+    return [step](int current) { return current + step; };
+}

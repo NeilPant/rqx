@@ -54,3 +54,8 @@ function shout(payload: string): string {
 
 events.on("shout", shout);
 events.on("trim", (payload: string) => payload.trim());
+
+// unused-parameter: `value` belongs to the function type the result is declared as.
+export function adder(step: number): (value: number) => number {
+  return (current) => current + step;
+}

@@ -125,5 +125,6 @@ int main() {
     update_failure("a");
     zone_label();
     timeout_budget();
+    adder(1)(2);
     return 0;
 }

@@ -38,17 +38,29 @@ impl<'a> Grader<'a> {
         // Named field first: a grammar that counts type names as identifiers would
         // otherwise answer `String` for `String subject`, and then find that name
         // used nowhere.
-        if let Some(declared) = self
+        let declared = self
             .profile
             .binding_fields
             .iter()
-            .find_map(|field| parameter.child_by_field_name(field))
-            .filter(|node| self.profile.is_identifier(*node))
-        {
+            .find_map(|field| parameter.child_by_field_name(field));
+        if let Some(declared) = declared.filter(|node| self.profile.is_identifier(*node)) {
             return Some((text_of(declared, self.source), declared));
         }
+        // A parameter written as a bare type, Go's `func(int)` or C++'s `f(Row*)`, has
+        // no name at all, and the identifier inside its type is not one.
+        let type_span = declared
+            .is_none()
+            .then(|| parameter.child_by_field_name("type"))
+            .flatten()
+            .map(span_of);
         crate::tree::descendants(parameter)
             .into_iter()
+            .filter(|child| {
+                type_span.is_none_or(|within| {
+                    let span = span_of(*child);
+                    span.start < within.start || span.end > within.end
+                })
+            })
             .find(|child| self.profile.is_identifier(*child))
             .map(|child| (text_of(child, self.source), child))
     }
@@ -83,13 +95,7 @@ impl<'a> Grader<'a> {
         if function.child_by_field_name("body").is_none() {
             return;
         }
-        let Some(list) = find_within(
-            function,
-            self.profile.parameter_list_kinds,
-            self.profile.block_kinds,
-        )
-        .into_iter()
-        .next_back() else {
+        let Some(list) = input_list(self.profile, function) else {
             return;
         };
         let mut cursor = list.walk();
@@ -247,6 +253,52 @@ impl<'a> Grader<'a> {
             self.exported_depth -= 1;
         }
     }
+}
+
+/// The parameter list a function's callers fill. A Go signature can hold three lists,
+/// receiver, parameters and results, and a function type written in a signature
+/// brings its own, so the one the grammar files under `parameters` is preferred.
+pub(crate) fn input_list<'tree>(
+    profile: &LanguageProfile,
+    function: Node<'tree>,
+) -> Option<Node<'tree>> {
+    let lists = find_within(function, profile.parameter_list_kinds, profile.block_kinds);
+    lists
+        .iter()
+        .copied()
+        .find(|list| crate::tree::field_name(*list) == Some("parameters"))
+        .or_else(|| lists.last().copied())
+}
+
+/// Whether a parameter binding is one of its function's inputs, rather than a Go
+/// receiver or named result, or a name inside a function type in the signature.
+pub(crate) fn is_input_parameter(
+    profile: &LanguageProfile,
+    root: Node<'_>,
+    name: rqx_core::span::Span,
+) -> bool {
+    let mut current = root.descendant_for_byte_range(name.start as usize, name.end as usize);
+    let mut list = None;
+    let mut below = None;
+    while let Some(node) = current {
+        if list.is_none() && profile.parameter_list_kinds.contains(&kind_of(node)) {
+            list = Some(node);
+        }
+        if profile.is_function(node) {
+            // `x => x + 1` and Java's `x -> x + 1` name their one parameter with no
+            // list around it.
+            let lone = below.is_some_and(|child| {
+                matches!(
+                    crate::tree::field_name_under(node, child),
+                    Some("parameter" | "parameters")
+                )
+            });
+            return lone || (list.is_some() && input_list(profile, node) == list);
+        }
+        below = Some(node);
+        current = node.parent();
+    }
+    false
 }
 
 pub fn unused(

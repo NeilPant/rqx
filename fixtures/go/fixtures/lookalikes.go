@@ -51,3 +51,40 @@ func TimeoutBudget() int {
 	idleTimeoutSeconds := 30
 	return connectTimeoutSeconds + readTimeoutSeconds + idleTimeoutSeconds
 }
+
+// output-parameter: walking up from the receiver moves a local copy of the pointer,
+// and `label` below is declared by :=, not the parameter of the function type.
+type Branch struct {
+	parent *Branch
+}
+
+func (b *Branch) Attach(parent *Branch) {
+	b.parent = parent
+}
+
+func (b *Branch) Root() *Branch {
+	for b.parent != nil {
+		b = b.parent
+	}
+	return b
+}
+
+func Labelled(name string, format func(label string) string) string {
+	label := "[" + name + "]"
+	return format(label)
+}
+
+// unused-parameter: results, named or not, and the parameters of a function type
+// in the signature are not inputs.
+func Divide(total, parts int) (share int, err error) {
+	if parts == 0 {
+		return 0, io.ErrShortWrite
+	}
+	return total / parts, nil
+}
+
+func Writer() func(w io.Writer, text string) (int, error) {
+	return func(out io.Writer, body string) (int, error) {
+		return io.WriteString(out, body)
+	}
+}
