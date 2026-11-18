@@ -9,8 +9,10 @@ mod commands;
 mod completion;
 mod delta;
 mod editor;
+mod fullscreen;
 mod fuzzy;
 mod job;
+mod long_output;
 mod motion;
 mod owl;
 mod prompt;
@@ -18,6 +20,7 @@ mod recall;
 pub(crate) mod sprite;
 mod text;
 mod view;
+mod viewer;
 mod viewport;
 mod watching;
 
@@ -40,6 +43,7 @@ use crate::term::{self, Decline};
 use commands::{Action, Context, Invocation, Parsed, Target, WatchMode};
 use completion::{Catalogue, Suggestion};
 use job::{Finished, Job};
+use long_output::LongOutput;
 use motion::Motion;
 use owl::Owl;
 use prompt::Prompt;
@@ -77,7 +81,7 @@ pub struct Launch<'a> {
 pub fn launch(options: Launch<'_>) -> Result<(), Decline> {
     let setup = |error: &dyn std::fmt::Display| Decline::SetupFailed(error.to_string());
     let viewport = Viewport::open(SCANNING_ROWS).map_err(|error| setup(&error))?;
-    term::install_panic_hook(viewport::restore);
+    term::install_panic_hook(fullscreen::restore);
     let farewell = App::new(options, viewport)
         .run()
         .map_err(|error| setup(&error))?;
@@ -121,6 +125,7 @@ struct App {
     catalogue: Catalogue,
     menu: MenuState,
     last_interrupt: Option<Instant>,
+    output: LongOutput,
     quit: bool,
 }
 
@@ -215,6 +220,7 @@ impl App {
             catalogue: Catalogue::new([]),
             menu: MenuState::default(),
             last_interrupt: None,
+            output: LongOutput::default(),
             quit: false,
         }
     }
@@ -457,8 +463,7 @@ impl App {
     }
 
     fn print_output(&mut self, bytes: &[u8]) -> Result<()> {
-        let lines = ansi::lines(&String::from_utf8_lossy(bytes), self.viewport.width());
-        self.viewport.print(&lines)?;
+        self.output.print(&mut self.viewport, bytes)?;
         Ok(())
     }
 
@@ -468,6 +473,7 @@ impl App {
             KeyCode::Char('d') if control => self.quit = true,
             KeyCode::Char('c') if control => self.interrupt(),
             _ if self.job.is_some() => {}
+            KeyCode::Char('o') if control => self.output.open(&mut self.viewport, &self.look)?,
             KeyCode::Esc if self.asking.is_some() => self.cancel_asking()?,
             KeyCode::Char('?')
                 if !control && self.asking.is_none() && self.prompt.text().is_empty() =>
@@ -625,6 +631,7 @@ impl App {
             return Ok(());
         }
         self.recall.append(&line);
+        self.output.running(line.trim());
         self.viewport
             .print(&[view::echo(&self.look, line.trim())])?;
         match parsed {
@@ -657,6 +664,7 @@ impl App {
             }
             Parsed::Watch(mode) => self.watch(mode),
             Parsed::Open(target) => self.open(target),
+            Parsed::OpenLast => Ok(self.output.open(&mut self.viewport, &self.look)?),
             Parsed::Printed(bytes) => self.print_output(&bytes),
             Parsed::Command(invocation) => self.run_command(*invocation),
         }

@@ -76,6 +76,12 @@ impl Viewport {
         Ok(())
     }
 
+    /// Draws every row again on the next `draw`, for when something else has had the
+    /// screen, such as the viewer on the alternate screen.
+    pub fn repaint(&mut self) -> io::Result<()> {
+        self.screen.clear()
+    }
+
     pub fn width(&self) -> u16 {
         crossterm::terminal::size().map_or(80, |(columns, _)| columns)
     }
