@@ -56,6 +56,9 @@ pub fn explain(rule: RuleId, palette: Palette, out: &mut dyn Write) -> Result<()
         severity.label(),
         confidence.label()
     )?;
+    if let Some(measured) = rqx_core::precision::measured(slug) {
+        writeln!(out, "  {}", measured.line())?;
+    }
     let exempt: Vec<String> = rqx_core::Language::ALL
         .into_iter()
         .filter_map(|language| {
@@ -306,4 +309,35 @@ pub fn techniques(palette: Palette, out: &mut dyn Write) -> Result<()> {
         prescribed.len()
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::brand::ColorDepth;
+
+    fn explained(rule: RuleId) -> String {
+        let mut out = Vec::new();
+        explain(rule, Palette::with_depth(ColorDepth::Monochrome), &mut out)
+            .expect("writing to memory cannot fail");
+        String::from_utf8(out).expect("the page is text")
+    }
+
+    #[test]
+    fn a_rule_the_corpus_scores_says_how_often_it_was_right() {
+        let measured =
+            rqx_core::precision::measured("scan-in-loop").expect("the corpus scores scan-in-loop");
+        let said = explained(RuleId::ScanInLoop);
+        assert!(said.contains(&measured.line()), "{said}");
+        assert!(
+            said.contains("on the rqx corpus, synthetic + real)"),
+            "{said}"
+        );
+    }
+
+    #[test]
+    fn a_rule_the_corpus_does_not_score_says_nothing_of_precision() {
+        assert!(rqx_core::precision::measured("long-function").is_none());
+        assert!(!explained(RuleId::LongFunction).contains("Measured precision"));
+    }
 }

@@ -109,7 +109,8 @@ pub fn rule(slug: &str) -> Option<Value> {
     let rule = RuleId::ALL.iter().find(|rule| rule.spec().slug == slug)?;
     let spec = rule.spec();
     let fixes = spec.fixes.iter().map(|fix| fix.name()).collect::<Vec<_>>();
-    let markdown = format!(
+    let measured = rqx_core::precision::measured(spec.slug);
+    let mut markdown = format!(
         "# `{}`\n\n**{}**\n\n{}\n\n**Measured by** {}\n\n**Fix — {}**\n",
         spec.slug,
         spec.category.title(),
@@ -117,14 +118,23 @@ pub fn rule(slug: &str) -> Option<Value> {
         spec.metric,
         fixes.join(" / "),
     );
-    Some(json!({
+    let mut answer = json!({
         "slug": spec.slug,
         "category": spec.category.title(),
         "metric": spec.metric,
         "why": spec.why,
         "fixes": fixes,
-        "markdown": markdown,
-    }))
+    });
+    if let Some(measured) = measured {
+        markdown.push_str(&format!("\n{}\n", measured.line()));
+        answer["measuredPrecision"] = json!({
+            "precision": measured.precision(),
+            "correct": measured.correct,
+            "reported": measured.reported,
+        });
+    }
+    answer["markdown"] = json!(markdown);
+    Some(answer)
 }
 
 pub fn catalogue() -> Value {

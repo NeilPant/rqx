@@ -558,6 +558,22 @@ fn explain_answers_from_the_catalogue() {
     assert!(!rule["why"].as_str().expect("a reason").is_empty());
     assert!(!rule["fixes"].as_array().expect("fixes").is_empty());
 
+    assert!(
+        rule.get("measuredPrecision").is_none(),
+        "a rule the corpus does not score has no measured precision"
+    );
+    let scored = session.structured("explain", json!({ "name": "scan-in-loop" }));
+    let precision = scored["measuredPrecision"]["precision"]
+        .as_f64()
+        .expect("a measured precision");
+    assert!((0.0..=1.0).contains(&precision));
+    assert!(
+        scored["markdown"]
+            .as_str()
+            .expect("a page")
+            .contains("Measured precision:")
+    );
+
     let pattern = session.structured("explain", json!({ "name": "decorator" }));
     assert_eq!(pattern["name"], json!("Decorator"));
 
