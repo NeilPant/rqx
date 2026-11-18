@@ -611,7 +611,7 @@ fn write_finding(
             paint(palette.style(ink), finding.severity.label()),
             paint(palette.style(Ink::Muted), place()),
             paint(palette.style(Ink::Accent), finding.slug()),
-            finding.evidence
+            finding.message()
         )
         .map_err(Into::into);
     }
@@ -629,7 +629,7 @@ fn write_finding(
         write_excerpt(out, layout, finding, index)?;
     }
 
-    write_prose(out, layout, 5, "", &finding.evidence.to_string(), None)?;
+    write_prose(out, layout, 5, "", &finding.message(), None)?;
     // A rule the project wrote has already said why in its own message; the
     // catalogue's rationale belongs to a rule rqx ships.
     let fresh = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
@@ -1078,10 +1078,7 @@ fn write_architecture(
                     finding.location.file, finding.location.line
                 )
             ),
-            paint(
-                layout.palette.style(Ink::Danger),
-                finding.evidence.to_string()
-            )
+            paint(layout.palette.style(Ink::Danger), finding.message())
         )?;
     }
     Ok(())

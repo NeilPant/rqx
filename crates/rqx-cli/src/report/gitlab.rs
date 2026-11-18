@@ -78,7 +78,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         .iter()
         .zip(fingerprints)
         .map(|(finding, fingerprint)| Entry {
-            description: format!("{} — {}", finding.evidence, finding.rule.spec().why),
+            description: format!("{} — {}", finding.message(), finding.rule.spec().why),
             check_name: finding.slug().to_owned(),
             fingerprint,
             severity: severity(finding.severity),

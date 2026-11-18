@@ -898,7 +898,7 @@ fn write_finding(
     writeln!(
         out,
         "<p class=\"evidence\">{}</p>",
-        markup(&finding.evidence.to_string())
+        markup(&finding.message())
     )?;
     if !matches!(finding.evidence, Evidence::Custom { .. }) {
         writeln!(

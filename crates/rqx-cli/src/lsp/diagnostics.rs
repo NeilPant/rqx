@@ -72,7 +72,7 @@ fn message_for(finding: &Finding) -> String {
     } else {
         format!("\n\nFix: {}", finding.fix_hint)
     };
-    format!("{}{confidence}{why}{fix}", finding.evidence)
+    format!("{}{confidence}{why}{fix}", finding.message())
 }
 
 /// The generated reference is one page per family with a heading per rule, so the
@@ -173,7 +173,7 @@ pub fn hover_markdown(finding: &Finding) -> String {
     format!(
         "**{}**\n\n{}\n\n{}\n\n**Fix — {}**\n\n{}\n\n---\n\n*{}*",
         spec.slug,
-        finding.evidence,
+        finding.message(),
         spec.why,
         spec.fixes
             .iter()

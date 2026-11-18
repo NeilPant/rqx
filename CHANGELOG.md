@@ -22,6 +22,15 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Changed
 
+- **Finding messages name the subject and the numbers.** About a hundred rules have a
+  sentence of their own in place of the generic one. `discarded-error` says which call's
+  result is assigned to an ignored name, `magic-number` says how often the literal
+  appears, `branching-test` and `many-exits` count in the singular when the count is 1,
+  and `no-base-case` and `branching-recursion` no longer share one sentence. The sentence
+  appears in the terminal, SARIF, GitLab, GitHub, JUnit, Markdown and HTML reports, in
+  editor diagnostics and in the MCP tools. The `evidence` object in JSON is unchanged,
+  and so are the fingerprints in the GitLab report and in SARIF `partialFingerprints`,
+  which still hash the evidence's own text. `--search` matches both texts.
 - **The terminal marks the focus, not the whole statement.** A finding with a focus
   underlines only that range and shows the rest of its statement as a count of lines.
   A multi-line finding with no focus shows its first line and `⋮ N more lines` instead of

@@ -69,7 +69,7 @@ fn write_overview(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
                 escape(&format!("{prefix}{}", finding.location.file)),
                 finding.location.line,
                 escape(finding.slug()),
-                escape(&finding.evidence.to_string())
+                escape(&finding.message())
             )?;
         }
         let extra = report.findings.len().saturating_sub(TOP_FINDINGS);

@@ -33,7 +33,7 @@ fn encode_property(text: &str) -> String {
 fn annotation(finding: &Finding, prefix: &str) -> String {
     let message = format!(
         "{}\nWhy: {}\nFix: {}",
-        finding.evidence,
+        finding.message(),
         finding.rule.spec().why,
         finding.fix_hint
     );

@@ -10,6 +10,7 @@ pub mod identity;
 pub mod impact;
 pub mod language;
 pub mod line_index;
+pub mod message;
 pub mod naming;
 pub mod ownership;
 pub mod paths;

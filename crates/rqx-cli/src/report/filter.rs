@@ -173,6 +173,7 @@ impl FindingFilter {
         self.text.is_empty()
             || finding.slug().contains(&self.text)
             || finding.location.file.to_lowercase().contains(&self.text)
+            || finding.message().to_lowercase().contains(&self.text)
             || finding
                 .evidence
                 .to_string()

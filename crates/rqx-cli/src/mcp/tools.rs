@@ -1167,7 +1167,7 @@ fn listing(findings: &[&Finding], offset: usize, matched: usize) -> String {
             finding.location.column,
             spec.slug,
             finding.severity.label(),
-            finding.evidence,
+            finding.message(),
             spec.fixes
                 .iter()
                 .map(|fix| fix.name())

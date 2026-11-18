@@ -205,7 +205,7 @@ fn result(finding: &Finding, prefix: &str) -> Value {
         "ruleId": finding.slug(),
         "level": level(finding.severity),
         "message": {
-            "text": format!("{} {} Fix: {}", finding.evidence, spec.why, finding.fix_hint)
+            "text": format!("{} {} Fix: {}", finding.message(), spec.why, finding.fix_hint)
                 .trim_end()
                 .to_owned()
         },
