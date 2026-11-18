@@ -734,6 +734,7 @@ impl Collector {
                     ),
                     related: group.sites.iter().skip(1).cloned().collect(),
                     known: false,
+                    focus: None,
                 },
             );
         }
@@ -799,6 +800,7 @@ impl Collector {
                 },
                 related: others,
                 known: false,
+                focus: None,
             });
         }
         staged
@@ -2124,6 +2126,7 @@ fn build(
         fix_hint,
         related,
         known: false,
+        focus: None,
     }
 }
 
@@ -3225,6 +3228,7 @@ mod tests {
             fix_hint: String::new(),
             related: Vec::new(),
             known: false,
+            focus: None,
         })
     }
 

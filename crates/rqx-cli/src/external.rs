@@ -206,6 +206,7 @@ fn finding_of(run: &Run, tool: &str, entry: &Entry, sources: &mut Sources) -> Op
         fix_hint: descriptor.map(guidance).unwrap_or_default(),
         related: Vec::new(),
         known: false,
+        focus: None,
     })
 }
 

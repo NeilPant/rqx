@@ -8,7 +8,7 @@ use rqx_core::finding::{Finding, Severity};
 use rqx_core::rule::RuleId;
 
 use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
-use crate::preview::{self, HEAD_LINES};
+use crate::preview;
 use crate::regressions::{Regressions, State, named};
 use crate::report::tally::{RuleCount, Tally};
 use crate::report::{Links, Report, plural, wrap};
@@ -677,27 +677,19 @@ fn write_excerpt(
     finding: &Finding,
     index: &LineIndex<'_>,
 ) -> Result<()> {
-    let Some(view) = preview::of(index, &finding.location, layout.context) else {
+    let Some(view) = preview::of_finding(
+        index,
+        &finding.location,
+        finding.focus.as_ref(),
+        layout.context,
+    ) else {
         return Ok(());
     };
     let palette = layout.palette;
     let dim = palette.style(Ink::Muted);
     let ink = severity_ink(finding.severity);
-    let mut elided = view.elided;
 
-    for (position, line) in view.lines.iter().enumerate() {
-        if elided > 0
-            && position == HEAD_LINES + usize::from(layout.context > 0) * layout.context as usize
-        {
-            writeln!(
-                out,
-                "{:6} {} {}",
-                "",
-                paint(dim, "\u{22ee}"),
-                paint(dim, format!("{elided} more lines"))
-            )?;
-            elided = 0;
-        }
+    for line in &view.lines {
         // Context is dimmed so the eye lands on the offending lines first; without it
         // a five-line window reads as five equally important lines.
         let body = match (&line.mark, line.role, palette.is_monochrome()) {
@@ -734,8 +726,21 @@ fn write_excerpt(
                 paint(palette.style(ink), caret)
             )?;
         }
+        if line.gap_after > 0 {
+            writeln!(
+                out,
+                "{:6} {} {}",
+                "",
+                paint(dim, "\u{22ee}"),
+                paint(dim, more_lines(line.gap_after))
+            )?;
+        }
     }
     Ok(())
+}
+
+fn more_lines(count: u32) -> String {
+    format!("{count} more {}", if count == 1 { "line" } else { "lines" })
 }
 
 /// The finding says what is wrong; this says what it costs. A smell in a file

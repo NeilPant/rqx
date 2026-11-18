@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use rqx_core::facts::{Hygiene, Limits, Spot};
+use rqx_core::rule::RuleId;
 use rqx_core::span::Span;
 use tree_sitter::Node;
 
@@ -77,6 +78,21 @@ impl<'a> Walker<'a> {
 
     fn called_name(&self, call: Node<'a>) -> Option<String> {
         self.names().called_name(call)
+    }
+
+    /// What a call is named by, receiver included and arguments left out: the part of
+    /// a call a finding is about when the call is the whole statement.
+    fn callee_span(&self, call: Node<'a>) -> Option<Span> {
+        let callee = call.child_by_field_name(self.profile.callee_field)?;
+        (self.profile.is_call(call) && callee.end_byte() > call.start_byte())
+            .then(|| Span::new(call.start_byte() as u32, callee.end_byte() as u32))
+    }
+
+    /// The name a declaration is introduced by, as the part of it a finding is about.
+    fn focus_on_name(&mut self, rule: RuleId, declaration: Node<'a>) {
+        if let Some(name) = self.function_name(declaration) {
+            self.out.focus(rule, span_of(declaration), span_of(name));
+        }
     }
 
     /// How many separate decisions one condition holds. A run of the same operator is
@@ -565,6 +581,14 @@ impl<'a> Walker<'a> {
                     detail: "else".to_owned(),
                     count: 1,
                 });
+                if self.text(alternative).starts_with("else") {
+                    let keyword = alternative.start_byte() as u32;
+                    self.out.focus(
+                        RuleId::RedundantElse,
+                        span_of(alternative),
+                        Span::new(keyword, keyword + "else".len() as u32),
+                    );
+                }
             }
             // Some languages make the alternative the block itself and others wrap it
             // in an `else` clause; only the wrapper is worth seeing through.
@@ -1123,6 +1147,11 @@ impl<'a> Walker<'a> {
             detail: format!("{} to {target}", self.text(name)),
             count: 1,
         });
+        self.out.focus(
+            RuleId::PassthroughFunction,
+            span_of(function),
+            span_of(name),
+        );
     }
 
     /// The call a statement is, whether it is returned or stands on its own. Only the
@@ -1532,6 +1561,7 @@ impl<'a> Walker<'a> {
                 detail: name,
                 count: behaviour.len() as u32,
             });
+            self.focus_on_name(RuleId::StaticOnlyClass, class);
         }
     }
 
@@ -2074,6 +2104,10 @@ impl<'a> Walker<'a> {
                 detail: name,
                 count: 1,
             });
+            if let Some(callee) = self.callee_span(call) {
+                self.out
+                    .focus(RuleId::ImportTimeWork, span_of(statement), callee);
+            }
         }
     }
 
@@ -2114,6 +2148,10 @@ impl<'a> Walker<'a> {
             detail: dotted,
             count: 1,
         });
+        if let Some(callee) = self.callee_span(node) {
+            self.out
+                .focus(RuleId::AmbientDependency, span_of(node), callee);
+        }
     }
 
     fn inside_body(&self, node: Node<'a>) -> bool {
@@ -3057,6 +3095,7 @@ impl<'a> Walker<'a> {
                 detail: name,
                 count,
             });
+            self.focus_on_name(RuleId::ManyCollaborators, class);
         }
     }
 
@@ -3709,6 +3748,8 @@ impl<'a> Walker<'a> {
                 .unwrap_or_else(|| "the call".to_owned()),
             count: 1,
         });
+        self.out
+            .focus(RuleId::DiscardedError, span_of(node), span_of(target));
     }
 
     fn note_exits(&mut self, function: Node<'a>) {

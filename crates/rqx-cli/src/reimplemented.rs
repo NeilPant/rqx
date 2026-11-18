@@ -177,5 +177,6 @@ fn finding(added: &str, location: SourceRange, existing: &Existing, likeness: Li
         fix_hint,
         related: vec![existing.range.clone()],
         known: false,
+        focus: None,
     }
 }

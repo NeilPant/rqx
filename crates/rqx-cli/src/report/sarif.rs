@@ -77,6 +77,19 @@ fn location(range: &SourceRange, prefix: &str) -> Value {
     )
 }
 
+/// Where a finding is reported. `region` stays the finding's location, so an alert a
+/// consumer already holds keeps its place; a finding that narrowed itself down adds
+/// the range to the location's property bag as `focus`.
+fn finding_location(finding: &Finding, prefix: &str) -> Value {
+    let mut value = location(&finding.location, prefix);
+    if let Some(focus) = &finding.focus {
+        let narrowed = location(focus, prefix);
+        value["physicalLocation"]["properties"] =
+            json!({ "focus": narrowed["physicalLocation"]["region"] });
+    }
+    value
+}
+
 /// `lines` are the first line, the first column and the last line.
 fn place(file: &str, lines: (u32, u32, u32), prefix: &str) -> Value {
     let (line, column, end_line) = lines;
@@ -196,7 +209,7 @@ fn result(finding: &Finding, prefix: &str) -> Value {
                 .trim_end()
                 .to_owned()
         },
-        "locations": [location(&finding.location, prefix)],
+        "locations": [finding_location(finding, prefix)],
         "properties": {
             "confidence": match finding.confidence {
                 rqx_core::finding::Confidence::Verified => "verified",
@@ -341,6 +354,7 @@ mod tests {
             fix_hint: "split it".to_owned(),
             related: Vec::new(),
             known: false,
+            focus: None,
         }
     }
 
@@ -386,6 +400,24 @@ mod tests {
         for result in run["results"].as_array().unwrap() {
             assert!(described.contains(&result["ruleId"].as_str().unwrap()));
         }
+    }
+
+    #[test]
+    fn a_focus_is_added_beside_the_region_and_never_replaces_it() {
+        let mut focused = finding(RuleId::LongFunction, 10);
+        focused.location.end_line = 14;
+        let mut inner = focused.location.clone();
+        inner.column = 7;
+        inner.end_line = 10;
+        focused.focus = Some(inner);
+        let place = finding_location(&focused, "");
+        let physical = &place["physicalLocation"];
+        assert_eq!(physical["region"]["startColumn"], 3);
+        assert_eq!(physical["region"]["endLine"], 14);
+        assert_eq!(physical["properties"]["focus"]["startColumn"], 7);
+        assert_eq!(physical["properties"]["focus"]["endLine"], 10);
+        let plain = finding_location(&finding(RuleId::LongFunction, 10), "");
+        assert!(plain["physicalLocation"].get("properties").is_none());
     }
 
     #[test]

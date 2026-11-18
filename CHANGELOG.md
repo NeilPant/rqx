@@ -9,6 +9,24 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **A finding can carry a `focus`.** It is the exact range that is the problem, inside
+  the statement or declaration that `location` covers. `discarded-error` focuses on the
+  name that discards the value, `ambient-dependency` and `import-time-work` on the
+  call's name without its arguments, `redundant-else` on the `else` keyword, and
+  `passthrough-function`, `static-only-class` and `many-collaborators` on the
+  declaration's name. `location` is unchanged, so baselines and waivers keep matching.
+  In `--reporter json` the key `focus` is present only when a rule set it. In SARIF the
+  focus is `physicalLocation.properties.focus`, and `region` is unchanged.
+
+### Changed
+
+- **The terminal marks the focus, not the whole statement.** A finding with a focus
+  underlines only that range and shows the rest of its statement as a count of lines.
+  A multi-line finding with no focus shows its first line and `⋮ N more lines` instead of
+  one row of carets per line.
+
 ## 0.5.0 — 2026-11-18
 
 ### Added

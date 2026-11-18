@@ -88,8 +88,21 @@ pub struct CostSite {
     pub depth: u32,
 }
 
+/// The part of a spot that is the problem, when the spot is a whole statement or
+/// declaration. Kept beside the spots rather than on them so a rule that has nothing
+/// narrower to say needs no change; `rules::check_hygiene` joins the two by rule and
+/// span.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct Focus {
+    pub rule: crate::rule::RuleId,
+    pub within: Span,
+    pub span: Span,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Hygiene {
+    #[serde(default)]
+    pub focuses: Vec<Focus>,
     /// Waivers a developer wrote next to the code. Not a `Spot`: a waiver carries a
     /// reason and a date, and nothing else here does.
     pub waivers: Vec<crate::suppress::Suppression>,
@@ -232,6 +245,21 @@ pub struct Hygiene {
     /// Accumulators that the source declares as text, which a rule can be sure copy.
     pub typed_text_accumulators: Vec<Spot>,
     pub blocking_in_async: Vec<Spot>,
+}
+
+impl Hygiene {
+    pub fn focus(&mut self, rule: crate::rule::RuleId, within: Span, span: Span) {
+        if span != within && !span.is_empty() {
+            self.focuses.push(Focus { rule, within, span });
+        }
+    }
+
+    pub fn focus_of(&self, rule: crate::rule::RuleId, within: Span) -> Option<Span> {
+        self.focuses
+            .iter()
+            .find(|focus| focus.rule == rule && focus.within == within)
+            .map(|focus| focus.span)
+    }
 }
 
 #[derive(Clone, Copy)]
