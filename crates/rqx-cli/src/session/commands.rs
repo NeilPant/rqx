@@ -472,6 +472,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             sort,
             top,
             min_depth,
+            explain,
             profile,
             json,
             printing,
@@ -489,7 +490,10 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
                 min_depth,
             };
             let outcome = context.scanned()?;
-            print(|out| render::perf(outcome, &view, json, context.settings, palette, out))
+            print(|out| match &explain {
+                Some(target) => render::perf_explain(outcome, target, json, palette, out),
+                None => render::perf(outcome, &view, json, context.settings, palette, out),
+            })
         }
         Command::Graph {
             path,
@@ -1078,6 +1082,53 @@ mod tests {
                     "{line} differs from its command line twin"
                 );
             }
+        }
+
+        #[test]
+        fn slash_perf_explain_prints_what_the_command_line_twin_prints() {
+            let mut outcome = fixture();
+            let at = rqx_core::finding::SourceRange {
+                file: std::sync::Arc::from("src/api/client.ts"),
+                start: 10,
+                end: 11,
+                line: 4,
+                column: 1,
+                end_line: 4,
+            };
+            outcome
+                .shape_by_file
+                .entry(std::sync::Arc::from("src/api/client.ts"))
+                .or_default()
+                .functions
+                .push(rqx_lang::FunctionShape {
+                    name: Some("handle".to_owned()),
+                    range: at,
+                    end: 60,
+                    last_line: 9,
+                    parameters: 0,
+                    statements: 1,
+                    cognitive_complexity: 0,
+                    max_nesting: 0,
+                    loop_depth: 0,
+                    self_calls: 0,
+                    body: None,
+                });
+            let settings = Resolved::default();
+            let palette = Palette::with_depth(ColorDepth::Truecolor);
+
+            let mut expected = Vec::new();
+            render::perf_explain(&outcome, "handle", false, palette, &mut expected)
+                .expect("the direct rendering");
+
+            assert!(!expected.is_empty());
+            assert_eq!(
+                String::from_utf8_lossy(&via_session(
+                    "/perf --explain handle",
+                    &outcome,
+                    &settings
+                )),
+                String::from_utf8_lossy(&expected)
+            );
         }
 
         #[test]

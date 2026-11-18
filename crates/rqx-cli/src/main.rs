@@ -498,6 +498,15 @@ enum Command {
         /// Skip entries whose loops nest less deeply than this
         #[arg(long, default_value_t = 0)]
         min_depth: u32,
+        /// Show how one function's cost was derived: its loops, where each bound came
+        /// from, what each callee costs and why the analysis is as sure as it is. Name
+        /// it as `name`, `Class.method` or `file:line`
+        #[arg(
+            long,
+            value_name = "FUNCTION",
+            conflicts_with_all = ["by", "sort", "top", "min_depth"]
+        )]
+        explain: Option<String>,
         /// A CPU profile; a finding in code that nothing ran stops counting. A V8
         /// .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are
         /// detected by content.
@@ -1500,6 +1509,19 @@ impl View {
     }
 }
 
+/// What a scan has to keep for the reports it will write: the HTML report explains the
+/// cost of the slowest functions, and plain reports need nothing beyond the findings.
+fn comparison_for(sinks: &[Sink]) -> scan::Comparison {
+    if sinks
+        .iter()
+        .any(|sink| sink.reporter == report::Reporter::Html)
+    {
+        scan::Comparison::costed()
+    } else {
+        scan::Comparison::default()
+    }
+}
+
 fn sinks(view: &View) -> Result<Vec<Sink>> {
     let mut sinks = view.reporters.clone();
     if let Some(reporter) = view.format {
@@ -1917,7 +1939,8 @@ fn run() -> Result<Exit> {
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
-                let outcome = scan::scan_drawn(&path, settings, progress)?;
+                let outcome =
+                    scan::scan_drawn_against(&path, settings, progress, comparison_for(&sinks))?;
                 let history = trending.apply(&outcome)?;
 
                 // A bare `rqx scan` reports; it only gates when asked to, so adding a
@@ -2213,6 +2236,7 @@ fn run() -> Result<Exit> {
             sort,
             top,
             min_depth,
+            explain,
             profile,
             json,
             printing,
@@ -2228,7 +2252,8 @@ fn run() -> Result<Exit> {
                     .collect();
             }
             let sinks = printing.sinks(json)?;
-            let outcome = scan::scan_drawn(&path, &settings, progress)?;
+            let outcome =
+                scan::scan_drawn_against(&path, &settings, progress, scan::Comparison::costed())?;
             let view = perf::View {
                 by,
                 sort,
@@ -2236,14 +2261,11 @@ fn run() -> Result<Exit> {
                 min_depth,
             };
             sink::deliver(&sinks, palette, |rendering, palette, out| {
-                render::perf(
-                    &outcome,
-                    &view,
-                    rendering.is_json(),
-                    &settings,
-                    palette,
-                    out,
-                )
+                let json = rendering.is_json();
+                match &explain {
+                    Some(target) => render::perf_explain(&outcome, target, json, palette, out),
+                    None => render::perf(&outcome, &view, json, &settings, palette, out),
+                }
             })
             .map(|()| Exit::Clean)
         }

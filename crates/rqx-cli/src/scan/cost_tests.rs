@@ -189,23 +189,42 @@ fn scan_keeping_costs(tree: &Tree) -> ScanOutcome {
         &tree.settings,
         None,
         CachePolicy::Off,
-        Comparison {
-            reference: None,
-            keep_costs: true,
-        },
+        Comparison::costed(),
         None,
     )
     .unwrap()
 }
 
 #[test]
+fn the_kept_facts_say_which_functions_each_call_reached() {
+    let tree = Tree::with(&[("caller.ts", CALLER), ("finder.ts", FINDER_LINEAR)]);
+
+    let kept = scan_keeping_costs(&tree);
+
+    let facts = kept.cost_facts.expect("the facts were asked for");
+    let lookup = facts
+        .of_file("caller.ts")
+        .and_then(|file| {
+            file.functions
+                .iter()
+                .find(|function| function.qual == "lookupAll")
+        })
+        .expect("the caller's facts");
+    assert_eq!(facts.function("caller.ts", lookup.start), Some(lookup));
+    let reached = facts.links.of_function("caller.ts", lookup.start);
+    assert_eq!(reached.len(), 1);
+    assert_eq!(reached[0].len(), 1, "{reached:?}");
+    assert_eq!(reached[0][0].file, "finder.ts");
+}
+
+#[test]
 fn the_cost_facts_are_kept_only_for_a_scan_that_asks_for_them() {
     let tree = Tree::with(&[("caller.ts", CALLER), ("finder.ts", FINDER_LINEAR)]);
 
-    assert!(tree.scan().cost_inputs.is_none());
+    assert!(tree.scan().cost_facts.is_none());
 
     let kept = scan_keeping_costs(&tree);
-    let inputs = kept.cost_inputs.expect("the facts were asked for");
+    let inputs = kept.cost_facts.expect("the facts were asked for");
     let mut names: Vec<&str> = inputs.files().map(|file| file.name).collect();
     names.sort_unstable();
     assert_eq!(names, ["caller.ts", "finder.ts"]);
@@ -218,5 +237,5 @@ fn a_configured_max_order_keeps_the_cost_facts_without_being_asked() {
     config.performance.max_order = Some("O(n)".to_owned());
     tree.settings = Resolved::of(config);
 
-    assert!(tree.scan().cost_inputs.is_some());
+    assert!(tree.scan().cost_facts.is_some());
 }

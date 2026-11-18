@@ -442,6 +442,7 @@ Report code whose work grows faster than its input, ranked by reach
 | `--by` | One row per function, per file, or per directory |
 | `--top` | How many rows |
 | `--min-depth` | Skip entries whose loops nest less deeply than this |
+| `--explain` | Show how one function's cost was derived: its loops, where each bound came from, what each callee costs and why the analysis is as sure as it is. Name it as `name`, `Class.method` or `file:line` |
 | `--profile` | A CPU profile; a finding in code that nothing ran stops counting. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--json` | Emit one JSON object per row |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |

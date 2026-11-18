@@ -103,3 +103,9 @@ under `--strict` a warning makes it `false`.
 The commands that print a table as data (`complexity`, `perf`, `health`, `slop`, `hotspots`,
 `recommend`, `waivers`, `patterns`) write one object per row and no summary. Their
 keys follow the same rules.
+
+In a `perf` row, `order` is the syntactic loop order, read from loop nesting, and `loops`
+is the nesting depth. Both keep their meaning. From 0.5.0 a row also has `time`,
+`space`, `io_order`, `alloc`, `confidence` and `cost`, which come from the cost
+analysis that follows calls across files. `io` is still the count of round trips found
+inside loops. [perf.md](perf.md#json) lists the keys.
