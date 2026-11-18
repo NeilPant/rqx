@@ -131,6 +131,11 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Fixed
 
+- **`rqx config validate` shows config paths relative to the working directory on Windows,
+  with `/` between the parts.** The working directory and the config file's path can be
+  two spellings of one directory there (`RUNNER~1` and `runneradmin`), so the file was
+  shown as a long absolute path in the report and in `--reporter json`.
+
 - **The session keeps the backslashes of a Windows path.** A command typed at the
   prompt, such as `/trend C:\work\trend.ndjson`, treated each backslash as an escape and
   read the path as `C:worktrend.ndjson`. On Windows a backslash is now part of the

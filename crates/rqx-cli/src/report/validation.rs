@@ -11,13 +11,19 @@ use crate::config::{Problem, Severity, Validation};
 
 /// Relative to where the command ran when it can be, which is the form a CI log turns
 /// into a link and a person can read at a glance.
+///
+/// The working directory is tried as the system names it and in its canonical form,
+/// because Windows can give the same directory two spellings (`RUNNER~1` and
+/// `runneradmin`), and the config file's path is the canonical one. The parts are joined
+/// with `/` on every platform, like every other path rqx prints.
 pub fn shown_path(path: &Path) -> String {
-    std::env::current_dir()
-        .ok()
-        .and_then(|here| path.strip_prefix(here).ok().map(Path::to_path_buf))
-        .unwrap_or_else(|| path.to_path_buf())
-        .display()
-        .to_string()
+    let relative = std::env::current_dir().ok().and_then(|here| {
+        let canonical = rqx_core::paths::canonical_or_same(&here);
+        [here, canonical]
+            .iter()
+            .find_map(|base| path.strip_prefix(base).ok().map(Path::to_path_buf))
+    });
+    rqx_core::paths::display_path(&relative.unwrap_or_else(|| path.to_path_buf()))
 }
 
 fn place(problem: &Problem) -> Option<String> {
@@ -128,4 +134,26 @@ pub fn json(validation: &Validation, valid: bool, out: &mut dyn Write) -> Result
     };
     writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_under_the_working_directory_is_shown_relative_with_forward_slashes() {
+        let here = std::env::current_dir().unwrap();
+        assert_eq!(
+            shown_path(&here.join("sub").join("rqx.yaml")),
+            "sub/rqx.yaml"
+        );
+        let canonical = rqx_core::paths::canonical_or_same(&here);
+        assert_eq!(shown_path(&canonical.join("rqx.yaml")), "rqx.yaml");
+    }
+
+    #[test]
+    fn a_file_elsewhere_keeps_its_whole_path() {
+        let elsewhere = std::env::temp_dir().join("elsewhere-rqx.yaml");
+        assert!(shown_path(&elsewhere).ends_with("elsewhere-rqx.yaml"));
+    }
 }
