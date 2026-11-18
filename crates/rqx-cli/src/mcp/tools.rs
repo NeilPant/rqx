@@ -502,7 +502,7 @@ impl Rqx {
                     .settings
                     .for_file(&snapshot.outcome.root.join(&*finding.location.file))
                     .fix
-                    .allows(finding.rule)
+                    .admits(finding)
             })
             .collect();
 
@@ -1031,6 +1031,8 @@ struct FixPreview<'a> {
     file: &'a str,
     fixed: Option<&'a fix::FileFix>,
     withheld: Option<&'a fix::Withholding>,
+    /// Fixes `fix.min_confidence` left out of the preview.
+    below_floor: u32,
 }
 
 impl<'a> FixPreview<'a> {
@@ -1039,6 +1041,16 @@ impl<'a> FixPreview<'a> {
             file,
             fixed: outcome.fixes().find(|fixed| fixed.file == file),
             withheld: outcome.withheld().find(|held| held.file == file),
+            below_floor: outcome.below_floor(),
+        }
+    }
+
+    fn floor_note(&self) -> String {
+        match self.below_floor {
+            0 => String::new(),
+            count => format!(
+                "\n\n{count} more fixes are below `fix.min_confidence` and were not applied."
+            ),
         }
     }
 
@@ -1050,19 +1062,21 @@ impl<'a> FixPreview<'a> {
 
     fn digest(&self) -> String {
         let Some(fixed) = self.fixed else {
-            return match self.withheld {
+            let said = match self.withheld {
                 Some(held) => format!(
                     "{} fixes were planned for {} and none is shown: {}",
                     held.edits, self.file, held.reason
                 ),
                 None => format!("No mechanical fix applies to {}.", self.file),
             };
+            return said + &self.floor_note();
         };
         format!(
-            "{} resolves {} of its findings.\n\n```diff\n{}```",
+            "{} resolves {} of its findings.\n\n```diff\n{}```{}",
             self.file,
             fixed.resolved.len(),
-            self.diff()
+            self.diff(),
+            self.floor_note()
         )
     }
 
@@ -1079,6 +1093,7 @@ impl<'a> FixPreview<'a> {
                     "edits": held.edits,
                     "reason": held.reason.to_string(),
                 })),
+                "below_floor": self.below_floor,
             });
         };
         let index = rqx_core::LineIndex::new(&fixed.before);
@@ -1095,6 +1110,7 @@ impl<'a> FixPreview<'a> {
             "edits": edits,
             "resolves": fixed.resolved.iter().map(finding_of).collect::<Vec<_>>(),
             "withheld": null,
+            "below_floor": self.below_floor,
             "next": "Apply the diff, then call `verify` to confirm the findings are gone. \
                      `rqx fix --write` repeats fixing until a round finds nothing.",
         })

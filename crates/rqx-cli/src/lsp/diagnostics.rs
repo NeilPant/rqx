@@ -301,7 +301,7 @@ impl Publisher {
         let findings = findings
             .into_iter()
             .map(|finding| {
-                let autofixable = fix.allows(finding.rule);
+                let autofixable = fix.admits(&finding);
                 (finding, autofixable)
             })
             .collect();

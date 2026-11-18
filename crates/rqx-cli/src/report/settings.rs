@@ -2,6 +2,7 @@ use std::io::Write;
 
 use anyhow::Result;
 use rqx_core::config::{GateGrade, GateSeverity, Level, RqxConfig, Thresholds};
+use rqx_core::finding::Confidence;
 use rqx_core::rule::RuleId;
 use serde::Serialize;
 use serde_json::Value;
@@ -253,6 +254,13 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
             "fix.max_rounds",
             config.fix.max_rounds.to_string(),
             config.fix.max_rounds == 3,
+        ),
+        row(
+            "fix: min confidence",
+            "fix",
+            "fix.min_confidence",
+            format!("{:?}", config.fix.min_confidence).to_lowercase(),
+            config.fix.min_confidence == Confidence::Verified,
         ),
     ];
 

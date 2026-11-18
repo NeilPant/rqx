@@ -37,6 +37,10 @@ const FIXABLE: [(&str, &str, &str, &str); 5] = [
     ),
 ];
 
+/// `FIXABLE` covers heuristic rules too, so the projects that exercise all of it
+/// lower the confidence floor to where rqx 0.5.0 had it.
+const EVERY_CONFIDENCE: (&str, &str) = ("rqx.yaml", "fix:\n  min_confidence: low\n");
+
 fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let root = std::env::temp_dir().join(format!("rqx-fix-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -119,7 +123,7 @@ fn a_preview_writes_nothing() {
 #[test]
 fn every_language_is_fixed_to_the_file_it_should_become() {
     for (language, name, source, expected) in FIXABLE {
-        let root = project(language, &[(name, source)]);
+        let root = project(language, &[(name, source), EVERY_CONFIDENCE]);
         let report = fix(&root, &["--write"]);
 
         assert_eq!(summary_field(&report, "written"), "true", "{language}");
@@ -135,7 +139,7 @@ fn every_language_is_fixed_to_the_file_it_should_become() {
 #[test]
 fn the_findings_the_fixes_answered_are_gone_and_no_others_appeared() {
     let (_, name, source, _) = FIXABLE[0];
-    let root = project("scan-after", &[(name, source)]);
+    let root = project("scan-after", &[(name, source), EVERY_CONFIDENCE]);
     let path = root.to_str().unwrap();
 
     let before = counts_by_rule(&rqx(&[
@@ -176,7 +180,7 @@ fn the_findings_the_fixes_answered_are_gone_and_no_others_appeared() {
 #[test]
 fn fixing_a_fixed_project_changes_nothing() {
     let (_, name, source, expected) = FIXABLE[0];
-    let root = project("idempotent", &[(name, source)]);
+    let root = project("idempotent", &[(name, source), EVERY_CONFIDENCE]);
     fix(&root, &["--write"]);
 
     let again = fix(&root, &["--write"]);
@@ -338,5 +342,26 @@ fn a_go_test_keeps_the_parameter_its_runner_requires() {
     assert!(after.contains("func TestAdd(t *testing.T)"), "{after}");
     assert!(after.contains("func BenchmarkAdd(b *testing.B)"), "{after}");
 
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The default floor applies verified fixes and leaves the heuristic ones, and the
+/// summary counts what it left.
+#[test]
+fn the_default_floor_applies_verified_fixes_and_counts_the_rest() {
+    let (_, name, source, _) = FIXABLE[0];
+    let root = project("floor", &[(name, source)]);
+    let report = fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join(name)).unwrap();
+    assert!(!after.contains("console.log('dead')"), "{after}");
+    assert!(after.contains("// const a = 1;"), "{after}");
+    assert!(
+        summary_field(&report, "below_floor")
+            .parse::<u32>()
+            .unwrap()
+            >= 1,
+        "{report}"
+    );
     let _ = std::fs::remove_dir_all(&root);
 }

@@ -274,6 +274,11 @@
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
+        },
+        "min_confidence": {
+          "$ref": "#/$defs/Confidence",
+          "default": "verified",
+          "description": "The lowest finding confidence whose fix is applied. `verified` by default; `low` applies every mechanical fix, as rqx 0.5.0 did."
         }
       },
       "type": "object"
@@ -10740,7 +10745,8 @@
       "default": {
         "apply": [],
         "disabled": [],
-        "max_rounds": 3
+        "max_rounds": 3,
+        "min_confidence": "verified"
       }
     },
     "gate": {

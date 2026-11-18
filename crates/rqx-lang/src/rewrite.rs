@@ -486,7 +486,7 @@ impl<'src> Rewriter<'src> {
         resolve(
             findings
                 .iter()
-                .filter(|finding| allowed.allows(finding.rule))
+                .filter(|finding| allowed.admits(finding))
                 .flat_map(|finding| self.edit(finding))
                 .collect(),
         )
@@ -581,8 +581,15 @@ mod tests {
     use rqx_core::RqxConfig;
     use rqx_core::edit::apply;
 
+    /// Every confidence, so each rule's edit is exercised; the floor has its own tests.
+    fn every_confidence() -> RqxConfig {
+        let mut config = RqxConfig::default();
+        config.fix.min_confidence = Confidence::Low;
+        config
+    }
+
     fn fixed(language: Language, source: &str) -> String {
-        let config = RqxConfig::default();
+        let config = every_confidence();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
         let rewriter = Rewriter::new(language, false, source).expect("parse");
         let plan = rewriter.plan(&analysis.findings, &config.fix);
@@ -637,7 +644,7 @@ export const used = live;
     }
 
     fn verified(language: Language, source: &str) -> Result<Verified, Withheld> {
-        let config = RqxConfig::default();
+        let config = every_confidence();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
         let rewriter = Rewriter::new(language, false, source).expect("parse");
         let plan = rewriter.plan(&analysis.findings, &config.fix);
@@ -764,6 +771,19 @@ export const used = live;
             ),
             other => panic!("expected the repeated finding to be refused: {other:?}"),
         }
+    }
+
+    #[test]
+    fn the_default_floor_leaves_heuristic_fixes_to_a_person() {
+        let source = "const live = 1;\n// const a = 1;\n// const b = 2;\n// const c = 3;\nexport const used = live;\n";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::TypeScript, "fixture", source, &config).unwrap();
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
+        assert!(rewriter.plan(&analysis.findings, &config.fix).is_empty());
+        assert_eq!(
+            fixed(Language::TypeScript, source),
+            "const live = 1;\nexport const used = live;\n"
+        );
     }
 
     /// Deleting the divider is still the fix; the notice and the link are not part of

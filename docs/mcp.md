@@ -108,7 +108,8 @@ Which fixes `rqx fix` may apply is still set by the `fix` section of the configu
       "start": 214, "end": 241, "removed": "console.log('dead')", "replacement": "" }
   ],
   "resolves": [ { "rule": "unreachable-code", "file": "src/orders.ts", "line": 12 } ],
-  "withheld": null
+  "withheld": null,
+  "below_floor": 0
 }
 ```
 
@@ -116,7 +117,8 @@ Which fixes `rqx fix` may apply is still set by the `fix` section of the configu
 findings the edits answer, in the shape `findings` returns. When no edit is proven,
 `fixable` is false and `diff` is empty. If edits were planned and then withheld, for
 example because applying them would introduce a finding, `withheld` gives the number
-of edits and the reason.
+of edits and the reason. `below_floor` is the number of fixes left out because their
+findings are below `fix.min_confidence`.
 
 The preview is the first round of fixing. `rqx fix --write` repeats until a round
 finds nothing, up to `fix.max_rounds`, so a second preview taken after applying the diff

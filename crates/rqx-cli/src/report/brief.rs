@@ -30,7 +30,7 @@ fn collect<'a>(outcome: &'a ScanOutcome, settings: &Resolved) -> Vec<Item<'a>> {
 
     for finding in &outcome.findings {
         let path = outcome.root.join(&*finding.location.file);
-        if settings.for_file(&path).fix.allows(finding.rule) {
+        if settings.for_file(&path).fix.admits(finding) {
             continue;
         }
         let file = &*finding.location.file;

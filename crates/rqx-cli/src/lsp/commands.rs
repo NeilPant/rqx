@@ -400,7 +400,7 @@ fn source_fixes(server: &Server, params: &CodeActionParams) -> Vec<CodeActionOrC
     let fixable: Vec<_> = server
         .findings_of(&path, &source)
         .into_iter()
-        .filter(|finding| settings.for_file(&path).fix.allows(finding.rule))
+        .filter(|finding| settings.for_file(&path).fix.admits(finding))
         .collect();
     if fixable.is_empty() {
         return Vec::new();
