@@ -291,6 +291,7 @@ mod tests {
                 column: 1,
                 end_line: line,
             },
+            focus: None,
             severity: Severity::Warning,
             confidence: Confidence::Verified,
             evidence: Evidence::ImpreciseType {
