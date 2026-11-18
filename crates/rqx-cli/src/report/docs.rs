@@ -49,7 +49,20 @@ pub fn pages(fixtures: &Path) -> Vec<(PathBuf, String)> {
             pattern_page(family, &advice),
         ));
     }
+    pages.extend(precision_page(fixtures));
     pages
+}
+
+/// How precise the cost analysis was on the precision corpus, from its committed
+/// baseline. A tree without the corpus has no such page rather than an empty one.
+fn precision_page(fixtures: &Path) -> Option<(PathBuf, String)> {
+    let text = std::fs::read_to_string(fixtures.join("complexity/baseline.json")).ok()?;
+    let baseline = rqx_core::precision::Baseline::parse(&text)
+        .expect("fixtures/complexity/baseline.json is a baseline");
+    Some((
+        PathBuf::from("perf-precision.md"),
+        super::precision::page(&baseline),
+    ))
 }
 
 /// The config schema as pretty JSON. Checked in as `docs/rqx.schema.json`, which the

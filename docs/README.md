@@ -14,6 +14,7 @@
 | [trends.md](trends.md) | Recording a snapshot per scan, reading the series with `rqx trend`, charting it in the HTML report, and keeping the file in CI |
 | [health.md](health.md) | How the health score is computed, and what fixing each part would change |
 | [perf.md](perf.md) | Functions whose cost grows faster than their input, and what a CPU profile shows was executed |
+| [perf-precision.md](perf-precision.md) | How often the cost analysis and the performance rules were right on the precision corpus, written and from real projects |
 | [complexity.md](complexity.md) | The measurements behind the thresholds, as a distribution |
 | [graph.md](graph.md) | Reading and exporting the import graph, and finding the edge that closes a cycle |
 | [policy.md](policy.md) | One standard across many repositories, and the keys a project may not change |

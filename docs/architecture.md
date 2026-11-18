@@ -166,11 +166,49 @@ matches.
    and an entry in its test list. A test fails for a rule that claims a mechanical fix
    and has none.
 10. **Generated documentation**: run `cargo run --quiet -- docs`. It rewrites
-    `docs/rules/`, `docs/cli.md`, the manual pages, the schema and the catalogue table
-    in the README. A test fails if the checked-in copies differ.
+    `docs/rules/`, `docs/cli.md`, the manual pages, the schema, `docs/perf-precision.md`
+    and the catalogue table in the README. A test fails if the checked-in copies differ.
 
 Fixtures are deliberate violations. Do not run `rqx fix` over `fixtures/` and do not
 correct the code in them. Run `tools/dev.sh check` before opening a pull request.
+
+## Guide: add a precision corpus case
+
+`fixtures/complexity` holds the functions the cost analysis is scored on, and
+`crates/rqx-cli/tests/complexity_corpus.rs` runs it as part of `cargo test`. A case is
+a function with a comment above it that gives the answer:
+
+```text
+// @complexity time=O(n*m) space=O(n) conf=verified rule=scan-in-loop none=sort-in-loop
+```
+
+(`#` replaces `//` in Python.) `time` and `space` are orders, with `space` counting the
+call stack. `rule` names rules that must report on the function, `none` rules that must
+not, and `may` a rule that describes the same code under another name, such as
+`linear-op-in-loop` beside `scan-in-loop`. `scope=local` says the time is the function's
+own, with no calls, so the extraction alone is held to it.
+
+1. **Add the function** to a file under `fixtures/complexity/<language>/`, or to a
+   directory under `fixtures/complexity/projects/` when the cost depends on a call into
+   another file. Write the annotation from what the code does and not from what
+   `rqx perf` prints for it.
+2. **Read the result.** `cargo test -p rqx --test complexity_corpus -- --nocapture`
+   lists each function that is not exact and each rule mistake. Where the analysis is
+   wrong, leave the annotation as it is. Where the annotation is wrong, correct it.
+3. **Re-bless.** `RQX_BLESS=1 cargo test -p rqx --test complexity_corpus` rewrites
+   `fixtures/complexity/baseline.json` and `crates/rqx-core/src/precision/rules.json`,
+   the copy of the rule counts that `rqx explain` embeds. Then run
+   `cargo run --quiet -- docs` to regenerate `docs/perf-precision.md`. Commit the four
+   files with the case.
+
+The test fails when a function that was exact is no longer exact, and when a language's
+precision or recall, or a rule's right, false alarm or missed count, gets worse than the
+baseline. Re-blessing a lower number is a decision for the commit message to explain.
+
+Functions copied from real projects go under `fixtures/complexity/real/<language>/`
+and are scored in the `real` section of the baseline. Each file names the project and
+commit it was copied from, one of the commits in `tools/bench/corpus.lock`, and the
+project's license text is in `fixtures/complexity/real/NOTICE`.
 
 ## Guide: add a language
 

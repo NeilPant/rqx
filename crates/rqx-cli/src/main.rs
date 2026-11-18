@@ -381,7 +381,8 @@ enum Command {
         run: Run,
     },
     /// Print the catalogue entry for a rule or a pattern: what it maps to, what decides
-    /// it and what fixes it
+    /// it and what fixes it. A performance rule the precision corpus scores also says how
+    /// often it was right there
     Explain { name: String },
     /// List every rule rqx can report, grouped by family
     Rules {

@@ -14,6 +14,7 @@ pub mod naming;
 pub mod ownership;
 pub mod paths;
 pub mod pattern;
+pub mod precision;
 pub mod presets;
 pub mod rule;
 pub mod rule_options;

@@ -15,7 +15,7 @@ def power(base: int, exponent: int) -> int:
     return half * half if exponent % 2 == 0 else half * half * base
 
 
-# @complexity time=O(n log n) space=O(n) conf=verified
+# @complexity time=O(n log n) space=O(n) conf=verified none=branching-recursion
 def merge_sort(values: list[int]) -> list[int]:
     if len(values) <= 1:
         return values

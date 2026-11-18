@@ -222,7 +222,7 @@ Print the settings a run will use, and the file each one came from
 
 ## `rqx explain`
 
-Print the catalogue entry for a rule or a pattern: what it maps to, what decides it and what fixes it
+Print the catalogue entry for a rule or a pattern: what it maps to, what decides it and what fixes it. A performance rule the precision corpus scores also says how often it was right there
 
 | Flag | What it does |
 | --- | --- |

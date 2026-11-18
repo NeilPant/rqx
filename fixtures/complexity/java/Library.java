@@ -24,7 +24,7 @@ public final class Library {
         return hits;
     }
 
-    // @complexity time=O(n) space=O(1) conf=verified none=linear-op-in-loop scope=local
+    // @complexity time=O(n) space=O(1) conf=verified none=linear-op-in-loop,scan-in-loop scope=local
     public static int containsAnyKeyed(List<Integer> values, Set<Integer> wanted) {
         int hits = 0;
         for (int value : values) {
@@ -67,7 +67,7 @@ public final class Library {
         Collections.sort(values);
     }
 
-    // @complexity time=O(n*m) space=O(1) conf=verified scope=local
+    // @complexity time=O(n*m) space=O(1) conf=verified rule=scan-in-loop scope=local
     public static int mentions(String text, List<String> words) {
         int hits = 0;
         for (String word : words) {

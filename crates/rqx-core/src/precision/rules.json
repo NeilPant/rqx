@@ -1,0 +1,45 @@
+{
+  "format": 1,
+  "rules": {
+    "accumulate-by-copy": {
+      "tp": 2,
+      "fp": 2,
+      "fn": 0
+    },
+    "branching-recursion": {
+      "tp": 7,
+      "fp": 3,
+      "fn": 0
+    },
+    "deep-recursion": {
+      "tp": 17,
+      "fp": 0,
+      "fn": 0
+    },
+    "linear-op-in-loop": {
+      "tp": 39,
+      "fp": 0,
+      "fn": 4
+    },
+    "pair-scan-could-hash": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0
+    },
+    "quadratic-via-call": {
+      "tp": 13,
+      "fp": 0,
+      "fn": 2
+    },
+    "repeated-computation-in-loop": {
+      "tp": 20,
+      "fp": 4,
+      "fn": 8
+    },
+    "scan-in-loop": {
+      "tp": 29,
+      "fp": 5,
+      "fn": 23
+    }
+  }
+}
