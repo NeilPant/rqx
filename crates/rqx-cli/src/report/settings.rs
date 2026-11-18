@@ -165,7 +165,7 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
             "skip submodules",
             "scan",
             "scan.skip_submodules",
-            config.scan.skip_submodules.to_string(),
+            config.scan.skip_submodules.label().to_owned(),
             config.scan.skip_submodules == default.scan.skip_submodules,
         ),
         row(

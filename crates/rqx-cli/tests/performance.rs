@@ -88,21 +88,37 @@ fn write(dir: &std::path::Path, path: &str, text: &str) {
     std::fs::write(path, text).expect("writing");
 }
 
-#[test]
-fn a_git_submodule_is_left_out_as_one_entry_unless_the_setting_brings_it_back() {
-    let dir = scratch("submodule");
+/// A project whose `origin` is under `acme`, with one submodule from another
+/// organisation and one beside it under the same organisation.
+fn project_with_submodules(name: &str) -> std::path::PathBuf {
+    let dir = scratch(name);
+    write(
+        &dir,
+        ".git/config",
+        "[remote \"origin\"]\n\turl = git@github.com:acme/app.git\n",
+    );
     write(
         &dir,
         ".gitmodules",
-        "[submodule \"design\"]\n\tpath = design\n\turl = ../design.git\n",
+        "[submodule \"design\"]\n\tpath = design\n\
+         \turl = https://github.com/Other-Org/design.git\n\
+         [submodule \"shared\"]\n\tpath = shared\n\turl = ../shared.git\n",
     );
     write(&dir, "design/.git", "gitdir: ../.git/modules/design\n");
     write(&dir, "design/a.ts", "export const a = 1;\n");
     write(&dir, "design/nested/b.ts", "export const b = 2;\n");
-    write(&dir, "app.ts", "export const app = 3;\n");
+    write(&dir, "shared/.git", "gitdir: ../.git/modules/shared\n");
+    write(&dir, "shared/c.ts", "export const c = 3;\n");
+    write(&dir, "app.ts", "export const app = 4;\n");
+    dir
+}
+
+#[test]
+fn a_foreign_submodule_is_left_out_as_one_entry_and_an_own_one_is_scanned() {
+    let dir = project_with_submodules("submodule");
 
     let summary = summary_of(&dir);
-    assert_eq!(summary["files_scanned"], 1, "{summary}");
+    assert_eq!(summary["files_scanned"], 2, "{summary}");
     assert_eq!(
         summary["skipped_by"]["submodule"],
         serde_json::json!({ "files": 2, "paths": ["design"] }),
@@ -115,28 +131,26 @@ fn a_git_submodule_is_left_out_as_one_entry_unless_the_setting_brings_it_back() 
         "one entry for the whole submodule: {summary}"
     );
     assert!(
-        skipped[0]
-            .as_str()
-            .is_some_and(|line| line.contains("design: a git submodule with 2 source files")),
+        skipped[0].as_str().is_some_and(|line| line.contains(
+            "design: a git submodule hosted at github.com/other-org, with 2 source files"
+        )),
         "{summary}"
     );
 
-    write(&dir, "rqx.yaml", "scan:\n  skip_submodules: false\n");
-    let summary = summary_of(&dir);
-    assert_eq!(summary["files_scanned"], 3, "{summary}");
-    assert_eq!(summary["skipped_by"], serde_json::json!({}), "{summary}");
+    for (setting, scanned) in [("all", 1), ("true", 1), ("none", 4), ("false", 4)] {
+        write(
+            &dir,
+            "rqx.yaml",
+            &format!("scan:\n  skip_submodules: {setting}\n"),
+        );
+        let summary = summary_of(&dir);
+        assert_eq!(summary["files_scanned"], scanned, "{setting}: {summary}");
+    }
 }
 
 #[test]
-fn the_terminal_names_a_skipped_submodule_in_one_line() {
-    let dir = scratch("submodule-footer");
-    write(
-        &dir,
-        ".gitmodules",
-        "[submodule \"design\"]\n\tpath = design\n",
-    );
-    write(&dir, "design/a.ts", "export const a = 1;\n");
-    write(&dir, "app.ts", "export const app = 3;\n");
+fn the_terminal_names_a_foreign_submodule_in_one_line() {
+    let dir = project_with_submodules("submodule-footer");
 
     let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
         .args(["scan", "--no-tui", "--no-pager", "--color", "never"])
@@ -146,7 +160,9 @@ fn the_terminal_names_a_skipped_submodule_in_one_line() {
         .expect("failed to run rqx");
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("skipped 1 file: 1 in submodule design/ \u{b7} -v lists them"),
+        text.contains(
+            "skipped 2 files: 2 in foreign submodule design/ (github.com/other-org) \u{b7} -v lists them"
+        ),
         "{text}"
     );
 }

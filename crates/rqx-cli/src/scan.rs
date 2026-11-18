@@ -26,6 +26,7 @@ use crate::stats::{FileReads, ScanStats};
 
 mod cost_rules;
 pub mod skip;
+mod submodules;
 
 pub use skip::{SkipReason, Skipped};
 
@@ -2619,21 +2620,20 @@ pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::Wa
 fn walker_noting(
     root: &Path,
     config: &RqxConfig,
-    on_submodule: impl Fn(&Path) + Send + Sync + 'static,
+    on_submodule: impl Fn(&submodules::Submodule) + Send + Sync + 'static,
 ) -> Result<ignore::WalkParallel> {
-    let submodules = if config.scan.skip_submodules {
-        skip::submodules_under(root)
-    } else {
-        Vec::new()
-    };
+    let submodules = submodules::left_out(root, config.scan.skip_submodules);
     let pruned: Vec<String> = config.scan.prune_dirs.clone();
     let mut builder = source_walk(root, root, config)?;
     builder.filter_entry(move |entry| {
         if is_pruned(entry, &pruned) {
             return false;
         }
-        if submodules.iter().any(|submodule| submodule == entry.path()) {
-            on_submodule(entry.path());
+        if let Some(submodule) = submodules
+            .iter()
+            .find(|submodule| submodule.path == entry.path())
+        {
+            on_submodule(submodule);
             return false;
         }
         true
@@ -2704,20 +2704,29 @@ fn report_submodule(
     root: PathBuf,
     config: RqxConfig,
     sender: SyncSender<ScanMessage>,
-) -> impl Fn(&Path) + Send + Sync + 'static {
-    move |directory| {
-        let files = source_files_in(&root, directory, &config);
+) -> impl Fn(&submodules::Submodule) + Send + Sync + 'static {
+    move |submodule| {
+        let files = source_files_in(&root, &submodule.path, &config);
         if files == 0 {
             return;
         }
-        let _ = sender.send(ScanMessage::Skipped(Skipped {
-            path: directory.to_owned(),
-            reason: SkipReason::Submodule,
-            detail: format!(
-                "a git submodule with {} (set `scan.skip_submodules: false` to include it)",
-                crate::report::plural(files, "source file", "source files")
+        let holding = crate::report::plural(files, "source file", "source files");
+        let detail = match &submodule.foreign {
+            Some(hosted) => format!(
+                "a git submodule hosted at {hosted}, with {holding} \
+                 (set `scan.skip_submodules: none` to include it)"
             ),
+            None => format!(
+                "a git submodule with {holding} \
+                 (set `scan.skip_submodules: auto` or `none` to include it)"
+            ),
+        };
+        let _ = sender.send(ScanMessage::Skipped(Skipped {
+            path: submodule.path.clone(),
+            reason: SkipReason::Submodule,
+            detail,
             files,
+            foreign: submodule.foreign.clone(),
         }));
     }
 }

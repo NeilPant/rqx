@@ -146,10 +146,11 @@ scan:
   # bundle's runtime. Nobody refactors a file the next generator run overwrites, so
   # every finding in one is noise. Skipped files are listed, not silently dropped.
   skip_generated: true
-  # Leave out the git submodules listed in .gitmodules. A submodule is another
-  # repository pinned at a commit, so its findings are not this project's to fix.
-  # Each skipped submodule is reported with the number of source files in it.
-  skip_submodules: true
+  # Which git submodules listed in .gitmodules to leave out. `auto` leaves out those
+  # hosted under another organisation than this project's `origin` remote; `all`
+  # leaves out every one; `none` scans them all. Each skipped submodule is reported
+  # with the number of source files in it.
+  skip_submodules: auto
   # Skip files that read as minified: a line over 5,000 characters, or lines that
   # average over 300 characters across at least 5. A bundle is not code anyone
   # refactors, and its findings drown the project's own.

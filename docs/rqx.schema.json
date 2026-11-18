@@ -10331,9 +10331,9 @@
           "type": "boolean"
         },
         "skip_submodules": {
-          "default": true,
-          "description": "Leave out the git submodules that `.gitmodules` lists, and report each one as skipped. A submodule is another repository pinned at a commit, so its findings are not the project's to fix.",
-          "type": "boolean"
+          "$ref": "#/$defs/SubmodulePolicy",
+          "default": "auto",
+          "description": "Which git submodules listed in `.gitmodules` to leave out, each reported as skipped. `auto` leaves out those hosted under another organisation than the project's `origin`, `all` leaves out every one, `none` scans them all."
         },
         "threads": {
           "default": 0,
@@ -10352,6 +10352,26 @@
         "error"
       ],
       "type": "string"
+    },
+    "SubmodulePolicy": {
+      "description": "Which git submodules a scan leaves out.",
+      "oneOf": [
+        {
+          "const": "auto",
+          "description": "Leave out a submodule whose URL names another host or organisation than the project's `origin` remote. A relative URL, or a project with no `origin`, counts as the project's own.",
+          "type": "string"
+        },
+        {
+          "const": "all",
+          "description": "Leave out every submodule.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "Scan every submodule as the project's own code.",
+          "type": "string"
+        }
+      ]
     },
     "SubtreeOverride": {
       "additionalProperties": false,
@@ -10939,7 +10959,7 @@
         "sarif_in": [],
         "skip_generated": true,
         "skip_minified": true,
-        "skip_submodules": true,
+        "skip_submodules": "auto",
         "threads": 0
       }
     },

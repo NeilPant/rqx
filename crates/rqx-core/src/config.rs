@@ -1342,6 +1342,66 @@ impl Performance {
     }
 }
 
+/// Which git submodules a scan leaves out.
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum SubmodulePolicy {
+    /// Leave out a submodule whose URL names another host or organisation than the
+    /// project's `origin` remote. A relative URL, or a project with no `origin`, counts
+    /// as the project's own.
+    #[default]
+    Auto,
+    /// Leave out every submodule.
+    All,
+    /// Scan every submodule as the project's own code.
+    None,
+}
+
+impl SubmodulePolicy {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::All => "all",
+            Self::None => "none",
+        }
+    }
+}
+
+/// A boolean is read as the two plain answers, `true` as `all` and `false` as `none`,
+/// so a file written before the setting had three values still means what it said.
+impl<'de> Deserialize<'de> for SubmodulePolicy {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(SubmodulePolicyVisitor)
+    }
+}
+
+struct SubmodulePolicyVisitor;
+
+impl serde::de::Visitor<'_> for SubmodulePolicyVisitor {
+    type Value = SubmodulePolicy;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("`auto`, `all` or `none`")
+    }
+
+    fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<Self::Value, E> {
+        Ok(if value {
+            SubmodulePolicy::All
+        } else {
+            SubmodulePolicy::None
+        })
+    }
+
+    fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+        match value {
+            "auto" => Ok(SubmodulePolicy::Auto),
+            "all" => Ok(SubmodulePolicy::All),
+            "none" => Ok(SubmodulePolicy::None),
+            other => Err(E::unknown_variant(other, &["auto", "all", "none"])),
+        }
+    }
+}
+
 /// `prune_dirs` exists separately from `Ignore::patterns` because a glob still
 /// requires descending into a directory to produce the paths it then rejects,
 /// which on a populated `node_modules` is the difference between skipping a
@@ -1353,10 +1413,10 @@ pub struct Scan {
     pub threads: usize,
     /// Skip files carrying a generator's marker, and list them as skipped.
     pub skip_generated: bool,
-    /// Leave out the git submodules that `.gitmodules` lists, and report each one as
-    /// skipped. A submodule is another repository pinned at a commit, so its findings
-    /// are not the project's to fix.
-    pub skip_submodules: bool,
+    /// Which git submodules listed in `.gitmodules` to leave out, each reported as
+    /// skipped. `auto` leaves out those hosted under another organisation than the
+    /// project's `origin`, `all` leaves out every one, `none` scans them all.
+    pub skip_submodules: SubmodulePolicy,
     /// Skip files that read as minified (a line over 5,000 characters, or lines that
     /// average over 300 characters across at least 5), and list them as skipped.
     pub skip_minified: bool,
@@ -1389,7 +1449,7 @@ impl Default for Scan {
         Self {
             threads: 0,
             skip_generated: true,
-            skip_submodules: true,
+            skip_submodules: SubmodulePolicy::Auto,
             skip_minified: true,
             max_filesize: 1 << 20,
             max_findings: 500,
@@ -1855,7 +1915,7 @@ mod tests {
                 scan: vec![
                     config.scan.threads.to_string(),
                     config.scan.skip_generated.to_string(),
-                    config.scan.skip_submodules.to_string(),
+                    format!("{:?}", config.scan.skip_submodules),
                     config.scan.skip_minified.to_string(),
                     config.scan.max_filesize.to_string(),
                     config.scan.max_findings.to_string(),

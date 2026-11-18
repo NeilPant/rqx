@@ -62,6 +62,8 @@ pub struct Skipped {
     pub detail: String,
     /// The source files the entry stands for.
     pub files: u32,
+    /// `host/organisation` of a submodule hosted elsewhere than the project.
+    pub foreign: Option<String>,
 }
 
 impl Skipped {
@@ -71,6 +73,7 @@ impl Skipped {
             reason,
             detail,
             files: 1,
+            foreign: None,
         }
     }
 
@@ -103,7 +106,7 @@ pub fn tally(skipped: &[Skipped], root: &Path) -> BTreeMap<&'static str, Tally> 
 }
 
 /// The one line a terminal report gives the skipped files: `skipped 412 files: 398 in
-/// submodule design/, 14 minified`. Every submodule is named, so a reader can see which
+/// foreign submodule design/ (github.com/other-org), 14 minified`. Every submodule is named, so a reader can see which
 /// to bring back. `None` when nothing was skipped.
 pub fn summary(skipped: &[Skipped], root: &Path) -> Option<String> {
     if skipped.is_empty() {
@@ -113,11 +116,14 @@ pub fn summary(skipped: &[Skipped], root: &Path) -> Option<String> {
     let mut submodules = Vec::new();
     for entry in skipped {
         if entry.reason == SkipReason::Submodule {
-            submodules.push(format!(
-                "{} in submodule {}/",
-                entry.files,
-                super::relative_to(root, &entry.path)
-            ));
+            let directory = super::relative_to(root, &entry.path);
+            submodules.push(match &entry.foreign {
+                Some(hosted) => format!(
+                    "{} in foreign submodule {directory}/ ({hosted})",
+                    entry.files
+                ),
+                None => format!("{} in submodule {directory}/", entry.files),
+            });
         } else {
             *by_reason.entry(entry.reason).or_default() += entry.files;
         }
@@ -265,57 +271,9 @@ pub fn minified(source: &str) -> Option<String> {
     None
 }
 
-/// The submodules a walk from `root` would enter, as the paths the walker yields for
-/// them. `.gitmodules` is read at `root` and at the repository root above it, whose
-/// entries are relative to that root. A submodule that holds `root` is never one: a
-/// scan started inside a submodule is a scan of that submodule.
-pub fn submodules_under(root: &Path) -> Vec<PathBuf> {
-    let Ok(start) = rqx_core::paths::canonicalize(root) else {
-        return Vec::new();
-    };
-    let repository = start
-        .ancestors()
-        .find(|directory| directory.join(".git").exists());
-    let mut found: Vec<PathBuf> = std::iter::once(start.as_path())
-        .chain(repository.filter(|repository| *repository != start))
-        .flat_map(|listed_at| {
-            let listing =
-                std::fs::read_to_string(listed_at.join(".gitmodules")).unwrap_or_default();
-            submodule_paths(&listing)
-                .filter_map(|path| {
-                    let absolute = path
-                        .split('/')
-                        .fold(listed_at.to_path_buf(), |at, part| at.join(part));
-                    let inside = absolute.strip_prefix(&start).ok()?;
-                    (!inside.as_os_str().is_empty()).then(|| root.join(inside))
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    found.sort();
-    found.dedup();
-    found
-}
-
-/// The `path = …` values of a `.gitmodules` file, which is in git's config format.
-fn submodule_paths(listing: &str) -> impl Iterator<Item = &str> {
-    listing.lines().filter_map(|line| {
-        let (key, value) = line.split_once('=')?;
-        let path = value.trim().trim_matches('"').trim_end_matches('/');
-        (key.trim().eq_ignore_ascii_case("path") && !path.is_empty()).then_some(path)
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn scratch(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("rqx-skip-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).unwrap();
-        rqx_core::paths::canonicalize(&root).unwrap()
-    }
 
     #[test]
     fn a_marker_past_a_wide_character_is_still_found() {
@@ -442,37 +400,6 @@ mod tests {
         assert_eq!(minified(&source), None);
     }
 
-    #[test]
-    fn gitmodules_paths_are_read_with_or_without_quotes_and_slashes() {
-        let listing = "[submodule \"design\"]\n\tpath = design\n\turl = ../design.git\n\
-                       [submodule \"lib\"]\n\tpath = \"vendor/lib/\"\n";
-        assert_eq!(
-            submodule_paths(listing).collect::<Vec<_>>(),
-            ["design", "vendor/lib"]
-        );
-    }
-
-    #[test]
-    fn submodules_are_found_from_the_root_and_from_a_subdirectory_but_not_from_inside() {
-        let root = scratch("submodules");
-        std::fs::create_dir_all(root.join(".git")).unwrap();
-        std::fs::create_dir_all(root.join("app/design/src")).unwrap();
-        std::fs::write(
-            root.join(".gitmodules"),
-            "[submodule \"design\"]\n\tpath = app/design\n",
-        )
-        .unwrap();
-
-        let from_root = submodules_under(&root);
-        let from_app = submodules_under(&root.join("app"));
-        let from_inside = submodules_under(&root.join("app/design/src"));
-        let _ = std::fs::remove_dir_all(&root);
-
-        assert_eq!(from_root, [root.join("app").join("design")]);
-        assert_eq!(from_app, [root.join("app").join("design")]);
-        assert!(from_inside.is_empty(), "{from_inside:?}");
-    }
-
     fn entry(path: &str, reason: SkipReason) -> Skipped {
         Skipped::file(Path::new(path), reason, format!("{reason:?}"))
     }
@@ -486,12 +413,20 @@ mod tests {
             entry("project/b.pb.ts", SkipReason::Generated),
             Skipped {
                 files: 398,
+                foreign: Some("github.com/other-org".to_owned()),
                 ..entry("project/design", SkipReason::Submodule)
+            },
+            Skipped {
+                files: 20,
+                ..entry("project/shared", SkipReason::Submodule)
             },
         ];
         assert_eq!(
             summary(&skipped, root).as_deref(),
-            Some("skipped 401 files: 398 in submodule design/, 2 generated, 1 too large")
+            Some(
+                "skipped 421 files: 398 in foreign submodule design/ (github.com/other-org), \
+                 20 in submodule shared/, 2 generated, 1 too large"
+            )
         );
         assert_eq!(summary(&[], root), None);
     }

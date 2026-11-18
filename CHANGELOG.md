@@ -42,15 +42,21 @@ them. `tools/release.sh` turns that section into the release notes.
   redrawn rows, the owl is still and the header goes straight into scrollback as before.
 
 - **The terminal report sums up skipped files in one line.** For example:
-  `skipped 412 files: 398 in submodule design/, 14 minified · -v lists them`. The
+  `skipped 412 files: 398 in foreign submodule design/ (github.com/other-org), 14
+  minified · -v lists them`. The
   report used to list up to ten skipped files. `-v` lists every skipped file with its
   reason, and the paths are relative to the scanned directory, as finding paths are.
 
-- **Git submodules are no longer scanned by default.** The scan reads `.gitmodules` in
-  the scanned directory, and at the repository root when a subdirectory is scanned,
-  and does not descend into the submodules listed there. A scan started inside a
-  submodule still scans it. Each skipped submodule is reported once, with the number
-  of source files in it. `scan.skip_submodules: false` scans submodules again.
+- **Git submodules from another organisation are no longer scanned by default.** The
+  scan reads `.gitmodules` in the scanned directory, and at the repository root when a
+  subdirectory is scanned. It reduces each submodule's URL and the project's `origin`
+  remote to a host and an organisation, the first segment of the path, so GitLab
+  subgroups of one group count as one organisation. A submodule on another host or
+  under another organisation is not descended into. It is reported once, with its host
+  and organisation and the number of source files in it. A relative URL, or a project
+  without an `origin`, counts as the project's own and is scanned, and so does a
+  submodule that holds the scanned directory. Credentials in a URL are never printed.
+  `scan.skip_submodules: none` scans every submodule and `all` leaves out every one.
 
 - **Minified files are no longer analysed by default.** A file is skipped as minified
   when one of its lines is longer than 5,000 characters, or when it has at least 5
@@ -90,17 +96,18 @@ them. `tools/release.sh` turns that section into the release notes.
   `.gitignore` now describes this.
 
 - **The JSON summary has a `skipped_by` object.** It counts the skipped files per
-  reason: `submodule`, `minified`, `generated`, `too-large`, `unreadable`, `parse-timeout`,
-  `unsupported` and `walk`. Each value is an object with a `files` count, and the
-  `submodule` entry also has `paths`, the skipped submodules relative to the scanned
-  directory. The `skipped` list keeps its
-  `"path: reason"` strings. The MCP `scan` tool result carries the same object, and the
-  language server's `rqx/report` notification carries it as `skippedBy`.
+  reason: `submodule`, `minified`, `generated`, `too-large`, `unreadable`,
+  `parse-timeout`, `unsupported` and `walk`. Each value is an object with a `files`
+  count, and the `submodule` entry also has `paths`, the skipped submodules relative to
+  the scanned directory. The `skipped` list keeps its `"path: reason"` strings. The MCP
+  `scan` tool result carries the same object, and the language server's `rqx/report`
+  notification carries it as `skippedBy`.
 
-- **`scan.skip_submodules` and `scan.skip_minified` settings.** Both default to
-  `true`. Set either to `false` to scan those files as 0.5.1 did. `scan.skip_minified`
-  is part of the cache key, so changing it makes the next scan analyse every file
-  again.
+- **`scan.skip_submodules` and `scan.skip_minified` settings.** `scan.skip_submodules`
+  takes `auto` (the default), `all` or `none`, and reads `true` as `all` and `false` as
+  `none`. `scan.skip_minified` defaults to `true`; `false` analyses minified files as
+  0.5.1 did. `scan.skip_minified` is part of the cache key, so changing it makes the
+  next scan analyse every file again.
 
 ### Fixed
 
