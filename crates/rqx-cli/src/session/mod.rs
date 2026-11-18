@@ -17,6 +17,7 @@ mod menu;
 mod motion;
 mod owl;
 mod prompt;
+mod reaction;
 mod recall;
 pub(crate) mod sprite;
 mod text;
@@ -51,6 +52,7 @@ use menu::MenuState;
 use motion::Motion;
 use owl::{Owl, Verdict};
 use prompt::Prompt;
+use reaction::Reaction;
 use recall::Recall;
 use sprite::Sprite;
 use view::{Idle, Look, Menu, MenuRow, SCANNING_ROWS};
@@ -123,6 +125,8 @@ struct App {
     outcome: Option<Arc<ScanOutcome>>,
     progress: ScanProgress,
     job: Option<(Job<Done>, Busy)>,
+    /// A later scan's verdict, played by the busy owl in the rows the job just left.
+    reaction: Option<Reaction>,
     opening: Opening,
     watcher: Option<Watcher>,
     /// Where the findings the summary listed are, which `/open 2` counts in.
@@ -198,6 +202,7 @@ impl App {
             outcome: None,
             progress: ScanProgress::default(),
             job: None,
+            reaction: None,
             opening: Opening::default(),
             watcher: None,
             listing: Vec::new(),
@@ -263,8 +268,13 @@ impl App {
         brand::mascot_ink(self.health())
     }
 
+    /// The busy rows are up while a job runs and while its scan's verdict is played.
+    fn busy(&self) -> bool {
+        self.job.is_some() || self.reaction.is_some()
+    }
+
     fn wanted_rows(&self) -> u16 {
-        if self.job.is_some() {
+        if self.busy() {
             SCANNING_ROWS
         } else {
             view::idle_rows(self.menu_rows()) + self.opening_rows()
@@ -295,7 +305,7 @@ impl App {
         }
         self.menu.reveal(self.menu_window());
         self.viewport.resize(self.wanted_rows())?;
-        let wheel = menu::wants_wheel(self.wheel, self.menu.visible(), self.job.is_some());
+        let wheel = menu::wants_wheel(self.wheel, self.menu.visible(), self.busy());
         self.viewport.capture_wheel(wheel)?;
         Ok(())
     }
@@ -328,7 +338,20 @@ impl App {
                 Busy::Running(doing) => view::busy_lines(look, spinner, doing),
             };
             self.viewport
-                .draw(|frame| view::working(frame, look, owl, text))?;
+                .draw(|frame| view::working(frame, look, owl, text, view::CANCEL_HINT))?;
+            return Ok(());
+        }
+        if let Some(reaction) = &self.reaction {
+            let owl = self.owl.reacting(
+                reaction.verdict(),
+                reaction.elapsed(),
+                look.palette,
+                reaction.ink(),
+            );
+            let text =
+                view::result_lines(look, reaction.ink(), reaction.health(), reaction.findings());
+            self.viewport
+                .draw(|frame| view::working(frame, look, owl, text, ""))?;
             return Ok(());
         }
         let opening = self.live_opening();
@@ -383,7 +406,7 @@ impl App {
 
     fn wakeup(&self) -> Duration {
         let watching = self.watcher.as_ref().map_or(QUIET, Watcher::wakeup);
-        let own = if self.job.is_some() {
+        let own = if self.busy() {
             motion::FRAME
         } else if self.opening.live().is_some() {
             self.owl.next_change(&self.motion).unwrap_or(QUIET)
@@ -395,7 +418,14 @@ impl App {
 
     fn tick(&mut self) -> Result<()> {
         self.tick_job()?;
+        self.tick_reaction();
         self.tick_watcher()
+    }
+
+    fn tick_reaction(&mut self) {
+        if self.reaction.as_ref().is_some_and(Reaction::is_over) {
+            self.reaction = None;
+        }
     }
 
     fn tick_watcher(&mut self) -> Result<()> {
@@ -460,7 +490,8 @@ impl App {
 
     /// The scan is what the session knows from here on. The first one opens the session:
     /// the header and the worst findings stay live above the prompt while the owl wakes
-    /// up. A later one prints its findings into scrollback the moment it lands.
+    /// up. A later one prints its findings into scrollback the moment it lands, and the
+    /// busy owl stays on screen for the reaction to its verdict.
     fn adopt(&mut self, outcome: ScanOutcome) -> Result<()> {
         let outcome = Arc::new(outcome);
         self.outcome = Some(Arc::clone(&outcome));
@@ -469,7 +500,11 @@ impl App {
         self.refresh_menu();
         let verdict = Verdict::of(self.health());
         match self.opening.show(view::summary(&self.look, &outcome)) {
-            Some(summary) => self.print(&summary),
+            Some(summary) => {
+                self.print(&summary)?;
+                self.react_to(&outcome);
+                Ok(())
+            }
             None if self.motion.reduced() => self.settle_opening(),
             None => {
                 self.owl.enter(&self.motion);
@@ -477,6 +512,17 @@ impl App {
                 Ok(())
             }
         }
+    }
+
+    /// The busy rows the job leaves behind stay for the owl's reaction. The summary is
+    /// already in scrollback by now, so the reaction only holds those rows.
+    fn react_to(&mut self, outcome: &ScanOutcome) {
+        self.reaction = Reaction::after_scan(
+            health_of(outcome),
+            outcome.counts.total,
+            self.motion.reduced(),
+            terminal_rows(),
+        );
     }
 
     /// Everything the session prints goes through here, so the live header and summary
@@ -557,6 +603,11 @@ impl App {
 
     fn handle(&mut self, key: KeyEvent) -> Result<()> {
         self.owl.typed(&self.motion);
+        // The key ends the reaction and is then handled like any other. The rows go back
+        // to the prompt's first, so what the key prints is sized for the prompt.
+        if self.reaction.take().is_some() {
+            self.fit_viewport()?;
+        }
         let control = key.modifiers.contains(KeyModifiers::CONTROL);
         match key.code {
             KeyCode::Char('d') if control => self.quit = true,
