@@ -105,6 +105,25 @@ scheme, with `{path}`, `{line}` and `{column}` filled in, such as
 `vscode://file/{path}:{line}:{column}`. A report written to a file or a pipe contains
 no links unless colour is forced on.
 
+`rqx scan` and `rqx check` send a long `terminal` report through a pager, as git does
+with its output. The pager is `$RQX_PAGER`, else `$PAGER`, else `less -FRX`. The report
+is paged only when all of these hold:
+
+- stdout is a terminal and no CI variable is set;
+- every reporter that writes to stdout is `terminal`;
+- the report needs more rows than the window has, keeping one row for the shell
+  prompt;
+- the run is not `rqx scan --watch`.
+
+Everything else, including a pipe, a file and a document reporter, is printed
+without a pager. `--no-pager`, an empty `RQX_PAGER` or a pager of `cat` turns paging off. An
+empty `PAGER` counts as unset. If the pager cannot be started, the report is printed
+directly. Quitting the pager before the end of the report leaves the exit code
+unchanged, and while the pager runs, `ctrl-c` goes to the pager and does not stop
+rqx. The pager command is split on whitespace and quotes are not interpreted. When
+`LESS` is not set, rqx sets it to `FRX` for the pager, so `PAGER=less` keeps the
+colours. Output on stderr, such as progress and the `-vv` timings, is never paged.
+
 The progress bar is drawn only when stderr is a terminal and the run is not in CI.
 `--progress` (or `RQX_PROGRESS`) selects what a scan reports:
 

@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-waive \- Waive one finding with a comment in the source that states a reason
 .SH SYNOPSIS
-\fBrqx waive\fR [\fB\-\-reason\fR] [\fB\-\-until\fR] [\fB\-\-whole\-file\fR] [\fB\-\-dry\-run\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIFILE:LINE\fR> <\fIRULE\fR> 
+\fBrqx waive\fR [\fB\-\-reason\fR] [\fB\-\-until\fR] [\fB\-\-whole\-file\fR] [\fB\-\-dry\-run\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIFILE:LINE\fR> <\fIRULE\fR> 
 .SH DESCRIPTION
 Waive one finding with a comment in the source that states a reason
 .SH OPTIONS
@@ -92,6 +92,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-no\-pager\fR
+Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

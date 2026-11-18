@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-scan \- Analyze a project and report every finding
 .SH SYNOPSIS
-\fBrqx scan\fR [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-advice\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-no\-tui\fR] [\fB\-\-watch\fR] [\fB\-\-color\fR] [\fB\-\-record\fR] [\fB\-\-motion\fR] [\fB\-\-trend\fR] [\fB\-\-level\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx scan\fR [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-advice\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-no\-tui\fR] [\fB\-\-watch\fR] [\fB\-\-color\fR] [\fB\-\-record\fR] [\fB\-\-motion\fR] [\fB\-\-trend\fR] [\fB\-\-level\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze a project and report every finding
 .SH OPTIONS
@@ -104,6 +104,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-no\-pager\fR
+Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

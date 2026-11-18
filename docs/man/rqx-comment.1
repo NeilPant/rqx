@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-comment \- Post the review as a comment on its merge request, and grade the commit
 .SH SYNOPSIS
-\fBrqx comment\fR [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-regressions\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx comment\fR [\fB\-\-base\fR] [\fB\-\-dry\-run\fR] [\fB\-\-marker\fR] [\fB\-\-no\-status\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-profile\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-regressions\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Post the review as a comment on its merge request, and grade the commit
 .SH OPTIONS
@@ -110,6 +110,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-no\-pager\fR
+Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)
