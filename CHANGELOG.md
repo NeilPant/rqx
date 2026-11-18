@@ -110,6 +110,7 @@ them. `tools/release.sh` turns that section into the release notes.
   `self.f()` when `f` is an async method of the enclosing class, and `Type.f()` when
   `f` is an async method of class `Type` in the file. Calls on any other receiver are
   not reported, because the file does not show what that receiver's method returns.
+
 - **A rule reports the same findings whichever other rules are enabled.** The scan
   built the scope resolver and the collectors only when an enabled rule declared the
   `Semantics` or `Modules` analysis, and most rules declared `Syntax` read those
