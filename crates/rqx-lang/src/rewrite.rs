@@ -3,7 +3,7 @@
 //! and `edit` says so by returning `None` rather than guessing at one.
 
 use std::cell::OnceCell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use rqx_core::config::Fix;
@@ -176,14 +176,22 @@ impl<'src> Rewriter<'src> {
 
         let targeted: BTreeSet<Identity> =
             resolution.kept.iter().map(|edit| edit.answers).collect();
-        let known: BTreeSet<Identity> = before
+        // Counted, not collected into a set: two findings can share an identity (two
+        // identical statements in one function), and an edit that adds another copy
+        // has introduced a finding even though its identity was already known.
+        let mut known: BTreeMap<Identity, usize> = BTreeMap::new();
+        for finding in before
             .iter()
             .filter(|finding| !finding.rule.is_project_scoped())
-            .map(|finding| Identity::resolved(finding, self.source))
-            .collect();
+        {
+            *known
+                .entry(Identity::resolved(finding, self.source))
+                .or_default() += 1;
+        }
 
         let mut survives = Vec::new();
         let mut introduced = Vec::new();
+        let mut seen: BTreeMap<Identity, usize> = BTreeMap::new();
         for finding in after
             .iter()
             .filter(|finding| !finding.rule.is_project_scoped())
@@ -191,7 +199,13 @@ impl<'src> Rewriter<'src> {
             let identity = Identity::resolved(finding, &source);
             if targeted.contains(&identity) {
                 survives.push(finding.clone());
-            } else if !known.contains(&identity) && !finding.rule.spec().autofix.is_automatic() {
+                continue;
+            }
+            let count = seen.entry(identity).or_default();
+            *count += 1;
+            if *count > known.get(&identity).copied().unwrap_or(0)
+                && !finding.rule.spec().autofix.is_automatic()
+            {
                 introduced.push(finding.clone());
             }
         }
@@ -703,6 +717,53 @@ export const used = live;
             rewriter.verify("fixture", &config, &analysis.findings, &elsewhere),
             Err(Withheld::Survives(_))
         ));
+    }
+
+    /// The second `any` has the same rule, file and subject as the first, so a set
+    /// of identities sees nothing new. Counting them sees one more.
+    #[test]
+    fn an_edit_that_repeats_a_known_finding_is_withheld() {
+        let source = "export function f(a: any): number {\n  return 1\n  console.log(a)\n}\n";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::TypeScript, "fixture", source, &config).unwrap();
+        assert_eq!(
+            analysis
+                .findings
+                .iter()
+                .filter(|finding| finding.rule == RuleId::ImpreciseType)
+                .count(),
+            1
+        );
+        let dead = analysis
+            .findings
+            .iter()
+            .find(|finding| finding.rule == RuleId::UnreachableCode)
+            .expect("an unreachable finding");
+        let answers = Identity::resolved(dead, source);
+        let parameter_end = source.find("a: any").unwrap() as u32 + "a: any".len() as u32;
+        let repeating = resolve(vec![
+            Edit::deletion(
+                dead,
+                answers,
+                whole_lines(source, Span::new(dead.location.start, dead.location.end)),
+            ),
+            Edit::new(
+                dead,
+                answers,
+                Span::new(parameter_end, parameter_end),
+                ", b: any",
+            ),
+        ]);
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
+        match rewriter.verify("fixture", &config, &analysis.findings, &repeating) {
+            Err(Withheld::Introduces(found)) => assert!(
+                found
+                    .iter()
+                    .all(|finding| finding.rule == RuleId::ImpreciseType),
+                "{found:?}"
+            ),
+            other => panic!("expected the repeated finding to be refused: {other:?}"),
+        }
     }
 
     /// Deleting the divider is still the fix; the notice and the link are not part of
