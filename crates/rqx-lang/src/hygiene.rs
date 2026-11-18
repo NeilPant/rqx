@@ -3538,19 +3538,29 @@ impl<'a> Walker<'a> {
         {
             return;
         }
+        // A package, module or class level name can be read by anything the function
+        // calls between the two writes, so only the function's own names are judged.
+        let parameters: HashSet<&str> = descendants(function)
+            .into_iter()
+            .filter(|node| node.start_byte() < body.start_byte() && profile.is_identifier(*node))
+            .map(|node| self.text(node))
+            .collect();
         for (name, mentions) in self.touches(body) {
             if name.starts_with('_') {
                 continue;
             }
             let reassigned = mentions.iter().filter(|touch| touch.wrote).count();
             let read = mentions.iter().filter(|touch| touch.read).count();
-            if let Some(window) = mentions.windows(2).find(|pair| {
-                pair[0].wrote
-                    && !pair[0].read
-                    && pair[1].wrote
-                    && !pair[1].read
-                    && pair[0].block == pair[1].block
-            }) {
+            let local = parameters.contains(name) || mentions.iter().any(|touch| touch.declared);
+            if local
+                && let Some(window) = mentions.windows(2).find(|pair| {
+                    pair[0].wrote
+                        && !pair[0].read
+                        && pair[1].wrote
+                        && !pair[1].read
+                        && pair[0].block == pair[1].block
+                })
+            {
                 self.out.dead_stores.push(Spot {
                     span: Span::new(window[0].at as u32, window[0].at as u32 + name.len() as u32),
                     detail: name.to_owned(),

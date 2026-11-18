@@ -762,6 +762,40 @@ func f() int {
         }
     }
 
+    /// `flush` reads `counter` between the two writes, so the first is not dead. Only
+    /// a name the function declares is judged.
+    #[test]
+    fn a_package_level_name_written_twice_is_not_a_dead_store() {
+        let source = "\
+package p
+
+var counter int
+
+func flush() { println(counter) }
+
+func run() {
+\tcounter = 1
+\tflush()
+\tcounter = 2
+\tlocal := 1
+\tlocal = 2
+\tprintln(local)
+}
+";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::Go, "fixture", source, &config).unwrap();
+        let stores: Vec<&str> = analysis
+            .findings
+            .iter()
+            .filter(|finding| finding.rule == RuleId::DeadStore)
+            .filter_map(|finding| match &finding.evidence {
+                Evidence::Name { identifier, .. } => Some(identifier.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(stores, ["local"], "{:?}", analysis.findings);
+    }
+
     /// The shape behind cobra's `completions.go:187: too many return values`: Go's
     /// results are a parameter list too, and the fixer deleted them as if they were
     /// unused parameters, with the "matching" argument at every call site.
