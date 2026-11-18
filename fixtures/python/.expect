@@ -118,7 +118,7 @@ hierarchy.py rule=deep-inheritance | class Level4(Level3):
 hierarchy.py rule=empty-subclass | class Level4(Level3):
 hierarchy.py rule=orphan-todo | # TODO: work out what happens to the remainder
 hierarchy.py rule=integer-division | return 7 / 2 + total
-hierarchy.py rule=discarded-error | _ = _count_rows(rows)
+hierarchy.py known-fp=discarded-error _count_rows returns a number and cannot fail, so no error is dropped | _ = _count_rows(rows)
 hierarchy.py rule=passthrough-function | def _count_rows(rows):
 hygiene.py rule=wildcard-import | from .cycle_b import *
 hygiene.py rule=duplicate-import | from .cycle_b import spin

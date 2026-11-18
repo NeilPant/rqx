@@ -111,7 +111,7 @@ hierarchy.js rule=deep-inheritance | export class Level4 extends Level3 {
 hierarchy.js rule=empty-subclass | export class Level4 extends Level3 {
 hierarchy.js rule=orphan-todo | // TODO: work out what happens to the remainder
 hierarchy.js rule=integer-division | return 7 / 2 + total;
-hierarchy.js rule=discarded-error | const _ = countRows(rows);
+hierarchy.js known-fp=discarded-error countRows returns a number and cannot fail, so no error is dropped | const _ = countRows(rows);
 hygiene.js rule=wildcard-import | import * as everything from "./cycle-b";
 hygiene.js rule=deep-relative-import | import { Far } from "../../../shared/far";
 hygiene.js rule=unused-import | import { Far } from "../../../shared/far";

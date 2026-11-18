@@ -423,7 +423,7 @@ src/shapes.cpp rule=deep-inheritance | class Level4 : public Level3 {};
 src/shapes.cpp rule=empty-subclass | class Level4 : public Level3 {};
 src/shapes.cpp rule=orphan-todo | // TODO: work out what happens to the remainder
 src/shapes.cpp rule=integer-division | return 7 / 2 + total;
-src/shapes.cpp rule=discarded-error | int _ = count_rows(rows);
+src/shapes.cpp known-fp=discarded-error count_rows returns a number and cannot fail, so no error is dropped | int _ = count_rows(rows);
 src/suite_test.cpp rule=skipped-test | GTEST_SKIP() << "pricing is being rewritten";
 src/suite_test.cpp rule=magic-number | EXPECT_EQ(3, add(1, 2));
 src/suite_test.cpp rule=slow-test | std::this_thread::sleep_for(500);
