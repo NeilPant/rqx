@@ -1573,6 +1573,7 @@ dependencies = [
  "serde-saphyr",
  "serde_json",
  "sha2",
+ "signal-hook",
  "smallvec",
  "tokio",
  "toml",
