@@ -234,7 +234,7 @@ fn write_summary(
     if outcome.applied() > 0 {
         writeln!(
             out,
-            "  {}every fix re-parsed and re-analysed clean",
+            "  {}every fix re-parsed, re-analysed, and checked against the files that use its names",
             paint(dim, format!("{:LABEL_WIDTH$}", "Verified"))
         )?;
     }

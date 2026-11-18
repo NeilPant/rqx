@@ -48,6 +48,16 @@ pub enum Withheld {
     Survives(Vec<Finding>),
     /// A finding absent before the edit is reported after it.
     Introduces(Vec<Finding>),
+    /// The edit removes or renames a name another file still uses.
+    StillReferenced {
+        name: String,
+        by: String,
+    },
+    /// The edit changes a function's signature where callers in other files of the
+    /// package cannot be checked.
+    ChangesSignature(Vec<String>),
+    /// The build check (`--verify-build`) failed after the edit, or could not run.
+    Build(String),
 }
 
 impl fmt::Display for Withheld {
@@ -78,6 +88,19 @@ impl fmt::Display for Withheld {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Self::StillReferenced { name, by } => {
+                write!(f, "removes `{name}`, which {by} still uses")
+            }
+            Self::ChangesSignature(functions) => write!(
+                f,
+                "changes the signature of {}, which other files in the package may call",
+                functions
+                    .iter()
+                    .map(|name| format!("`{name}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Self::Build(reason) => write!(f, "the build check failed: {reason}"),
         }
     }
 }

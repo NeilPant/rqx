@@ -14,6 +14,8 @@ use crate::progress::Mode;
 use crate::report::Report;
 use crate::scan::{self, ScanOutcome};
 
+mod package;
+
 #[derive(Clone, Debug, Default)]
 pub struct Options {
     pub write: bool,
@@ -252,6 +254,8 @@ fn plan_round(
             }),
         }
     }
+    let fixes = std::mem::take(&mut round.fixes);
+    round.fixes = package::guard(root, &scanned.analyzed, fixes, &mut round.withheld);
     Ok(round)
 }
 

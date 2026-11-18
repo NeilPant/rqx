@@ -16,6 +16,7 @@ pub mod metrics;
 pub mod module_graph;
 pub mod names;
 pub mod notices;
+pub mod outline;
 pub mod parameters;
 pub mod patterns;
 pub mod profile;
