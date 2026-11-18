@@ -454,8 +454,9 @@ mod tests {
         for rule in RuleId::ALL.iter().copied() {
             let modules = rule.spec().analysis == Analysis::Modules;
             // Declared `Syntax` or `Semantics` because no per-file pass can answer them:
-            // three read git history, one compares every file against every other, and
-            // four read the cost of a function composed with the functions it calls.
+            // three read git history, two compare every file against every other, four
+            // read the cost of a function composed with the functions it calls, and one
+            // is decided in the scan's size stage.
             let collector = matches!(
                 rule,
                 RuleId::DuplicateCode
@@ -469,6 +470,8 @@ mod tests {
                     | RuleId::DeepRecursion
                     | RuleId::RepeatedComputationInLoop
                     | RuleId::PairScanCouldHash
+                    | RuleId::OversizedModule
+                    | RuleId::CrossLanguageDuplicate
             );
             assert_eq!(rule.is_project_scoped(), modules || collector, "{rule}");
         }
