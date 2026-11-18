@@ -5,7 +5,7 @@ contact_links:
     about: Ask in Discussions first. Answers sometimes lead to documentation fixes.
   - name: Security problem
     url: https://github.com/jadhamwi21/rqx/security/advisories/new
-    about: Report privately through a security advisory. Do not open a public issue.
+    about: Report privately through a security advisory, or by email to the maintainer (see SECURITY.md). Do not open a public issue.
   - name: The rule reference
     url: https://github.com/jadhamwi21/rqx/tree/main/docs/rules
     about: Lists every rule, what it measures, and why it fires. Check it before reporting a false positive.
