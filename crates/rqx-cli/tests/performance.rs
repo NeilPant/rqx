@@ -277,3 +277,20 @@ fn each_generator_header_and_bundler_runtime_is_skipped_as_generated() {
     let summary = summary_of(&dir);
     assert_eq!(summary["files_scanned"], bodies.len() + 1, "{summary}");
 }
+
+#[test]
+fn vendored_and_framework_output_directories_are_pruned_by_name() {
+    let dir = scratch("pruned");
+    for path in [
+        "src/assets/charting_library/bundle.js",
+        "public/vendored/lib.js",
+        "web/.next/server/page.js",
+        "highcharts/core.js",
+    ] {
+        write(&dir, path, "export const vendored = 1;\n");
+    }
+    write(&dir, "src/app.ts", "export const app = 1;\n");
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 1, "{summary}");
+}

@@ -191,6 +191,21 @@ scan:
     - cmake-build-debug
     - cmake-build-release
     - third_party
+    - vendored
+    - charting_library
+    - highcharts
+    - lightweight-charts
+    - tradingview
+    - jquery
+    - bower_components
+    - jspm_packages
+    - .next
+    - .nuxt
+    - .svelte-kit
+    - .turbo
+    - .expo
+    - storybook-static
+    - _next
 
   # Coverage files to read. rqx decides dead code from the import graph, which cannot
   # see a dynamic import or a container wiring things by name — a test run that reached

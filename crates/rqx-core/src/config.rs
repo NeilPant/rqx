@@ -1486,6 +1486,24 @@ impl Default for Scan {
                 "cmake-build-debug",
                 "cmake-build-release",
                 "third_party",
+                // Third-party code copied in by hand, and the output folders of web
+                // frameworks, under the names they are conventionally given. Anything
+                // vendored under another name is for `ignore.patterns`.
+                "vendored",
+                "charting_library",
+                "highcharts",
+                "lightweight-charts",
+                "tradingview",
+                "jquery",
+                "bower_components",
+                "jspm_packages",
+                ".next",
+                ".nuxt",
+                ".svelte-kit",
+                ".turbo",
+                ".expo",
+                "storybook-static",
+                "_next",
             ]
             .map(str::to_owned)
             .to_vec(),
