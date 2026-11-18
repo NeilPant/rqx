@@ -222,8 +222,14 @@ fn short(error: &clap::Error) -> String {
     first.trim_start_matches("error: ").to_owned()
 }
 
-/// Shell-style words: whitespace separates, quotes group, a backslash escapes.
+/// Shell-style words: whitespace separates, quotes group, and outside Windows a
+/// backslash escapes. On Windows a backslash is the path separator, so `C:\work\a.ts`
+/// stays one path, as it does in cmd and PowerShell.
 pub fn split_words(line: &str) -> std::result::Result<Vec<String>, String> {
+    split_words_escaping(line, !cfg!(windows))
+}
+
+fn split_words_escaping(line: &str, escapes: bool) -> std::result::Result<Vec<String>, String> {
     let mut words = Vec::new();
     let mut word = String::new();
     let mut started = false;
@@ -231,7 +237,7 @@ pub fn split_words(line: &str) -> std::result::Result<Vec<String>, String> {
     let mut characters = line.chars();
     while let Some(character) = characters.next() {
         match (character, quote) {
-            ('\\', _) => {
+            ('\\', _) if escapes => {
                 word.push(characters.next().unwrap_or('\\'));
                 started = true;
             }
@@ -797,6 +803,17 @@ fn listed(
 
 #[cfg(test)]
 mod tests {
+    use super::split_words_escaping;
+
+    #[test]
+    fn a_windows_path_keeps_its_backslashes_where_a_backslash_is_not_an_escape() {
+        let words =
+            split_words_escaping(r"/trend C:\Users\a\trend.ndjson --last 2", false).unwrap();
+        assert_eq!(words[1], r"C:\Users\a\trend.ndjson");
+        let words = split_words_escaping(r"/findings --search a\ b", true).unwrap();
+        assert_eq!(words[2], "a b");
+    }
+
     use super::*;
 
     fn command(line: &str) -> Command {

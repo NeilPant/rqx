@@ -57,6 +57,11 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Fixed
 
+- **The session keeps the backslashes of a Windows path.** A command typed at the
+  prompt, such as `/trend C:\work\trend.ndjson`, treated each backslash as an escape and
+  read the path as `C:worktrend.ndjson`. On Windows a backslash is now part of the
+  word, as in cmd and PowerShell; elsewhere it still escapes the next character.
+
 - **`rqx mcp --http` could be made to use all of a machine's memory.** rmcp 3.2, the
   MCP library behind the server, kept the tool name of every `tools/call` request in
   a map with no size limit, including names that match no tool. A client that could
