@@ -38,7 +38,7 @@ The summary line has `"kind": "summary"` and:
 | `omitted` | Findings dropped by `--max-findings` |
 | `suppressed` | Findings a waiver kept out of `counts` |
 | `skipped` | Files rqx did not analyse, each as `"path: reason"` |
-| `skipped_by` | The skipped files counted per reason, as `{ "<reason>": { "files": n } }`. The `submodule` entry also has `paths`, the skipped submodules relative to the scanned directory. The reasons are `submodule`, `generated`, `too-large`, `unreadable`, `parse-timeout`, `unsupported` and `walk`. A reason with no skipped files is left out |
+| `skipped_by` | The skipped files counted per reason, as `{ "<reason>": { "files": n } }`. The `submodule` entry also has `paths`, the skipped submodules relative to the scanned directory. The reasons are `submodule`, `minified`, `generated`, `too-large`, `unreadable`, `parse-timeout`, `unsupported` and `walk`. A reason with no skipped files is left out |
 | `grades` | A letter grade per file in scope |
 | `gate` | Present when a verdict exists: `{ "passed": bool, "failures": [string] }` |
 | `review` | Present for `rqx check`: the base, the reviewed counts and the verdict |

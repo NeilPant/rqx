@@ -1172,6 +1172,12 @@ impl Default for Ignore {
                 "**/*_gen.go",
                 "**/*.pb.h",
                 "**/*.pb.cc",
+                // Minified and bundled output, by the names bundlers give it. Files
+                // without such a name are caught by `scan.skip_minified` instead.
+                "**/*.min.js",
+                "**/*.min.mjs",
+                "**/*.min.css",
+                "**/*.bundle.js",
             ]
             .map(str::to_owned)
             .to_vec(),
@@ -1351,6 +1357,9 @@ pub struct Scan {
     /// skipped. A submodule is another repository pinned at a commit, so its findings
     /// are not the project's to fix.
     pub skip_submodules: bool,
+    /// Skip files that read as minified (a line over 5,000 characters, or lines that
+    /// average over 300 characters across at least 5), and list them as skipped.
+    pub skip_minified: bool,
     /// Bytes. A larger file is reported as skipped.
     pub max_filesize: u64,
     /// How many findings the report shows. 0 shows every one. Never moves the score.
@@ -1381,6 +1390,7 @@ impl Default for Scan {
             threads: 0,
             skip_generated: true,
             skip_submodules: true,
+            skip_minified: true,
             max_filesize: 1 << 20,
             max_findings: 500,
             churn_days: 90,
@@ -1846,6 +1856,7 @@ mod tests {
                     config.scan.threads.to_string(),
                     config.scan.skip_generated.to_string(),
                     config.scan.skip_submodules.to_string(),
+                    config.scan.skip_minified.to_string(),
                     config.scan.max_filesize.to_string(),
                     config.scan.max_findings.to_string(),
                     config.scan.churn_days.to_string(),

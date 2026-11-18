@@ -221,7 +221,7 @@ impl Resolved {
     }
 
     /// Everything that changes what a finding is, for the cache key. Whether generated
-    /// files are skipped is part of it because a file served from the cache is not read,
+    /// and minified files are skipped is part of it because a file served from the cache is not read,
     /// and so is never looked at for the marker that would skip it. The fact plans are
     /// part of it so that an analysis built with fewer facts is never served to a run
     /// whose rules read more. The project's own rules are part of it because every file's
@@ -233,6 +233,7 @@ impl Resolved {
             &self.config.rules,
             &self.config.patterns,
             self.config.scan.skip_generated,
+            self.config.scan.skip_minified,
             self.config.facts(),
             &self.config.custom,
             self.scopes
@@ -243,6 +244,7 @@ impl Resolved {
                         &scope.config.rules,
                         &scope.config.patterns,
                         scope.config.scan.skip_generated,
+                        scope.config.scan.skip_minified,
                         scope.facts,
                     )
                 })

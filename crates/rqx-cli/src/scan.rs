@@ -2441,6 +2441,15 @@ pub(crate) fn analyze_file(
             format!("{tool} (set `scan.skip_generated: false` to include it)"),
         );
     }
+    if config.scan.skip_minified
+        && let Some(why) = skip::minified(&source)
+    {
+        return skipped(
+            path,
+            SkipReason::Minified,
+            format!("minified code: {why} (set `scan.skip_minified: false` to include it)"),
+        );
+    }
     let cached = match cache.and_then(|cache| cache.get(&display, &source, stamp)) {
         Some(cached) => cached,
         None => {

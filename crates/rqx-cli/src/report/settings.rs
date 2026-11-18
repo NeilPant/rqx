@@ -169,6 +169,13 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
             config.scan.skip_submodules == default.scan.skip_submodules,
         ),
         row(
+            "skip minified",
+            "scan",
+            "scan.skip_minified",
+            config.scan.skip_minified.to_string(),
+            config.scan.skip_minified == default.scan.skip_minified,
+        ),
+        row(
             "ignored globs",
             "ignore",
             "ignore.patterns",

@@ -392,7 +392,11 @@
             "**/*.pb.go",
             "**/*_gen.go",
             "**/*.pb.h",
-            "**/*.pb.cc"
+            "**/*.pb.cc",
+            "**/*.min.js",
+            "**/*.min.mjs",
+            "**/*.min.css",
+            "**/*.bundle.js"
           ],
           "description": "Globs of files rqx does not read, matched against paths relative to the scanned directory.",
           "items": {
@@ -10321,6 +10325,11 @@
           "description": "Skip files carrying a generator's marker, and list them as skipped.",
           "type": "boolean"
         },
+        "skip_minified": {
+          "default": true,
+          "description": "Skip files that read as minified (a line over 5,000 characters, or lines that average over 300 characters across at least 5), and list them as skipped.",
+          "type": "boolean"
+        },
         "skip_submodules": {
           "default": true,
           "description": "Leave out the git submodules that `.gitmodules` lists, and report each one as skipped. A submodule is another repository pinned at a commit, so its findings are not the project's to fix.",
@@ -10809,7 +10818,11 @@
           "**/*.pb.go",
           "**/*_gen.go",
           "**/*.pb.h",
-          "**/*.pb.cc"
+          "**/*.pb.cc",
+          "**/*.min.js",
+          "**/*.min.mjs",
+          "**/*.min.css",
+          "**/*.bundle.js"
         ]
       }
     },
@@ -10925,6 +10938,7 @@
         ],
         "sarif_in": [],
         "skip_generated": true,
+        "skip_minified": true,
         "skip_submodules": true,
         "threads": 0
       }

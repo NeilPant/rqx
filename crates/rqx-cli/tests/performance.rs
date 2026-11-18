@@ -38,6 +38,10 @@ fn a_string_literal_with_thousands_of_escapes_is_not_quadratic() {
     let dir = scratch("escapes");
     // 8,000 escape sequences in one literal, the shape of a generated schema blob.
     let literal = "line one\\n".repeat(20_000);
+    // One 200,000-character line reads as minified, which would skip the very file
+    // this test times.
+    std::fs::write(dir.join("rqx.yaml"), "scan:\n  skip_minified: false\n")
+        .expect("writing the config");
     std::fs::write(
         dir.join("generated-shape.ts"),
         format!("export const schema = \"{literal}\";\nexport const value = 1;\n"),
@@ -145,4 +149,50 @@ fn the_terminal_names_a_skipped_submodule_in_one_line() {
         text.contains("skipped 1 file: 1 in submodule design/ \u{b7} -v lists them"),
         "{text}"
     );
+}
+
+#[test]
+fn minified_files_are_skipped_and_a_long_string_in_a_normal_file_is_not() {
+    let dir = scratch("minified");
+    write(
+        &dir,
+        "one-line.js",
+        &format!("var a=[{}];\n", "1,".repeat(3_000)),
+    );
+    write(
+        &dir,
+        "wide-lines.js",
+        &format!("var b=\"{}\";\n", "x".repeat(391)).repeat(10),
+    );
+    write(&dir, "vendor.min.js", "var c=1;\n");
+    write(&dir, "app.bundle.js", "var d=1;\n");
+    write(
+        &dir,
+        "hand-written.ts",
+        &format!(
+            "export const blob = \"{}\";\n{}",
+            "A".repeat(3_000),
+            "export const e = 1;\n".repeat(20)
+        ),
+    );
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 1, "{summary}");
+    assert_eq!(summary["skipped_by"]["minified"]["files"], 2, "{summary}");
+    let skipped = summary["skipped"].to_string();
+    assert!(skipped.contains("a line of 6009 characters"), "{summary}");
+    assert!(
+        skipped.contains("its 10 lines average 400 characters"),
+        "{summary}"
+    );
+    assert!(!skipped.contains("hand-written.ts"), "{summary}");
+    assert!(
+        !skipped.contains("min.js") && !skipped.contains("bundle.js"),
+        "an ignored file is not read, so it is not listed: {summary}"
+    );
+
+    write(&dir, "rqx.yaml", "scan:\n  skip_minified: false\n");
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 3, "{summary}");
+    assert_eq!(summary["skipped_by"], serde_json::json!({}), "{summary}");
 }

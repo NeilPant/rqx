@@ -905,6 +905,14 @@ mod tests {
         assert_ne!(before, analysis_version(&Resolved::of(config)));
     }
 
+    #[test]
+    fn skipping_minified_files_invalidates_the_cache() {
+        let mut config = RqxConfig::default();
+        let before = analysis_version(&Resolved::of(config.clone()));
+        config.scan.skip_minified = !config.scan.skip_minified;
+        assert_ne!(before, analysis_version(&Resolved::of(config)));
+    }
+
     /// A cache written by the previous release holds analyses without the cost facts.
     /// Serving one would hide every function's cost until the file next changed, so the
     /// format number is part of the version and the whole file is a miss.

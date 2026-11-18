@@ -52,6 +52,14 @@ them. `tools/release.sh` turns that section into the release notes.
   submodule still scans it. Each skipped submodule is reported once, with the number
   of source files in it. `scan.skip_submodules: false` scans submodules again.
 
+- **Minified files are no longer analysed by default.** A file is skipped as minified
+  when one of its lines is longer than 5,000 characters, or when it has at least 5
+  lines and they average more than 300 characters. The default `ignore.patterns` also
+  gain `**/*.min.js`, `**/*.min.mjs`, `**/*.min.css` and `**/*.bundle.js`.
+  `scan.skip_minified: false` analyses minified files again. A list in `rqx.yaml`
+  replaces the default list, so a project that sets its own `ignore.patterns` gets the
+  four new patterns only if it adds them.
+
 ### Added
 
 - **The session folds long output.** Output taller than the rows above the prompt
@@ -74,15 +82,17 @@ them. `tools/release.sh` turns that section into the release notes.
   `.gitignore` now describes this.
 
 - **The JSON summary has a `skipped_by` object.** It counts the skipped files per
-  reason: `submodule`, `generated`, `too-large`, `unreadable`, `parse-timeout`,
+  reason: `submodule`, `minified`, `generated`, `too-large`, `unreadable`, `parse-timeout`,
   `unsupported` and `walk`. Each value is an object with a `files` count, and the
   `submodule` entry also has `paths`, the skipped submodules relative to the scanned
   directory. The `skipped` list keeps its
   `"path: reason"` strings. The MCP `scan` tool result carries the same object, and the
   language server's `rqx/report` notification carries it as `skippedBy`.
 
-- **`scan.skip_submodules` setting.** It defaults to `true`. Set it to `false` to scan
-  git submodules as 0.5.1 did.
+- **`scan.skip_submodules` and `scan.skip_minified` settings.** Both default to
+  `true`. Set either to `false` to scan those files as 0.5.1 did. `scan.skip_minified`
+  is part of the cache key, so changing it makes the next scan analyse every file
+  again.
 
 ### Fixed
 

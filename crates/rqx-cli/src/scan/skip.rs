@@ -11,6 +11,8 @@ use serde::Serialize;
 pub enum SkipReason {
     /// A git submodule left out whole. One entry stands for every source file in it.
     Submodule,
+    /// A line too long, or lines too long on average, for code a person writes.
+    Minified,
     Generated,
     TooLarge,
     Unreadable,
@@ -25,6 +27,7 @@ impl SkipReason {
     pub const fn slug(self) -> &'static str {
         match self {
             Self::Submodule => "submodule",
+            Self::Minified => "minified",
             Self::Generated => "generated",
             Self::TooLarge => "too-large",
             Self::Unreadable => "unreadable",
@@ -39,6 +42,7 @@ impl SkipReason {
     const fn label(self) -> &'static str {
         match self {
             Self::Submodule => "in submodules",
+            Self::Minified => "minified",
             Self::Generated => "generated",
             Self::TooLarge => "too large",
             Self::Unreadable => "unreadable",
@@ -134,6 +138,45 @@ pub fn summary(skipped: &[Skipped], root: &Path) -> Option<String> {
     ))
 }
 
+/// A line longer than this is not one a person wrote. Set high, so a long string or
+/// data table in hand-written code stays well under it.
+const LONGEST_LINE: usize = 5_000;
+/// Lines this long on average are a bundle broken into a few lines.
+const AVERAGE_LINE: usize = 300;
+/// An average over fewer lines says too little: three long imports are not a bundle.
+const AVERAGE_OVER: usize = 5;
+
+/// Why `source` reads as minified, or `None` when it reads as written by hand.
+/// Bytes are counted first and characters only past a limit, so the common case costs
+/// one pass with no decoding.
+pub fn minified(source: &str) -> Option<String> {
+    let (mut lines, mut bytes, mut longest) = (0usize, 0usize, "");
+    for line in source.lines() {
+        lines += 1;
+        bytes += line.len();
+        if line.len() > longest.len() {
+            longest = line;
+        }
+    }
+    if longest.len() > LONGEST_LINE {
+        let characters = longest.chars().count();
+        if characters > LONGEST_LINE {
+            return Some(format!("a line of {characters} characters"));
+        }
+    }
+    if lines >= AVERAGE_OVER && bytes / lines > AVERAGE_LINE {
+        let characters = source
+            .lines()
+            .map(|line| line.chars().count())
+            .sum::<usize>();
+        let average = characters / lines;
+        if average > AVERAGE_LINE {
+            return Some(format!("its {lines} lines average {average} characters"));
+        }
+    }
+    None
+}
+
 /// The submodules a walk from `root` would enter, as the paths the walker yields for
 /// them. `.gitmodules` is read at `root` and at the repository root above it, whose
 /// entries are relative to that root. A submodule that holds `root` is never one: a
@@ -184,6 +227,45 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         rqx_core::paths::canonicalize(&root).unwrap()
+    }
+
+    #[test]
+    fn one_line_over_five_thousand_characters_is_minified() {
+        let source = format!("var a={};\n", "1,".repeat(3_000));
+        assert_eq!(
+            minified(&source).as_deref(),
+            Some("a line of 6007 characters")
+        );
+    }
+
+    #[test]
+    fn ten_lines_averaging_four_hundred_characters_are_minified() {
+        let source = format!("var a=\"{}\";\n", "x".repeat(391)).repeat(10);
+        assert_eq!(
+            minified(&source).as_deref(),
+            Some("its 10 lines average 400 characters")
+        );
+    }
+
+    #[test]
+    fn a_long_string_in_hand_written_code_is_not_minified() {
+        let mut source = String::from("export function load() {\n  return 1;\n}\n\n");
+        source.push_str(&format!("export const blob = \"{}\";\n", "A".repeat(3_000)));
+        source.push_str(&"export const a = 1;\n".repeat(20));
+        assert_eq!(minified(&source), None);
+    }
+
+    #[test]
+    fn a_few_long_lines_are_too_few_to_average() {
+        let source = format!("import {{ {} }} from \"./names\";\n", "name, ".repeat(100)).repeat(4);
+        assert_eq!(minified(&source), None);
+    }
+
+    #[test]
+    fn wide_characters_are_counted_as_characters_not_bytes() {
+        // 2,000 three-byte characters: 6,000 bytes, but a 2,000-character line.
+        let source = format!("const s = \"{}\";\n", "\u{4e2d}".repeat(2_000));
+        assert_eq!(minified(&source), None);
     }
 
     #[test]

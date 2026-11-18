@@ -120,7 +120,8 @@ turns it off.
   fingerprint instead.
 - The index carries a version, which is a hash of the cache format number, the rqx
   package version, a signature of the settings that change what a finding is
-  (thresholds, rule settings, pattern settings, `scan.skip_generated`, the facts those
+  (thresholds, rule settings, pattern settings, `scan.skip_generated`,
+  `scan.skip_minified`, the facts those
   rule settings build, the project's custom rules, and the same settings in each
   directory override), and a fingerprint of the catalogue (every rule
   slug, severity, confidence and off-by-default flag, and every advisory slug). A
