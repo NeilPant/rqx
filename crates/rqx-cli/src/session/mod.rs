@@ -41,7 +41,7 @@ use commands::{Action, Context, Invocation, Parsed, Target, WatchMode};
 use completion::{Catalogue, Suggestion};
 use job::{Finished, Job};
 use motion::Motion;
-use owl::Owl;
+use owl::{Owl, Verdict};
 use prompt::Prompt;
 use recall::Recall;
 use sprite::Sprite;
@@ -479,11 +479,13 @@ impl App {
         self.catalogue = Catalogue::new(outcome.analyzed.iter().cloned());
         self.listing = view::listed_places(&outcome);
         self.refresh_menu();
+        let verdict = Verdict::of(self.health());
         match self.opening.show(view::summary(&self.look, &outcome)) {
             Some(summary) => self.print(&summary),
             None if self.motion.reduced() => self.settle_opening(),
             None => {
                 self.owl.enter(&self.motion);
+                self.owl.react(verdict, &self.motion);
                 Ok(())
             }
         }

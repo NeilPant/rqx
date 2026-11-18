@@ -2,8 +2,9 @@
 //!
 //! While a job runs it reads: the pupils drop and sweep along a line, jump back for the
 //! next, and then the owl looks up and around. While the header is live at the prompt,
-//! the owl in it wakes up, rests, and makes one small move every few seconds; a
-//! keystroke stops it. The header that goes into scrollback carries the still frame.
+//! the owl in it wakes up, reacts to the verdict, rests on the verdict's face, and makes
+//! one small move every few seconds; a keystroke stops it. The header that goes into
+//! scrollback carries the still frame.
 //! With motion off it is the still frame always. The plumage follows the verdict, which
 //! is the caller's to say: this only picks the frame.
 //!
@@ -14,7 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ratatui::text::Line;
 
-use crate::brand::{Ink, Palette};
+use crate::brand::{self, Ink, Palette};
 
 use super::motion::{FRAME, Motion};
 use super::sprite::Sprite;
@@ -88,6 +89,43 @@ const MOVES: [Move; 9] = [
 /// Ticks of rest between two moves, about 4 to 10 seconds.
 const GAP: RangeInclusive<u32> = 121..=303;
 
+/// How a scan came out, in the bands the plumage colour uses.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    Good,
+    Fair,
+    Poor,
+}
+
+impl Verdict {
+    /// Read off `brand::mascot_ink`, so the face and the plumage cannot disagree.
+    pub const fn of(health: Option<u32>) -> Self {
+        match brand::mascot_ink(health) {
+            Ink::Warn => Self::Fair,
+            Ink::Danger => Self::Poor,
+            _ => Self::Good,
+        }
+    }
+
+    /// What the owl does the moment the scan lands, 24 ticks for every verdict.
+    const fn reaction(self) -> &'static [Step] {
+        match self {
+            Self::Good => &[("blink", 3), ("happy", 21)],
+            Self::Fair => &[("look-down", 8), ("half", 10), ("blink", 3), ("idle", 3)],
+            Self::Poor => &[("alarm", 5), ("worried", 7), ("blink", 3), ("worried", 9)],
+        }
+    }
+
+    /// The face the owl rests on until the next verdict.
+    const fn rest(self) -> &'static str {
+        match self {
+            Self::Good => "content",
+            Self::Fair => "idle",
+            Self::Poor => "worried",
+        }
+    }
+}
+
 /// The move a roll of `0..100` lands on, walking the weights in order.
 fn move_for(mut roll: u32) -> &'static Move {
     MOVES
@@ -153,6 +191,18 @@ impl Stage {
     /// Wakes the owl up, as the header first shows it.
     pub fn enter(&mut self, now: u32) {
         self.play(&ENTRANCE, now);
+    }
+
+    /// Plays the verdict's reaction once whatever is playing has ended, and makes the
+    /// verdict's face the one the owl rests on from then on.
+    pub fn react(&mut self, verdict: Verdict, now: u32) {
+        self.advance(now);
+        self.rest = verdict.rest();
+        if self.act.is_empty() {
+            self.play(verdict.reaction(), now);
+        } else {
+            self.act.extend_from_slice(verdict.reaction());
+        }
     }
 
     /// Any key: whatever is playing snaps to the resting face, and the next move waits a
@@ -285,6 +335,10 @@ impl Owl {
     /// in every method below.
     pub fn enter(&mut self, motion: &Motion) {
         self.stage.enter(ticks(motion.elapsed()));
+    }
+
+    pub fn react(&mut self, verdict: Verdict, motion: &Motion) {
+        self.stage.react(verdict, ticks(motion.elapsed()));
     }
 
     pub fn typed(&mut self, motion: &Motion) {
@@ -537,11 +591,100 @@ mod tests {
     }
 
     #[test]
+    fn the_verdict_follows_the_plumage_bands() {
+        assert_eq!(Verdict::of(None), Verdict::Good, "no score yet");
+        assert_eq!(Verdict::of(Some(100)), Verdict::Good);
+        assert_eq!(Verdict::of(Some(80)), Verdict::Good);
+        assert_eq!(Verdict::of(Some(79)), Verdict::Fair);
+        assert_eq!(Verdict::of(Some(50)), Verdict::Fair);
+        assert_eq!(Verdict::of(Some(49)), Verdict::Poor);
+        assert_eq!(Verdict::of(Some(0)), Verdict::Poor);
+        for health in 0..=100 {
+            let plumage = brand::mascot_ink(Some(health));
+            let wanted = match Verdict::of(Some(health)) {
+                Verdict::Good => Ink::Accent,
+                Verdict::Fair => Ink::Warn,
+                Verdict::Poor => Ink::Danger,
+            };
+            assert_eq!(plumage, wanted, "health {health}");
+        }
+    }
+
+    #[test]
+    fn every_reaction_is_twenty_four_ticks_and_ends_on_the_verdicts_face() {
+        for (verdict, first, rest) in [
+            (Verdict::Good, "blink", "content"),
+            (Verdict::Fair, "look-down", "idle"),
+            (Verdict::Poor, "alarm", "worried"),
+        ] {
+            assert_eq!(length(verdict.reaction()), 24, "{verdict:?}");
+            let mut stage = Stage::new(Dice::seeded(10));
+            stage.react(verdict, 0);
+            let frames = played(&mut stage, 0, 25);
+            assert_eq!(frames[0], first, "{verdict:?}");
+            assert_eq!(frames[24], rest, "{verdict:?}");
+        }
+    }
+
+    #[test]
+    fn each_verdict_reacts_with_its_own_faces() {
+        let at = |verdict, tick| {
+            let mut stage = Stage::new(Dice::seeded(11));
+            stage.react(verdict, 0);
+            stage.advance(tick);
+            stage.face(tick)
+        };
+        assert_eq!(at(Verdict::Good, 3), "happy");
+        assert_eq!(at(Verdict::Good, 23), "happy");
+        assert_eq!(at(Verdict::Fair, 8), "half");
+        assert_eq!(at(Verdict::Fair, 18), "blink");
+        assert_eq!(at(Verdict::Fair, 21), "idle");
+        assert_eq!(at(Verdict::Poor, 4), "alarm");
+        assert_eq!(at(Verdict::Poor, 5), "worried");
+        assert_eq!(at(Verdict::Poor, 12), "blink");
+        assert_eq!(at(Verdict::Poor, 15), "worried");
+    }
+
+    #[test]
+    fn a_reaction_after_the_entrance_waits_for_it_to_end() {
+        let mut stage = Stage::new(Dice::seeded(12));
+        stage.enter(0);
+        stage.react(Verdict::Poor, 0);
+        let frames = played(&mut stage, 0, 70);
+        assert_eq!(frames[0], "sleep");
+        assert_eq!(frames[41], "twitch-right", "the entrance plays whole");
+        assert_eq!(frames[42], "alarm", "then the reaction");
+        assert_eq!(frames[66], "worried", "then the resting face");
+    }
+
+    #[test]
+    fn a_keystroke_skips_the_reaction_to_the_verdicts_face() {
+        let mut stage = Stage::new(Dice::seeded(13));
+        stage.react(Verdict::Good, 0);
+        stage.typed(2);
+        stage.advance(2);
+        assert_eq!(stage.face(2), "content");
+    }
+
+    #[test]
+    fn an_idle_move_returns_to_the_verdicts_face() {
+        let mut stage = Stage::new(Dice::seeded(14));
+        stage.react(Verdict::Poor, 0);
+        let frames = played(&mut stage, 0, 4000);
+        assert!(frames[24..].contains(&"worried"));
+        assert!(
+            !frames[24..].contains(&"idle"),
+            "a resting row in a move shows the verdict's face"
+        );
+    }
+
+    #[test]
     fn with_motion_off_the_live_owl_is_the_still_frame_and_never_wakes_the_loop() {
         let palette = Palette::with_depth(ColorDepth::Truecolor);
         let mut owl = owl();
         let motion = Motion::new(true);
         owl.enter(&motion);
+        owl.react(Verdict::Poor, &motion);
         assert_eq!(
             owl.live(&motion, palette, Ink::Warn),
             owl.still(palette, Ink::Warn)
