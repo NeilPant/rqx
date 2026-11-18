@@ -156,6 +156,7 @@ func main() {
 	_ = fixtures.Counted
 	_ = fixtures.CanWrite
 	_ = fixtures.UpdateFailure
+	_ = fixtures.ZoneLabel
 	_ = ParsedOrZero
 	_ = cyclea.Orbit
 }

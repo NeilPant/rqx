@@ -37,6 +37,11 @@ them. `tools/release.sh` turns that section into the release notes.
   is reported once per language, at its first such string. Files named as a
   data-access layer (`*.repository.*`, `*Repo*`, `*Dao*`, `*.sql.*`, `queries.*`) and
   files that register tests are not reported.
+- **`distant-declaration` and `short-name-wide-scope` count only locals inside a
+  body.** Both rules read every local binding, including those declared at the top of
+  a module, so a module constant read near the bottom of its file was reported as
+  declared far from its use. A binding in the file's own scope is now left out, as the
+  `distant-declaration` documentation already said.
 
 ## 0.5.0 — 2026-11-18
 

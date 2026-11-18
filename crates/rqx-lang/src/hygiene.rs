@@ -4700,12 +4700,19 @@ fn note_conventions(bindings: &[Binding], out: &mut Vec<(String, Span)>) {
     }
 }
 
+/// Locals declared below the file's own scope. A name assigned at the top of a module
+/// is the module's, read from anywhere in it, however the language spells it.
+fn locals_inside_a_body(scopes: &Scopes) -> impl Iterator<Item = &Binding> {
+    scopes
+        .of_kind(BindingKind::Local)
+        .filter(|binding| scopes.depth(binding.scope) > 1)
+}
+
 /// A one-letter name is perfectly readable while its whole life fits on screen, and
 /// stops being readable the moment it does not — so the scope's size decides this,
 /// not the name's length alone.
 fn short_names(scopes: &Scopes, source: &str, scope_lines: u32) -> Vec<Spot> {
-    let mut spots: Vec<Spot> = scopes
-        .of_kind(BindingKind::Local)
+    let mut spots: Vec<Spot> = locals_inside_a_body(scopes)
         .filter(|binding| binding.name.len() <= 2 && !binding.name.starts_with('_'))
         .filter_map(|binding| {
             let last = binding.references.iter().map(|span| span.end).max()?;
@@ -4727,8 +4734,7 @@ fn short_names(scopes: &Scopes, source: &str, scope_lines: u32) -> Vec<Spot> {
 /// in mind across everything in between. Only locals count: a module constant read at
 /// the bottom of the file is where it belongs.
 fn distant_declarations(scopes: &Scopes, source: &str, distance: u32) -> Vec<Spot> {
-    let mut spots: Vec<Spot> = scopes
-        .of_kind(BindingKind::Local)
+    let mut spots: Vec<Spot> = locals_inside_a_body(scopes)
         .filter(|binding| !binding.name.starts_with('_'))
         .filter_map(|binding| {
             let first = binding

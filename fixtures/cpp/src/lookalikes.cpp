@@ -1,6 +1,10 @@
 // Code that resembles a finding and is not one. Every rule should stay silent here.
 #include "lookalikes.hpp"
 
+// distant-declaration, short-name-wide-scope: `tz` belongs to the module, so being
+// read at the bottom of the file is where it belongs.
+const std::string tz = "UTC";
+
 // output-parameter: `factor` in `counted` is a local that shares its name with
 // this parameter, not this parameter.
 int scaled(int factor) {
@@ -16,4 +20,8 @@ int counted(int items) {
 // mixed-language-file: an error message that names an update is not SQL.
 std::string update_failure(const std::string& id) {
     return "Failed to update user " + id;
+}
+
+std::string zone_label() {
+    return "zone " + tz;
 }

@@ -1,5 +1,9 @@
 // Code that resembles a finding and is not one. Every rule should stay silent here.
 
+// distant-declaration, short-name-wide-scope: `tz` belongs to the module, so being
+// read at the bottom of the file is where it belongs.
+const tz = "UTC";
+
 // output-parameter: `factor` in `counted` is a local that shares its name with
 // this parameter, not this parameter.
 export function scaled(factor: number): number {
@@ -25,4 +29,8 @@ export function delay(
 // mixed-language-file: an error message that names an update is not SQL.
 export function updateFailure(id: string): string {
   return "Failed to update user " + id;
+}
+
+export function zoneLabel(): string {
+  return "zone " + tz;
 }

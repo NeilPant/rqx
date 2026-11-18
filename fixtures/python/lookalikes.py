@@ -1,6 +1,10 @@
 # Code that resembles a finding and is not one. Every rule should stay silent here.
 import time
 
+# distant-declaration, short-name-wide-scope: `TZ` belongs to the module, so being
+# read at the bottom of the file is where it belongs.
+TZ = "UTC"
+
 
 # output-parameter: a class-level annotation declares a field, even when a method
 # takes a parameter of the same name.
@@ -35,3 +39,7 @@ def elapsed_since(start: float, clock=time.time) -> float:
 # mixed-language-file: an error message that names an update is not SQL.
 def update_failure(user_id: str) -> str:
     return "Failed to update user " + user_id
+
+
+def zone_label() -> str:
+    return "zone " + TZ

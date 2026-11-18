@@ -123,5 +123,6 @@ int main() {
     scaled(1);
     counted(1);
     update_failure("a");
+    zone_label();
     return 0;
 }
