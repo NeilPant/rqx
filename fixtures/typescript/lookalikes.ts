@@ -148,3 +148,34 @@ export class Stamp {
     return "[" + this.label + "]";
   }
 }
+
+function subscribe(handler: () => void): () => void {
+  events.on("close", handler);
+  return () => events.off("close", handler);
+}
+
+// no-base-case: the callback calls the function `subscribe` returned, not itself.
+export function listenOnce(): void {
+  const unsubscribe = subscribe(() => {
+    unsubscribe();
+  });
+}
+
+// focused-test: `fit` is this file's own function, and fitting a width is not a test.
+function fit(width: number, limit: number): number {
+  return Math.max(0, Math.min(width, limit));
+}
+
+export function fitted(widths: number[], limit: number): number[] {
+  return widths.map((width) => fit(width, limit));
+}
+
+// empty-catch: a catch that says why it does nothing has handled the error.
+export function parsedOrNothing(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Malformed input means no settings, which the caller already handles.
+  }
+  return undefined;
+}

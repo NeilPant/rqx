@@ -94,6 +94,13 @@ them. `tools/release.sh` turns that section into the release notes.
   4's leading message), `require.Equal(t, a, b)`, `EXPECT_EQ(a, b)` and `assert a == b`.
   A negated comparison such as `x !== x` checks for NaN and is not reported. A check
   that compares a literal with itself, such as `assertEquals(1, 1)`, is now reported.
+  Identical sides that contain a call, such as `expect(add(1, 1)).toBe(add(1, 1))`,
+  `new Money(1)` twice or `await load()` twice, are no longer reported: each side runs
+  the code, so the check verifies that it gives the same answer twice. A copy is
+  reported only when the original contains no call. `expect(total).toBe(total)`,
+  `order.total` against `order.total`, `[...x]` against `x` and `assert x == x` are
+  still reported. The fix hint now reads "write the value the code should produce as a
+  literal on the expected side".
 
 - **`mutated-while-iterated` follows each language's iteration rules.** In 0.5.1 it
   reported `map.delete(key)` inside `for (const [key] of map)`. The JavaScript
@@ -151,6 +158,37 @@ them. `tools/release.sh` turns that section into the release notes.
   the cache with the findings of the old query. The custom rules are now part of the
   key, so the first scan after an edit analyses every file again. Projects without
   custom rules see no change.
+
+- **`empty-catch` no longer reports a catch clause that holds a comment.** In 0.5.1 a
+  comment counted as part of an empty body, so
+  `catch (error) { /* the default applies */ }` was reported, although the rule's fix
+  hint asks for the reason to be written down. A catch clause with a comment anywhere in it is no longer reported in
+  JavaScript, TypeScript, Python, Java or C++, including Python's
+  `except ValueError:  # optional` with the comment on the `except` line. A clause with
+  no comment and an empty body, such as `{}`, `{ ; }` or a bare `pass`, is still
+  reported.
+
+- **`focused-test` and `skipped-test` report `fit`, `fdescribe`, `xit` and `xdescribe`
+  only where they register a test.** In 0.5.1 any call named `fit` or `xit` was
+  reported, including a project's own `fit(width, limit)`. Such a call also marked the
+  file as a test file, which turned off `ambient-dependency` and `import-time-work` for
+  the whole file. These names now count as a test registration only when the first
+  argument is a string or template string, or an argument is a function, and the file
+  does not declare the name itself. An imported name, as in
+  `import { fit } from "@jest/globals"`, still counts. `it.only`, `test.only`,
+  `describe.only`, `it.skip`, `it.todo` and dotted forms such as `fit.each` are
+  reported as before.
+
+- **`no-base-case` and `branching-recursion` no longer give a callback the name of the
+  variable its caller's result is stored in.** In 0.5.1 a declaration or class field
+  passed its name to the first function anywhere in its initialiser. In
+  `const unsubscribe = bus.subscribe(() => { unsubscribe(); })` the callback was named
+  `unsubscribe` and reported as recursion with no base case, and
+  `private stop = bus.on(() => this.stop())` was reported the same way. A function now
+  takes the name only when it is the value itself, with or without parentheses. Other
+  function findings on such a callback report it as unnamed, at its first line.
+  `const spin = (n) => spin(n)` and recursive functions and methods are reported as
+  before.
 
 ## 0.5.1 — 2026-11-18
 

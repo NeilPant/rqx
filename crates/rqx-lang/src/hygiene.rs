@@ -95,6 +95,9 @@ struct Walker<'a> {
     block_depth: u32,
     /// Functions in this file that assert, so a test calling one asserts through it.
     asserting_helpers: Helpers,
+    /// Where a name such as `fit` or `xit` means something this file declared, so a
+    /// call on it is that, not the test runner's.
+    local_marker_names: HashSet<(u32, u32)>,
 }
 
 impl<'a> Walker<'a> {
@@ -834,6 +837,52 @@ impl<'a> Walker<'a> {
         found
     }
 
+    /// Whether a call the vocabulary names as a test is one. `fit` and `xit` are also
+    /// ordinary words (`fit` a shape to a box), so for those the call has to be shaped
+    /// like a registration, a title or a function handed over, and the name must not
+    /// be one this file declares.
+    fn registers_test(&self, call: Node<'a>, name: &str) -> bool {
+        if !self.profile.test.is_prefix_marked(name) {
+            return true;
+        }
+        let declared_here = self
+            .callee_root(call)
+            .is_some_and(|root| self.local_marker_names.contains(&(root.start, root.end)));
+        if declared_here {
+            return false;
+        }
+        // `fit.each(table)` hands over a table; the dotted name is the runner's alone.
+        name.contains('.')
+            || self
+                .names()
+                .arguments(call)
+                .iter()
+                .enumerate()
+                .any(|(index, argument)| {
+                    self.profile.is_function(*argument)
+                        || (index == 0 && self.profile.string_kinds.contains(&kind_of(argument)))
+                })
+    }
+
+    /// The name a call starts from: `fit` in `fit(...)` and in `fit.each(...)(...)`.
+    fn callee_root(&self, call: Node<'a>) -> Option<Span> {
+        let profile = self.profile;
+        let mut current = self.see_through(call.child_by_field_name(profile.callee_field)?);
+        loop {
+            if profile.is_identifier(current) {
+                return Some(span_of(current));
+            }
+            let inner = if profile.is_member_access(current) {
+                current.child_by_field_name(profile.object_field)
+            } else if profile.is_call(current) {
+                current.child_by_field_name(profile.callee_field)
+            } else {
+                None
+            }?;
+            current = self.see_through(inner);
+        }
+    }
+
     fn note_call(&mut self, call: Node<'a>) {
         let vocabulary: &TestVocabulary = &self.profile.test;
         if let Some(name) = self.called_name(call) {
@@ -854,7 +903,10 @@ impl<'a> Walker<'a> {
                     self.out.test_debug_output.push(spot);
                 }
             }
-            match vocabulary.directive(&name) {
+            match vocabulary
+                .directive(&name)
+                .filter(|_| self.registers_test(call, &name))
+            {
                 Some(("skipped", directive)) => self.out.skipped_tests.push(Spot {
                     span: span_of(call),
                     detail: directive.to_owned(),
@@ -1491,6 +1543,24 @@ impl<'a> Walker<'a> {
             Some((at, _)) => format!("{}…", &line[..at]),
             None => line.to_owned(),
         }
+    }
+
+    /// A catch whose body does nothing and says nothing. A comment is the reason the
+    /// rule asks for; Python's sits beside the block rather than in it, so the whole
+    /// clause is searched.
+    fn swallows_silently(&self, catch: Node<'a>) -> bool {
+        let profile = self.profile;
+        let does_nothing = catch
+            .child_by_field_name("body")
+            .or_else(|| catch.named_child(catch.named_child_count().saturating_sub(1)))
+            .is_some_and(|body| {
+                body.named_children(&mut body.walk())
+                    .all(|child| profile.empty_body_kinds.contains(&kind_of(child)))
+            });
+        does_nothing
+            && !descendants(catch)
+                .into_iter()
+                .any(|node| profile.is_comment(node))
     }
 
     /// A catch that catches only to raise the same thing again. The handler reads as
@@ -2553,13 +2623,20 @@ impl<'a> Walker<'a> {
     }
 
     /// Whether two sides of a check are one value: the same expression written
-    /// twice, or one side a copy of the other.
+    /// twice, or one side a copy of the other. A call written twice runs twice, so
+    /// `expect(f(1)).toBe(f(1))` checks that `f` answers the same each time, and a
+    /// side with a call in it is never the same value as itself.
     fn same_value(&self, checked: Node<'a>, expected: Node<'a>) -> bool {
         let checked = self.see_through(checked);
         let expected = self.unwrap_matcher(self.see_through(expected));
-        self.same_expression(checked, expected)
-            || self.copies(expected, checked)
-            || self.copies(checked, expected)
+        let settled = |node: Node<'a>| {
+            !descendants(node)
+                .into_iter()
+                .any(|inner| self.profile.is_call(inner))
+        };
+        (settled(checked)
+            && (self.same_expression(checked, expected) || self.copies(expected, checked)))
+            || (settled(expected) && self.copies(checked, expected))
     }
 
     fn same_expression(&self, one: Node<'a>, other: Node<'a>) -> bool {
@@ -5469,15 +5546,7 @@ impl<'a> Walker<'a> {
                 self.name_the_body(&text, span_of(name), self.function_body(node));
             }
         }
-        if profile.catch_kinds.contains(&kind)
-            && node
-                .child_by_field_name("body")
-                .or_else(|| node.named_child(node.named_child_count().saturating_sub(1)))
-                .is_some_and(|body| {
-                    body.named_children(&mut body.walk())
-                        .all(|child| profile.empty_body_kinds.contains(&kind_of(child)))
-                })
-        {
+        if profile.catch_kinds.contains(&kind) && self.swallows_silently(node) {
             self.out.empty_catches.push(Spot {
                 span: span_of(node),
                 detail: "catch clause".to_owned(),
@@ -5625,7 +5694,7 @@ impl<'a> Walker<'a> {
             self.note_boolean_argument(node);
             if self
                 .called_name(node)
-                .is_some_and(|name| profile.test.is_test(&name))
+                .is_some_and(|name| profile.test.is_test(&name) && self.registers_test(node, &name))
             {
                 self.test_depth += 1;
                 self.holds_tests = true;
@@ -6174,6 +6243,7 @@ pub fn collect_over(
         holds_tests: false,
         block_depth: 0,
         asserting_helpers: Helpers::default(),
+        local_marker_names: local_marker_names(profile, scopes),
     };
     walker.asserting_helpers = walker.find_asserting_helpers();
     walker.walk(root);
@@ -6343,6 +6413,21 @@ fn once_per_language(strings: Vec<Spot>) -> Vec<Spot> {
         }
     }
     first
+}
+
+/// Every place a name spelled like a marked runner call (`fit`, `xdescribe`) refers to
+/// something the file declares itself. An import is the runner's own name brought in
+/// explicitly, so it is left out.
+fn local_marker_names(profile: &LanguageProfile, scopes: &Scopes) -> HashSet<(u32, u32)> {
+    scopes
+        .bindings
+        .iter()
+        .filter(|binding| {
+            binding.kind != BindingKind::Import && profile.test.is_prefix_marked(&binding.name)
+        })
+        .flat_map(|binding| std::iter::once(binding.span).chain(binding.references.iter().copied()))
+        .map(|span| (span.start, span.end))
+        .collect()
 }
 
 /// The assignments whose target is a parameter of a function around it, one per

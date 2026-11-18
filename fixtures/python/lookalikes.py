@@ -159,3 +159,13 @@ class Session:
 
 def ranked(rows):
     return sorted(rows, key=lambda row: 0)
+
+
+# empty-catch: an except clause that says why it does nothing has handled the error.
+def parsed_or_nothing(text):
+    try:
+        return int(text)
+    except ValueError:
+        # Malformed input means no setting, which the caller already handles.
+        pass
+    return None

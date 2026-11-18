@@ -77,9 +77,17 @@ pub struct MetricsWalker<'a> {
     functions: Vec<FunctionFrame>,
     classes: Vec<ClassFrame>,
     blocks: Vec<BlockFrame>,
-    pending_name: Option<(String, Span)>,
+    pending_name: Option<PendingName>,
     logical_chain: Option<String>,
     out: FileMetrics,
+}
+
+/// The name a declaration, field or method is about to give the function written as
+/// its value, and the node that gives it.
+struct PendingName {
+    name: String,
+    span: Span,
+    owner: usize,
 }
 
 impl<'a> MetricsWalker<'a> {
@@ -116,9 +124,39 @@ impl<'a> MetricsWalker<'a> {
         self.pop_nesting();
     }
 
+    fn name_next_function(&mut self, owner: Node<'a>, name: Node<'a>) {
+        self.pending_name = Some(PendingName {
+            name: text_of(name, self.source).to_owned(),
+            span: span_of(name),
+            owner: owner.id(),
+        });
+    }
+
+    /// Whether `owner` names `function`: it is the function itself, or the function
+    /// is its value. `const unsubscribe = bus.subscribe(() => …)` names the result of
+    /// the call, not the callback handed to it.
+    fn is_named_by(&self, function: Node<'a>, owner: usize) -> bool {
+        if function.id() == owner {
+            return true;
+        }
+        let profile = self.profile;
+        let mut parent = function.parent();
+        while let Some(wrapper) = parent.filter(|node| {
+            profile.transparent_kinds.contains(&kind_of(*node))
+                || profile.expression_list_kinds.contains(&kind_of(*node))
+        }) {
+            parent = wrapper.parent();
+        }
+        parent.is_some_and(|parent| parent.id() == owner)
+    }
+
     fn push_function(&mut self, node: Node<'a>) {
-        let (name, report) = match self.pending_name.take() {
-            Some((name, span)) => (Some(name), span),
+        let pending = self
+            .pending_name
+            .take()
+            .filter(|pending| self.is_named_by(node, pending.owner));
+        let (name, report) = match pending {
+            Some(pending) => (Some(pending.name), pending.span),
             None => (None, header_span(self.source, span_of(node))),
         };
         // A callback handed to `forEach` runs once per element, so its body is already
@@ -688,7 +726,7 @@ impl<'a> MetricsWalker<'a> {
             if let Some(name) = node.child_by_field_name("name")
                 && profile.is_identifier(name)
             {
-                self.pending_name = Some((text_of(name, self.source).to_owned(), span_of(name)));
+                self.name_next_function(node, name);
             }
             self.walk_children(node);
             self.pending_name = None;
@@ -699,7 +737,7 @@ impl<'a> MetricsWalker<'a> {
                 frame.methods += 1;
             }
             if let Some(name) = node.child_by_field_name("name") {
-                self.pending_name = Some((text_of(name, self.source).to_owned(), span_of(name)));
+                self.name_next_function(node, name);
             }
         }
         let assigned_field = profile.assigned_field_kinds.contains(&kind)
@@ -713,12 +751,12 @@ impl<'a> MetricsWalker<'a> {
                 frame.fields += 1;
             }
             if let Some(name) = node.child_by_field_name("name") {
-                self.pending_name = Some((text_of(name, self.source).to_owned(), span_of(name)));
+                self.name_next_function(node, name);
             }
         }
         if profile.is_function(node) {
             if let Some(name) = self.function_name(node) {
-                self.pending_name = Some((text_of(name, self.source).to_owned(), span_of(name)));
+                self.name_next_function(node, name);
             }
             self.push_function(node);
             self.walk_children(node);

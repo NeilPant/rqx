@@ -52,6 +52,37 @@ function shout(payload) {
 events.on("shout", shout);
 events.on("trim", (payload) => payload.trim());
 
+function subscribe(handler) {
+  events.on("close", handler);
+  return () => events.off("close", handler);
+}
+
+// no-base-case: the callback calls the function `subscribe` returned, not itself.
+export function listenOnce() {
+  const unsubscribe = subscribe(() => {
+    unsubscribe();
+  });
+}
+
+// focused-test: `fit` is this file's own function, and fitting a width is not a test.
+function fit(width, limit) {
+  return Math.max(0, Math.min(width, limit));
+}
+
+export function fitted(widths, limit) {
+  return widths.map((width) => fit(width, limit));
+}
+
+// empty-catch: a catch that says why it does nothing has handled the error.
+export function parsedOrNothing(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Malformed input means no settings, which the caller already handles.
+  }
+  return undefined;
+}
+
 // no-base-case: the method calls the function it is named after, not itself.
 function render(text) {
   return text.trim();

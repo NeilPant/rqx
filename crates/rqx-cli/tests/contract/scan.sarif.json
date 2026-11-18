@@ -375,31 +375,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 56,
-                  "startColumn": 3,
-                  "startLine": 56
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail. it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour Fix: write the expected value as a literal, instead of the call that produces it"
-          },
-          "properties": {
-            "confidence": "heuristic"
-          },
-          "ruleId": "self-asserting-test"
-        },
-        {
-          "level": "error",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/suite.test.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "endLine": 98,
                   "startColumn": 3,
                   "startLine": 98
@@ -408,7 +383,7 @@
             }
           ],
           "message": {
-            "text": "`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail. it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour Fix: write the expected value as a literal, instead of the call that produces it"
+            "text": "`expect(sums).toEqual([...sums]);` checks a value against itself, so it cannot fail. it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour Fix: write the value the code should produce as a literal on the expected side"
           },
           "properties": {
             "confidence": "heuristic"

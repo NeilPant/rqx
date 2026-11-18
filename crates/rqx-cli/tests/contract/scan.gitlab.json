@@ -169,19 +169,7 @@
   },
   {
     "check_name": "self-asserting-test",
-    "description": "`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail. — it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour",
-    "fingerprint": "655eedc1852d6297",
-    "location": {
-      "lines": {
-        "begin": 56
-      },
-      "path": "typescript/suite.test.ts"
-    },
-    "severity": "major"
-  },
-  {
-    "check_name": "self-asserting-test",
-    "description": "`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail. — it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour",
+    "description": "`expect(sums).toEqual([...sums]);` checks a value against itself, so it cannot fail. — it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour",
     "fingerprint": "27d21920c2198958",
     "location": {
       "lines": {

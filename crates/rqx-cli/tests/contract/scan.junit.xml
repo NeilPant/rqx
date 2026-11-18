@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="311" failures="165" time="0">
+<testsuites name="rqx" tests="310" failures="164" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -1402,24 +1402,18 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
       <skipped message="The test contains 3 branches or loops, so which path ran depends on the data." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/suite.test.ts" tests="19" failures="12">
+  <testsuite name="typescript/suite.test.ts" tests="18" failures="11">
     <testcase classname="typescript/suite.test.ts" name="focused-test at 7:1">
       <failure type="focused-test" message="`only` makes the runner skip every other test.">`only` makes the runner skip every other test.
 
 Why: this silently disables every other test in the file, so the suite passes while almost nothing runs
 Fix: remove the focus before merging; a focused test is rarely meant to be committed</failure>
     </testcase>
-    <testcase classname="typescript/suite.test.ts" name="self-asserting-test at 56:3">
-      <failure type="self-asserting-test" message="`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail.">`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail.
-
-Why: it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour
-Fix: write the expected value as a literal, instead of the call that produces it</failure>
-    </testcase>
     <testcase classname="typescript/suite.test.ts" name="self-asserting-test at 98:3">
-      <failure type="self-asserting-test" message="`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail.">`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail.
+      <failure type="self-asserting-test" message="`expect(sums).toEqual([...sums]);` checks a value against itself, so it cannot fail.">`expect(sums).toEqual([...sums]);` checks a value against itself, so it cannot fail.
 
 Why: it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour
-Fix: write the expected value as a literal, instead of the call that produces it</failure>
+Fix: write the value the code should produce as a literal on the expected side</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="skipped-test at 3:1">
       <failure type="skipped-test" message="`skip` stops this test from running.">`skip` stops this test from running.

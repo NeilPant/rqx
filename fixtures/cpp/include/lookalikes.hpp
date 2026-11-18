@@ -10,6 +10,7 @@ int timeout_budget();
 int level(int value);
 int spelled(const std::string& word);
 std::size_t longest(const std::vector<std::string>& words);
+int parsed_or_zero(const std::string& text);
 
 // no-base-case: `::level` is the free function, not the member calling itself.
 // empty-method: the constructor's work is its member initialiser list.
