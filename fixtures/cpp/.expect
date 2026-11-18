@@ -1,0 +1,453 @@
+# Findings expected in fixtures/cpp: file, expectation, source line.
+# rule= fires on the line (xN: N times), none= must not, may= either way,
+# known-fp= fires and is wrong. #N: the Nth line of the file with this text.
+# Rewrite the rule= entries: RQX_BLESS=1 cargo test -p rqx --test fixtures every_fixture_finding_is_expected
+include/bloat.hpp rule=large-class | class Overgrown {
+include/bloat.hpp rule=split-cohesion | class Overgrown {
+include/bloat.hpp rule=wide-surface | class Overgrown {
+include/conventions.hpp rule=mixed-conventions | extern int retry_limit;
+include/conventions.hpp rule=mutable-module-state | extern int retry_limit;
+include/conventions.hpp rule=mutable-module-state | extern int retryBackoff;
+include/cost_large_by_value.hpp rule=unused-private-member | std::vector<std::string> lines_;
+include/cost_pair_scan_could_hash.hpp rule=data-class | struct Order {
+include/cost_pair_scan_could_hash.hpp rule=split-cohesion | struct Order {
+include/cost_pair_scan_could_hash.hpp rule=data-class | struct User {
+include/cost_pair_scan_could_hash.hpp rule=split-cohesion | struct User {
+include/cycle_a.hpp rule=circular-dependency | #include "cycle_b.hpp"
+include/families.hpp rule=unused-export | class Transport {
+include/families.hpp rule=unused-export | class Road : public Transport {
+include/families.hpp rule=unused-export | class Rail : public Transport {
+include/families.hpp rule=unused-export | class Logistics {
+include/families.hpp rule=unused-export | class Button {
+include/families.hpp rule=unused-export | class FlatButton : public Button {
+include/families.hpp rule=unused-export | class Panel {
+include/families.hpp rule=unused-export | class FlatPanel : public Panel {
+include/families.hpp rule=split-cohesion | class Kit {
+include/families.hpp rule=unused-export | class Kit {
+include/families.hpp rule=unused-export | class Shape {
+include/families.hpp rule=unused-export | class Expression {
+include/families.hpp rule=unused-parameter | std::string visit_literal(Literal* node) { return "1"; }
+include/families.hpp rule=unused-parameter | std::string visit_sum(Sum* node) { return "+"; }
+include/families.hpp rule=unused-parameter | std::string visit_product(Product* node) { return "*"; }
+include/gateway_a.hpp rule=passthrough-function | inline int collect_a(int amount) {
+include/gateway_b.hpp rule=passthrough-function | inline int collect_b(int amount) {
+include/gateway_c.hpp rule=passthrough-function | inline int collect_c(int amount) {
+include/hierarchy.hpp rule=unused-export | class Feeder {
+include/hierarchy.hpp rule=unused-export | class DogFeeder : public Feeder {
+include/hierarchy.hpp rule=unused-export | class CatFeeder : public Feeder {
+include/hierarchy_food.hpp rule=unused-export | class Food {
+include/hierarchy_food.hpp rule=unused-export | class DogFood : public Food {
+include/hierarchy_food.hpp rule=unused-export | class CatFood : public Food {
+include/hygiene.hpp rule=unused-export | class City {
+include/hygiene.hpp rule=unused-export | class Address {
+include/hygiene.hpp rule=unused-export | class Customer {
+include/intimacy.hpp rule=unused-export | class Checkout;
+include/intimacy.hpp rule=unused-export | class Cart {
+include/intimacy.hpp rule=temporary-field | std::vector<std::string> items;
+include/intimacy.hpp rule=inappropriate-intimacy | return Checkout::rate * static_cast<int>(this->items.size());
+include/intimacy.hpp rule=unused-export | class Checkout {
+include/intimacy.hpp rule=mutable-module-state | static int rate;
+include/intimacy.hpp rule=never-reassigned | Cart cart;
+include/intimacy.hpp rule=empty-method | void open(const std::string& path) {}
+include/intimacy.hpp rule=empty-method | void write(const std::string& row) {}
+include/intimacy.hpp rule=empty-method | void close() {}
+include/intimacy.hpp rule=unused-export | class JsonEmitter {
+include/intimacy.hpp rule=empty-method | void begin(const std::string& path) {}
+include/intimacy.hpp rule=empty-method | void emit(const std::string& row) {}
+include/intimacy.hpp rule=empty-method | void finish() {}
+include/lifecycle.hpp rule=unused-export | class Session {
+include/lifecycle.hpp rule=temporal-coupling | bool opened = false;
+include/lifecycle.hpp rule=middle-man | class ReportFactory {
+include/lifecycle.hpp rule=unused-export | class ReportFactory {
+include/lifecycle.hpp rule=temporary-field | std::vector<std::string> rows;
+include/orphan.hpp rule=unused-file | #pragma once
+include/orphan.hpp rule=negated-name | int no_one_includes_this_file();
+include/params.hpp rule=imprecise-type | auto adder(int step) -> std::function<int(int value)>;
+include/patterns.hpp rule=boolean-not-a-question | bool open() {
+include/patterns.hpp rule=type-code-switch | if (this->state == "closed") {
+include/patterns.hpp rule=redundant-else | } else if (this->state == "open") {
+include/patterns.hpp rule=redundant-else | } else if (this->state == "locked") {
+include/patterns.hpp rule=boolean-not-a-question | bool lock(int key) {
+include/patterns.hpp rule=redundant-else #2 | } else if (this->state == "open") {
+include/patterns.hpp rule=redundant-else | } else if (this->looks_like_upload(body)) {
+include/patterns.hpp rule=redundant-else | } else if (this->has_session(session)) {
+include/patterns.hpp rule=boolean-not-a-question | bool looks_like_upload(const std::string& body) { return body.size() > 1024; }
+include/patterns.hpp rule=type-code-switch | if (kind == "add") {
+include/patterns.hpp rule=redundant-else | } else if (kind == "remove") {
+include/patterns.hpp rule=redundant-else | } else if (kind == "clear") {
+include/patterns.hpp rule=redundant-else #2 | } else if (kind == "remove") {
+include/patterns.hpp rule=unused-private-member | int add_item(int payload) { return payload; }
+include/patterns.hpp rule=unused-private-member | int remove_item(int payload) { return -payload; }
+include/patterns.hpp rule=unused-private-member | int clear_cart(int payload) { return payload / 2; }
+include/performance.hpp rule=boolean-not-a-question | bool ready() const { return !value.empty(); }
+include/precision.hpp rule=journal-comment | // @author someone
+include/precision.hpp rule=journal-comment | // Created on 2019-04-02
+include/precision.hpp rule=redundant-comment | // user name
+include/precision.hpp rule=mutable-module-state | extern std::string user_name;
+include/queries.hpp rule=speculative-generality | class Ledger {
+include/queries.hpp rule=unused-export | class Ledger {
+include/queries.hpp rule=temporary-field | int total = 0;
+include/queries.hpp rule=temporary-field | int reads = 0;
+include/queries.hpp rule=query-with-side-effect | int getTotal() {
+include/queries.hpp rule=mixed-conventions | std::string find_order(const std::vector<std::string>& rows);
+include/reconcile.hpp rule=data-class | struct Row {
+include/reconcile.hpp rule=split-cohesion | struct Row {
+include/reconcile.hpp rule=speculative-generality | class Reconciler {
+include/reconcile.hpp rule=split-cohesion | class Reconciler {
+include/reconcile.hpp rule=unused-export | class Reconciler {
+include/reconcile.hpp rule=unused-private-member | int ledger = 0;
+include/shapes.hpp rule=speculative-generality | class Coordinate {
+include/shapes.hpp rule=unused-export | class Coordinate {
+include/shapes.hpp rule=lazy-class | class Marker {
+include/shapes.hpp rule=unused-export | class Marker {
+include/shapes.hpp rule=lazy-class | class Shipment {
+include/shapes.hpp rule=unused-export | class Shipment {
+include/shapes.hpp rule=mixed-conventions | std::string strLabel = "";
+include/shapes.hpp rule=middle-man | class Facade {
+include/shapes.hpp rule=unused-export | class Facade {
+include/shapes.hpp rule=speculative-generality | class Vehicle {
+include/shapes.hpp rule=unused-export | class Vehicle {
+include/shapes.hpp rule=split-cohesion | class Engine {
+include/shapes.hpp rule=unused-export | class Engine {
+include/shapes.hpp rule=unused-private-member | int unusedSecret = 1;
+include/shapes.hpp rule=temporary-field | std::string scratch;
+include/shapes.hpp rule=inappropriate-static | static Engine build(Engine other) { return other; }
+include/shapes.hpp rule=unused-export | class Broken : public Engine {
+include/shapes.hpp rule=refused-bequest #2 | std::string run() {
+include/shapes.hpp rule=data-class | struct Basket {
+include/shapes.hpp rule=speculative-generality | struct Basket {
+include/shapes.hpp rule=split-cohesion | struct Basket {
+include/shapes.hpp rule=unused-export | struct Basket {
+include/shapes.hpp rule=unused-export | class Totals {
+include/shapes.hpp rule=feature-envy | int add(Basket basket) {
+include/shapes.hpp rule=unused-export | class CachedRegistry;
+include/shapes.hpp rule=unused-export | class Registry {
+include/shapes.hpp rule=base-depends-on-derived | return kind == "cached" ? sizeof(CachedRegistry) : 0;
+include/shapes.hpp rule=empty-subclass | class CachedRegistry : public Registry {
+include/shapes.hpp rule=unused-export | class CachedRegistry : public Registry {
+include/structures.hpp rule=split-cohesion | class Notifier {
+include/structures.hpp rule=unused-export | class Notifier {
+include/structures.hpp rule=middle-man | class LoggingNotifier : public Notifier {
+include/structures.hpp rule=middle-man | class GuardedNotifier : public Notifier {
+include/structures.hpp rule=middle-man | class SmsNotifier : public Notifier {
+include/structures.hpp rule=middle-man | class RetryingGateway {
+include/structures.hpp rule=unused-parameter | void attach(const Menu& child) { this->items.push_back(child); }
+include/structures.hpp rule=unused-parameter | ReportBuilder* with_rows(int rows) { return this; }
+include/structures.hpp rule=temporary-field | std::string title;
+include/structures.hpp rule=unused-parameter | QueryBuilder* take(int count) { return this; }
+include/structures.hpp rule=unused-private-member | int clauses;
+include/structures.hpp rule=unused-export | class Settings {
+include/structures.hpp rule=empty-method | Settings() {}
+include/structures.hpp rule=unused-private-member | static Settings* instance;
+include/structures.hpp rule=unused-export | class Clock {
+include/structures.hpp rule=empty-method | Clock() {}
+include/structures.hpp rule=unused-private-member | static Clock* current;
+include/structures.hpp rule=static-only-class | class Glyph {
+include/structures.hpp rule=unused-export | class Glyph {
+include/structures.hpp rule=mutable-module-state | static std::vector<Glyph*> pool;
+include/structures.hpp rule=unused-private-member | static std::vector<Glyph*> pool;
+include/structures.hpp rule=speculative-generality | class Listener {
+include/structures.hpp rule=unused-export | class Listener {
+include/structures.hpp rule=middle-man | class Feed {
+include/structures.hpp rule=unused-parameter | void add_listener(Listener* handler) { this->listeners.push_back(handler); }
+include/structures.hpp rule=unused-parameter | void remove_listener(Listener* handler) { this->listeners.pop_back(); }
+include/structures.hpp rule=passthrough-function | void publish(int value) { this->listeners.at(0)->changed(value); }
+include/structures.hpp rule=unused-parameter | void on_tick(Listener* handler) { this->handlers.push_back(handler); }
+include/structures.hpp rule=speculative-generality | class Importer {
+include/structures.hpp rule=unused-export | class Importer {
+include/structures.hpp rule=never-reassigned | std::string row = this->read();
+src/bloat.cpp rule=long-parameter-list | int too_many_parameters(int a, int b, int c, int d, int e) {
+src/bloat.cpp rule=deep-nesting | int deeply_nested(const std::vector<int>& rows) {
+src/bloat.cpp rule=never-reassigned | for (int row : rows) {
+src/bloat.cpp rule=magic-number | if (row == 5) {
+src/bloat.cpp rule=empty-subclass | class SameAsOvergrown : public Overgrown {};
+src/bloat.cpp rule=static-only-class | class Formatting {
+src/bloat.cpp rule=working-constructor | Catalogue(int path) { rows = load_rows(path); }
+src/bloat.cpp rule=temporary-field | int rows;
+src/bloat.cpp rule=many-locals | int crowded_scope(int seed) {
+src/bloat.cpp rule=never-reassigned x4 | int c1 = seed; int c2 = seed; int c3 = seed; int c4 = seed;
+src/bloat.cpp rule=never-reassigned x4 | int c5 = seed; int c6 = seed; int c7 = seed; int c8 = seed;
+src/bloat.cpp rule=never-reassigned x4 | int c9 = seed; int c10 = seed; int c11 = seed; int c12 = seed;
+src/bloat.cpp rule=never-reassigned x4 | int c13 = seed; int c14 = seed; int c15 = seed; int c16 = seed;
+src/bloat.cpp rule=never-reassigned | int all[] = {c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16};
+src/bloat.cpp rule=plural-mismatch | int all[] = {c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16};
+src/bloat.cpp rule=blanket-try | try {
+src/bloat.cpp rule=wide-try | try {
+src/bloat.cpp rule=never-reassigned x4 | int d1 = seed; int d2 = seed; int d3 = seed; int d4 = seed;
+src/bloat.cpp rule=never-reassigned x4 | int d5 = seed; int d6 = seed; int d7 = seed; int d8 = seed;
+src/bloat.cpp rule=never-reassigned x3 | int d9 = seed; int d10 = seed; int d11 = seed;
+src/bloat.cpp rule=never-reassigned | int some[] = {d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11};
+src/bloat.cpp rule=plural-mismatch | int some[] = {d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11};
+src/bloat.cpp rule=cognitive-complexity | int many_paths(int kind, int rows) {
+src/bloat.cpp rule=cyclomatic-complexity | int many_paths(int kind, int rows) {
+src/bloat.cpp rule=guard-cascade | int many_paths(int kind, int rows) {
+src/bloat.cpp rule=magic-number | if (kind == 3) return 3;
+src/bloat.cpp rule=never-reassigned | for (int at = 0; at < rows; at++) {
+src/bloat.cpp rule=no-base-case | int loops(int rows) {
+src/bloat.cpp rule=passthrough-function | int loops(int rows) {
+src/checks_test.cpp rule=plural-mismatch | for (const int number : {0, 1}) {
+src/checks_test.cpp rule=branching-test | TEST(Checks, DecidesThreeWays) {
+src/config.cpp rule=flag-argument | std::string endpoint(const std::string& region, bool secure, int retries) {
+src/config.cpp rule=collapsible-if | if (secure) {
+src/config.cpp rule=collapsible-if | if (retries > 0) {
+src/config.cpp rule=buried-configuration | return "https://api.example.com/v2/orders";
+src/config.cpp rule=example-value | return "https://api.example.com/v2/orders";
+src/config.cpp rule=obscured-expression | return (a + b) * (c - d) + std::max(a, b) + std::min(c, d) - (a * d);
+src/conventions.cpp rule=mutable-module-state | int retry_limit = 3;
+src/conventions.cpp rule=mixed-conventions | int retryBackoff = 250;
+src/conventions.cpp rule=mutable-module-state | int retryBackoff = 250;
+src/conventions.cpp rule=mixed-language-file | return "SELECT id, name FROM users WHERE id = '" + user_id + "'";
+src/conventions.cpp rule=never-reassigned | std::vector<std::string> out;
+src/conventions.cpp rule=boundary-arithmetic | out.push_back(items[cursor + 1]);
+src/conventions.cpp rule=mutable-module-state | int item_list[] = {1, 2, 3};
+src/conventions.cpp rule=name-repeats-type | int item_list[] = {1, 2, 3};
+src/conventions.cpp rule=plural-mismatch | int item_list[] = {1, 2, 3};
+src/conventions.cpp rule=over-logging | int narrates(int rows) {
+src/conventions.cpp rule=never-reassigned | int total = rows;
+src/cost_allocation_in_loop.cpp rule=duplicate-code | int total = 0;
+src/cost_allocation_in_loop.cpp rule=never-reassigned | for (int row : rows) {
+src/cost_allocation_in_loop.cpp rule=never-reassigned | std::vector<char> buffer(65536);
+src/cost_allocation_in_loop.cpp rule=plural-mismatch | std::vector<char> buffer(65536);
+src/cost_allocation_in_loop.cpp rule=never-reassigned #2 | for (int row : rows) {
+src/cost_allocation_in_loop.cpp rule=never-reassigned | std::vector<char> padding(16);
+src/cost_allocation_in_loop.cpp rule=plural-mismatch | std::vector<char> padding(16);
+src/cost_copy_in_range_for.cpp rule=copy-in-range-for | for (std::string name : names) {
+src/cost_copy_in_range_for.cpp rule=never-reassigned | for (std::string name : names) {
+src/cost_copy_in_range_for.cpp rule=duplicate-code #2 | std::size_t total = 0;
+src/cost_copy_in_range_for.cpp rule=never-reassigned #2 | for (std::string name : names) {
+src/cost_deep_recursion.cpp rule=deep-recursion | return n + sum_to(n - 1);
+src/cost_large_by_value.cpp rule=large-by-value | std::size_t count_characters(std::vector<std::string> lines) {
+src/cost_large_by_value.cpp rule=duplicate-function | std::size_t count_characters_by_reference(const std::vector<std::string>& lines) {
+src/cost_large_by_value.cpp rule=output-parameter | text += "!";
+src/cost_linear_op_in_loop.cpp rule=never-reassigned | for (int item : items) {
+src/cost_linear_op_in_loop.cpp rule=linear-op-in-loop | out.insert(out.begin(), item);
+src/cost_linear_op_in_loop.cpp rule=never-reassigned #2 | for (int item : items) {
+src/cost_lock_in_loop.cpp rule=never-reassigned | for (int row : rows) {
+src/cost_lock_in_loop.cpp rule=lock-in-loop | std::lock_guard<std::mutex> hold(guard);
+src/cost_lock_in_loop.cpp rule=never-reassigned #2 | for (int row : rows) {
+src/cost_missing_capacity.cpp rule=never-reassigned | std::vector<std::string> copies;
+src/cost_missing_capacity.cpp rule=never-reassigned #2 | std::vector<std::string> copies;
+src/cost_pair_scan_could_hash.cpp rule=never-reassigned | std::vector<std::string> names;
+src/cost_quadratic_via_call.cpp rule=never-reassigned | for (size_t i = 0; i < list.size(); i++) {
+src/cost_quadratic_via_call.cpp rule=never-reassigned | std::vector<std::string> firsts;
+src/cost_quadratic_via_call.cpp rule=never-reassigned | for (size_t at = 0; at < items.size(); at++) {
+src/cost_quadratic_via_call.cpp rule=quadratic-via-call | if (index_of_item(items, items[at]) == static_cast<int>(at)) {
+src/cost_quadratic_via_call.cpp rule=never-reassigned | std::vector<std::string> out;
+src/cost_repeated_computation_in_loop.cpp rule=never-reassigned | std::vector<double> out;
+src/cost_repeated_computation_in_loop.cpp rule=never-reassigned | for (double weight : weights) {
+src/cost_repeated_computation_in_loop.cpp rule=never-reassigned | int whole = total_length(parts);
+src/cost_repeated_computation_in_loop.cpp rule=repeated-computation-in-loop | int whole = total_length(parts);
+src/cost_repeated_computation_in_loop.cpp rule=never-reassigned #2 | std::vector<double> out;
+src/cost_repeated_computation_in_loop.cpp rule=never-reassigned #2 | for (double weight : weights) {
+src/cost_repeated_computation_in_loop.cpp rule=never-reassigned | std::vector<std::string> own = {"x"};
+src/cost_repeated_computation_in_loop.cpp rule=plural-mismatch | std::vector<std::string> own = {"x"};
+src/cost_sort_in_loop.cpp rule=dead-store | std::vector<int> ranked;
+src/cost_sort_in_loop.cpp rule=never-reassigned | std::vector<int> ranked;
+src/cost_sort_in_loop.cpp rule=sort-in-loop | std::partial_sort(base.begin(), base.begin(), base.end());
+src/cost_sort_in_loop.cpp rule=dead-store #2 | std::vector<int> ranked;
+src/cost_sort_in_loop.cpp rule=never-reassigned #2 | std::vector<int> ranked;
+src/cost_unbounded_cache.cpp rule=mutable-module-state | static std::unordered_map<std::string, int> page_sizes;
+src/cost_unbounded_cache.cpp rule=mutable-module-state | static std::unordered_map<std::string, int> recent_sizes;
+src/cost_unbounded_cache.cpp rule=unbounded-cache | page_sizes[key] = size;
+src/cost_unbounded_concurrency.cpp rule=unused-parameter | std::vector<std::future<std::string>> load_every_page(const PageClient& client, const std::vector<std::string>& ids) {
+src/cost_unbounded_concurrency.cpp rule=unbounded-concurrency | pending.push_back(std::async(std::launch::async, [&client, id] { return client.get(id); }));
+src/cost_unbounded_concurrency.cpp rule=unused-parameter | std::vector<std::future<std::string>> load_few_pages(const PageClient& client, const std::vector<std::string>& ids) {
+src/flow.cpp rule=boolean-not-a-question | bool restated(bool ready) {
+src/flow.cpp rule=flag-argument | bool restated(bool ready) {
+src/flow.cpp rule=boolean-from-branch | if (ready) {
+src/flow.cpp rule=redundant-else | } else {
+src/flow.cpp rule=flag-argument | int compared(bool ready, int count) {
+src/flow.cpp rule=literal-comparison | if (ready == true) {
+src/flow.cpp rule=self-comparison | if (count == count) {
+src/flow.cpp rule=identical-branches | if (count > 10) {
+src/flow.cpp rule=redundant-else #2 | } else {
+src/flow.cpp rule=empty-block #2 | if (count > 10) {
+src/flow.cpp rule=many-exits | int wide_switch(int kind) {
+src/flow.cpp rule=type-code-switch | switch (kind) {
+src/flow.cpp rule=wide-switch | switch (kind) {
+src/flow.cpp rule=magic-number | case 3: return 3;
+src/flow.cpp rule=dead-store | int found = 0;
+src/flow.cpp rule=assignment-in-condition | if ((found = a + b)) {
+src/flow.cpp rule=imprecise-type | auto nested_callbacks() {
+src/flow.cpp rule=callback-nesting | return []() { return 1; };
+src/flow.cpp rule=never-reassigned | for (int item : items) {
+src/flow.cpp rule=redundant-jump | continue;
+src/flow.cpp rule=boolean-not-a-question | bool settled(double balance) {
+src/flow.cpp rule=float-equality | return balance == 0.1;
+src/flow.cpp rule=discarded-expression | total == other;
+src/flow.cpp rule=nested-ternary | return score > 90 ? "gold" : score > 50 ? "silver" : "bronze";
+src/flow.cpp rule=boolean-not-a-question | bool admits(int rank, int guests, int staff) {
+src/flow.cpp rule=ambiguous-precedence | return rank > 0 && guests > 0 || staff > 0;
+src/flow.cpp rule=boolean-not-a-question | bool changed(int before, int after) {
+src/flow.cpp rule=negated-comparison | return !(before == after);
+src/flow.cpp rule=no-default-branch | switch (state) {
+src/flow.cpp rule=never-reassigned | for (int at = 0; at < count; at++) {
+src/flow.cpp rule=loop-runs-once | return items[at];
+src/flow.cpp rule=never-reassigned | int total = rows * 2;
+src/flow.cpp rule=return-of-fresh-local | int total = rows * 2;
+src/flow.cpp rule=redundant-else | } else if (kind == 2) {
+src/flow.cpp rule=duplicate-condition | } else if (kind == 1) {
+src/flow.cpp rule=redundant-else | } else if (kind == 1) {
+src/flow.cpp rule=imprecise-type | for (const auto& row : rows) {
+src/flow.cpp rule=accumulate-by-copy | out += row;
+src/flow.cpp rule=loop-concatenation | out += row;
+src/flow.cpp rule=silent-fallthrough #3 | case 1:
+src/hygiene.cpp rule=wildcard-import | #include "hygiene.hpp"
+src/hygiene.cpp rule=deep-relative-import | #include "../../../shared/far.hpp"
+src/hygiene.cpp rule=duplicate-import #2 | #include "hygiene.hpp"
+src/hygiene.cpp rule=flag-argument | int pricing(const std::vector<int>& cart, bool apply_discount) {
+src/hygiene.cpp rule=unused-local | int never_read = static_cast<int>(cart.size());
+src/hygiene.cpp rule=never-reassigned | for (int item : cart) {
+src/hygiene.cpp rule=commented-out-code | // int legacy = total * 2;
+src/hygiene.cpp rule=complex-condition | if (!apply_discount && total > 4999 && cart.size() > 12 && total != 7) {
+src/hygiene.cpp rule=magic-number | if (!apply_discount && total > 4999 && cart.size() > 12 && total != 7) {
+src/hygiene.cpp rule=redundant-else | } else {
+src/hygiene.cpp rule=empty-catch | } catch (const std::exception& error) {
+src/hygiene.cpp rule=empty-method | void nothing_happens() {
+src/hygiene.cpp rule=unjustified-suppression | // rqx-ignore magic-number
+src/hygiene.cpp rule=never-reassigned | int seed = 1;
+src/hygiene.cpp rule=output-parameter | value = 1;
+src/hygiene.cpp rule=unreachable-code | value = 1;
+src/hygiene.cpp rule=suppressed-diagnostic | int mutates_parameter(int value) {  // NOLINT
+src/hygiene.cpp rule=output-parameter #2 | value = 1;
+src/hygiene.cpp rule=unused-parameter | std::string ship(const Order& order) {
+src/hygiene.cpp rule=message-chain | return order.customer().address().city().label();
+src/hygiene.cpp rule=banner-comment | // ---------------- helpers ----------------
+src/hygiene.cpp rule=chat-residue | // Here's the helper you asked for! 🎉
+src/hygiene.cpp rule=apology-comment | // Sorry, this one is ugly.
+src/hygiene.cpp rule=passthrough-function | int forward_orbit(int seed) {
+src/hygiene.cpp rule=placeholder-body | int still_to_write() {
+src/hygiene.cpp rule=rethrow-only-catch #2 | } catch (const std::exception& error) {
+src/hygiene.cpp rule=catch-all-handler | } catch (...) {
+src/hygiene.cpp rule=generic-throw | throw std::exception();
+src/hygiene.cpp rule=passthrough-function | void stops(int code) {
+src/hygiene.cpp rule=library-exit | exit(code);
+src/hygiene.cpp rule=boolean-literal-argument | return fetch_page(url, true);
+src/hygiene.cpp rule=flag-argument | const char *fetch_page(const char *url, bool retry) {
+src/hygiene.cpp rule=comment-per-line | // set the total
+src/hygiene.cpp rule=dead-store #2 | int total = 0;
+src/hygiene.cpp rule=explanation-longer-than-code | // Works out the score for the given user id, and gives back the score it
+src/hygiene.cpp rule=docstring-restates-signature | /** Score of user id */
+src/hygiene.cpp rule=redundant-comment | /** Score of user id */
+src/hygiene.cpp rule=guard-cascade | int guarded_add(int a, int b, int c) {
+src/hygiene.cpp rule=blanket-try #4 | try {
+src/hygiene.cpp rule=dead-store #3 | int total = 0;
+src/intimacy.cpp rule=self-built-collaborators | Ledger() { this->writer = new CsvWriter(); }
+src/intimacy.cpp rule=ambient-dependency | int stamped_at() { return static_cast<int>(time(nullptr)); }
+src/long.cpp rule=long-function | int many_steps() {
+src/main.cpp rule=wide-fan-out | #include "bloat.hpp"
+src/main.cpp rule=long-function | int main() {
+src/main.cpp rule=boolean-literal-argument | pricing({}, true);
+src/main.cpp rule=boolean-literal-argument | endpoint("", true, 1);
+src/main.cpp rule=never-reassigned | Door door;
+src/main.cpp rule=dead-store | std::vector<int> prepended; prepend_each(prepended, {});
+src/main.cpp rule=never-reassigned | std::vector<int> prepended; prepend_each(prepended, {});
+src/main.cpp rule=never-reassigned | std::deque<int> fronted; front_each(fronted, {});
+src/main.cpp rule=never-reassigned | std::vector<int> baseline; rank_each({}, baseline);
+src/main.cpp rule=never-reassigned | std::vector<std::vector<int>> groups; rank_own(groups);
+src/main.cpp rule=never-reassigned | std::mutex guard; tally_under_one_lock(guard, {});
+src/main.cpp rule=never-reassigned | std::vector<std::mutex> guards(1); tally_under_each_lock(guards, {});
+src/main.cpp rule=never-reassigned | PageClient pages; load_every_page(pages, {});
+src/names.cpp rule=vague-function-name | int process(const std::vector<int>& rows) {
+src/names.cpp rule=never-reassigned | std::vector<int> data;
+src/names.cpp rule=never-reassigned | for (int row : rows) {
+src/names.cpp rule=never-reassigned | int temp2 = static_cast<int>(data.size());
+src/names.cpp rule=return-of-fresh-local | int temp2 = static_cast<int>(data.size());
+src/names.cpp rule=never-reassigned | int abs = rows;
+src/names.cpp rule=return-of-fresh-local | int abs = rows;
+src/names.cpp rule=shadows-builtin | int abs = rows;
+src/params.cpp rule=imprecise-type | auto adder(int step) -> std::function<int(int value)> {
+src/performance.cpp rule=never-reassigned | std::vector<int> kept;
+src/performance.cpp rule=never-reassigned | for (int row : rows) {
+src/performance.cpp rule=scan-in-loop | if (std::find(wanted.begin(), wanted.end(), row) != wanted.end()) {
+src/performance.cpp rule=deep-loop-nesting | int sum_cube(const std::vector<std::vector<std::vector<int>>>& grid) {
+src/performance.cpp rule=dead-store | for (const std::vector<std::vector<int>>& plane : grid) {
+src/performance.cpp rule=never-reassigned | for (int cell : line) {
+src/performance.cpp rule=await-in-loop | task = co_await task.wait(path);
+src/performance.cpp rule=never-reassigned | std::vector<std::string> found;
+src/performance.cpp rule=never-reassigned | for (int id : ids) {
+src/performance.cpp rule=query-in-loop | found.push_back(repository.find_by_id(id));
+src/performance.cpp rule=invariant-in-loop | std::regex digits("^[0-9]+$");
+src/performance.cpp rule=never-reassigned | std::regex digits("^[0-9]+$");
+src/performance.cpp rule=accumulate-by-copy | text += part;
+src/performance.cpp rule=loop-concatenation | text += part;
+src/performance.cpp rule=branching-recursion | int fibonacci(int step) {
+src/performance.cpp rule=closure-over-loop-variable | out.push_back([&]() { return at; });
+src/performance.cpp rule=never-reassigned #2 | for (int row : rows) {
+src/performance.cpp rule=mutated-while-iterated | rows.pop_back();
+src/performance.cpp rule=production-assert | assert(value > 0);
+src/performance.cpp rule=mutable-module-state | int open_tabs = 0;
+src/performance.cpp rule=global-accessor | int tabs_open() {
+src/performance.cpp rule=sleep-in-production | sleep(500);
+src/precision.cpp rule=imprecise-type | std::string raw = *((std::string*) input);
+src/precision.cpp rule=never-reassigned | std::string raw = *((std::string*) input);
+src/precision.cpp rule=return-of-fresh-local | std::string raw = *((std::string*) input);
+src/precision.cpp rule=mutable-module-state | std::string user_name = "ada";
+src/queries.cpp rule=vague-function-name | std::string handle(const std::string& value) {
+src/queries.cpp rule=many-exits | std::string find_order(const std::vector<std::string>& rows) {
+src/queries.cpp rule=distant-declaration | std::string separator = " | ";
+src/queries.cpp rule=never-reassigned | std::string separator = " | ";
+src/queries.cpp rule=never-reassigned | std::vector<std::string> trimmed;
+src/reconcile.cpp rule=cognitive-complexity | int Reconciler::reconcile_batch(const std::vector<Row>& batch, int tolerance, bool dry_run, int retries, bool verbose) {
+src/reconcile.cpp rule=deep-nesting | int Reconciler::reconcile_batch(const std::vector<Row>& batch, int tolerance, bool dry_run, int retries, bool verbose) {
+src/reconcile.cpp rule=flag-argument x2 | int Reconciler::reconcile_batch(const std::vector<Row>& batch, int tolerance, bool dry_run, int retries, bool verbose) {
+src/reconcile.cpp rule=long-parameter-list | int Reconciler::reconcile_batch(const std::vector<Row>& batch, int tolerance, bool dry_run, int retries, bool verbose) {
+src/reconcile.cpp rule=unused-parameter | int Reconciler::reconcile_batch(const std::vector<Row>& batch, int tolerance, bool dry_run, int retries, bool verbose) {
+src/reconcile.cpp rule=duplicate-code | int total = total_of(rows);
+src/reconcile.cpp rule=never-reassigned | int total = total_of(rows);
+src/reconcile.cpp rule=never-reassigned | int amount = total_of(entries);
+src/shapes.cpp rule=magic-number | case 3: return 3;
+src/shapes.cpp rule=type-code-switch | if (kind == "email") {
+src/shapes.cpp rule=redundant-else | } else if (kind == "sms") {
+src/shapes.cpp rule=redundant-else | } else if (kind == "push") {
+src/shapes.cpp rule=data-clump | std::string notify_of(const std::string& user_id, const std::string& channel, const std::string& locale) {
+src/shapes.cpp rule=flag-argument | int gate(bool ready, int retries) {
+src/shapes.cpp rule=redundant-else | } else {
+src/shapes.cpp rule=long-function | int sweep(const std::vector<int>& rows) {
+src/shapes.cpp rule=distant-declaration | int n = 0;
+src/shapes.cpp rule=never-reassigned | int n = 0;
+src/shapes.cpp rule=never-reassigned | std::vector<int> seen;
+src/shapes.cpp rule=never-reassigned | for (int row : rows) {
+src/shapes.cpp rule=magic-number | if (row > 7331) {
+src/shapes.cpp rule=duplicate-code | int total = rows;
+src/shapes.cpp rule=never-reassigned | int total = rows;
+src/shapes.cpp rule=never-reassigned | int doubled = total * 2;
+src/shapes.cpp rule=duplicate-function | int second_way(int rows) {
+src/shapes.cpp rule=never-reassigned #2 | int total = rows;
+src/shapes.cpp rule=never-reassigned #2 | int doubled = total * 2;
+src/shapes.cpp rule=shadowed-handler | } catch (const std::exception& wide) {
+src/shapes.cpp rule=empty-subclass | class Level1 : public Overgrown {};
+src/shapes.cpp rule=empty-subclass | class Level2 : public Level1 {};
+src/shapes.cpp rule=empty-subclass | class Level3 : public Level2 {};
+src/shapes.cpp rule=deep-inheritance | class Level4 : public Level3 {};
+src/shapes.cpp rule=empty-subclass | class Level4 : public Level3 {};
+src/shapes.cpp rule=orphan-todo | // TODO: work out what happens to the remainder
+src/shapes.cpp rule=integer-division | return 7 / 2 + total;
+src/shapes.cpp known-fp=discarded-error count_rows returns a number and cannot fail, so no error is dropped | int _ = count_rows(rows);
+src/suite_test.cpp rule=skipped-test | GTEST_SKIP() << "pricing is being rewritten";
+src/suite_test.cpp rule=magic-number | EXPECT_EQ(3, add(1, 2));
+src/suite_test.cpp rule=slow-test | std::this_thread::sleep_for(500);
+src/suite_test.cpp rule=assertionless-test | TEST(Pricing, ChecksNothing) {
+src/suite_test.cpp rule=unused-local | int value = add(1, 1);
+src/suite_test.cpp rule=duplicate-assertion | TEST(Pricing, AssertsTheSameThingTwice) {
+src/suite_test.cpp rule=hand-rolled-throws | try {
+src/suite_test.cpp rule=self-asserting-test | EXPECT_EQ(1, 1);
+src/suite_test.cpp rule=debug-output-in-test | printf("here\n");
+src/suite_test.cpp rule=imprecise-type | auto rows = db.query("rows");
+src/suite_test.cpp rule=never-reassigned | auto rows = db.query("rows");
+src/suite_test.cpp rule=unnamed-test | TEST(Works, Works) {
+src/suite_test.cpp rule=assertionless-test | TEST(Pricing, IsNotWrittenYet) {
+src/suite_test.cpp rule=empty-method | TEST(Pricing, IsNotWrittenYet) {
+src/suite_test.cpp rule=empty-test | TEST(Pricing, IsNotWrittenYet) {
+src/suite_test.cpp rule=never-reassigned | int one = add(1, 1);
+src/suite_test.cpp rule=string-shape-assertion | EXPECT_EQ(0, std::string("{\"two\":4,\"spare\":\"padding here\"}").size());
+src/suite_test.cpp rule=never-reassigned | int a = add(1, 1);
+src/suite_test.cpp rule=never-reassigned | int b = many_paths(1, 1);
+src/suite_test.cpp rule=never-reassigned | int c = fresh_total(1);
+src/suite_test.cpp rule=never-reassigned | int d = narrated(1);
+src/suite_test.cpp rule=never-reassigned | int e = guarded_add(1, 1, 1);
+src/suite_test.cpp rule=imprecise-type | auto client = NiceMock();
+src/suite_test.cpp rule=unchecked-stub | auto client = NiceMock();
+src/suite_test.cpp rule=unused-local | auto client = NiceMock();
+src/suite_test.cpp rule=mutable-module-state | int spare = 0;
+src/suite_test.cpp rule=unused-fixture | spare = 1;

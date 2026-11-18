@@ -1,0 +1,297 @@
+# Findings expected in fixtures/typescript: file, expectation, source line.
+# rule= fires on the line (xN: N times), none= must not, may= either way,
+# known-fp= fires and is wrong. #N: the Nth line of the file with this text.
+# Rewrite the rule= entries: RQX_BLESS=1 cargo test -p rqx --test fixtures every_fixture_finding_is_expected
+bloat.ts rule=long-parameter-list | export function tooManyParameters(a: number, b: number, c: number, d: number, e: number) {
+bloat.ts rule=deep-nesting | export function deeplyNested(rows: number[]) {
+bloat.ts rule=large-class | export class Overgrown {
+bloat.ts rule=wide-surface | export class Overgrown {
+bloat.ts rule=empty-method x3 | m1() {} m2() {} m3() {}
+bloat.ts rule=empty-subclass | export class SameAsFeeder extends Overgrown {}
+bloat.ts rule=static-only-class | export class Formatting {
+bloat.ts rule=working-constructor | constructor(path: string) {
+bloat.ts rule=many-locals | export function crowdedScope(seed: number): number {
+bloat.ts rule=blanket-try | try {
+bloat.ts rule=wide-try | try {
+bloat.ts rule=cognitive-complexity | export function manyPaths(kind: string, rows: number[]): number {
+bloat.ts rule=cyclomatic-complexity | export function manyPaths(kind: string, rows: number[]): number {
+bloat.ts rule=guard-cascade | export function manyPaths(kind: string, rows: number[]): number {
+bloat.ts rule=many-results | return [rows.length, rows.length, rows.length, rows.length];
+bloat.ts rule=no-base-case | export function loops(rows: number[]): number {
+bloat.ts rule=passthrough-function | export function loops(rows: number[]): number {
+bloat.ts rule=no-base-case | turn(rows: number[]): number {
+bloat.ts rule=passthrough-function | turn(rows: number[]): number {
+config.ts rule=flag-argument | export function endpoint(region: string, secure: boolean, retries: number): string {
+config.ts rule=collapsible-if | if (secure) {
+config.ts rule=collapsible-if | if (retries > 0) {
+config.ts rule=buried-configuration | return "https://api.example.com/v2/orders";
+config.ts rule=example-value | return "https://api.example.com/v2/orders";
+config.ts rule=obscured-expression | return (a + b) * (c - d) + Math.max(a, b) + Math.min(c, d) - (a * d);
+conventions.ts rule=mixed-conventions | const retry_limit = 3;
+conventions.ts rule=mixed-language-file | return `SELECT id, name FROM users WHERE id = '${userId}'`;
+conventions.ts rule=boundary-arithmetic | const head = items[cursor + 1];
+conventions.ts rule=split-cohesion | export class Ledger {
+conventions.ts rule=name-repeats-type | private entryList: number[] = [];
+conventions.ts rule=passthrough-function | record(entry: number): void {
+conventions.ts rule=plural-mismatch | export const tier = [1, 2, 3];
+conventions.ts rule=over-logging | export function narrates(rows: number[]): number {
+cost-allocation-in-loop.ts rule=boundary-arithmetic | const pair = [row, row + 1];
+cost-allocation-in-loop.ts rule=plural-mismatch | const pair = [row, row + 1];
+cost-allocation-in-loop.ts rule=plural-mismatch | const spare = [row];
+cost-allocation-in-loop.ts rule=plural-mismatch #2 | const pair = [row, row + 1];
+cost-deep-recursion.ts rule=deep-recursion | return n + sumTo(n - 1);
+cost-linear-op-in-loop.ts rule=linear-op-in-loop | total += (entries.shift() ?? 0);
+cost-lock-in-loop.ts rule=lock-in-loop | latch.lock();
+cost-lock-in-loop.ts rule=never-reassigned | for (let at = 0; at < rows.length; at++) {
+cost-quadratic-via-call.ts rule=never-reassigned | for (let i = 0; i < list.length; i++) {
+cost-quadratic-via-call.ts rule=never-reassigned | for (let at = 0; at < items.length; at++) {
+cost-quadratic-via-call.ts rule=quadratic-via-call | if (indexOfItem(items, items[at]) === at) {
+cost-repeated-computation-in-loop.ts rule=repeated-computation-in-loop | const whole = totalLength(parts);
+cost-repeated-computation-in-loop.ts rule=plural-mismatch | const own = [String(weight)];
+cost-sort-in-loop.ts rule=sort-in-loop | ranked.push([...base].sort());
+cost-unbounded-cache.ts rule=unbounded-cache | pageSizes.set(key, size);
+cost-unbounded-concurrency.ts rule=query-in-loop | return Promise.all(ids.map((id) => fetch(id)));
+cost-unbounded-concurrency.ts rule=unbounded-concurrency | return Promise.all(ids.map((id) => fetch(id)));
+cycle-a.ts rule=circular-dependency | import { spin } from "./cycle-b";
+dead-export.ts rule=unused-export | export function neverImported(value: number) {
+dead-export.ts rule=unused-export | export interface AlsoNeverImported {
+families.ts rule=unused-parameter | visitLiteral(node: Literal) {
+families.ts rule=unused-parameter | visitSum(node: Sum) {
+families.ts rule=unused-parameter | visitProduct(node: Product) {
+flow.ts rule=boolean-not-a-question | export function restated(ready: boolean): boolean {
+flow.ts rule=flag-argument | export function restated(ready: boolean): boolean {
+flow.ts rule=boolean-from-branch | if (ready) {
+flow.ts rule=redundant-else | } else {
+flow.ts rule=flag-argument | export function compared(ready: boolean, count: number): number {
+flow.ts rule=literal-comparison | if (ready === true) {
+flow.ts rule=self-comparison | if (count === count) {
+flow.ts rule=identical-branches | if (count > 10) {
+flow.ts rule=redundant-else #2 | } else {
+flow.ts rule=empty-block #2 | if (count > 10) {
+flow.ts rule=cognitive-complexity | export function buriedExits(a: number, b: number): number {
+flow.ts rule=many-exits | export function buriedExits(a: number, b: number): number {
+flow.ts rule=magic-number | for (const step of [1, 2, 3]) {
+flow.ts rule=dead-store | let found = 0;
+flow.ts rule=assignment-in-condition | if ((found = a + b)) {
+flow.ts rule=many-exits | export function wideSwitch(kind: string): number {
+flow.ts rule=type-code-switch | switch (kind) {
+flow.ts rule=wide-switch | switch (kind) {
+flow.ts rule=callback-nesting #4 | setTimeout(() => {
+flow.ts rule=ambient-dependency | globalThis.console.log("deep");
+flow.ts rule=redundant-jump | continue;
+flow.ts rule=boolean-not-a-question | export function settled(balance: number): boolean {
+flow.ts rule=float-equality | return balance === 0.1;
+flow.ts rule=discarded-expression | total === other;
+flow.ts rule=nested-ternary | return score > 90 ? "gold" : score > 50 ? "silver" : "bronze";
+flow.ts rule=boolean-not-a-question | export function admits(rank: number, guests: number, staff: number): boolean {
+flow.ts rule=ambiguous-precedence | return rank > 0 && guests > 0 || staff > 0;
+flow.ts rule=boolean-not-a-question | export function changed(before: string, after: string): boolean {
+flow.ts rule=negated-comparison | return !(before === after);
+flow.ts rule=no-default-branch | switch (state) {
+flow.ts rule=loop-runs-once | return item;
+flow.ts rule=return-of-fresh-local | const total = rows.length * 2;
+flow.ts rule=duplicate-code | if (kind === "a") {
+flow.ts rule=redundant-else | } else if (kind === "b") {
+flow.ts rule=duplicate-condition | } else if (kind === "a") {
+flow.ts rule=redundant-else | } else if (kind === "a") {
+flow.ts rule=accumulate-by-copy | out += row;
+flow.ts rule=loop-concatenation | out += row;
+flow.ts rule=silent-fallthrough #2 | case 1:
+flow.ts rule=ambient-dependency | globalThis.console.warn("one");
+flow.ts rule=abstract-nothing | export abstract class Settled {
+flow.ts rule=speculative-generality | export abstract class Settled {
+gateway-a.ts rule=passthrough-function | export function collectA(amount: number) {
+gateway-b.ts rule=passthrough-function | export function collectB(amount: number) {
+gateway-c.ts rule=passthrough-function | export function collectC(amount: number) {
+hierarchy.ts rule=passthrough-override | feed(): string {
+hierarchy.ts rule=duplicate-code | const total = rows.length;
+hierarchy.ts rule=duplicate-function | export function secondWay(rows: number[]): number {
+hierarchy.ts rule=nested-then | return Promise.resolve(rows.length).then((count) => {
+hierarchy.ts rule=empty-subclass | class Level2 extends Level1 {}
+hierarchy.ts rule=empty-subclass | class Level3 extends Level2 {}
+hierarchy.ts rule=deep-inheritance | export class Level4 extends Level3 {}
+hierarchy.ts rule=empty-subclass | export class Level4 extends Level3 {}
+hierarchy.ts rule=orphan-todo | // TODO: work out what happens to the remainder
+hierarchy.ts rule=integer-division | return 7 / 2 + total;
+hierarchy.ts known-fp=discarded-error countRows returns a number and cannot fail, so no error is dropped | const _ = countRows(rows);
+hygiene.ts rule=wildcard-import | import * as everything from "./cycle-b";
+hygiene.ts rule=deep-relative-import | import type { Far } from "../../../shared/far";
+hygiene.ts rule=unused-import | import type { Far } from "../../../shared/far";
+hygiene.ts rule=duplicate-import | import { spinAgain } from "./cycle-a";
+hygiene.ts rule=unused-import | import { spinAgain } from "./cycle-a";
+hygiene.ts rule=flag-argument | export function pricing(cart: number[], applyDiscount: boolean): number {
+hygiene.ts rule=unused-local | let neverRead = cart.length;
+hygiene.ts rule=commented-out-code | // const legacy = total * 0.2;
+hygiene.ts rule=complex-condition | if (!applyDiscount && total > 4999 && cart.length > 12 && orbit()) {
+hygiene.ts rule=magic-number | if (!applyDiscount && total > 4999 && cart.length > 12 && orbit()) {
+hygiene.ts rule=redundant-else | } else {
+hygiene.ts rule=empty-catch | } catch (error) {
+hygiene.ts rule=unjustified-suppression | // rqx-ignore magic-number
+hygiene.ts rule=output-parameter | value = 1;
+hygiene.ts rule=unreachable-code | value = 1;
+hygiene.ts rule=suppressed-diagnostic | // @ts-ignore
+hygiene.ts rule=message-chain x2 | return order.customer.address.city.trim().toUpperCase();
+hygiene.ts rule=banner-comment | // ---------------- helpers ----------------
+hygiene.ts rule=chat-residue | // Here's the helper you asked for! 🎉
+hygiene.ts rule=apology-comment | // Sorry, this one is ugly.
+hygiene.ts rule=empty-method | export function nothingHappens(): void {
+hygiene.ts rule=passthrough-function | export function forwardOrbit(seed: number): number {
+hygiene.ts rule=placeholder-body | export function stillToWrite(): number {
+hygiene.ts rule=generic-throw | throw new Error("not implemented");
+hygiene.ts rule=rethrow-only-catch #2 | } catch (error) {
+hygiene.ts rule=mixed-return | return;
+hygiene.ts rule=exit-from-finally #2 | return 0;
+hygiene.ts rule=generic-throw | throw new Error("no");
+hygiene.ts rule=catch-all-handler | } catch (error: any) {
+hygiene.ts rule=imprecise-type | } catch (error: any) {
+hygiene.ts rule=passthrough-function | export function stops(code: number): void {
+hygiene.ts rule=library-exit | process.exit(code);
+hygiene.ts rule=boolean-literal-argument | return fetchPage(url, true);
+hygiene.ts rule=flag-argument | function fetchPage(url: string, retry: boolean): string {
+hygiene.ts rule=comment-per-line | // set the total
+hygiene.ts rule=explanation-longer-than-code | // Works out the score for the given user id, and gives back the score it
+hygiene.ts rule=docstring-restates-signature | /** Score of user id */
+hygiene.ts rule=redundant-comment | /** Score of user id */
+hygiene.ts rule=guard-cascade | export function guardedAdd(a: number, b: number, c: number): number {
+hygiene.ts rule=blanket-try #5 | try {
+index.ts rule=barrel-module | export { add, describe } from "./clean";
+index.ts rule=wide-fan-out | export { add, describe } from "./clean";
+intimacy.ts rule=inappropriate-intimacy | return Checkout.rate * this.items.length;
+intimacy.ts rule=empty-method | close(): void {}
+intimacy.ts rule=empty-method | finish(): void {}
+intimacy.ts rule=mutable-module-state | export let openSessions = 0;
+intimacy.ts rule=import-time-work | warmTheCache();
+intimacy.ts rule=working-constructor | constructor() {
+intimacy.ts rule=self-built-collaborators | this.writer = new CsvWriter();
+intimacy.ts rule=ambient-dependency | return Date.now();
+lifecycle.ts rule=temporal-coupling | export class Connection {
+lifecycle.ts rule=middle-man | export class ReportFactory {
+lifecycle.ts rule=passthrough-function | add(row: string): void {
+long.ts rule=long-function | export function manySteps() {
+names.ts rule=vague-function-name | export function process(rows: number[]) {
+names.ts rule=return-of-fresh-local | const temp2 = data.length;
+names.ts rule=negated-name | const notReady = rows.length === 0;
+names.ts rule=shadows-builtin | const Promise = rows.length;
+orphan.ts rule=negated-name | export function noOneImportsThisFile() {
+orphan.ts rule=unused-file | export function noOneImportsThisFile() {
+params.ts rule=unused-parameter | export function withDeadTail(used: number, dead: string) {
+params.ts rule=unused-parameter | export function withDeadMiddle(dead: string, used: number) {
+params.ts rule=unused-parameter x2 | export function twoDeadOnOneLine(used: number, deadA: string, deadB: string) {
+patterns.ts rule=type-code-switch | switch (this.state) {
+patterns.ts rule=redundant-else | } else if (this.state === "locked") {
+patterns.ts rule=redundant-else | } else if (this.state === "closed") {
+patterns.ts rule=redundant-else | } else if (looksLikeUpload(request)) {
+patterns.ts rule=redundant-else | } else if (hasSession(request)) {
+patterns.ts rule=no-default-branch | switch (action.kind) {
+patterns.ts rule=type-code-switch | switch (action.kind) {
+patterns.ts rule=middle-man | export class LoggingNotifier implements Notifier {
+patterns.ts rule=passthrough-function | send(message: string) {
+patterns.ts rule=middle-man | export class GuardedNotifier implements Notifier {
+patterns.ts rule=passthrough-function #2 | send(message: string) {
+patterns.ts rule=middle-man | export class SmsNotifier implements Notifier {
+patterns.ts rule=passthrough-function #3 | send(message: string) {
+patterns.ts rule=middle-man | export class Menu {
+patterns.ts rule=passthrough-function | attach(child: Menu) {
+patterns.ts rule=single-method-field | private title = "";
+patterns.ts rule=unused-parameter | withRows(rows: number): ReportBuilder {
+patterns.ts rule=unused-parameter | withFooter(footer: string): ReportBuilder {
+patterns.ts rule=unused-parameter | where(field: string): QueryBuilder {
+patterns.ts rule=unused-parameter | order(field: string): QueryBuilder {
+patterns.ts rule=unused-parameter | take(count: number): QueryBuilder {
+patterns.ts rule=unused-private-member | private static instance: Settings;
+patterns.ts rule=empty-method | private constructor() {}
+patterns.ts rule=unused-private-member | private static current: Clock;
+patterns.ts rule=empty-method | constructor() {}
+patterns.ts rule=unused-private-member | private static pool: Glyph[] = [];
+patterns.ts rule=middle-man | export class Pages {
+patterns.ts rule=middle-man | export class Feed {
+patterns.ts rule=passthrough-function | addListener(handler: (value: number) => void) {
+patterns.ts rule=unused-parameter | removeListener(handler: (value: number) => void) {
+patterns.ts rule=middle-man | export class Ticker {
+patterns.ts rule=passthrough-function | onTick(handler: () => void) {
+patterns.ts rule=speculative-generality | export abstract class Importer {
+patterns.ts rule=middle-man | export class RetryingGateway {
+patterns.ts rule=passthrough-function #2 | transmit(text: string) {
+performance.ts rule=scan-in-loop | if (wanted.indexOf(row) >= 0) {
+performance.ts rule=deep-loop-nesting | export function sumCube(grid: number[][][]): number {
+performance.ts rule=query-in-loop | rows.push(client.get(id));
+performance.ts rule=await-in-loop | texts.push(await reader.read(path));
+performance.ts rule=invariant-in-loop | const digits = new RegExp("^[0-9]+$");
+performance.ts rule=accumulate-by-copy | flat = [...flat, ...group];
+performance.ts rule=branching-recursion | export function fibonacci(step: number): number {
+performance.ts rule=blocking-call-in-async | return readFileSync(path, "utf8");
+performance.ts rule=closure-over-loop-variable | out.push(function later(): number {
+performance.ts rule=linear-op-in-loop | rows.splice(0, 1);
+performance.ts rule=mutated-while-iterated | rows.splice(0, 1);
+performance.ts rule=sequential-await | const second = await loadTwo();
+performance.ts rule=ambient-dependency | globalThis.console.assert(value > 0);
+performance.ts rule=production-assert | globalThis.console.assert(value > 0);
+performance.ts rule=mutable-module-state | let openTabs = 0;
+performance.ts rule=global-accessor | export function tabsOpen(): number {
+performance.ts rule=sleep-in-production | await sleep(500);
+performance.ts rule=ambient-dependency | return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+performance.ts rule=dropped-promise | loadOne();
+performance.ts rule=dropped-promise | this.refresh();
+precision.ts rule=journal-comment | /**
+precision.ts rule=imprecise-type | export function widen(input: any): string {
+precision.ts rule=imprecise-type | const raw = input as string;
+precision.ts rule=imprecise-type | return raw!.trim();
+precision.ts rule=redundant-comment | // user name
+precision.ts rule=imprecise-type | return input as unknown as number;
+queries.ts rule=query-with-side-effect | getTotal(): number {
+queries.ts rule=vague-function-name | export function handle(input: string): string {
+queries.ts rule=many-exits | export function summarise(rows: string[]): string {
+queries.ts rule=distant-declaration | const separator = " | ";
+reconcile.ts rule=unused-private-member | private ledger = new Map<string, number>();
+reconcile.ts rule=cognitive-complexity | async reconcileBatch(batch: Batch, tolerance: number, dryRun: boolean, retries: number, verbose: boolean) {
+reconcile.ts rule=deep-nesting | async reconcileBatch(batch: Batch, tolerance: number, dryRun: boolean, retries: number, verbose: boolean) {
+reconcile.ts rule=feature-envy | async reconcileBatch(batch: Batch, tolerance: number, dryRun: boolean, retries: number, verbose: boolean) {
+reconcile.ts rule=flag-argument x2 | async reconcileBatch(batch: Batch, tolerance: number, dryRun: boolean, retries: number, verbose: boolean) {
+reconcile.ts rule=long-parameter-list | async reconcileBatch(batch: Batch, tolerance: number, dryRun: boolean, retries: number, verbose: boolean) {
+reconcile.ts rule=unused-parameter | async reconcileBatch(batch: Batch, tolerance: number, dryRun: boolean, retries: number, verbose: boolean) {
+reconcile.ts rule=duplicate-code | const total = sum(rows);
+shapes.ts rule=data-class | export class Coordinate { x = 0; y = 0; get pair() { return [this.x, this.y]; } }
+shapes.ts rule=lazy-class | export class Marker { label = "x"; }
+shapes.ts rule=middle-man | export class Facade {
+shapes.ts rule=speculative-generality | export abstract class Vehicle { abstract go(): void; }
+shapes.ts rule=unused-private-member | private unusedSecret = 1;
+shapes.ts rule=temporary-field | scratch?: string;
+shapes.ts rule=inappropriate-static | static build(other: Engine) { return other; }
+shapes.ts rule=generic-throw | export class Broken extends Engine { run(): string { throw new Error("no"); } }
+shapes.ts rule=refused-bequest | export class Broken extends Engine { run(): string { throw new Error("no"); } }
+shapes.ts rule=feature-envy | add(basket: { a: number; b: number; c: number }) {
+shapes.ts rule=type-code-switch | switch (kind) {
+shapes.ts rule=magic-number | case "push": return 3;
+shapes.ts rule=redundant-else | else if (kind === "sms") { return 2; }
+shapes.ts rule=redundant-else | else if (kind === "push") { return 3; }
+shapes.ts rule=data-clump | export function notify(userId: string, channel: string, locale: string) { return userId; }
+shapes.ts rule=unused-parameter x2 | export function notify(userId: string, channel: string, locale: string) { return userId; }
+shapes.ts rule=unused-parameter x2 | export function enqueue(userId: string, channel: string, locale: string) { return channel; }
+shapes.ts rule=unused-parameter x2 | export function record(userId: string, channel: string, locale: string) { return locale; }
+shapes.ts rule=base-depends-on-derived | return kind === "cached" ? new CachedRegistry() : this;
+shapes.ts rule=empty-subclass | export class CachedRegistry extends Registry {}
+shapes.ts rule=flag-argument | export function gate(ready: boolean, retries: number) {
+shapes.ts rule=redundant-else | } else {
+shapes.ts rule=long-function | export function sweep(rows: number[]) {
+shapes.ts rule=distant-declaration | let n = 0;
+shapes.ts rule=never-reassigned | let n = 0;
+shapes.ts rule=magic-number | if (row > 7331) {
+suite-checks.test.ts rule=branching-test | it("decides three ways", () => {
+suite.test.ts rule=skipped-test | describe.skip("pricing", () => {
+suite.test.ts rule=magic-number | it("discounts", () => { expect(add(1, 2)).toBe(3); });
+suite.test.ts rule=focused-test | it.only("ships", () => { expect(add(1, 1)).toBe(2); });
+suite.test.ts rule=assertionless-test | it("checks nothing", () => { const value = add(1, 1); });
+suite.test.ts rule=unused-local | it("checks nothing", () => { const value = add(1, 1); });
+suite.test.ts rule=slow-test | await new Promise((resolve) => setTimeout(resolve, 2000));
+suite.test.ts rule=duplicate-assertion | it("asserts the same thing twice", () => {
+suite.test.ts rule=hand-rolled-throws | try {
+suite.test.ts rule=debug-output-in-test | console.log("here");
+suite.test.ts rule=unnamed-test | it("works", () => {
+suite.test.ts rule=assertionless-test | it("is not written yet", () => {});
+suite.test.ts rule=empty-test | it("is not written yet", () => {});
+suite.test.ts rule=string-shape-assertion | expect(JSON.stringify({ two })).toBe('{"two":4,"spare":"padding here"}');
+suite.test.ts rule=mutable-module-state | let spare = 0;
+suite.test.ts rule=unused-fixture | spare = 1;
+suite.test.ts rule=unchecked-stub | const client = jest.fn();
+suite.test.ts rule=unused-local | const client = jest.fn();
+suite.test.ts rule=self-asserting-test | expect(sums).toEqual([...sums]);

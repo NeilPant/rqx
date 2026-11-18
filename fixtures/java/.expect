@@ -1,0 +1,506 @@
+# Findings expected in fixtures/java: file, expectation, source line.
+# rule= fires on the line (xN: N times), none= must not, may= either way,
+# known-fp= fires and is wrong. #N: the Nth line of the file with this text.
+# Rewrite the rule= entries: RQX_BLESS=1 cargo test -p rqx --test fixtures every_fixture_finding_is_expected
+src/main/java/rqx/Address.java rule=unused-private-member | private String city = "";
+src/main/java/rqx/Address.java rule=unused-export | public String getCity() {
+src/main/java/rqx/Bloat.java rule=long-parameter-list | public int tooManyParameters(int a, int b, int c, int d, int e) {
+src/main/java/rqx/Bloat.java rule=unused-export | public int tooManyParameters(int a, int b, int c, int d, int e) {
+src/main/java/rqx/Bloat.java rule=deep-nesting | public int deeplyNested(List<Integer> rows) {
+src/main/java/rqx/Bloat.java rule=never-reassigned | for (int row : rows) {
+src/main/java/rqx/Bloat.java rule=empty-subclass | class SameAsOvergrown extends Overgrown {}
+src/main/java/rqx/Bloat.java rule=static-only-class | class Formatting {
+src/main/java/rqx/Bloat.java rule=working-constructor | Catalogue(String path) {
+src/main/java/rqx/Bloat.java rule=many-locals | int crowdedScope(int seed) {
+src/main/java/rqx/Bloat.java rule=never-reassigned x4 | int c1 = seed; int c2 = seed; int c3 = seed; int c4 = seed;
+src/main/java/rqx/Bloat.java rule=never-reassigned x4 | int c5 = seed; int c6 = seed; int c7 = seed; int c8 = seed;
+src/main/java/rqx/Bloat.java rule=never-reassigned x4 | int c9 = seed; int c10 = seed; int c11 = seed; int c12 = seed;
+src/main/java/rqx/Bloat.java rule=never-reassigned x4 | int c13 = seed; int c14 = seed; int c15 = seed; int c16 = seed;
+src/main/java/rqx/Bloat.java rule=blanket-try | try {
+src/main/java/rqx/Bloat.java rule=wide-try | try {
+src/main/java/rqx/Bloat.java rule=never-reassigned x4 | int d1 = seed; int d2 = seed; int d3 = seed; int d4 = seed;
+src/main/java/rqx/Bloat.java rule=never-reassigned x4 | int d5 = seed; int d6 = seed; int d7 = seed; int d8 = seed;
+src/main/java/rqx/Bloat.java rule=never-reassigned x3 | int d9 = seed; int d10 = seed; int d11 = seed;
+src/main/java/rqx/Bloat.java rule=cognitive-complexity | int manyPaths(String kind, java.util.List<Integer> rows) {
+src/main/java/rqx/Bloat.java rule=cyclomatic-complexity | int manyPaths(String kind, java.util.List<Integer> rows) {
+src/main/java/rqx/Bloat.java rule=feature-envy | int manyPaths(String kind, java.util.List<Integer> rows) {
+src/main/java/rqx/Bloat.java rule=guard-cascade | int manyPaths(String kind, java.util.List<Integer> rows) {
+src/main/java/rqx/Bloat.java rule=never-reassigned | for (Integer row : rows) {
+src/main/java/rqx/Bloat.java rule=linear-op-in-loop | rows.remove(0);
+src/main/java/rqx/Bloat.java rule=no-base-case | int loops(int rows) {
+src/main/java/rqx/Bloat.java rule=passthrough-function | int loops(int rows) {
+src/main/java/rqx/Clean.java rule=unused-export | public String describe(String subject) {
+src/main/java/rqx/Config.java rule=flag-argument | public String endpoint(String region, boolean secure, int retries) {
+src/main/java/rqx/Config.java rule=collapsible-if | if (secure) {
+src/main/java/rqx/Config.java rule=collapsible-if | if (retries > 0) {
+src/main/java/rqx/Config.java rule=buried-configuration | return "https://api.example.com/v2/orders";
+src/main/java/rqx/Config.java rule=example-value | return "https://api.example.com/v2/orders";
+src/main/java/rqx/Config.java rule=unused-export | public int score(int a, int b, int c, int d) {
+src/main/java/rqx/Config.java rule=obscured-expression | return (a + b) * (c - d) + Math.max(a, b) + Math.min(c, d) - (a * d);
+src/main/java/rqx/Conventions.java rule=mixed-conventions | static int retry_limit = 3;
+src/main/java/rqx/Conventions.java rule=mutable-module-state | static int retry_limit = 3;
+src/main/java/rqx/Conventions.java rule=mutable-module-state | static int retryBackoff = 250;
+src/main/java/rqx/Conventions.java rule=mixed-language-file | return "SELECT id, name FROM users WHERE id = '" + userId + "'";
+src/main/java/rqx/Conventions.java rule=unused-export | public List<String> window(List<String> items, int cursor) {
+src/main/java/rqx/Conventions.java rule=never-reassigned | List<String> out = new ArrayList<>();
+src/main/java/rqx/Conventions.java rule=boundary-arithmetic | out.add(items.get(cursor + 1));
+src/main/java/rqx/Conventions.java rule=split-cohesion | class Ledger {
+src/main/java/rqx/Conventions.java rule=name-repeats-type | private int[] entryList = {1, 2, 3};
+src/main/java/rqx/Conventions.java rule=plural-mismatch | private int[] entryList = {1, 2, 3};
+src/main/java/rqx/Conventions.java rule=single-method-field | private int[] entryList = {1, 2, 3};
+src/main/java/rqx/Conventions.java rule=single-method-field | private String label = "ledger";
+src/main/java/rqx/Conventions.java rule=over-logging | int narrates(int rows) {
+src/main/java/rqx/Conventions.java rule=never-reassigned | int total = rows;
+src/main/java/rqx/Conventions.java rule=mutable-module-state | static Logger log = new Logger();
+src/main/java/rqx/Conventions.java rule=empty-method | void info(String message) {
+src/main/java/rqx/Conventions.java rule=unused-parameter | void info(String message) {
+src/main/java/rqx/CostAccumulateByCopy.java rule=duplicate-code | String text = "";
+src/main/java/rqx/CostAccumulateByCopy.java rule=never-reassigned | for (String part : parts) {
+src/main/java/rqx/CostAccumulateByCopy.java rule=accumulate-by-copy | text += part;
+src/main/java/rqx/CostAccumulateByCopy.java rule=loop-concatenation | text += part;
+src/main/java/rqx/CostAccumulateByCopy.java rule=never-reassigned | StringBuilder text = new StringBuilder();
+src/main/java/rqx/CostAccumulateByCopy.java rule=never-reassigned #2 | for (String part : parts) {
+src/main/java/rqx/CostAccumulateByCopy.java rule=duplicate-code | int length = 0;
+src/main/java/rqx/CostAccumulateByCopy.java rule=never-reassigned #3 | for (String part : parts) {
+src/main/java/rqx/CostAllocationInLoop.java rule=many-collaborators | public class CostAllocationInLoop {
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned | for (Integer row : rows) {
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned | List<Integer> pair = new ArrayList<>();
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned | StringBuilder label = new StringBuilder();
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned | int[] spare = new int[2];
+src/main/java/rqx/CostAllocationInLoop.java rule=plural-mismatch | int[] spare = new int[2];
+src/main/java/rqx/CostAllocationInLoop.java rule=duplicate-code #2 | int total = 0;
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned #2 | for (Integer row : rows) {
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned | byte[] buffer = new byte[65536];
+src/main/java/rqx/CostAllocationInLoop.java rule=plural-mismatch | byte[] buffer = new byte[65536];
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned #3 | for (Integer row : rows) {
+src/main/java/rqx/CostAllocationInLoop.java rule=never-reassigned | int[] pair = new int[2];
+src/main/java/rqx/CostAllocationInLoop.java rule=plural-mismatch | int[] pair = new int[2];
+src/main/java/rqx/CostBoxingInLoop.java rule=duplicate-code | Integer total = 0;
+src/main/java/rqx/CostBoxingInLoop.java rule=never-reassigned | for (Integer row : rows) {
+src/main/java/rqx/CostBoxingInLoop.java rule=boxing-in-loop | total += row;
+src/main/java/rqx/CostBoxingInLoop.java rule=never-reassigned | for (int row : rows) {
+src/main/java/rqx/CostBoxingInLoop.java rule=never-reassigned #2 | for (Integer row : rows) {
+src/main/java/rqx/CostDeepRecursion.java rule=unused-file | package rqx;
+src/main/java/rqx/CostDeepRecursion.java rule=deep-recursion | return n + sumTo(n - 1);
+src/main/java/rqx/CostLinearOpInLoop.java rule=never-reassigned | for (int at = 0; at < count; at++) {
+src/main/java/rqx/CostLinearOpInLoop.java rule=linear-op-in-loop | total += values.get(at);
+src/main/java/rqx/CostLinearOpInLoop.java rule=never-reassigned #2 | for (int at = 0; at < count; at++) {
+src/main/java/rqx/CostLockInLoop.java rule=imprecise-type | public int tallyUnderOneLock(List<Integer> rows, Object guard) {
+src/main/java/rqx/CostLockInLoop.java rule=never-reassigned | for (Integer row : rows) {
+src/main/java/rqx/CostLockInLoop.java rule=lock-in-loop | synchronized (guard) {
+src/main/java/rqx/CostLockInLoop.java rule=imprecise-type | public int tallyUnderEachLock(List<Integer> rows, List<Object> guards) {
+src/main/java/rqx/CostLockInLoop.java rule=never-reassigned #2 | for (Integer row : rows) {
+src/main/java/rqx/CostMissingCapacity.java rule=never-reassigned | List<String> copies = new ArrayList<>();
+src/main/java/rqx/CostMissingCapacity.java rule=never-reassigned | for (String name : names) {
+src/main/java/rqx/CostMissingCapacity.java rule=never-reassigned | List<String> copies = new ArrayList<>(names.size());
+src/main/java/rqx/CostMissingCapacity.java rule=never-reassigned #2 | for (String name : names) {
+src/main/java/rqx/CostPairScanCouldHash.java rule=unused-file | package rqx;
+src/main/java/rqx/CostPairScanCouldHash.java rule=many-collaborators | public class CostPairScanCouldHash {
+src/main/java/rqx/CostPairScanCouldHash.java rule=data-class | public static class Order {
+src/main/java/rqx/CostPairScanCouldHash.java rule=data-class | public static class User {
+src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | List<String> names = new ArrayList<>();
+src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | for (Order order : orders) {
+src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | for (User user : users) {
+src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | for (Order left : orders) {
+src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | for (Order right : orders) {
+src/main/java/rqx/CostQuadraticViaCall.java rule=unused-file | package rqx;
+src/main/java/rqx/CostQuadraticViaCall.java rule=unused-private-member | private int indexOfItem(List<String> list, String wanted) {
+src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | for (int i = 0; i < list.size(); i++) {
+src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | List<String> firsts = new ArrayList<>();
+src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | for (int at = 0; at < items.size(); at++) {
+src/main/java/rqx/CostQuadraticViaCall.java rule=quadratic-via-call | if (indexOfItem(items, items.get(at)) == at) {
+src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | List<String> out = new ArrayList<>();
+src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | for (String item : items) {
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=unused-file | package rqx;
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=unused-private-member | private int totalLength(List<String> parts) {
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | for (String part : parts) {
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | List<Double> out = new ArrayList<>();
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | for (Double weight : weights) {
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | int whole = totalLength(parts);
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=repeated-computation-in-loop | int whole = totalLength(parts);
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned #2 | List<Double> out = new ArrayList<>();
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned #2 | for (Double weight : weights) {
+src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | List<String> own = List.of(String.valueOf(weight));
+src/main/java/rqx/CostSortInLoop.java rule=never-reassigned | List<List<Integer>> ranked = new ArrayList<>();
+src/main/java/rqx/CostSortInLoop.java rule=never-reassigned | for (List<Integer> group : groups) {
+src/main/java/rqx/CostSortInLoop.java rule=sort-in-loop | Collections.sort(base);
+src/main/java/rqx/CostSortInLoop.java rule=never-reassigned #2 | List<List<Integer>> ranked = new ArrayList<>();
+src/main/java/rqx/CostSortInLoop.java rule=never-reassigned #2 | for (List<Integer> group : groups) {
+src/main/java/rqx/CostUnboundedCache.java rule=split-cohesion | public class CostUnboundedCache {
+src/main/java/rqx/CostUnboundedCache.java rule=single-method-field | private static final Map<String, Integer> PAGE_SIZES = new HashMap<>();
+src/main/java/rqx/CostUnboundedCache.java rule=single-method-field | private static final Map<String, Integer> RECENT_SIZES = new HashMap<>();
+src/main/java/rqx/CostUnboundedCache.java rule=unbounded-cache | PAGE_SIZES.put(key, size);
+src/main/java/rqx/CostUnboundedCache.java rule=unused-parameter | public int rememberRecentPage(String key, int size) {
+src/main/java/rqx/CostUnboundedConcurrency.java rule=many-collaborators | public class CostUnboundedConcurrency {
+src/main/java/rqx/CostUnboundedConcurrency.java rule=speculative-generality | public interface Fetcher {
+src/main/java/rqx/CostUnboundedConcurrency.java rule=unused-export | public interface Fetcher {
+src/main/java/rqx/CostUnboundedConcurrency.java rule=unbounded-concurrency | pending.add(CompletableFuture.supplyAsync(() -> client.get(target)));
+src/main/java/rqx/Customer.java rule=unused-private-member | private Address address = new Address();
+src/main/java/rqx/Customer.java rule=unused-export | public Address getAddress() {
+src/main/java/rqx/CycleA.java rule=circular-dependency | package rqx;
+src/main/java/rqx/Dispatch.java rule=no-default-branch | switch (kind) {
+src/main/java/rqx/Dispatch.java rule=type-code-switch | switch (kind) {
+src/main/java/rqx/Door.java rule=boolean-not-a-question | public boolean open() {
+src/main/java/rqx/Door.java rule=type-code-switch | if (this.state == "closed") {
+src/main/java/rqx/Door.java rule=identical-branches | } else if (this.state == "open") {
+src/main/java/rqx/Door.java rule=redundant-else | } else if (this.state == "open") {
+src/main/java/rqx/Door.java rule=redundant-else | } else if (this.state == "locked") {
+src/main/java/rqx/Door.java rule=boolean-not-a-question | public boolean lock(int key) {
+src/main/java/rqx/Door.java rule=redundant-else #2 | } else if (this.state == "open") {
+src/main/java/rqx/Families.java rule=unused-parameter | public String visitLiteral(Literal node) {
+src/main/java/rqx/Families.java rule=unused-parameter | public String visitSum(Sum node) {
+src/main/java/rqx/Families.java rule=unused-parameter | public String visitProduct(Product node) {
+src/main/java/rqx/Flow.java rule=many-collaborators | class Flow {
+src/main/java/rqx/Flow.java rule=boolean-not-a-question | boolean restated(boolean ready) {
+src/main/java/rqx/Flow.java rule=flag-argument | boolean restated(boolean ready) {
+src/main/java/rqx/Flow.java rule=boolean-from-branch | if (ready) {
+src/main/java/rqx/Flow.java rule=redundant-else | } else {
+src/main/java/rqx/Flow.java rule=flag-argument | int compared(boolean ready, int count) {
+src/main/java/rqx/Flow.java rule=literal-comparison | if (ready == true) {
+src/main/java/rqx/Flow.java rule=self-comparison | if (count == count) {
+src/main/java/rqx/Flow.java rule=identical-branches | if (count > 10) {
+src/main/java/rqx/Flow.java rule=redundant-else #2 | } else {
+src/main/java/rqx/Flow.java rule=empty-block #2 | if (count > 10) {
+src/main/java/rqx/Flow.java rule=many-exits | int wideSwitch(String kind) {
+src/main/java/rqx/Flow.java rule=type-code-switch | switch (kind) {
+src/main/java/rqx/Flow.java rule=wide-switch | switch (kind) {
+src/main/java/rqx/Flow.java rule=callback-nesting | Runnable c = () -> System.out.println("deep");
+src/main/java/rqx/Flow.java rule=dead-store | int found = 0;
+src/main/java/rqx/Flow.java rule=assignment-in-condition | if ((found = a + b) > 0) {
+src/main/java/rqx/Flow.java rule=never-reassigned | for (int item : items) {
+src/main/java/rqx/Flow.java rule=redundant-jump | continue;
+src/main/java/rqx/Flow.java rule=boolean-not-a-question | public boolean settled(double balance) {
+src/main/java/rqx/Flow.java rule=float-equality | return balance == 0.1;
+src/main/java/rqx/Flow.java rule=nested-ternary | return score > 90 ? "gold" : score > 50 ? "silver" : "bronze";
+src/main/java/rqx/Flow.java rule=boolean-not-a-question | public boolean admits(int rank, int guests, int staff) {
+src/main/java/rqx/Flow.java rule=ambiguous-precedence | return rank > 0 && guests > 0 || staff > 0;
+src/main/java/rqx/Flow.java rule=boolean-not-a-question | public boolean changed(String before, String after) {
+src/main/java/rqx/Flow.java rule=negated-comparison | return !(before == after);
+src/main/java/rqx/Flow.java rule=no-default-branch | switch (state) {
+src/main/java/rqx/Flow.java rule=never-reassigned #2 | for (int item : items) {
+src/main/java/rqx/Flow.java rule=loop-runs-once | return item;
+src/main/java/rqx/Flow.java rule=never-reassigned | int total = rows * 2;
+src/main/java/rqx/Flow.java rule=return-of-fresh-local | int total = rows * 2;
+src/main/java/rqx/Flow.java rule=redundant-else | } else if (kind.equals("b")) {
+src/main/java/rqx/Flow.java rule=duplicate-condition | } else if (kind.equals("a")) {
+src/main/java/rqx/Flow.java rule=redundant-else | } else if (kind.equals("a")) {
+src/main/java/rqx/Flow.java rule=never-reassigned | for (String row : rows) {
+src/main/java/rqx/Flow.java rule=accumulate-by-copy | out += row;
+src/main/java/rqx/Flow.java rule=loop-concatenation | out += row;
+src/main/java/rqx/Flow.java rule=silent-fallthrough #2 | case 1:
+src/main/java/rqx/Flow.java rule=abstract-nothing | abstract class Settled {
+src/main/java/rqx/Flow.java rule=speculative-generality | abstract class Settled {
+src/main/java/rqx/GatewayA.java rule=passthrough-function | public int collect(int amount) {
+src/main/java/rqx/GatewayB.java rule=passthrough-function | public int collect(int amount) {
+src/main/java/rqx/GatewayC.java rule=passthrough-function | public int collect(int amount) {
+src/main/java/rqx/Hierarchy.java rule=lazy-class | public class Hierarchy {
+src/main/java/rqx/Hierarchy.java rule=passthrough-override | String feed() {
+src/main/java/rqx/Hierarchy.java rule=duplicate-code | int total = rows;
+src/main/java/rqx/Hierarchy.java rule=never-reassigned | int total = rows;
+src/main/java/rqx/Hierarchy.java rule=never-reassigned | int doubled = total * 2;
+src/main/java/rqx/Hierarchy.java rule=duplicate-function | int secondWay(int rows) {
+src/main/java/rqx/Hierarchy.java rule=never-reassigned #2 | int total = rows;
+src/main/java/rqx/Hierarchy.java rule=never-reassigned #2 | int doubled = total * 2;
+src/main/java/rqx/Hierarchy.java rule=catch-all-handler | } catch (Exception wide) {
+src/main/java/rqx/Hierarchy.java rule=shadowed-handler | } catch (Exception wide) {
+src/main/java/rqx/Hierarchy.java rule=catch-all-handler | } catch (RuntimeException narrow) {
+src/main/java/rqx/Hierarchy.java rule=message-chain x2 | return java.util.concurrent.CompletableFuture.completedFuture(1)
+src/main/java/rqx/Hierarchy.java rule=nested-then | return java.util.concurrent.CompletableFuture.completedFuture(1)
+src/main/java/rqx/Hierarchy.java rule=message-chain x2 | .thenApply(one -> java.util.concurrent.CompletableFuture.completedFuture(one).thenApply(two -> two + 1));
+src/main/java/rqx/Hierarchy.java rule=empty-subclass | class Level2 extends Level1 {}
+src/main/java/rqx/Hierarchy.java rule=empty-subclass | class Level3 extends Level2 {}
+src/main/java/rqx/Hierarchy.java rule=deep-inheritance | class Level4 extends Level3 {}
+src/main/java/rqx/Hierarchy.java rule=empty-subclass | class Level4 extends Level3 {}
+src/main/java/rqx/Hierarchy.java rule=orphan-todo | // TODO: work out what happens to the remainder
+src/main/java/rqx/Hierarchy.java rule=integer-division | return 7 / 2 + total;
+src/main/java/rqx/Hierarchy.java known-fp=discarded-error countRows returns a number and cannot fail, so no error is dropped | int _ = this.countRows(rows);
+src/main/java/rqx/HierarchyFood.java rule=lazy-class | public class HierarchyFood {
+src/main/java/rqx/Hygiene.java rule=duplicate-import #2 | import java.util.List;
+src/main/java/rqx/Hygiene.java rule=unused-import | import java.util.Map;
+src/main/java/rqx/Hygiene.java rule=wildcard-import | import java.io.*;
+src/main/java/rqx/Hygiene.java rule=large-class | public class Hygiene {
+src/main/java/rqx/Hygiene.java rule=many-collaborators | public class Hygiene {
+src/main/java/rqx/Hygiene.java rule=wide-surface | public class Hygiene {
+src/main/java/rqx/Hygiene.java rule=flag-argument | public int pricing(List<Integer> cart, boolean applyDiscount) {
+src/main/java/rqx/Hygiene.java rule=unused-local | int neverRead = cart.size();
+src/main/java/rqx/Hygiene.java rule=never-reassigned | for (int item : cart) {
+src/main/java/rqx/Hygiene.java rule=commented-out-code | // int legacy = total * 2;
+src/main/java/rqx/Hygiene.java rule=complex-condition | if (!applyDiscount && total > 4999 && cart.size() > 12 && total != 7) {
+src/main/java/rqx/Hygiene.java rule=magic-number | if (!applyDiscount && total > 4999 && cart.size() > 12 && total != 7) {
+src/main/java/rqx/Hygiene.java rule=redundant-else | } else {
+src/main/java/rqx/Hygiene.java rule=catch-all-handler | } catch (RuntimeException error) {
+src/main/java/rqx/Hygiene.java rule=empty-catch | } catch (RuntimeException error) {
+src/main/java/rqx/Hygiene.java rule=empty-method | public void nothingHappens() {
+src/main/java/rqx/Hygiene.java rule=unused-export | public void nothingHappens() {
+src/main/java/rqx/Hygiene.java rule=unused-export | public int unreachable(int value) {
+src/main/java/rqx/Hygiene.java rule=unjustified-suppression | // rqx-ignore magic-number
+src/main/java/rqx/Hygiene.java rule=never-reassigned | int seed = 1;
+src/main/java/rqx/Hygiene.java rule=unused-export | public int mutatesParameter(int value) {
+src/main/java/rqx/Hygiene.java rule=output-parameter | value = 1;
+src/main/java/rqx/Hygiene.java rule=suppressed-diagnostic | @SuppressWarnings("unchecked")
+src/main/java/rqx/Hygiene.java rule=unused-export | public int suppressed() {
+src/main/java/rqx/Hygiene.java rule=unused-export | public String ship(Order order) {
+src/main/java/rqx/Hygiene.java rule=message-chain | return order.getCustomer().getAddress().getCity().trim();
+src/main/java/rqx/Hygiene.java rule=passthrough-function | public int forwardOrbit(int seed) {
+src/main/java/rqx/Hygiene.java rule=placeholder-body | public int stillToWrite() {
+src/main/java/rqx/Hygiene.java rule=catch-all-handler #2 | } catch (RuntimeException error) {
+src/main/java/rqx/Hygiene.java rule=never-reassigned #2 | } catch (RuntimeException error) {
+src/main/java/rqx/Hygiene.java rule=rethrow-only-catch #2 | } catch (RuntimeException error) {
+src/main/java/rqx/Hygiene.java rule=exit-from-finally #2 | return 0;
+src/main/java/rqx/Hygiene.java rule=catch-all-handler | } catch (Exception error) {
+src/main/java/rqx/Hygiene.java rule=generic-throw | throw new RuntimeException("no");
+src/main/java/rqx/Hygiene.java rule=passthrough-function | public void stops(int code) {
+src/main/java/rqx/Hygiene.java rule=library-exit | System.exit(code);
+src/main/java/rqx/Hygiene.java rule=boolean-literal-argument | return this.fetchPage(url, true);
+src/main/java/rqx/Hygiene.java rule=flag-argument | private String fetchPage(String url, boolean retry) {
+src/main/java/rqx/Hygiene.java rule=comment-per-line | // set the total
+src/main/java/rqx/Hygiene.java rule=dead-store #2 | int total = 0;
+src/main/java/rqx/Hygiene.java rule=explanation-longer-than-code | // Works out the score for the given user id, and gives back the score it
+src/main/java/rqx/Hygiene.java rule=docstring-restates-signature | /** Score of user id */
+src/main/java/rqx/Hygiene.java rule=redundant-comment | /** Score of user id */
+src/main/java/rqx/Hygiene.java rule=guard-cascade | public int guardedAdd(int a, int b, int c) {
+src/main/java/rqx/Hygiene.java rule=blanket-try #5 | try {
+src/main/java/rqx/Hygiene.java rule=dead-store #3 | int total = 0;
+src/main/java/rqx/Hygiene.java rule=banner-comment | // ---------------- helpers ----------------
+src/main/java/rqx/Hygiene.java rule=chat-residue | // Here's the helper you asked for! 🎉
+src/main/java/rqx/Hygiene.java rule=apology-comment | // Sorry, this one is ugly.
+src/main/java/rqx/Intimacy.java rule=lazy-class | public class Intimacy {
+src/main/java/rqx/Intimacy.java rule=inappropriate-intimacy | return Checkout.rate * this.items.size();
+src/main/java/rqx/Intimacy.java rule=mutable-module-state | static int rate = 3;
+src/main/java/rqx/Intimacy.java rule=never-reassigned | Cart cart = new Cart();
+src/main/java/rqx/Intimacy.java rule=empty-method | public void open(String path) { }
+src/main/java/rqx/Intimacy.java rule=unused-parameter | public void open(String path) { }
+src/main/java/rqx/Intimacy.java rule=empty-method | public void write(String row) { }
+src/main/java/rqx/Intimacy.java rule=unused-parameter | public void write(String row) { }
+src/main/java/rqx/Intimacy.java rule=empty-method | public void close() { }
+src/main/java/rqx/Intimacy.java rule=empty-method | public void begin(String path) { }
+src/main/java/rqx/Intimacy.java rule=unused-parameter | public void begin(String path) { }
+src/main/java/rqx/Intimacy.java rule=empty-method | public void emit(String row) { }
+src/main/java/rqx/Intimacy.java rule=unused-parameter | public void emit(String row) { }
+src/main/java/rqx/Intimacy.java rule=empty-method | public void finish() { }
+src/main/java/rqx/Intimacy.java rule=single-method-field | private CsvWriter writer;
+src/main/java/rqx/Intimacy.java rule=working-constructor | Ledger() {
+src/main/java/rqx/Intimacy.java rule=self-built-collaborators | this.writer = new CsvWriter();
+src/main/java/rqx/Intimacy.java rule=ambient-dependency | return System.currentTimeMillis();
+src/main/java/rqx/Lifecycle.java rule=lazy-class | public class Lifecycle {
+src/main/java/rqx/Lifecycle.java rule=temporal-coupling | class Session {
+src/main/java/rqx/Lifecycle.java rule=middle-man | class ReportFactory {
+src/main/java/rqx/Lifecycle.java rule=passthrough-function | public void add(String row) {
+src/main/java/rqx/Long.java rule=shadows-builtin | public class Long {
+src/main/java/rqx/Long.java rule=long-function | public int manySteps() {
+src/main/java/rqx/Main.java rule=wide-fan-out | package rqx;
+src/main/java/rqx/Main.java rule=many-collaborators | public class Main {
+src/main/java/rqx/Main.java rule=feature-envy | public static void main(String[] args) {
+src/main/java/rqx/Main.java rule=long-function | public static void main(String[] args) {
+src/main/java/rqx/Main.java rule=many-locals | public static void main(String[] args) {
+src/main/java/rqx/Main.java rule=unused-parameter | public static void main(String[] args) {
+src/main/java/rqx/Main.java rule=boolean-literal-argument | new Hygiene().pricing(java.util.List.of(), true);
+src/main/java/rqx/Main.java rule=boolean-literal-argument | new Config().endpoint("", true, 1);
+src/main/java/rqx/Main.java rule=imprecise-type | new CostLockInLoop().tallyUnderOneLock(java.util.List.of(), new Object());
+src/main/java/rqx/Main.java rule=name-repeats-type | new CostLinearOpInLoop().sumArray(new java.util.ArrayList<>(), 0);
+src/main/java/rqx/Names.java rule=vague-function-name | public int process(List<Integer> rows) {
+src/main/java/rqx/Names.java rule=never-reassigned | List<Integer> data = new ArrayList<>();
+src/main/java/rqx/Names.java rule=never-reassigned | for (int row : rows) {
+src/main/java/rqx/Names.java rule=never-reassigned | int temp2 = data.size();
+src/main/java/rqx/Names.java rule=return-of-fresh-local | int temp2 = data.size();
+src/main/java/rqx/Names.java rule=unused-export | public int afterReturn(int value) {
+src/main/java/rqx/Names.java rule=output-parameter | value = 1;
+src/main/java/rqx/Names.java rule=unreachable-code | value = 1;
+src/main/java/rqx/Names.java rule=negated-name | boolean notReady = rows == 0;
+src/main/java/rqx/Names.java rule=never-reassigned | boolean notReady = rows == 0;
+src/main/java/rqx/Names.java rule=never-reassigned | int Integer = rows;
+src/main/java/rqx/Names.java rule=shadows-builtin | int Integer = rows;
+src/main/java/rqx/NeverImported.java rule=unused-file | package rqx;
+src/main/java/rqx/Order.java rule=unused-private-member | private Customer customer = new Customer();
+src/main/java/rqx/Orphan.java rule=unused-file | package rqx;
+src/main/java/rqx/Orphan.java rule=negated-name | public String noOneImportsThisFile() {
+src/main/java/rqx/Overgrown.java rule=large-class | public class Overgrown {
+src/main/java/rqx/Overgrown.java rule=split-cohesion | public class Overgrown {
+src/main/java/rqx/Overgrown.java rule=wide-surface | public class Overgrown {
+src/main/java/rqx/Overgrown.java rule=single-method-field | int a1 = 1;
+src/main/java/rqx/Overgrown.java rule=single-method-field | int a2 = 1;
+src/main/java/rqx/Overgrown.java rule=single-method-field | int a3 = 1;
+src/main/java/rqx/Overgrown.java rule=unused-export | public int m2() { return a2; }
+src/main/java/rqx/Overgrown.java rule=unused-export | public int m3() { return a3; }
+src/main/java/rqx/Params.java rule=unused-parameter | public int withDeadTail(int used, String dead) {
+src/main/java/rqx/Params.java rule=unused-export | public int withDeadMiddle(String dead, int used) {
+src/main/java/rqx/Params.java rule=unused-parameter | public int withDeadMiddle(String dead, int used) {
+src/main/java/rqx/Params.java rule=unused-export | public int respectsUnderscore(int used, String _deliberate) {
+src/main/java/rqx/Params.java rule=unused-export | public int twoDeadOnOneLine(int used, String deadA, String deadB) {
+src/main/java/rqx/Params.java rule=unused-parameter x2 | public int twoDeadOnOneLine(int used, String deadA, String deadB) {
+src/main/java/rqx/Performance.java rule=many-collaborators | public class Performance {
+src/main/java/rqx/Performance.java rule=split-cohesion | public class Performance {
+src/main/java/rqx/Performance.java rule=single-method-field | private final Rows repository = new Rows();
+src/main/java/rqx/Performance.java rule=never-reassigned | List<Integer> kept = new ArrayList<>();
+src/main/java/rqx/Performance.java rule=never-reassigned | for (Integer row : rows) {
+src/main/java/rqx/Performance.java rule=scan-in-loop | if (wanted.contains(row)) {
+src/main/java/rqx/Performance.java rule=deep-loop-nesting | public int sumCube(int[][][] grid) {
+src/main/java/rqx/Performance.java rule=never-reassigned | for (int[][] plane : grid) {
+src/main/java/rqx/Performance.java rule=never-reassigned | for (int[] line : plane) {
+src/main/java/rqx/Performance.java rule=never-reassigned | for (int cell : line) {
+src/main/java/rqx/Performance.java rule=never-reassigned | List<String> found = new ArrayList<>();
+src/main/java/rqx/Performance.java rule=never-reassigned | for (Integer id : ids) {
+src/main/java/rqx/Performance.java rule=query-in-loop | found.add(repository.findById(id));
+src/main/java/rqx/Performance.java rule=never-reassigned | for (String line : lines) {
+src/main/java/rqx/Performance.java rule=invariant-in-loop | Pattern digits = Pattern.compile("^[0-9]+$");
+src/main/java/rqx/Performance.java rule=never-reassigned | Pattern digits = Pattern.compile("^[0-9]+$");
+src/main/java/rqx/Performance.java rule=never-reassigned | for (String part : parts) {
+src/main/java/rqx/Performance.java rule=accumulate-by-copy | text += part;
+src/main/java/rqx/Performance.java rule=loop-concatenation | text += part;
+src/main/java/rqx/Performance.java rule=branching-recursion | public int fibonacci(int step) {
+src/main/java/rqx/Performance.java rule=never-reassigned #2 | for (Integer row : rows) {
+src/main/java/rqx/Performance.java rule=linear-op-in-loop | rows.remove(row);
+src/main/java/rqx/Performance.java rule=mutated-while-iterated | rows.remove(row);
+src/main/java/rqx/Performance.java rule=production-assert | assert value > 0;
+src/main/java/rqx/Performance.java rule=mutable-module-state | static int openTabs = 0;
+src/main/java/rqx/Performance.java rule=global-accessor | public int tabsOpen() {
+src/main/java/rqx/Performance.java rule=unused-export | public int paced() throws InterruptedException {
+src/main/java/rqx/Performance.java rule=sleep-in-production | Thread.sleep(500);
+src/main/java/rqx/Precision.java rule=journal-comment | /**
+src/main/java/rqx/Precision.java rule=imprecise-type | public String widen(Object input) {
+src/main/java/rqx/Precision.java rule=imprecise-type | String raw = (String) input;
+src/main/java/rqx/Precision.java rule=never-reassigned | String raw = (String) input;
+src/main/java/rqx/Precision.java rule=imprecise-type x2 | return (Integer) (Object) input;
+src/main/java/rqx/Precision.java rule=redundant-comment | // user name
+src/main/java/rqx/Precision.java rule=imprecise-type | public Object loose() {
+src/main/java/rqx/Precision.java rule=unused-export | public Object loose() {
+src/main/java/rqx/Precision.java rule=imprecise-type | return new Object();
+src/main/java/rqx/Queries.java rule=lazy-class | public class Queries {
+src/main/java/rqx/Queries.java rule=query-with-side-effect | public int getTotal() {
+src/main/java/rqx/Queries.java rule=vague-function-name | public String handle(String value) {
+src/main/java/rqx/Queries.java rule=feature-envy | public String findOrder(List<String> rows) {
+src/main/java/rqx/Queries.java rule=many-exits | public String findOrder(List<String> rows) {
+src/main/java/rqx/Queries.java rule=distant-declaration | String separator = " | ";
+src/main/java/rqx/Queries.java rule=never-reassigned | String separator = " | ";
+src/main/java/rqx/Queries.java rule=never-reassigned | List<String> trimmed = new ArrayList<>();
+src/main/java/rqx/Queries.java rule=never-reassigned | for (String row : rows) {
+src/main/java/rqx/Reconcile.java rule=unused-private-member | private int ledger = 0;
+src/main/java/rqx/Reconcile.java rule=cognitive-complexity | public int reconcileBatch(List<Row> batch, int tolerance, boolean dryRun, int retries, boolean verbose) {
+src/main/java/rqx/Reconcile.java rule=deep-nesting | public int reconcileBatch(List<Row> batch, int tolerance, boolean dryRun, int retries, boolean verbose) {
+src/main/java/rqx/Reconcile.java rule=feature-envy | public int reconcileBatch(List<Row> batch, int tolerance, boolean dryRun, int retries, boolean verbose) {
+src/main/java/rqx/Reconcile.java rule=flag-argument x2 | public int reconcileBatch(List<Row> batch, int tolerance, boolean dryRun, int retries, boolean verbose) {
+src/main/java/rqx/Reconcile.java rule=long-parameter-list | public int reconcileBatch(List<Row> batch, int tolerance, boolean dryRun, int retries, boolean verbose) {
+src/main/java/rqx/Reconcile.java rule=unused-export | public int reconcileBatch(List<Row> batch, int tolerance, boolean dryRun, int retries, boolean verbose) {
+src/main/java/rqx/Reconcile.java rule=unused-parameter | public int reconcileBatch(List<Row> batch, int tolerance, boolean dryRun, int retries, boolean verbose) {
+src/main/java/rqx/Reconcile.java rule=never-reassigned | for (Row row : batch) {
+src/main/java/rqx/Reconcile.java rule=never-reassigned | for (Row other : batch) {
+src/main/java/rqx/Reconcile.java rule=duplicate-code | int total = totalOf(rows);
+src/main/java/rqx/Reconcile.java rule=never-reassigned | int total = totalOf(rows);
+src/main/java/rqx/Reconcile.java rule=unused-export | public int second(List<Row> entries) {
+src/main/java/rqx/Reconcile.java rule=never-reassigned | int amount = totalOf(entries);
+src/main/java/rqx/Router.java rule=boolean-not-a-question | private boolean looksLikeUpload(String body) {
+src/main/java/rqx/Router.java rule=redundant-else | } else if (this.looksLikeUpload(body)) {
+src/main/java/rqx/Router.java rule=redundant-else | } else if (this.hasSession(session)) {
+src/main/java/rqx/Row.java rule=data-class | public class Row {
+src/main/java/rqx/Shapes.java rule=lazy-class | public class Shapes {
+src/main/java/rqx/Shapes.java rule=lazy-class | class Marker {
+src/main/java/rqx/Shapes.java rule=lazy-class | class Shipment {
+src/main/java/rqx/Shapes.java rule=middle-man | class Facade {
+src/main/java/rqx/Shapes.java rule=speculative-generality | abstract class Vehicle {
+src/main/java/rqx/Shapes.java rule=unused-private-member | private int unusedSecret = 1;
+src/main/java/rqx/Shapes.java rule=single-method-field | String scratch;
+src/main/java/rqx/Shapes.java rule=temporary-field | String scratch;
+src/main/java/rqx/Shapes.java rule=inappropriate-static | static Engine build(Engine other) {
+src/main/java/rqx/Shapes.java rule=refused-bequest #2 | public String run() {
+src/main/java/rqx/Shapes.java rule=generic-throw | throw new RuntimeException("no");
+src/main/java/rqx/Shapes.java rule=data-class | class Basket {
+src/main/java/rqx/Shapes.java rule=feature-envy | public int add(Basket basket) {
+src/main/java/rqx/Shapes.java rule=type-code-switch | switch (kind) {
+src/main/java/rqx/Shapes.java rule=redundant-else | } else if (kind == "sms") {
+src/main/java/rqx/Shapes.java rule=redundant-else | } else if (kind == "push") {
+src/main/java/rqx/Shapes.java rule=data-clump | public String notifyOf(String userId, String channel, String locale) { return userId; }
+src/main/java/rqx/Shapes.java rule=unused-parameter x2 | public String notifyOf(String userId, String channel, String locale) { return userId; }
+src/main/java/rqx/Shapes.java rule=unused-parameter x2 | public String enqueue(String userId, String channel, String locale) { return channel; }
+src/main/java/rqx/Shapes.java rule=unused-parameter x2 | public String record(String userId, String channel, String locale) { return locale; }
+src/main/java/rqx/Shapes.java rule=flag-argument | public int gate(boolean ready, int retries) {
+src/main/java/rqx/Shapes.java rule=redundant-else | } else {
+src/main/java/rqx/Shapes.java rule=imprecise-type | public Object build(String kind) {
+src/main/java/rqx/Shapes.java rule=base-depends-on-derived | return kind == "cached" ? new CachedRegistry() : this;
+src/main/java/rqx/Shapes.java rule=empty-subclass | class CachedRegistry extends Registry {
+src/main/java/rqx/Structures.java rule=middle-man | class Menu {
+src/main/java/rqx/Structures.java rule=passthrough-function | public void attach(Menu child) {
+src/main/java/rqx/Structures.java rule=unused-parameter | public ReportBuilder withRows(int rows) {
+src/main/java/rqx/Structures.java rule=unused-parameter | public ReportBuilder withFooter(String footer) {
+src/main/java/rqx/Structures.java rule=single-method-field | private int clauses = 0;
+src/main/java/rqx/Structures.java rule=unused-parameter | public QueryBuilder where(String field) {
+src/main/java/rqx/Structures.java rule=unused-parameter | public QueryBuilder order(String field) {
+src/main/java/rqx/Structures.java rule=unused-parameter | public QueryBuilder take(int count) {
+src/main/java/rqx/Structures.java rule=never-reassigned | Palette copy = new Palette();
+src/main/java/rqx/Structures.java rule=mutable-module-state | private static Settings instance;
+src/main/java/rqx/Structures.java rule=single-method-field | private static Settings instance;
+src/main/java/rqx/Structures.java rule=mutable-module-state | private static Clock current;
+src/main/java/rqx/Structures.java rule=single-method-field | private static Clock current;
+src/main/java/rqx/Structures.java rule=mutable-module-state | private static List<Glyph> pool = new ArrayList<>();
+src/main/java/rqx/Structures.java rule=passthrough-function | public static Glyph of(int index) {
+src/main/java/rqx/Structures.java rule=middle-man | class Feed {
+src/main/java/rqx/Structures.java rule=passthrough-function | public void addListener(Runnable handler) {
+src/main/java/rqx/Structures.java rule=passthrough-function | public void removeListener(Runnable handler) {
+src/main/java/rqx/Structures.java rule=unused-parameter | public void publish(int value) {
+src/main/java/rqx/Structures.java rule=middle-man | class Ticker {
+src/main/java/rqx/Structures.java rule=passthrough-function | public void onTick(Runnable handler) {
+src/main/java/rqx/Structures.java rule=speculative-generality | abstract class Importer {
+src/main/java/rqx/Structures.java rule=never-reassigned | String row = this.read();
+src/main/java/rqx/Sweep.java rule=feature-envy | public int sweep(List<Integer> rows) {
+src/main/java/rqx/Sweep.java rule=long-function | public int sweep(List<Integer> rows) {
+src/main/java/rqx/Sweep.java rule=distant-declaration | int n = 0;
+src/main/java/rqx/Sweep.java rule=never-reassigned | int n = 0;
+src/main/java/rqx/Sweep.java rule=never-reassigned | List<Integer> seen = new ArrayList<>();
+src/main/java/rqx/Sweep.java rule=never-reassigned | for (int row : rows) {
+src/main/java/rqx/Sweep.java rule=magic-number | if (row > 7331) {
+src/main/java/rqx/Vocabulary.java rule=unused-export | public String fetchAccount(String id) {
+src/main/java/rqx/Vocabulary.java rule=empty-method | public void saveAccount(String id) {
+src/main/java/rqx/Vocabulary.java rule=unused-export | public void saveAccount(String id) {
+src/main/java/rqx/Vocabulary.java rule=unused-parameter | public void saveAccount(String id) {
+src/main/java/rqx/Wrapping.java rule=middle-man | class LoggingNotifier implements Notifier {
+src/main/java/rqx/Wrapping.java rule=passthrough-function | public void send(String message) {
+src/main/java/rqx/Wrapping.java rule=middle-man | class GuardedNotifier implements Notifier {
+src/main/java/rqx/Wrapping.java rule=passthrough-function #2 | public void send(String message) {
+src/main/java/rqx/Wrapping.java rule=middle-man | class SmsNotifier implements Notifier {
+src/main/java/rqx/Wrapping.java rule=passthrough-function #3 | public void send(String message) {
+src/main/java/rqx/Wrapping.java rule=middle-man | class RetryingGateway {
+src/main/java/rqx/Wrapping.java rule=passthrough-function #2 | public int transmit(String text) {
+src/test/java/rqx/ChecksTest.java rule=branching-test | public void testDecidesThreeWays() {
+src/test/java/rqx/ChecksTest.java rule=feature-envy | public void testDecidesThreeWays() {
+src/test/java/rqx/ChecksTest.java rule=lazy-class | static class TestDouble {
+src/test/java/rqx/SuiteTest.java rule=large-class | public class SuiteTest {
+src/test/java/rqx/SuiteTest.java rule=many-collaborators | public class SuiteTest {
+src/test/java/rqx/SuiteTest.java rule=split-cohesion | public class SuiteTest {
+src/test/java/rqx/SuiteTest.java rule=wide-surface | public class SuiteTest {
+src/test/java/rqx/SuiteTest.java rule=skipped-test | public void testDiscounts() {
+src/test/java/rqx/SuiteTest.java rule=magic-number | assertEquals(3, new Clean().add(1, 2));
+src/test/java/rqx/SuiteTest.java rule=slow-test | Thread.sleep(500);
+src/test/java/rqx/SuiteTest.java rule=assertionless-test | public void testChecksNothing() {
+src/test/java/rqx/SuiteTest.java rule=unused-local | int value = new Clean().add(1, 1);
+src/test/java/rqx/SuiteTest.java rule=duplicate-assertion | public void testAssertsTheSameThingTwice() {
+src/test/java/rqx/SuiteTest.java rule=hand-rolled-throws | try {
+src/test/java/rqx/SuiteTest.java rule=self-asserting-test | assertEquals(1, 1);
+src/test/java/rqx/SuiteTest.java rule=debug-output-in-test | System.out.println("here");
+src/test/java/rqx/SuiteTest.java rule=imprecise-type | Object rows = db.query("rows");
+src/test/java/rqx/SuiteTest.java rule=never-reassigned | Object rows = db.query("rows");
+src/test/java/rqx/SuiteTest.java rule=mutable-module-state | static Db db = new Db();
+src/test/java/rqx/SuiteTest.java rule=single-method-field | static Db db = new Db();
+src/test/java/rqx/SuiteTest.java rule=imprecise-type | Object query(String sql) {
+src/test/java/rqx/SuiteTest.java rule=unused-parameter | Object query(String sql) {
+src/test/java/rqx/SuiteTest.java rule=unnamed-test | public void testWorks() {
+src/test/java/rqx/SuiteTest.java rule=empty-method #14 | @Test
+src/test/java/rqx/SuiteTest.java rule=assertionless-test | public void testIsNotWrittenYet() {
+src/test/java/rqx/SuiteTest.java rule=empty-test | public void testIsNotWrittenYet() {
+src/test/java/rqx/SuiteTest.java rule=negated-name | public void testIsNotWrittenYet() {
+src/test/java/rqx/SuiteTest.java rule=never-reassigned | int one = new Clean().add(1, 1);
+src/test/java/rqx/SuiteTest.java rule=string-shape-assertion | assertSame("{\"two\":4,\"spare\":\"padding here\"}", "x");
+src/test/java/rqx/SuiteTest.java rule=empty-method | static void assertSame(String expected, String actual) {
+src/test/java/rqx/SuiteTest.java rule=unused-parameter x2 | static void assertSame(String expected, String actual) {
+src/test/java/rqx/SuiteTest.java rule=never-reassigned | int a = new Clean().add(1, 1);
+src/test/java/rqx/SuiteTest.java rule=never-reassigned | int b = new Hygiene().narrated(1);
+src/test/java/rqx/SuiteTest.java rule=never-reassigned | int c = new Hygiene().scoreOf(1);
+src/test/java/rqx/SuiteTest.java rule=never-reassigned | int d = new Hygiene().guardedAdd(1, 1, 1);
+src/test/java/rqx/SuiteTest.java rule=never-reassigned | int e = new Flow().freshTotal(1);
+src/test/java/rqx/SuiteTest.java rule=imprecise-type | Object client = mock("x");
+src/test/java/rqx/SuiteTest.java rule=unchecked-stub | Object client = mock("x");
+src/test/java/rqx/SuiteTest.java rule=unused-local | Object client = mock("x");
+src/test/java/rqx/SuiteTest.java rule=imprecise-type | static Object mock(String of) {
+src/test/java/rqx/SuiteTest.java rule=unused-parameter | static Object mock(String of) {
+src/test/java/rqx/SuiteTest.java rule=single-method-field | int spare;
+src/test/java/rqx/SuiteTest.java rule=unused-fixture | spare = 1;
+src/test/java/rqx/SuiteTest.java rule=empty-method | static void assertEquals(int expected, int actual) {
+src/test/java/rqx/SuiteTest.java rule=unused-parameter x2 | static void assertEquals(int expected, int actual) {
