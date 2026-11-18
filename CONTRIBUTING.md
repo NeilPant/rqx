@@ -73,9 +73,25 @@ writes it. Run it after changing a rule, a flag or a configuration key.
 
 `fixtures/` holds files that are violations on purpose, so that each rule has something
 to fire on. The repository's `rqx.yaml` excludes it from scans. Do not run `rqx fix`
-over it, and do not correct code in a fixture. When a fixture changes, update the
-expected counts in `crates/rqx-cli/tests/fixtures.rs`. The generated rule reference
-often changes as well.
+over it, and do not correct code in a fixture.
+
+`fixtures/<language>/.expect` lists every finding the default configuration reports in
+that directory. After changing a rule or a fixture, run:
+
+```sh
+cargo test -p rqx --test fixtures every_fixture_finding_is_expected
+```
+
+A failure prints one line per difference, followed by the command that accepts them:
+
+```text
+fixtures/go/flow.go:154  missing discarded-error
+fixtures/go/flow.go:166  unexpected discarded-error
+```
+
+If the change is intended, run the same command with `RQX_BLESS=1` and commit the
+`.expect` diff with the change. The generated rule reference often changes as well.
+[docs/architecture.md](docs/architecture.md#fixture-expectations) describes the format.
 
 ## Where things live
 

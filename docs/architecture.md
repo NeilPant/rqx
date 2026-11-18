@@ -172,10 +172,11 @@ matches.
 6. **Rule logic**, in `crates/rqx-core/src/rules.rs`: turn the collected fact into a
    finding.
 7. **Fixtures**: one per language the rule applies to, under `fixtures/<language>/`.
-   Add the expected number of findings to that language's table in
-   `crates/rqx-cli/tests/fixtures.rs` (`every_rule_fires_the_number_of_times_its_fixtures_ask_for`).
-   `fixtures/all-rules.yaml` enables the off-by-default rules for these tests. A rule
-   exempted from a language must stay silent on that language's fixtures.
+   Record the findings in each language's `.expect` file with `RQX_BLESS=1`, as
+   described in [Fixture expectations](#fixture-expectations).
+   `every_applicable_rule_fires_on_every_language` scans with `fixtures/all-rules.yaml`,
+   which enables the off-by-default rules. A rule exempted from a language must stay
+   silent on that language's fixtures.
 8. **Levels**: `relaxed`, `strict` and `pristine` each need a value if the rule has a
    threshold, and `pristine` must name the rule if it ships off by default.
 9. **Autofix**, if the rule declares one: an arm in `crates/rqx-lang/src/rewrite.rs`
@@ -187,6 +188,51 @@ matches.
 
 Fixtures are deliberate violations. Do not run `rqx fix` over `fixtures/` and do not
 correct the code in them. Run `tools/dev.sh check` before opening a pull request.
+
+### Fixture expectations
+
+`every_fixture_finding_is_expected` in `crates/rqx-cli/tests/fixtures.rs` scans each
+`fixtures/<language>/` directory with the default configuration and compares the
+findings with that directory's `.expect` file. A finding without an entry fails the
+test. The harness is in `crates/rqx-cli/tests/fixture_expectations/`.
+
+Each line of the file is one entry: the path relative to the language directory, the
+expectation, and the trimmed source line after ` | `.
+
+```text
+fixtures/bloat.go rule=no-base-case | func Loops(rows []int) int {
+fixtures/params.go rule=unused-parameter x2 | func TwoDeadOnOneLine(used int, deadA string, deadB string) int {
+fixtures/patterns.go rule=redundant-else #2 | } else if d.state == "open" {
+hierarchy.py known-fp=discarded-error _count_rows returns a number and cannot fail, so no error is dropped | _ = _count_rows(rows)
+```
+
+| Entry | Passes when | Written by |
+|---|---|---|
+| `rule=<slug>` | The rule fires on the line, exactly `xN` times if a count is given | `RQX_BLESS=1` |
+| `none=<slug>` | The rule does not fire on the line | Hand |
+| `may=<slug>` | Always; the rule may fire on the line or not | Hand |
+| `known-fp=<slug> <reason>` | The rule fires on the line. The finding is wrong for the stated reason | Hand |
+
+An entry locates its line by text, so adding lines elsewhere in a fixture changes no
+entry. `#N` selects the Nth line in the file with that text. Line numbers appear only
+in failure messages.
+
+The expectations are kept outside the fixture sources because comments are analysed.
+A marker comment on a finding's line, or the line above it, changes the results of
+rules such as `comment-per-line` and `duplicate-code`.
+
+`RQX_BLESS=1 cargo test -p rqx --test fixtures every_fixture_finding_is_expected`
+regenerates the `rule=` entries in source order and leaves the other kinds as written.
+The test still fails afterwards in three cases, each of which needs an edit by hand:
+
+- a rule fires on a line marked `none=`;
+- a `known-fp=` finding stopped firing, which means the false positive is fixed and the
+  entry should become `none=`;
+- a hand-written entry names a line that no longer exists.
+
+`hotspot`, `single-author-file`, `shotgun-surgery` and `stale-todo` read the history of
+the repository that contains the fixtures, so they have no entries. A test that builds
+its own repository covers them.
 
 ## Guide: add a precision corpus case
 
@@ -251,7 +297,8 @@ project's license text is in `fixtures/complexity/real/NOTICE`.
 8. **Exemptions**: for each rule that cannot exist in the language, add a
    `not_applicable` entry with a reason in the catalogue.
 9. **Fixtures**: `fixtures/<language>/` with the entry-point manifest the language
-   uses, one fixture per applicable rule, and a new table in `fixtures.rs`. Every
+   uses, one fixture per applicable rule, and an `.expect` file generated with
+   `RQX_BLESS=1` (see [Fixture expectations](#fixture-expectations)). Every
    applicable rule must fire and every exempted rule must stay silent.
 10. **Documentation**: update the language table in the README and run
     `cargo run --quiet -- docs`.
