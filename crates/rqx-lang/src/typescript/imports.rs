@@ -400,12 +400,7 @@ mod tests {
         let found = resolver
             .resolve(&root, specifier)
             .into_iter()
-            .map(|path| {
-                path.strip_prefix(&root)
-                    .expect("inside")
-                    .display()
-                    .to_string()
-            })
+            .map(|path| rqx_core::paths::display_path(path.strip_prefix(&root).expect("inside")))
             .collect();
         let _ = std::fs::remove_dir_all(&root);
         found
