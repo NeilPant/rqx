@@ -925,10 +925,12 @@ does not capture the mouse, so what it prints lands in your scrollback and stays
 there after you leave, and you select, search and scroll it with the terminal's own
 tools.
 
-It scans as it opens. While it works, the owl animates beside the phase and the files
-done. When the scan finishes, a header and the worst findings go into scrollback,
-with the owl in the header in the colour of the verdict. Under the
-prompt, one line says `? for shortcuts` and, on the right, the health, the grade, the
+It scans as it opens. While it works, the owl reads beside the phase and the files
+done. When the scan finishes, a header and the worst findings appear above the
+prompt, with the owl in the header in the colour of the verdict. The owl wakes up,
+reacts to the score and makes a small move every few seconds until a key is pressed.
+The header and findings move into scrollback when the session first prints something
+else. Under the prompt, one line says `? for shortcuts` and, on the right, the health, the grade, the
 findings and `watching` when it is on.
 
 Slash commands use the command line's definitions. `/plan --budget 20` is parsed by
