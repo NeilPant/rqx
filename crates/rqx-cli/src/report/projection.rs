@@ -49,8 +49,9 @@ pub fn scan(report: &Report<'_>, outcome: &ScanOutcome) -> Value {
         "skipped": outcome
             .skipped
             .iter()
-            .map(|(path, reason)| format!("{}: {reason}", path.display()))
+            .map(crate::scan::Skipped::listed)
             .collect::<Vec<_>>(),
+        "skippedBy": crate::scan::skip::tally(&outcome.skipped),
     })
 }
 

@@ -230,7 +230,6 @@ fn bar(count: u32, total: u32) -> String {
 
 const LABEL_WIDTH: usize = 10;
 const MAX_RULE_ROWS: usize = 8;
-const MAX_SKIPPED_ROWS: usize = 10;
 const HOTSPOTS: usize = 3;
 
 pub fn render(report: &Report<'_>, layout: &Layout, out: &mut dyn Write) -> Result<()> {
@@ -1212,30 +1211,23 @@ fn write_run(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Res
     Ok(())
 }
 
+/// One line that counts the skipped files by reason; `-v` lists every one under it.
 fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Result<()> {
-    if outcome.skipped.is_empty() {
+    let Some(summary) = crate::scan::skip::summary(&outcome.skipped) else {
+        return Ok(());
+    };
+    let dim = layout.palette.style(Ink::Muted);
+    if !layout.verbose {
+        writeln!(out, "\n  {summary} {}", paint(dim, "\u{b7} -v lists them"))?;
         return Ok(());
     }
-    let dim = layout.palette.style(Ink::Muted);
-    writeln!(
-        out,
-        "\n  {} skipped:",
-        plural(outcome.skipped.len() as u32, "file", "files")
-    )?;
-    let shown = if layout.verbose {
-        outcome.skipped.len()
-    } else {
-        MAX_SKIPPED_ROWS
-    };
-    for (path, reason) in outcome.skipped.iter().take(shown) {
-        writeln!(out, "    {} \u{2014} {reason}", paint(dim, path.display()))?;
-    }
-    if outcome.skipped.len() > shown {
-        let extra = outcome.skipped.len() - shown;
+    writeln!(out, "\n  {summary}")?;
+    for skipped in &outcome.skipped {
         writeln!(
             out,
-            "    {}",
-            paint(dim, format!("\u{2026} and {extra} more"))
+            "    {} \u{2014} {}",
+            paint(dim, crate::scan::relative_to(&outcome.root, &skipped.path)),
+            skipped.detail
         )?;
     }
     Ok(())
@@ -1518,15 +1510,25 @@ mod tests {
     }
 
     #[test]
-    fn every_skipped_file_is_listed_when_verbose() {
+    fn skipped_files_are_one_line_and_every_one_is_listed_when_verbose() {
         let mut outcome = outcome_with(&[("a.ts", Severity::Error)], 2);
-        outcome.skipped = (0..MAX_SKIPPED_ROWS + 5)
-            .map(|n| (format!("big-{n}.ts").into(), "too large".to_owned()))
+        outcome.root = std::path::PathBuf::from("project");
+        outcome.skipped = (0..15)
+            .map(|n| {
+                crate::scan::Skipped::file(
+                    &outcome.root.join(format!("src/big-{n}.ts")),
+                    crate::scan::SkipReason::TooLarge,
+                    "2048 KB exceeds the 1024 KB limit".to_owned(),
+                )
+            })
             .collect();
 
-        let capped = rendered_text(&outcome, &layout());
-        assert!(capped.contains("and 5 more"), "{capped}");
-        assert!(!capped.contains("big-14.ts"), "{capped}");
+        let quiet = rendered_text(&outcome, &layout());
+        assert!(
+            quiet.contains("skipped 15 files: 15 too large \u{b7} -v lists them"),
+            "{quiet}"
+        );
+        assert!(!quiet.contains("big-0.ts"), "{quiet}");
 
         let full = rendered_text(
             &outcome,
@@ -1535,8 +1537,12 @@ mod tests {
                 ..layout()
             },
         );
-        assert!(!full.contains("more"), "{full}");
-        assert!(full.contains("big-14.ts"), "{full}");
+        assert!(!full.contains("-v lists them"), "{full}");
+        assert!(
+            full.contains("src/big-14.ts \u{2014} 2048 KB exceeds the 1024 KB limit"),
+            "{full}"
+        );
+        assert!(!full.contains("project/src"), "{full}");
     }
 
     #[test]

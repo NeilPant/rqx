@@ -25,6 +25,9 @@ use crate::config::Resolved;
 use crate::stats::{FileReads, ScanStats};
 
 mod cost_rules;
+pub mod skip;
+
+pub use skip::{SkipReason, Skipped};
 
 /// The walk analyzes files far faster than one collector drains them, so an
 /// unbounded channel becomes the place a whole repo's findings pile up. Bounding
@@ -67,10 +70,7 @@ pub(crate) struct Analyzed {
 #[derive(Clone)]
 pub(crate) enum ScanMessage {
     File(Box<Analyzed>),
-    Skipped {
-        path: PathBuf,
-        reason: String,
-    },
+    Skipped(Skipped),
     /// How many files the walk will visit, sent once by whoever counted them. It
     /// arrives mid-scan, so until it does the collector reports no total.
     Total(Option<u32>),
@@ -172,7 +172,7 @@ pub struct ScanOutcome {
     pub omitted: u32,
     pub code_lines: u64,
     pub files_scanned: u32,
-    pub skipped: Vec<(PathBuf, String)>,
+    pub skipped: Vec<Skipped>,
     /// What a run spent its time in, when a profile was read. Per run rather than
     /// per file, so it never reaches the cache the shapes come from.
     pub profile: Option<rqx_core::runtime::Profile>,
@@ -451,7 +451,7 @@ struct Collector {
     profile: Option<rqx_core::runtime::Samples>,
     code_lines: u64,
     files_scanned: u32,
-    skipped: Vec<(PathBuf, String)>,
+    skipped: Vec<Skipped>,
     total: Option<u32>,
     started: Instant,
 }
@@ -2364,7 +2364,7 @@ pub(crate) fn collect_against(
                 collector.showing = Some(Arc::clone(&shared));
                 collector.tick(None);
             }
-            ScanMessage::Skipped { path, reason } => collector.skipped.push((path, reason)),
+            ScanMessage::Skipped(skipped) => collector.skipped.push(skipped),
             ScanMessage::Total(total) => collector.total = total.or(collector.total),
         }
     }
@@ -2410,14 +2410,15 @@ pub(crate) fn analyze_file(
 ) -> ScanMessage {
     let (config, facts) = settings.for_file_with_facts(path);
     if size.is_some_and(|bytes| bytes > config.scan.max_filesize) {
-        return ScanMessage::Skipped {
-            path: path.to_owned(),
-            reason: format!(
+        return skipped(
+            path,
+            SkipReason::TooLarge,
+            format!(
                 "{} KB exceeds the {} KB limit (raise `scan.max_filesize`)",
                 size.unwrap_or_default() / 1024,
                 config.scan.max_filesize / 1024
             ),
-        };
+        );
     }
     let display = relative_to(root, path);
     if let Some(cached) = cache
@@ -2429,13 +2430,14 @@ pub(crate) fn analyze_file(
     reads.note();
     let source = match std::fs::read_to_string(path) {
         Ok(source) => source,
-        Err(error) => return skipped(path, error.to_string()),
+        Err(error) => return skipped(path, SkipReason::Unreadable, error.to_string()),
     };
     if config.scan.skip_generated
         && let Some(tool) = generated_by(&source)
     {
         return skipped(
             path,
+            SkipReason::Generated,
             format!("{tool} (set `scan.skip_generated: false` to include it)"),
         );
     }
@@ -2460,18 +2462,22 @@ pub(crate) fn analyze_file(
                         identities,
                     }
                 }
-                Err(error) => return skipped(path, error.to_string()),
+                Err(error) => {
+                    let reason = if error.timed_out() {
+                        SkipReason::ParseTimeout
+                    } else {
+                        SkipReason::Unsupported
+                    };
+                    return skipped(path, reason, error.to_string());
+                }
             }
         }
     };
     analyzed(path, display, cached, settings)
 }
 
-fn skipped(path: &Path, reason: String) -> ScanMessage {
-    ScanMessage::Skipped {
-        path: path.to_owned(),
-        reason,
-    }
+fn skipped(path: &Path, reason: SkipReason, detail: String) -> ScanMessage {
+    ScanMessage::Skipped(Skipped::file(path, reason, detail))
 }
 
 /// Resolved here, where the file's text is already in hand, and kept with the cached
@@ -2876,10 +2882,11 @@ pub(crate) fn scan_against(
                     }
                     Ok(_) => {}
                     Err(error) => {
-                        let _ = sender.send(ScanMessage::Skipped {
-                            path: PathBuf::from("<walk>"),
-                            reason: error.to_string(),
-                        });
+                        let _ = sender.send(skipped(
+                            Path::new("<walk>"),
+                            SkipReason::Walk,
+                            error.to_string(),
+                        ));
                     }
                 }
                 WalkState::Continue

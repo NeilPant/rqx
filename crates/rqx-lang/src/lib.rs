@@ -149,6 +149,17 @@ impl std::fmt::Display for AnalysisError {
     }
 }
 
+/// How a parse that ran out of time begins its message. A method rather than a variant,
+/// so code that matches on `AnalysisError` keeps compiling.
+const GAVE_UP: &str = "gave up after";
+
+impl AnalysisError {
+    /// Whether the grammar ran out of time rather than failing outright.
+    pub fn timed_out(&self) -> bool {
+        matches!(self, Self::Parse(message) if message.starts_with(GAVE_UP))
+    }
+}
+
 /// What a table of node kinds cannot say: which names a file offers, how a written
 /// import becomes a path, and how a class is put together where the grammar does not
 /// hold it in one node.
@@ -296,7 +307,7 @@ pub(crate) fn parse(
             )
             .ok_or_else(|| {
                 AnalysisError::Parse(format!(
-                    "gave up after {}s; the grammar was still working",
+                    "{GAVE_UP} {}s; the grammar was still working",
                     PARSE_BUDGET.as_secs()
                 ))
             })

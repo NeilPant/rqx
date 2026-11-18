@@ -41,6 +41,11 @@ them. `tools/release.sh` turns that section into the release notes.
   ends it and is handled as usual. With `--motion off`, or on a window too short for the
   redrawn rows, the owl is still and the header goes straight into scrollback as before.
 
+- **The terminal report sums up skipped files in one line.** For example:
+  `skipped 412 files: 398 in submodule design/, 14 minified · -v lists them`. The
+  report used to list up to ten skipped files. `-v` lists every skipped file with its
+  reason, and the paths are relative to the scanned directory, as finding paths are.
+
 ### Added
 
 - **The session folds long output.** Output taller than the rows above the prompt
@@ -61,6 +66,12 @@ them. `tools/release.sh` turns that section into the release notes.
   `.gitignore` that already exists. `baseline.json` is left out of the list because it
   is meant to be committed. The `rqx init` template comment that said to add `.rqx/` to
   `.gitignore` now describes this.
+
+- **The JSON summary has a `skipped_by` object.** It counts the skipped files per
+  reason: `generated`, `too-large`, `unreadable`, `parse-timeout`, `unsupported` and
+  `walk`. Each value is an object with a `files` count. The `skipped` list keeps its
+  `"path: reason"` strings. The MCP `scan` tool result carries the same object, and the
+  language server's `rqx/report` notification carries it as `skippedBy`.
 
 ### Fixed
 
