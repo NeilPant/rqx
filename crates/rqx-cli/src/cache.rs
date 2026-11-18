@@ -17,6 +17,13 @@ pub(crate) const CACHE_FILE: &str = "cache.bin";
 /// What the cache was called while it was one uncompressed document. Nothing reads it
 /// any more, so it is removed rather than left to take up the room the new one saves.
 const LEGACY_CACHE_FILE: &str = "cache.json";
+/// What `.rqx/` keeps out of git: the per-machine files rqx writes there, named one by
+/// one rather than `*`, because `.rqx/baseline.json` is meant to be committed.
+const OWN_GITIGNORE: &str = "# Written by rqx. These files are per machine; commit baseline.json.\n\
+                             cache.bin\n\
+                             cache.json\n\
+                             .cache.bin.rqx-tmp\n\
+                             trend.ndjson\n";
 
 /// Part of the version, so a change to how entries are laid out makes every cache
 /// written before it a miss instead of a parse error.
@@ -241,6 +248,19 @@ fn unpack(bytes: &[u8]) -> Option<Cached> {
     serde_json::from_slice(&json).ok()
 }
 
+/// Writes `.rqx/.gitignore` when the directory has none, so the cache and the trend
+/// file cannot be committed by accident. One that exists is the project's and is never
+/// touched. Best effort: a directory that refuses the file costs the file, not the run.
+pub(crate) fn ignore_own_files(directory: &Path) {
+    let created = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(directory.join(".gitignore"));
+    if let Ok(mut file) = created {
+        let _ = file.write_all(OWN_GITIGNORE.as_bytes());
+    }
+}
+
 /// Removing the file rather than the directory: `.rqx` also holds the baseline, and
 /// clearing a cache should not throw that away.
 pub fn clear(root: &Path) -> std::io::Result<bool> {
@@ -415,6 +435,7 @@ impl Cache {
         if std::fs::create_dir_all(directory).is_err() {
             return;
         }
+        ignore_own_files(directory);
         // Written through a temporary and renamed: a ctrl-c mid-write used to leave
         // a truncated document, which the version check then silently threw away
         // along with every entry in it.
@@ -829,6 +850,50 @@ mod tests {
 
         let (index, _) = read_container(&root.join(CACHE_DIRECTORY).join(CACHE_FILE)).unwrap();
         assert_eq!(index.entries["a.ts"].stamp, Some(touched));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn saving_keeps_the_cache_out_of_git_but_never_the_baseline() {
+        let (root, cache) = cache_holding("ignores-itself", stamped(SETTLED));
+        assert!(
+            cache
+                .get("a.ts", SOURCE, Some(stamped(SETTLED + 5)))
+                .is_some()
+        );
+        cache.save();
+
+        let written = std::fs::read_to_string(root.join(CACHE_DIRECTORY).join(".gitignore"))
+            .expect("the cache writes .rqx/.gitignore");
+        let patterns: Vec<&str> = written
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect();
+        assert_eq!(
+            patterns,
+            [
+                CACHE_FILE,
+                LEGACY_CACHE_FILE,
+                ".cache.bin.rqx-tmp",
+                "trend.ndjson"
+            ]
+        );
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn an_ignore_file_the_project_already_has_is_left_alone() {
+        let (root, cache) = cache_holding("keeps-ignore", stamped(SETTLED));
+        let ignore = root.join(CACHE_DIRECTORY).join(".gitignore");
+        std::fs::write(&ignore, "*\n").unwrap();
+        assert!(
+            cache
+                .get("a.ts", SOURCE, Some(stamped(SETTLED + 5)))
+                .is_some()
+        );
+        cache.save();
+
+        assert_eq!(std::fs::read_to_string(&ignore).unwrap(), "*\n");
         std::fs::remove_dir_all(&root).unwrap();
     }
 

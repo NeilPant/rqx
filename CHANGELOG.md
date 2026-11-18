@@ -55,6 +55,13 @@ them. `tools/release.sh` turns that section into the release notes.
   document reporters and `--watch` are not paged, and the exit code is the same with
   and without the pager. See `docs/ci.md`.
 
+- **`.rqx/` keeps the cache out of git.** When `.rqx/` has no `.gitignore`, saving the
+  scan cache or recording a trend snapshot there writes one listing `cache.bin`,
+  `cache.json`, `.cache.bin.rqx-tmp` and `trend.ndjson`. rqx does not change a
+  `.gitignore` that already exists. `baseline.json` is left out of the list because it
+  is meant to be committed. The `rqx init` template comment that said to add `.rqx/` to
+  `.gitignore` now describes this.
+
 ### Fixed
 
 - **The session keeps the backslashes of a Windows path.** A command typed at the

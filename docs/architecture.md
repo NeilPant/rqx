@@ -103,6 +103,9 @@ declared in its catalogue entry with a reason.
 
 The cache is the file `.rqx/cache.bin` under the scanned root. `.rqx/` also holds
 `baseline.json`, so `rqx cache clear` removes the cache file and leaves the directory.
+When `.rqx/` has no `.gitignore`, saving the cache or recording a trend snapshot there
+writes one that lists `cache.bin`, `cache.json`, `.cache.bin.rqx-tmp` and
+`trend.ndjson`. `baseline.json` is not listed, because it is meant to be committed.
 `rqx cache status` reports what the cache holds. `scan.cache: false` in `rqx.yaml`
 turns it off.
 

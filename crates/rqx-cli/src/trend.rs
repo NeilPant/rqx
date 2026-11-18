@@ -135,7 +135,8 @@ fn timestamp(seconds: u64) -> String {
 }
 
 /// Appends one line, creating the file and its folder when they are not there. Never
-/// rewrites what is already in the file.
+/// rewrites what is already in the file. A file inside `.rqx/` also gets the
+/// directory's `.gitignore`, as the cache does.
 pub fn record(path: &Path, snapshot: &Snapshot) -> Result<()> {
     if let Some(folder) = path
         .parent()
@@ -143,6 +144,9 @@ pub fn record(path: &Path, snapshot: &Snapshot) -> Result<()> {
     {
         std::fs::create_dir_all(folder)
             .with_context(|| format!("creating {}", folder.display()))?;
+        if folder.file_name() == Some(std::ffi::OsStr::new(crate::cache::CACHE_DIRECTORY)) {
+            crate::cache::ignore_own_files(folder);
+        }
     }
     let mut line = serde_json::to_string(snapshot)?;
     line.push('\n');
@@ -449,6 +453,30 @@ mod tests {
             })
             .collect();
         assert_eq!(times, ["1970-01-01T00:00:00Z", "1970-01-02T00:00:00Z"]);
+    }
+
+    #[test]
+    fn recording_into_rqx_keeps_the_trend_out_of_git_and_elsewhere_writes_nothing_more() {
+        let folder = scratch("ignored");
+        let outcome = outcome_with(&[], 1);
+
+        record(&folder.join(DEFAULT_FILE), &Snapshot::of(&outcome, 0)).expect("a line");
+        record(
+            &folder.join("charts/trend.ndjson"),
+            &Snapshot::of(&outcome, 0),
+        )
+        .expect("a line");
+
+        let ignore = std::fs::read_to_string(folder.join(".rqx/.gitignore"));
+        let elsewhere = folder.join("charts/.gitignore").exists();
+        let _ = std::fs::remove_dir_all(&folder);
+        assert!(
+            ignore
+                .expect("written")
+                .lines()
+                .any(|line| line == "trend.ndjson")
+        );
+        assert!(!elsewhere);
     }
 
     #[test]
