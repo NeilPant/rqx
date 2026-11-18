@@ -5172,6 +5172,12 @@ fn note_narration(
         .iter()
         .filter(|node| profile.is_comment(*node))
         .collect();
+    let leads = crate::tree::comment_leads(
+        nodes.root(),
+        |node| profile.is_comment(node),
+        |node| profile.is_block(node),
+    );
+    let leads = |comment: Node<'_>| leads.get(&comment.id()).copied();
 
     // A comment, a line of code, a comment, a line of code: the author is reading the
     // code aloud. A run of comment lines with no code between them is a paragraph.
@@ -5184,7 +5190,7 @@ fn note_narration(
         // and so does a second comment written directly underneath the first.
         // A comment above a field or a property signature is documentation of a
         // shape, not narration of a run of work.
-        let over_a_statement = leads(profile, *comment).is_some_and(|node| {
+        let over_a_statement = leads(*comment).is_some_and(|node| {
             let kind = kind_of(node);
             !profile.field_kinds.contains(&kind)
                 && !profile.signature_kinds.contains(&kind)
@@ -5248,8 +5254,7 @@ fn note_narration(
         else {
             continue;
         };
-        let Some(declared) = leads(profile, comment).map(|node| unwrap_export(profile, node))
-        else {
+        let Some(declared) = leads(comment).map(|node| unwrap_export(profile, node)) else {
             continue;
         };
         if !profile.is_function(declared) {
@@ -5342,24 +5347,6 @@ fn unwrap_export<'tree>(profile: &'static LanguageProfile, node: Node<'tree>) ->
         return node.named_child(0).unwrap_or(node);
     }
     node
-}
-
-/// The declaration a comment sits directly above, if it sits above one.
-fn leads<'tree>(profile: &'static LanguageProfile, comment: Node<'tree>) -> Option<Node<'tree>> {
-    let mut next = comment.next_named_sibling();
-    while let Some(node) = next {
-        if profile.is_comment(node) {
-            next = node.next_named_sibling();
-            continue;
-        }
-        // Python writes a docstring inside the body rather than above the def, so the
-        // parent is what the comment describes.
-        return Some(node);
-    }
-    comment
-        .parent()
-        .filter(|parent| profile.is_block(*parent))
-        .and_then(|block| block.parent())
 }
 
 /// Whether a doc comment says only what the signature already says. Every word it
