@@ -36,6 +36,16 @@ them. `tools/release.sh` turns that section into the release notes.
   form of it instead of nothing. The catalogue entry takes an optional `short`; without
   one, the short form is the first clause of `why`. `--detail full` still prints the
   whole rationale every time.
+- **Thirty-five rules name a different fix technique.** The earlier pairings were
+  mismatches: `discarded-error` suggested Decompose Conditional, `sequential-await`
+  suggested Replace Algorithm, `loop-concatenation` suggested Replace Algorithm where
+  Accumulate in Place exists, and `many-locals` suggested Extract Variable, which adds a
+  local. The `fixes` array in JSON, the technique names in SARIF and GitLab help text,
+  and the technique under each finding change with them. Six techniques are new, in the
+  existing groups and a new `Errors` group: Handle the Failure, Narrow the Handler,
+  Replace Exit with Error, Declare Immutable, Narrow the Type and Share Ownership. A
+  test lists, for each technique, the rules it applies to, so a new pairing has to be
+  added there on purpose.
 - **The terminal marks the focus, not the whole statement.** A finding with a focus
   underlines only that range and shows the rest of its statement as a count of lines.
   A multi-line finding with no focus shows its first line and `⋮ N more lines` instead of

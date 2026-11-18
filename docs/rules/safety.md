@@ -11,7 +11,7 @@ each of these types turns off type checking for the value, so the guarantees the
 | Measures | an `any` annotation, a non-null assertion, or a cast that is not `as const` |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Fix | Replace Data Value with Object / Introduce Assertion |
+| Fix | Narrow the Type / Introduce Assertion |
 | Not in JavaScript | JavaScript declares no types, so there is no annotation or cast to be imprecise |
 
 From `fixtures/typescript/hygiene.ts`, line 89:
@@ -99,7 +99,7 @@ the closure reads whichever value the loop variable holds when it runs, so every
 | Measures | a function written inside a loop that reads the name the loop moves |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Extract Method / Introduce Parameter Object |
+| Fix | Extract Method / Add Parameter |
 | Not in Java | a captured local must already be effectively final |
 
 From `fixtures/typescript/performance.ts`, line 75:
@@ -144,7 +144,7 @@ the language may compile the assertion out, so the check a reader relies on may 
 | Measures | an assertion outside a test |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Introduce Assertion |
+| Fix | Replace Exit with Error |
 | Not in Go | there is no assert; a failure is a value that is returned |
 
 From `fixtures/typescript/performance.ts`, line 98:
@@ -166,7 +166,7 @@ it waits for a fixed length of time instead of for the condition it needs, so th
 | Measures | a call that stops the thread for a fixed time, outside a test |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Replace Algorithm |
+| Fix | Replace Blocking Call |
 
 From `fixtures/typescript/performance.ts`, line 117:
 
@@ -187,7 +187,7 @@ the handler below can never run, so whatever it was written to do about that fai
 | Measures | a handler that takes everything, written before one that takes less |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
-| Fix | Decompose Conditional |
+| Fix | Narrow the Handler |
 | Not in Go | errors are values, so there is no handler to order |
 | Not in TypeScript | the language allows one handler per block |
 | Not in JavaScript | the language allows one handler per block |
@@ -212,7 +212,7 @@ nothing waits for it and nothing observes its failure, so a failure surfaces els
 | Measures | an asynchronous call whose result is discarded |
 | Reported as | error, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Separate Query from Modifier |
+| Fix | Handle the Failure |
 | Not in Go | work started in the background is a goroutine, which the language marks |
 | Not in Java | a future is a value, and dropping it is dropping a value |
 | Not in C++ | a future is a value, and dropping it is dropping a value |
@@ -258,7 +258,7 @@ the handler wraps the whole body instead of answering one failure, so a mistake 
 | Measures | a guarded block holding nearly every statement of its function |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Decompose Conditional / Extract Method |
+| Fix | Extract Method / Narrow the Handler |
 | Not in Go | failure is a returned value, so no block is guarded |
 
 From `fixtures/typescript/bloat.ts`, line 53:
@@ -285,7 +285,7 @@ nothing can stop the recursion, so the first call exhausts the stack
 | Measures | a function that calls itself with no decision anywhere in the body |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
-| Fix | Decompose Conditional |
+| Fix | Replace Nested Conditional with Guard Clauses |
 
 From `fixtures/typescript/bloat.ts`, line 86:
 
@@ -306,7 +306,7 @@ the remainder is discarded and nothing on the line says that was intended, so a 
 | Measures | one whole number divided by another |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Introduce Assertion |
+| Fix | Replace Algorithm |
 
 From `fixtures/typescript/hierarchy.ts`, line 44:
 
@@ -327,7 +327,7 @@ the code receives the result and ignores it, and nothing records what happens wh
 | Measures | a call whose answer is assigned to a name that means "ignore this" |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
-| Fix | Decompose Conditional |
+| Fix | Handle the Failure |
 
 From `fixtures/typescript/hierarchy.ts`, line 48:
 
@@ -348,7 +348,7 @@ a binary float rarely equals the decimal a person wrote, so a branch that depend
 | Measures | an equality test against a literal with a fractional part |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
-| Fix | Introduce Assertion |
+| Fix | Replace Algorithm |
 
 From `fixtures/typescript/flow.ts`, line 128:
 
@@ -369,7 +369,7 @@ a caller cannot write one line that handles both kinds of result, so every call 
 | Measures | one function answering with a value on one path and with nothing on another |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
-| Fix | Separate Query from Modifier / Decompose Conditional |
+| Fix | Extract Method / Replace Data Value with Object |
 | Not in Go | a naked return beside a named result is the language's own idiom |
 | Not in Java | the compiler refuses a body that answers two shapes |
 | Not in C++ | the compiler refuses a body that answers two shapes |
@@ -393,7 +393,7 @@ it replaces whatever the block was leaving with, so a failure raised in the body
 | Measures | a return, break, continue or raise inside the clause that runs on the way out |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
-| Fix | Decompose Conditional |
+| Fix | Handle the Failure |
 | Not in Go | cleanup is a deferred call, which cannot replace the return |
 | Not in C++ | there is no finally clause |
 
@@ -416,7 +416,7 @@ it catches the failures it was written for and every other failure too, includin
 | Measures | a handler naming the root of the error hierarchy, or naming nothing at all |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
-| Fix | Decompose Conditional |
+| Fix | Narrow the Handler |
 | Not in Go | errors are values, so there is no handler to widen |
 | Not in JavaScript | a catch clause cannot name a type in JavaScript, so none can name the root of the hierarchy |
 
@@ -463,7 +463,7 @@ it takes the decision away from every caller above it, and a test that reaches t
 | Measures | a call that ends the process, written outside the entry point |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Separate Query from Modifier |
+| Fix | Replace Exit with Error |
 
 From `fixtures/typescript/hygiene.ts`, line 95:
 

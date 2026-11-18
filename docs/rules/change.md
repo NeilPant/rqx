@@ -32,7 +32,7 @@ no one else has read the file closely enough to change it, so its knowledge is l
 | Measures | a file with its own history and a single author |
 | Reported as | info, verified |
 | Reads | the syntax tree alone |
-| Fix | Extract Method |
+| Fix | Share Ownership |
 | Tuned by | `thresholds.sole_author_commits` |
 
 From `fixtures/typescript/flow.ts`, line 1:

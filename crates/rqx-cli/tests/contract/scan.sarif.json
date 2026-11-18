@@ -7942,7 +7942,7 @@
                 "text": "the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine"
               },
               "help": {
-                "text": "the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine\n\nFix: Introduce Parameter Object / Invert Dependency\nMetric: a body reaching for the clock, the environment or a random source"
+                "text": "the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine\n\nFix: Add Parameter / Invert Dependency\nMetric: a body reaching for the clock, the environment or a random source"
               },
               "id": "ambient-dependency",
               "name": "ambient-dependency",
@@ -8110,7 +8110,7 @@
                 "text": "it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from"
               },
               "help": {
-                "text": "it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from\n\nFix: Inline Class / Remove Dead Code\nMetric: a file whose every import comes straight back out of it"
+                "text": "it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from\n\nFix: Inline Delegation / Remove Dead Code\nMetric: a file whose every import comes straight back out of it"
               },
               "id": "barrel-module",
               "name": "barrel-module",
@@ -8158,7 +8158,7 @@
                 "text": "the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for"
               },
               "help": {
-                "text": "the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for\n\nFix: Decompose Conditional / Extract Method\nMetric: a guarded block holding nearly every statement of its function"
+                "text": "the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for\n\nFix: Extract Method / Narrow the Handler\nMetric: a guarded block holding nearly every statement of its function"
               },
               "id": "blanket-try",
               "name": "blanket-try",
@@ -8398,7 +8398,7 @@
                 "text": "it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state"
               },
               "help": {
-                "text": "it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state\n\nFix: Decompose Conditional\nMetric: a handler naming the root of the error hierarchy, or naming nothing at all"
+                "text": "it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state\n\nFix: Narrow the Handler\nMetric: a handler naming the root of the error hierarchy, or naming nothing at all"
               },
               "id": "catch-all-handler",
               "name": "catch-all-handler",
@@ -8470,7 +8470,7 @@
                 "text": "the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own"
               },
               "help": {
-                "text": "the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own\n\nFix: Extract Method / Introduce Parameter Object\nMetric: a function written inside a loop that reads the name the loop moves"
+                "text": "the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own\n\nFix: Extract Method / Add Parameter\nMetric: a function written inside a loop that reads the name the loop moves"
               },
               "id": "closure-over-loop-variable",
               "name": "closure-over-loop-variable",
@@ -8854,7 +8854,7 @@
                 "text": "the code receives the result and ignores it, and nothing records what happens when the call fails"
               },
               "help": {
-                "text": "the code receives the result and ignores it, and nothing records what happens when the call fails\n\nFix: Decompose Conditional\nMetric: a call whose answer is assigned to a name that means \"ignore this\""
+                "text": "the code receives the result and ignores it, and nothing records what happens when the call fails\n\nFix: Handle the Failure\nMetric: a call whose answer is assigned to a name that means \"ignore this\""
               },
               "id": "discarded-error",
               "name": "discarded-error",
@@ -8902,7 +8902,7 @@
                 "text": "a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter"
               },
               "help": {
-                "text": "a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter\n\nFix: Extract Variable / Inline Variable\nMetric: lines between a local's declaration and the line that first reads it"
+                "text": "a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter\n\nFix: Inline Variable\nMetric: lines between a local's declaration and the line that first reads it"
               },
               "id": "distant-declaration",
               "name": "distant-declaration",
@@ -8950,7 +8950,7 @@
                 "text": "nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it"
               },
               "help": {
-                "text": "nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it\n\nFix: Separate Query from Modifier\nMetric: an asynchronous call whose result is discarded"
+                "text": "nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it\n\nFix: Handle the Failure\nMetric: an asynchronous call whose result is discarded"
               },
               "id": "dropped-promise",
               "name": "dropped-promise",
@@ -9118,7 +9118,7 @@
                 "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two"
               },
               "help": {
-                "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two\n\nFix: Remove Dead Code\nMetric: catch clause with an empty body"
+                "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two\n\nFix: Handle the Failure\nMetric: catch clause with an empty body"
               },
               "id": "empty-catch",
               "name": "empty-catch",
@@ -9238,7 +9238,7 @@
                 "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened"
               },
               "help": {
-                "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened\n\nFix: Decompose Conditional\nMetric: a return, break, continue or raise inside the clause that runs on the way out"
+                "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened\n\nFix: Handle the Failure\nMetric: a return, break, continue or raise inside the clause that runs on the way out"
               },
               "id": "exit-from-finally",
               "name": "exit-from-finally",
@@ -9334,7 +9334,7 @@
                 "text": "a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value"
               },
               "help": {
-                "text": "a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value\n\nFix: Introduce Assertion\nMetric: an equality test against a literal with a fractional part"
+                "text": "a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value\n\nFix: Replace Algorithm\nMetric: an equality test against a literal with a fractional part"
               },
               "id": "float-equality",
               "name": "float-equality",
@@ -9502,7 +9502,7 @@
                 "text": "it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it"
               },
               "help": {
-                "text": "it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it\n\nFix: Extract Method / Separate Query from Modifier\nMetric: a call that runs the moment the file is loaded"
+                "text": "it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it\n\nFix: Extract Method\nMetric: a call that runs the moment the file is loaded"
               },
               "id": "import-time-work",
               "name": "import-time-work",
@@ -9526,7 +9526,7 @@
                 "text": "each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here"
               },
               "help": {
-                "text": "each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here\n\nFix: Replace Data Value with Object / Introduce Assertion\nMetric: an `any` annotation, a non-null assertion, or a cast that is not `as const`"
+                "text": "each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here\n\nFix: Narrow the Type / Introduce Assertion\nMetric: an `any` annotation, a non-null assertion, or a cast that is not `as const`"
               },
               "id": "imprecise-type",
               "name": "imprecise-type",
@@ -9598,7 +9598,7 @@
                 "text": "the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right"
               },
               "help": {
-                "text": "the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right\n\nFix: Introduce Assertion\nMetric: one whole number divided by another"
+                "text": "the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right\n\nFix: Replace Algorithm\nMetric: one whole number divided by another"
               },
               "id": "integer-division",
               "name": "integer-division",
@@ -9718,7 +9718,7 @@
                 "text": "it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner"
               },
               "help": {
-                "text": "it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner\n\nFix: Separate Query from Modifier\nMetric: a call that ends the process, written outside the entry point"
+                "text": "it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner\n\nFix: Replace Exit with Error\nMetric: a call that ends the process, written outside the entry point"
               },
               "id": "library-exit",
               "name": "library-exit",
@@ -9862,7 +9862,7 @@
                 "text": "each pass copies everything written so far, so the work grows with the square of the number of pieces"
               },
               "help": {
-                "text": "each pass copies everything written so far, so the work grows with the square of the number of pieces\n\nFix: Replace Algorithm\nMetric: text built one piece at a time inside a loop"
+                "text": "each pass copies everything written so far, so the work grows with the square of the number of pieces\n\nFix: Accumulate in Place\nMetric: text built one piece at a time inside a loop"
               },
               "id": "loop-concatenation",
               "name": "loop-concatenation",
@@ -9958,7 +9958,7 @@
                 "text": "each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot"
               },
               "help": {
-                "text": "each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot\n\nFix: Extract Method / Extract Variable\nMetric: distinct names one function body introduces"
+                "text": "each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot\n\nFix: Extract Method / Inline Variable\nMetric: distinct names one function body introduces"
               },
               "id": "many-locals",
               "name": "many-locals",
@@ -10078,7 +10078,7 @@
                 "text": "a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time"
               },
               "help": {
-                "text": "a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time\n\nFix: Extract Class / Extract Variable\nMetric: SQL or HTML markup inside a template literal"
+                "text": "a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time\n\nFix: Extract Shared Module\nMetric: SQL or HTML markup inside a template literal"
               },
               "id": "mixed-language-file",
               "name": "mixed-language-file",
@@ -10102,7 +10102,7 @@
                 "text": "a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider"
               },
               "help": {
-                "text": "a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider\n\nFix: Separate Query from Modifier / Decompose Conditional\nMetric: one function answering with a value on one path and with nothing on another"
+                "text": "a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider\n\nFix: Extract Method / Replace Data Value with Object\nMetric: one function answering with a value on one path and with nothing on another"
               },
               "id": "mixed-return",
               "name": "mixed-return",
@@ -10294,7 +10294,7 @@
                 "text": "a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need"
               },
               "help": {
-                "text": "a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need\n\nFix: Rename Variable\nMetric: a name declared as changeable that never changes"
+                "text": "a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need\n\nFix: Declare Immutable\nMetric: a name declared as changeable that never changes"
               },
               "id": "never-reassigned",
               "name": "never-reassigned",
@@ -10318,7 +10318,7 @@
                 "text": "nothing can stop the recursion, so the first call exhausts the stack"
               },
               "help": {
-                "text": "nothing can stop the recursion, so the first call exhausts the stack\n\nFix: Decompose Conditional\nMetric: a function that calls itself with no decision anywhere in the body"
+                "text": "nothing can stop the recursion, so the first call exhausts the stack\n\nFix: Replace Nested Conditional with Guard Clauses\nMetric: a function that calls itself with no decision anywhere in the body"
               },
               "id": "no-base-case",
               "name": "no-base-case",
@@ -10342,7 +10342,7 @@
                 "text": "a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended"
               },
               "help": {
-                "text": "a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended\n\nFix: Consolidate Conditional / Replace Conditional with Polymorphism\nMetric: a switch with enough arms to count as one and no arm for the values it does not name"
+                "text": "a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended\n\nFix: Introduce Assertion / Replace Conditional with Polymorphism\nMetric: a switch with enough arms to count as one and no arm for the values it does not name"
               },
               "id": "no-default-branch",
               "name": "no-default-branch",
@@ -10558,7 +10558,7 @@
                 "text": "the language may compile the assertion out, so the check a reader relies on may not run in production"
               },
               "help": {
-                "text": "the language may compile the assertion out, so the check a reader relies on may not run in production\n\nFix: Introduce Assertion\nMetric: an assertion outside a test"
+                "text": "the language may compile the assertion out, so the check a reader relies on may not run in production\n\nFix: Replace Exit with Error\nMetric: an assertion outside a test"
               },
               "id": "production-assert",
               "name": "production-assert",
@@ -10870,7 +10870,7 @@
                 "text": "nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it"
               },
               "help": {
-                "text": "nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it\n\nFix: Invert Dependency / Introduce Parameter Object\nMetric: a field filled with something the object constructed itself"
+                "text": "nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it\n\nFix: Invert Dependency / Add Parameter\nMetric: a field filled with something the object constructed itself"
               },
               "id": "self-built-collaborators",
               "name": "self-built-collaborators",
@@ -10918,7 +10918,7 @@
                 "text": "nothing orders them, so the call takes the sum of two waits where it could take the longer one"
               },
               "help": {
-                "text": "nothing orders them, so the call takes the sum of two waits where it could take the longer one\n\nFix: Replace Algorithm\nMetric: two waits in a row where the second does not read the first's answer"
+                "text": "nothing orders them, so the call takes the sum of two waits where it could take the longer one\n\nFix: Await Concurrently\nMetric: two waits in a row where the second does not read the first's answer"
               },
               "id": "sequential-await",
               "name": "sequential-await",
@@ -10990,7 +10990,7 @@
                 "text": "it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed"
               },
               "help": {
-                "text": "it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed\n\nFix: Extract Class / Inline Variable\nMetric: a field only one method of its type ever reads"
+                "text": "it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed\n\nFix: Extract Class / Move Method\nMetric: a field only one method of its type ever reads"
               },
               "id": "single-method-field",
               "name": "single-method-field",
@@ -11038,7 +11038,7 @@
                 "text": "it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary"
               },
               "help": {
-                "text": "it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary\n\nFix: Replace Algorithm\nMetric: a call that stops the thread for a fixed time, outside a test"
+                "text": "it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary\n\nFix: Replace Blocking Call\nMetric: a call that stops the thread for a fixed time, outside a test"
               },
               "id": "sleep-in-production",
               "name": "sleep-in-production",
@@ -11062,7 +11062,7 @@
                 "text": "a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection"
               },
               "help": {
-                "text": "a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection\n\nFix: Replace Algorithm\nMetric: a sleep or timeout inside a test body above the configured pause"
+                "text": "a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection\n\nFix: Replace Algorithm / Invert Dependency\nMetric: a sleep or timeout inside a test body above the configured pause"
               },
               "id": "slow-test",
               "name": "slow-test",
@@ -11710,7 +11710,7 @@
                 "text": "the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it"
               },
               "help": {
-                "text": "the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it\n\nFix: Extract Method / Decompose Conditional\nMetric: statements inside one guarded block"
+                "text": "the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it\n\nFix: Extract Method / Narrow the Handler\nMetric: statements inside one guarded block"
               },
               "id": "wide-try",
               "name": "wide-try",
@@ -11758,7 +11758,7 @@
                 "text": "the object cannot exist without whatever that work needs, so every test of it has to set the work up first"
               },
               "help": {
-                "text": "the object cannot exist without whatever that work needs, so every test of it has to set the work up first\n\nFix: Extract Method / Separate Query from Modifier\nMetric: calls made while an object is being built, beyond recording what it was given"
+                "text": "the object cannot exist without whatever that work needs, so every test of it has to set the work up first\n\nFix: Extract Method\nMetric: calls made while an object is being built, beyond recording what it was given"
               },
               "id": "working-constructor",
               "name": "working-constructor",

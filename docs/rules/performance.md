@@ -11,7 +11,7 @@ each pass copies everything written so far, so the work grows with the square of
 | Measures | text built one piece at a time inside a loop |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Replace Algorithm |
+| Fix | Accumulate in Place |
 
 From `fixtures/typescript/flow.ts`, line 186:
 
@@ -32,7 +32,7 @@ nothing orders them, so the call takes the sum of two waits where it could take 
 | Measures | two waits in a row where the second does not read the first's answer |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Replace Algorithm |
+| Fix | Await Concurrently |
 | Not in Go | waiting is a channel receive, which the language does not mark |
 | Not in Java | waiting is a call like any other |
 | Not in C++ | waiting is a call like any other |

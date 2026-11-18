@@ -141,7 +141,7 @@ a raw string or number carries no rules of its own, so each place that uses it r
 | Measures | a type alias that is a union of three or more string literals |
 | Reported as | info, low confidence |
 | Reads | resolved scopes and symbols |
-| Fix | Replace Type Code with Class / Introduce Parameter Object |
+| Fix | Replace Type Code with Class / Replace Data Value with Object |
 | Default | off; name it under `rules.enabled` |
 | Not in Go | Go has no union types, so the string-literal alias this measures cannot be written |
 | Not in Java | Java has no union types, so the string-literal alias this measures cannot be written |
@@ -310,7 +310,7 @@ each local variable is something the reader has to keep in mind to the end of th
 | Measures | distinct names one function body introduces |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Extract Method / Extract Variable |
+| Fix | Extract Method / Inline Variable |
 | Tuned by | `thresholds.function_locals` |
 
 From `fixtures/typescript/bloat.ts`, line 44:
@@ -332,7 +332,7 @@ the handler is written for one of the calls and catches failures from all of the
 | Measures | statements inside one guarded block |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Extract Method / Decompose Conditional |
+| Fix | Extract Method / Narrow the Handler |
 | Tuned by | `thresholds.try_statements` |
 | Not in Go | failure is a returned value, so no block is guarded |
 

@@ -275,7 +275,7 @@ nothing after construction changes it, and every reader has to verify that for t
 | Measures | a changeable field only the constructor ever writes |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Encapsulate Field |
+| Fix | Declare Immutable |
 | Default | off; name it under `rules.enabled` |
 | Not in Python | an attribute is written into the instance, not declared on the type |
 | Not in Go | a struct field is written by whatever holds the struct |
@@ -299,7 +299,7 @@ it is that method's local variable kept where every other method can reach it, s
 | Measures | a field only one method of its type ever reads |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Extract Class / Inline Variable |
+| Fix | Extract Class / Move Method |
 | Not in Go | a struct field is read by whatever holds the struct |
 | Not in C++ | the methods that read it are in another file |
 | Not in Python | an attribute is written into the instance, not declared on the type |
@@ -393,7 +393,7 @@ the object cannot exist without whatever that work needs, so every test of it ha
 | Measures | calls made while an object is being built, beyond recording what it was given |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Extract Method / Separate Query from Modifier |
+| Fix | Extract Method |
 | Not in Go | a value is built by a literal, which can only assign |
 
 From `fixtures/typescript/bloat.ts`, line 33:
