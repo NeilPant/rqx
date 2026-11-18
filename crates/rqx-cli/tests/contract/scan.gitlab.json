@@ -156,6 +156,18 @@
     "severity": "major"
   },
   {
+    "check_name": "dropped-promise",
+    "description": "`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen. — nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it",
+    "fingerprint": "b35f77193e07a8d9",
+    "location": {
+      "lines": {
+        "begin": 162
+      },
+      "path": "typescript/performance.ts"
+    },
+    "severity": "major"
+  },
+  {
     "check_name": "self-asserting-test",
     "description": "`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail. — it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour",
     "fingerprint": "655eedc1852d6297",

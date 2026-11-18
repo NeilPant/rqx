@@ -79,6 +79,14 @@ them. `tools/release.sh` turns that section into the release notes.
   moves the elements the range reads, still is. Python's `del items[key]` inside
   `for key in items` is now reported. C++ is unchanged.
 
+- **`dropped-promise` reports only calls that reach one of the file's own async
+  functions.** In 0.5.1 it matched the last segment of the call's name, so
+  `this.eventLoop.stop()` was reported in any file that declared an async `stop`. It
+  now reports `f()` when `f` is an async function declared in the file, `this.f()` or
+  `self.f()` when `f` is an async method of the enclosing class, and `Type.f()` when
+  `f` is an async method of class `Type` in the file. Calls on any other receiver are
+  not reported, because the file does not show what that receiver's method returns.
+
 ## 0.5.1 — 2026-11-18
 
 

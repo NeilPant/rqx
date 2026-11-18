@@ -53,6 +53,13 @@ impl Helpers {
     }
 }
 
+/// An async function the file declares, with the class it is a method of. A call
+/// reaches it by its name and, for a method, through that class.
+struct AsyncFunction {
+    name: String,
+    class: Option<String>,
+}
+
 /// What one statement in the arm of an `if` inside a test does to the test.
 enum Ending {
     /// Fails or skips it.
@@ -2048,6 +2055,27 @@ impl<'a> Walker<'a> {
             parent = current.parent();
         }
         None
+    }
+
+    /// The class a function is a method of: `Some(None)` for a function of its own,
+    /// and None for one no call can name, a method of an unnamed class or of an
+    /// object literal.
+    fn owning_class(&self, function: Node<'a>) -> Option<Option<String>> {
+        let profile = self.profile;
+        let mut parent = function.parent();
+        while let Some(current) = parent {
+            if profile.is_class(current) {
+                return self.class_name(current).map(Some);
+            }
+            if profile.is_function(current) {
+                return Some(None);
+            }
+            if kind_of(current) == "object" {
+                return None;
+            }
+            parent = current.parent();
+        }
+        Some(None)
     }
 
     fn class_body(&self, class: Node<'a>) -> Option<Node<'a>> {
@@ -4409,7 +4437,12 @@ impl<'a> Walker<'a> {
 
     /// Starting work that answers later and throwing the answer away. Nothing waits
     /// for it and nothing hears if it fails.
-    fn note_dropped_promise(&mut self, statement: Node<'a>, awaited: &[String]) {
+    ///
+    /// Only a call that reaches one of the file's own async functions counts: `f()`
+    /// for a function, `this.f()` for a method of the class it is written in, and
+    /// `Type.f()` for a static one. `this.loop.stop()` reaches whatever `loop` holds,
+    /// which this file cannot see, however many async `stop` methods it declares.
+    fn note_dropped_promise(&mut self, statement: Node<'a>, awaited: &[AsyncFunction]) {
         let profile = self.profile;
         let Some(call) = self.only_call(statement) else {
             return;
@@ -4423,8 +4456,24 @@ impl<'a> Walker<'a> {
         let Some(dotted) = self.called_name(call) else {
             return;
         };
-        let tail = dotted.rsplit('.').next().unwrap_or(&dotted).to_owned();
-        if !awaited.contains(&tail) {
+        let (receiver, name) = match dotted.rsplit_once('.') {
+            Some((receiver, name)) => (Some(receiver), name),
+            None => (None, dotted.as_str()),
+        };
+        let class = match receiver {
+            None => None,
+            Some(receiver) if profile.self_names.contains(&receiver) => {
+                let Some(class) = self.enclosing_class_name(statement) else {
+                    return;
+                };
+                Some(class)
+            }
+            Some(receiver) => Some(receiver.to_owned()),
+        };
+        if !awaited
+            .iter()
+            .any(|function| function.name == name && function.class == class)
+        {
             return;
         }
         self.out.dropped_promises.push(Spot {
@@ -6144,12 +6193,15 @@ pub fn collect_over(
     // seen, so the functions that hand one back are read afterwards.
     // Which functions answer later is only settled once the file has been read, so
     // the statements that drop one of those answers are found afterwards.
-    let awaited: Vec<String> = nodes
+    let awaited: Vec<AsyncFunction> = nodes
         .iter()
         .filter(|node| profile.is_function(*node) && profile.is_async(*node))
         .filter_map(|node| {
             let named = node.child_by_field_name("name")?;
-            Some(text_of(named, source).to_owned())
+            Some(AsyncFunction {
+                name: text_of(named, source).to_owned(),
+                class: walker.owning_class(node)?,
+            })
         })
         .collect();
     if !awaited.is_empty() {

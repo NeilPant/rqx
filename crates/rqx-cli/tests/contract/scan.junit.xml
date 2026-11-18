@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="310" failures="164" time="0">
+<testsuites name="rqx" tests="311" failures="165" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -1054,7 +1054,7 @@ Fix: give `action.kind` a type per case and let each one carry its own behaviour
       <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/performance.ts" tests="19" failures="16">
+  <testsuite name="typescript/performance.ts" tests="20" failures="17">
     <testcase classname="typescript/performance.ts" name="mutated-while-iterated at 85:7">
       <failure type="mutated-while-iterated" message="`rows` is modified inside the loop that iterates over it.">`rows` is modified inside the loop that iterates over it.
 
@@ -1063,6 +1063,12 @@ Fix: collect what to change, and change it after the walk</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="dropped-promise at 126:3">
       <failure type="dropped-promise" message="`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.">`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.
+
+Why: nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
+Fix: await it, or state in the code what handles its result</failure>
+    </testcase>
+    <testcase classname="typescript/performance.ts" name="dropped-promise at 162:5">
+      <failure type="dropped-promise" message="`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.">`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.
 
 Why: nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
 Fix: await it, or state in the code what handles its result</failure>

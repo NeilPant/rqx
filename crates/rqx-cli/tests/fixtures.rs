@@ -140,7 +140,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("discarded-expression", 1),
                 ("distant-declaration", 2),
                 ("docstring-restates-signature", 1),
-                ("dropped-promise", 1),
+                ("dropped-promise", 2),
                 ("duplicate-assertion", 1),
                 ("duplicate-code", 3),
                 ("duplicate-condition", 1),

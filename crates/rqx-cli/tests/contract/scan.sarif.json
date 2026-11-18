@@ -346,6 +346,31 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/performance.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 162,
+                  "startColumn": 5,
+                  "startLine": 162
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen. nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it Fix: await it, or state in the code what handles its result"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "dropped-promise"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/suite.test.ts",
                   "uriBaseId": "%SRCROOT%"
                 },

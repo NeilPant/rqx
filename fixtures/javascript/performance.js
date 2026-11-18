@@ -110,3 +110,18 @@ export function prunesStale(seen, limit) {
     }
   }
 }
+class Heartbeat {
+  beats = 0;
+  stop() {
+    this.beats = 0;
+    return this.beats;
+  }
+}
+export class Poller {
+  heartbeat = new Heartbeat();
+  polls = 0;
+  async stop() {
+    this.heartbeat.stop();
+    this.polls = 0;
+  }
+}
