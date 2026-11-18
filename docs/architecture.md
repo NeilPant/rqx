@@ -65,7 +65,12 @@ present the result.
    unused files and exports, layer violations, module size) and git history (churn,
    hotspots, single-author files, stale TODOs, co-change). These stages run on every
    scan, including a fully cached one, because a deleted import changes what the graph
-   says about files that did not change.
+   says about files that did not change. A stage proposes findings and does not
+   decide whether they are reported. `Collector::absorb` admits each one under the
+   settings of the file it is reported in (`Resolved::for_file`), which is the same
+   resolution a per-file finding gets in its worker, and the stages read their
+   thresholds from the same file's settings. A finding that spans files, such as a
+   duplicated block or an import cycle, is judged by the file of its primary location.
 6. **Outcome.** The collector sorts findings, advice and waivers with total keys and
    returns a `ScanOutcome`.
 7. **Gate.** `gate::judge` in `crates/rqx-cli/src/gate.rs` turns an outcome and the

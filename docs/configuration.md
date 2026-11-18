@@ -38,6 +38,8 @@ overrides:
 
 **An override's `paths` are matched against paths relative to the directory the config file is in**, however the files were reached: `rqx scan legacy`, `rqx scan .` from inside `legacy`, and a scan through a symlink all see `legacy/**` the same way. A file outside that directory is never covered.
 
+An override applies to every finding reported in the files it covers, including the findings that need the whole project, such as `unused-export`, `wide-fan-out` and `duplicate-code`. A finding that involves more than one file, such as a duplicated block or an import cycle, follows the settings of the file it is reported at, its first location.
+
 An override may set `thresholds`, `rules`, `patterns` and `level` and nothing else. Every other table describes the run as a whole, because the file walker is built once and the gate reaches one verdict. Naming one in an override is an error.
 
 The same holds for names: a rule, family, pattern or stance that does not exist is an error, not a silent no-op, because a `categories` allowlist naming only unknown families would otherwise turn every rule off. `rqx rules` lists every name that is valid.

@@ -69,6 +69,20 @@ them. `tools/release.sh` turns that section into the release notes.
   output is unchanged. Configurations that disable rules, set `categories`, or use
   `overrides` can report findings they did not report before.
 
+- **`overrides` apply to findings that need the whole project.** The rules decided
+  after the walk, such as `unused-export`, `unused-file`, `wide-fan-in`, `wide-fan-out`,
+  `circular-dependency`, `deep-inheritance`, `oversized-module`, `stale-todo`,
+  `hotspot` and `single-author-file`, read the root configuration. A subtree that
+  disabled one of them, changed its severity or raised its threshold still got its
+  findings at the root's settings. On cobra 1.10.2, an override on `doc/**` that
+  disabled `unused-export` and set `fan_out: 100` still reported 15 `unused-export`
+  and 11 `wide-fan-out` findings there. Every finding is now admitted, and its
+  severity set, under the configuration of the file it is reported in, and these
+  rules read their thresholds from that file's configuration. A finding that involves
+  more than one file, such as a duplicated block or an import cycle, follows the
+  configuration of the file it is reported at. A rule enabled only in a subtree now
+  also reports there. Only configurations with `overrides` see a change.
+
 ## 0.5.1 — 2026-11-18
 
 

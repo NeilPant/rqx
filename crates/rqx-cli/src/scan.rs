@@ -276,6 +276,8 @@ fn offered(config: &RqxConfig, mut finding: Finding) -> Option<Finding> {
 /// is what lets the stages run side by side and be taken in a fixed order afterwards.
 #[derive(Default)]
 struct Staged {
+    /// Proposed, not yet admitted: the collector admits each under the configuration
+    /// of the file it is reported in.
     findings: Vec<Finding>,
     /// Advice never passes through `accept`: it must not reach `counts`, and the way
     /// to guarantee that is for it to have no route there at all.
@@ -291,14 +293,14 @@ struct Staged {
 }
 
 impl Staged {
-    fn accept_if_enabled(&mut self, config: &RqxConfig, finding: Finding) {
-        self.findings.extend(offered(config, finding));
+    /// A stage does not decide whether its finding is reported: a stage sees the whole
+    /// project, and the answer belongs to the configuration of one file.
+    fn propose(&mut self, finding: Finding) {
+        self.findings.push(finding);
     }
 
-    fn advise_if_enabled(&mut self, config: &RqxConfig, advice: rqx_core::Advice) {
-        if config.patterns.enabled(advice.advisory) {
-            self.advice.push(advice);
-        }
+    fn suggest(&mut self, advice: rqx_core::Advice) {
+        self.advice.push(advice);
     }
 }
 
@@ -529,23 +531,32 @@ impl Collector {
         });
     }
 
-    fn accept_if_enabled(&mut self, config: &RqxConfig, finding: Finding) {
-        if let Some(finding) = offered(config, finding) {
-            self.accept_all(vec![(finding, None)]);
-        }
-    }
-
     /// What the stages after the walk found, taken in the order the stages come in
-    /// rather than the order they finished.
-    fn absorb(&mut self, staged: Staged) {
-        self.accept_all(
-            staged
-                .findings
-                .into_iter()
-                .map(|finding| (finding, None))
-                .collect(),
-        );
-        self.advice.extend(staged.advice);
+    /// rather than the order they finished. This is where every cross-file finding is
+    /// admitted, under the configuration of the file it is reported in, which is the
+    /// resolution a per-file finding gets in its worker. A finding that spans files, a
+    /// duplicated block or an import cycle, is judged by the file of its primary
+    /// location, the one it is reported at.
+    fn absorb(&mut self, staged: Staged, settings: &Resolved) {
+        let root = &self.root;
+        let config_of = |file: &str| settings.for_file(&root.join(file));
+        let admitted = staged
+            .findings
+            .into_iter()
+            .filter_map(|finding| offered(config_of(&finding.location.file), finding))
+            .map(|finding| (finding, None))
+            .collect();
+        let advice: Vec<rqx_core::Advice> = staged
+            .advice
+            .into_iter()
+            .filter(|advice| {
+                config_of(&advice.location.file)
+                    .patterns
+                    .enabled(advice.advisory)
+            })
+            .collect();
+        self.accept_all(admitted);
+        self.advice.extend(advice);
         self.import_edges.extend(staged.import_edges);
         self.cycles.extend(staged.cycles);
         if let Some(summaries) = staged.summaries {
@@ -710,11 +721,7 @@ impl Collector {
     /// Blocks whose shape appears in more than one language. Same-language repeats
     /// are `duplicate-code`'s job and are already reported with a fingerprint that
     /// knows about identifiers; this only claims the narrower, louder thing.
-    fn ported_findings(
-        ported: HashMap<u64, PortedGroup>,
-        root: &Path,
-        settings: &Resolved,
-    ) -> Staged {
+    fn ported_findings(ported: HashMap<u64, PortedGroup>) -> Staged {
         let mut staged = Staged::default();
         // Ported code keeps its constants even when its syntax changes completely, so
         // a shared literal is what separates the same rule written twice from two
@@ -740,38 +747,30 @@ impl Collector {
             let anchor = group.sites[0].clone();
             let spec = RuleId::CrossLanguageDuplicate.spec();
             let named: Vec<&str> = group.languages.iter().map(|l| l.title()).collect();
-            let config = settings.for_file(&root.join(anchor.file.as_ref()));
-            staged.accept_if_enabled(
-                config,
-                Finding {
-                    rule: RuleId::CrossLanguageDuplicate,
-                    location: anchor,
-                    severity: spec.severity,
-                    confidence: spec.confidence,
-                    evidence: Evidence::ClonedBlock {
-                        statements: group.statements,
-                        nodes: group.nodes,
-                        occurrences: group.sites.len() as u32,
-                    },
-                    fix_hint: format!(
-                        "the same shape is in {}; give the rule one home and call it from \
-                         both, or write down why they are allowed to differ",
-                        named.join(" and ")
-                    ),
-                    related: group.sites.iter().skip(1).cloned().collect(),
-                    known: false,
-                    focus: None,
+            staged.propose(Finding {
+                rule: RuleId::CrossLanguageDuplicate,
+                location: anchor,
+                severity: spec.severity,
+                confidence: spec.confidence,
+                evidence: Evidence::ClonedBlock {
+                    statements: group.statements,
+                    nodes: group.nodes,
+                    occurrences: group.sites.len() as u32,
                 },
-            );
+                fix_hint: format!(
+                    "the same shape is in {}; give the rule one home and call it from \
+                         both, or write down why they are allowed to differ",
+                    named.join(" and ")
+                ),
+                related: group.sites.iter().skip(1).cloned().collect(),
+                known: false,
+                focus: None,
+            });
         }
         staged
     }
 
-    fn clone_findings(
-        clone_groups: HashMap<u64, CloneGroup>,
-        root: &Path,
-        settings: &Resolved,
-    ) -> Staged {
+    fn clone_findings(clone_groups: HashMap<u64, CloneGroup>) -> Staged {
         let mut staged = Staged::default();
         let mut groups: Vec<CloneGroup> = clone_groups
             .into_values()
@@ -800,8 +799,7 @@ impl Collector {
             outer = Some(anchor.clone());
             let spec = RuleId::DuplicateCode.spec();
             let others: Vec<SourceRange> = group.sites.iter().skip(1).cloned().collect();
-            let config = settings.for_file(&root.join(anchor.file.as_ref()));
-            staged.accept_if_enabled(config, Finding {
+            staged.propose(Finding {
                 rule: RuleId::DuplicateCode,
                 location: anchor,
                 severity: spec.severity,
@@ -836,7 +834,7 @@ impl Collector {
     /// language that puts one class in each.
     fn advise_hierarchy(
         modules: &[rqx_lang::module_graph::ModuleEntry],
-        config: &RqxConfig,
+        settings: &Resolved,
         at: &mut Positions,
         staged: &mut Staged,
     ) {
@@ -854,7 +852,7 @@ impl Collector {
 
         // Collected first: accepting a finding borrows the collector, and the tree it
         // reads borrows the modules.
-        let mut deep: Vec<(PathBuf, Span, String, u32)> = Vec::new();
+        let mut deep: Vec<(PathBuf, Span, String, u32, u32)> = Vec::new();
         for (name, declared) in hierarchy.declared() {
             let mut depth = 0_u32;
             let mut climbing = declared.facts.supertypes.first().map(String::as_str);
@@ -868,35 +866,37 @@ impl Collector {
                     .get(parent)
                     .and_then(|above| above.facts.supertypes.first().map(String::as_str));
             }
-            if depth > config.thresholds.inheritance_depth {
+            let limit = settings
+                .for_file(declared.path)
+                .thresholds
+                .inheritance_depth;
+            if depth > limit {
                 deep.push((
                     declared.path.to_path_buf(),
                     declared.facts.span,
                     (*name).to_owned(),
                     depth,
+                    limit,
                 ));
             }
         }
-        for (path, span, name, depth) in deep {
+        for (path, span, name, depth, limit) in deep {
             let Some(range) = at.range(&path, span) else {
                 continue;
             };
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::DeepInheritance,
-                    range,
-                    Evidence::Breadth {
-                        counted: format!("types above `{name}`"),
-                        found: depth,
-                        limit: config.thresholds.inheritance_depth,
-                    },
-                    "give it what it needs as a collaborator, so the answer is one \
+            staged.propose(build(
+                RuleId::DeepInheritance,
+                range,
+                Evidence::Breadth {
+                    counted: format!("types above `{name}`"),
+                    found: depth,
+                    limit,
+                },
+                "give it what it needs as a collaborator, so the answer is one \
                      object away rather than four types up"
-                        .to_owned(),
-                    Vec::new(),
-                ),
-            );
+                    .to_owned(),
+                Vec::new(),
+            ));
         }
 
         for found in rqx_lang::hierarchy::shapes(&hierarchy) {
@@ -926,19 +926,16 @@ impl Collector {
                 ),
                 _ => format!("`{}` is the seam the family varies behind", found.name),
             };
-            staged.advise_if_enabled(
-                config,
-                rqx_core::Advice {
-                    advisory,
-                    location: range,
-                    signal: rqx_core::Signal::Family {
-                        base: found.name.to_owned(),
-                        detail: found.detail,
-                    },
-                    note,
-                    related: Vec::new(),
+            staged.suggest(rqx_core::Advice {
+                advisory,
+                location: range,
+                signal: rqx_core::Signal::Family {
+                    base: found.name.to_owned(),
+                    detail: found.detail,
                 },
-            );
+                note,
+                related: Vec::new(),
+            });
         }
     }
 
@@ -987,19 +984,16 @@ impl Collector {
                 };
 
                 if let Some(glob) = rules.forbids(&to) {
-                    staged.accept_if_enabled(
-                        config,
-                        build(
-                            RuleId::ForbiddenImport,
-                            range.clone(),
-                            Evidence::ForbiddenImport {
-                                target: to.clone(),
-                                by: glob,
-                            },
-                            format!("`{to}` is outside what this subtree may reach for"),
-                            Vec::new(),
-                        ),
-                    );
+                    staged.propose(build(
+                        RuleId::ForbiddenImport,
+                        range.clone(),
+                        Evidence::ForbiddenImport {
+                            target: to.clone(),
+                            by: glob,
+                        },
+                        format!("`{to}` is outside what this subtree may reach for"),
+                        Vec::new(),
+                    ));
                     continue;
                 }
 
@@ -1016,23 +1010,20 @@ impl Collector {
                     continue;
                 };
                 if outer > inner {
-                    staged.accept_if_enabled(
-                        config,
-                        build(
-                            RuleId::LayerViolation,
-                            range,
-                            Evidence::LayerViolation {
-                                from: plan.layers[inner].clone(),
-                                to: plan.layers[outer].clone(),
-                                target: to,
-                            },
-                            format!(
-                                "invert it: let `{}` depend on an interface `{}` owns",
-                                plan.layers[outer], plan.layers[inner]
-                            ),
-                            Vec::new(),
+                    staged.propose(build(
+                        RuleId::LayerViolation,
+                        range,
+                        Evidence::LayerViolation {
+                            from: plan.layers[inner].clone(),
+                            to: plan.layers[outer].clone(),
+                            target: to,
+                        },
+                        format!(
+                            "invert it: let `{}` depend on an interface `{}` owns",
+                            plan.layers[outer], plan.layers[inner]
                         ),
-                    );
+                        Vec::new(),
+                    ));
                 }
             }
         }
@@ -1041,7 +1032,7 @@ impl Collector {
     fn module_findings(
         modules: &[rqx_lang::module_graph::ModuleEntry],
         root: &Path,
-        config: &RqxConfig,
+        settings: &Resolved,
         coverage: Option<&rqx_core::Hits>,
         at: &mut Positions,
     ) -> Staged {
@@ -1049,7 +1040,10 @@ impl Collector {
         if modules.is_empty() {
             return staged;
         }
-        Self::advise_hierarchy(modules, config, at, &mut staged);
+        // What the graph is and which architecture it is held to are the project's,
+        // so they come from the root configuration.
+        let config = &settings.config;
+        Self::advise_hierarchy(modules, settings, at, &mut staged);
         let report = graph_report(modules, root, config);
         Self::check_architecture(root, config, &report, at, &mut staged);
 
@@ -1061,31 +1055,28 @@ impl Collector {
             // cannot see — a dynamic import, a container wiring by name, reflection.
             // The finding stays, at a confidence that keeps it out of the score.
             let ran = coverage.map(|hits| hits.covered(&range.file, range.line, range.end_line));
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::UnusedExport,
-                    range.clone(),
-                    Evidence::UnusedExport {
-                        symbol: dead.name.clone(),
-                        kind: dead.kind.to_owned(),
-                        ran,
-                    },
-                    match ran {
-                        Some(count) if count > 0 => format!(
-                            "find what reaches `{}` at runtime and import it, or add its \
+            staged.propose(build(
+                RuleId::UnusedExport,
+                range.clone(),
+                Evidence::UnusedExport {
+                    symbol: dead.name.clone(),
+                    kind: dead.kind.to_owned(),
+                    ran,
+                },
+                match ran {
+                    Some(count) if count > 0 => format!(
+                        "find what reaches `{}` at runtime and import it, or add its \
                              module to `entrypoints`",
-                            dead.name
-                        ),
-                        _ => format!(
-                            "delete `{}`, or add its module to `entrypoints` if something \
+                        dead.name
+                    ),
+                    _ => format!(
+                        "delete `{}`, or add its module to `entrypoints` if something \
                              outside the project imports it",
-                            dead.name
-                        ),
-                    },
-                    Vec::new(),
-                ),
-            );
+                        dead.name
+                    ),
+                },
+                Vec::new(),
+            ));
         }
 
         for dead in report.dead_files {
@@ -1093,26 +1084,23 @@ impl Collector {
                 continue;
             };
             let ran = coverage.map(|hits| u32::from(hits.ran(&range.file)));
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::UnusedFile,
-                    range,
-                    Evidence::UnusedFile {
-                        exports: dead.exports,
-                        ran,
-                    },
-                    match ran {
-                        Some(count) if count > 0 => "find what loads this file at runtime \
+            staged.propose(build(
+                RuleId::UnusedFile,
+                range,
+                Evidence::UnusedFile {
+                    exports: dead.exports,
+                    ran,
+                },
+                match ran {
+                    Some(count) if count > 0 => "find what loads this file at runtime \
                              and import it, or add it to `entrypoints`"
-                            .to_owned(),
-                        _ => "delete the file, or add it to `entrypoints` if it is reached \
+                        .to_owned(),
+                    _ => "delete the file, or add it to `entrypoints` if it is reached \
                              from outside the project"
-                            .to_owned(),
-                    },
-                    Vec::new(),
-                ),
-            );
+                        .to_owned(),
+                },
+                Vec::new(),
+            ));
         }
 
         for (importer, targets) in &report.edges {
@@ -1126,49 +1114,45 @@ impl Collector {
             staged
                 .importers
                 .push((Arc::from(at.relative(path)), *importers));
-            if *importers > config.thresholds.fan_in
+            let limit = settings.for_file(path).thresholds.fan_in;
+            if *importers > limit
                 && let Some(range) = at.range(path, WHOLE_FILE)
             {
-                staged.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::WideFanIn,
-                        range,
-                        Evidence::Breadth {
-                            counted: "modules import this one".to_owned(),
-                            found: *importers,
-                            limit: config.thresholds.fan_in,
-                        },
-                        "split it along the seams its importers actually use, so a \
+                staged.propose(build(
+                    RuleId::WideFanIn,
+                    range,
+                    Evidence::Breadth {
+                        counted: "modules import this one".to_owned(),
+                        found: *importers,
+                        limit,
+                    },
+                    "split it along the seams its importers actually use, so a \
                          change reaches only the ones that asked for it"
-                            .to_owned(),
-                        Vec::new(),
-                    ),
-                );
+                        .to_owned(),
+                    Vec::new(),
+                ));
             }
         }
 
         for (importer, targets) in &report.edges {
             let reaches = targets.len() as u32;
-            if reaches > config.thresholds.fan_out
+            let limit = settings.for_file(importer).thresholds.fan_out;
+            if reaches > limit
                 && let Some(range) = at.range(importer, WHOLE_FILE)
             {
-                staged.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::WideFanOut,
-                        range,
-                        Evidence::Breadth {
-                            counted: "modules imported".to_owned(),
-                            found: reaches,
-                            limit: config.thresholds.fan_out,
-                        },
-                        "give it one collaborator that knows the rest, or move what it \
+                staged.propose(build(
+                    RuleId::WideFanOut,
+                    range,
+                    Evidence::Breadth {
+                        counted: "modules imported".to_owned(),
+                        found: reaches,
+                        limit,
+                    },
+                    "give it one collaborator that knows the rest, or move what it \
                          is orchestrating to the things being orchestrated"
-                            .to_owned(),
-                        Vec::new(),
-                    ),
-                );
+                        .to_owned(),
+                    Vec::new(),
+                ));
             }
         }
 
@@ -1176,22 +1160,19 @@ impl Collector {
             let Some(range) = at.range(&dead.path, dead.span) else {
                 continue;
             };
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::SpeculativeGenerality,
-                    range,
-                    Evidence::UnusedBinding {
-                        name: dead.name.clone(),
-                        kind: format!("{} with no implementer", dead.kind),
-                    },
-                    format!(
-                        "inline `{}` into its single user until a second one arrives",
-                        dead.name
-                    ),
-                    Vec::new(),
+            staged.propose(build(
+                RuleId::SpeculativeGenerality,
+                range,
+                Evidence::UnusedBinding {
+                    name: dead.name.clone(),
+                    kind: format!("{} with no implementer", dead.kind),
+                },
+                format!(
+                    "inline `{}` into its single user until a second one arrives",
+                    dead.name
                 ),
-            );
+                Vec::new(),
+            ));
         }
 
         for cycle in report.cycles {
@@ -1249,39 +1230,33 @@ impl Collector {
                     .iter()
                     .map(|member| at.relative(member))
                     .collect();
-                staged.advise_if_enabled(
-                    config,
-                    rqx_core::Advice {
-                        advisory: rqx_core::AdviceId::MediatorFits,
-                        location: range.clone(),
-                        signal: rqx_core::Signal::Cluster {
-                            names: names.join(", "),
-                            members: cycle.members.len() as u32,
-                        },
-                        note: format!(
-                            "give the group one place that knows how its members talk, \
+                staged.suggest(rqx_core::Advice {
+                    advisory: rqx_core::AdviceId::MediatorFits,
+                    location: range.clone(),
+                    signal: rqx_core::Signal::Cluster {
+                        names: names.join(", "),
+                        members: cycle.members.len() as u32,
+                    },
+                    note: format!(
+                        "give the group one place that knows how its members talk, \
                              so each of the {} only has to know that one",
-                            cycle.members.len()
-                        ),
-                        related: related.clone(),
-                    },
-                );
+                        cycle.members.len()
+                    ),
+                    related: related.clone(),
+                });
             }
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::CircularDependency,
-                    range,
-                    Evidence::ImportCycle {
-                        modules: cycle.members.len() as u32,
-                        ring,
-                    },
-                    "break the cycle by moving what they share into a module both can import, \
+            staged.propose(build(
+                RuleId::CircularDependency,
+                range,
+                Evidence::ImportCycle {
+                    modules: cycle.members.len() as u32,
+                    ring,
+                },
+                "break the cycle by moving what they share into a module both can import, \
                  or invert the weaker of the two dependencies behind an interface"
-                        .to_owned(),
-                    related,
-                ),
-            );
+                    .to_owned(),
+                related,
+            ));
         }
 
         for external in &report.external {
@@ -1291,48 +1266,42 @@ impl Collector {
             let Some(range) = at.range(&external.path, external.span) else {
                 continue;
             };
-            staged.advise_if_enabled(
-                config,
-                rqx_core::Advice {
-                    advisory: rqx_core::AdviceId::FacadeFits,
-                    location: range,
-                    signal: rqx_core::Signal::Reach {
-                        name: external.specifier.clone(),
-                        sites: external.importers.len() as u32,
-                    },
-                    note: format!(
-                        "put `{}` behind one module of your own, so replacing it is one \
-                         edit rather than {}",
-                        external.specifier,
-                        crate::report::plural(external.importers.len() as u32, "edit", "edits"),
-                    ),
-                    related: Vec::new(),
+            staged.suggest(rqx_core::Advice {
+                advisory: rqx_core::AdviceId::FacadeFits,
+                location: range,
+                signal: rqx_core::Signal::Reach {
+                    name: external.specifier.clone(),
+                    sites: external.importers.len() as u32,
                 },
-            );
+                note: format!(
+                    "put `{}` behind one module of your own, so replacing it is one \
+                         edit rather than {}",
+                    external.specifier,
+                    crate::report::plural(external.importers.len() as u32, "edit", "edits"),
+                ),
+                related: Vec::new(),
+            });
         }
 
         for pair in report.parallel {
             let Some(range) = at.range(&pair.path, pair.span) else {
                 continue;
             };
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::ParallelInheritance,
-                    range,
-                    Evidence::ParallelHierarchy {
-                        parent: pair.parent.clone(),
-                        twin: pair.twin.clone(),
-                        shared: pair.shared.join(", "),
-                    },
-                    format!(
-                        "fold what varies into one hierarchy, so adding a case means one \
+            staged.propose(build(
+                RuleId::ParallelInheritance,
+                range,
+                Evidence::ParallelHierarchy {
+                    parent: pair.parent.clone(),
+                    twin: pair.twin.clone(),
+                    shared: pair.shared.join(", "),
+                },
+                format!(
+                    "fold what varies into one hierarchy, so adding a case means one \
                      subclass rather than one in `{}` and one in `{}`",
-                        pair.parent, pair.twin
-                    ),
-                    Vec::new(),
+                    pair.parent, pair.twin
                 ),
-            );
+                Vec::new(),
+            ));
         }
         staged
     }
@@ -1340,7 +1309,7 @@ impl Collector {
     fn size_findings(
         shape_by_file: &std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
         root: &Path,
-        config: &RqxConfig,
+        settings: &Resolved,
         at: &mut Positions,
     ) -> Staged {
         let mut staged = Staged::default();
@@ -1355,26 +1324,24 @@ impl Collector {
             })
             .collect();
         for (path, statements, opens) in counted {
-            if statements <= config.thresholds.module_statements {
+            let limit = settings.for_file(&path).thresholds.module_statements;
+            if statements <= limit {
                 continue;
             }
             let Some(range) = at.range(&path, opens) else {
                 continue;
             };
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::OversizedModule,
-                    range,
-                    Evidence::Breadth {
-                        counted: "statements in this file".to_owned(),
-                        found: statements,
-                        limit: config.thresholds.module_statements,
-                    },
-                    "split it along whatever its functions already group into".to_owned(),
-                    Vec::new(),
-                ),
-            );
+            staged.propose(build(
+                RuleId::OversizedModule,
+                range,
+                Evidence::Breadth {
+                    counted: "statements in this file".to_owned(),
+                    found: statements,
+                    limit,
+                },
+                "split it along whatever its functions already group into".to_owned(),
+                Vec::new(),
+            ));
         }
         staged
     }
@@ -1386,11 +1353,11 @@ impl Collector {
         todos: HashMap<Arc<str>, Vec<rqx_core::facts::Spot>>,
         history: &crate::history::History,
         root: &Path,
-        config: &RqxConfig,
+        settings: &Resolved,
         at: &mut Positions,
     ) -> Staged {
         let mut staged = Staged::default();
-        if config.scan.churn_days == 0 {
+        if settings.config.scan.churn_days == 0 {
             return staged;
         }
         let prefix = history.prefix();
@@ -1400,26 +1367,25 @@ impl Collector {
             };
             staged.commits.push((Arc::from(relative), commits));
         }
-        Self::stale_todo_findings(todos, root, config, at, &mut staged);
+        Self::stale_todo_findings(todos, root, settings, at, &mut staged);
         staged
     }
 
     /// Churn is read once for the whole repository after the walk, because a file
     /// with no findings needs no history and most files have none. It counts the
     /// findings each file already has, so it runs once every other stage has been taken.
-    fn finish_churn(
-        &mut self,
+    fn churn_findings(
+        &self,
         analyzed: &std::collections::BTreeSet<String>,
-        config: &RqxConfig,
+        settings: &Resolved,
         at: &mut Positions,
         history: &crate::history::History,
-    ) {
-        if config.scan.churn_days == 0 {
-            return;
+    ) -> Staged {
+        let mut staged = Staged::default();
+        if settings.config.scan.churn_days == 0 {
+            return staged;
         }
         let prefix = history.prefix();
-        // Collected first: accepting a finding borrows the collector, and the counts
-        // it reads live on it.
         let mut churned: Vec<(String, u32, u32, String)> = history
             .authors_per_file()
             .into_iter()
@@ -1440,47 +1406,43 @@ impl Collector {
         churned.sort();
         for (file, commits, findings, sole) in churned {
             let path = self.root.join(&file);
-            if commits >= config.thresholds.hotspot_commits
+            let thresholds = &settings.for_file(&path).thresholds;
+            if commits >= thresholds.hotspot_commits
                 && findings > 0
                 && let Some(range) = at.range(&path, WHOLE_FILE)
             {
-                self.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::Hotspot,
-                        range,
-                        Evidence::Breadth {
-                            counted: format!("commits, with {findings} findings still in it"),
-                            found: commits,
-                            limit: config.thresholds.hotspot_commits,
-                        },
-                        "clean this one first: whatever is wrong here is paid for on \
+                staged.propose(build(
+                    RuleId::Hotspot,
+                    range,
+                    Evidence::Breadth {
+                        counted: format!("commits, with {findings} findings still in it"),
+                        found: commits,
+                        limit: thresholds.hotspot_commits,
+                    },
+                    "clean this one first: whatever is wrong here is paid for on \
                          every change"
-                            .to_owned(),
-                        Vec::new(),
-                    ),
-                );
+                        .to_owned(),
+                    Vec::new(),
+                ));
             }
             if !sole.is_empty()
-                && commits >= config.thresholds.sole_author_commits
+                && commits >= thresholds.sole_author_commits
                 && let Some(range) = at.range(&path, WHOLE_FILE)
             {
-                self.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::SingleAuthorFile,
-                        range,
-                        Evidence::Breadth {
-                            counted: "commits, all by one person".to_owned(),
-                            found: commits,
-                            limit: config.thresholds.sole_author_commits,
-                        },
-                        "get a second reader onto it before the first one moves on".to_owned(),
-                        Vec::new(),
-                    ),
-                );
+                staged.propose(build(
+                    RuleId::SingleAuthorFile,
+                    range,
+                    Evidence::Breadth {
+                        counted: "commits, all by one person".to_owned(),
+                        found: commits,
+                        limit: thresholds.sole_author_commits,
+                    },
+                    "get a second reader onto it before the first one moves on".to_owned(),
+                    Vec::new(),
+                ));
             }
         }
+        staged
     }
 
     /// Blame is a process per file, so it runs only when its answer can become a
@@ -1488,11 +1450,11 @@ impl Collector {
     fn stale_todo_findings(
         todos: HashMap<Arc<str>, Vec<rqx_core::facts::Spot>>,
         root: &Path,
-        config: &RqxConfig,
+        settings: &Resolved,
         at: &mut Positions,
         staged: &mut Staged,
     ) {
-        if !config.rules.enabled(RuleId::StaleTodo) {
+        if !settings.enabled_anywhere(RuleId::StaleTodo) {
             return;
         }
         // One blame per file, and only for the files that hold a note: the per-line
@@ -1514,6 +1476,7 @@ impl Collector {
                 continue;
             }
             let path = root.join(file.as_ref());
+            let limit = settings.for_file(&path).thresholds.todo_age_days;
             for spot in spots {
                 let Some(range) = at.range(&path, spot.span) else {
                     continue;
@@ -1522,23 +1485,20 @@ impl Collector {
                     continue;
                 };
                 let age = rqx_core::suppress::days_between(written, &today);
-                if age < i64::from(config.thresholds.todo_age_days) {
+                if age < i64::from(limit) {
                     continue;
                 }
-                staged.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::StaleTodo,
-                        range,
-                        Evidence::Breadth {
-                            counted: format!("days since this {} was written", spot.detail),
-                            found: age.unsigned_abs() as u32,
-                            limit: config.thresholds.todo_age_days,
-                        },
-                        "do it, ticket it, or delete it".to_owned(),
-                        Vec::new(),
-                    ),
-                );
+                staged.propose(build(
+                    RuleId::StaleTodo,
+                    range,
+                    Evidence::Breadth {
+                        counted: format!("days since this {} was written", spot.detail),
+                        found: age.unsigned_abs() as u32,
+                        limit,
+                    },
+                    "do it, ticket it, or delete it".to_owned(),
+                    Vec::new(),
+                ));
             }
         }
     }
@@ -1549,15 +1509,15 @@ impl Collector {
     fn cochange_findings(
         analyzed: &std::collections::BTreeSet<String>,
         root: &Path,
-        config: &RqxConfig,
+        settings: &Resolved,
         at: &mut Positions,
         history: &crate::history::History,
     ) -> Staged {
         let mut staged = Staged::default();
         // Reads git history, not the import graph, so it must not ride on the gate
         // that builds one — enabling only this rule used to leave it silent.
-        if !(config.rules.enabled(RuleId::ShotgunSurgery)
-            || config.rules.enabled(RuleId::DivergentChange))
+        if !(settings.enabled_anywhere(RuleId::ShotgunSurgery)
+            || settings.enabled_anywhere(RuleId::DivergentChange))
         {
             return staged;
         }
@@ -1593,7 +1553,7 @@ impl Collector {
         // Divergent Change is the mirror image, read from the same data: a file that
         // changes often but with a different partner every time is changing for many
         // unrelated reasons.
-        if config.rules.enabled(RuleId::DivergentChange) {
+        if settings.enabled_anywhere(RuleId::DivergentChange) {
             let mut strongest: HashMap<&str, u32> = HashMap::new();
             for ((left, right), count) in &pairs {
                 for file in [left, right] {
@@ -1606,34 +1566,38 @@ impl Collector {
                 .filter(|(_, total)| **total >= 10)
                 .map(|(file, total)| (*file, *total, strongest.get(file).copied().unwrap_or(0)))
                 .filter(|(_, total, peak)| peak * 10 < total * 3)
+                // Before the cap, so a subtree that switched the rule off does not use
+                // up places the rest of the project would have had.
+                .filter(|(file, _, _)| {
+                    settings
+                        .for_file(&root.join(file))
+                        .rules
+                        .admits(RuleId::DivergentChange, file)
+                })
                 .collect();
             diffuse.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
             for (file, total, peak) in diffuse.into_iter().take(5) {
                 let Some(range) = at.range(&root.join(file), WHOLE_FILE) else {
                     continue;
                 };
-                staged.accept_if_enabled(
-                    config,
-                    build(
-                        RuleId::DivergentChange,
-                        range,
-                        Evidence::CoChange {
-                            partner: "no single file".to_owned(),
-                            together: peak,
-                            total,
-                        },
-                        "split this file along the reasons it changes, so each part has one"
-                            .to_owned(),
-                        Vec::new(),
-                    ),
-                );
+                staged.propose(build(
+                    RuleId::DivergentChange,
+                    range,
+                    Evidence::CoChange {
+                        partner: "no single file".to_owned(),
+                        together: peak,
+                        total,
+                    },
+                    "split this file along the reasons it changes, so each part has one".to_owned(),
+                    Vec::new(),
+                ));
             }
         }
 
         let mut reported: HashSet<&str> = HashSet::new();
         let mut ranked: Vec<((&str, &str), u32)> = pairs.into_iter().collect();
         ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-        if !config.rules.enabled(RuleId::ShotgunSurgery) {
+        if !settings.enabled_anywhere(RuleId::ShotgunSurgery) {
             return staged;
         }
         for ((left, right), together) in ranked {
@@ -1649,23 +1613,20 @@ impl Collector {
             let Some(partner) = at.range(&root.join(right), WHOLE_FILE) else {
                 continue;
             };
-            staged.accept_if_enabled(
-                config,
-                build(
-                    RuleId::ShotgunSurgery,
-                    range,
-                    Evidence::CoChange {
-                        partner: right.to_owned(),
-                        together,
-                        total,
-                    },
-                    format!(
-                        "the decision these two share has no home; move it into one place so \
+            staged.propose(build(
+                RuleId::ShotgunSurgery,
+                range,
+                Evidence::CoChange {
+                    partner: right.to_owned(),
+                    together,
+                    total,
+                },
+                format!(
+                    "the decision these two share has no home; move it into one place so \
                      `{right}` stops needing an edit every time this file does"
-                    ),
-                    vec![partner],
                 ),
-            );
+                vec![partner],
+            ));
         }
         staged
     }
@@ -1675,16 +1636,13 @@ impl Collector {
     fn reimplemented_findings(
         shape_by_file: &std::collections::BTreeMap<Arc<str>, rqx_lang::FileShape>,
         reference: Option<&crate::reimplemented::Reference>,
-        root: &Path,
-        settings: &Resolved,
     ) -> Staged {
         let mut staged = Staged::default();
         let Some(reference) = reference else {
             return staged;
         };
         for finding in crate::reimplemented::findings(shape_by_file, reference) {
-            let config = settings.for_file(&root.join(&*finding.location.file));
-            staged.accept_if_enabled(config, finding);
+            staged.propose(finding);
         }
         staged
     }
@@ -1709,7 +1667,7 @@ impl Collector {
             complete,
             cost_rules::wanted(settings).then_some(&reported),
         );
-        let mut staged = cost_rules::staged(composed.sites, root, settings);
+        let mut staged = cost_rules::staged(composed.sites, root);
         staged.summaries = Some(composed.summaries);
         if keep {
             staged.call_links = Some(composed.links);
@@ -1718,11 +1676,16 @@ impl Collector {
     }
 
     /// What other tools reported, read from the SARIF files the project named.
-    fn external_findings(root: &Path, config: &RqxConfig) -> Staged {
-        Staged {
-            findings: crate::external::read_all(root, &config.scan.sarif_in),
-            ..Staged::default()
-        }
+    /// Not admitted like a stage's findings: no rule in the catalogue produced them, so
+    /// no rule's settings apply to them.
+    fn accept_external(&mut self, root: &Path, config: &RqxConfig) {
+        let findings = crate::external::read_all(root, &config.scan.sarif_in);
+        self.accept_all(
+            findings
+                .into_iter()
+                .map(|finding| (finding, None))
+                .collect(),
+        );
     }
 
     /// The stages that need every file, run side by side: duplicates, the import graph,
@@ -1771,16 +1734,16 @@ impl Collector {
         let versioned = thread::scope(|scope| {
             let duplicates = scope.spawn(move || {
                 [
-                    Self::clone_findings(clone_groups, root, settings),
-                    Self::ported_findings(ported, root, settings),
+                    Self::clone_findings(clone_groups),
+                    Self::ported_findings(ported),
                 ]
             });
             let imports = scope.spawn(move || {
                 let mut at = Positions::new(root);
                 [
-                    Self::module_findings(graph_modules, root, config, coverage_ref, &mut at),
-                    Self::size_findings(shapes_ref, root, config, &mut at),
-                    Self::reimplemented_findings(shapes_ref, reference_ref, root, settings),
+                    Self::module_findings(graph_modules, root, settings, coverage_ref, &mut at),
+                    Self::size_findings(shapes_ref, root, settings, &mut at),
+                    Self::reimplemented_findings(shapes_ref, reference_ref),
                 ]
             });
             let costed = scope.spawn(move || {
@@ -1796,31 +1759,33 @@ impl Collector {
             let git = scope.spawn(move || {
                 let history = history();
                 let mut at = Positions::new(root);
-                let noted = Self::history_findings(todos, &history, root, config, &mut at);
+                let noted = Self::history_findings(todos, &history, root, settings, &mut at);
                 let together =
-                    Self::cochange_findings(analyzed_ref, root, config, &mut at, &history);
+                    Self::cochange_findings(analyzed_ref, root, settings, &mut at, &history);
                 (history, noted, together)
             });
 
             self.report_phase(Phase::Duplicates);
             for staged in joined(duplicates) {
-                self.absorb(staged);
+                self.absorb(staged, settings);
             }
             self.report_phase(Phase::Imports);
             for staged in joined(imports) {
-                self.absorb(staged);
+                self.absorb(staged, settings);
             }
             self.report_phase(Phase::Cost);
-            self.absorb(joined(costed));
+            self.absorb(joined(costed), settings);
             self.report_phase(Phase::History);
             let (history, noted, together) = joined(git);
             self.stats.git_processes += history.git_processes();
             self.git_commands.extend(history.commands().iter().cloned());
-            self.absorb(noted);
-            self.finish_churn(analyzed_ref, config, &mut Positions::new(root), &history);
+            self.absorb(noted, settings);
+            let churned =
+                self.churn_findings(analyzed_ref, settings, &mut Positions::new(root), &history);
+            self.absorb(churned, settings);
             self.report_phase(Phase::CoChange);
-            self.absorb(together);
-            self.absorb(Self::external_findings(root, config));
+            self.absorb(together, settings);
+            self.accept_external(root, config);
             history.versioned()
         });
 
@@ -3287,10 +3252,18 @@ mod tests {
 
         let mut from_stages = Collector::new(0, false, false, false, None);
         from_stages.baseline = Some(baseline_holding(&findings));
-        from_stages.absorb(Staged {
-            findings: findings.clone(),
-            ..Staged::default()
-        });
+        let mut every_rule_on = rqx_core::config::RqxConfig::default();
+        every_rule_on.rules.enabled = RuleId::ALL
+            .iter()
+            .map(|rule| rule.slug().to_owned())
+            .collect();
+        from_stages.absorb(
+            Staged {
+                findings: findings.clone(),
+                ..Staged::default()
+            },
+            &Resolved::of(every_rule_on),
+        );
 
         for collector in [from_files, from_stages] {
             let unknown: Vec<&str> = collector
@@ -3324,10 +3297,13 @@ mod tests {
             }],
         );
 
-        collector.absorb(Staged {
-            findings: vec![waived, recorded],
-            ..Staged::default()
-        });
+        collector.absorb(
+            Staged {
+                findings: vec![waived, recorded],
+                ..Staged::default()
+            },
+            &Resolved::default(),
+        );
 
         assert_eq!(collector.suppressed.len(), 1);
         let Some(Reverse(Ranked(kept))) = collector.retained.peek() else {
@@ -3426,21 +3402,56 @@ mod tests {
         std::fs::remove_dir_all(&root).unwrap();
     }
 
+    /// A stage's finding is admitted under the configuration of the file it is
+    /// reported in, as a per-file finding is, and not under the root's.
     #[test]
-    fn a_stage_keeps_only_the_findings_of_rules_that_are_on() {
-        let mut config = rqx_core::config::RqxConfig::default();
+    fn a_stage_finding_obeys_the_override_of_its_own_file() {
+        let root = std::env::temp_dir().join(format!("rqx-stage-override-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("legacy")).unwrap();
+        std::fs::create_dir_all(root.join("strict")).unwrap();
+        std::fs::write(
+            root.join("rqx.yaml"),
+            "overrides:\n  - paths: [\"legacy/**\"]\n    rules:\n      disabled: [imprecise-type]\n  \
+             - paths: [\"strict/**\"]\n    rules:\n      imprecise-type:\n        severity: error\n",
+        )
+        .unwrap();
+        let settings = crate::config::resolve(&root, None, None).unwrap();
+        let mut collector = Collector::new(0, false, false, false, None);
+        collector.root = root.clone();
         let mut staged = Staged::default();
+        for file in ["a.ts", "legacy/b.ts", "strict/c.ts"] {
+            staged.propose(ranked(file, 1).0);
+        }
 
-        staged.accept_if_enabled(&config, ranked("a.ts", 1).0);
-        config.rules.disabled.insert("imprecise-type".to_owned());
-        staged.accept_if_enabled(&config, ranked("b.ts", 1).0);
+        collector.absorb(staged, &settings);
+        std::fs::remove_dir_all(&root).unwrap();
 
-        let kept: Vec<&str> = staged
-            .findings
+        let mut kept: Vec<(String, rqx_core::finding::Severity)> = collector
+            .retained
             .iter()
-            .map(|finding| &*finding.location.file)
+            .map(|Reverse(Ranked(finding))| (finding.location.file.to_string(), finding.severity))
             .collect();
-        assert_eq!(kept, ["a.ts"]);
+        kept.sort();
+        assert_eq!(
+            kept,
+            [
+                ("a.ts".to_owned(), rqx_core::finding::Severity::Warning),
+                ("strict/c.ts".to_owned(), rqx_core::finding::Severity::Error),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_stage_finding_of_a_rule_that_is_off_is_not_kept() {
+        let mut config = rqx_core::config::RqxConfig::default();
+        config.rules.disabled.insert("imprecise-type".to_owned());
+        let mut collector = Collector::new(0, false, false, false, None);
+        let mut staged = Staged::default();
+        staged.propose(ranked("a.ts", 1).0);
+
+        collector.absorb(staged, &Resolved::of(config));
+
+        assert!(collector.retained.is_empty());
     }
 
     #[test]
@@ -3451,7 +3462,7 @@ mod tests {
         staged.importers.push((Arc::from("a.ts"), 3));
         staged.blames = 2;
 
-        collector.absorb(staged);
+        collector.absorb(staged, &Resolved::default());
 
         assert_eq!(collector.counts.total, 1);
         assert_eq!(collector.impact.get("a.ts").importers, 3);
