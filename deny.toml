@@ -6,10 +6,17 @@
 # silent pass.
 
 [advisories]
-# Vulnerabilities are always errors in cargo-deny v2, with no setting to relax them.
-# An unmaintained crate is worth knowing about but is not a reason to stop a merge.
+# Vulnerabilities, unsound crates and unmaintained crates are all errors in cargo-deny
+# v2; the only way past one is an entry in `ignore`, and each entry names its reason.
 unmaintained = "all"
 yanked = "warn"
+ignore = [
+  # chrono is unmaintained and rqx never calls it. rmcp depends on it outright, and
+  # schemars pulls it in through the `chrono04` feature rmcp turns on, so neither
+  # edge is ours to cut. There is no vulnerability behind the advisory. Drop this
+  # entry when rmcp moves to jiff or time; until then, review it by 2027-02-18.
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, reachable only through rmcp and schemars" },
+]
 
 [licenses]
 allow = [
