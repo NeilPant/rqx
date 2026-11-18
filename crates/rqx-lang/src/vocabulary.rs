@@ -358,6 +358,22 @@ impl TestVocabulary {
             })
     }
 
+    /// `fit`, `xdescribe`: a runner name with a one-letter marker in front, which is
+    /// also how ordinary words are spelled, unlike `it.only`.
+    pub fn is_prefix_marked(&self, name: &str) -> bool {
+        let root = Self::root_of(name);
+        let known =
+            |bare: &str| self.suite_roots.contains(&bare) || self.case_roots.contains(&bare);
+        !known(root)
+            && self
+                .skip_markers
+                .iter()
+                .chain(self.focus_markers)
+                .any(|(marker, is_prefix)| {
+                    *is_prefix && root.strip_prefix(marker).is_some_and(known)
+                })
+    }
+
     pub fn is_case(&self, name: &str) -> bool {
         self.case_roots.contains(&Self::root_of(name))
     }

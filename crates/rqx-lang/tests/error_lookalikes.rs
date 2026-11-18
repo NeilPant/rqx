@@ -92,3 +92,62 @@ fn an_empty_catch_is_reported_until_it_says_why() {
         );
     }
 }
+
+#[test]
+fn a_focused_or_skipped_test_is_a_registration_on_the_runner_name() {
+    let cases = [
+        (r#"it.only("t", () => {});"#, RuleId::FocusedTest, 1),
+        (r#"test.only("t", () => {});"#, RuleId::FocusedTest, 1),
+        (r#"describe.only("s", () => {});"#, RuleId::FocusedTest, 1),
+        (r#"fit("t", () => {});"#, RuleId::FocusedTest, 1),
+        ("fit(`t ${1}`, () => {});", RuleId::FocusedTest, 1),
+        (r#"fdescribe("s", () => {});"#, RuleId::FocusedTest, 1),
+        (
+            r#"import { fit } from "@jest/globals"; fit("t", () => {});"#,
+            RuleId::FocusedTest,
+            1,
+        ),
+        (r#"it.skip("t", () => {});"#, RuleId::SkippedTest, 1),
+        (r#"xit("t", () => {});"#, RuleId::SkippedTest, 1),
+        (r#"it.todo("x");"#, RuleId::SkippedTest, 1),
+        ("fit(bounds, padding);", RuleId::FocusedTest, 0),
+        ("xit();", RuleId::SkippedTest, 0),
+        (
+            "function fit(a, b) { return a + b; }\nfit(1, 2);",
+            RuleId::FocusedTest,
+            0,
+        ),
+        (
+            r#"const fit = makeFitter(); fit("label", () => 0);"#,
+            RuleId::FocusedTest,
+            0,
+        ),
+        (
+            r#"const xit = (label, done) => done(label); xit("bye", () => 0);"#,
+            RuleId::SkippedTest,
+            0,
+        ),
+    ];
+    for (source, rule, expected) in cases {
+        assert_eq!(
+            count(Language::TypeScript, "a.test.ts", source, rule),
+            expected,
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_local_function_named_like_a_marked_test_leaves_the_file_a_module() {
+    let source = "function fit(at: number) { return at; }\n\
+                  export function stamp() { return fit(Date.now()); }\n";
+    assert_eq!(
+        count(
+            Language::TypeScript,
+            "a.ts",
+            source,
+            RuleId::AmbientDependency
+        ),
+        1
+    );
+}

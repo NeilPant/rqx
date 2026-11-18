@@ -161,6 +161,17 @@ them. `tools/release.sh` turns that section into the release notes.
   no comment and an empty body, such as `{}`, `{ ; }` or a bare `pass`, is still
   reported.
 
+- **`focused-test` and `skipped-test` report `fit`, `fdescribe`, `xit` and `xdescribe`
+  only where they register a test.** In 0.5.1 any call named `fit` or `xit` was
+  reported, including a project's own `fit(width, limit)`. Such a call also marked the
+  file as a test file, which turned off `ambient-dependency` and `import-time-work` for
+  the whole file. These names now count as a test registration only when the first
+  argument is a string or template string, or an argument is a function, and the file
+  does not declare the name itself. An imported name, as in
+  `import { fit } from "@jest/globals"`, still counts. `it.only`, `test.only`,
+  `describe.only`, `it.skip`, `it.todo` and dotted forms such as `fit.each` are
+  reported as before.
+
 ## 0.5.1 — 2026-11-18
 
 

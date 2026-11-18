@@ -52,6 +52,15 @@ function shout(payload) {
 events.on("shout", shout);
 events.on("trim", (payload) => payload.trim());
 
+// focused-test: `fit` is this file's own function, and fitting a width is not a test.
+function fit(width, limit) {
+  return Math.max(0, Math.min(width, limit));
+}
+
+export function fitted(widths, limit) {
+  return widths.map((width) => fit(width, limit));
+}
+
 // empty-catch: a catch that says why it does nothing has handled the error.
 export function parsedOrNothing(text) {
   try {
