@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-techniques \- List every refactoring rqx prescribes and the rules that prescribe it
 .SH SYNOPSIS
-\fBrqx techniques\fR [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+\fBrqx techniques\fR [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] 
 .SH DESCRIPTION
 List every refactoring rqx prescribes and the rules that prescribe it
 .SH OPTIONS
@@ -77,6 +77,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-no\-pager\fR
+Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

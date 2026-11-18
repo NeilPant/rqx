@@ -15,6 +15,7 @@ Reports dead code, duplication, complexity and architectural drift in TypeScript
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 | `--version` | Print version |
 
@@ -35,6 +36,7 @@ Write the health score as a small SVG badge
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx baseline`
@@ -55,6 +57,7 @@ Record the findings this project already has, so the gate evaluates only what a 
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx cache`
@@ -70,6 +73,7 @@ Show what the analysis cache holds, or delete it
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx check`
@@ -128,6 +132,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx comment`
@@ -159,6 +164,7 @@ Post the review as a comment on its merge request, and grade the commit
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx completions`
@@ -175,6 +181,7 @@ Print a shell completion script
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx complexity`
@@ -199,6 +206,7 @@ Report the complexity distribution, with the highest values
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx config`
@@ -218,6 +226,7 @@ Print the settings a run will use, and the file each one came from
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx explain`
@@ -233,6 +242,7 @@ Print the catalogue entry for a rule or a pattern: what it maps to, what decides
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx fix`
@@ -258,6 +268,7 @@ Apply the fixes that have a single correct result, proving each one before it is
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx graph`
@@ -281,6 +292,7 @@ Print the import graph as text, Graphviz, Mermaid or JSON
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx health`
@@ -301,6 +313,7 @@ Break the health score down by component and report what removing each would gai
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx help`
@@ -327,6 +340,7 @@ Rank files by how often they change and how much is wrong with them
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx init`
@@ -343,6 +357,7 @@ Write a commented rqx.yaml with every setting at its default
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx levels`
@@ -358,6 +373,7 @@ Print what each cleanliness level sets, as the equivalent configuration settings
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx lsp`
@@ -374,6 +390,7 @@ Run as a Language Server over stdio, for editor integration
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx mcp`
@@ -391,6 +408,7 @@ Run as an MCP server, so an AI agent can query a project's findings
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx owners`
@@ -411,6 +429,7 @@ Rank the owners named in CODEOWNERS by the health of the files they own
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx patterns`
@@ -432,6 +451,7 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx perf`
@@ -457,6 +477,7 @@ Report code whose work grows faster than its input, ranked by reach
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx plan`
@@ -480,6 +501,7 @@ Rank the work by value against effort, and report the health score after it
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx query`
@@ -499,6 +521,7 @@ Run a tree-sitter query over a project, to test it before adding it to a `rule` 
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx recommend`
@@ -519,6 +542,7 @@ Recommend actions for the project: configuration thresholds, refactorings, files
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx rules`
@@ -537,6 +561,7 @@ List every rule rqx can report, grouped by family
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx scan`
@@ -592,6 +617,7 @@ Analyze a project and report every finding
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx setup`
@@ -609,6 +635,7 @@ Print the configuration an editor or a coding agent needs to use rqx, or list th
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx slop`
@@ -629,6 +656,7 @@ Score files that show signs of not having been reviewed after they were written
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx suppressions`
@@ -650,6 +678,7 @@ List every finding waived by a comment in the source, with its reason
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx techniques`
@@ -665,6 +694,7 @@ List every refactoring rqx prescribes and the rules that prescribe it
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx trend`
@@ -685,6 +715,7 @@ Show how health, findings and the rules or owners that moved most have changed a
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx update`
@@ -704,6 +735,7 @@ Install the newest release, or report what it would change
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx verify`
@@ -726,6 +758,7 @@ Compare the working tree against a base revision and classify each finding as re
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |
 
 ## `rqx waive`
@@ -748,4 +781,5 @@ Waive one finding with a comment in the source that states a reason
 | `--progress` | How a scan reports progress on stderr; `plain` prints a line every two seconds for a job log |
 | `--verbose` | Increase output: `-v` adds the configuration, the cache and every skipped file to the report; `-vv` also prints stage timings and git commands on stderr |
 | `--hyperlinks` | Render `file:line` in the report as a hyperlink that opens in an editor; `auto` enables it on terminals known to support hyperlinks |
+| `--no-pager` | Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX` |
 | `--help` | Print help (see more with '--help') |

@@ -21,7 +21,9 @@ The session uses no alternate screen and leaves the mouse to the terminal, excep
 while the command menu is open (see Completion). A few rows at
 the bottom of the window are redrawn. Everything else is printed above them into the
 terminal's own scrollback, so scrolling, searching and selecting use the terminal's
-own tools, and the output remains after the session ends.
+own tools, and the output remains after the session ends. The one exception is the
+viewer for long output (see [Long output](#long-output)), which takes the alternate
+screen and the mouse only while it is open.
 
 ```
 ╭────────────────────────────────────────────────╮
@@ -72,6 +74,7 @@ without scanning again.
 | `/rescan` | scan the project again |
 | `/watch on\|off` | re-analyse files as they are saved |
 | `/open` | open a finding in `$VISUAL` or `$EDITOR` |
+| `/open-last` | open the last folded output in the viewer, as `ctrl-o` does |
 | `/clear` `/help` `/exit` | clear the screen, list the commands, leave |
 
 Text typed without a slash searches the findings: `dead export` is `/findings
@@ -115,6 +118,49 @@ prompt asks for one. After the reason is typed and `enter` is pressed, the comme
 is written and the project is scanned again. `esc` cancels. `--dry-run` prints the
 diff instead.
 
+## Long output
+
+A command's output is folded when it needs more rows than the window has above the
+prompt, less one row for the echoed command. Rows are counted after wrapping to the
+window's width. A folded output prints its first rows and one dim line in place of
+the rest:
+
+```
+ … 2,722 more lines · ctrl-o to open · /findings --rule <rule> to narrow
+```
+
+The first rows are half of the room above the prompt, and at least three. When a
+blank row falls in the second half of those rows, the cut moves up to the last such
+row. The renderers put a blank row between findings, files and sections, so a
+finding is not split. The `/findings --rule` hint appears after `/findings` and
+after a search typed without a slash. Output that fits is printed whole.
+
+The session keeps the whole of the last folded output. `ctrl-o` at the prompt, or
+`/open-last`, opens it in a full-height viewer on the alternate screen. The top row
+shows the command, the rows in view and the total, and the number of matches when a
+search is active. The bottom row lists the keys. Lines wider than the window wrap.
+
+| Key | Does |
+|---|---|
+| `↑` `k` · `↓` `j` `enter` | scroll one row |
+| `pgup` `b` · `pgdn` `space` `f` | scroll one page |
+| `g` `home` · `G` `end` | go to the top or the bottom |
+| `/` | type a search; `enter` goes to the first match at or below the top row, `esc` cancels |
+| `n` · `N` | go to the next or previous match, wrapping at either end |
+| mouse wheel | scroll three rows |
+| `q` `esc` `ctrl-c` | close the viewer |
+
+Search reads the text without its colour codes. A query in lowercase ignores case,
+and a query with a capital letter matches case exactly. Matches are shown in reverse
+video.
+
+The viewer captures the mouse while it is open, so selecting text in it needs the
+terminal's modifier for bypassing mouse capture, such as `option` in iTerm2 or
+`shift` in most other terminals. Closing the viewer releases the mouse, leaves the
+alternate screen and redraws the prompt, the typed line, the cursor and the status
+line as they were. The viewer has no animation, so `--motion off` does not affect
+it.
+
 ## The prompt
 
 | Key | Does |
@@ -132,6 +178,7 @@ diff instead.
 | `enter` | accept the highlighted command if it would change the line, otherwise run the line |
 | `ctrl-c` | stop the running job; at the prompt, clear the line, and twice within a second, leave |
 | `ctrl-d` | leave |
+| `ctrl-o` | open the last folded output in the viewer |
 
 History is kept per user in the platform state directory (`$XDG_STATE_HOME/rqx` or
 `~/.local/state/rqx`, and `%LOCALAPPDATA%\rqx` on Windows), outside the repository.
@@ -172,9 +219,10 @@ the scan for `--focus`. `/explain` offers rule slugs.
 
 `/exit`, `ctrl-d`, or `ctrl-c` twice. The session clears its own rows, restores the
 terminal and prints one line with what it found and the command that prints the
-whole report. Raw mode, and the mouse capture while the menu is open, are the only
-terminal state the session changes. Both are restored on a normal exit, on an error
-and on a panic.
+whole report. The session changes raw mode, captures the mouse while the command menu
+or the viewer is open, and takes the alternate screen while the viewer is open. All of
+these are restored on a normal exit, on an error and on a panic.
 
-`--no-mouse` keeps the session from capturing the mouse, so the wheel does not scroll
-the menu and the terminal keeps the mouse throughout.
+`--no-mouse` keeps the command menu from capturing the mouse, so the wheel does not
+scroll the menu and text can be selected while it is open. The viewer, which takes the
+whole screen, still scrolls with the wheel while it is open.

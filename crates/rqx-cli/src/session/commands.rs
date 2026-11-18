@@ -30,6 +30,8 @@ pub enum Parsed {
     Watch(WatchMode),
     /// Hand a finding's place to the editor.
     Open(Target),
+    /// Show the last long output again, in the full-height viewer.
+    OpenLast,
     /// Text a command's own `--help` printed, ready to show as it is.
     Printed(Vec<u8>),
     Command(Box<Invocation>),
@@ -58,7 +60,7 @@ pub struct Invocation {
 }
 
 /// Commands that only exist in the session.
-pub const SESSION_ONLY: [(&str, &str); 6] = [
+pub const SESSION_ONLY: [(&str, &str); 7] = [
     ("rescan", "scan the project again"),
     (
         "watch",
@@ -67,6 +69,10 @@ pub const SESSION_ONLY: [(&str, &str); 6] = [
     (
         "open",
         "open a finding in your editor: file:line, or its number in the list",
+    ),
+    (
+        "open-last",
+        "show the last long output in a full-height viewer; ctrl-o does the same",
     ),
     ("clear", "clear the screen"),
     ("help", "list the commands"),
@@ -153,6 +159,8 @@ pub fn parse(line: &str) -> std::result::Result<Parsed, String> {
         "rescan" => Ok(Parsed::Rescan),
         "watch" => watch(rest),
         "open" => open(rest),
+        "open-last" if rest.is_empty() => Ok(Parsed::OpenLast),
+        "open-last" => Err("/open-last takes no arguments".to_owned()),
         other => invoke(subcommand_of(other), rest),
     }
 }
@@ -850,6 +858,8 @@ mod tests {
         assert!(matches!(parse("/quit"), Ok(Parsed::Exit)));
         assert!(matches!(parse("/rescan"), Ok(Parsed::Rescan)));
         assert!(matches!(parse("/clear"), Ok(Parsed::Clear)));
+        assert!(matches!(parse("/open-last"), Ok(Parsed::OpenLast)));
+        assert!(parse("/open-last 2").is_err());
         assert!(matches!(parse("/help"), Ok(Parsed::Help)));
         assert!(matches!(parse("/"), Ok(Parsed::Help)));
         assert!(matches!(parse("  "), Ok(Parsed::Nothing)));

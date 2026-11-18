@@ -12,6 +12,7 @@
 --motion =off
 --motion =on
 --no-mouse
+--no-pager
 --no-progress
 --no-progress [env RQX_NO_PROGRESS]
 --no-tui
@@ -48,6 +49,7 @@ badge --motion
 badge --motion =off
 badge --motion =on
 badge --no-mouse
+badge --no-pager
 badge --no-progress
 badge --no-progress [env RQX_NO_PROGRESS]
 badge --no-tui
@@ -84,6 +86,7 @@ baseline --motion
 baseline --motion =off
 baseline --motion =on
 baseline --no-mouse
+baseline --no-pager
 baseline --no-progress
 baseline --no-progress [env RQX_NO_PROGRESS]
 baseline --no-tui
@@ -115,6 +118,7 @@ cache --motion
 cache --motion =off
 cache --motion =on
 cache --no-mouse
+cache --no-pager
 cache --no-progress
 cache --no-progress [env RQX_NO_PROGRESS]
 cache --no-tui
@@ -142,6 +146,7 @@ cache clear --motion
 cache clear --motion =off
 cache clear --motion =on
 cache clear --no-mouse
+cache clear --no-pager
 cache clear --no-progress
 cache clear --no-progress [env RQX_NO_PROGRESS]
 cache clear --no-tui
@@ -175,6 +180,7 @@ cache status --motion
 cache status --motion =off
 cache status --motion =on
 cache status --no-mouse
+cache status --no-pager
 cache status --no-progress
 cache status --no-progress [env RQX_NO_PROGRESS]
 cache status --no-tui
@@ -257,6 +263,7 @@ check --motion
 check --motion =off
 check --motion =on
 check --no-mouse
+check --no-pager
 check --no-progress
 check --no-progress [env RQX_NO_PROGRESS]
 check --no-tui
@@ -345,6 +352,7 @@ comment --motion
 comment --motion =off
 comment --motion =on
 comment --no-mouse
+comment --no-pager
 comment --no-progress
 comment --no-progress [env RQX_NO_PROGRESS]
 comment --no-status
@@ -379,6 +387,7 @@ completions --motion
 completions --motion =off
 completions --motion =on
 completions --no-mouse
+completions --no-pager
 completions --no-progress
 completions --no-progress [env RQX_NO_PROGRESS]
 completions --no-tui
@@ -417,6 +426,7 @@ complexity --motion
 complexity --motion =off
 complexity --motion =on
 complexity --no-mouse
+complexity --no-pager
 complexity --no-progress
 complexity --no-progress [env RQX_NO_PROGRESS]
 complexity --no-tui
@@ -458,6 +468,7 @@ config --motion
 config --motion =off
 config --motion =on
 config --no-mouse
+config --no-pager
 config --no-progress
 config --no-progress [env RQX_NO_PROGRESS]
 config --no-tui
@@ -487,6 +498,7 @@ config explain --motion
 config explain --motion =off
 config explain --motion =on
 config explain --no-mouse
+config explain --no-pager
 config explain --no-progress
 config explain --no-progress [env RQX_NO_PROGRESS]
 config explain --no-tui
@@ -515,6 +527,7 @@ config files --motion
 config files --motion =off
 config files --motion =on
 config files --no-mouse
+config files --no-pager
 config files --no-progress
 config files --no-progress [env RQX_NO_PROGRESS]
 config files --no-tui
@@ -552,6 +565,7 @@ config migrate --motion
 config migrate --motion =off
 config migrate --motion =on
 config migrate --no-mouse
+config migrate --no-pager
 config migrate --no-progress
 config migrate --no-progress [env RQX_NO_PROGRESS]
 config migrate --no-tui
@@ -580,6 +594,7 @@ config schema --motion
 config schema --motion =off
 config schema --motion =on
 config schema --no-mouse
+config schema --no-pager
 config schema --no-progress
 config schema --no-progress [env RQX_NO_PROGRESS]
 config schema --no-tui
@@ -608,6 +623,7 @@ config set --motion
 config set --motion =off
 config set --motion =on
 config set --no-mouse
+config set --no-pager
 config set --no-progress
 config set --no-progress [env RQX_NO_PROGRESS]
 config set --no-tui
@@ -639,6 +655,7 @@ config unset --motion
 config unset --motion =off
 config unset --motion =on
 config unset --no-mouse
+config unset --no-pager
 config unset --no-progress
 config unset --no-progress [env RQX_NO_PROGRESS]
 config unset --no-tui
@@ -672,6 +689,7 @@ config validate --motion
 config validate --motion =off
 config validate --motion =on
 config validate --no-mouse
+config validate --no-pager
 config validate --no-progress
 config validate --no-progress [env RQX_NO_PROGRESS]
 config validate --no-tui
@@ -703,6 +721,7 @@ docs --motion
 docs --motion =off
 docs --motion =on
 docs --no-mouse
+docs --no-pager
 docs --no-progress
 docs --no-progress [env RQX_NO_PROGRESS]
 docs --no-tui
@@ -731,6 +750,7 @@ explain --motion
 explain --motion =off
 explain --motion =on
 explain --no-mouse
+explain --no-pager
 explain --no-progress
 explain --no-progress [env RQX_NO_PROGRESS]
 explain --no-tui
@@ -765,6 +785,7 @@ fix --motion
 fix --motion =off
 fix --motion =on
 fix --no-mouse
+fix --no-pager
 fix --no-progress
 fix --no-progress [env RQX_NO_PROGRESS]
 fix --no-tui
@@ -810,6 +831,7 @@ graph --motion
 graph --motion =off
 graph --motion =on
 graph --no-mouse
+graph --no-pager
 graph --no-progress
 graph --no-progress [env RQX_NO_PROGRESS]
 graph --no-tui
@@ -850,6 +872,7 @@ health --motion
 health --motion =off
 health --motion =on
 health --no-mouse
+health --no-pager
 health --no-progress
 health --no-progress [env RQX_NO_PROGRESS]
 health --no-tui
@@ -931,6 +954,7 @@ hotspots --motion
 hotspots --motion =off
 hotspots --motion =on
 hotspots --no-mouse
+hotspots --no-pager
 hotspots --no-progress
 hotspots --no-progress [env RQX_NO_PROGRESS]
 hotspots --no-tui
@@ -965,6 +989,7 @@ init --motion
 init --motion =off
 init --motion =on
 init --no-mouse
+init --no-pager
 init --no-progress
 init --no-progress [env RQX_NO_PROGRESS]
 init --no-tui
@@ -993,6 +1018,7 @@ levels --motion
 levels --motion =off
 levels --motion =on
 levels --no-mouse
+levels --no-pager
 levels --no-progress
 levels --no-progress [env RQX_NO_PROGRESS]
 levels --no-tui
@@ -1021,6 +1047,7 @@ lsp --motion
 lsp --motion =off
 lsp --motion =on
 lsp --no-mouse
+lsp --no-pager
 lsp --no-progress
 lsp --no-progress [env RQX_NO_PROGRESS]
 lsp --no-tui
@@ -1051,6 +1078,7 @@ mcp --motion
 mcp --motion =off
 mcp --motion =on
 mcp --no-mouse
+mcp --no-pager
 mcp --no-progress
 mcp --no-progress [env RQX_NO_PROGRESS]
 mcp --no-tui
@@ -1083,6 +1111,7 @@ owners --motion
 owners --motion =off
 owners --motion =on
 owners --no-mouse
+owners --no-pager
 owners --no-progress
 owners --no-progress [env RQX_NO_PROGRESS]
 owners --no-tui
@@ -1119,6 +1148,7 @@ patterns --motion
 patterns --motion =off
 patterns --motion =on
 patterns --no-mouse
+patterns --no-pager
 patterns --no-progress
 patterns --no-progress [env RQX_NO_PROGRESS]
 patterns --no-tui
@@ -1160,6 +1190,7 @@ perf --motion
 perf --motion =off
 perf --motion =on
 perf --no-mouse
+perf --no-pager
 perf --no-progress
 perf --no-progress [env RQX_NO_PROGRESS]
 perf --no-tui
@@ -1207,6 +1238,7 @@ plan --motion
 plan --motion =off
 plan --motion =on
 plan --no-mouse
+plan --no-pager
 plan --no-progress
 plan --no-progress [env RQX_NO_PROGRESS]
 plan --no-tui
@@ -1241,6 +1273,7 @@ query --motion
 query --motion =off
 query --motion =on
 query --no-mouse
+query --no-pager
 query --no-progress
 query --no-progress [env RQX_NO_PROGRESS]
 query --no-tui
@@ -1275,6 +1308,7 @@ recommend --motion
 recommend --motion =off
 recommend --motion =on
 recommend --no-mouse
+recommend --no-pager
 recommend --no-progress
 recommend --no-progress [env RQX_NO_PROGRESS]
 recommend --no-tui
@@ -1312,6 +1346,7 @@ rules --motion
 rules --motion =off
 rules --motion =on
 rules --no-mouse
+rules --no-pager
 rules --no-progress
 rules --no-progress [env RQX_NO_PROGRESS]
 rules --no-tui
@@ -1394,6 +1429,7 @@ scan --motion
 scan --motion =off
 scan --motion =on
 scan --no-mouse
+scan --no-pager
 scan --no-progress
 scan --no-progress [env RQX_NO_PROGRESS]
 scan --no-tui
@@ -1452,6 +1488,7 @@ setup --motion
 setup --motion =off
 setup --motion =on
 setup --no-mouse
+setup --no-pager
 setup --no-progress
 setup --no-progress [env RQX_NO_PROGRESS]
 setup --no-tui
@@ -1487,6 +1524,7 @@ setup agent --motion
 setup agent --motion =off
 setup agent --motion =on
 setup agent --no-mouse
+setup agent --no-pager
 setup agent --no-progress
 setup agent --no-progress [env RQX_NO_PROGRESS]
 setup agent --no-tui
@@ -1524,6 +1562,7 @@ slop --motion
 slop --motion =off
 slop --motion =on
 slop --no-mouse
+slop --no-pager
 slop --no-progress
 slop --no-progress [env RQX_NO_PROGRESS]
 slop --no-tui
@@ -1561,6 +1600,7 @@ suppressions --motion
 suppressions --motion =off
 suppressions --motion =on
 suppressions --no-mouse
+suppressions --no-pager
 suppressions --no-progress
 suppressions --no-progress [env RQX_NO_PROGRESS]
 suppressions --no-tui
@@ -1592,6 +1632,7 @@ techniques --motion
 techniques --motion =off
 techniques --motion =on
 techniques --no-mouse
+techniques --no-pager
 techniques --no-progress
 techniques --no-progress [env RQX_NO_PROGRESS]
 techniques --no-tui
@@ -1624,6 +1665,7 @@ trend --motion
 trend --motion =off
 trend --motion =on
 trend --no-mouse
+trend --no-pager
 trend --no-progress
 trend --no-progress [env RQX_NO_PROGRESS]
 trend --no-tui
@@ -1655,6 +1697,7 @@ update --motion
 update --motion =off
 update --motion =on
 update --no-mouse
+update --no-pager
 update --no-progress
 update --no-progress [env RQX_NO_PROGRESS]
 update --no-tui
@@ -1690,6 +1733,7 @@ verify --motion
 verify --motion =off
 verify --motion =on
 verify --no-mouse
+verify --no-pager
 verify --no-progress
 verify --no-progress [env RQX_NO_PROGRESS]
 verify --no-tui
@@ -1723,6 +1767,7 @@ waive --motion
 waive --motion =off
 waive --motion =on
 waive --no-mouse
+waive --no-pager
 waive --no-progress
 waive --no-progress [env RQX_NO_PROGRESS]
 waive --no-tui

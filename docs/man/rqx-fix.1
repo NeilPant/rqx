@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-fix \- Apply the fixes that have a single correct result, proving each one before it is written. Previews by default
 .SH SYNOPSIS
-\fBrqx fix\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-verify\-build\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx fix\fR [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-max\-rounds\fR] [\fB\-\-json\fR] [\fB\-\-plan\fR] [\fB\-\-markdown\fR] [\fB\-\-verify\-build\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Apply the fixes that have a single correct result, proving each one before it is written. Previews by default
 .SH OPTIONS
@@ -107,6 +107,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-no\-pager\fR
+Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

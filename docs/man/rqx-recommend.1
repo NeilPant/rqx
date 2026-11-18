@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-recommend \- Recommend actions for the project: configuration thresholds, refactorings, files to read and performance work
 .SH SYNOPSIS
-\fBrqx recommend\fR [\fB\-\-only\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx recommend\fR [\fB\-\-only\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Recommend actions for the project: configuration thresholds, refactorings, files to read and performance work
 .SH OPTIONS
@@ -109,6 +109,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-no\-pager\fR
+Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)

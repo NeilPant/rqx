@@ -31,6 +31,7 @@ mod lsp;
 mod mcp;
 mod migrate;
 mod ownership;
+mod pager;
 mod path_suffixes;
 mod perf;
 mod plan;
@@ -132,6 +133,9 @@ pub struct Cli {
         env = "RQX_HYPERLINKS"
     )]
     hyperlinks: term::LinkChoice,
+    /// Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less -FRX`
+    #[arg(long, global = true)]
+    no_pager: bool,
 }
 
 /// `--no-progress` is the older spelling of `--progress none`, and a request for
@@ -1209,6 +1213,9 @@ struct View {
     /// Set when the terminal opens links and `--hyperlinks` allows them
     #[arg(skip)]
     links: Option<report::Links>,
+    /// Set when a terminal report taller than the window may go through a pager
+    #[arg(skip)]
+    pager: Option<pager::Pager>,
     /// Show only findings at or above this severity
     #[arg(long, value_enum, help_heading = "Filtering")]
     severity: Option<SeverityArg>,
@@ -1685,6 +1692,11 @@ impl View {
             ..self
         }
     }
+
+    /// The pager a long report goes through; `None` prints it directly.
+    fn paged(self, pager: Option<pager::Pager>) -> Self {
+        Self { pager, ..self }
+    }
 }
 
 /// What a scan has to keep for the reports it will write: the HTML report explains the
@@ -1768,6 +1780,19 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
     if view.verbose > 1 {
         write_diagnostics(report.outcome, view, palette)?;
     }
+    if let Some(pager) = &view.pager
+        && only_the_terminal_report_on_stdout(sinks)
+    {
+        let mut held = Vec::new();
+        if view.timings {
+            emit_timed(report, sinks, view, palette, &mut held)?;
+        } else {
+            for sink in sinks {
+                write_sink(report, sink, view, palette, &mut held)?;
+            }
+        }
+        return show_held(pager, &held);
+    }
     if !view.timings {
         for sink in sinks {
             write_sink(report, sink, view, palette, &mut stdout_for(sink))?;
@@ -1782,6 +1807,26 @@ fn emit(report: &Report<'_>, sinks: &[Sink], view: &View, palette: Palette) -> R
         &mut companion_stream(sinks),
     )?;
     anstream::stdout().lock().write_all(&held)?;
+    Ok(())
+}
+
+/// A document on stdout reaches its reader byte for byte, so only the terminal report
+/// is ever paged.
+fn only_the_terminal_report_on_stdout(sinks: &[Sink]) -> bool {
+    sinks
+        .iter()
+        .filter(|sink| sink.path.is_none())
+        .all(|sink| sink.reporter == report::Reporter::Terminal)
+}
+
+/// A report rendered into memory, through the pager when it is taller than the window
+/// and the pager starts, and printed as it always was otherwise.
+fn show_held(pager: &pager::Pager, held: &[u8]) -> Result<()> {
+    let window = crossterm::terminal::size().ok();
+    if window.is_some_and(|window| pager::taller_than(held, window)) && pager::page(pager, held) {
+        return Ok(());
+    }
+    anstream::stdout().lock().write_all(held)?;
     Ok(())
 }
 
@@ -2079,6 +2124,7 @@ fn run() -> Result<Exit> {
     let animated = !matches!(cli.motion, Motion::Off);
     let (requested, no_progress, verbosity) = (cli.progress, cli.no_progress, cli.verbose);
     let hyperlinks = cli.hyperlinks;
+    let no_pager = cli.no_pager;
     let progress_for =
         |quiet| progress::Mode::new(progress_style(requested, no_progress, quiet), animated);
     let progress = progress_for(false);
@@ -2127,7 +2173,10 @@ fn run() -> Result<Exit> {
             gate.apply(&mut settings)?;
 
             let progress = progress_for(view.quiet);
-            let view = view.on_terminal(verbosity, hyperlinks);
+            // A watch prints a report on every save, and a pager would hold the loop.
+            let view = view
+                .on_terminal(verbosity, hyperlinks)
+                .paged(pager::for_run(no_pager || watch));
             let sinks = sinks(&view)?;
             warn_of_deprecated(&sinks);
             let listed = listed_files(&view, &path)?;
@@ -2875,7 +2924,9 @@ fn run() -> Result<Exit> {
             evidence.apply(&mut settings)?;
 
             let progress = progress_for(view.quiet);
-            let view = view.on_terminal(verbosity, hyperlinks);
+            let view = view
+                .on_terminal(verbosity, hyperlinks)
+                .paged(pager::for_run(no_pager));
             let sinks = sinks(&view)?;
             warn_of_deprecated(&sinks);
             // The list is what is reviewed here, so it does not also narrow the report:

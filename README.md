@@ -918,12 +918,18 @@ refuses a public address without `RQX_MCP_TOKEN`.
 `rqx` on its own opens an interactive session when it has a terminal to open it in.
 Piped, redirected, run under CI, in a window smaller than 50 by 14 or given
 `--no-tui`, it scans the working directory instead, exactly as `rqx scan` would.
-`rqx scan` and every other subcommand always print their report.
+`rqx scan` and every other subcommand always print their report. On a terminal,
+`rqx scan` and `rqx check` send a report taller than the window through
+`$RQX_PAGER`, `$PAGER` or `less -FRX`; `--no-pager` prints it directly, and pipes,
+files and CI are never paged ([docs/ci.md](docs/ci.md)).
 
 The session lives at the bottom of your terminal. It uses no alternate screen and
 leaves the mouse to your terminal, except for the wheel while the `/` menu is open,
 so what it prints lands in your scrollback and stays there after you leave, and you
-select, search and scroll it with the terminal's own tools.
+select, search and scroll it with the terminal's own tools. Output taller than the
+window is folded to its first rows and a count of the rest; `ctrl-o` or `/open-last`
+opens the whole of it in a full-height viewer with search, and `q` returns to the
+prompt.
 
 It scans as it opens. While it works, the owl animates beside the phase and the files
 done. When the scan finishes, a header and the worst findings go into scrollback,

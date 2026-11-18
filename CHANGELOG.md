@@ -26,6 +26,19 @@ them. `tools/release.sh` turns that section into the release notes.
   usually needs `shift` held. Each notch moves the highlight one row. Clicks are
   ignored. `--no-mouse`, which was accepted and ignored, now keeps the session from
   capturing the mouse at all.
+### Added
+
+- **The session folds long output.** Output taller than the rows above the prompt
+  prints its first rows and a line with the number of rows left out. `ctrl-o` or
+  `/open-last` opens the last folded output in a full-height viewer with paging and
+  search (`/`, `n`, `N`), and `q` returns to the prompt as it was. See
+  `docs/interface.md`.
+
+- **`rqx scan` and `rqx check` page a long report.** On a terminal outside CI, a
+  `terminal` report taller than the window goes through `$RQX_PAGER`, `$PAGER` or
+  `less -FRX`. `--no-pager` or an empty `RQX_PAGER` prints it directly. Pipes, files,
+  document reporters and `--watch` are not paged, and the exit code is the same with
+  and without the pager. See `docs/ci.md`.
 
 ## 0.5.1 — 2026-11-18
 

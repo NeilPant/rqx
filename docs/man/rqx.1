@@ -4,7 +4,7 @@
 .SH NAME
 rqx \- Reports dead code, duplication, complexity and architectural drift in TypeScript, JavaScript, Python, Go, Java and C++, with the reason each finding matters
 .SH SYNOPSIS
-\fBrqx\fR [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIsubcommands\fR]
+\fBrqx\fR [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 Reports dead code, duplication, complexity and architectural drift in TypeScript, JavaScript, Python, Go, Java and C++, with the reason each finding matters
 .SH OPTIONS
@@ -77,6 +77,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-no\-pager\fR
+Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)
