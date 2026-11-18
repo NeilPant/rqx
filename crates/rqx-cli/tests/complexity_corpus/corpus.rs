@@ -182,11 +182,13 @@ pub fn files_of(root: &Path, group: &str) -> Vec<PathBuf> {
     }
 }
 
+/// The path under `root` with `/` between its parts on every platform, because the
+/// ids built from it are compared with the checked-in baseline.
 fn relative_to(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
-        .into_owned()
+        .replace('\\', "/")
 }
 
 /// The corpus language a source file belongs to, from its extension.

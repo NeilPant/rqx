@@ -187,7 +187,7 @@ fn analyse(path: &Path) -> Read {
         .strip_prefix(&root)
         .unwrap_or(path)
         .to_string_lossy()
-        .into_owned();
+        .replace('\\', "/");
     let source = std::fs::read_to_string(path).expect("a corpus file reads");
     let analysis = rqx_lang::analyze(path, &name, &source, &RqxConfig::default())
         .unwrap_or_else(|error| panic!("{name}: {error}"));
