@@ -111,6 +111,9 @@ mod tests {
     }
 
     #[test]
+    // On Windows crossterm switches the screen through the console API, not escape
+    // codes, so nothing reaches the buffer to inspect.
+    #[cfg(not(windows))]
     fn entering_takes_the_alternate_screen_and_the_mouse() {
         let presence = Presence::new();
         let mut out = Vec::new();
@@ -121,6 +124,9 @@ mod tests {
     }
 
     #[test]
+    // On Windows crossterm switches the screen through the console API, not escape
+    // codes, so nothing reaches the buffer to inspect.
+    #[cfg(not(windows))]
     fn leaving_releases_the_mouse_before_the_screen_and_only_once() {
         let presence = Presence::new();
         presence.enter(&mut Vec::new()).unwrap();
