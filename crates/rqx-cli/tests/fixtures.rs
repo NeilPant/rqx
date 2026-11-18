@@ -2,7 +2,19 @@ use std::collections::BTreeMap;
 use std::process::Command;
 
 mod common;
+mod fixture_expectations;
 use common::run_with_a_reader_that_walks_away;
+use fixture_expectations::{Finding, FixtureRoot, report};
+
+/// Measured against the repository the fixtures happen to live in rather than against
+/// the fixtures, so their findings move with rqx's own commit history.
+/// `history_rules_fire_on_a_repository_with_a_shared_decision` covers them.
+const FROM_THE_REPOSITORY: [&str; 4] = [
+    "hotspot",
+    "single-author-file",
+    "shotgun-surgery",
+    "stale-todo",
+];
 
 /// Every language gets its own scan root, with its own entry-point manifest and its
 /// own exact rule counts. One shared root would make a Python fixture change a
@@ -85,6 +97,52 @@ fn summary_field(report: &str, field: &str) -> String {
         .and_then(|rest| rest.split(&[',', '}'][..]).next())
         .unwrap()
         .to_owned()
+}
+
+fn fixture_findings(report: &str) -> Vec<Finding> {
+    report
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("a JSON report"))
+        .filter(|record| record["kind"] == "finding")
+        .map(|record| Finding {
+            file: record["location"]["file"]
+                .as_str()
+                .expect("a finding names its file")
+                .replace('\\', "/"),
+            line: record["location"]["line"]
+                .as_u64()
+                .expect("a finding has a line") as usize,
+            rule: record["rule"]
+                .as_str()
+                .expect("a finding has a rule")
+                .to_owned(),
+        })
+        .filter(|finding| !FROM_THE_REPOSITORY.contains(&finding.rule.as_str()))
+        .collect()
+}
+
+/// Each language is scanned from its own root, so a change to one language's fixtures
+/// cannot move another language's expectations. The comparison is by line, which names
+/// the place a rule started or stopped firing. `fixture_expectations` has the format.
+#[test]
+fn every_fixture_finding_is_expected() {
+    let blessing = std::env::var_os("RQX_BLESS").is_some();
+    let mut differences = Vec::new();
+    for language in rqx_core::Language::ALL {
+        let slug = language.slug();
+        let findings = fixture_findings(&scan_language(slug, &[]));
+        let directory = language_dir(slug);
+        let root = FixtureRoot::new(
+            std::path::Path::new(&directory),
+            &format!("fixtures/{slug}"),
+        );
+        differences.extend(if blessing {
+            root.bless(&findings)
+        } else {
+            root.check(&findings)
+        });
+    }
+    assert!(differences.is_empty(), "{}", report(&differences));
 }
 
 /// Exact counts per language, which is what catches a rule that starts firing twice
@@ -1022,16 +1080,6 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
         ),
     ];
 
-    // Measured against the repository the fixtures happen to live in rather than
-    // against the fixtures, so their counts move with rqx's own commit history.
-    // `history_rules_fire_on_a_repository_with_a_shared_decision` covers them.
-    let from_the_repository = [
-        "hotspot",
-        "single-author-file",
-        "shotgun-surgery",
-        "stale-todo",
-    ];
-
     let mut wrong = Vec::new();
     for (language, table) in expected {
         let counts = counts_by_rule(&scan_language(language, &[]));
@@ -1043,7 +1091,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
         }
         for rule in counts.keys() {
             if !table.iter().any(|(known, _)| known == rule)
-                && !from_the_repository.contains(&rule.as_str())
+                && !FROM_THE_REPOSITORY.contains(&rule.as_str())
             {
                 wrong.push(format!("{language} {rule}: fired but is not in the table"));
             }

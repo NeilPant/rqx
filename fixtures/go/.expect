@@ -1,0 +1,303 @@
+# Findings expected in fixtures/go: file, expectation, source line.
+# rule= fires on the line (xN: N times), none= must not, may= either way,
+# known-fp= fires and is wrong. #N: the Nth line of the file with this text.
+# Rewrite the rule= entries: RQX_BLESS=1 cargo test -p rqx --test fixtures every_fixture_finding_is_expected
+cyclea/cyclea.go rule=circular-dependency | import "example.com/rqxfixtures/cycleb"
+cyclea/cyclea.go rule=example-value | import "example.com/rqxfixtures/cycleb"
+cycleb/cycleb.go rule=example-value | import "example.com/rqxfixtures/cyclec"
+cyclec/cyclec.go rule=example-value | import "example.com/rqxfixtures/cyclea"
+fixtures/bloat.go rule=long-parameter-list | func TooManyParameters(a int, b int, c int, d int, e int) int {
+fixtures/bloat.go rule=deep-nesting | func DeeplyNested(rows []int) int {
+fixtures/bloat.go rule=large-class | type Overgrown struct {
+fixtures/bloat.go rule=wide-surface | type Overgrown struct {
+fixtures/bloat.go rule=temporary-field | A1  int
+fixtures/bloat.go rule=temporary-field | A2  int
+fixtures/bloat.go rule=temporary-field | A3  int
+fixtures/bloat.go rule=many-locals | func CrowdedScope(seed int) int {
+fixtures/bloat.go rule=cyclomatic-complexity | func ManyPaths(kind string, rows []int) int {
+fixtures/bloat.go rule=guard-cascade | func ManyPaths(kind string, rows []int) int {
+fixtures/bloat.go rule=many-exits | func ManyPaths(kind string, rows []int) int {
+fixtures/bloat.go rule=many-results | return len(rows), len(rows), len(rows), len(rows)
+fixtures/bloat.go rule=no-base-case | func Loops(rows []int) int {
+fixtures/bloat.go rule=passthrough-function | func Loops(rows []int) int {
+fixtures/bloat.go rule=no-base-case | func (s *Spiral) Turn(rows []int) int {
+fixtures/bloat.go rule=passthrough-function | func (s *Spiral) Turn(rows []int) int {
+fixtures/checks_test.go rule=skipped-test | t.Skip("slow")
+fixtures/checks_test.go rule=assertionless-test | func TestOnlyReadsTheError(t *testing.T) {
+fixtures/checks_test.go rule=branching-test | func TestDecidesThreeWays(t *testing.T) {
+fixtures/config.go rule=flag-argument | func Endpoint(region string, secure bool, retries int) string {
+fixtures/config.go rule=collapsible-if | if secure {
+fixtures/config.go rule=collapsible-if | if retries > 0 {
+fixtures/config.go rule=buried-configuration | return "https://api.example.com/v2/orders"
+fixtures/config.go rule=example-value | return "https://api.example.com/v2/orders"
+fixtures/config.go rule=obscured-expression | return (a+b)*(c-d) + max(a, b) + min(c, d) - (a * d)
+fixtures/conventions.go rule=mixed-conventions | var retry_limit = 3
+fixtures/conventions.go rule=mutable-module-state | var retry_limit = 3
+fixtures/conventions.go rule=mutable-module-state | var retryBackoff = 250
+fixtures/conventions.go rule=mixed-language-file | return "SELECT id, name FROM users WHERE id = '" + userID + "'"
+fixtures/conventions.go rule=boundary-arithmetic | head := items[cursor+1]
+fixtures/conventions.go rule=mutable-module-state | var Limits = map[string]int{"retry_limit": retry_limit, "retryBackoff": retryBackoff}
+fixtures/conventions.go rule=mutable-module-state | var ItemList = []int{1, 2, 3}
+fixtures/conventions.go rule=plural-mismatch | var ItemList = []int{1, 2, 3}
+fixtures/conventions.go rule=mutable-module-state | var entryList = []int{1, 2, 3}
+fixtures/conventions.go rule=name-repeats-type | var entryList = []int{1, 2, 3}
+fixtures/conventions.go rule=plural-mismatch | var entryList = []int{1, 2, 3}
+fixtures/conventions.go rule=over-logging | func Narrates(rows []int) int {
+fixtures/cost-accumulate-by-copy.go rule=accumulate-by-copy | text += parts[at] + ","
+fixtures/cost-accumulate-by-copy.go rule=loop-concatenation | text += parts[at] + ","
+fixtures/cost-accumulate-by-copy.go rule=duplicate-code | length := 0
+fixtures/cost-allocation-in-loop.go rule=plural-mismatch | pair := []int{row, row + 1}
+fixtures/cost-allocation-in-loop.go rule=plural-mismatch | label := map[int]int{row: 1}
+fixtures/cost-allocation-in-loop.go rule=plural-mismatch | spare := []int{row}
+fixtures/cost-allocation-in-loop.go rule=plural-mismatch #2 | pair := []int{row, row + 1}
+fixtures/cost-defer-in-loop.go rule=defer-in-loop | defer file.Close()
+fixtures/cost-linear-op-in-loop.go rule=linear-op-in-loop | results = slices.Insert(results, 0, item)
+fixtures/cost-linear-op-in-loop.go rule=duplicate-code #2 | results := []int{}
+fixtures/cost-lock-in-loop.go rule=lock-in-loop | guard.Lock()
+fixtures/cost-pair-scan-could-hash.go rule=data-class | type Order struct {
+fixtures/cost-pair-scan-could-hash.go rule=unused-export | type Order struct {
+fixtures/cost-pair-scan-could-hash.go rule=data-class | type User struct {
+fixtures/cost-pair-scan-could-hash.go rule=unused-export | type User struct {
+fixtures/cost-pair-scan-could-hash.go rule=unused-export | func OwnersOf(orders []Order, users []User) []string {
+fixtures/cost-pair-scan-could-hash.go rule=unused-export | func SameOrder(orders []Order) int {
+fixtures/cost-quadratic-via-call.go rule=unused-export | func IndexOfItem(list []string, wanted string) int {
+fixtures/cost-quadratic-via-call.go rule=unused-export | func FirstOccurrences(items []string) []string {
+fixtures/cost-quadratic-via-call.go rule=quadratic-via-call | if IndexOfItem(items, items[at]) == at {
+fixtures/cost-quadratic-via-call.go rule=unused-export | func DescribeEach(items []string) []string {
+fixtures/cost-quadratic-via-call.go rule=plural-mismatch | out := []string{}
+fixtures/cost-repeated-computation-in-loop.go rule=unused-export | func TotalLength(parts []string) int {
+fixtures/cost-repeated-computation-in-loop.go rule=unused-export | func Shares(parts []string, weights []float64) []float64 {
+fixtures/cost-repeated-computation-in-loop.go rule=plural-mismatch | out := []float64{}
+fixtures/cost-repeated-computation-in-loop.go rule=repeated-computation-in-loop | whole := TotalLength(parts)
+fixtures/cost-repeated-computation-in-loop.go rule=unused-export | func SharesOfEach(weights []float64) []float64 {
+fixtures/cost-repeated-computation-in-loop.go rule=plural-mismatch #2 | out := []float64{}
+fixtures/cost-repeated-computation-in-loop.go rule=plural-mismatch | own := []string{"x"}
+fixtures/cost-sort-in-loop.go rule=sort-in-loop | slices.Sort(base)
+fixtures/cost-unbounded-cache.go rule=mutable-module-state | var pageSizes = map[string]int{}
+fixtures/cost-unbounded-cache.go rule=mutable-module-state | var recentSizes = map[string]int{}
+fixtures/cost-unbounded-cache.go rule=unbounded-cache | pageSizes[key] = size
+fixtures/cost-unbounded-concurrency.go rule=unbounded-concurrency | go func(target string) {
+fixtures/deadexport.go rule=unused-export | func NeverImported(value int) int {
+fixtures/deadexport.go rule=data-class | type AlsoNeverImported struct {
+fixtures/deadexport.go rule=unused-export | type AlsoNeverImported struct {
+fixtures/deadexport.go rule=unused-export | func NewAlsoNeverImported(identifier string) AlsoNeverImported {
+fixtures/gatewaya.go rule=duplicate-import | import stripeAgain "github.com/stripe/stripe-go"
+fixtures/gatewaya.go rule=passthrough-function | func CollectA(amount int) int {
+fixtures/gatewayb.go rule=passthrough-function | func CollectB(amount int) int {
+fixtures/gatewayc.go rule=passthrough-function | func CollectC(amount int) int {
+fixtures/hygiene.go rule=flag-argument | func Pricing(cart []int, applyDiscount bool) int {
+fixtures/hygiene.go rule=unused-local | neverRead := len(cart)
+fixtures/hygiene.go rule=commented-out-code | // legacy := total * 2;
+fixtures/hygiene.go rule=complex-condition | if !applyDiscount && total > 4999 && len(cart) > 12 && total != 7 {
+fixtures/hygiene.go rule=magic-number | if !applyDiscount && total > 4999 && len(cart) > 12 && total != 7 {
+fixtures/hygiene.go rule=redundant-else | } else {
+fixtures/hygiene.go rule=unjustified-suppression | // rqx-ignore magic-number
+fixtures/hygiene.go rule=output-parameter | value = 1
+fixtures/hygiene.go rule=unreachable-code | value = 1
+fixtures/hygiene.go rule=suppressed-diagnostic | //nolint
+fixtures/hygiene.go rule=mutable-module-state | var Suppressed = 1
+fixtures/hygiene.go rule=temporary-field | type city struct{ Name string }
+fixtures/hygiene.go rule=lazy-class | type address struct{ City city }
+fixtures/hygiene.go rule=lazy-class | type customer struct{ Address address }
+fixtures/hygiene.go rule=lazy-class | type order struct{ Customer customer }
+fixtures/hygiene.go rule=message-chain | return target.Customer.Address.City.Label()
+fixtures/hygiene.go rule=banner-comment | // ---------------- helpers ----------------
+fixtures/hygiene.go rule=chat-residue | // Here's the helper you asked for! 🎉
+fixtures/hygiene.go rule=apology-comment | // Sorry, this one is ugly.
+fixtures/hygiene.go rule=empty-method | func NothingHappens() {
+fixtures/hygiene.go rule=unused-export | func NothingHappens() {
+fixtures/hygiene.go rule=passthrough-function | func ForwardOrbit(step int) int {
+fixtures/hygiene.go rule=passthrough-function | func Stops(code int) {
+fixtures/hygiene.go rule=library-exit | os.Exit(code)
+fixtures/hygiene.go rule=boolean-literal-argument | return fetchPage(url, true)
+fixtures/hygiene.go rule=flag-argument | func fetchPage(url string, retry bool) string {
+fixtures/hygiene.go rule=comment-per-line | // set the total
+fixtures/hygiene.go rule=explanation-longer-than-code | // Works out the score for the given user id, and gives back the score it
+fixtures/hygiene.go rule=guard-cascade | func GuardedAdd(a int, b int, c int) int {
+fixtures/hygiene.go rule=docstring-restates-signature | // ScoreOfUser returns the score of the user id.
+fixtures/intimacy.go rule=mutable-module-state | var CheckoutRate = 3
+fixtures/intimacy.go rule=inappropriate-intimacy | return Checkout{}.Rate() * len(c.Items)
+fixtures/intimacy.go rule=global-accessor | func (Checkout) Rate() int { return CheckoutRate }
+fixtures/intimacy.go rule=plural-mismatch | cart := Cart{}
+fixtures/intimacy.go rule=empty-method | func (CsvWriter) Open(path string)  {}
+fixtures/intimacy.go rule=unused-parameter | func (CsvWriter) Open(path string)  {}
+fixtures/intimacy.go rule=empty-method | func (CsvWriter) Write(row string)  {}
+fixtures/intimacy.go rule=unused-parameter | func (CsvWriter) Write(row string)  {}
+fixtures/intimacy.go rule=empty-method | func (CsvWriter) Close()            {}
+fixtures/intimacy.go rule=empty-method | func (JsonEmitter) Begin(path string) {}
+fixtures/intimacy.go rule=unused-parameter | func (JsonEmitter) Begin(path string) {}
+fixtures/intimacy.go rule=empty-method | func (JsonEmitter) Emit(row string)   {}
+fixtures/intimacy.go rule=unused-parameter | func (JsonEmitter) Emit(row string)   {}
+fixtures/intimacy.go rule=empty-method | func (JsonEmitter) Finish()           {}
+fixtures/intimacy.go rule=ambient-dependency | return time.Now().Unix()
+fixtures/lifecycle.go rule=temporal-coupling | opened bool
+fixtures/long.go rule=long-function | func ManySteps() int {
+fixtures/long.go rule=dead-store | total := 0
+fixtures/names.go rule=wildcard-import | import . "strings"
+fixtures/names.go rule=vague-function-name | func Process(rows []int) int {
+fixtures/names.go rule=plural-mismatch | data := []int{}
+fixtures/names.go rule=return-of-fresh-local | temp2 := len(data)
+fixtures/names.go rule=passthrough-function | func Shout(name string) string {
+fixtures/names.go rule=negated-name | notReady := len(rows) == 0
+fixtures/names.go rule=shadows-builtin | cap := len(rows)
+fixtures/params.go rule=unused-parameter | func WithDeadTail(used int, dead string) int {
+fixtures/params.go rule=unused-parameter | func WithDeadMiddle(dead string, used int) int {
+fixtures/params.go rule=unused-parameter x2 | func TwoDeadOnOneLine(used int, deadA string, deadB string) int {
+fixtures/patterns.go rule=boolean-not-a-question | func (d *Door) Open() bool {
+fixtures/patterns.go rule=type-code-switch | if d.state == "closed" {
+fixtures/patterns.go rule=redundant-else | } else if d.state == "open" {
+fixtures/patterns.go rule=redundant-else | } else if d.state == "locked" {
+fixtures/patterns.go rule=boolean-not-a-question | func (d *Door) Lock(key string) bool {
+fixtures/patterns.go rule=redundant-else #2 | } else if d.state == "open" {
+fixtures/patterns.go rule=data-class | type Request struct {
+fixtures/patterns.go rule=boolean-not-a-question | func looksLikeUpload(request Request) bool {
+fixtures/patterns.go rule=redundant-else | } else if looksLikeUpload(request) {
+fixtures/patterns.go rule=redundant-else | } else if hasSession(request) {
+fixtures/patterns.go rule=data-class | type Action struct {
+fixtures/patterns.go rule=type-code-switch | if action.Kind == "add" {
+fixtures/patterns.go rule=redundant-else | } else if action.Kind == "remove" {
+fixtures/patterns.go rule=redundant-else | } else if action.Kind == "clear" {
+fixtures/patterns.go rule=redundant-else #2 | } else if action.Kind == "remove" {
+fixtures/performance.go rule=plural-mismatch | kept := []int{}
+fixtures/performance.go rule=scan-in-loop | if slices.Contains(wanted, row) {
+fixtures/performance.go rule=deep-loop-nesting | func SumCube(grid [][][]int) int {
+fixtures/performance.go rule=plural-mismatch | found := []string{}
+fixtures/performance.go rule=query-in-loop | found = append(found, client.Get(id))
+fixtures/performance.go rule=invariant-in-loop | digits := regexp.MustCompile("^[0-9]+$")
+fixtures/performance.go rule=accumulate-by-copy | text += part
+fixtures/performance.go rule=loop-concatenation | text += part
+fixtures/performance.go rule=branching-recursion | func Fibonacci(step int) int {
+fixtures/performance.go rule=plural-mismatch | out := []func() int{}
+fixtures/performance.go rule=mutated-while-iterated | rows = append(rows[:0], rows[1:]...)
+fixtures/performance.go rule=output-parameter | rows = append(rows[:0], rows[1:]...)
+fixtures/performance.go rule=sleep-in-production | time.Sleep(500)
+fixtures/precision.go rule=journal-comment | // @author someone
+fixtures/precision.go rule=journal-comment | // Created on 2019-04-02
+fixtures/precision.go rule=imprecise-type | func Widen(input any) string {
+fixtures/precision.go rule=return-of-fresh-local | raw := input.(string)
+fixtures/precision.go rule=redundant-comment | // user name
+fixtures/precision.go rule=mutable-module-state | var UserName = "ada"
+fixtures/precision.go rule=data-class | type Loose struct {
+fixtures/precision.go rule=imprecise-type | Payload any
+fixtures/precision.go rule=imprecise-type | func NewLoose(payload any) Loose { return Loose{Payload: payload} }
+fixtures/queries.go rule=query-with-side-effect | func (l *Ledger) GetTotal() int {
+fixtures/queries.go rule=vague-function-name | func Handle(value string) string { return value }
+fixtures/queries.go rule=many-exits | func FindOrder(rows []string) string {
+fixtures/queries.go rule=distant-declaration | separator := " | "
+fixtures/queries.go rule=plural-mismatch | trimmed := []string{}
+fixtures/reconcile.go rule=passthrough-function | func totalOf(rows []int) int { return len(rows) }
+fixtures/reconcile.go rule=data-class | type Row struct {
+fixtures/reconcile.go rule=cognitive-complexity | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
+fixtures/reconcile.go rule=deep-nesting | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
+fixtures/reconcile.go rule=feature-envy | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
+fixtures/reconcile.go rule=flag-argument x2 | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
+fixtures/reconcile.go rule=long-parameter-list | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
+fixtures/reconcile.go rule=unused-parameter | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
+fixtures/reconcile.go rule=duplicate-code | total := totalOf(rows)
+fixtures/shapes.go rule=data-class | type Marker struct {
+fixtures/shapes.go rule=data-class | type Shipment struct {
+fixtures/shapes.go rule=middle-man | type Facade struct {
+fixtures/shapes.go rule=imprecise-type | type Vehicle interface {
+fixtures/shapes.go rule=lazy-class | type Vehicle interface {
+fixtures/shapes.go rule=speculative-generality | type Vehicle interface {
+fixtures/shapes.go rule=temporary-field | scratch      string
+fixtures/shapes.go rule=data-class | type Basket struct {
+fixtures/shapes.go rule=feature-envy | func (t Totals) Add(basket Basket) int {
+fixtures/shapes.go rule=no-default-branch | switch kind {
+fixtures/shapes.go rule=type-code-switch | switch kind {
+fixtures/shapes.go rule=magic-number | return 3
+fixtures/shapes.go rule=duplicate-code | if kind == "email" {
+fixtures/shapes.go rule=redundant-else | } else if kind == "sms" {
+fixtures/shapes.go rule=redundant-else | } else if kind == "push" {
+fixtures/shapes.go rule=data-clump | func Notify(userID string, channel string, locale string) string { return userID }
+fixtures/shapes.go rule=unused-parameter x2 | func Notify(userID string, channel string, locale string) string { return userID }
+fixtures/shapes.go rule=unused-parameter x2 | func Enqueue(userID string, channel string, locale string) string { return channel }
+fixtures/shapes.go rule=unused-parameter x2 | func Record(userID string, channel string, locale string) string  { return locale }
+fixtures/shapes.go rule=flag-argument | func Gate(ready bool, retries int) int {
+fixtures/shapes.go rule=redundant-else | } else {
+fixtures/shapes.go rule=long-function | func Sweep(rows []int) int {
+fixtures/shapes.go rule=distant-declaration | n := 0
+fixtures/shapes.go rule=plural-mismatch | seen := []int{}
+fixtures/shapes.go rule=magic-number | if row > 7331 {
+fixtures/shapes.go rule=unused-export | func TrailingJump(items []int) int {
+fixtures/shapes.go rule=redundant-jump | continue
+fixtures/shapes.go rule=unused-export | func TwoArmed(kind string) int {
+fixtures/shapes.go rule=boolean-not-a-question | func Settled(balance float64) bool {
+fixtures/shapes.go rule=unused-export | func Settled(balance float64) bool {
+fixtures/shapes.go rule=float-equality | return balance == 0.1
+fixtures/shapes.go rule=duplicate-code | total := len(rows)
+fixtures/shapes.go rule=duplicate-function | func SecondWay(rows []int) int {
+fixtures/structures.go rule=unused-parameter | func (b *ReportBuilder) WithRows(rows int) *ReportBuilder {
+fixtures/structures.go rule=unused-parameter | func (b *ReportBuilder) WithFooter(footer string) *ReportBuilder {
+fixtures/structures.go rule=temporary-field | clauses int
+fixtures/structures.go rule=unused-parameter | func (q *QueryBuilder) Where(field string) *QueryBuilder {
+fixtures/structures.go rule=unused-parameter | func (q *QueryBuilder) Order(field string) *QueryBuilder {
+fixtures/structures.go rule=unused-parameter | func (q *QueryBuilder) Take(count int) *QueryBuilder {
+fixtures/structures.go rule=temporary-field | Colours int
+fixtures/structures.go rule=unused-parameter | func (f *Feed) RemoveListener(handler func(int)) {
+fixtures/structures.go rule=lazy-class | type Literal struct{ Value int }
+fixtures/structures.go rule=lazy-class | type Sum struct{ Left int }
+fixtures/structures.go rule=lazy-class | type Product struct{ Right int }
+fixtures/structures.go rule=unused-parameter | func (p Printer) VisitLiteral(node Literal) string {
+fixtures/structures.go rule=unused-parameter | func (p Printer) VisitSum(node Sum) string {
+fixtures/structures.go rule=unused-parameter | func (p Printer) VisitProduct(node Product) string {
+fixtures/suite_test.go rule=skipped-test | t.Skip("pricing is being rewritten")
+fixtures/suite_test.go rule=magic-number | if Add(1, 2) != 3 {
+fixtures/suite_test.go rule=slow-test | time.Sleep(500)
+fixtures/suite_test.go rule=assertionless-test | func TestChecksNothing(t *testing.T) {
+fixtures/suite_test.go rule=duplicate-assertion | func TestAssertsTheSameThingTwice(t *testing.T) {
+fixtures/suite_test.go rule=debug-output-in-test | fmt.Println("here")
+fixtures/suite_test.go rule=unnamed-test | func TestWorks(t *testing.T) {
+fixtures/suite_test.go rule=assertionless-test | func TestIsNotWrittenYet(t *testing.T) {
+fixtures/suite_test.go rule=empty-method | func TestIsNotWrittenYet(t *testing.T) {
+fixtures/suite_test.go rule=empty-test | func TestIsNotWrittenYet(t *testing.T) {
+fixtures/suite_test.go rule=negated-name | func TestIsNotWrittenYet(t *testing.T) {
+fixtures/suite_test.go rule=string-shape-assertion | require.Equal(t, fmt.Sprintf("%v", one), "{\"two\":4,\"spare\":\"padding here\"}")
+fixtures/suite_test.go rule=unchecked-stub | client := NewMock()
+fixtures/suite_test.go rule=unused-local | client := NewMock()
+fixtures/suite_test.go rule=mutable-module-state | var spare int
+fixtures/suite_test.go rule=unused-fixture | spare = 1
+fixtures/suite_test.go rule=self-asserting-test | require.Equal(t, total, total)
+fixtures/vocabulary.go rule=empty-method | func SaveOrder(identifier string) {}
+fixtures/vocabulary.go rule=unused-parameter | func SaveOrder(identifier string) {}
+flow.go rule=boolean-not-a-question | func Restated(ready bool) bool {
+flow.go rule=flag-argument | func Restated(ready bool) bool {
+flow.go rule=boolean-from-branch | if ready {
+flow.go rule=redundant-else | } else {
+flow.go rule=flag-argument | func Compared(ready bool, count int) int {
+flow.go rule=literal-comparison | if ready == true {
+flow.go rule=self-comparison | if count == count {
+flow.go rule=identical-branches | if count > 10 {
+flow.go rule=redundant-else #2 | } else {
+flow.go rule=empty-block #2 | if count > 10 {
+flow.go rule=many-exits | func WideSwitch(kind string) int {
+flow.go rule=type-code-switch | switch kind {
+flow.go rule=wide-switch | switch kind {
+flow.go rule=callback-nesting | return func() int {
+flow.go rule=boolean-not-a-question | func Admits(rank int, guests int, staff int) bool {
+flow.go rule=ambiguous-precedence | return rank > 0 && guests > 0 || staff > 0
+flow.go rule=boolean-not-a-question | func Changed(before string, after string) bool {
+flow.go rule=negated-comparison | return !(before == after)
+flow.go rule=no-default-branch | switch state {
+flow.go rule=loop-runs-once | return item
+flow.go rule=return-of-fresh-local | total := len(rows) * 2
+flow.go rule=redundant-else | } else if kind == "b" {
+flow.go rule=duplicate-condition | } else if kind == "a" {
+flow.go rule=redundant-else | } else if kind == "a" {
+flow.go rule=accumulate-by-copy | out += row
+flow.go rule=loop-concatenation | out += row
+flow.go rule=dead-store | total := value
+flow.go rule=orphan-todo | // TODO: work out what happens to the remainder
+flow.go rule=integer-division | return 7/2 + total
+flow.go rule=passthrough-function | func countRows(rows []int) int {
+flow.go rule=discarded-error | _ = checkRows(rows)
+flow.go rule=discarded-error | value, _ := parsed(text)
+legacy/main.go rule=closure-over-loop-variable | later = append(later, func() { fmt.Println(word) })
+legacy/main.go rule=closure-over-loop-variable | cases.Run(word, func() {
+main.go rule=wide-fan-out | package main
+main.go rule=example-value | "example.com/rqxfixtures/cyclea"
+main.go rule=example-value | "example.com/rqxfixtures/fixtures"
+main.go rule=long-function | func main() {
+orphan/orphan.go rule=unused-file | package orphan
+orphan/orphan.go rule=negated-name | func NoOneImportsThisFile() string {
+orphan/orphan.go rule=mutable-module-state | var NorThis = 1

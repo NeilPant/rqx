@@ -1,0 +1,289 @@
+# Findings expected in fixtures/python: file, expectation, source line.
+# rule= fires on the line (xN: N times), none= must not, may= either way,
+# known-fp= fires and is wrong. #N: the Nth line of the file with this text.
+# Rewrite the rule= entries: RQX_BLESS=1 cargo test -p rqx --test fixtures every_fixture_finding_is_expected
+__main__.py rule=wide-fan-out | from .bloat import Spiral, Catalogue, Formatting, Overgrown, SameAsOvergrown, crowded_scope, deeply_nested, too_many_parameters, widely_guarded, loops, many_paths, spread_out
+bloat.py rule=long-parameter-list | def too_many_parameters(a: int, b: int, c: int, d: int, e: int) -> int:
+bloat.py rule=deep-nesting | def deeply_nested(rows: list) -> int:
+bloat.py rule=large-class | class Overgrown:
+bloat.py rule=wide-surface | class Overgrown:
+bloat.py rule=empty-subclass | class SameAsOvergrown(Overgrown):
+bloat.py rule=static-only-class | class Formatting:
+bloat.py rule=working-constructor | def __init__(self, path):
+bloat.py rule=many-locals | def crowded_scope(seed):
+bloat.py rule=blanket-try | d1 = seed; d2 = seed; d3 = seed; d4 = seed
+bloat.py rule=wide-try | d1 = seed; d2 = seed; d3 = seed; d4 = seed
+bloat.py rule=cognitive-complexity | def many_paths(kind, rows):
+bloat.py rule=cyclomatic-complexity | def many_paths(kind, rows):
+bloat.py rule=guard-cascade | def many_paths(kind, rows):
+bloat.py rule=many-results | return len(rows), len(rows), len(rows), len(rows)
+bloat.py rule=no-base-case | def loops(rows):
+bloat.py rule=passthrough-function | def loops(rows):
+bloat.py rule=no-base-case | def turn(self, rows):
+config.py rule=flag-argument | def endpoint(region: str, secure: bool, retries: int) -> str:
+config.py rule=collapsible-if | if secure:
+config.py rule=collapsible-if | if retries > 0:
+config.py rule=buried-configuration | return "https://api.example.com/v2/orders"
+config.py rule=example-value | return "https://api.example.com/v2/orders"
+config.py rule=obscured-expression | return (a + b) * (c - d) + max(a, b) + min(c, d) - (a * d)
+conventions.py rule=mutable-module-state | retry_limit = 3
+conventions.py rule=unused-export | retry_limit = 3
+conventions.py rule=mixed-conventions | retryBackoff = 250
+conventions.py rule=mutable-module-state | retryBackoff = 250
+conventions.py rule=unused-export | retryBackoff = 250
+conventions.py rule=mixed-language-file | return f"SELECT id, name FROM users WHERE id = '{user_id}'"
+conventions.py rule=boundary-arithmetic | head = items[cursor + 1]
+conventions.py rule=mutable-module-state | limits = {"retry_limit": retry_limit, "retryBackoff": retryBackoff}
+conventions.py rule=mutable-module-state | item_list = [1, 2, 3]
+conventions.py rule=name-repeats-type | item_list = [1, 2, 3]
+conventions.py rule=plural-mismatch | item_list = [1, 2, 3]
+conventions.py rule=over-logging | def narrates(rows):
+cost_allocation_in_loop.py rule=plural-mismatch | pair = [row, row + 1]
+cost_allocation_in_loop.py rule=plural-mismatch | label = {"row": row}
+cost_allocation_in_loop.py rule=plural-mismatch | spare = [row]
+cost_allocation_in_loop.py rule=plural-mismatch #2 | pair = [row, row + 1]
+cost_deep_recursion.py rule=unused-file | def sum_to(n: int) -> int:
+cost_deep_recursion.py rule=deep-recursion | return n + sum_to(n - 1)
+cost_linear_op_in_loop.py rule=linear-op-in-loop | total += queue.pop(0)
+cost_lock_in_loop.py rule=lock-in-loop | lock.acquire()
+cost_lock_in_loop.py rule=lock-in-loop | with lock:
+cost_pair_scan_could_hash.py rule=unused-file | def owners_of(orders, users):
+cost_quadratic_via_call.py rule=unused-file | def index_of_item(items: list[str], wanted: str) -> int:
+cost_quadratic_via_call.py rule=quadratic-via-call | if index_of_item(items, items[at]) == at:
+cost_repeated_computation_in_loop.py rule=unused-file | def total_length(parts: list[str]) -> int:
+cost_repeated_computation_in_loop.py rule=repeated-computation-in-loop | whole = total_length(parts)
+cost_repeated_computation_in_loop.py rule=plural-mismatch | own = [str(weight)]
+cost_sort_in_loop.py rule=sort-in-loop | base.sort()
+cost_unbounded_cache.py rule=unbounded-cache | _page_sizes[key] = size
+cost_unbounded_cache.py rule=unbounded-cache | @functools.lru_cache(maxsize=None)
+cost_unbounded_concurrency.py rule=query-in-loop | return await asyncio.gather(*[client.get(url) for url in urls])
+cost_unbounded_concurrency.py rule=unbounded-concurrency | return await asyncio.gather(*[client.get(url) for url in urls])
+cycle_a.py rule=circular-dependency | from .cycle_b import spin
+dead_export.py rule=unused-export | def never_imported(value: int) -> int:
+dead_export.py rule=lazy-class | class AlsoNeverImported:
+dead_export.py rule=unused-export | class AlsoNeverImported:
+families.py rule=duplicate-code | @abstractmethod
+families.py rule=unused-export | class Road(Transport):
+families.py rule=unused-export | class Rail(Transport):
+families.py rule=duplicate-code | def button(self) -> Button:
+flow.py rule=boolean-from-branch | if ready:
+flow.py rule=redundant-else | else:
+flow.py rule=literal-comparison | if ready == True:
+flow.py rule=self-comparison | if count == count:
+flow.py rule=identical-branches | if count > 10:
+flow.py rule=redundant-else #2 | else:
+flow.py rule=cognitive-complexity | def buried_exits(a, b):
+flow.py rule=many-exits | def buried_exits(a, b):
+flow.py rule=magic-number | for step in [1, 2, 3]:
+flow.py rule=return-of-fresh-local | def outer():
+flow.py rule=callback-nesting | def deepest():
+flow.py rule=return-of-fresh-local | def deepest():
+flow.py rule=many-exits | def wide_match(kind):
+flow.py rule=type-code-switch | match kind:
+flow.py rule=wide-switch | match kind:
+flow.py rule=unused-export | def trailing_jump(items: list) -> int:
+flow.py rule=redundant-jump | continue
+flow.py rule=unused-export | def two_armed(kind: str) -> int:
+flow.py rule=boolean-not-a-question | def settled(balance: float) -> bool:
+flow.py rule=unused-export | def settled(balance: float) -> bool:
+flow.py rule=float-equality | return balance == 0.1
+flow.py rule=unused-export | def dropped(total: int, other: int) -> int:
+flow.py rule=discarded-expression | total == other
+flow.py rule=nested-ternary | return "gold" if score > 90 else ("silver" if score > 50 else "bronze")
+flow.py rule=ambiguous-precedence | return rank > 0 and guests > 0 or staff > 0
+flow.py rule=negated-comparison | return not (before == after)
+flow.py rule=no-default-branch | match state:
+flow.py rule=loop-runs-once | return item
+flow.py rule=return-of-fresh-local | total = len(rows) * 2
+flow.py rule=duplicate-code | if kind == "a":
+flow.py rule=redundant-else | elif kind == "b":
+flow.py rule=duplicate-condition | elif kind == "a":
+flow.py rule=accumulate-by-copy | out += row
+flow.py rule=loop-concatenation | out += row
+flow.py rule=speculative-generality | class Settled(abc.ABC):
+flow.py rule=dead-store #2 | total = value
+gateway_a.py rule=passthrough-function | def collect_a(amount):
+gateway_b.py rule=passthrough-function | def collect_b(amount):
+gateway_c.py rule=passthrough-function | def collect_c(amount):
+hierarchy.py rule=passthrough-override | def feed(self):
+hierarchy.py rule=duplicate-code | total = len(rows)
+hierarchy.py rule=duplicate-function | def second_way(rows):
+hierarchy.py rule=unused-export | class Level1(Feeder):
+hierarchy.py rule=empty-subclass | class Level2(Level1):
+hierarchy.py rule=unused-export | class Level2(Level1):
+hierarchy.py rule=deep-inheritance | class Level3(Level2):
+hierarchy.py rule=empty-subclass | class Level3(Level2):
+hierarchy.py rule=unused-export | class Level3(Level2):
+hierarchy.py rule=deep-inheritance | class Level4(Level3):
+hierarchy.py rule=empty-subclass | class Level4(Level3):
+hierarchy.py rule=orphan-todo | # TODO: work out what happens to the remainder
+hierarchy.py rule=integer-division | return 7 / 2 + total
+hierarchy.py rule=discarded-error | _ = _count_rows(rows)
+hierarchy.py rule=passthrough-function | def _count_rows(rows):
+hygiene.py rule=wildcard-import | from .cycle_b import *
+hygiene.py rule=duplicate-import | from .cycle_b import spin
+hygiene.py rule=unused-import | from .cycle_c import wobble
+hygiene.py rule=deep-relative-import | from ....shared.far import far
+hygiene.py rule=unused-import | from ....shared.far import far
+hygiene.py rule=duplicate-import | from .cycle_a import orbit as orbit_again
+hygiene.py rule=unused-import | from .cycle_a import orbit as orbit_again
+hygiene.py rule=flag-argument | def pricing(cart: list, apply_discount: bool) -> int:
+hygiene.py rule=unused-local | never_read = len(cart)
+hygiene.py rule=commented-out-code | # legacy = total * 0.2
+hygiene.py rule=complex-condition | if not apply_discount and total > 4999 and len(cart) > 12 and orbit():
+hygiene.py rule=magic-number | if not apply_discount and total > 4999 and len(cart) > 12 and orbit():
+hygiene.py rule=redundant-else | else:
+hygiene.py rule=empty-catch | except ValueError:
+hygiene.py rule=unjustified-suppression | # rqx-ignore magic-number
+hygiene.py rule=output-parameter | value = 1
+hygiene.py rule=unreachable-code | value = 1
+hygiene.py rule=suppressed-diagnostic | # type: ignore
+hygiene.py rule=mutable-module-state | suppressed = 1
+hygiene.py rule=message-chain x2 | return order.customer.address.city.strip().upper()
+hygiene.py rule=banner-comment | # ---------------- helpers ----------------
+hygiene.py rule=explanation-longer-than-code | # ---------------- helpers ----------------
+hygiene.py rule=chat-residue | # Here's the helper you asked for! 🎉
+hygiene.py rule=apology-comment | # Sorry, this one is ugly.
+hygiene.py rule=empty-method | def nothing_happens() -> None:
+hygiene.py rule=unused-export | def nothing_happens() -> None:
+hygiene.py rule=passthrough-function | def forward_orbit(seed):
+hygiene.py rule=placeholder-body | def still_to_write():
+hygiene.py rule=rethrow-only-catch | except ValueError as error:
+hygiene.py rule=mixed-return | return
+hygiene.py rule=exit-from-finally #2 | return 0
+hygiene.py rule=catch-all-handler | except Exception:
+hygiene.py rule=generic-throw | raise Exception("no")
+hygiene.py rule=passthrough-function | def stops(code):
+hygiene.py rule=library-exit | sys.exit(code)
+hygiene.py rule=boolean-literal-argument | return _fetch_page(url, True)
+hygiene.py rule=comment-per-line | # set the total
+hygiene.py rule=explanation-longer-than-code | # Works out the score for the given user id, and gives back the score it
+hygiene.py rule=guard-cascade | def guarded_add(a, b, c):
+hygiene.py rule=blanket-try #2 | total = 0
+hygiene.py rule=docstring-restates-signature | """Score of user id"""
+hygiene.py rule=catch-all-handler #2 | except Exception:
+hygiene.py rule=shadowed-handler #2 | except Exception:
+intimacy.py rule=inappropriate-intimacy | return Checkout.rate * len(self.items)
+intimacy.py rule=duplicate-code | def open(self, path: str) -> None:
+intimacy.py rule=mutable-module-state | open_sessions = 0
+intimacy.py rule=import-time-work | warm_the_cache()
+intimacy.py rule=working-constructor #2 | def __init__(self):
+intimacy.py rule=self-built-collaborators | self.writer = CsvWriter()
+intimacy.py rule=ambient-dependency | return time.time()
+lifecycle.py rule=temporal-coupling | self._opened = True
+lifecycle.py rule=middle-man | class ReportFactory:
+long.py rule=long-function | def many_steps() -> int:
+names.py rule=vague-function-name | def process(rows: list) -> int:
+names.py rule=plural-mismatch | data = [row for row in rows if row]
+names.py rule=return-of-fresh-local | temp2 = len(data)
+names.py rule=shadows-builtin | list = len(rows)
+orphan.py rule=negated-name | def no_one_imports_this_file():
+orphan.py rule=unused-file | def no_one_imports_this_file():
+orphan.py rule=mutable-module-state | nor_this = 1
+params.py rule=unused-parameter | def with_dead_tail(used: int, dead: str) -> int:
+params.py rule=unused-parameter | def with_dead_middle(dead: str, used: int) -> int:
+params.py rule=unused-parameter x2 | def two_dead_on_one_line(used: int, dead_a: str, dead_b: str) -> int:
+patterns.py rule=type-code-switch | if self.state == "closed":
+patterns.py rule=redundant-else | elif self.state == "open":
+patterns.py rule=redundant-else #2 | elif self.state == "open":
+patterns.py rule=redundant-else | elif _looks_like_upload(request):
+patterns.py rule=type-code-switch | if action.kind == "add":
+patterns.py rule=redundant-else | elif action.kind == "remove":
+patterns.py rule=redundant-else #2 | elif action.kind == "remove":
+performance.py rule=scan-in-loop | if row in wanted:
+performance.py rule=deep-loop-nesting | def sum_cube(grid):
+performance.py rule=query-in-loop | rows.append(client.get(item))
+performance.py rule=await-in-loop | texts.append(await reader.read(path))
+performance.py rule=invariant-in-loop | digits = re.compile("^[0-9]+$")
+performance.py rule=accumulate-by-copy | text = text + part
+performance.py rule=branching-recursion | def fibonacci(step):
+performance.py rule=blocking-call-in-async | time.sleep(1)
+performance.py rule=sleep-in-production | time.sleep(1)
+performance.py rule=closure-over-loop-variable | def later():
+performance.py rule=mutated-while-iterated | rows.remove(row)
+performance.py rule=sequential-await | second = await _load_two()
+performance.py rule=production-assert | assert value > 0
+performance.py rule=mutable-module-state | open_tabs = 0
+performance.py rule=global-accessor | def tabs_open():
+performance.py rule=dropped-promise | _load_one()
+performance.py rule=mutated-while-iterated | del seen[key]
+precision.py rule=journal-comment | # @author someone
+precision.py rule=journal-comment | # Created on 2019-04-02
+precision.py rule=imprecise-type | def widen(raw: Any) -> str:
+precision.py rule=imprecise-type | text: Any = raw
+precision.py rule=redundant-comment | # user name
+precision.py rule=mutable-module-state | user_name = "ada"
+precision.py rule=data-class | class Loose:
+precision.py rule=imprecise-type | def __init__(self, payload: Any):
+queries.py rule=unused-private-member | self._reads = 0
+queries.py rule=mixed-conventions | def getTotal(self) -> int:
+queries.py rule=query-with-side-effect | def getTotal(self) -> int:
+queries.py rule=vague-function-name | def handle(value: str) -> str:
+queries.py rule=many-exits | def find_order(rows: list) -> str:
+reconcile.py rule=passthrough-function | def total_of(rows):
+reconcile.py rule=unused-private-member | self._ledger = {}
+reconcile.py rule=cognitive-complexity | def reconcile_batch(self, batch, tolerance, dry_run, retries, verbose):
+reconcile.py rule=deep-nesting | def reconcile_batch(self, batch, tolerance, dry_run, retries, verbose):
+reconcile.py rule=long-parameter-list | def reconcile_batch(self, batch, tolerance, dry_run, retries, verbose):
+reconcile.py rule=duplicate-code | total = total_of(rows)
+shapes.py rule=lazy-class | class Shipment:
+shapes.py rule=data-class | class Coordinate:
+shapes.py rule=lazy-class | class Marker:
+shapes.py rule=middle-man | class Facade:
+shapes.py rule=speculative-generality | class Vehicle(ABC):
+shapes.py rule=unused-private-member | self._unused_secret = 1
+shapes.py rule=temporary-field | self.scratch = "on"
+shapes.py rule=inappropriate-static | def build(other: "Engine"):
+shapes.py rule=placeholder-body #2 | def run(self):
+shapes.py rule=refused-bequest #2 | def run(self):
+shapes.py rule=feature-envy | def add(self, basket):
+shapes.py rule=no-default-branch | match kind:
+shapes.py rule=type-code-switch | match kind:
+shapes.py rule=magic-number | return 3
+shapes.py rule=redundant-else | elif kind == "sms":
+shapes.py rule=data-clump | def notify(user_id, channel, locale):
+shapes.py rule=unused-parameter x2 | def notify(user_id, channel, locale):
+shapes.py rule=unused-parameter x2 | def enqueue(user_id, channel, locale):
+shapes.py rule=unused-parameter x2 | def record(user_id, channel, locale):
+shapes.py rule=base-depends-on-derived | return CachedRegistry() if kind == "cached" else self
+shapes.py rule=empty-subclass | class CachedRegistry(Registry):
+shapes.py rule=flag-argument | def gate(ready: bool, retries: int) -> int:
+shapes.py rule=redundant-else | else:
+shapes.py rule=long-function | def sweep(rows):
+shapes.py rule=distant-declaration | n = 0
+shapes.py rule=magic-number | if row > 7331:
+structures.py rule=middle-man | class LoggingNotifier(Notifier):
+structures.py rule=middle-man | class GuardedNotifier(Notifier):
+structures.py rule=middle-man | class SmsNotifier(Notifier):
+structures.py rule=temporary-field | self.clauses += 1
+structures.py rule=temporary-field | colours: int
+structures.py rule=temporary-field | pages: list[str]
+structures.py rule=unused-private-member | def __iter__(self) -> "Pages":
+structures.py rule=unused-private-member | def __next__(self) -> str:
+structures.py rule=middle-man | class Feed:
+structures.py rule=speculative-generality | class Importer(ABC):
+structures.py rule=unused-private-member | def __enter__(self):
+structures.py rule=unused-private-member | def __exit__(self, kind, value, trace):
+test_checks.py rule=branching-test | total = add(0, 1)
+test_suite.py rule=skipped-test | def test_discounts():
+test_suite.py rule=magic-number | assert add(1, 2) == 3
+test_suite.py rule=slow-test | time.sleep(500)
+test_suite.py rule=assertionless-test | def test_checks_nothing():
+test_suite.py rule=unused-local | value = add(1, 1)
+test_suite.py rule=duplicate-assertion #3 | assert add(1, 1) == 2
+test_suite.py rule=hand-rolled-throws | try:
+test_suite.py rule=debug-output-in-test | print("here")
+test_suite.py rule=unnamed-test #6 | assert add(1, 1) == 2
+test_suite.py rule=self-comparison | assert add(1, 1) == add(1, 1)
+test_suite.py rule=assertionless-test | def test_is_not_written_yet():
+test_suite.py rule=empty-method | def test_is_not_written_yet():
+test_suite.py rule=negated-name | def test_is_not_written_yet():
+test_suite.py rule=empty-test | pass
+test_suite.py rule=string-shape-assertion | assert repr({"two": two}) == "{'two': 4, 'spare': 'padding here'}"
+test_suite.py rule=mutable-module-state | spare = 0
+test_suite.py rule=unused-fixture | spare = 1
+test_suite.py rule=unchecked-stub | client = Mock()
+test_suite.py rule=unused-local | client = Mock()
+test_suite.py rule=self-asserting-test | assert totals == [*totals]
+vocabulary.py rule=mixed-conventions | def getOrder(identifier: str) -> str:
+vocabulary.py rule=unused-parameter | def save_order(identifier: str) -> None:
