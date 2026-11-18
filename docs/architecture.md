@@ -52,8 +52,14 @@ present the result.
    parallelism.
 3. **Per-file analysis.** Each worker calls `analyze_file`. A file larger than
    `scan.max_filesize` is skipped with a reason. Otherwise the worker consults the
-   cache, and on a miss calls `rqx_lang::analyze`, which parses the file and runs
-   every rule that needs only that file. The result is a `FileAnalysis`: findings,
+   cache, and on a miss calls `rqx_lang::analyze_planned`, which parses the file and
+   runs every rule that needs only that file. Which facts it builds is the file's
+   `FactPlan` (`crates/rqx-core/src/fact_plan.rs`): the union of `RuleId::facts` over
+   the rules and advisories enabled for that file, plus what any enabled rule reads
+   from every file, such as the imports the graph is built from. The parse tree's
+   metrics are always built; the scope resolver and the collectors on it are built
+   only when the plan includes them. A rule's declared `Analysis` is documentation and
+   does not decide what is built. The result is a `FileAnalysis`: findings,
    advice, clone sites, module facts, suppressions and other facts the cross-file
    stages need.
 4. **Collector.** One thread receives `ScanMessage` values over a bounded channel
