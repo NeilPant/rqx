@@ -55,6 +55,29 @@ impl SkipReason {
             Self::Walk => "unreachable",
         }
     }
+
+    /// The setting that brings files skipped for this reason back, when one does.
+    const fn setting(self) -> Option<&'static str> {
+        match self {
+            Self::Submodule => Some("scan.skip_submodules: none"),
+            Self::Minified => Some("scan.skip_minified: false"),
+            Self::Generated => Some("scan.skip_generated: false"),
+            Self::Gitattributes => Some("scan.respect_gitattributes: false"),
+            Self::TooLarge => Some("a larger scan.max_filesize"),
+            Self::Unreadable | Self::ParseTimeout | Self::Unsupported | Self::Walk => None,
+        }
+    }
+}
+
+/// The settings that would bring the skipped files back, one per reason, in the order
+/// the summary names the reasons.
+pub fn settings_to_include(skipped: &[Skipped]) -> Vec<&'static str> {
+    let reasons: std::collections::BTreeSet<SkipReason> =
+        skipped.iter().map(|entry| entry.reason).collect();
+    reasons
+        .into_iter()
+        .filter_map(SkipReason::setting)
+        .collect()
 }
 
 /// One entry of the skipped list. `detail` is the text the JSON `skipped` strings have
@@ -522,6 +545,25 @@ mod tests {
             )
         );
         assert_eq!(summary(&[], root), None);
+    }
+
+    #[test]
+    fn each_reason_with_a_setting_names_it_once() {
+        let skipped = [
+            entry("project/a.min.js", SkipReason::Minified),
+            entry("project/b.min.js", SkipReason::Minified),
+            entry("project/design", SkipReason::Submodule),
+            entry("project/broken.ts", SkipReason::Unreadable),
+            entry("project/api.ts", SkipReason::Gitattributes),
+        ];
+        assert_eq!(
+            settings_to_include(&skipped),
+            [
+                "scan.skip_submodules: none",
+                "scan.skip_minified: false",
+                "scan.respect_gitattributes: false"
+            ]
+        );
     }
 
     #[test]

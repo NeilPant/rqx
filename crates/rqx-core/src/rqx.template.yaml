@@ -115,7 +115,9 @@ thresholds:
 ignore:
   # Globs of files rqx should not read at all. Tests are deliberately absent: an
   # ignored file's imports are invisible to the module graph, so a helper used only
-  # by its own test would be reported as an unused export.
+  # by its own test would be reported as an unused export. Vendored code the scan
+  # does not recognise on its own goes here too, for example:
+  #   - "src/assets/vendor-lib/**"
   patterns:
     - "**/*.d.ts"
     - "**/generated/**"

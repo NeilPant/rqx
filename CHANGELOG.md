@@ -43,9 +43,11 @@ them. `tools/release.sh` turns that section into the release notes.
 
 - **The terminal report sums up skipped files in one line.** For example:
   `skipped 412 files: 398 in foreign submodule design/ (github.com/other-org), 14
-  minified · -v lists them`. The
-  report used to list up to ten skipped files. `-v` lists every skipped file with its
-  reason, and the paths are relative to the scanned directory, as finding paths are.
+  minified · -v lists them`. The report used to list up to ten skipped files. `-v`
+  lists every skipped file with its reason, under a line naming the settings that
+  bring them back, such as `scan.skip_submodules: none`. The paths are relative to the
+  scanned directory, as finding paths are. `docs/configuration.md` describes what a scan leaves out and how
+  `ignore.patterns` covers vendored code it does not recognise.
 
 - **Git submodules from another organisation are no longer scanned by default.** The
   scan reads `.gitmodules` in the scanned directory, and at the repository root when a

@@ -25,6 +25,20 @@ The upward search stops at a directory holding `.git`, or at a file that sets `r
 
 **An `ignore.patterns` glob is matched against paths relative to the directory being scanned**, not to the file the pattern is written in. `rqx scan .` and `rqx scan src` therefore see different things from one `patterns: [src/**]`, and a pattern naming a directory whose name appears again deeper in the tree (`fixtures/**` against a `fixtures/go/fixtures/`) matches in both places. Name one level more when that matters: `fixtures/*/**`.
 
+## Code that is not the project's own
+
+A scan leaves out what it can tell is someone else's code or a tool's output, and the report counts it by reason: git submodules hosted under another organisation (`scan.skip_submodules`), minified files (`scan.skip_minified`), files with a generator's header or a bundler's runtime (`scan.skip_generated`), and files `.gitattributes` marks `linguist-generated` or `linguist-vendored` (`scan.respect_gitattributes`). `rqx scan -v` lists every skipped file and the setting that brings it back. The scan also never enters a directory with a conventional vendored or build-output name (`scan.prune_dirs`), and does not count what is in one.
+
+Anything else vendored, such as a library copied into the source tree under a name of its own, is left out with `ignore.patterns`. A list in a config file replaces the default list, so start from the one `rqx init` writes and add to it:
+
+```yaml
+ignore:
+  patterns:
+    - "**/*.d.ts"
+    # ...the rest of the defaults...
+    - "src/assets/vendor-lib/**"
+```
+
 ## A subtree with different standards
 
 ```yaml

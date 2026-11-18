@@ -1222,6 +1222,14 @@ fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) ->
         return Ok(());
     }
     writeln!(out, "\n  {summary}")?;
+    let settings = crate::scan::skip::settings_to_include(&outcome.skipped);
+    if !settings.is_empty() {
+        writeln!(
+            out,
+            "  {}",
+            paint(dim, format!("to include them: {}", settings.join(", ")))
+        )?;
+    }
     for skipped in &outcome.skipped {
         writeln!(
             out,
@@ -1538,6 +1546,10 @@ mod tests {
             },
         );
         assert!(!full.contains("-v lists them"), "{full}");
+        assert!(
+            full.contains("to include them: a larger scan.max_filesize"),
+            "{full}"
+        );
         assert!(
             full.contains("src/big-14.ts \u{2014} 2048 KB exceeds the 1024 KB limit"),
             "{full}"
