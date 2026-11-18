@@ -15,6 +15,7 @@ mod link;
 mod markdown;
 mod owners;
 mod patterns;
+mod precision;
 pub mod projection;
 mod ranked;
 mod sarif;
