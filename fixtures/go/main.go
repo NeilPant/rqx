@@ -154,5 +154,7 @@ func main() {
 	_ = fixtures.SplitHost
 	_ = fixtures.Scaled
 	_ = fixtures.Counted
+	_ = fixtures.CanWrite
+	_ = ParsedOrZero
 	_ = cyclea.Orbit
 }

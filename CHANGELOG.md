@@ -17,6 +17,11 @@ them. `tools/release.sh` turns that section into the release notes.
   with another function's parameter were all reported. The target is now resolved
   through the file's scopes and must be a parameter of an enclosing function. A named
   result in a Go signature is not counted, and each parameter is reported once.
+- **`discarded-error` reads the error position of a Go assignment with several
+  targets.** It looked only at the first target, so `_, err := w.Write(b)`, which keeps
+  the error and drops the byte count, was reported. With several targets the rule now
+  reads the last one, where Go returns the error, and the message says that the error
+  is the result being thrown away.
 
 ## 0.5.0 — 2026-11-18
 

@@ -1,6 +1,7 @@
+// Code that resembles a finding and is not one. Every rule should stay silent here.
 package fixtures
 
-// Code that resembles a finding and is not one. Every rule should stay silent here.
+import "io"
 
 // output-parameter: filling a named result is how a Go function answers.
 func SplitHost(address string) (host string, port string) {
@@ -19,4 +20,10 @@ func Counted(items []string) int {
 	factor := len(items)
 	factor++
 	return factor
+}
+
+// discarded-error: the error is kept; only the count of bytes is dropped.
+func CanWrite(w io.Writer, b []byte) bool {
+	_, err := w.Write(b)
+	return err == nil
 }

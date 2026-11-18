@@ -1542,7 +1542,11 @@ pub fn check_hygiene(
             spot,
             Evidence::Name {
                 identifier: spot.detail.clone(),
-                reason: "answers something the line throws away".to_owned(),
+                reason: if spot.count > 1 {
+                    "returns its error last, and the line throws that result away".to_owned()
+                } else {
+                    "answers something the line throws away".to_owned()
+                },
             },
             "handle the result, or state in the code why nothing needs to be done".to_owned(),
         );

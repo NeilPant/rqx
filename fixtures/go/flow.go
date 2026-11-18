@@ -146,3 +146,12 @@ func Ignored(rows []int) int {
 func countRows(rows []int) int {
 	return len(rows)
 }
+
+func ParsedOrZero(text string) int {
+	value, _ := parsed(text)
+	return value + len(text)
+}
+
+func parsed(text string) (int, error) {
+	return len(text), nil
+}

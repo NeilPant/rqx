@@ -3668,7 +3668,9 @@ impl<'a> Walker<'a> {
     }
 
     /// A call whose answer is put somewhere nobody reads. The name says the author
-    /// saw the answer and decided not to look at it.
+    /// saw the answer and decided not to look at it. A call with several results puts
+    /// the error last, so only that position decides: `_, err := w.Write(b)` drops
+    /// the count and keeps the error. The spot counts the results the call returned.
     fn note_discarded_error(&mut self, node: Node<'a>) {
         let profile = self.profile;
         let Some(target) = node.child_by_field_name("left").or_else(|| {
@@ -3679,12 +3681,11 @@ impl<'a> Walker<'a> {
         }) else {
             return;
         };
-        let target = if profile.expression_list_kinds.contains(&kind_of(target)) {
-            target.named_child(0).unwrap_or(target)
-        } else {
-            target
+        let targets = self.listed(target);
+        let Some(last) = targets.last() else {
+            return;
         };
-        if !profile.is_ignored_name(self.text(target)) || self.text(target).len() > 2 {
+        if !profile.is_ignored_name(self.text(*last)) || self.text(*last).len() > 2 {
             return;
         }
         let Some(value) = node
@@ -3694,10 +3695,15 @@ impl<'a> Walker<'a> {
         else {
             return;
         };
-        let value = if profile.expression_list_kinds.contains(&kind_of(value)) {
-            value.named_child(0).unwrap_or(value)
+        let values = self.listed(value);
+        let paired = values.len() == targets.len();
+        let Some(value) = (if paired {
+            values.last()
         } else {
-            value
+            values.first()
+        })
+        .map(|value| self.see_through(*value)) else {
+            return;
         };
         if !profile.is_call(value) {
             return;
@@ -3707,8 +3713,18 @@ impl<'a> Walker<'a> {
             detail: self
                 .called_name(value)
                 .unwrap_or_else(|| "the call".to_owned()),
-            count: 1,
+            count: if paired { 1 } else { targets.len() as u32 },
         });
+    }
+
+    /// The items of a list the grammar wraps several targets or values in, or the
+    /// node alone.
+    fn listed(&self, node: Node<'a>) -> Vec<Node<'a>> {
+        if self.profile.expression_list_kinds.contains(&kind_of(node)) {
+            node.named_children(&mut node.walk()).collect()
+        } else {
+            vec![node]
+        }
     }
 
     fn note_exits(&mut self, function: Node<'a>) {
