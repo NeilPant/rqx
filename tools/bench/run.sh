@@ -118,37 +118,4 @@ measure warm none
 measure warm-after-edit edit
 
 echo
-python3 -I - "$out" "${baseline:+yes}" <<'EOF'
-import json, os, sys
-
-out, paired = sys.argv[1], sys.argv[2] == "yes"
-
-
-def mean(result):
-    # hyperfine 1.x puts the mean on the result. Newer releases, which also measure
-    # memory, move it into a summary, under the wall-time measurement when they keep
-    # one per kind. Memory figures are never read as a time.
-    for where in (result, result.get("summary")):
-        if not isinstance(where, dict):
-            continue
-        if isinstance(where.get("mean"), (int, float)):
-            return where["mean"]
-        for key in ("wall_time", "time"):
-            nested = where.get(key)
-            if isinstance(nested, dict) and isinstance(nested.get("mean"), (int, float)):
-                return nested["mean"]
-    sys.exit(f"run.sh: no mean in hyperfine's result; keys: {sorted(result)}")
-
-
-print("summary (mean seconds; change is current against baseline)")
-for scenario in ("cold", "warm", "warm-after-edit"):
-    with open(os.path.join(out, scenario + ".json")) as f:
-        results = json.load(f)["results"]
-    current = mean(results[-1])
-    if paired:
-        base = mean(results[0])
-        change = (current - base) / base * 100
-        print(f"  {scenario:<17} baseline {base:8.3f}   current {current:8.3f}   {change:+6.1f}%")
-    else:
-        print(f"  {scenario:<17} current {current:8.3f}")
-EOF
+python3 -I "$root/tools/bench/summary.py" "$out" "${baseline:+yes}"

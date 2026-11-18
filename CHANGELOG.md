@@ -189,6 +189,11 @@ them. `tools/release.sh` turns that section into the release notes.
   function findings on such a callback report it as unnamed, at its first line.
   `const spin = (n) => spin(n)` and recursive functions and methods are reported as
   before.
+- **rqx no longer overflows the stack at startup on Windows.** On Windows the program
+  exited without printing anything, with the status `0xC00000FD`, because the command
+  line parser needs more than the 1 MB that Windows gives the main thread. rqx now runs
+  on a thread with an 8 MB stack on every platform. Exit codes, the behaviour on a
+  closed pipe and the message printed on a panic are unchanged.
 
 ## 0.5.1 — 2026-11-18
 
