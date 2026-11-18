@@ -92,6 +92,12 @@ them. `tools/release.sh` turns that section into the release notes.
   and the new count. `--force` still records the new set. For a baseline file written by
   0.5.0, which has no counts, each rule is compared by its number of entries.
 
+- **Findings are reported in the same order on every run.** Two findings of one rule on
+  the same span with the same hint, such as two `repeated-computation-in-loop` findings
+  on one line of go-redis, could change places between runs and between thread counts.
+  Their evidence is now part of the sort key, so the terminal, JSON and SARIF output of a
+  scan is the same for any run and any `--threads` value.
+
 - **`oversized-module` and `cross-language-duplicate` findings counted as project-wide.** The
   health projection after `rqx fix` and the resolved credit in `rqx comment` no longer drop
   them when only some files are re-analysed.

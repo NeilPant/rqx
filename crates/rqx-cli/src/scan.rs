@@ -200,19 +200,11 @@ impl PartialOrd for Ranked {
 }
 
 impl Ord for Ranked {
-    /// The same total key the findings are finally sorted by, and total for the same
-    /// reason: this order decides which findings the display cap keeps, so anything
-    /// that leaves two findings equal lets the order the workers happened to finish
-    /// in choose between them.
+    /// The report order turned around, so the heap's smallest is the finding reported
+    /// last. This order decides which findings the display cap keeps, so it has to be
+    /// the same total key the findings are finally sorted by.
     fn cmp(&self, other: &Self) -> Ordering {
-        let (mine, theirs) = (&self.0, &other.0);
-        mine.rank()
-            .cmp(&theirs.rank())
-            .then_with(|| theirs.location.file.cmp(&mine.location.file))
-            .then(theirs.location.line.cmp(&mine.location.line))
-            .then(theirs.location.start.cmp(&mine.location.start))
-            .then(theirs.location.end.cmp(&mine.location.end))
-            .then_with(|| theirs.fix_hint.cmp(&mine.fix_hint))
+        other.0.report_order(&self.0)
     }
 }
 
@@ -1860,21 +1852,7 @@ impl Collector {
             .into_iter()
             .map(|Reverse(ranked)| ranked.0)
             .collect();
-        // The key has to be total. Two unused parameters of the same function share
-        // a rule, a file and a line, so anything short of the byte offset lets the
-        // order the heap happened to produce leak into the output — and that order
-        // depends on how many threads ran.
-        findings.sort_by(|a, b| {
-            b.rank()
-                .cmp(&a.rank())
-                .then(a.location.file.cmp(&b.location.file))
-                .then(a.location.line.cmp(&b.location.line))
-                .then(a.location.start.cmp(&b.location.start))
-                .then(a.location.end.cmp(&b.location.end))
-                // Last resort: two findings can legitimately share a span, so the
-                // ordering falls back to their text rather than to heap order.
-                .then_with(|| a.fix_hint.cmp(&b.fix_hint))
-        });
+        findings.sort_by(Finding::report_order);
         // Same reason the findings key is total: the collector sees files in whatever
         // order the workers finish, and that order depends on the thread count.
         self.advice.sort_by(|a, b| {
@@ -1894,6 +1872,7 @@ impl Collector {
                 .then(a.finding.location.start.cmp(&b.finding.location.start))
                 .then(a.finding.slug().cmp(b.finding.slug()))
                 .then(a.at.start.cmp(&b.at.start))
+                .then_with(|| a.finding.report_order(&b.finding))
         });
         let profile = self.profile.take().map(|samples| {
             let shapes = crate::path_suffixes::PathSuffixes::of(&self.shape_by_file);

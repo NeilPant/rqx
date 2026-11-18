@@ -850,6 +850,41 @@ impl Finding {
         (self.severity, self.confidence, self.rule)
     }
 
+    /// The order findings are reported in: highest rank first, then by place. Total,
+    /// because whatever it leaves equal comes out in the order the workers finished,
+    /// which changes with the thread count. Two calls on one line can share a rule, a
+    /// span and a hint, so the evidence and everything after it decide those.
+    pub fn report_order(&self, other: &Self) -> std::cmp::Ordering {
+        let place = |range: &SourceRange| (Arc::clone(&range.file), range.start, range.end);
+        other
+            .rank()
+            .cmp(&self.rank())
+            .then_with(|| self.location.file.cmp(&other.location.file))
+            .then(self.location.line.cmp(&other.location.line))
+            .then(self.location.start.cmp(&other.location.start))
+            .then(self.location.end.cmp(&other.location.end))
+            .then_with(|| self.fix_hint.cmp(&other.fix_hint))
+            .then_with(|| self.slug().cmp(other.slug()))
+            .then_with(|| {
+                serde_json::to_string(&self.evidence)
+                    .ok()
+                    .cmp(&serde_json::to_string(&other.evidence).ok())
+            })
+            .then_with(|| {
+                self.focus
+                    .as_ref()
+                    .map(place)
+                    .cmp(&other.focus.as_ref().map(place))
+            })
+            .then_with(|| {
+                self.related
+                    .iter()
+                    .map(place)
+                    .cmp(other.related.iter().map(place))
+            })
+            .then(self.known.cmp(&other.known))
+    }
+
     /// What to call this rule anywhere a reader or a machine sees it. A rule the
     /// project wrote carries its own name on the evidence, because the enum has one
     /// variant for all of them.
@@ -888,5 +923,69 @@ impl Finding {
         } else {
             self.rule.spec().metric
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Two calls on one line of go-redis: one rule, one span, one hint, and only the
+    /// subject differs.
+    fn repeated_call(subject: &str) -> Finding {
+        Finding {
+            rule: RuleId::RepeatedComputationInLoop,
+            location: SourceRange {
+                file: "bench_decode_test.go".into(),
+                start: 4655,
+                end: 4716,
+                line: 190,
+                column: 3,
+                end_line: 190,
+            },
+            focus: None,
+            severity: Severity::Warning,
+            confidence: Confidence::Heuristic,
+            evidence: Evidence::InLoop {
+                subject: subject.to_owned(),
+                depth: 1,
+                sampled: None,
+            },
+            fix_hint: "compute it once above the loop".to_owned(),
+            related: Vec::new(),
+            known: false,
+        }
+    }
+
+    fn subjects(findings: &[Finding]) -> Vec<String> {
+        findings
+            .iter()
+            .map(|finding| match &finding.evidence {
+                Evidence::InLoop { subject, .. } => subject.clone(),
+                _ => String::new(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn findings_that_share_a_rule_a_span_and_a_hint_have_one_order_whatever_they_arrive_in() {
+        let mut arrived = vec![repeated_call("rdb.Set.Val"), repeated_call("rdb.Set")];
+        let mut reversed = vec![repeated_call("rdb.Set"), repeated_call("rdb.Set.Val")];
+        arrived.sort_by(Finding::report_order);
+        reversed.sort_by(Finding::report_order);
+        assert_eq!(subjects(&arrived), subjects(&reversed));
+        assert_eq!(
+            arrived[0].report_order(&arrived[1]),
+            std::cmp::Ordering::Less
+        );
+    }
+
+    #[test]
+    fn the_report_order_still_puts_rank_before_place() {
+        let mut warning = repeated_call("a");
+        warning.location.line = 900;
+        let mut error = repeated_call("b");
+        error.severity = Severity::Error;
+        assert_eq!(error.report_order(&warning), std::cmp::Ordering::Less);
     }
 }
