@@ -260,7 +260,7 @@ pub fn perf(outcome: &ScanOutcome, threshold: u32, limit: usize) -> Value {
         "functions": crate::perf::ranked(outcome, &view)
             .iter()
             .take(limit)
-            .map(|row| json!({
+            .map(|row| row.with_cost(json!({
                 "name": row.name,
                 "at": row.at,
                 "order": crate::perf::order(row.loops, row.self_calls),
@@ -277,7 +277,7 @@ pub fn perf(outcome: &ScanOutcome, threshold: u32, limit: usize) -> Value {
                     "evidence": line.evidence,
                     "fix": line.fix,
                 })).collect::<Vec<_>>(),
-            }))
+            })))
             .collect::<Vec<_>>(),
         "profile": outcome.profile.as_ref().map(|profile| json!({
             "samples": profile.samples(),

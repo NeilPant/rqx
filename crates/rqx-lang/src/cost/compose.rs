@@ -14,7 +14,7 @@ mod tests;
 #[cfg(test)]
 mod tests_sites;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use rqx_core::cost::{
@@ -56,6 +56,7 @@ pub type Reported<'r> = &'r dyn Fn(&str, u32) -> bool;
 /// that the cross-file performance rules report.
 pub struct Composed {
     pub summaries: Summaries,
+    pub links: CallLinks,
     /// Empty unless the composition was asked for them and covered the whole project.
     pub sites: Vec<CrossSite>,
 }
@@ -71,8 +72,20 @@ pub fn summarise(
     summarise_with_sites(files, root, tables, complete, None).summaries
 }
 
-/// As [`summarise`], and with the places the cross-file rules report when `reported` is
-/// given. It answers whether a per-file rule already reports work in a loop at a line of
+/// [`summarise`], and with each summary the functions its calls were taken to reach, so
+/// that the way a cost came about can be followed from one function into the next.
+pub fn summarise_linked(
+    files: &[Analysed<'_>],
+    root: &Path,
+    tables: &CostTables,
+    complete: bool,
+) -> (Summaries, CallLinks) {
+    let composed = summarise_with_sites(files, root, tables, complete, None);
+    (composed.summaries, composed.links)
+}
+
+/// As [`summarise_linked`], and with the places the cross-file rules report when `reported`
+/// is given. It answers whether a per-file rule already reports work in a loop at a line of
 /// a file. A call into a file the scan did not read costs nothing to the composition, so
 /// a rule that concludes from a cost that crosses files has no places unless the scan
 /// was `complete`. A place in a language its rule does not apply to is left out.
@@ -86,6 +99,7 @@ pub fn summarise_with_sites(
     if files.iter().all(|file| file.cost.is_empty()) {
         return Composed {
             summaries: Summaries::new(complete),
+            links: CallLinks::default(),
             sites: Vec::new(),
         };
     }
@@ -224,8 +238,19 @@ pub fn compose(
     compose_with_sites(units, requests, tables, complete, false).summaries
 }
 
-/// As [`compose`], and with the places the cross-file rules report when `sites` is set
-/// and the units are `complete`.
+/// [`compose`], with the functions each call reaches.
+pub fn compose_linked(
+    units: &[Unit<'_>],
+    requests: &ResolvedRequests,
+    tables: &CostTables,
+    complete: bool,
+) -> (Summaries, CallLinks) {
+    let composed = compose_with_sites(units, requests, tables, complete, false);
+    (composed.summaries, composed.links)
+}
+
+/// As [`compose_linked`], and with the places the cross-file rules report when `sites` is
+/// set and the units are `complete`.
 pub fn compose_with_sites(
     units: &[Unit<'_>],
     requests: &ResolvedRequests,
@@ -262,6 +287,7 @@ pub fn compose_with_sites(
     } else {
         Vec::new()
     };
+    let links = CallLinks::of(&graph, &done);
     let mut summaries = Summaries::new(complete);
     for (node, answer) in done.into_iter().enumerate() {
         let Some(answer) = answer else { continue };
@@ -280,7 +306,65 @@ pub fn compose_with_sites(
     }
     Composed {
         summaries,
+        links,
         sites: found,
+    }
+}
+
+/// A function a call may reach, named the way [`Summaries`] names it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reached {
+    pub file: String,
+    pub start: u32,
+    /// Which function was meant was settled by a name alone.
+    pub guessed: bool,
+}
+
+/// For each function that makes calls, the functions each call may reach, by file and by
+/// where the function starts. A call that reaches nothing that costs anything is empty,
+/// and a function none of whose calls reach anything is left out.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CallLinks {
+    functions: BTreeMap<String, BTreeMap<u32, Vec<Vec<Reached>>>>,
+}
+
+impl CallLinks {
+    fn of(graph: &Graph<'_>, done: &[Option<Done>]) -> Self {
+        let mut links = Self::default();
+        for (node, calls) in graph.calls.iter().enumerate() {
+            let reached: Vec<Vec<Reached>> = calls
+                .iter()
+                .map(|callees| {
+                    callees
+                        .nodes
+                        .iter()
+                        .filter(|callee| done[**callee].as_ref().is_some_and(|d| !d.is_constant()))
+                        .map(|callee| Reached {
+                            file: graph.file_of(*callee).to_owned(),
+                            start: graph.nodes[*callee].function.start,
+                            guessed: callees.guessed,
+                        })
+                        .collect()
+                })
+                .collect();
+            if reached.iter().all(Vec::is_empty) {
+                continue;
+            }
+            links
+                .functions
+                .entry(graph.file_of(node).to_owned())
+                .or_default()
+                .insert(graph.nodes[node].function.start, reached);
+        }
+        links
+    }
+
+    /// What each call of the function, in the order the function lists them, may reach.
+    pub fn of_function(&self, file: &str, start: u32) -> &[Vec<Reached>] {
+        self.functions
+            .get(file)
+            .and_then(|functions| functions.get(&start))
+            .map_or(&[], Vec::as_slice)
     }
 }
 

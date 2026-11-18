@@ -8,6 +8,7 @@
 
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::ValueEnum;
@@ -16,6 +17,11 @@ use rqx_core::rule::Category;
 
 use crate::brand::{Ink, Palette, paint};
 use crate::scan::ScanOutcome;
+
+mod explain;
+mod measure;
+
+use measure::{Measure, align, measure_of};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 pub enum By {
@@ -31,6 +37,8 @@ pub enum Sort {
     Io,
     Reach,
     Sampled,
+    Time,
+    Space,
 }
 
 pub struct View {
@@ -49,6 +57,9 @@ pub struct Line {
 pub struct Row {
     pub name: String,
     pub at: String,
+    /// The file and the byte offset of the function's name, absent for a row that stands
+    /// for several functions.
+    pub place: Option<(Arc<str>, u32)>,
     pub loops: u32,
     pub self_calls: u32,
     /// Counted apart from the other shapes because a round trip shows up as latency
@@ -59,22 +70,40 @@ pub struct Row {
     pub sampled: Option<rqx_core::runtime::Share>,
     pub findings: Vec<Line>,
     pub counted: u32,
+    /// What the cost engine composed for the function, beside the syntactic `loops`.
+    pub measure: Measure,
 }
 
 impl Row {
     fn key(&self, sort: Sort) -> f64 {
         match sort {
             Sort::Weight => self.weight,
-            Sort::Order => f64::from(self.loops * 10 + self.self_calls),
+            Sort::Order | Sort::Time => f64::from(self.measure.time.rank()),
+            Sort::Space => f64::from(self.measure.space.rank()),
             Sort::Io => f64::from(self.io),
             Sort::Reach => self.reach,
             Sort::Sampled => f64::from(self.sampled.map_or(0, |share| share.total)),
         }
     }
+
+    /// `row` with the keys the cost engine adds. The keys it already has are not touched,
+    /// so a reader that knows only the older ones reads the same row.
+    pub fn with_cost(&self, mut row: serde_json::Value) -> serde_json::Value {
+        if let Some(fields) = row.as_object_mut() {
+            fields.extend(
+                self.measure
+                    .json_fields()
+                    .into_iter()
+                    .map(|(key, value)| (key.to_owned(), value)),
+            );
+        }
+        row
+    }
 }
 
-/// What the innermost body costs as the input grows. Loop order, not a proof: three
-/// nested loops over the same short list are still three passes of nothing.
+/// What the innermost body costs as the input grows, read from the loop nesting alone.
+/// Loop order, not a proof: three nested loops over the same short list are still three
+/// passes of nothing. The composed time sits beside it in `Row::measure`.
 pub const fn order(loops: u32, self_calls: u32) -> &'static str {
     if self_calls >= 2 {
         return "exp";
@@ -92,10 +121,14 @@ pub const fn order(loops: u32, self_calls: u32) -> &'static str {
 /// still where to look.
 pub fn rows(outcome: &ScanOutcome) -> Vec<Row> {
     const HOT_ENOUGH: u32 = 10;
+    /// A cap on how much a function's time order adds to its weight, so that `exp`, which
+    /// ranks above everything, counts as a little worse than cubic and not as infinity.
+    const WEIGHED_RANK_CAP: u32 = 17;
 
     let mut rows: Vec<Row> = Vec::new();
     for (file, shape) in &outcome.shape_by_file {
         let reach = outcome.impact.get(file).multiplier();
+        let aligned = std::cell::OnceCell::new();
         let mut carried: BTreeMap<u32, Vec<&Finding>> = BTreeMap::new();
         for finding in outcome
             .findings
@@ -133,14 +166,29 @@ pub fn rows(outcome: &ScanOutcome) -> Vec<Row> {
                     )
                 })
                 .count() as u32;
+            let measure = measure_of(
+                outcome,
+                file,
+                aligned.get_or_init(|| {
+                    outcome
+                        .cost_facts
+                        .as_ref()
+                        .and_then(|facts| facts.of_file(file))
+                        .map(|costs| align(shape, costs))
+                        .unwrap_or_default()
+                }),
+                function.range.start,
+            );
             let ranked = (1.0 + weight * reach)
-                * (1.0 + f64::from(sampled.map_or(0, |share| share.total)) / 1000.0);
+                * (1.0 + f64::from(sampled.map_or(0, |share| share.total)) / 1000.0)
+                * (1.0 + f64::from(measure.time.rank().min(WEIGHED_RANK_CAP)) / 4.0);
             rows.push(Row {
                 name: function
                     .name
                     .clone()
                     .unwrap_or_else(|| "(anonymous)".to_owned()),
                 at: format!("{file}:{}", function.range.line),
+                place: Some((Arc::clone(file), function.range.start)),
                 loops: function.loop_depth,
                 self_calls: function.self_calls,
                 io,
@@ -161,6 +209,7 @@ pub fn rows(outcome: &ScanOutcome) -> Vec<Row> {
                     })
                     .collect(),
                 counted: 1,
+                measure,
             });
         }
     }
@@ -185,6 +234,13 @@ pub fn ranked(outcome: &ScanOutcome, view: &View) -> Vec<Row> {
     group(rows(outcome), view)
 }
 
+/// How the cost of the function a row stands for was derived, as the lines
+/// `--explain` prints. Absent for a row that stands for several functions.
+pub fn derivation(outcome: &ScanOutcome, row: &Row) -> Option<Vec<String>> {
+    let (file, start) = row.place.as_ref()?;
+    explain::explain_at(outcome, file, *start).map(|explanation| explanation.lines())
+}
+
 fn group(rows: Vec<Row>, view: &View) -> Vec<Row> {
     let mut grouped: Vec<Row> = match view.by {
         By::Function => rows
@@ -207,6 +263,7 @@ fn group(rows: Vec<Row>, view: &View) -> Vec<Row> {
                 let held = worst.entry(key.clone()).or_insert_with(|| Row {
                     name: key,
                     at: String::new(),
+                    place: None,
                     loops: 0,
                     self_calls: 0,
                     io: 0,
@@ -215,7 +272,9 @@ fn group(rows: Vec<Row>, view: &View) -> Vec<Row> {
                     sampled: None,
                     findings: Vec::new(),
                     counted: 0,
+                    measure: Measure::default(),
                 });
+                held.measure = Measure::worst([std::mem::take(&mut held.measure), row.measure]);
                 held.loops = held.loops.max(row.loops);
                 held.self_calls = held.self_calls.max(row.self_calls);
                 held.reach = held.reach.max(row.reach);
@@ -293,23 +352,16 @@ pub fn render(
         .unwrap_or(0)
         .clamp(8, 40);
 
+    let table = Table::of(&shown[..shown.len().min(view.top)], profiled);
     // Padded before it is painted: a colour escape counts towards a format width
     // and would push every column right by the length of the escape.
-    let sampled_header = if profiled { "sampled" } else { "" };
     writeln!(
         out,
         "\n    {}",
-        paint(
-            dim,
-            format!(
-                "{:<width$} {:>6} {:>6} {:>4} {:>6} {:>9}  where",
-                "", "order", "loops", "io", "reach", sampled_header
-            )
-        )
+        paint(dim, format!("{:<width$} {}  where", "", table.header()))
     )?;
 
-    for row in shown.iter().take(view.top) {
-        let label = order(row.loops, row.self_calls);
+    for (row, cells) in shown.iter().zip(table.rows()) {
         let ink = if row.loops > threshold || row.self_calls >= 2 {
             Ink::Warn
         } else {
@@ -322,16 +374,7 @@ pub fn render(
                 palette.style(ink),
                 format!("{:<width$}", trim(&row.name, width))
             ),
-            paint(
-                palette.style(Ink::Text),
-                format!(
-                    "{label:>6} {:>6} {:>4} {:>6} {:>9}",
-                    row.loops,
-                    row.io,
-                    format!("\u{d7}{:.1}", row.reach),
-                    share_text(row.sampled, profiled)
-                )
-            ),
+            paint(palette.style(Ink::Text), cells),
             paint(dim, &row.at)
         )?;
         for line in &row.findings {
@@ -345,6 +388,113 @@ pub fn render(
     }
 
     writeln!(out, "\n    {}", paint(dim, summary(outcome, threshold)))?;
+    writeln!(out)?;
+    Ok(())
+}
+
+/// The figures of the rows shown, each column as wide as its widest cell, so that a long
+/// order such as `O(n² log n)` widens its own column and leaves its neighbours aligned.
+struct Table {
+    headers: Vec<&'static str>,
+    cells: Vec<Vec<String>>,
+    widths: Vec<usize>,
+}
+
+impl Table {
+    fn of(rows: &[Row], profiled: bool) -> Self {
+        let mut headers = vec![
+            "order", "time", "space", "io", "alloc", "conf", "loops", "trips", "reach",
+        ];
+        if profiled {
+            headers.push("sampled");
+        }
+        let cells: Vec<Vec<String>> = rows.iter().map(|row| figures(row, profiled)).collect();
+        let widths = headers
+            .iter()
+            .enumerate()
+            .map(|(column, header)| {
+                cells
+                    .iter()
+                    .map(|cells| cells[column].chars().count())
+                    .fold(header.len(), usize::max)
+            })
+            .collect();
+        Self {
+            headers,
+            cells,
+            widths,
+        }
+    }
+
+    fn header(&self) -> String {
+        self.line(self.headers.iter().copied())
+    }
+
+    fn rows(&self) -> impl Iterator<Item = String> + '_ {
+        self.cells
+            .iter()
+            .map(|cells| self.line(cells.iter().map(String::as_str)))
+    }
+
+    fn line<'a>(&self, cells: impl Iterator<Item = &'a str>) -> String {
+        cells
+            .zip(&self.widths)
+            .map(|(cell, width)| format!("{cell:>width$}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+fn figures(row: &Row, profiled: bool) -> Vec<String> {
+    let measure = &row.measure;
+    let mut figures = vec![
+        order(row.loops, row.self_calls).to_owned(),
+        measure.time.to_string(),
+        measure.space.to_string(),
+        measure.io.to_string(),
+        match measure.alloc {
+            0 => "\u{2013}".to_owned(),
+            count => count.to_string(),
+        },
+        measure.conf.slug().to_owned(),
+        row.loops.to_string(),
+        row.io.to_string(),
+        format!("\u{d7}{:.1}", row.reach),
+    ];
+    if profiled {
+        figures.push(share_text(row.sampled, profiled));
+    }
+    figures
+}
+
+/// `--explain`: how one function's cost was derived. Fails when the name matches no
+/// function or more than one.
+pub fn explain(
+    outcome: &ScanOutcome,
+    target: &str,
+    json: bool,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let explanation = explain::explain(outcome, target)?;
+    if json {
+        writeln!(out, "{}", explanation.json())?;
+        return Ok(());
+    }
+    writeln!(out)?;
+    for line in explanation.lines() {
+        let heading = !line.is_empty() && !line.starts_with([' ', '\u{2514}', '\u{251c}']);
+        let style = if heading {
+            palette.bold(Ink::Text)
+        } else {
+            palette.style(Ink::Text)
+        };
+        if line.is_empty() {
+            writeln!(out)?;
+        } else {
+            writeln!(out, "  {}", paint(style, line))?;
+        }
+    }
     writeln!(out)?;
     Ok(())
 }
@@ -410,7 +560,7 @@ fn trim(name: &str, width: usize) -> String {
 
 pub fn json(outcome: &ScanOutcome, view: &View, out: &mut dyn Write) -> Result<()> {
     for row in ranked(outcome, view).iter().take(view.top) {
-        let line = serde_json::json!({
+        let line = row.with_cost(serde_json::json!({
             "name": row.name,
             "at": row.at,
             "order": order(row.loops, row.self_calls),
@@ -428,7 +578,7 @@ pub fn json(outcome: &ScanOutcome, view: &View, out: &mut dyn Write) -> Result<(
                 "fix": line.fix,
             })).collect::<Vec<_>>(),
             "functions": row.counted,
-        });
+        }));
         writeln!(out, "{line}")?;
     }
     Ok(())

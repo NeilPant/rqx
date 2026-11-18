@@ -8,6 +8,7 @@ use rqx_lang::highlight::{self, Kind, Span};
 
 use crate::brand::{ColorDepth, Ink, Palette, grade_ink, mascot_ink, score_ink, severity_ink};
 use crate::gate::Verdict;
+use crate::perf;
 use crate::preview::{self, HEAD_LINES, Line, Preview, Role};
 use crate::report::escape::markup;
 use crate::report::tally::{RuleCount, Tally};
@@ -180,6 +181,9 @@ section h3{margin:24px 0 8px;font-weight:700}
 .trend-label{fill:var(--muted);font-size:12px;font-family:inherit}
 .fill{color:var(--accent)}
 .rest{color:var(--rule)}
+.perf td{padding-right:16px}
+.derivation summary{padding:0}
+.derivation pre{margin:0 0 16px 16px;padding-left:16px;border-left:1px solid var(--rule);overflow-x:auto}
 details.file{min-width:0;margin:0 0 8px;border:1px solid var(--rule);border-radius:10px}
 summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 16px;padding:8px 16px;cursor:pointer;list-style:none}
 summary::-webkit-details-marker{display:none}
@@ -238,12 +242,14 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         "<body>\n<a class=\"skip\" href=\"#files\">Skip to the files</a>\n<div class=\"page\">"
     )?;
     write_hero(out, report)?;
-    write_contents(out, report)?;
+    let slow = performance_rows(report);
+    write_contents(out, report, !slow.is_empty())?;
     writeln!(out, "<main>")?;
     write_summary(out, report)?;
     write_owners(out, report)?;
     write_trend(out, report)?;
     write_tally(out, report)?;
+    write_performance(out, report, &slow)?;
     write_files(out, report)?;
     write_waived(out, report)?;
     writeln!(out, "</main>")?;
@@ -253,7 +259,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
 }
 
 /// Plain anchor links, so a long page can be crossed without a script.
-fn write_contents(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
+fn write_contents(out: &mut dyn Write, report: &Report<'_>, performance: bool) -> Result<()> {
     let mut links = vec![("summary", "Summary")];
     if report.outcome.owners.is_some() {
         links.push(("owners", "Owners"));
@@ -263,6 +269,9 @@ fn write_contents(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     }
     if !report.findings.is_empty() {
         links.extend([("families", "Families"), ("rules", "Rules")]);
+    }
+    if performance {
+        links.push(("performance", "Performance"));
     }
     links.push(("files", "Files"));
     if !report.outcome.suppressed.is_empty() {
@@ -547,6 +556,115 @@ fn write_tally(out: &mut dyn Write, report: &Report<'_>) -> Result<()> {
     )?;
     writeln!(out, "</section>")?;
     Ok(())
+}
+
+/// Functions listed in the performance section, which is a place to start and not the
+/// whole `rqx perf` table.
+const PERFORMANCE_ROWS: usize = 10;
+
+fn performance_rows(report: &Report<'_>) -> Vec<perf::Row> {
+    // Without the kept facts every cost would read as constant, so there is nothing to rank.
+    if report.outcome.cost_facts.is_none() {
+        return Vec::new();
+    }
+    perf::ranked(
+        report.outcome,
+        &perf::View {
+            by: perf::By::Function,
+            sort: perf::Sort::Weight,
+            top: PERFORMANCE_ROWS,
+            min_depth: 0,
+        },
+    )
+    .into_iter()
+    .take(PERFORMANCE_ROWS)
+    .collect()
+}
+
+/// The functions whose work grows fastest, with what the cost analysis composed for each
+/// and, folded under it, how it got there. The derivation is a native `<details>`, so the
+/// page needs no script and prints open.
+fn write_performance(out: &mut dyn Write, report: &Report<'_>, rows: &[perf::Row]) -> Result<()> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let shown = report.shown_by_file();
+    let prefix = report.path_prefix();
+    writeln!(
+        out,
+        "<section id=\"performance\" aria-labelledby=\"performance-title\">\n<h2 id=\"performance-title\">Performance</h2>"
+    )?;
+    writeln!(
+        out,
+        "<p class=\"muted\">Functions whose work grows with their input, heaviest first. Time, space and io are composed across calls; conf says how sure the analysis is of them.</p>"
+    )?;
+    writeln!(
+        out,
+        "<div class=\"scroll\"><table class=\"bars perf\" aria-labelledby=\"performance-title\">\n<thead><tr><th scope=\"col\" class=\"muted\">Function</th><th scope=\"col\" class=\"muted\">Time</th><th scope=\"col\" class=\"muted\">Space</th><th scope=\"col\" class=\"muted\">IO</th><th scope=\"col\" class=\"muted\">Conf</th><th scope=\"col\" class=\"muted\">Where</th></tr></thead>\n<tbody>"
+    )?;
+    for row in rows {
+        write_performance_row(out, report, row, &shown, &prefix)?;
+    }
+    writeln!(out, "</tbody>\n</table></div>\n</section>")?;
+    Ok(())
+}
+
+fn write_performance_row(
+    out: &mut dyn Write,
+    report: &Report<'_>,
+    row: &perf::Row,
+    shown: &std::collections::BTreeMap<&str, Vec<&Finding>>,
+    prefix: &str,
+) -> Result<()> {
+    let measure = &row.measure;
+    writeln!(
+        out,
+        "<tr><th scope=\"row\">{}</th><td>{}</td><td>{}</td><td>{}</td><td class=\"{}\">{}</td><td>{}</td></tr>",
+        markup(&row.name),
+        markup(&measure.time.to_string()),
+        markup(&measure.space.to_string()),
+        markup(&measure.io.to_string()),
+        confidence_class(measure.conf),
+        measure.conf.slug(),
+        location_link(row, shown, prefix)
+    )?;
+    if let Some(lines) = perf::derivation(report.outcome, row) {
+        writeln!(
+            out,
+            "<tr><td colspan=\"6\"><details class=\"derivation\"><summary>How the cost was derived</summary><pre>{}</pre></details></td></tr>",
+            markup(&lines.join("\n"))
+        )?;
+    }
+    Ok(())
+}
+
+/// The row's file and line, linked to the file's findings further down the page when it
+/// has any there.
+fn location_link(
+    row: &perf::Row,
+    shown: &std::collections::BTreeMap<&str, Vec<&Finding>>,
+    prefix: &str,
+) -> String {
+    let linked = row
+        .place
+        .as_ref()
+        .is_some_and(|(file, _)| shown.contains_key(&**file));
+    match &row.place {
+        Some((file, _)) if linked => format!(
+            "<a href=\"#{}\">{}</a>",
+            anchor_of(&format!("{prefix}{file}")),
+            markup(&row.at)
+        ),
+        _ => markup(&row.at),
+    }
+}
+
+const fn confidence_class(conf: rqx_core::cost::Conf) -> &'static str {
+    match conf {
+        rqx_core::cost::Conf::Verified => "good",
+        rqx_core::cost::Conf::Heuristic => "warn",
+        rqx_core::cost::Conf::Unknown => "muted",
+    }
 }
 
 /// A count and its share of `total` as filled and empty blocks, the way `--stats`

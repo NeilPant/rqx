@@ -273,6 +273,7 @@ check --progress =plain
 check --progress [env RQX_PROGRESS]
 check --quiet
 check --record
+check --regressions
 check --reporter
 check --rule
 check --sarif-in
@@ -355,6 +356,7 @@ comment --progress =bar
 comment --progress =none
 comment --progress =plain
 comment --progress [env RQX_PROGRESS]
+comment --regressions
 comment --sarif-in
 comment --threads
 comment --threads [env RQX_THREADS]
@@ -1143,6 +1145,7 @@ perf --color =always
 perf --color =auto
 perf --color =never
 perf --config
+perf --explain
 perf --help
 perf --hyperlinks
 perf --hyperlinks =always
@@ -1173,6 +1176,8 @@ perf --sort =io
 perf --sort =order
 perf --sort =reach
 perf --sort =sampled
+perf --sort =space
+perf --sort =time
 perf --sort =weight
 perf --threads
 perf --threads [env RQX_THREADS]

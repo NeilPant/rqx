@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-check \- Analyze changed files against a base revision and fail if the gate is not met
 .SH SYNOPSIS
-\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-staged\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-tui\fR] [\fB\-\-profile\fR] [\fB\-\-color\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-record\fR] [\fB\-\-progress\fR] [\fB\-\-trend\fR] [\fB\-\-level\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-staged\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-tui\fR] [\fB\-\-profile\fR] [\fB\-\-color\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-record\fR] [\fB\-\-progress\fR] [\fB\-\-trend\fR] [\fB\-\-regressions\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze changed files against a base revision and fail if the gate is not met
 .SH OPTIONS
@@ -84,8 +84,8 @@ plain: A line on stderr every two seconds and at each phase, for a job log
 none: Nothing
 .RE
 .TP
-\fB\-\-level\fR \fI<LEVEL>\fR
-relaxed, standard, strict or pristine
+\fB\-\-regressions\fR
+List the functions whose time order grew against the base revision, even when `gate.complexity_regression` is `off`. They are reported and do not change the exit code; the setting does that
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Increase output: `\-v` adds the configuration, the cache and every skipped file to the report; `\-vv` also prints stage timings and git commands on stderr
@@ -104,6 +104,9 @@ always: Whenever the report is coloured
 .IP \(bu 2
 never: Never
 .RE
+.TP
+\fB\-\-level\fR \fI<LEVEL>\fR
+relaxed, standard, strict or pristine
 .TP
 \fB\-\-threads\fR \fI<N>\fR
 Worker threads. Defaults to the machine\*(Aqs parallelism

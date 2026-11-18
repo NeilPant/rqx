@@ -49,6 +49,52 @@ struct JsonSummary<'a> {
     /// Health per owner, present only when the project has a CODEOWNERS file.
     #[serde(skip_serializing_if = "Option::is_none")]
     owners: Option<BTreeMap<String, JsonOwner>>,
+    /// The functions whose time order grew against the base. Present only when the review
+    /// was asked to look, and empty when it could not compare, in which case
+    /// `regressions_skipped` says why.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    regressions: Option<Vec<JsonRegression>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    regressions_skipped: Option<&'static str>,
+}
+
+#[derive(Serialize)]
+struct JsonRegression {
+    file: String,
+    /// The function's name qualified by its class.
+    qual: String,
+    line: u32,
+    before: String,
+    after: String,
+    trace: Vec<JsonStep>,
+}
+
+#[derive(Serialize)]
+struct JsonStep {
+    file: String,
+    line: u32,
+    what: String,
+    order: String,
+}
+
+fn regression_of(regression: &crate::regressions::Regression) -> JsonRegression {
+    JsonRegression {
+        file: regression.file.clone(),
+        qual: regression.qual.clone(),
+        line: regression.line,
+        before: regression.before.to_string(),
+        after: regression.after.to_string(),
+        trace: regression
+            .trace
+            .iter()
+            .map(|step| JsonStep {
+                file: step.file.clone(),
+                line: step.line,
+                what: step.what.clone(),
+                order: step.order.to_string(),
+            })
+            .collect(),
+    }
 }
 
 #[derive(Serialize)]
@@ -176,6 +222,12 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         resolved_scope: report.credit.map(|credit| credit.scope),
         health_delta: report.credit.and_then(crate::credit::Credit::health_delta),
         owners: owners_of(report),
+        regressions: report
+            .regressions
+            .map(|regressions| regressions.found().iter().map(regression_of).collect()),
+        regressions_skipped: report
+            .regressions
+            .and_then(crate::regressions::Regressions::skipped),
     };
     writeln!(out, "{}", serde_json::to_string(&summary)?)?;
     Ok(())

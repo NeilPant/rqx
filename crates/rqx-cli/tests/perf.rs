@@ -212,3 +212,176 @@ fn a_binary_jfr_recording_is_skipped_with_the_conversion_that_reads_it() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// Three loops over constants nest as deep as three over the input, and cost nothing
+/// like it; a search inside a loop is one loop deep and costs a pass over two lists.
+const SHAPES: &str = "\
+export function tableOfCubes(): number {
+  let total = 0;
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      for (let k = 0; k < 4; k++) {
+        total += i * j * k;
+      }
+    }
+  }
+  return total;
+}
+
+export function keepWanted(rows: number[], wanted: number[]): number[] {
+  const kept: number[] = [];
+  for (const row of rows) {
+    if (wanted.indexOf(row) >= 0) {
+      kept.push(row);
+    }
+  }
+  return kept;
+}
+";
+
+fn shapes(name: &str) -> PathBuf {
+    let root = std::env::temp_dir().join(format!("rqx-perf-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a temp project");
+    std::fs::write(root.join("shapes.ts"), SHAPES).expect("the source");
+    root
+}
+
+fn row_named<'a>(rows: &'a [serde_json::Value], name: &str) -> &'a serde_json::Value {
+    rows.iter()
+        .find(|row| row["name"] == name)
+        .unwrap_or_else(|| panic!("no row for {name}"))
+}
+
+/// `order` and `loops` are what readers of the JSON have always been given, and they
+/// describe the loop nesting of the text. The composed cost arrives beside them.
+#[test]
+fn a_row_keeps_its_syntactic_order_and_gains_the_composed_cost() {
+    let root = shapes("composed");
+    let all = rows(&root, &[]);
+    let _ = std::fs::remove_dir_all(&root);
+
+    let cubes = row_named(&all, "tableOfCubes");
+    assert_eq!(cubes["order"], "O(n\u{b3}+)");
+    assert_eq!(cubes["loops"], 3);
+    assert_eq!(cubes["time"], "O(1)", "the bounds are constants");
+
+    let keep = row_named(&all, "keepWanted");
+    assert_eq!(keep["order"], "O(n)");
+    assert_eq!(keep["loops"], 1);
+    assert_eq!(keep["time"], "O(n\u{b7}m)");
+    assert_eq!(keep["space"], "O(n)");
+    assert_eq!(keep["confidence"], "verified");
+    assert_eq!(keep["cost"]["expr"], "O(rows\u{b7}wanted)");
+    let sizes: Vec<(&str, &str)> = keep["cost"]["vars"]
+        .as_array()
+        .expect("the variables")
+        .iter()
+        .map(|var| (var["id"].as_str().unwrap(), var["name"].as_str().unwrap()))
+        .collect();
+    assert_eq!(sizes, [("n", "rows"), ("m", "wanted")]);
+    assert_eq!(keep["cost"]["trace"][0]["what"], "loop");
+    for key in ["alloc", "io_order"] {
+        assert!(!keep[key].is_null(), "{key}");
+    }
+    assert_eq!(keep["io"], 0, "`io` is still the count of round trips");
+}
+
+/// `--sort order` ranks by what the function was composed to cost, so three loops over
+/// constants no longer outrank a search inside a loop.
+#[test]
+fn sorting_by_order_time_or_space_ranks_by_the_composed_cost() {
+    let root = shapes("sorted");
+    let by_order = rows(&root, &["--sort", "order"]);
+    let by_time = rows(&root, &["--sort", "time"]);
+    let by_space = rows(&root, &["--sort", "space"]);
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert_eq!(by_order[0]["name"], "keepWanted");
+    assert_eq!(by_time[0]["name"], "keepWanted");
+    assert_eq!(by_space[0]["name"], "keepWanted");
+}
+
+fn html_report(root: &Path) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan", "--reporter", "html"])
+        .current_dir(root)
+        .output()
+        .expect("failed to run rqx");
+    String::from_utf8(output.stdout).expect("utf-8")
+}
+
+/// The page is read with nothing beside it and no script, so the derivation is a native
+/// `<details>` under its row, and the row links to the file's findings further down.
+#[test]
+fn the_html_report_ranks_the_slow_functions_with_their_derivations_and_no_script() {
+    let root = shapes("html");
+    let page = html_report(&root);
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(page.contains("<section id=\"performance\""), "a section");
+    assert!(page.contains("<a href=\"#performance\">Performance</a>"));
+    let keep = page
+        .lines()
+        .find(|line| line.contains("<th scope=\"row\">keepWanted</th>"))
+        .expect("a row for the function");
+    assert!(keep.contains("<td>O(n\u{b7}m)</td>"), "{keep}");
+    assert!(keep.contains("verified"), "{keep}");
+    assert!(
+        keep.contains("<a href=\"#shapes.ts\">shapes.ts:13</a>"),
+        "{keep}"
+    );
+    assert!(
+        page.contains("<details class=\"derivation\"><summary>How the cost was derived</summary><pre>keepWanted"),
+        "the derivation sits in a details element"
+    );
+    assert!(!page.contains("<script"), "the page carries no script");
+}
+
+#[test]
+fn a_project_with_nothing_slow_has_no_performance_section() {
+    let root = std::env::temp_dir().join(format!("rqx-perf-quiet-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a temp project");
+    std::fs::write(
+        root.join("quiet.ts"),
+        "export const one = (): number => 1;\n",
+    )
+    .expect("source");
+    let page = html_report(&root);
+    let _ = std::fs::remove_dir_all(&root);
+
+    assert!(page.contains("<section id=\"summary\""));
+    assert!(!page.contains("id=\"performance\""));
+}
+
+#[test]
+fn the_terminal_table_shows_the_syntactic_order_beside_the_composed_columns() {
+    let root = shapes("table");
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .arg("perf")
+        .arg(&root)
+        .output()
+        .expect("failed to run rqx");
+    let _ = std::fs::remove_dir_all(&root);
+    let text = String::from_utf8(output.stdout).expect("utf-8");
+    let header = text
+        .lines()
+        .find(|line| line.contains("order") && line.contains("where"))
+        .expect("a header");
+    let columns: Vec<&str> = header.split_whitespace().collect();
+    assert_eq!(
+        columns,
+        [
+            "order", "time", "space", "io", "alloc", "conf", "loops", "trips", "reach", "where"
+        ]
+    );
+    let keep = text
+        .lines()
+        .find(|line| line.contains("keepWanted"))
+        .expect("a row");
+    assert!(
+        keep.contains("O(n\u{b7}m)") && keep.contains("verified"),
+        "{keep}"
+    );
+}

@@ -5,9 +5,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use rqx_core::config::{Gate, GateSeverity, OwnerGate, RqxConfig};
+use rqx_core::config::{Gate, GateSeverity, OwnerGate, RegressionGate, RqxConfig};
+use rqx_core::cost::{Conf, Order};
 use rqx_core::finding::Severity;
 
+use crate::regressions::{Regression, exceeds, named};
+use crate::report::plural;
 use crate::scan::ScanOutcome;
 
 pub struct Verdict {
@@ -55,13 +58,19 @@ struct Checks {
     incomplete: bool,
     ratchet: bool,
     owners: bool,
+    /// A function that got slower than at the base fails the run, which only
+    /// `complexity_regression: error` asks for.
+    regressions: bool,
+    /// A function above `performance.max_order` fails the run.
+    order: bool,
 }
 
 /// `fail_on: never` says no finding fails the run by its severity. It does not
 /// say the health floor, the grade floor, the ratchet or half applied patterns are
 /// off; each has its own setting, and a gate that goes quiet because an unrelated one
 /// was relaxed checks nothing.
-fn checks(gate: &Gate) -> Checks {
+fn checks(config: &RqxConfig) -> Checks {
+    let gate = &config.gate;
     Checks {
         severity: threshold(gate).is_some(),
         health: true,
@@ -69,12 +78,21 @@ fn checks(gate: &Gate) -> Checks {
         incomplete: true,
         ratchet: true,
         owners: !gate.owners.is_empty(),
+        regressions: gate.complexity_regression == RegressionGate::Error,
+        order: config.performance.max_order.is_some(),
     }
 }
 
-pub fn judge(outcome: &ScanOutcome, scope: Scope<'_>, config: &RqxConfig) -> Verdict {
+/// `regressions` are the functions the review found to cost more than at the base; a
+/// scan has no base and passes none.
+pub fn judge(
+    outcome: &ScanOutcome,
+    scope: Scope<'_>,
+    config: &RqxConfig,
+    regressions: &[Regression],
+) -> Verdict {
     let gate = &config.gate;
-    let checks = checks(gate);
+    let checks = checks(config);
 
     let (counted, known) = match threshold(gate) {
         Some(severity) if checks.severity => tally(outcome, &scope, severity),
@@ -99,6 +117,12 @@ pub fn judge(outcome: &ScanOutcome, scope: Scope<'_>, config: &RqxConfig) -> Ver
     }
     if checks.owners {
         failures.extend(owner_failures(outcome, &scope, gate));
+    }
+    if checks.regressions {
+        failures.extend(regression_failure(regressions));
+    }
+    if checks.order {
+        failures.extend(order_failure(outcome, &scope, config));
     }
     Verdict {
         failures,
@@ -287,6 +311,85 @@ fn half_applied(outcome: &ScanOutcome, scope: &Scope<'_>, gate: &Gate) -> Option
     ))
 }
 
+fn regression_failure(regressions: &[Regression]) -> Option<String> {
+    if regressions.is_empty() {
+        return None;
+    }
+    let described: Vec<String> = regressions.iter().map(ToString::to_string).collect();
+    Some(format!(
+        "{}: {}",
+        plural(
+            regressions.len() as u32,
+            "complexity regression",
+            "complexity regressions"
+        ),
+        named(&described)
+    ))
+}
+
+/// A function in the scope whose time order is above the limit, worst first. A cost the
+/// analysis could not stand behind is not held against anyone.
+struct Over<'a> {
+    qual: &'a str,
+    file: &'a str,
+    line: u32,
+    time: &'a Order,
+}
+
+fn functions_over<'a>(outcome: &'a ScanOutcome, scope: &Scope<'_>, limit: &Order) -> Vec<Over<'a>> {
+    let Some(inputs) = &outcome.cost_facts else {
+        return Vec::new();
+    };
+    let mut over: Vec<Over<'a>> = inputs
+        .costs
+        .iter()
+        .filter(|file| scope.covers(&file.name))
+        .flat_map(|file| {
+            file.cost.functions.iter().filter_map(|function| {
+                let summary = outcome.summaries.get(&file.name, function.start)?;
+                (summary.conf != Conf::Unknown && exceeds(&summary.time, limit)).then_some(Over {
+                    qual: &function.qual,
+                    file: &file.name,
+                    line: function.line,
+                    time: &summary.time,
+                })
+            })
+        })
+        .collect();
+    over.sort_by(|left, right| {
+        right
+            .time
+            .rank()
+            .cmp(&left.time.rank())
+            .then(left.file.cmp(right.file))
+            .then(left.line.cmp(&right.line))
+    });
+    over
+}
+
+fn order_failure(outcome: &ScanOutcome, scope: &Scope<'_>, config: &RqxConfig) -> Option<String> {
+    let text = config.performance.max_order.as_deref()?;
+    let limit: Order = text.parse().ok()?;
+    let over = functions_over(outcome, scope, &limit);
+    if over.is_empty() {
+        return None;
+    }
+    let described: Vec<String> = over
+        .iter()
+        .map(|function| {
+            format!(
+                "`{}` is {} ({}:{})",
+                function.qual, function.time, function.file, function.line
+            )
+        })
+        .collect();
+    Some(format!(
+        "{} above `performance.max_order` of {limit}: {}",
+        plural(over.len() as u32, "function", "functions"),
+        named(&described)
+    ))
+}
+
 /// A single file rotting on its own is invisible to a project-wide score, which is
 /// why the grade gate looks per file rather than at the average.
 fn grade_failure(outcome: &ScanOutcome, files: &BTreeSet<String>, gate: &Gate) -> Option<String> {
@@ -362,6 +465,7 @@ mod gates {
             reviewed: files.iter().map(|file| (*file).to_owned()).collect(),
             base: "main".to_owned(),
             credit: None,
+            regressions: None,
         }
     }
 
@@ -374,7 +478,7 @@ mod gates {
     }
 
     fn judge_scan(outcome: &ScanOutcome, config: &RqxConfig) -> Verdict {
-        judge(outcome, Scope::Project, config)
+        judge(outcome, Scope::Project, config, &[])
     }
 
     fn config(gate: Gate) -> RqxConfig {
@@ -481,10 +585,12 @@ mod gates {
             incomplete: true,
             ratchet: true,
             owners: false,
+            regressions: false,
+            order: false,
         };
-        assert_eq!(checks(&gate(Error, 0, NoGrade)), all());
+        assert_eq!(checks(&config(gate(Error, 0, NoGrade))), all());
         assert_eq!(
-            checks(&gate(Never, 0, NoGrade)),
+            checks(&config(gate(Never, 0, NoGrade))),
             Checks {
                 severity: false,
                 ..all()
@@ -1060,5 +1166,172 @@ mod gates {
     fn a_gate_without_owners_never_looks_at_ownership() {
         let verdict = judge_scan(&owned_scenario(), &config(gate(Never, 0, NoGrade)));
         assert!(verdict.passed());
+    }
+
+    fn regression(qual: &str, before: &str, after: &str) -> Regression {
+        Regression {
+            file: "src/x.ts".to_owned(),
+            qual: qual.to_owned(),
+            line: 90,
+            before: before.parse().unwrap(),
+            after: after.parse().unwrap(),
+            trace: Vec::new(),
+        }
+    }
+
+    fn regression_config(stance: RegressionGate) -> RqxConfig {
+        let mut config = config(gate(Never, 0, NoGrade));
+        config.gate.complexity_regression = stance;
+        config
+    }
+
+    fn judge_regressions(stance: RegressionGate, found: &[Regression]) -> Verdict {
+        let review = everything();
+        judge(
+            &review.outcome,
+            Scope::Files(&review.reviewed),
+            &regression_config(stance),
+            found,
+        )
+    }
+
+    #[test]
+    fn an_error_gate_fails_on_a_regression_and_names_the_function() {
+        let found = [regression("reconcileBatch", "O(n)", "O(n^2)")];
+
+        let verdict = judge_regressions(RegressionGate::Error, &found);
+
+        assert_eq!(
+            verdict.failures,
+            ["1 complexity regression: `reconcileBatch` O(n) \u{2192} O(n\u{b2}) (src/x.ts:90)"]
+        );
+    }
+
+    #[test]
+    fn a_warning_gate_and_an_off_gate_report_a_regression_without_failing() {
+        let found = [regression("reconcileBatch", "O(n)", "O(n^2)")];
+
+        assert!(judge_regressions(RegressionGate::Warning, &found).passed());
+        assert!(judge_regressions(RegressionGate::Off, &found).passed());
+    }
+
+    #[test]
+    fn an_error_gate_with_nothing_regressed_passes() {
+        assert!(judge_regressions(RegressionGate::Error, &[]).passed());
+    }
+
+    #[test]
+    fn a_failure_names_three_functions_and_counts_the_rest() {
+        let found = ["a", "b", "c", "d", "e"].map(|name| regression(name, "O(1)", "O(n)"));
+
+        let verdict = judge_regressions(RegressionGate::Error, &found);
+
+        let failure = &verdict.failures[0];
+        assert!(
+            failure.starts_with("5 complexity regressions: `a`"),
+            "{failure}"
+        );
+        assert!(
+            failure.contains("`c`") && !failure.contains("`d`"),
+            "{failure}"
+        );
+        assert!(failure.ends_with("and 2 more"), "{failure}");
+    }
+
+    fn with_function(outcome: &mut ScanOutcome, file: &str, qual: &str, time: &str, conf: Conf) {
+        use crate::scan::{CostFacts, CostFile};
+        use rqx_core::cost::{FileCost, FunctionCost, Summary};
+
+        let inputs = outcome.cost_facts.get_or_insert_with(CostFacts::default);
+        let start = inputs.costs.len() as u32 * 100;
+        inputs.costs.push(CostFile {
+            name: Arc::from(file),
+            cost: FileCost {
+                functions: vec![FunctionCost {
+                    qual: qual.to_owned(),
+                    start,
+                    line: 12,
+                    ..FunctionCost::default()
+                }],
+            },
+        });
+        outcome.summaries.insert(
+            file,
+            start,
+            Summary {
+                time: time.parse().unwrap(),
+                conf,
+                ..Summary::default()
+            },
+        );
+    }
+
+    fn limited_to(max_order: &str) -> RqxConfig {
+        let mut config = config(gate(Never, 0, NoGrade));
+        config.performance.max_order = Some(max_order.to_owned());
+        config
+    }
+
+    fn judged_over(files: &[&str], outcome: ScanOutcome, max_order: &str) -> Verdict {
+        let review = reviewing(outcome, files);
+        review.judge(&limited_to(max_order))
+    }
+
+    #[test]
+    fn a_function_above_max_order_fails_and_is_named() {
+        let mut outcome = scenario();
+        with_function(&mut outcome, "bad.ts", "slowest", "O(n^3)", Conf::Verified);
+        with_function(&mut outcome, "ok.ts", "slow", "O(n^2)", Conf::Heuristic);
+        with_function(&mut outcome, "ok.ts", "fine", "O(n log n)", Conf::Verified);
+
+        let verdict = judged_over(&["bad.ts", "ok.ts"], outcome, "O(n log n)");
+
+        assert_eq!(
+            verdict.failures,
+            ["2 functions above `performance.max_order` of O(n log n): \
+                 `slowest` is O(n\u{b3}) (bad.ts:12), `slow` is O(n\u{b2}) (ok.ts:12)"]
+        );
+    }
+
+    #[test]
+    fn a_function_at_max_order_passes() {
+        let mut outcome = scenario();
+        with_function(&mut outcome, "bad.ts", "linear", "O(n)", Conf::Verified);
+
+        assert!(judged_over(&["bad.ts"], outcome, "O(n)").passed());
+    }
+
+    #[test]
+    fn a_cost_the_analysis_could_not_stand_behind_is_not_held_against_a_function() {
+        let mut outcome = scenario();
+        with_function(&mut outcome, "bad.ts", "guess", "O(n^3)", Conf::Unknown);
+
+        assert!(judged_over(&["bad.ts"], outcome, "O(n)").passed());
+    }
+
+    #[test]
+    fn max_order_is_judged_over_the_reviewed_files_only() {
+        let mut outcome = scenario();
+        with_function(&mut outcome, "bad.ts", "slow", "O(n^2)", Conf::Verified);
+
+        assert!(judged_over(&["ok.ts"], outcome, "O(n)").passed());
+    }
+
+    #[test]
+    fn a_scan_judges_max_order_over_every_file() {
+        let mut outcome = scenario();
+        with_function(&mut outcome, "bad.ts", "slow", "O(n^2)", Conf::Verified);
+
+        let verdict = judge_scan(&outcome, &limited_to("O(n)"));
+
+        assert_eq!(verdict.failures.len(), 1, "{:?}", verdict.failures);
+    }
+
+    #[test]
+    fn without_a_max_order_no_function_is_too_slow() {
+        let mut outcome = scenario();
+        with_function(&mut outcome, "bad.ts", "slow", "exp", Conf::Verified);
+
+        assert!(judge_scan(&outcome, &config(gate(Never, 0, NoGrade))).passed());
     }
 }

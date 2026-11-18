@@ -205,6 +205,9 @@ pub struct Report<'a> {
     /// Snapshots to chart, when `--trend` named a file. `Some` and empty means the file
     /// has no history yet.
     pub trend: Option<&'a [crate::trend::Snapshot]>,
+    /// The functions that cost more than they did at the base. Present only on a review
+    /// that was asked to look, so every other report keeps the shape it has.
+    pub regressions: Option<&'a crate::regressions::Regressions>,
 }
 
 /// What is in scope before any display filter, so the summary can say how much the
@@ -235,6 +238,7 @@ impl<'a> Report<'a> {
                 rules_fired: outcome.counts.by_rule.len(),
             },
             trend: None,
+            regressions: None,
         }
     }
 
@@ -273,6 +277,7 @@ impl<'a> Report<'a> {
             credit: review.credit.as_ref(),
             totals: totals_of(review.findings()),
             trend: None,
+            regressions: review.regressions.as_ref(),
         }
     }
 
@@ -557,6 +562,7 @@ pub mod tests {
             lines_by_file: BTreeMap::new(),
             shape_by_file: BTreeMap::new(),
             summaries: Default::default(),
+            cost_facts: None,
             suppressed: Vec::new(),
             baseline_size: None,
             timings: Vec::new(),

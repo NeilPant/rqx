@@ -4,6 +4,7 @@ use anyhow::Result;
 use rqx_core::finding::Severity;
 
 use crate::credit::{Credit, Scope};
+use crate::regressions::{Regression, State};
 use crate::report::{Report, plural};
 
 const TOP_FINDINGS: usize = 10;
@@ -14,6 +15,12 @@ fn escape(text: &str) -> String {
 }
 
 pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
+    write_overview(report, out)?;
+    write_regressions(report, out)?;
+    write_gate(report, out)
+}
+
+fn write_overview(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     let outcome = report.outcome;
     let prefix = report.path_prefix();
     let severity = |level: Severity| report.totals.by_severity.get(&level).copied().unwrap_or(0);
@@ -74,7 +81,10 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     if let Some(credit) = report.credit.filter(|credit| !credit.resolved.is_empty()) {
         write_resolved(credit, &prefix, report.base, out)?;
     }
+    Ok(())
+}
 
+fn write_gate(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
     if let Some(verdict) = report.verdict {
         writeln!(out, "\n### Gate\n")?;
         if verdict.passed() {
@@ -86,6 +96,67 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+/// The functions that cost more than at the base, each with the way it got there folded
+/// away. Written only for a review that looked, and says so when there was nothing to
+/// compare or nothing to report, so a reader can tell a clean change from a check that
+/// did not run.
+fn write_regressions(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
+    let Some(regressions) = report.regressions else {
+        return Ok(());
+    };
+    writeln!(out, "\n### Complexity regressions\n")?;
+    match &regressions.state {
+        State::Skipped(reason) => writeln!(out, "Not compared: {}.", escape(reason))?,
+        State::Found(found) if found.is_empty() => writeln!(
+            out,
+            "No function costs more than at `{}`.",
+            escape(report.base.unwrap_or("the base"))
+        )?,
+        State::Found(found) => write_found(found, &report.path_prefix(), out)?,
+    }
+    Ok(())
+}
+
+fn write_found(found: &[Regression], prefix: &str, out: &mut dyn Write) -> Result<()> {
+    for regression in found.iter().take(TOP_FINDINGS) {
+        writeln!(
+            out,
+            "- **`{}`** {} \u{2192} {} \u{b7} `{}`",
+            escape(&regression.qual),
+            regression.before,
+            regression.after,
+            escape(&format!("{prefix}{}:{}", regression.file, regression.line))
+        )?;
+    }
+    let extra = found.len().saturating_sub(TOP_FINDINGS);
+    if extra > 0 {
+        writeln!(out, "\n_\u{2026} and {extra} more._")?;
+    }
+    writeln!(out, "\n<details><summary>Trace</summary>\n")?;
+    for regression in found.iter().take(TOP_FINDINGS) {
+        write_trace(regression, prefix, out)?;
+    }
+    writeln!(out, "</details>")?;
+    Ok(())
+}
+
+/// How one function reaches its order, from the loop or call that dominates it down to
+/// the cost at the bottom.
+fn write_trace(regression: &Regression, prefix: &str, out: &mut dyn Write) -> Result<()> {
+    writeln!(out, "**`{}`**\n", escape(&regression.qual))?;
+    for step in &regression.trace {
+        writeln!(
+            out,
+            "- {} \u{b7} `{}` \u{b7} {}",
+            escape(&step.what),
+            escape(&format!("{prefix}{}:{}", step.file, step.line)),
+            step.order
+        )?;
+    }
+    writeln!(out)?;
     Ok(())
 }
 
@@ -187,9 +258,13 @@ pub fn comment(report: &Report<'_>, job: Option<&str>, mention_owners: bool) -> 
     }
     write_owners_to_notify(&mut out, report, mention_owners)?;
 
+    write_regressions(report, &mut out)?;
+    writeln!(out)?;
+
     // Folded, because a merge request is a conversation and this is one voice in it.
     writeln!(out, "<details><summary>What it found</summary>\n")?;
-    render(report, &mut out)?;
+    write_overview(report, &mut out)?;
+    write_gate(report, &mut out)?;
     writeln!(out, "\n</details>")?;
 
     if let Some(job) = job {
@@ -297,6 +372,85 @@ mod tests {
         );
         assert!(!body.contains("@lead"), "only a known finding: {body}");
         assert!(!body.contains(" @web"), "no bare mention: {body}");
+    }
+
+    fn regression(qual: &str, line: u32) -> Regression {
+        Regression {
+            file: "src/x.ts".to_owned(),
+            qual: qual.to_owned(),
+            line,
+            before: "O(n)".parse().unwrap(),
+            after: "O(n^2)".parse().unwrap(),
+            trace: vec![
+                rqx_core::cost::TraceStep {
+                    file: "src/x.ts".to_owned(),
+                    line,
+                    what: "loop".to_owned(),
+                    order: "O(n^2)".parse().unwrap(),
+                },
+                rqx_core::cost::TraceStep {
+                    file: "src/y.ts".to_owned(),
+                    line: 12,
+                    what: "findMatch".to_owned(),
+                    order: "O(n)".parse().unwrap(),
+                },
+            ],
+        }
+    }
+
+    fn comment_with(regressions: Option<&crate::regressions::Regressions>) -> String {
+        let outcome = crate::report::tests::outcome_with(&[], 1);
+        let mut report = Report::scan(&outcome, &crate::report::FindingFilter::default());
+        report.regressions = regressions;
+        comment(&report, None, false).expect("a comment")
+    }
+
+    #[test]
+    fn the_comment_lists_the_functions_that_got_slower_and_folds_the_trace() {
+        let found = crate::regressions::Regressions {
+            gate: rqx_core::config::RegressionGate::Warning,
+            state: State::Found(vec![regression("reconcileBatch", 90)]),
+        };
+
+        let body = comment_with(Some(&found));
+
+        assert!(body.contains("### Complexity regressions"), "{body}");
+        assert!(
+            body.contains("- **`reconcileBatch`** O(n) \u{2192} O(n\u{b2}) \u{b7} `src/x.ts:90`"),
+            "{body}"
+        );
+        let trace = body
+            .find("<details><summary>Trace</summary>")
+            .expect("a trace");
+        let step = body
+            .find("- findMatch \u{b7} `src/y.ts:12` \u{b7} O(n)")
+            .expect("a step");
+        let folded = body
+            .find("<details><summary>What it found</summary>")
+            .expect("a fold");
+        assert!(
+            trace < step && step < folded,
+            "the trace is not folded:\n{body}"
+        );
+        assert_eq!(body.matches("Complexity regressions").count(), 1, "{body}");
+    }
+
+    #[test]
+    fn the_comment_says_when_nothing_got_slower_or_nothing_was_compared() {
+        let none = crate::regressions::Regressions {
+            gate: rqx_core::config::RegressionGate::Error,
+            state: State::Found(Vec::new()),
+        };
+        let skipped =
+            crate::regressions::Regressions::without_base(rqx_core::config::RegressionGate::Off);
+
+        assert!(comment_with(Some(&none)).contains("No function costs more than at `the base`."));
+        assert!(comment_with(Some(&skipped)).contains("Not compared: there is no base revision"));
+    }
+
+    #[test]
+    fn a_comment_that_was_not_asked_about_regressions_has_no_section_for_them() {
+        assert!(!comment_with(None).contains("Complexity"));
     }
 
     #[test]

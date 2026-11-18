@@ -1,0 +1,15 @@
+
+  reconcile  reconcile.ts:3
+    time O(orders·prices)  space O(orders)  io O(1)  stack O(1)  confidence verified
+
+  time O(orders·prices)
+  └─ :5 loop is bounded by the size of `orders` (parameter)
+     └─ :6 calls `hasPrice` (prices.ts:1) with `prices`, `order`  → O(prices)
+        └─ :2 `js.array.includes` on `prices`  → O(prices)
+
+  space O(orders)
+  └─ :5 loop is bounded by the size of `orders` (parameter)
+
+  confidence verified
+    - every bound and library cost was read from the source
+

@@ -117,6 +117,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--max-findings` | Maximum number of findings listed; 0 lists every finding. Does not affect the health score |
 | `--record` | Append a snapshot of this scan's health to a trend file. Without a path it writes to `.rqx/trend.ndjson` |
 | `--trend` | Draw the snapshots in this file as a chart in the HTML report. A file that does not exist yet draws nothing |
+| `--regressions` | List the functions whose time order grew against the base revision, even when `gate.complexity_regression` is `off`. They are reported and do not change the exit code; the setting does that |
 | `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
@@ -147,6 +148,7 @@ Post the review as a comment on its merge request, and grade the commit
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
 | `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
+| `--regressions` | List the functions whose time order grew against the base revision, even when `gate.complexity_regression` is `off`. They are reported and do not change the exit code; the setting does that |
 | `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
@@ -440,6 +442,7 @@ Report code whose work grows faster than its input, ranked by reach
 | `--by` | One row per function, per file, or per directory |
 | `--top` | How many rows |
 | `--min-depth` | Skip entries whose loops nest less deeply than this |
+| `--explain` | Show how one function's cost was derived: its loops, where each bound came from, what each callee costs and why the analysis is as sure as it is. Name it as `name`, `Class.method` or `file:line` |
 | `--profile` | A CPU profile; a finding in code that nothing ran stops counting. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--json` | Emit one JSON object per row |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |

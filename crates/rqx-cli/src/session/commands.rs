@@ -16,8 +16,8 @@ use crate::config::Resolved;
 use crate::report::{self, Report};
 use crate::scan::{self, ScanOutcome};
 use crate::{
-    Cli, Command, DisplayCap, Evidence, Standard, check, complexity, fix, graph, parser, perf,
-    render, verify,
+    Cli, Command, Complexity, DisplayCap, Evidence, Standard, check, complexity, fix, graph,
+    parser, perf, render, verify,
 };
 
 /// What a typed line turned out to be.
@@ -303,6 +303,13 @@ fn refuse_trend_options(trending: &crate::trend::Options) -> Result<()> {
     Ok(())
 }
 
+fn refuse_regressions(compared: &Complexity) -> Result<()> {
+    if compared.regressions {
+        bail!("`--regressions` reads the base revision's files; run it from a shell");
+    }
+    Ok(())
+}
+
 fn refuse_scan_changes(evidence: &Evidence, cap: &DisplayCap) -> Result<()> {
     if evidence.is_empty() && !cap.is_set() {
         return Ok(());
@@ -354,7 +361,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             let mut settings = context.settings.clone();
             gate.apply(&mut settings.config);
             let verdict = gate.is_set().then(|| {
-                crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config)
+                crate::gate::judge(outcome, crate::gate::Scope::Project, &settings.config, &[])
             });
             let sinks = crate::sinks(&view)?;
             let filter = crate::filter_of(&view, &path, listed(&view, &path)?.as_ref())?;
@@ -465,6 +472,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             sort,
             top,
             min_depth,
+            explain,
             profile,
             json,
             printing,
@@ -482,7 +490,10 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
                 min_depth,
             };
             let outcome = context.scanned()?;
-            print(|out| render::perf(outcome, &view, json, context.settings, palette, out))
+            print(|out| match &explain {
+                Some(target) => render::perf_explain(outcome, target, json, palette, out),
+                None => render::perf(outcome, &view, json, context.settings, palette, out),
+            })
         }
         Command::Graph {
             path,
@@ -677,10 +688,12 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             evidence,
             cap,
             trending,
+            complexity: compared,
             run,
         } => {
             context.same_scan(&path, &run.standard, run.config.as_ref())?;
             refuse_scan_changes(&evidence, &cap)?;
+            refuse_regressions(&compared)?;
             if staged {
                 bail!("`--staged` reads the index; run `rqx check --staged` from a shell");
             }
@@ -1069,6 +1082,53 @@ mod tests {
                     "{line} differs from its command line twin"
                 );
             }
+        }
+
+        #[test]
+        fn slash_perf_explain_prints_what_the_command_line_twin_prints() {
+            let mut outcome = fixture();
+            let at = rqx_core::finding::SourceRange {
+                file: std::sync::Arc::from("src/api/client.ts"),
+                start: 10,
+                end: 11,
+                line: 4,
+                column: 1,
+                end_line: 4,
+            };
+            outcome
+                .shape_by_file
+                .entry(std::sync::Arc::from("src/api/client.ts"))
+                .or_default()
+                .functions
+                .push(rqx_lang::FunctionShape {
+                    name: Some("handle".to_owned()),
+                    range: at,
+                    end: 60,
+                    last_line: 9,
+                    parameters: 0,
+                    statements: 1,
+                    cognitive_complexity: 0,
+                    max_nesting: 0,
+                    loop_depth: 0,
+                    self_calls: 0,
+                    body: None,
+                });
+            let settings = Resolved::default();
+            let palette = Palette::with_depth(ColorDepth::Truecolor);
+
+            let mut expected = Vec::new();
+            render::perf_explain(&outcome, "handle", false, palette, &mut expected)
+                .expect("the direct rendering");
+
+            assert!(!expected.is_empty());
+            assert_eq!(
+                String::from_utf8_lossy(&via_session(
+                    "/perf --explain handle",
+                    &outcome,
+                    &settings
+                )),
+                String::from_utf8_lossy(&expected)
+            );
         }
 
         #[test]

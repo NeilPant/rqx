@@ -1,0 +1,11 @@
+
+  fibonacci  reconcile.ts:13
+    time exp  space O(n)  io O(1)  stack O(n)  confidence verified
+
+  recursion: calls itself 2 times per call, with `n` one smaller, so the stack grows to O(n)
+
+  time exp
+
+  confidence verified
+    - every bound and library cost was read from the source
+
