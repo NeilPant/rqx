@@ -104,3 +104,19 @@ func Paced() int {
 	time.Sleep(500)
 	return 0
 }
+
+func PrunesStale(seen map[string]int, limit int) {
+	for key, at := range seen {
+		if at < limit {
+			delete(seen, key)
+		}
+	}
+}
+
+func Doubles(rows []int) []int {
+	doubled := rows
+	for _, row := range doubled {
+		doubled = append(doubled, row)
+	}
+	return doubled
+}

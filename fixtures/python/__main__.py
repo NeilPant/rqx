@@ -82,6 +82,7 @@ from .shapes import (
 )
 from .vocabulary import fetch_order, getOrder, load_order, save_order
 from .performance import (
+    prunes_stale,
     fires,
     open_tabs,
     tabs_open,
@@ -278,6 +279,7 @@ def main():
         tabs_open,
         guards,
         prunes,
+        prunes_stale,
         schedules,
         Settled,
         asks_twice,

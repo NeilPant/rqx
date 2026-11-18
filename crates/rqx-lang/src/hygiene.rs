@@ -3583,8 +3583,31 @@ impl<'a> Walker<'a> {
         })
     }
 
-    /// Growing or shrinking the very collection a loop is walking.
+    /// Growing or shrinking the very collection a loop is walking, in a way the
+    /// language's own iteration does not survive.
     fn note_mutation_while_iterating(&mut self, loop_node: Node<'a>) {
+        let Some(walked) = self.iterated_name(loop_node) else {
+            return;
+        };
+        let Some(body) = self.loop_statements(loop_node) else {
+            return;
+        };
+        let Some(changed) = descendants(body).into_iter().find(|node| {
+            self.calls_a_changer(*node, &walked)
+                || self.rewrites_walked(*node, &walked)
+                || self.deletes_from(*node, &walked)
+        }) else {
+            return;
+        };
+        self.out.mutated_while_iterated.push(Spot {
+            span: span_of(changed),
+            detail: walked,
+            count: 1,
+        });
+    }
+
+    /// A method that adds or removes elements, called on the collection being walked.
+    fn calls_a_changer(&self, node: Node<'a>, walked: &str) -> bool {
         const CHANGERS: [&str; 16] = [
             "push",
             "pop",
@@ -3603,37 +3626,99 @@ impl<'a> Walker<'a> {
             "clear",
             "removeIf",
         ];
+        // A JavaScript Map or Set defines removal during a walk: an entry removed
+        // before the walk reaches it is skipped and the rest are visited once. An
+        // array has neither method.
+        const SAFE_IN_JAVASCRIPT: [&str; 2] = ["delete", "clear"];
         let profile = self.profile;
-        let Some(walked) = self.iterated_name(loop_node) else {
-            return;
-        };
-        let Some(body) = self.loop_statements(loop_node) else {
-            return;
-        };
-        let Some(changed) = descendants(body).into_iter().find(|node| {
-            let calls_a_changer = profile.is_call(*node)
-                && self.called_name(*node).is_some_and(|dotted| {
-                    let mut parts = dotted.rsplitn(2, '.');
-                    let tail = parts.next().unwrap_or_default();
-                    let receiver = parts.next().unwrap_or_default();
-                    receiver == walked && CHANGERS.contains(&tail)
-                });
-            // A language whose collections are values rewrites the name instead of
-            // calling a method on it.
-            let rewrites = (profile.assignment_kinds.contains(&kind_of(node))
-                || profile.local_declaring_kinds.contains(&kind_of(node)))
-                && node
-                    .child_by_field_name("left")
-                    .is_some_and(|target| self.text(target) == walked);
-            calls_a_changer || rewrites
-        }) else {
-            return;
-        };
-        self.out.mutated_while_iterated.push(Spot {
-            span: span_of(changed),
-            detail: walked,
-            count: 1,
-        });
+        let javascript = matches!(
+            profile.language,
+            rqx_core::Language::TypeScript | rqx_core::Language::JavaScript
+        );
+        profile.is_call(node)
+            && self.called_name(node).is_some_and(|dotted| {
+                let mut parts = dotted.rsplitn(2, '.');
+                let tail = parts.next().unwrap_or_default();
+                let receiver = parts.next().unwrap_or_default();
+                receiver == walked
+                    && CHANGERS.contains(&tail)
+                    && !(javascript && SAFE_IN_JAVASCRIPT.contains(&tail))
+            })
+    }
+
+    /// An assignment to the walked name that changes what the walk sees. Giving the
+    /// name a new value does not: the loop keeps the collection it started with.
+    fn rewrites_walked(&self, node: Node<'a>, walked: &str) -> bool {
+        let profile = self.profile;
+        let kind = kind_of(node);
+        let assigns_walked = (profile.assignment_kinds.contains(&kind)
+            || profile.local_declaring_kinds.contains(&kind))
+            && node
+                .child_by_field_name("left")
+                .is_some_and(|target| self.text(target) == walked);
+        if !assigns_walked {
+            return false;
+        }
+        match profile.language {
+            // `items += more` extends a list, set or dict in place.
+            rqx_core::Language::Python => profile.compound_assignment_kinds.contains(&kind),
+            // A range-for holds a reference to the container, so assigning to it
+            // invalidates the iterators the loop is using.
+            rqx_core::Language::Cpp => true,
+            // A range reads the slice it was given; only an append onto a slice of
+            // it, `s = append(s[:i], s[i+1:]...)`, moves the elements it reads.
+            rqx_core::Language::Go => node
+                .child_by_field_name("right")
+                .is_some_and(|value| self.shifts_elements_of(value, walked)),
+            _ => false,
+        }
+    }
+
+    /// `append(s[:i], …)`: writing into the array behind `s` from inside it.
+    fn shifts_elements_of(&self, value: Node<'a>, walked: &str) -> bool {
+        let profile = self.profile;
+        let mut value = self.see_through(value);
+        while profile.expression_list_kinds.contains(&kind_of(value))
+            && value.named_child_count() == 1
+            && let Some(only) = value.named_child(0)
+        {
+            value = self.see_through(only);
+        }
+        profile.is_call(value)
+            && self.called_name(value).as_deref() == Some("append")
+            && self.names().arguments(value).first().is_some_and(|first| {
+                kind_of(*first) == "slice_expression"
+                    && first
+                        .child_by_field_name("operand")
+                        .is_some_and(|operand| self.text(operand) == walked)
+            })
+    }
+
+    /// Python's `del items[key]`: a dict raises when its size changes during the
+    /// walk, and a list skips the element after the one removed.
+    fn deletes_from(&self, node: Node<'a>, walked: &str) -> bool {
+        let profile = self.profile;
+        if profile.language != rqx_core::Language::Python || kind_of(node) != "delete_statement" {
+            return false;
+        }
+        // `del a[k], b[k]` lists its targets; `del cache[items[0]]` deletes from
+        // `cache`, so only the targets themselves are read.
+        let targets: Vec<Node<'a>> = node
+            .named_children(&mut node.walk())
+            .flat_map(|target| {
+                if profile.expression_list_kinds.contains(&kind_of(target)) {
+                    target.named_children(&mut target.walk()).collect()
+                } else {
+                    vec![target]
+                }
+            })
+            .collect();
+        targets.into_iter().any(|target| {
+            kind_of(target) == "subscript"
+                && target
+                    .child_by_field_name("value")
+                    .is_some_and(|value| self.text(value) == walked)
+        })
     }
 
     /// What a loop is walking, where the loop names it.

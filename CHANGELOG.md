@@ -66,6 +66,19 @@ them. `tools/release.sh` turns that section into the release notes.
   A negated comparison such as `x !== x` checks for NaN and is not reported. A check
   that compares a literal with itself, such as `assertEquals(1, 1)`, is now reported.
 
+- **`mutated-while-iterated` follows each language's iteration rules.** In 0.5.1 it
+  reported `map.delete(key)` inside `for (const [key] of map)`. The JavaScript
+  specification defines that case: a Map or Set entry removed before the walk reaches
+  it is skipped. In JavaScript and TypeScript, `delete` and `clear` on the walked
+  collection are no longer reported, and `splice`, `push`, `shift` and the other array
+  changers still are. Assigning a new value to the walked name is no longer reported in
+  JavaScript, TypeScript, Java or Python, because the loop keeps the collection it
+  started with. Python's `items += more` changes the list in place and is still
+  reported. In Go, `delete(m, k)` during `range` is not reported, as before;
+  `s = append(s, x)` is no longer reported, and `s = append(s[:i], s[i+1:]...)`, which
+  moves the elements the range reads, still is. Python's `del items[key]` inside
+  `for key in items` is now reported. C++ is unchanged.
+
 ## 0.5.1 — 2026-11-18
 
 

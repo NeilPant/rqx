@@ -103,3 +103,10 @@ export async function fires(rows) {
   loadOne();
   return rows.length;
 }
+export function prunesStale(seen, limit) {
+  for (const [key, at] of seen) {
+    if (at < limit) {
+      seen.delete(key);
+    }
+  }
+}

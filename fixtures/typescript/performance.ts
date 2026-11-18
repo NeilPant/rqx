@@ -126,3 +126,11 @@ export async function fires(rows: number[]): Promise<number> {
   loadOne();
   return rows.length;
 }
+
+export function prunesStale(seen: Map<string, number>, limit: number): void {
+  for (const [key, at] of seen) {
+    if (at < limit) {
+      seen.delete(key);
+    }
+  }
+}

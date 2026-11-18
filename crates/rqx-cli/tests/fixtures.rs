@@ -352,7 +352,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("mixed-language-file", 1),
                 ("mixed-return", 1),
                 ("mutable-module-state", 10),
-                ("mutated-while-iterated", 1),
+                ("mutated-while-iterated", 2),
                 ("name-repeats-type", 1),
                 ("negated-comparison", 1),
                 ("negated-name", 2),

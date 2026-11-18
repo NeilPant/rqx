@@ -100,4 +100,14 @@ public class Performance {
         Thread.sleep(500);
         return openTabs;
     }
+
+    int keepsWhatItStartedWith(List<Integer> input) {
+        List<Integer> rows = new ArrayList<>(input);
+        for (final Integer row : rows) {
+            if (row < 0) {
+                rows = new ArrayList<>();
+            }
+        }
+        return rows.size();
+    }
 }
