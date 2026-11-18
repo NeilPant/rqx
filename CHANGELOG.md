@@ -9,6 +9,67 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **`fix.min_confidence`.** The lowest finding confidence whose fix `rqx fix` applies:
+  `verified` (the default), `heuristic` or `low`. It applies to `rqx fix`, `rqx check
+  --fix`, the editor's code actions and the MCP `fix_preview` tool. The preview counts the
+  fixes it left out on a `Floor` row, the JSON summary as `below_floor`, and `fix_preview`
+  as `below_floor`. See `docs/configuration.md`.
+- **A package check in `rqx fix`.** Before writing, `rqx fix` compares what each edited
+  file declares before and after the edit. An edit that removes a name, or changes the
+  signature of a function, that another file still uses is withheld, and the report names
+  the name and the file. The search covers every file the scan read and every file of the
+  same language in the edited file's directory, so a Go file excluded by a build tag or a
+  `_windows.go` suffix is included. A Go edit that changes any function signature is
+  withheld.
+- **`rqx fix --verify-build`.** Runs `go vet ./...` on a temporary copy of each Go module
+  with an edit, before and after the edits. A module that fails after the edits, or
+  already fails before them, has all of its edits withheld. Off by default; needs `go` on
+  `PATH`.
+
+### Changed
+
+- **`rqx fix` applies only the fixes of `verified` findings by default.** Fixes for
+  `heuristic` and `low` findings, such as `banner-comment`, `commented-out-code` and
+  `redundant-comment`, are counted and left in place. `fix.min_confidence: low` restores
+  the 0.5.0 behaviour. The `autofixable` flag in JSON and editor diagnostics, and the
+  findings `rqx fix --plan` lists, follow the same setting.
+- **`unused-parameter` checks the parameters of Go functions that return values.** It
+  previously read their result list instead, so a scan of Go code can report findings it
+  did not report before.
+
+### Fixed
+
+- **`rqx fix --write` could delete licence header lines and package-level declarations
+  still used by other files.** On cobra v1.10.2 it removed the Apache licence URL line
+  from 31 files, deleted `var preExecHookFn` from two build-tagged files that
+  `command.go` reads, and deleted result types from Go functions, after which `go vet`
+  failed. The summary still said every fix was re-analysed clean. The causes:
+  - `banner-comment` matched any comment that was one punctuated word, which included
+    URLs, licence lines, encoding declarations and commented-out code. It now reports a
+    divider (`// ======`) or a heading of one or two words fenced by one
+    (`// --- helpers ---`), and never a comment in a licence or copyright block.
+  - No fix removes a comment block that carries licence or copyright text (licence,
+    copyright, SPDX, "all rights reserved", Apache, MIT, GPL, BSD, Mozilla and similar
+    words), or a comment that holds a URL.
+  - `unused-local` reported names declared at package, module, namespace or class level,
+    which other files can read. It now reports only names declared inside a function, and
+    its fix removes only those. Go package-level variables and C++ globals declared
+    `extern` in a header are no longer reported.
+  - `unused-parameter` read the last parameter list of a Go function, which is the result
+    list when the function returns values. It reported result types as unused parameters,
+    and its fix deleted them along with an argument at every call site, which produced
+    `completions.go:187: too many return values`. The fix now edits only the list the
+    grammar names as the parameters.
+- **`dead-store` reported package-level and class-level names.** A call between the two
+  writes can read such a name. The rule now judges only names the function declares or
+  takes as parameters.
+- **A fix that added a second copy of an existing finding passed verification.**
+  Verification compared finding identities as a set, so a new finding with the same rule,
+  file and subject as an existing one was not seen. It now compares the count of each
+  identity.
+
 ## 0.5.0 — 2026-11-18
 
 ### Added
