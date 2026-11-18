@@ -11,6 +11,7 @@ mod delta;
 mod editor;
 mod fuzzy;
 mod job;
+mod menu;
 mod motion;
 mod owl;
 mod prompt;
@@ -26,7 +27,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+};
 use ratatui::text::Line;
 
 use rqx_core::Cleanliness;
@@ -38,8 +41,9 @@ use crate::scan::{self, ScanOutcome, ScanProgress};
 use crate::term::{self, Decline};
 
 use commands::{Action, Context, Invocation, Parsed, Target, WatchMode};
-use completion::{Catalogue, Suggestion};
+use completion::Catalogue;
 use job::{Finished, Job};
+use menu::MenuState;
 use motion::Motion;
 use owl::Owl;
 use prompt::Prompt;
@@ -70,6 +74,9 @@ pub struct Launch<'a> {
     /// The level the scan runs under, which a command can compare its own against.
     pub level: Option<&'a str>,
     pub reduced_motion: bool,
+    /// Whether the mouse wheel may scroll the menu. It is off for `--no-mouse`, which
+    /// leaves the mouse to the terminal throughout.
+    pub wheel: bool,
 }
 
 /// Runs the session to its end. An `Err` means the terminal could not host it, and the
@@ -120,73 +127,9 @@ struct App {
     recall: Recall,
     catalogue: Catalogue,
     menu: MenuState,
+    wheel: bool,
     last_interrupt: Option<Instant>,
     quit: bool,
-}
-
-/// What the completion menu holds for the line as it is now.
-#[derive(Default)]
-struct MenuState {
-    suggestions: Vec<Suggestion>,
-    selected: usize,
-    /// Closed with esc, or hidden because the line came from the history. It stays
-    /// closed through further typing until a `-` or Tab asks for it, or the line is
-    /// emptied or sent.
-    dismissed: bool,
-    /// Where the word is that Tab asked the flags for, so the menu keeps offering them
-    /// while that word is typed and not for the next one.
-    flags_from: Option<usize>,
-}
-
-impl MenuState {
-    /// What Tab opens when no menu is showing: the command's flags, kept on offer while
-    /// the word they start is typed.
-    fn flags_asked_for(catalogue: &Catalogue, before: &str) -> Self {
-        Self {
-            suggestions: catalogue.suggest_with_flags(before),
-            selected: 0,
-            dismissed: false,
-            flags_from: Some(completion::word_start(before)),
-        }
-    }
-
-    /// The menu after typing into the line it was built for. A menu closed with esc
-    /// stays closed through the typing, and `reopens` (a `-`, or an emptied line) opens
-    /// it again.
-    fn after_edit(&self, catalogue: &Catalogue, before: &str, reopens: bool) -> Self {
-        let flags_from = self
-            .flags_from
-            .filter(|from| *from == completion::word_start(before));
-        Self {
-            suggestions: if flags_from.is_some() {
-                catalogue.suggest_with_flags(before)
-            } else {
-                catalogue.suggest(before)
-            },
-            selected: 0,
-            dismissed: self.dismissed && !reopens,
-            flags_from,
-        }
-    }
-
-    fn visible(&self) -> bool {
-        !self.dismissed && !self.suggestions.is_empty()
-    }
-
-    fn chosen(&self) -> Option<&Suggestion> {
-        self.visible()
-            .then(|| self.suggestions.get(self.selected))
-            .flatten()
-    }
-
-    fn step(&mut self, forward: bool) {
-        let count = self.suggestions.len();
-        self.selected = if forward {
-            (self.selected + 1) % count
-        } else {
-            (self.selected + count - 1) % count
-        };
-    }
 }
 
 impl App {
@@ -214,6 +157,7 @@ impl App {
             recall,
             catalogue: Catalogue::new([]),
             menu: MenuState::default(),
+            wheel: options.wheel,
             last_interrupt: None,
             quit: false,
         }
@@ -224,11 +168,12 @@ impl App {
         while !self.quit {
             self.fit_viewport()?;
             self.draw()?;
-            if event::poll(self.wakeup())?
-                && let Event::Key(key) = event::read()?
-                && key.kind == KeyEventKind::Press
-            {
-                self.handle(key)?;
+            if event::poll(self.wakeup())? {
+                match event::read()? {
+                    Event::Key(key) if key.kind == KeyEventKind::Press => self.handle(key)?,
+                    Event::Mouse(mouse) => self.scroll(mouse),
+                    _ => {}
+                }
             }
             self.tick()?;
         }
@@ -271,13 +216,46 @@ impl App {
         if self.job.is_some() {
             SCANNING_ROWS
         } else {
-            view::idle_rows(self.menu.visible())
+            view::idle_rows(self.menu_rows())
         }
     }
 
+    /// How many suggestions the menu shows at once in the terminal as it is now.
+    fn menu_window(&self) -> usize {
+        menu::window_rows(self.viewport.rows())
+    }
+
+    fn menu_rows(&self) -> u16 {
+        if !self.menu.visible() {
+            return 0;
+        }
+        let window = self.menu_window();
+        view::menu_height(
+            self.menu.shown(window).len(),
+            self.menu.hidden_above() + self.menu.hidden_below(window),
+        )
+    }
+
     fn fit_viewport(&mut self) -> Result<()> {
+        self.menu.reveal(self.menu_window());
         self.viewport.resize(self.wanted_rows())?;
+        let wheel = menu::wants_wheel(self.wheel, self.menu.visible(), self.job.is_some());
+        self.viewport.capture_wheel(wheel)?;
         Ok(())
+    }
+
+    /// The wheel moves the choice a row per notch. Clicks and drags are ignored: the
+    /// capture exists for the wheel, and the menu is short-lived.
+    fn scroll(&mut self, mouse: MouseEvent) {
+        if !self.menu.visible() {
+            return;
+        }
+        let window = self.menu_window();
+        match mouse.kind {
+            MouseEventKind::ScrollUp => self.menu.wheel(false, window),
+            MouseEventKind::ScrollDown => self.menu.wheel(true, window),
+            _ => {}
+        }
     }
 
     fn draw(&mut self) -> Result<()> {
@@ -296,9 +274,10 @@ impl App {
         }
         let status = self.status();
         let input = self.prompt.text();
+        let window = self.menu_window();
         let rows: Vec<MenuRow<'_>> = self
             .menu
-            .suggestions
+            .shown(window)
             .iter()
             .map(|suggestion| MenuRow {
                 label: &suggestion.label,
@@ -310,7 +289,10 @@ impl App {
             cursor: self.prompt.cursor(),
             menu: self.menu.visible().then_some(Menu {
                 rows: &rows,
-                selected: self.menu.selected,
+                selected: self.menu.selected_in_view(),
+                above: self.menu.hidden_above(),
+                below: self.menu.hidden_below(window),
+                label_width: self.menu.label_width(),
             }),
             status: &status,
         };
@@ -479,6 +461,10 @@ impl App {
             KeyCode::Esc => self.menu.dismissed = true,
             KeyCode::Up => self.up(),
             KeyCode::Down => self.down(),
+            KeyCode::PageUp if self.menu.visible() => self.menu.page(false, self.menu_window()),
+            KeyCode::PageDown if self.menu.visible() => self.menu.page(true, self.menu_window()),
+            KeyCode::Home if self.menu.visible() => self.menu.first(self.menu_window()),
+            KeyCode::End if self.menu.visible() => self.menu.last(self.menu_window()),
             _ => {
                 if self.prompt.edit(key) {
                     self.refresh_menu_after_edit(key);
@@ -494,12 +480,7 @@ impl App {
         } else {
             self.catalogue.suggest(&self.prompt.before_cursor())
         };
-        self.menu = MenuState {
-            suggestions,
-            selected: 0,
-            dismissed: false,
-            flags_from: None,
-        };
+        self.menu = MenuState::new(suggestions);
     }
 
     /// The menu for a line that was just typed into. Unlike a fresh line it stays
@@ -538,7 +519,7 @@ impl App {
     /// which hides the menu so the next arrow keeps walking it.
     fn up(&mut self) {
         if self.menu.visible() {
-            self.menu.step(false);
+            self.menu.step(false, self.menu_window());
         } else {
             self.prompt.recall_older();
             self.menu.dismissed = true;
@@ -547,7 +528,7 @@ impl App {
 
     fn down(&mut self) {
         if self.menu.visible() {
-            self.menu.step(true);
+            self.menu.step(true, self.menu_window());
         } else {
             self.prompt.recall_newer();
             self.menu.dismissed = true;
@@ -780,98 +761,5 @@ fn display_root(path: &Path) -> String {
         Some(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
         Some(rest) => format!("~/{}", rest.display()),
         None => absolute.display().to_string(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn menu(count: usize) -> MenuState {
-        MenuState {
-            suggestions: (0..count)
-                .map(|at| Suggestion {
-                    label: format!("/c{at}"),
-                    about: String::new(),
-                    from: 0,
-                    typed: String::new(),
-                    insert: format!("/c{at} "),
-                })
-                .collect(),
-            selected: 0,
-            dismissed: false,
-            flags_from: None,
-        }
-    }
-
-    #[test]
-    fn the_choice_wraps_in_both_directions() {
-        let mut menu = menu(3);
-        menu.step(false);
-        assert_eq!(menu.selected, 2);
-        menu.step(true);
-        assert_eq!(menu.selected, 0);
-        menu.step(true);
-        assert_eq!(menu.chosen().map(|s| s.label.as_str()), Some("/c1"));
-    }
-
-    fn catalogue() -> Catalogue {
-        Catalogue::new([])
-    }
-
-    #[test]
-    fn a_menu_closed_with_esc_stays_closed_until_a_dash() {
-        let catalogue = catalogue();
-        let mut menu = MenuState::default().after_edit(&catalogue, "/plan", false);
-        assert!(menu.visible());
-        menu.dismissed = true;
-        let typing = menu.after_edit(&catalogue, "/plan ", false);
-        assert!(!typing.visible());
-        let typing = typing.after_edit(&catalogue, "/plan b", false);
-        assert!(!typing.visible());
-        let dashed = typing.after_edit(&catalogue, "/plan b-", true);
-        assert!(!dashed.dismissed);
-    }
-
-    #[test]
-    fn esc_then_a_dash_offers_the_flags_again() {
-        let catalogue = catalogue();
-        let mut menu = MenuState::default().after_edit(&catalogue, "/plan ", false);
-        menu.dismissed = true;
-        let dashed = menu.after_edit(&catalogue, "/plan -", true);
-        assert!(dashed.visible());
-        assert!(dashed.chosen().is_some_and(|s| s.label.starts_with("--")));
-    }
-
-    #[test]
-    fn an_emptied_line_opens_the_menu_again() {
-        let catalogue = catalogue();
-        let mut menu = MenuState::default().after_edit(&catalogue, "/pl", false);
-        menu.dismissed = true;
-        let emptied = menu.after_edit(&catalogue, "", true);
-        assert!(!emptied.dismissed);
-        let slash = emptied.after_edit(&catalogue, "/", false);
-        assert!(slash.visible());
-    }
-
-    #[test]
-    fn tab_opens_the_flags_and_keeps_them_while_their_word_is_typed() {
-        let catalogue = catalogue();
-        let asked = MenuState::flags_asked_for(&catalogue, "/plan ");
-        assert!(asked.visible());
-        let typing = asked.after_edit(&catalogue, "/plan bud", false);
-        assert_eq!(typing.chosen().map(|s| s.label.as_str()), Some("--budget"));
-        let next_word = typing.after_edit(&catalogue, "/plan bud ", false);
-        assert!(!next_word.visible());
-    }
-
-    #[test]
-    fn a_dismissed_or_empty_menu_offers_nothing() {
-        let mut shown = menu(2);
-        assert!(shown.visible());
-        shown.dismissed = true;
-        assert!(!shown.visible());
-        assert!(shown.chosen().is_none());
-        assert!(!menu(0).visible());
     }
 }

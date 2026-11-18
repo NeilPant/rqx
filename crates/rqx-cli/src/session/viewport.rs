@@ -1,14 +1,16 @@
 //! The few rows at the bottom of the terminal that the session redraws, and the
 //! scrollback above them that it only ever appends to.
 //!
-//! There is no alternate screen and no mouse capture, so the terminal keeps its own
-//! scrollback and selection and everything the session printed is still there after it
-//! exits. Raw mode is the only thing taken away, and `restore` gives it back on every
-//! way out: a normal return, an error and a panic.
+//! There is no alternate screen, so the terminal keeps its own scrollback and everything
+//! the session printed is still there after it exits. The mouse is left to the terminal
+//! too, so text can be selected, except for as long as the caller asks for the wheel:
+//! see `MouseCapture`. Raw mode and that capture are all the session takes away, and
+//! `restore` gives both back on every way out: a normal return, an error and a panic.
 
 use std::io::{self, Stdout};
 
 use crossterm::cursor::{MoveTo, Show};
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode};
 use ratatui::backend::CrosstermBackend;
@@ -22,16 +24,45 @@ type Screen = Terminal<CrosstermBackend<Stdout>>;
 /// them never asks for one buffer as tall as its whole output.
 const PRINT_CHUNK: usize = 500;
 
+/// Whether the terminal is reporting the mouse to the session, which is also what stops
+/// it selecting text. It says what has to be sent to get to the state wanted, and
+/// nothing when it is there already, so asking every frame costs no output.
+#[derive(Default)]
+struct MouseCapture {
+    on: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Switch {
+    On,
+    Off,
+}
+
+impl MouseCapture {
+    fn set(&mut self, wanted: bool) -> Option<Switch> {
+        if self.on == wanted {
+            return None;
+        }
+        self.on = wanted;
+        Some(if wanted { Switch::On } else { Switch::Off })
+    }
+}
+
 pub struct Viewport {
     screen: Screen,
     height: u16,
+    mouse: MouseCapture,
 }
 
 impl Viewport {
     pub fn open(height: u16) -> io::Result<Self> {
         enable_raw_mode()?;
         match screen(height) {
-            Ok(screen) => Ok(Self { screen, height }),
+            Ok(screen) => Ok(Self {
+                screen,
+                height,
+                mouse: MouseCapture::default(),
+            }),
             Err(error) => {
                 restore();
                 Err(error)
@@ -52,9 +83,20 @@ impl Viewport {
         Ok(())
     }
 
+    /// Has the terminal report the mouse wheel to the session while `wanted`, and go back
+    /// to selecting text when it is not. Safe to call every frame.
+    pub fn capture_wheel(&mut self, wanted: bool) -> io::Result<()> {
+        match self.mouse.set(wanted) {
+            Some(Switch::On) => execute!(io::stdout(), EnableMouseCapture),
+            Some(Switch::Off) => execute!(io::stdout(), DisableMouseCapture),
+            None => Ok(()),
+        }
+    }
+
     /// Gives the terminal back for a program that wants all of it, such as an editor:
-    /// the rows are cleared and raw mode is dropped.
+    /// the rows are cleared, the mouse is released and raw mode is dropped.
     pub fn suspend(&mut self) -> io::Result<()> {
+        self.capture_wheel(false)?;
         self.vacate()?;
         disable_raw_mode()?;
         execute!(io::stdout(), Show)
@@ -80,6 +122,10 @@ impl Viewport {
         crossterm::terminal::size().map_or(80, |(columns, _)| columns)
     }
 
+    pub fn rows(&self) -> u16 {
+        crossterm::terminal::size().map_or(24, |(_, rows)| rows)
+    }
+
     pub fn draw(&mut self, render: impl FnOnce(&mut Frame<'_>)) -> io::Result<()> {
         self.screen.draw(render).map(|_| ())
     }
@@ -99,6 +145,7 @@ impl Viewport {
     /// Wipes the viewport and leaves the cursor where it was, so whatever the caller
     /// prints next starts on the row the session's own rows used to.
     pub fn close(mut self) -> io::Result<()> {
+        self.capture_wheel(false)?;
         self.vacate()
     }
 
@@ -131,6 +178,27 @@ fn screen(height: u16) -> io::Result<Screen> {
 /// panic hook, because every step ignores a failure: there is nothing better to do
 /// about one while already on the way out.
 pub fn restore() {
+    let _ = execute!(io::stdout(), DisableMouseCapture);
     let _ = disable_raw_mode();
     let _ = execute!(io::stdout(), Show);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_mouse_is_captured_when_asked_and_released_when_not() {
+        let mut mouse = MouseCapture::default();
+        assert_eq!(mouse.set(true), Some(Switch::On));
+        assert_eq!(mouse.set(false), Some(Switch::Off));
+    }
+
+    #[test]
+    fn asking_again_for_the_state_it_is_in_sends_nothing() {
+        let mut mouse = MouseCapture::default();
+        assert_eq!(mouse.set(false), None);
+        mouse.set(true);
+        assert_eq!(mouse.set(true), None);
+    }
 }

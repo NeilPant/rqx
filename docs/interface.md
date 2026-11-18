@@ -17,7 +17,8 @@ the report and a failing exit when the project cannot be scanned.
 
 ## What it looks like
 
-The session uses no alternate screen and does not capture the mouse. A few rows at
+The session uses no alternate screen and leaves the mouse to the terminal, except
+while the command menu is open (see Completion). A few rows at
 the bottom of the window are redrawn. Everything else is printed above them into the
 terminal's own scrollback, so scrolling, searching and selecting use the terminal's
 own tools, and the output remains after the session ends.
@@ -118,11 +119,13 @@ diff instead.
 
 | Key | Does |
 |---|---|
-| `←` `→` `home` `end` | move in the line; `ctrl-a` and `ctrl-e` do the same |
+| `←` `→` `home` `end` | move in the line; `ctrl-a` and `ctrl-e` do the same. While the menu is open, `home` and `end` go to its first and last row |
 | `backspace` `delete` | remove before and at the cursor |
 | `ctrl-u` | delete everything before the cursor |
 | `ctrl-w` | delete the word before the cursor |
-| `↑` `↓` | walk the history, or the menu when it is open |
+| `↑` `↓` | walk the history, or the menu when it is open, wrapping at its ends |
+| mouse wheel | while the menu is open, move the highlight one row per notch, without wrapping |
+| `pgup` `pgdn` | while the menu is open, move the highlight by one page |
 | `?` on an empty line | print the keys into scrollback |
 | `tab` | accept the highlighted row; with no list open, list the command's flags |
 | `esc` | close the list; it stays closed until a `-` is typed or `tab` is pressed |
@@ -137,9 +140,24 @@ History is kept per user in the platform state directory (`$XDG_STATE_HOME/rqx` 
 
 A line that starts with `/` shows a list of commands under the prompt. Each row has
 the command and the first sentence of `rqx <command> --help`, and `tab` or `enter`
-takes the highlighted row. The list is ranked by how closely the typed letters sit
-together, so `cplx` matches `/complexity`. A line that does not start with `/`
-shows no list.
+takes the highlighted row. The list holds every match, ranked by how closely the
+typed letters sit together, so `cplx` matches `/complexity`. A line that does not
+start with `/` shows no list.
+
+The menu shows up to 10 rows at a time, and fewer in a short terminal so that the
+prompt and the status line always fit. The rows in view follow the highlight. A thin
+bar down the right edge shows where they sit in the list, and a line under the rows
+says how many are above (`↑ 3 more`) and below (`↓ 14 more`). Without colour the bar
+is drawn with `|` and `#`. Typing changes the list and puts the highlight back on its
+first row.
+
+The mouse wheel scrolls the menu, and the session asks the terminal to report the
+mouse only while the menu is open. Closing the menu with `esc`, taking a row, running
+the line, or leaving gives the mouse back, and so does a crash. While the menu is
+open, most terminals do not select text by dragging; hold `shift` (or `option` in
+some terminals) to select anyway. With the menu closed, the terminal selects text as
+usual. Clicks are ignored. `--no-mouse` stops the session from capturing the mouse at
+all.
 
 After a command and a space the list stays closed, so a finished line runs on
 `enter`. Typing `-` lists that command's flags, read from the same definition the
@@ -154,8 +172,9 @@ the scan for `--focus`. `/explain` offers rule slugs.
 
 `/exit`, `ctrl-d`, or `ctrl-c` twice. The session clears its own rows, restores the
 terminal and prints one line with what it found and the command that prints the
-whole report. Raw mode is the only terminal state the session changes. It is
-restored on a normal exit, on an error and on a panic.
+whole report. Raw mode, and the mouse capture while the menu is open, are the only
+terminal state the session changes. Both are restored on a normal exit, on an error
+and on a panic.
 
-`--no-mouse` is still accepted so that existing invocations keep working. It has
-no effect, because the session does not capture the mouse.
+`--no-mouse` keeps the session from capturing the mouse, so the wheel does not scroll
+the menu and the terminal keeps the mouse throughout.

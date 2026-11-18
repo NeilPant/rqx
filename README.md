@@ -921,9 +921,9 @@ Piped, redirected, run under CI, in a window smaller than 50 by 14 or given
 `rqx scan` and every other subcommand always print their report.
 
 The session lives at the bottom of your terminal. It uses no alternate screen and
-does not capture the mouse, so what it prints lands in your scrollback and stays
-there after you leave, and you select, search and scroll it with the terminal's own
-tools.
+leaves the mouse to your terminal, except for the wheel while the `/` menu is open,
+so what it prints lands in your scrollback and stays there after you leave, and you
+select, search and scroll it with the terminal's own tools.
 
 It scans as it opens. While it works, the owl animates beside the phase and the files
 done. When the scan finishes, a header and the worst findings go into scrollback,

@@ -97,10 +97,10 @@ pub struct Cli {
     /// Do not open the interactive interface; bare `rqx` prints the report instead
     #[arg(long, global = true)]
     no_tui: bool,
-    /// Accepted and ignored: the session never captures the mouse, so there is
-    /// nothing to leave to the terminal. It stays so an existing invocation works.
+    /// Keeps the session from capturing the mouse wheel for its command menu, so the
+    /// terminal keeps the mouse throughout. Without it the session captures the wheel
+    /// only while the menu is open.
     #[arg(long, global = true, hide = true)]
-    #[allow(dead_code)]
     no_mouse: bool,
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
     #[arg(long, value_enum, default_value_t = Color::Auto, global = true)]
@@ -1989,7 +1989,7 @@ fn validate_config(
 
 /// Opens the session on the working directory. `None` means the terminal could not
 /// host it after all, and the caller prints the report instead.
-fn open_session(motion: Motion) -> Result<Option<Exit>> {
+fn open_session(motion: Motion, wheel: bool) -> Result<Option<Exit>> {
     let Command::Scan { run, .. } = bare_scan()? else {
         bail!("bare `rqx` did not parse as a scan");
     };
@@ -2000,6 +2000,7 @@ fn open_session(motion: Motion) -> Result<Option<Exit>> {
         config: &settings,
         level: run.standard.level.as_deref(),
         reduced_motion: matches!(motion, Motion::Off),
+        wheel,
     };
     match session::launch(options) {
         Ok(()) => Ok(Some(Exit::Clean)),
@@ -2091,7 +2092,7 @@ fn run() -> Result<Exit> {
             // gets the scan's exit code rather than a help page that exits 0.
             if !cli.no_tui
                 && session::gate().is_ok()
-                && let Some(exit) = open_session(cli.motion)?
+                && let Some(exit) = open_session(cli.motion, !cli.no_mouse)?
             {
                 return Ok(exit);
             }
