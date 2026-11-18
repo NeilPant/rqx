@@ -34,16 +34,24 @@ impl Identity {
         Self(raw)
     }
 
-    /// `of`, with the span's own text standing in for findings whose evidence
-    /// carries no name. Trimmed, so reindenting the line a finding sits on does
-    /// not rename it.
+    /// `of`, keyed on the finding's `subject`.
     pub fn resolved(finding: &Finding, source: &str) -> Self {
-        let span = crate::span::Span::new(finding.location.start, finding.location.end);
-        let subject = finding
-            .evidence
-            .subject()
-            .map_or_else(|| span.text(source).trim().to_owned(), ToOwned::to_owned);
-        Self::keyed(finding, &subject)
+        Self::keyed(finding, &Self::subject(finding, source))
+    }
+
+    /// What a finding is about: the name its evidence carries, or the span's own text
+    /// for a finding whose evidence carries none. Trimmed, so reindenting the line a
+    /// finding sits on does not rename it.
+    pub fn subject(finding: &Finding, source: &str) -> String {
+        finding.evidence.subject().map_or_else(
+            || {
+                crate::span::Span::new(finding.location.start, finding.location.end)
+                    .text(source)
+                    .trim()
+                    .to_owned()
+            },
+            ToOwned::to_owned,
+        )
     }
 
     /// `of` for a finding that has already been given its subject. A rule the project

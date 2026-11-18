@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
@@ -134,17 +134,9 @@ fn key<'a>(outcome: &'a ScanOutcome, sources: &mut HashMap<String, String>) -> V
             let source = sources.entry(file.clone()).or_insert_with(|| {
                 std::fs::read_to_string(outcome.root.join(&file)).unwrap_or_default()
             });
-            let subject = finding.evidence.subject().map_or_else(
-                || {
-                    rqx_core::span::Span::new(finding.location.start, finding.location.end)
-                        .text(source)
-                        .trim()
-                        .to_owned()
-                },
-                ToOwned::to_owned,
-            );
+            let subject = Identity::subject(finding, source);
             Keyed {
-                identity: Identity::of(finding.rule, &file, &subject),
+                identity: Identity::keyed(finding, &subject),
                 finding,
                 subject,
                 magnitude: finding.evidence.magnitude(),
@@ -213,14 +205,22 @@ pub fn changes_between(before: &ScanOutcome, after: &ScanOutcome) -> Vec<Change>
     let mut changes = Vec::new();
     let mut matched: BTreeSet<usize> = BTreeSet::new();
 
-    let head_by_identity: BTreeMap<Identity, usize> = is
-        .iter()
-        .enumerate()
-        .map(|(index, keyed)| (keyed.identity, index))
-        .collect();
+    // Several findings can share an identity, so each one before is paired with one
+    // after, in source order on both sides: two before and one after is one resolved,
+    // not two unchanged.
+    let mut head_by_identity: BTreeMap<Identity, VecDeque<usize>> = BTreeMap::new();
+    for index in in_source_order(&is) {
+        head_by_identity
+            .entry(is[index].identity)
+            .or_default()
+            .push_back(index);
+    }
 
-    for old in &was {
-        if let Some(&index) = head_by_identity.get(&old.identity) {
+    for old in in_source_order(&was).map(|index| &was[index]) {
+        let paired = head_by_identity
+            .get_mut(&old.identity)
+            .and_then(VecDeque::pop_front);
+        if let Some(index) = paired {
             matched.insert(index);
             let new = &is[index];
             let outcome = match (old.magnitude, new.magnitude) {
@@ -300,6 +300,15 @@ pub fn changes_between(before: &ScanOutcome, after: &ScanOutcome) -> Vec<Change>
             .then(left.subject.cmp(&right.subject))
     });
     changes
+}
+
+fn in_source_order(keyed: &[Keyed<'_>]) -> impl Iterator<Item = usize> {
+    let mut order: Vec<usize> = (0..keyed.len()).collect();
+    order.sort_by_key(|&index| {
+        let location = &keyed[index].finding.location;
+        (location.file.clone(), location.start, location.end)
+    });
+    order.into_iter()
 }
 
 /// `rule` or `rule@file`, so a reviewer can ask for a specific finding rather than
@@ -410,4 +419,43 @@ pub fn ensure_repository(root: &Path, base: &str) -> Result<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rqx_core::finding::Severity;
+
+    /// `count` findings that share one identity: same rule, file and subject.
+    fn repeated(count: usize) -> ScanOutcome {
+        let findings = vec![("a.ts", Severity::Warning); count];
+        let mut outcome = crate::report::tests::outcome_with(&findings, 1);
+        outcome.root = std::path::PathBuf::from("/nowhere/rqx-verify-test");
+        outcome
+    }
+
+    /// How many changes were unchanged, resolved and introduced.
+    fn tally(before: usize, after: usize) -> [usize; 3] {
+        let changes = changes_between(&repeated(before), &repeated(after));
+        let count = |outcome: Outcome| {
+            changes
+                .iter()
+                .filter(|change| {
+                    std::mem::discriminant(&change.outcome) == std::mem::discriminant(&outcome)
+                })
+                .count()
+        };
+        [
+            count(Outcome::Unchanged),
+            count(Outcome::Resolved),
+            count(Outcome::Introduced),
+        ]
+    }
+
+    #[test]
+    fn each_repeat_before_is_paired_with_one_repeat_after() {
+        assert_eq!(tally(2, 1), [1, 1, 0]);
+        assert_eq!(tally(1, 2), [1, 0, 1]);
+        assert_eq!(tally(2, 2), [2, 0, 0]);
+    }
 }

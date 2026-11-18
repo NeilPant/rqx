@@ -38,6 +38,13 @@ them. `tools/release.sh` turns that section into the release notes.
   rule was on a fixed list, and these two rules were missing from it, so right after
   `rqx baseline` their findings in unchanged files were reported as new. Every finding
   is now matched in one place, whichever stage built it.
+- **`rqx verify` and the resolved findings in `rqx comment` pair repeated findings one
+  to one.** When findings shared an identity, every one of them at the base revision
+  was paired with the same finding in the working tree. Two findings reduced to one
+  were reported as two unchanged instead of one unchanged and one resolved. Each
+  finding at the base is now paired with at most one finding in the working tree, in
+  source order. `rqx verify` also keys a finding from a SARIF file on its own rule id,
+  so findings from two rules of another tool are no longer paired with each other.
 
 ## 0.5.0 — 2026-11-18
 
