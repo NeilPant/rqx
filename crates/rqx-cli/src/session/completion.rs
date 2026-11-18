@@ -314,17 +314,23 @@ fn ranked(
             ))
         })
         .collect();
+    // With nothing typed the common flags lead; once something is typed the closest
+    // match leads, so `--th` finds `--threads` before a weak match on a common flag.
+    let nothing_typed = slot.current.is_empty();
     scored.sort_by(|left, right| {
-        left.0
-            .cmp(&right.0)
-            .then(left.1.cmp(&right.1))
-            .then_with(|| {
-                if keep_order {
-                    left.2.cmp(&right.2)
-                } else {
-                    left.3.label.cmp(&right.3.label)
-                }
-            })
+        let (common, closeness) = (left.0.cmp(&right.0), left.1.cmp(&right.1));
+        let (first, second) = if nothing_typed {
+            (common, closeness)
+        } else {
+            (closeness, common)
+        };
+        first.then(second).then_with(|| {
+            if keep_order {
+                left.2.cmp(&right.2)
+            } else {
+                left.3.label.cmp(&right.3.label)
+            }
+        })
     });
     scored
         .into_iter()
