@@ -70,3 +70,15 @@ export function suffixed(text, suffixes) {
   }
   return out;
 }
+
+// closure-over-loop-variable: `let` and `const` give each pass a binding of its own.
+export function laterEach(rows) {
+  const out = [];
+  for (const row of rows) {
+    out.push(() => row);
+  }
+  for (let at = 0; at < rows.length; at++) {
+    out.push(() => at);
+  }
+  return out;
+}

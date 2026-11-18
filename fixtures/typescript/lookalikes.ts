@@ -84,3 +84,15 @@ export function suffixed(text: string, suffixes: string[]): string[] {
   }
   return out;
 }
+
+// closure-over-loop-variable: `let` and `const` give each pass a binding of its own.
+export function laterEach(rows: number[]): Array<() => number> {
+  const out: Array<() => number> = [];
+  for (const row of rows) {
+    out.push(() => row);
+  }
+  for (let at = 0; at < rows.length; at++) {
+    out.push(() => at);
+  }
+  return out;
+}

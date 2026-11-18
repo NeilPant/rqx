@@ -91,6 +91,11 @@ them. `tools/release.sh` turns that section into the release notes.
   if it ran after the loop had finished. A `t.Run` whose case calls `t.Parallel()` is
   still reported. In a Go module whose `go.mod` declares Go 1.22 or later each
   iteration has its own loop variables, so the rule does not report there at all.
+- **`closure-over-loop-variable` reports a JavaScript or TypeScript loop only when its
+  variable is shared between passes.** A loop that declares its variable with `let` or
+  `const`, as in `for (const row of rows)` or `for (let i = 0; …)`, gives each pass a
+  binding of its own, and a closure keeps the value of its pass. Only a `var` loop, or a
+  loop over a variable declared before it, is reported now.
 
 ## 0.5.0 — 2026-11-18
 

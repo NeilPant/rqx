@@ -58,7 +58,7 @@ export async function settingsOf(path) {
 }
 export function schedules(rows) {
   const out = [];
-  for (let at = 0; at < rows.length; at++) {
+  for (var at = 0; at < rows.length; at++) {
     out.push(function later() {
       return at;
     });

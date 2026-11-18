@@ -105,7 +105,7 @@ the closure reads whichever value the loop variable holds when it runs, so every
 From `fixtures/typescript/performance.ts`, line 75:
 
 ```ts
-  for (let at = 0; at < rows.length; at++) {
+  for (var at = 0; at < rows.length; at++) {
     out.push(function later(): number {
       return at;
     });

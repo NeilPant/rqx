@@ -2703,7 +2703,10 @@ impl<'a> Walker<'a> {
         };
         // A callback the loop itself calls, once per element, closes over nothing it
         // will outlive.
-        if profile.is_loop_callback(function, self.source) || self.runs_in_place(function) {
+        if profile.is_loop_callback(function, self.source)
+            || self.runs_in_place(function)
+            || self.binds_per_iteration(loop_node)
+        {
             return;
         }
         let moved: Vec<String> = self.loop_names(loop_node);
@@ -2806,6 +2809,26 @@ impl<'a> Walker<'a> {
             return false;
         };
         callers.contains(&tail) && !(tail == "Run" && self.text(function).contains(".Parallel()"))
+    }
+
+    /// A JavaScript loop that declares its variable with `let` or `const` gives every
+    /// pass a binding of its own, so a closure keeps the value of its own pass. Only
+    /// `var`, or a variable declared before the loop, is shared between passes.
+    fn binds_per_iteration(&self, loop_node: Node<'a>) -> bool {
+        if !matches!(
+            self.profile.language,
+            rqx_core::Language::TypeScript | rqx_core::Language::JavaScript
+        ) {
+            return false;
+        }
+        let lexical = |node: Node<'a>| matches!(self.text(node), "let" | "const");
+        match kind_of(loop_node) {
+            "for_in_statement" => loop_node.child_by_field_name("kind").is_some_and(lexical),
+            "for_statement" => loop_node
+                .child_by_field_name("initializer")
+                .is_some_and(|initializer| kind_of(initializer) == "lexical_declaration"),
+            _ => false,
+        }
     }
 
     fn enclosing_loop(&self, node: Node<'a>) -> Option<Node<'a>> {
