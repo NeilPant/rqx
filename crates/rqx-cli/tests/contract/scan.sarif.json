@@ -885,31 +885,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "typescript/suite.test.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 20,
-                  "startColumn": 29,
-                  "startLine": 16
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "The test contains 1 branch or loop, so which path ran depends on the data. a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked Fix: write one test per path, so a passing run shows which case was checked"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "branching-test"
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "typescript/flow.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -4610,6 +4585,31 @@
             "confidence": "verified"
           },
           "ruleId": "duplicate-assertion"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/suite-checks.test.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 60,
+                  "startColumn": 26,
+                  "startLine": 43
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The test contains 3 branches or loops, so which path ran depends on the data. a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked Fix: write one test per path, so a passing run shows which case was checked"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "branching-test"
         },
         {
           "level": "note",
@@ -8320,7 +8320,7 @@
             },
             {
               "defaultConfiguration": {
-                "level": "warning"
+                "level": "note"
               },
               "fullDescription": {
                 "text": "a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked"
@@ -8331,7 +8331,7 @@
               "id": "branching-test",
               "name": "branching-test",
               "properties": {
-                "problem.severity": "warning",
+                "problem.severity": "note",
                 "tags": [
                   "rqx",
                   "maintainability",

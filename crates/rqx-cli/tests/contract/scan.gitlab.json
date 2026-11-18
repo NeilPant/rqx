@@ -408,18 +408,6 @@
     "severity": "minor"
   },
   {
-    "check_name": "branching-test",
-    "description": "The test contains 1 branch or loop, so which path ran depends on the data. — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
-    "fingerprint": "ed93ff199cf7bdae",
-    "location": {
-      "lines": {
-        "begin": 16
-      },
-      "path": "typescript/suite.test.ts"
-    },
-    "severity": "minor"
-  },
-  {
     "check_name": "dead-store",
     "description": "The value assigned to `found` is overwritten before anything reads it. — the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary",
     "fingerprint": "db34701aa4ba9684",
@@ -2120,6 +2108,18 @@
         "begin": 22
       },
       "path": "typescript/suite.test.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "branching-test",
+    "description": "The test contains 3 branches or loops, so which path ran depends on the data. — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
+    "fingerprint": "db716793eabc75a2",
+    "location": {
+      "lines": {
+        "begin": 43
+      },
+      "path": "typescript/suite-checks.test.ts"
     },
     "severity": "info"
   },
