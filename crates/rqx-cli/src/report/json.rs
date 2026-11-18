@@ -201,7 +201,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
             .iter()
             .map(crate::scan::Skipped::listed)
             .collect(),
-        skipped_by: crate::scan::skip::tally(&outcome.skipped),
+        skipped_by: crate::scan::skip::tally(&outcome.skipped, &outcome.root),
         grades: report
             .files
             .iter()

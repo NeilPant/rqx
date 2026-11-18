@@ -2626,6 +2626,40 @@ pub(crate) fn files_of(
 }
 
 pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::WalkParallel> {
+    walker_noting(root, config, |_| {})
+}
+
+/// The scan's walker, which also tells `on_submodule` about each submodule it leaves
+/// out. Told from inside the walk, so a submodule under a pruned directory or an
+/// ignored path, which the walk never reaches, is never reported.
+fn walker_noting(
+    root: &Path,
+    config: &RqxConfig,
+    on_submodule: impl Fn(&Path) + Send + Sync + 'static,
+) -> Result<ignore::WalkParallel> {
+    let submodules = if config.scan.skip_submodules {
+        skip::submodules_under(root)
+    } else {
+        Vec::new()
+    };
+    let pruned: Vec<String> = config.scan.prune_dirs.clone();
+    let mut builder = source_walk(root, root, config)?;
+    builder.filter_entry(move |entry| {
+        if is_pruned(entry, &pruned) {
+            return false;
+        }
+        if submodules.iter().any(|submodule| submodule == entry.path()) {
+            on_submodule(entry.path());
+            return false;
+        }
+        true
+    });
+    Ok(builder.build_parallel())
+}
+
+/// A walk from `start` that yields what a scan of `root` would read below it: the
+/// enabled languages, minus the ignore patterns, which match relative to `root`.
+fn source_walk(root: &Path, start: &Path, config: &RqxConfig) -> Result<WalkBuilder> {
     let mut types = TypesBuilder::new();
     for language in config.languages.enabled() {
         for extension in language.extensions() {
@@ -2643,8 +2677,7 @@ pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::Wa
             .with_context(|| format!("ignore pattern `{pattern}` is not a valid glob"))?;
     }
 
-    let pruned: Vec<String> = config.scan.prune_dirs.clone();
-    let mut builder = WalkBuilder::new(root);
+    let mut builder = WalkBuilder::new(start);
     builder
         .types(types.build().context("building the source file matcher")?)
         .overrides(overrides.build().context("building ignore overrides")?)
@@ -2654,15 +2687,55 @@ pub(crate) fn build_walker(root: &Path, config: &RqxConfig) -> Result<ignore::Wa
             std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
         } else {
             config.scan.threads
-        })
-        .filter_entry(move |entry| {
-            if entry.file_type().is_some_and(|kind| kind.is_dir()) {
-                let name = entry.file_name().to_string_lossy();
-                return !pruned.iter().any(|dir| *dir == name);
-            }
-            true
         });
-    Ok(builder.build_parallel())
+    Ok(builder)
+}
+
+fn is_pruned(entry: &ignore::DirEntry, pruned: &[String]) -> bool {
+    entry.file_type().is_some_and(|kind| kind.is_dir())
+        && pruned
+            .iter()
+            .any(|dir| *dir == entry.file_name().to_string_lossy())
+}
+
+/// The source files a scan would read in `directory` if it were not left out, so a
+/// skipped submodule can say how much it held. Only directory entries are read.
+fn source_files_in(root: &Path, directory: &Path, config: &RqxConfig) -> u32 {
+    let Ok(mut builder) = source_walk(root, directory, config) else {
+        return 0;
+    };
+    let pruned = config.scan.prune_dirs.clone();
+    builder.filter_entry(move |entry| !is_pruned(entry, &pruned));
+    let files = builder
+        .build()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
+        .count();
+    u32::try_from(files).unwrap_or(u32::MAX)
+}
+
+/// Reports a submodule the walk left out as one skipped entry carrying the number of
+/// source files in it. One with no source files left nothing out, so it says nothing.
+fn report_submodule(
+    root: PathBuf,
+    config: RqxConfig,
+    sender: SyncSender<ScanMessage>,
+) -> impl Fn(&Path) + Send + Sync + 'static {
+    move |directory| {
+        let files = source_files_in(&root, directory, &config);
+        if files == 0 {
+            return;
+        }
+        let _ = sender.send(ScanMessage::Skipped(Skipped {
+            path: directory.to_owned(),
+            reason: SkipReason::Submodule,
+            detail: format!(
+                "a git submodule with {} (set `scan.skip_submodules: false` to include it)",
+                crate::report::plural(files, "source file", "source files")
+            ),
+            files,
+        }));
+    }
 }
 
 /// A caller following a scan, and the switch it stops one with. The two travel
@@ -2832,11 +2905,15 @@ pub(crate) fn scan_against(
     // wait for it only when they have a file to look up.
     let loading = policy.enabled(config).then(crate::cache::Loading::new);
 
+    let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
     let counter = build_walker(root, config)?;
-    let walker = build_walker(root, config)?;
+    let walker = walker_noting(
+        root,
+        config,
+        report_submodule(root.to_path_buf(), config.clone(), sender.clone()),
+    )?;
     let walks = AtomicU32::new(0);
     let reads = FileReads::default();
-    let (sender, receiver) = mpsc::sync_channel(CHANNEL_DEPTH);
 
     let collector = thread::scope(|scope| {
         let settings_ref = &*settings;

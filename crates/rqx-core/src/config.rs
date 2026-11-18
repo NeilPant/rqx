@@ -1347,6 +1347,10 @@ pub struct Scan {
     pub threads: usize,
     /// Skip files carrying a generator's marker, and list them as skipped.
     pub skip_generated: bool,
+    /// Leave out the git submodules that `.gitmodules` lists, and report each one as
+    /// skipped. A submodule is another repository pinned at a commit, so its findings
+    /// are not the project's to fix.
+    pub skip_submodules: bool,
     /// Bytes. A larger file is reported as skipped.
     pub max_filesize: u64,
     /// How many findings the report shows. 0 shows every one. Never moves the score.
@@ -1376,6 +1380,7 @@ impl Default for Scan {
         Self {
             threads: 0,
             skip_generated: true,
+            skip_submodules: true,
             max_filesize: 1 << 20,
             max_findings: 500,
             churn_days: 90,
@@ -1840,6 +1845,7 @@ mod tests {
                 scan: vec![
                     config.scan.threads.to_string(),
                     config.scan.skip_generated.to_string(),
+                    config.scan.skip_submodules.to_string(),
                     config.scan.max_filesize.to_string(),
                     config.scan.max_findings.to_string(),
                     config.scan.churn_days.to_string(),

@@ -1213,7 +1213,7 @@ fn write_run(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Res
 
 /// One line that counts the skipped files by reason; `-v` lists every one under it.
 fn write_skipped(out: &mut dyn Write, layout: &Layout, outcome: &ScanOutcome) -> Result<()> {
-    let Some(summary) = crate::scan::skip::summary(&outcome.skipped) else {
+    let Some(summary) = crate::scan::skip::summary(&outcome.skipped, &outcome.root) else {
         return Ok(());
     };
     let dim = layout.palette.style(Ink::Muted);

@@ -72,3 +72,77 @@ fn a_generated_file_is_skipped_and_says_so() {
         "a skipped file has to say why, or it is indistinguishable from a missing one: {summary}"
     );
 }
+
+fn summary_of(dir: &std::path::Path) -> serde_json::Value {
+    let (_, report) = scan(dir);
+    serde_json::from_str(report.lines().last().expect("a summary line")).expect("json")
+}
+
+fn write(dir: &std::path::Path, path: &str, text: &str) {
+    let path = dir.join(path);
+    std::fs::create_dir_all(path.parent().expect("a parent")).expect("a directory");
+    std::fs::write(path, text).expect("writing");
+}
+
+#[test]
+fn a_git_submodule_is_left_out_as_one_entry_unless_the_setting_brings_it_back() {
+    let dir = scratch("submodule");
+    write(
+        &dir,
+        ".gitmodules",
+        "[submodule \"design\"]\n\tpath = design\n\turl = ../design.git\n",
+    );
+    write(&dir, "design/.git", "gitdir: ../.git/modules/design\n");
+    write(&dir, "design/a.ts", "export const a = 1;\n");
+    write(&dir, "design/nested/b.ts", "export const b = 2;\n");
+    write(&dir, "app.ts", "export const app = 3;\n");
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 1, "{summary}");
+    assert_eq!(
+        summary["skipped_by"]["submodule"],
+        serde_json::json!({ "files": 2, "paths": ["design"] }),
+        "{summary}"
+    );
+    let skipped = summary["skipped"].as_array().expect("a list");
+    assert_eq!(
+        skipped.len(),
+        1,
+        "one entry for the whole submodule: {summary}"
+    );
+    assert!(
+        skipped[0]
+            .as_str()
+            .is_some_and(|line| line.contains("design: a git submodule with 2 source files")),
+        "{summary}"
+    );
+
+    write(&dir, "rqx.yaml", "scan:\n  skip_submodules: false\n");
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 3, "{summary}");
+    assert_eq!(summary["skipped_by"], serde_json::json!({}), "{summary}");
+}
+
+#[test]
+fn the_terminal_names_a_skipped_submodule_in_one_line() {
+    let dir = scratch("submodule-footer");
+    write(
+        &dir,
+        ".gitmodules",
+        "[submodule \"design\"]\n\tpath = design\n",
+    );
+    write(&dir, "design/a.ts", "export const a = 1;\n");
+    write(&dir, "app.ts", "export const app = 3;\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan", "--no-tui", "--no-pager", "--color", "never"])
+        .arg(&dir)
+        .env("RQX_NO_UPDATE_CHECK", "1")
+        .output()
+        .expect("failed to run rqx");
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("skipped 1 file: 1 in submodule design/ \u{b7} -v lists them"),
+        "{text}"
+    );
+}

@@ -10321,6 +10321,11 @@
           "description": "Skip files carrying a generator's marker, and list them as skipped.",
           "type": "boolean"
         },
+        "skip_submodules": {
+          "default": true,
+          "description": "Leave out the git submodules that `.gitmodules` lists, and report each one as skipped. A submodule is another repository pinned at a commit, so its findings are not the project's to fix.",
+          "type": "boolean"
+        },
         "threads": {
           "default": 0,
           "description": "Worker threads. 0 lets rqx pick from the machine.",
@@ -10920,6 +10925,7 @@
         ],
         "sarif_in": [],
         "skip_generated": true,
+        "skip_submodules": true,
         "threads": 0
       }
     },
