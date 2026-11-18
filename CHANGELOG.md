@@ -52,6 +52,16 @@ them. `tools/release.sh` turns that section into the release notes.
   could still produce the finding. A literal that is the whole value of a variable,
   constant or field declaration, optionally with a sign or parentheses, is no longer
   counted.
+- **`import-time-work` no longer reports registrations or entry points.** A top-level
+  `router.get('/x', handler)`, `app.use(auth)`, `emitter.on('e', () => …)` or
+  `atexit.register(flush)` only hands over a handler, and it was reported as work done
+  on load. A top-level call is now skipped when one of its arguments is a function
+  written in place or declared in the file, or, for a method named like a registration
+  (`use`, `get`, `post`, `on`, `command`, `register` and similar), any name passed
+  without being called. Files configured in `entrypoints.paths` and files named
+  `index`, `main`, `server`, `app`, `cli` or `__main__` are skipped, since running
+  top-level statements is what they are for. Calls such as `fs.readFileSync(path)` or
+  `connect()` at the top of a module are still reported.
 
 ## 0.5.0 — 2026-11-18
 

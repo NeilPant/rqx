@@ -1,4 +1,5 @@
 # Code that resembles a finding and is not one. Every rule should stay silent here.
+import atexit
 import time
 
 # distant-declaration, short-name-wide-scope: `TZ` belongs to the module, so being
@@ -51,3 +52,12 @@ def timeout_budget() -> int:
     read_timeout_seconds = 30
     idle_timeout_seconds = (30)
     return connect_timeout_seconds + read_timeout_seconds + idle_timeout_seconds
+
+
+# import-time-work: registering a handler runs nothing until the event arrives.
+def _flush() -> None:
+    print("flushed")
+
+
+atexit.register(_flush)
+atexit.register(lambda: print("closed"))

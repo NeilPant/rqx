@@ -2081,6 +2081,13 @@ impl<'a> Walker<'a> {
     /// has asked for anything.
     fn note_import_time_work(&mut self, root: Node<'a>) {
         let profile = self.profile;
+        let functions: HashSet<&str> = self
+            .nodes
+            .iter()
+            .filter(|node| profile.is_function(*node))
+            .filter_map(|node| self.function_name(node))
+            .map(|name| self.text(name))
+            .collect();
         for statement in root.named_children(&mut root.walk()) {
             if kind_of(statement) != "expression_statement" {
                 continue;
@@ -2097,7 +2104,10 @@ impl<'a> Walker<'a> {
             };
             // A test file is a list of registrations, and registering is the whole of
             // what loading it is for.
-            if profile.test.is_test(&name) || profile.test.is_assertion(&name) {
+            if profile.test.is_test(&name)
+                || profile.test.is_assertion(&name)
+                || self.registers(call, &functions)
+            {
                 continue;
             }
             self.out.import_time_work.push(Spot {
@@ -2106,6 +2116,55 @@ impl<'a> Walker<'a> {
                 count: 1,
             });
         }
+    }
+
+    /// A call that hands over something to be run later: a route, a listener, a
+    /// command. The work happens when the handler is called, not when the file loads.
+    /// A handler is a function written in place, a function this file declares, or,
+    /// for a method spelled like a registration (`router.use(auth)`), any name passed
+    /// without being called.
+    fn registers(&self, call: Node<'a>, functions: &HashSet<&str>) -> bool {
+        const REGISTRATIONS: [&str; 17] = [
+            "use",
+            "get",
+            "post",
+            "put",
+            "patch",
+            "delete",
+            "head",
+            "options",
+            "all",
+            "route",
+            "on",
+            "once",
+            "addListener",
+            "command",
+            "register",
+            "subscribe",
+            "handle",
+        ];
+        let profile = self.profile;
+        let Some(arguments) = call
+            .named_children(&mut call.walk())
+            .find(|child| profile.argument_list_kinds.contains(&kind_of(child)))
+        else {
+            return false;
+        };
+        let registering_method = call
+            .child_by_field_name(profile.callee_field)
+            .is_some_and(|callee| profile.is_member_access(callee))
+            && profile
+                .call_tail(call, self.source)
+                .is_some_and(|tail| REGISTRATIONS.contains(&tail));
+        arguments
+            .named_children(&mut arguments.walk())
+            .map(|argument| self.see_through(argument))
+            .any(|argument| {
+                let named = profile.is_identifier(argument);
+                profile.is_function(argument)
+                    || (named && functions.contains(self.text(argument)))
+                    || (registering_method && (named || profile.is_member_access(argument)))
+            })
     }
 
     /// Reaching for the clock, the environment or a random source from inside a body

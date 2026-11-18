@@ -1,4 +1,5 @@
 // Code that resembles a finding and is not one. Every rule should stay silent here.
+import { EventEmitter } from "node:events";
 
 // distant-declaration, short-name-wide-scope: `tz` belongs to the module, so being
 // read at the bottom of the file is where it belongs.
@@ -39,3 +40,13 @@ const SOCKET_TIMEOUT_SECONDS = -30;
 export function timeoutBudget() {
   return CONNECT_TIMEOUT_SECONDS + READ_TIMEOUT_SECONDS - SOCKET_TIMEOUT_SECONDS;
 }
+
+// import-time-work: registering a handler runs nothing until the event arrives.
+export const events = new EventEmitter();
+
+function shout(payload) {
+  return payload.toUpperCase();
+}
+
+events.on("shout", shout);
+events.on("trim", (payload) => payload.trim());

@@ -1730,17 +1730,19 @@ pub fn check_hygiene(
             "accept it as an argument, so a caller can decide what it is".to_owned(),
         );
     }
-    for spot in &hygiene.import_time_work {
-        emit(
-            out,
-            RuleId::ImportTimeWork,
-            spot,
-            Evidence::Name {
-                identifier: spot.detail.clone(),
-                reason: "runs when the file is loaded".to_owned(),
-            },
-            "put it behind a function the caller chooses to call".to_owned(),
-        );
+    if !is_entry_point(&builder.file, &builder.config.entrypoints.paths) {
+        for spot in &hygiene.import_time_work {
+            emit(
+                out,
+                RuleId::ImportTimeWork,
+                spot,
+                Evidence::Name {
+                    identifier: spot.detail.clone(),
+                    reason: "runs when the file is loaded".to_owned(),
+                },
+                "put it behind a function the caller chooses to call".to_owned(),
+            );
+        }
     }
     for spot in &hygiene.private_reaches {
         emit(
@@ -2155,6 +2157,22 @@ pub fn check_hygiene(
     }
 }
 
+/// A file the program is started from: its top-level statements are the program
+/// running, which is what loading it is for. Recognised by the configured
+/// `entrypoints.paths` or by a name such as `index`, `main`, `server`, `app` or `cli`.
+fn is_entry_point(file: &str, configured: &[String]) -> bool {
+    const NAMES: [&str; 6] = ["index", "main", "server", "app", "cli", "__main__"];
+    let file = file.trim_start_matches("./");
+    let name = file.rsplit('/').next().unwrap_or(file);
+    let stem = name.split('.').next().unwrap_or(name);
+    NAMES.contains(&stem)
+        || configured.iter().any(|entry| {
+            let entry = entry.trim_start_matches("./");
+            entry == file
+                || globset::Glob::new(entry).is_ok_and(|glob| glob.compile_matcher().is_match(file))
+        })
+}
+
 pub fn check_class_shape(
     report: &crate::facts::ClassReport,
     builder: &FindingBuilder<'_>,
@@ -2476,7 +2494,7 @@ pub fn check_patterns(
 
 #[cfg(test)]
 mod tests {
-    use super::climb;
+    use super::{climb, is_entry_point};
 
     /// Two spellings of the same thing. A path climbs with `..` segments, and Python
     /// climbs with dots where the first one only means "this package".
@@ -2498,5 +2516,18 @@ mod tests {
         assert_eq!(climb("github.com/stripe/stripe-go"), 0);
         // A file whose name begins with a dot is not a climb either.
         assert_eq!(climb("./.eslintrc"), 0);
+    }
+
+    #[test]
+    fn an_entry_point_is_named_so_or_configured() {
+        assert!(is_entry_point("src/index.ts", &[]));
+        assert!(is_entry_point("server.js", &[]));
+        assert!(is_entry_point("pkg/__main__.py", &[]));
+        assert!(!is_entry_point("src/http/router.ts", &[]));
+        assert!(!is_entry_point("src/mainline.ts", &[]));
+        let configured = ["./bin/start.ts".to_owned(), "scripts/*.mjs".to_owned()];
+        assert!(is_entry_point("bin/start.ts", &configured));
+        assert!(is_entry_point("scripts/seed.mjs", &configured));
+        assert!(!is_entry_point("src/seed.mjs", &configured));
     }
 }
