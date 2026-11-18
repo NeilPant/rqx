@@ -125,14 +125,18 @@ out, paired = sys.argv[1], sys.argv[2] == "yes"
 
 
 def mean(result):
-    # hyperfine 1.x puts the mean on the result; newer releases, which also measure
-    # memory, nest it under the wall-time measurement.
-    if "mean" in result:
-        return result["mean"]
-    for key in ("wall_time", "time"):
-        nested = result.get(key)
-        if isinstance(nested, dict) and "mean" in nested:
-            return nested["mean"]
+    # hyperfine 1.x puts the mean on the result. Newer releases, which also measure
+    # memory, move it into a summary, under the wall-time measurement when they keep
+    # one per kind. Memory figures are never read as a time.
+    for where in (result, result.get("summary")):
+        if not isinstance(where, dict):
+            continue
+        if isinstance(where.get("mean"), (int, float)):
+            return where["mean"]
+        for key in ("wall_time", "time"):
+            nested = where.get(key)
+            if isinstance(nested, dict) and isinstance(nested.get("mean"), (int, float)):
+                return nested["mean"]
     sys.exit(f"run.sh: no mean in hyperfine's result; keys: {sorted(result)}")
 
 
