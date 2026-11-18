@@ -73,6 +73,9 @@ check() {
     echo "== generated docs"
     cargo run --quiet --release -- docs
     git diff --exit-code docs/
+    echo "== bench summary"
+    need python3 "the bench summary test"
+    python3 -I tools/bench/test_summary.py
     echo "check passed"
 }
 

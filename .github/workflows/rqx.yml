@@ -87,6 +87,9 @@ jobs:
           cargo run --release -- docs
           git diff --exit-code docs/
 
+      - name: Bench summary reads every hyperfine format
+        run: python3 -I tools/bench/test_summary.py
+
       # One pass per language, so a regression names the language it broke rather
       # than moving a total nobody can read.
       - name: Analyze each language's fixtures
@@ -127,9 +130,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # Pinned to 1.x: 2.0 moved the timings in its JSON export, and the summary
+      # reads both, but a number that changes meaning under the same job is worse
+      # than a pin that is raised on purpose.
       - uses: taiki-e/install-action@v2
         with:
-          tool: hyperfine
+          tool: hyperfine@1.19.0
 
       - run: cargo build --release --locked
 
