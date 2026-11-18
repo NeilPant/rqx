@@ -102,6 +102,8 @@ struct App {
     viewport: Viewport,
     look: Look,
     motion: Motion,
+    /// The running job's own clock, which the owl's reading loop starts from.
+    job_clock: Option<Motion>,
     owl: Owl,
     root: String,
     path: PathBuf,
@@ -198,6 +200,7 @@ impl App {
                 palette: Palette::detect(),
             },
             motion: Motion::new(options.reduced_motion),
+            job_clock: None,
             owl: Owl::new(Sprite::parse(MASCOT)),
             root: display_root(options.path),
             path: options.path.to_path_buf(),
@@ -283,7 +286,10 @@ impl App {
     fn draw(&mut self) -> Result<()> {
         let look = &self.look;
         if let Some((_, busy)) = &self.job {
-            let owl = self.owl.glancing(&self.motion, look.palette, self.signal());
+            let signal = self.signal();
+            let reduced = self.motion.reduced();
+            let clock = self.job_clock.get_or_insert_with(|| Motion::new(reduced));
+            let owl = self.owl.glancing(clock, look.palette, signal);
             let room = view::text_width(&owl, self.viewport.width());
             let spinner = self.motion.spinner();
             let text = match busy {
@@ -392,6 +398,7 @@ impl App {
         let Some((job, _)) = self.job.take() else {
             return Ok(());
         };
+        self.job_clock = None;
         match job.join() {
             Finished::Done(Done::Scanned(outcome)) => self.adopt(*outcome)?,
             Finished::Done(Done::Watching(project)) => {
