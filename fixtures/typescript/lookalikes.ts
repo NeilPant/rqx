@@ -37,12 +37,13 @@ export function zoneLabel(): string {
 }
 
 // magic-number: each 30 below is the value of a declaration, which names it.
+// hungarian-notation: IDLE_… is a constant in capitals, not an interface prefix.
 const CONNECT_TIMEOUT_SECONDS = 30;
 const READ_TIMEOUT_SECONDS = 30;
-const SOCKET_TIMEOUT_SECONDS = -30;
+const IDLE_TIMEOUT_SECONDS = -30;
 
 export function timeoutBudget(): number {
-  return CONNECT_TIMEOUT_SECONDS + READ_TIMEOUT_SECONDS - SOCKET_TIMEOUT_SECONDS;
+  return CONNECT_TIMEOUT_SECONDS + READ_TIMEOUT_SECONDS - IDLE_TIMEOUT_SECONDS;
 }
 
 // import-time-work: registering a handler runs nothing until the event arrives.

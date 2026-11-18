@@ -71,6 +71,10 @@ them. `tools/release.sh` turns that section into the release notes.
   factor_(factor) {}`, and a TypeScript constructor with parameter properties,
   `constructor(private readonly label: string) {}`, do their work before the body and
   were reported as empty.
+- **`hungarian-notation` no longer reads a constant or an acronym as an interface
+  prefix.** `IDLE_TIMEOUT_SECONDS`, a Go field named `ID`, `IOError` and `IPAddress`
+  were reported as interface names with an `I` prefix. A name with no lowercase letter
+  is now never reported, and the `I` prefix needs a word after it, as in `IOrder`.
 - **`magic-number` leaves out the value of a declaration.** The rule describes itself
   as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
   toward the repeats of `3`, so naming a number, which is the fix the rule recommends,
