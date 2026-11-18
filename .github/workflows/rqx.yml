@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
+  # So a branch can be checked before it is a pull request. The bench job only runs
+  # on `main`, so a manual run skips it.
+  workflow_dispatch:
 
 permissions:
   contents: read
