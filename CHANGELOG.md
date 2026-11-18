@@ -9,6 +9,37 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Fixed
+
+- **`assertionless-test` recognises the standard assertions of each supported test
+  framework.** In 0.5.0 only the first segment of a call was compared against a short
+  list, so `t.Errorf`, `self.assertIn` and `EXPECT_NE` were not assertions.
+  - Go: `Error`, `Errorf`, `Fatal`, `Fatalf`, `Fail` and `FailNow` on the test's
+    `*testing.T`, `*testing.B`, `*testing.F` or `testing.TB`, and on `s.T()`; any call
+    that passes that handle on, such as `checkOutput(t, got)`; a subtest passed by name,
+    `t.Run(name, tc.test)`; Gomega's `Expect`, `Eventually` and `Consistently`;
+    testify's `Fail` and `FailNow`, and suite assertions written through `s.Require()` and
+    `s.Assert()`. Benchmarks and fuzz targets are not reported.
+  - Python: every unittest `self.assert*` method and `self.fail`, mock's `assert_*`
+    methods, `pytest.raises`, `pytest.warns`, `pytest.deprecated_call`, `pytest.fail`, and
+    `ThreadingMock`'s `wait_until_called` and `wait_until_any_call_with`.
+  - Java: every JUnit `assert*` method and `fail`, AssertJ's `assertThat*`, Mockito's
+    `verify*`, and JUnit 4's `@Test(expected = ...)`. A constructor of a class whose name
+    starts with `Test` is no longer read as a test.
+  - TypeScript and JavaScript: Chai's `should` chains, `sinon.assert`, `t.assert`, `fail`,
+    and functions named `expect*` or `assert*`.
+  - C++: every GoogleTest and GoogleMock `EXPECT_*` and `ASSERT_*` macro, including
+    `ASSERT_THROW` with a type argument; `FAIL`, `ADD_FAILURE` and `GTEST_FAIL`; Catch2
+    and doctest `REQUIRE*` and `CHECK*`; Boost.Test `BOOST_CHECK*`, `BOOST_REQUIRE*`,
+    `BOOST_TEST`, `BOOST_FAIL` and `BOOST_ERROR`; and `static_assert`.
+  - Every language: a call to a function declared in the same file that asserts counts as
+    an assertion, if the test calls it bare, through `self` or `this`, or from inside the
+    function that declares it.
+- **A call that does not pass a function body is no longer analysed as a test
+  registration.** In Python, `test.assertEqual(3, 2)` was read as a call to `test(...)`
+  registering a test and was reported by `assertionless-test` and `empty-test`.
+  `it("name", handler)` in TypeScript and JavaScript was reported the same way.
+
 ## 0.5.0 — 2026-11-18
 
 ### Added

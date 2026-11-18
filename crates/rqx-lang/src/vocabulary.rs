@@ -196,6 +196,60 @@ pub struct TestVocabulary {
     /// Calls made from inside a test that skip or focus the run, matched on their
     /// last segment because the receiver is named by whoever wrote the test.
     pub control_calls: &'static [(&'static str, &'static str)],
+    /// Calls that check something whatever they are written on. A bare entry matches
+    /// the last segment of the call; a dotted one matches its end.
+    pub assertion_calls: &'static [&'static str],
+    /// Starts of a last segment that name a check: `assertRaises`, `EXPECT_NE`. The
+    /// prefix must end at a word boundary, so `expectedTotal` is not a check.
+    pub assertion_prefixes: &'static [&'static str],
+    /// Calls that fail the test outright, matched like `assertion_calls`.
+    pub failure_calls: &'static [&'static str],
+    /// Calls that end a test early without failing it, matched like `assertion_calls`.
+    pub skip_calls: &'static [&'static str],
+    /// The type of the handle a runner passes each test. A call that hands it on is a
+    /// helper checking on the test's behalf.
+    pub handle_types: &'static [&'static str],
+    /// Methods that fail the test only when written on that handle: `t.Error`, not
+    /// `err.Error`.
+    pub handle_failures: &'static [&'static str],
+    /// Tests found by name that measure rather than check, so they owe no assertion.
+    pub measuring_prefixes: &'static [&'static str],
+    /// Literal kinds a test writes a table of cases in.
+    pub table_kinds: &'static [&'static str],
+    /// Calls that build a table of cases from their arguments, matched like
+    /// `assertion_calls`.
+    pub table_calls: &'static [&'static str],
+    /// Annotations whose arguments state what the test expects, as (name, argument):
+    /// JUnit 4's `@Test(expected = ...)` asserts without a call.
+    pub expecting_annotations: &'static [(&'static str, &'static str)],
+    /// Checks the language writes as a declaration rather than a call:
+    /// `static_assert(...)`. Kept apart from the profile's assertion statements, which
+    /// also mark an assertion left in production code.
+    pub assertion_kinds: &'static [&'static str],
+    /// Where the grammar reads a check macro whose arguments include a type as a
+    /// declarator, `ASSERT_THROW(f(), const char*)`. Its `declarator` names the macro.
+    pub misread_call_kinds: &'static [&'static str],
+}
+
+/// A test vocabulary entry: a dotted one matches the end of the call's name, a bare
+/// one its last segment.
+fn names_entry(name: &str, entry: &str) -> bool {
+    if entry.contains('.') {
+        return name == entry || name.ends_with(&format!(".{entry}"));
+    }
+    name.rsplit('.').next() == Some(entry)
+}
+
+/// `assertEqual` and `CHECK_EQ` start with a check's prefix; `expectedTotal` and
+/// `CHECKSUM` only start with its letters.
+fn starts_with_word(segment: &str, prefix: &str) -> bool {
+    let shouted = !prefix.chars().any(char::is_lowercase);
+    segment.strip_prefix(prefix).is_some_and(|rest| {
+        prefix.ends_with('_')
+            || rest.is_empty()
+            || rest.starts_with('_')
+            || (!shouted && rest.starts_with(char::is_uppercase))
+    })
 }
 
 impl TestVocabulary {
@@ -209,10 +263,83 @@ impl TestVocabulary {
     }
 
     pub fn is_assertion(&self, name: &str) -> bool {
-        let root = Self::root_of(name);
+        self.is_assertion_root(Self::root_of(name))
+    }
+
+    fn is_assertion_root(&self, segment: &str) -> bool {
         self.assertion_roots
             .iter()
-            .any(|candidate| root == *candidate || root.ends_with(candidate))
+            .any(|candidate| segment == *candidate || segment.ends_with(candidate))
+    }
+
+    /// Whether a call checks something by its name alone. Wider than `is_assertion`:
+    /// it also reads the segments a fluent framework writes the check through
+    /// (`value.should.equal`, `sinon.assert.calledOnce`), the framework's own
+    /// assertions and the calls that fail the test.
+    pub fn checks(&self, name: &str) -> bool {
+        let (written_on, last) = name.rsplit_once('.').unwrap_or(("", name));
+        self.fails(name)
+            || written_on
+                .split('.')
+                .any(|segment| self.is_assertion_root(segment))
+            || self.is_assertion_root(Self::root_of(name))
+            || self
+                .assertion_calls
+                .iter()
+                .any(|entry| names_entry(name, entry))
+            || self
+                .assertion_prefixes
+                .iter()
+                .any(|prefix| starts_with_word(last, prefix))
+    }
+
+    pub fn fails(&self, name: &str) -> bool {
+        self.failure_calls
+            .iter()
+            .any(|entry| names_entry(name, entry))
+    }
+
+    pub fn skips(&self, name: &str) -> bool {
+        self.control(name) == Some("skipped")
+            || self.skip_calls.iter().any(|entry| names_entry(name, entry))
+    }
+
+    /// `t.Errorf` on a handle the runner passed in, or on the one a suite hands out
+    /// through `s.T()`.
+    pub fn fails_on_handle(&self, name: &str, handles: &[&str]) -> bool {
+        let Some((receiver, method)) = name.rsplit_once('.') else {
+            return false;
+        };
+        self.handle_failures.contains(&method)
+            && (handles.contains(&receiver) || receiver.rsplit('.').next() == Some("T"))
+    }
+
+    pub fn is_handle_type(&self, written: &str) -> bool {
+        let written: String = written.split_whitespace().collect();
+        self.handle_types.contains(&written.as_str())
+    }
+
+    pub fn measures(&self, name: &str) -> bool {
+        self.measuring_prefixes
+            .iter()
+            .any(|prefix| name.starts_with(prefix))
+    }
+
+    pub fn builds_table(&self, name: &str) -> bool {
+        self.table_calls
+            .iter()
+            .any(|entry| names_entry(name, entry))
+    }
+
+    /// `@Test(expected = TimeoutException.class)`: the annotation is the assertion.
+    pub fn expects_by_annotation(&self, annotation: &str) -> bool {
+        let written = annotation.trim_start_matches('@');
+        let Some((name, arguments)) = written.split_once('(') else {
+            return false;
+        };
+        self.expecting_annotations
+            .iter()
+            .any(|(candidate, argument)| name.trim() == *candidate && arguments.contains(argument))
     }
 
     pub fn is_test(&self, name: &str) -> bool {
@@ -739,6 +866,47 @@ mod tests {
             &markers,
             &[" = "]
         ));
+    }
+
+    #[test]
+    fn a_check_is_recognised_by_any_segment_a_framework_writes_it_through() {
+        let python = &crate::python::PYTHON.test;
+        assert!(python.checks("self.assertDictEqual"));
+        assert!(python.checks("callback.assert_called_once_with"));
+        assert!(python.checks("pytest.raises"));
+        assert!(python.checks("self.fail"));
+        assert!(!python.checks("self.assertion_helper"));
+
+        let typescript = &crate::typescript::TYPESCRIPT_PROFILE.test;
+        assert!(typescript.checks("value.should.equal"));
+        assert!(typescript.checks("sinon.assert.calledOnce"));
+        assert!(typescript.checks("route.expectServed"));
+        assert!(!typescript.checks("expectedTotal"));
+        assert!(!typescript.checks("jwt.verify"));
+
+        let java = &crate::java::JAVA.test;
+        assert!(java.checks("softly.assertThat"));
+        assert!(java.checks("Mockito.verifyNoMoreInteractions"));
+        assert!(java.expects_by_annotation("@Test(expected = IllegalStateException.class)"));
+        assert!(!java.expects_by_annotation("@Test(timeout = 100)"));
+
+        let cpp = &crate::cpp::CPP.test;
+        assert!(cpp.checks("EXPECT_NE"));
+        assert!(cpp.checks("REQUIRE_FALSE"));
+        assert!(cpp.checks("ADD_FAILURE"));
+        assert!(!cpp.checks("CHECKSUM"));
+    }
+
+    #[test]
+    fn a_go_failure_counts_only_on_the_runner_handle() {
+        let go = &crate::go::GO.test;
+        assert!(go.fails_on_handle("t.Errorf", &["t"]));
+        assert!(go.fails_on_handle("s.T.Fatal", &[]));
+        assert!(!go.fails_on_handle("err.Error", &["t"]));
+        assert!(!go.checks("err.Error"));
+        assert!(go.checks("g.Expect"));
+        assert!(go.is_handle_type("*testing.T"));
+        assert!(go.measures("BenchmarkParse"));
     }
 
     #[test]

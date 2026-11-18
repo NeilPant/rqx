@@ -410,6 +410,54 @@
   {
     "check_name": "branching-test",
     "description": "1 decisions inside the test (limit 0). — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
+    "fingerprint": "40bc72d9f604d5ca",
+    "location": {
+      "lines": {
+        "begin": 16
+      },
+      "path": "typescript/suite-checks.test.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "branching-test",
+    "description": "1 decisions inside the test (limit 0). — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
+    "fingerprint": "40bc72d9f604d5ca0001",
+    "location": {
+      "lines": {
+        "begin": 26
+      },
+      "path": "typescript/suite-checks.test.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "branching-test",
+    "description": "1 decisions inside the test (limit 0). — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
+    "fingerprint": "40bc72d9f604d5ca0002",
+    "location": {
+      "lines": {
+        "begin": 32
+      },
+      "path": "typescript/suite-checks.test.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "branching-test",
+    "description": "3 decisions inside the test (limit 0). — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
+    "fingerprint": "c9e81593e0be4c88",
+    "location": {
+      "lines": {
+        "begin": 43
+      },
+      "path": "typescript/suite-checks.test.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "branching-test",
+    "description": "1 decisions inside the test (limit 0). — a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked",
     "fingerprint": "ed93ff199cf7bdae",
     "location": {
       "lines": {

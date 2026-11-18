@@ -368,6 +368,28 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
         case_prefixes: &["test_"],
         case_signature_is_fixed: false,
         control_calls: &[],
+        // The `wait_until_*` pair belongs to `ThreadingMock`, which raises when the
+        // call never comes.
+        assertion_calls: &[
+            "pytest.raises",
+            "pytest.warns",
+            "pytest.deprecated_call",
+            "wait_until_called",
+            "wait_until_any_call_with",
+        ],
+        // unittest's `self.assert*`, mock's `assert_called_with`, and the
+        // `assert_*` helpers test suites write for themselves.
+        assertion_prefixes: &["assert"],
+        failure_calls: &["fail"],
+        skip_calls: &["skipTest", "pytest.skip"],
+        handle_types: &[],
+        handle_failures: &[],
+        measuring_prefixes: &[],
+        table_kinds: &["list", "tuple", "set", "dictionary"],
+        table_calls: &[],
+        expecting_annotations: &[],
+        assertion_kinds: &[],
+        misread_call_kinds: &[],
     },
     markup_runtimes: &[],
 };

@@ -238,13 +238,13 @@ a test that branches has paths of its own and nothing says which one ran, so a p
 | Reads | the syntax tree alone |
 | Fix | Extract Method / Decompose Conditional |
 
-From `fixtures/typescript/suite.test.ts`, line 16:
+From `fixtures/typescript/suite-checks.test.ts`, line 16:
 
 ```ts
 
-it("branches on the input", () => {
-  if (add(1, 1) === 2) {
-    expect(add(1, 1)).toBe(2);
+it("fails by hand", () => {
+  if (add(1, 0) !== 1) {
+    assert.fail("add(1, 0) is not 1");
   }
 });
 
