@@ -9,6 +9,8 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+## 0.5.1 — 2026-11-18
+
 
 ### Added
 
