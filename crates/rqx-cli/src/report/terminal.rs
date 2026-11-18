@@ -48,7 +48,8 @@ pub enum Order {
 pub enum Detail {
     /// One line per finding: where, how bad, which rule, and what it found.
     Terse,
-    /// The reason once per rule and the cost once per file.
+    /// The whole reason once per rule, a one-line reason on every finding, and the cost
+    /// once per file.
     #[default]
     Normal,
     /// Every line on every finding.
@@ -631,10 +632,13 @@ fn write_finding(
 
     write_prose(out, layout, 5, "", &finding.message(), None)?;
     // A rule the project wrote has already said why in its own message; the
-    // catalogue's rationale belongs to a rule rqx ships.
-    let fresh = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
-    if fresh && !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
-        write_prose(out, layout, 5, "Why: ", spec.why, None)?;
+    // catalogue's rationale belongs to a rule rqx ships. The whole rationale is printed
+    // once per rule; every other finding of it gets the short form, so none is left
+    // without a reason.
+    if !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
+        let first = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
+        let why = if first { spec.why } else { spec.short_why() };
+        write_prose(out, layout, 5, "Why: ", why, None)?;
     }
     if let Some(cost) = cost {
         write_prose(out, layout, 5, "Cost:", cost, Some(Ink::Warn))?;
@@ -1533,6 +1537,30 @@ mod tests {
         );
         assert!(!full.contains("more"), "{full}");
         assert!(full.contains("big-14.ts"), "{full}");
+    }
+
+    #[test]
+    fn every_finding_gets_a_reason_and_the_whole_rationale_is_printed_once() {
+        let outcome = outcome_with(
+            &[
+                ("a.ts", Severity::Error),
+                ("a.ts", Severity::Error),
+                ("a.ts", Severity::Error),
+            ],
+            2,
+        );
+
+        let text = rendered_text(&outcome, &layout());
+
+        let spec = RuleId::LongFunction.spec();
+        assert_eq!(text.matches("Why:  ").count(), 3, "{text}");
+        assert_eq!(text.matches(spec.why).count(), 1, "{text}");
+        assert_eq!(
+            text.matches(&format!("Why:  {}\n", spec.short_why()))
+                .count(),
+            2,
+            "{text}"
+        );
     }
 
     #[test]

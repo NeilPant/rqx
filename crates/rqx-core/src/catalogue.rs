@@ -255,6 +255,7 @@ catalogue! {
         severity: Warning,
         why: "an export that nothing imports still has to be read, type-checked and kept working \
               during every refactoring that touches it",
+        short: "an export nothing imports still has to be read and kept working",
     },
     UnusedFile {
         slug: "unused-file",
@@ -315,6 +316,7 @@ catalogue! {
         confidence: Verified,
         severity: Error,
         why: "this code cannot run, so whatever it was written to do is not happening",
+        short: "this code cannot run, so whatever it was written to do is not happening",
         autofix: Deletion,
     },
     CommentedOutCode {
@@ -459,6 +461,7 @@ catalogue! {
         severity: Info,
         why: "a reader has to keep the name in mind while reading everything in between, without \
               knowing whether it will matter",
+        short: "a reader has to keep the name in mind through everything in between",
     },
 
     ObscuredExpression {
@@ -635,6 +638,7 @@ catalogue! {
         severity: Info,
         why: "a reader who has seen `fetchUser` cannot tell whether `getUser` is the same \
               operation or a different one, so both have to be read before either is used",
+        short: "one idea has several names, so a reader cannot tell whether they are one operation",
         off_by_default: true,
     },
 
@@ -835,6 +839,7 @@ catalogue! {
         severity: Info,
         why: "a name that describes nothing requires each reader to work out the value's purpose \
               from its uses",
+        short: "a name that describes nothing makes every reader work out the purpose from its uses",
         off_by_default: true,
     },
     ShortNameWideScope {
@@ -921,6 +926,7 @@ catalogue! {
         confidence: Verified,
         severity: Error,
         why: "the arm below also runs, and nothing here says whether that was intended",
+        short: "the arm below also runs, and nothing says whether that was meant",
         not_applicable: [
             (Go, "an arm ends where the next begins unless it says otherwise"),
             (Python, "an arm ends where the next begins"),
@@ -936,6 +942,7 @@ catalogue! {
         severity: Warning,
         why: "two conditions folded into one expression have to be unfolded by the reader before \
               either can be checked",
+        short: "two conditions in one expression have to be unfolded before either can be checked",
         not_applicable: [(Go, "Go has no conditional expression")],
     },
     AmbiguousPrecedence {
@@ -1052,6 +1059,7 @@ catalogue! {
         severity: Warning,
         why: "nothing orders them, so the call takes the sum of two waits where it could take the \
               longer one",
+        short: "nothing orders the two waits, so the call takes their sum",
         not_applicable: [
             (Go, "waiting is a channel receive, which the language does not mark"),
             (Java, "waiting is a call like any other"),
@@ -1411,6 +1419,7 @@ catalogue! {
         severity: Info,
         why: "every test of the name that is itself negated has to be inverted twice by the \
               reader before the condition has a meaning",
+        short: "a condition on a negated name has to be inverted twice before it has a meaning",
     },
     ShadowsBuiltin {
         slug: "shadows-builtin",
@@ -1456,6 +1465,7 @@ catalogue! {
         severity: Info,
         why: "it repeats the signature, so it costs a reader a second pass and becomes wrong when \
               the signature changes",
+        short: "it repeats the signature, so it becomes wrong when the signature changes",
     },
     GuardCascade {
         slug: "guard-cascade",
@@ -1467,6 +1477,7 @@ catalogue! {
         severity: Info,
         why: "the body has not started and the reader has already read several decisions, none of \
               which says what the function is for",
+        short: "the reader meets several decisions before the body says what the function is for",
     },
     BlanketTry {
         slug: "blanket-try",
@@ -1739,6 +1750,7 @@ catalogue! {
         severity: Warning,
         why: "either the line was meant to do something and does not, or it does nothing and \
               should be removed, and a reader cannot tell which",
+        short: "either the line was meant to do something and does not, or it should go",
         not_applicable: [
             (Go, "the grammar allows only a call or a receive as a statement, so the compiler rejects this first"),
             (Java, "the grammar allows only a call, an assignment or an increment as a statement"),
@@ -1814,6 +1826,7 @@ catalogue! {
         severity: Warning,
         why: "it catches the failures it was written for and every other failure too, including \
               failures that mean the program is already in an invalid state",
+        short: "it catches the failures it was written for and every other one too",
         not_applicable: [
             (Go, "errors are values, so there is no handler to widen"),
             (JavaScript, "a catch clause cannot name a type in JavaScript, so none can name the root of the hierarchy"),
@@ -2006,6 +2019,7 @@ catalogue! {
         severity: Info,
         why: "two statements importing one module mean a reader has to check both to know what \
               the file takes from it, and a merge can introduce one without anyone reviewing it",
+        short: "two imports of one module mean a reader has to check both",
     },
     WideFanOut {
         slug: "wide-fan-out",
@@ -2017,6 +2031,7 @@ catalogue! {
         severity: Info,
         why: "a file that reaches into this many places cannot be read, moved or tested without \
               most of the project coming with it",
+        short: "a file that reaches into this many places drags most of the project with it",
     },
     WideFanIn {
         slug: "wide-fan-in",
@@ -2348,6 +2363,7 @@ catalogue! {
         severity: Info,
         why: "the collection grows by reallocating and copying its contents as it fills, work \
               that a capacity set from the loop's size avoids",
+        short: "the collection reallocates and copies its contents as it fills",
         off_by_default: true,
         not_applicable: [
             (JavaScript, "arrays grow without a capacity to set"),
@@ -2426,6 +2442,7 @@ catalogue! {
         severity: Warning,
         why: "each pass copies the element into the variable, allocating and copying its \
               contents, when a reference to it would read the same value",
+        short: "each pass copies the element where a reference would read the same value",
         not_applicable: [
             (JavaScript, "the loop variable refers to the element; nothing is copied"),
             (TypeScript, "the loop variable refers to the element; nothing is copied"),

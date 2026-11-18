@@ -31,6 +31,11 @@ them. `tools/release.sh` turns that section into the release notes.
   editor diagnostics and in the MCP tools. The `evidence` object in JSON is unchanged,
   and so are the fingerprints in the GitLab report and in SARIF `partialFingerprints`,
   which still hash the evidence's own text. `--search` matches both texts.
+- **Every finding in the terminal has a reason.** The whole rationale for a rule prints
+  under its first finding, as before. The later findings of that rule print a one-line
+  form of it instead of nothing. The catalogue entry takes an optional `short`; without
+  one, the short form is the first clause of `why`. `--detail full` still prints the
+  whole rationale every time.
 - **The terminal marks the focus, not the whole statement.** A finding with a focus
   underlines only that range and shows the rest of its statement as a count of lines.
   A multi-line finding with no focus shows its first line and `⋮ N more lines` instead of

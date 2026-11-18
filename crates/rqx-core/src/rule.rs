@@ -173,6 +173,9 @@ pub struct RuleSpec {
     pub confidence: Confidence,
     pub severity: Severity,
     pub why: &'static str,
+    /// A shorter form of `why`, written by hand where cutting `why` at its first clause
+    /// reads badly. Empty means `short_why` derives it.
+    pub short: &'static str,
     /// Ships disabled: rules whose signal is real but noisy, or which encode a
     /// convention a given project may not share.
     pub off_by_default: bool,
@@ -199,6 +202,7 @@ const CUSTOM: RuleSpec = RuleSpec {
     confidence: Confidence::Verified,
     severity: Severity::Warning,
     why: "this project asked to be told about it",
+    short: "",
     off_by_default: false,
     not_applicable: &[],
 };
@@ -214,6 +218,7 @@ macro_rules! catalogue {
             confidence: $confidence:ident,
             severity: $severity:ident,
             why: $why:literal,
+            $(short: $short:literal,)?
             $(autofix: $autofix:ident,)?
             $(off_by_default: $off:literal,)?
             $(not_applicable: [$(($language:ident, $reason:literal)),+ $(,)?],)?
@@ -248,6 +253,7 @@ macro_rules! catalogue {
                         confidence: Confidence::$confidence,
                         severity: Severity::$severity,
                         why: $why,
+                        short: catalogue!(@short $($short)?),
                         off_by_default: catalogue!(@off $($off)?),
                         not_applicable: &[$($((Language::$language, $reason)),+)?],
                     }),+
@@ -255,10 +261,45 @@ macro_rules! catalogue {
             }
         }
     };
+    (@short) => { "" };
+    (@short $text:literal) => { $text };
     (@autofix) => { Autofix::Refactoring };
     (@autofix $variant:ident) => { Autofix::$variant };
     (@off) => { false };
     (@off $value:literal) => { $value };
+}
+
+/// Where a rationale turns from its claim to the consequences it draws, so the claim
+/// can be read alone.
+const CLAUSE_BREAKS: [&str; 10] = [
+    ", and ",
+    ", so ",
+    ", which ",
+    ", but ",
+    ", because ",
+    ", where ",
+    ", while ",
+    ", since ",
+    "; ",
+    " \u{2014} ",
+];
+
+impl RuleSpec {
+    /// One clause of the rationale, short enough to print under every finding. The
+    /// full `why` is printed once per rule.
+    pub fn short_why(&self) -> &'static str {
+        if !self.short.is_empty() {
+            return self.short;
+        }
+        let why: &'static str = self.why;
+        let cut = CLAUSE_BREAKS
+            .iter()
+            .filter_map(|separator| why.find(separator))
+            .filter(|at| *at > 0)
+            .min()
+            .unwrap_or(why.len());
+        &why[..cut]
+    }
 }
 
 impl RuleId {
@@ -367,6 +408,30 @@ mod tests {
                 assert_eq!(text.trim(), text, "{rule}'s {field} is padded");
             }
         }
+    }
+
+    /// The short form is printed under every finding, so it has to stand as one line
+    /// that says something and is shorter than the rationale it abbreviates.
+    #[test]
+    fn every_rule_has_a_short_why_that_fits_on_one_line() {
+        let mut problems = Vec::new();
+        for rule in RuleId::ALL.iter().copied() {
+            let spec = rule.spec();
+            let short = spec.short_why();
+            if short.len() < 28 {
+                problems.push(format!("{rule}: too thin to stand alone: {short}"));
+            }
+            if short.len() > 100 {
+                problems.push(format!("{rule}: too long for one line: {short}"));
+            }
+            if !(spec.why.starts_with(short) || !spec.short.is_empty())
+                || short.ends_with(['.', ',', ';'])
+                || short.contains("  ")
+            {
+                problems.push(format!("{rule}: malformed: {short}"));
+            }
+        }
+        assert!(problems.is_empty(), "{}", problems.join("\n"));
     }
 
     #[test]
