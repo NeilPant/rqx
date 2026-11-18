@@ -4859,6 +4859,11 @@ fn scan_comments(
     out: &mut Hygiene,
 ) {
     let mut runs: Vec<(Span, u32)> = Vec::new();
+    // A divider drawn inside a licence header is part of the notice.
+    let notices = crate::notices::protected_comments(
+        source,
+        nodes.iter().filter(|node| profile.is_comment(*node)),
+    );
     for comment in nodes.iter().filter(|node| profile.is_comment(*node)) {
         let span = span_of(comment);
         let text = text_of(comment, source);
@@ -4911,7 +4916,7 @@ fn scan_comments(
                 detail: regret.to_owned(),
                 count: 1,
             });
-        } else if crate::vocabulary::banner(text) {
+        } else if crate::vocabulary::banner(text) && notices.binary_search(&span).is_err() {
             out.banner_comments.push(Spot {
                 span,
                 detail: String::new(),

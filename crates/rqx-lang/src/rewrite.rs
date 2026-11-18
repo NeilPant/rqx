@@ -32,6 +32,8 @@ pub struct Rewriter<'src> {
     /// Resolved on the first fix that needs it. Scope resolution is the most
     /// expensive stage in the per-file pipeline, and most fixes never ask.
     scopes: OnceCell<Scopes>,
+    /// Licence notices and comments holding a URL, which no edit may remove.
+    protected: OnceCell<Vec<Span>>,
 }
 
 /// Why a file's edits were not written. Every variant is a reason the reader gets
@@ -145,6 +147,7 @@ impl<'src> Rewriter<'src> {
             profile: support.profile,
             tree,
             scopes: OnceCell::new(),
+            protected: OnceCell::new(),
         })
     }
 
@@ -224,6 +227,24 @@ impl<'src> Rewriter<'src> {
     /// places at once — removing a parameter also removes the argument at every call
     /// site — because applying half of that pair is worse than applying neither.
     pub fn edit(&self, finding: &Finding) -> Vec<Edit> {
+        let edits = self.edits_for(finding);
+        // All of a finding's edits or none of them, as everywhere else.
+        if edits
+            .iter()
+            .any(|edit| crate::notices::touches_protected(self.protected(), edit.span))
+        {
+            return Vec::new();
+        }
+        edits
+    }
+
+    fn protected(&self) -> &[Span] {
+        self.protected.get_or_init(|| {
+            crate::notices::protected_in(self.profile, self.source, self.tree.root_node())
+        })
+    }
+
+    fn edits_for(&self, finding: &Finding) -> Vec<Edit> {
         if !finding.rule.spec().autofix.is_automatic() {
             return Vec::new();
         }
@@ -682,6 +703,36 @@ export const used = live;
             rewriter.verify("fixture", &config, &analysis.findings, &elsewhere),
             Err(Withheld::Survives(_))
         ));
+    }
+
+    /// Deleting the divider is still the fix; the notice and the link are not part of
+    /// it, whichever comment rule asks.
+    #[test]
+    fn a_licence_header_and_a_link_survive_every_comment_fix() {
+        let source = "\
+// Copyright 2013-2023 The Cobra Authors
+//
+// Licensed under the Apache License, Version 2.0 (the \"License\");
+//      http://www.apache.org/licenses/LICENSE-2.0
+// ======================================================
+
+package cobra
+
+// ---------------- helpers ----------------
+
+func f() int {
+\t// https://github.com/spf13/cobra/issues/1257
+\t// \tflagName += \"=\"
+\treturn 1
+}
+";
+        let after = fixed(Language::Go, source);
+        assert!(after.starts_with("// Copyright 2013-2023 The Cobra Authors\n//\n// Licensed under the Apache License, Version 2.0 (the \"License\");\n//      http://www.apache.org/licenses/LICENSE-2.0\n// ======================================================\n"), "{after}");
+        assert!(
+            after.contains("// https://github.com/spf13/cobra/issues/1257"),
+            "{after}"
+        );
+        assert!(!after.contains("---- helpers ----"), "{after}");
     }
 
     /// `var preExecHookFn` in cobra's `command_win.go` is read by `command.go`, and a
