@@ -42,7 +42,7 @@ def lookup_all(table: dict[str, int], keys: list[str]) -> int:
     return total
 
 
-# @complexity time=O(n*m) space=O(1) conf=heuristic rule=scan-in-loop scope=local
+# @complexity time=O(n*m) space=O(n) conf=heuristic rule=scan-in-loop scope=local
 def positions(values, haystack):
     found = []
     for value in values:

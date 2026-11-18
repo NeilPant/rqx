@@ -2,24 +2,24 @@
   "format": 1,
   "rules": {
     "accumulate-by-copy": {
-      "tp": 1,
-      "fp": 1,
+      "tp": 2,
+      "fp": 2,
       "fn": 0
     },
     "branching-recursion": {
       "tp": 7,
-      "fp": 2,
+      "fp": 3,
       "fn": 0
     },
     "deep-recursion": {
-      "tp": 12,
+      "tp": 17,
       "fp": 0,
       "fn": 0
     },
     "linear-op-in-loop": {
-      "tp": 7,
+      "tp": 39,
       "fp": 0,
-      "fn": 0
+      "fn": 4
     },
     "pair-scan-could-hash": {
       "tp": 4,
@@ -27,19 +27,19 @@
       "fn": 0
     },
     "quadratic-via-call": {
-      "tp": 11,
+      "tp": 13,
       "fp": 0,
-      "fn": 0
+      "fn": 2
     },
     "repeated-computation-in-loop": {
-      "tp": 10,
-      "fp": 0,
-      "fn": 0
+      "tp": 20,
+      "fp": 3,
+      "fn": 8
     },
     "scan-in-loop": {
-      "tp": 9,
-      "fp": 2,
-      "fn": 3
+      "tp": 29,
+      "fp": 3,
+      "fn": 23
     }
   }
 }
