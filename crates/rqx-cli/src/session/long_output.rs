@@ -71,6 +71,10 @@ impl LongOutput {
         let Some(kept) = &self.kept else {
             return viewport.print(&[view::note(look, NOTHING_KEPT)]);
         };
+        // The viewer captures the mouse itself and releases it on the way out, so the
+        // menu's capture is released first: the viewport's record then matches the
+        // terminal, and the next fit turns it back on if the menu is still open.
+        viewport.capture_wheel(false)?;
         let size = crossterm::terminal::size().unwrap_or((80, 24));
         let mut viewer = Viewer::new(&kept.title, &kept.text, size);
         let shown = fullscreen::show(&mut viewer, look);
