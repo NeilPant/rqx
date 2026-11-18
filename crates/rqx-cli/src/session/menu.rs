@@ -16,6 +16,13 @@ const OVERFLOW_ROWS: u16 = 1;
 /// Rows of the terminal above the session's own that stay on screen with the menu open.
 const CONTEXT_ROWS: u16 = 2;
 
+/// Whether the terminal should be reporting the mouse wheel to the session. Only the
+/// open menu has anything for it to do, and `allowed` is the user's say: while the menu
+/// is shut, or a command runs, the mouse stays the terminal's and text can be selected.
+pub fn wants_wheel(allowed: bool, menu_open: bool, job_running: bool) -> bool {
+    allowed && menu_open && !job_running
+}
+
 /// How many suggestions fit in a terminal this tall: all of `MAX_ROWS` when there is
 /// room, and fewer when the prompt, the status line, the overflow row and a little of
 /// the scrollback would not otherwise fit. Never less than one.
@@ -102,6 +109,11 @@ impl MenuState {
     /// A window's worth of rows at a time, stopping at the ends.
     pub fn page(&mut self, forward: bool, window: usize) {
         self.nudge(forward, window, window);
+    }
+
+    /// The mouse wheel: one row per notch, stopping at the ends.
+    pub fn wheel(&mut self, forward: bool, window: usize) {
+        self.nudge(forward, 1, window);
     }
 
     pub fn first(&mut self, window: usize) {
@@ -327,6 +339,27 @@ mod tests {
         assert_eq!((menu.selected, range_in_view(&menu, 10)), (29, 20..30));
         menu.first(10);
         assert_eq!((menu.selected, range_in_view(&menu, 10)), (0, 0..10));
+    }
+
+    #[test]
+    fn the_wheel_moves_one_row_and_does_not_wrap() {
+        let mut menu = menu(30);
+        menu.wheel(false, 10);
+        assert_eq!(menu.selected, 0);
+        menu.wheel(true, 10);
+        menu.wheel(true, 10);
+        assert_eq!(menu.selected, 2);
+        menu.last(10);
+        menu.wheel(true, 10);
+        assert_eq!(menu.selected, 29);
+    }
+
+    #[test]
+    fn the_wheel_is_wanted_only_while_the_menu_is_open_and_nothing_is_running() {
+        assert!(wants_wheel(true, true, false));
+        assert!(!wants_wheel(true, false, false));
+        assert!(!wants_wheel(true, true, true));
+        assert!(!wants_wheel(false, true, false));
     }
 
     #[test]

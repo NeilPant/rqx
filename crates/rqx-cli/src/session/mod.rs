@@ -27,7 +27,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+};
 use ratatui::text::Line;
 
 use rqx_core::Cleanliness;
@@ -72,6 +74,9 @@ pub struct Launch<'a> {
     /// The level the scan runs under, which a command can compare its own against.
     pub level: Option<&'a str>,
     pub reduced_motion: bool,
+    /// Whether the mouse wheel may scroll the menu. It is off for `--no-mouse`, which
+    /// leaves the mouse to the terminal throughout.
+    pub wheel: bool,
 }
 
 /// Runs the session to its end. An `Err` means the terminal could not host it, and the
@@ -122,6 +127,7 @@ struct App {
     recall: Recall,
     catalogue: Catalogue,
     menu: MenuState,
+    wheel: bool,
     last_interrupt: Option<Instant>,
     quit: bool,
 }
@@ -151,6 +157,7 @@ impl App {
             recall,
             catalogue: Catalogue::new([]),
             menu: MenuState::default(),
+            wheel: options.wheel,
             last_interrupt: None,
             quit: false,
         }
@@ -161,11 +168,12 @@ impl App {
         while !self.quit {
             self.fit_viewport()?;
             self.draw()?;
-            if event::poll(self.wakeup())?
-                && let Event::Key(key) = event::read()?
-                && key.kind == KeyEventKind::Press
-            {
-                self.handle(key)?;
+            if event::poll(self.wakeup())? {
+                match event::read()? {
+                    Event::Key(key) if key.kind == KeyEventKind::Press => self.handle(key)?,
+                    Event::Mouse(mouse) => self.scroll(mouse),
+                    _ => {}
+                }
             }
             self.tick()?;
         }
@@ -231,7 +239,23 @@ impl App {
     fn fit_viewport(&mut self) -> Result<()> {
         self.menu.reveal(self.menu_window());
         self.viewport.resize(self.wanted_rows())?;
+        let wheel = menu::wants_wheel(self.wheel, self.menu.visible(), self.job.is_some());
+        self.viewport.capture_wheel(wheel)?;
         Ok(())
+    }
+
+    /// The wheel moves the choice a row per notch. Clicks and drags are ignored: the
+    /// capture exists for the wheel, and the menu is short-lived.
+    fn scroll(&mut self, mouse: MouseEvent) {
+        if !self.menu.visible() {
+            return;
+        }
+        let window = self.menu_window();
+        match mouse.kind {
+            MouseEventKind::ScrollUp => self.menu.wheel(false, window),
+            MouseEventKind::ScrollDown => self.menu.wheel(true, window),
+            _ => {}
+        }
     }
 
     fn draw(&mut self) -> Result<()> {

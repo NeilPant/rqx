@@ -517,7 +517,7 @@ const SHORTCUTS: [(&str, &str); 9] = [
     ),
     (
         "pgup pgdn",
-        "a page up or down the open list; home and end jump to its ends",
+        "a page up or down the open list; home and end jump to its ends; the mouse wheel scrolls it",
     ),
     ("text", "a line without a slash searches the findings"),
     ("ctrl-u", "delete to the start of the line"),

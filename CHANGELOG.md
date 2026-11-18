@@ -19,6 +19,14 @@ them. `tools/release.sh` turns that section into the release notes.
   `↓ N more` line under the rows show where the window sits in the list. The
   descriptions keep one column while it scrolls.
 
+- **The mouse wheel scrolls the `/` menu while it is open.** The session asks the
+  terminal to report the mouse when the menu opens and gives it back when the menu
+  closes, a row is taken, the line runs, or the session ends or crashes, so text can
+  be selected as before whenever the menu is shut. While it is open, selecting text
+  usually needs `shift` held. Each notch moves the highlight one row. Clicks are
+  ignored. `--no-mouse`, which was accepted and ignored, now keeps the session from
+  capturing the mouse at all.
+
 ## 0.5.1 — 2026-11-18
 
 
