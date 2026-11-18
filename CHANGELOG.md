@@ -9,6 +9,7 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+
 ### Added
 
 - **A finding can carry a `focus`.** It is the exact range that is the problem, inside
@@ -19,6 +20,38 @@ them. `tools/release.sh` turns that section into the release notes.
   declaration's name. `location` is unchanged, so baselines and waivers keep matching.
   In `--reporter json` the key `focus` is present only when a rule set it. In SARIF the
   focus is `physicalLocation.properties.focus`, and `region` is unchanged.
+
+- **`thresholds.test_decisions` sets how many decisions a test body may make before
+  `branching-test` reports it.** The default is 2. The key can also be written as
+  `rules.branching-test.test_decisions`. An `if` whose arms only fail or skip the test
+  (`if got != want { t.Errorf(...) }`) is not counted, and neither is a loop over a table
+  of cases written in the test (`for _, tt := range tests`, `for (const row of [...])`) or
+  a loop driven by a benchmark's handle (`for i := 0; i < b.N; i++`).
+
+- **`gate.baseline_match`.** Sets how a scan's findings are matched against the
+  baseline: `count` (the default) or `set`. With `count`, a baseline entry covers as
+  many findings with its identity as the baseline recorded, and any more are new. With
+  `set`, an entry covers every finding with its identity, which is how rqx 0.5.0 and
+  earlier matched. See `docs/baseline.md`.
+
+- **`fix.min_confidence`.** The lowest finding confidence whose fix `rqx fix` applies:
+  `verified` (the default), `heuristic` or `low`. It applies to `rqx fix`, `rqx check
+  --fix`, the editor's code actions and the MCP `fix_preview` tool. The preview counts the
+  fixes it left out on a `Floor` row, the JSON summary as `below_floor`, and `fix_preview`
+  as `below_floor`. See `docs/configuration.md`.
+
+- **A package check in `rqx fix`.** Before writing, `rqx fix` compares what each edited
+  file declares before and after the edit. An edit that removes a name, or changes the
+  signature of a function, that another file still uses is withheld, and the report names
+  the name and the file. The search covers every file the scan read and every file of the
+  same language in the edited file's directory, so a Go file excluded by a build tag or a
+  `_windows.go` suffix is included. A Go edit that changes any function signature is
+  withheld.
+
+- **`rqx fix --verify-build`.** Runs `go vet ./...` on a temporary copy of each Go module
+  with an edit, before and after the edits. A module that fails after the edits, or
+  already fails before them, has all of its edits withheld. Off by default; needs `go` on
+  `PATH`.
 
 ### Changed
 
@@ -31,11 +64,13 @@ them. `tools/release.sh` turns that section into the release notes.
   editor diagnostics and in the MCP tools. The `evidence` object in JSON is unchanged,
   and so are the fingerprints in the GitLab report and in SARIF `partialFingerprints`,
   which still hash the evidence's own text. `--search` matches both texts.
+
 - **Every finding in the terminal has a reason.** The whole rationale for a rule prints
   under its first finding, as before. The later findings of that rule print a one-line
   form of it instead of nothing. The catalogue entry takes an optional `short`; without
   one, the short form is the first clause of `why`. `--detail full` still prints the
   whole rationale every time.
+
 - **Thirty-five rules name a different fix technique.** The earlier pairings were
   mismatches: `discarded-error` suggested Decompose Conditional, `sequential-await`
   suggested Replace Algorithm, `loop-concatenation` suggested Replace Algorithm where
@@ -46,18 +81,11 @@ them. `tools/release.sh` turns that section into the release notes.
   Replace Exit with Error, Declare Immutable, Narrow the Type and Share Ownership. A
   test lists, for each technique, the rules it applies to, so a new pairing has to be
   added there on purpose.
+
 - **The terminal marks the focus, not the whole statement.** A finding with a focus
   underlines only that range and shows the rest of its statement as a count of lines.
   A multi-line finding with no focus shows its first line and `⋮ N more lines` instead of
   one row of carets per line.
-- **`thresholds.test_decisions` sets how many decisions a test body may make before
-  `branching-test` reports it.** The default is 2. The key can also be written as
-  `rules.branching-test.test_decisions`. An `if` whose arms only fail or skip the test
-  (`if got != want { t.Errorf(...) }`) is not counted, and neither is a loop over a table
-  of cases written in the test (`for _, tt := range tests`, `for (const row of [...])`) or
-  a loop driven by a benchmark's handle (`for i := 0; i < b.N; i++`).
-
-### Changed
 
 - **`branching-test` reports at `info` instead of `warning`, and only when a test makes
   more decisions than `thresholds.test_decisions`.** In 0.5.0 a single `if`, loop or
@@ -65,7 +93,267 @@ them. `tools/release.sh` turns that section into the release notes.
   keep the previous severity, and `thresholds.test_decisions: 0` to report every counted
   decision.
 
+- **`rqx --help` lists the commands before the global options.** The command groups
+  come first, then an `Options:` heading with the global options, then the notes, the
+  examples and the exit codes. The text of each is unchanged.
+
+- **`-h` lists the common flags of a command, and `--help` lists all of them.** Under
+  `-h`, `rqx scan` shows 10 of its 39 flags, such as `--rule`, `--severity`, `--path`
+  and `--fail-on`, and its help flag says that `--help` lists every option. `check`,
+  `fix`, `verify`, `comment`, `perf`, `plan` and most other analysis commands do the
+  same with their own set. The global `--motion`, `--no-progress`, `--progress` and
+  `--hyperlinks` are also left out of `-h`. Every flag is still accepted and still in
+  `--help`, the man pages and the shell completion scripts.
+
+- **The session's `/` menu offers flags when asked, not after every space.** A command
+  followed by a space leaves the menu closed, so `enter` runs the line. Flags are
+  listed once a `-` is typed, or when `tab` is pressed. The flags that `-h` shows come
+  first, a flag already on the line is left out unless it can be repeated, and `esc`
+  keeps the menu closed until the next `-` or `tab`. The values a flag takes are still
+  listed right after the flag.
+
+- **`rqx fix` applies only the fixes of `verified` findings by default.** Fixes for
+  `heuristic` and `low` findings, such as `banner-comment`, `commented-out-code` and
+  `redundant-comment`, are counted and left in place. `fix.min_confidence: low` restores
+  the 0.5.0 behaviour. The `autofixable` flag in JSON and editor diagnostics, and the
+  findings `rqx fix --plan` lists, follow the same setting.
+
 ### Fixed
+
+- **`assertionless-test` recognises the standard assertions of each supported test
+  framework.** In 0.5.0 only the first segment of a call was compared against a short
+  list, so `t.Errorf`, `self.assertIn` and `EXPECT_NE` were not assertions.
+  - Go: `Error`, `Errorf`, `Fatal`, `Fatalf`, `Fail` and `FailNow` on the test's
+    `*testing.T`, `*testing.B`, `*testing.F` or `testing.TB`, and on `s.T()`; any call
+    that passes that handle on, such as `checkOutput(t, got)`; a subtest passed by name,
+    `t.Run(name, tc.test)`; Gomega's `Expect`, `Eventually` and `Consistently`;
+    testify's `Fail` and `FailNow`, and suite assertions written through `s.Require()` and
+    `s.Assert()`. Benchmarks and fuzz targets are not reported.
+  - Python: every unittest `self.assert*` method and `self.fail`, mock's `assert_*`
+    methods, `pytest.raises`, `pytest.warns`, `pytest.deprecated_call`, `pytest.fail`, and
+    `ThreadingMock`'s `wait_until_called` and `wait_until_any_call_with`.
+  - Java: every JUnit `assert*` method and `fail`, AssertJ's `assertThat*`, Mockito's
+    `verify*`, and JUnit 4's `@Test(expected = ...)`. A constructor of a class whose name
+    starts with `Test` is no longer read as a test.
+  - TypeScript and JavaScript: Chai's `should` chains, `sinon.assert`, `t.assert`, `fail`,
+    and functions named `expect*` or `assert*`.
+  - C++: every GoogleTest and GoogleMock `EXPECT_*` and `ASSERT_*` macro, including
+    `ASSERT_THROW` with a type argument; `FAIL`, `ADD_FAILURE` and `GTEST_FAIL`; Catch2
+    and doctest `REQUIRE*` and `CHECK*`; Boost.Test `BOOST_CHECK*`, `BOOST_REQUIRE*`,
+    `BOOST_TEST`, `BOOST_FAIL` and `BOOST_ERROR`; and `static_assert`.
+  - Every language: a call to a function declared in the same file that asserts counts as
+    an assertion, if the test calls it bare, through `self` or `this`, or from inside the
+    function that declares it.
+
+- **A call that does not pass a function body is no longer analysed as a test
+  registration.** In Python, `test.assertEqual(3, 2)` was read as a call to `test(...)`
+  registering a test and was reported by `assertionless-test` and `empty-test`.
+  `it("name", handler)` in TypeScript and JavaScript was reported the same way.
+
+- **A baseline records how many findings share an identity.** An identity is made of
+  the rule, the file and the subject, so two findings of one rule about the same name
+  in one file have the same identity. The baseline stored each identity once and
+  matched it as a set: a new finding with the same identity as an existing one was
+  marked `known` and did not count against the gate. On cobra 1.10.2 the baseline held
+  1,267 entries for 1,671 findings. Each entry now has a `count` field, written when it
+  is greater than 1. When a file has more findings with an identity than the baseline
+  recorded, the extra findings are new; findings are matched in source order, so the
+  last ones in the file are reported. A baseline file written by 0.5.0 still loads, and
+  each of its entries is read as one finding. **A gate can fail right after upgrading**
+  if the baseline was hiding repeated findings. Run `rqx baseline --update` to record
+  the counts, or set `gate.baseline_match: set` to restore the previous matching.
+  `rqx baseline` now prints the number of findings it recorded instead of the number of
+  entries, and `--update` compares finding totals.
+
+- **`oversized-module` and `cross-language-duplicate` findings are matched against the
+  baseline.** Findings built after the per-file analysis were matched only when their
+  rule was on a fixed list, and these two rules were missing from it, so right after
+  `rqx baseline` their findings in unchanged files were reported as new. Every finding
+  is now matched in one place, whichever stage built it.
+
+- **`rqx verify` and the resolved findings in `rqx comment` pair repeated findings one
+  to one.** When findings shared an identity, every one of them at the base revision
+  was paired with the same finding in the working tree. Two findings reduced to one
+  were reported as two unchanged instead of one unchanged and one resolved. Each
+  finding at the base is now paired with at most one finding in the working tree, in
+  source order. `rqx verify` also keys a finding from a SARIF file on its own rule id,
+  so findings from two rules of another tool are no longer paired with each other.
+
+- **`rqx fix --write` could delete licence header lines and package-level declarations
+  still used by other files.** On cobra v1.10.2 it removed the Apache licence URL line
+  from 31 files, deleted `var preExecHookFn` from two build-tagged files that
+  `command.go` reads, and deleted result types from Go functions, after which `go vet`
+  failed. The summary still said every fix was re-analysed clean. The causes:
+  - `banner-comment` matched any comment that was one punctuated word, which included
+    URLs, licence lines, encoding declarations and commented-out code. It now reports a
+    divider (`// ======`) or a heading of one or two words fenced by one
+    (`// --- helpers ---`), and never a comment in a licence or copyright block.
+  - No fix removes a comment block that carries licence or copyright text (licence,
+    copyright, SPDX, "all rights reserved", Apache, MIT, GPL, BSD, Mozilla and similar
+    words), or a comment that holds a URL.
+  - `unused-local` reported names declared at package, module, namespace or class level,
+    which other files can read. It now reports only names declared inside a function, and
+    its fix removes only those. Go package-level variables and C++ globals declared
+    `extern` in a header are no longer reported.
+  - `unused-parameter` read the last parameter list of a Go function, which is the result
+    list when the function returns values. It reported result types as unused parameters,
+    and its fix deleted them along with an argument at every call site, which produced
+    `completions.go:187: too many return values`. The fix now edits only the list the
+    grammar names as the parameters.
+
+- **`dead-store` reported package-level and class-level names.** A call between the two
+  writes can read such a name. The rule now judges only names the function declares or
+  takes as parameters.
+
+- **A fix that added a second copy of an existing finding passed verification.**
+  Verification compared finding identities as a set, so a new finding with the same rule,
+  file and subject as an existing one was not seen. It now compares the count of each
+  identity.
+
+- **`output-parameter` reports only assignments to a parameter.** It reported any
+  assignment whose target had the name of a parameter anywhere in the file, so a local
+  declared with `:=`, a class-level annotation in Python, and a local that shared a name
+  with another function's parameter were all reported. The target is now resolved
+  through the file's scopes and must be a parameter of an enclosing function. A Go
+  receiver, a named result in a Go signature and a name inside a function type in a
+  signature are not counted, and each parameter is reported once.
+
+- **`unused-parameter` reads only a function's parameter list.** The rule took the
+  last parameter list in a signature, which in Go is the result list when the results
+  are in parentheses, and in a C++ trailing return type or a TypeScript return type
+  can be the list of a function type. Result types such as `ShellCompDirective`, named
+  results, and the parameters of a returned function type were reported as unused
+  parameters. The list the grammar marks as the parameters is now read, and a
+  parameter written as a bare type, such as Go's `func(int)`, has no name to report.
+  The `TEST(Suite, Name)` macros of GoogleTest are no longer read as two unused
+  parameters either.
+
+- **Python parameters without a type annotation are parameters.** In `def f(x)` the
+  name sits directly in the parameter list, and only typed or defaulted parameters
+  were recognised, so `unused-parameter` and `output-parameter` did not see most
+  Python code. Both now do, which adds findings on Python projects. To keep them to
+  parameters a caller chooses, `unused-parameter` leaves out `self` and `cls`,
+  `*args` and `**kwargs`, names starting with `_`, dunder methods other than
+  `__init__` and `__new__`, functions under a decorator other than `staticmethod` or
+  `classmethod`, method bodies that only document or refuse (`...`, `pass`, a
+  docstring, a lone `raise`, or a closing `raise NotImplementedError`), and functions
+  the file passes or returns by name. `output-parameter` leaves out `self` and `cls`.
+  The name in a keyword argument, `limit` in `StreamReader(limit=limit)`, is no longer
+  read as a new name, and a parameter's default value is no longer read as a
+  parameter.
+  `unused-parameter` checks module-level Python functions only, not methods: a base
+  class's default method that returns a fixed answer cannot yet be told apart from one
+  that ignores its argument.
+
+- **`long-parameter-list` and `flag-argument` read only the parameters.** They used
+  the same last list as `unused-parameter`, so a Go function with six named results
+  was reported as taking six parameters, and a `found bool` result as a boolean flag
+  argument.
+
+- **`discarded-error` reads the error position of a Go assignment with several
+  targets.** It looked only at the first target, so `_, err := w.Write(b)`, which keeps
+  the error and drops the byte count, was reported. With several targets the rule now
+  reads the last one, where Go returns the error, and the message says that the error
+  is the result being thrown away. In Go, `var _ io.Writer = (*Sink)(nil)` checks that
+  a type satisfies an interface and is no longer reported, and neither is a call to a
+  function declared in the same file whose results include no `error`.
+
+- **`ambient-dependency` no longer reports a parameter default or a test file.** A
+  default such as `random: () => number = Math.random` is the injection the rule asks
+  for, and it was reported. A file that registers tests with `describe`, `it` or `test`
+  was checked outside the test bodies, so setup callbacks such as `beforeEach`, mock
+  factories and helper functions were reported for reading the clock or the
+  environment. Such files are now skipped, as `import-time-work` already skips them.
+
+- **`mixed-language-file` recognises SQL by the shape of a statement.** Any string
+  containing a keyword such as `update ` in any case counted as SQL, so an error message
+  like `"Failed to update user"` was reported, once for each string. A string now counts
+  as SQL when it opens with the statement keyword in capitals and contains the clause
+  that statement needs: `SELECT … FROM`, `UPDATE … SET`, `INSERT INTO … VALUES` or
+  `… SELECT`, `DELETE FROM`, `WITH … AS`, or `CREATE TABLE`, `INDEX` or `VIEW`. A file
+  is reported once per language, at its first such string. Files whose name marks a
+  data-access layer (`users.repository.ts`, `OrderDao.java`, `UserRepo.go`,
+  `report.sql.ts`, `queries.py`) and files that register tests are not reported.
+
+- **`distant-declaration` and `short-name-wide-scope` count only locals inside a
+  body.** Both rules read every local binding, including those declared at the top of
+  a module, so a module constant read near the bottom of its file was reported as
+  declared far from its use. A binding in the file's own scope is now left out, as the
+  `distant-declaration` documentation already said.
+
+- **`distant-declaration` measures from the end of the declaration.** The distance ran
+  from the declared name, so a table or a command literal written across sixty lines
+  and used on the next line was reported as declared sixty lines before its use. It
+  now runs from the end of the declaration.
+
+- **`imprecise-type` reports a chain of casts once.** `value as unknown as Row` is two
+  nested casts and produced two findings on one line. A cast whose value is another
+  cast of the same kind is now reported once, at the outermost cast. The same applies
+  to `(Row) (Object) value` in Java and C++.
+
+- **`imprecise-type` reports `any` only where it is a type.** Any node spelled `any`
+  counted, so the matcher `expect.any(Function)`, a variable named `any` in TypeScript
+  or Go, and `from typing import Any` in Python were reported. A member name is no
+  longer read as a type, and a plain identifier counts only inside a type annotation.
+
+- **`empty-method` no longer reports a constructor that initialises members outside
+  its braces.** A C++ constructor with a member initialiser list, `Meter(int factor) :
+  factor_(factor) {}`, and a TypeScript constructor with parameter properties,
+  `constructor(private readonly label: string) {}`, do their work before the body and
+  were reported as empty.
+
+- **`hungarian-notation` no longer reads a constant or an acronym as an interface
+  prefix.** `IDLE_TIMEOUT_SECONDS`, a Go field named `ID`, `IOError` and `IPAddress`
+  were reported as interface names with an `I` prefix. A name with no lowercase letter
+  is now never reported, and the `I` prefix needs a word after it, as in `IOrder`.
+
+- **`never-reassigned` sees a `final` or `const` that follows a parenthesis.** The
+  marker was looked for among words separated by spaces, so in `for (final String item
+  : items)` and `catch (final IOException error)` it was read as `(final` and the
+  already-final variable was reported.
+
+- **`magic-number` leaves out the value of a declaration.** The rule describes itself
+  as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
+  toward the repeats of `3`, so naming a number, which is the fix the rule recommends,
+  could still produce the finding. A literal that is the whole value of a variable,
+  constant or field declaration, optionally with a sign or parentheses, is no longer
+  counted.
+
+- **`import-time-work` no longer reports registrations or entry points.** A top-level
+  `router.get('/x', handler)`, `app.use(auth)`, `emitter.on('e', () => …)` or
+  `atexit.register(flush)` only hands over a handler, and it was reported as work done
+  on load. A top-level call is now skipped when one of its arguments is a function
+  written in place or declared in the file, or, for a method named like a registration
+  (`use`, `get`, `post`, `on`, `command`, `register` and similar), any argument other
+  than a plain literal, such as a router or a handler built by a factory call. Files
+  configured in `entrypoints.paths` and files named `index`, `main`, `server`, `app`,
+  `cli` or `__main__` are skipped, since running top-level statements is what they are
+  for. Calls such as `fs.readFileSync(path)` or `connect()` at the top of a module are
+  still reported.
+
+- **`no-base-case` and `branching-recursion` count a call as recursion only when it
+  reaches the same function.** A Go method that calls the package function it is named
+  after, such as `(c *Command) MarkFlagRequired` calling `MarkFlagRequired`, was read
+  as calling itself, and so were methods in Python, TypeScript and JavaScript that call
+  a module function of the same name. In those languages a method now recurses only
+  through its receiver (`self`, `this`, or the Go receiver's own name), which also
+  means a Go method that recurses through its receiver is now found. In Java a call
+  with a different number of arguments is another overload, and in C++ `::name()` is
+  the global function.
+
+- **`closure-over-loop-variable` leaves out closures that run before the loop moves
+  on, and Go modules on 1.22 or later.** A function literal passed to a call that runs
+  it before returning, such as Go's `t.Run`, `sort.Slice` or `strings.Map`, a
+  JavaScript `sort` or `replace`, or Python's `sorted` or `re.sub`, was reported as
+  if it ran after the loop had finished. A `t.Run` whose case calls `t.Parallel()` is
+  still reported. In a Go module whose `go.mod` declares Go 1.22 or later each
+  iteration has its own loop variables, so the rule does not report there at all.
+
+- **`closure-over-loop-variable` reports a JavaScript or TypeScript loop only when its
+  variable is shared between passes.** A loop that declares its variable with `let` or
+  `const`, as in `for (const row of rows)` or `for (let i = 0; …)`, gives each pass a
+  binding of its own, and a closure keeps the value of its pass. Only a `var` loop, or a
+  loop over a variable declared before it, is reported now.
 
 - **A line waiver covers only its own line and the next line.** In 0.5.0 an `rqx-ignore`
   comment also covered matching findings on every line above it, so one waiver at the end
@@ -101,270 +389,6 @@ them. `tools/release.sh` turns that section into the release notes.
 - **`oversized-module` and `cross-language-duplicate` findings counted as project-wide.** The
   health projection after `rqx fix` and the resolved credit in `rqx comment` no longer drop
   them when only some files are re-analysed.
-
-- **`assertionless-test` recognises the standard assertions of each supported test
-  framework.** In 0.5.0 only the first segment of a call was compared against a short
-  list, so `t.Errorf`, `self.assertIn` and `EXPECT_NE` were not assertions.
-  - Go: `Error`, `Errorf`, `Fatal`, `Fatalf`, `Fail` and `FailNow` on the test's
-    `*testing.T`, `*testing.B`, `*testing.F` or `testing.TB`, and on `s.T()`; any call
-    that passes that handle on, such as `checkOutput(t, got)`; a subtest passed by name,
-    `t.Run(name, tc.test)`; Gomega's `Expect`, `Eventually` and `Consistently`;
-    testify's `Fail` and `FailNow`, and suite assertions written through `s.Require()` and
-    `s.Assert()`. Benchmarks and fuzz targets are not reported.
-  - Python: every unittest `self.assert*` method and `self.fail`, mock's `assert_*`
-    methods, `pytest.raises`, `pytest.warns`, `pytest.deprecated_call`, `pytest.fail`, and
-    `ThreadingMock`'s `wait_until_called` and `wait_until_any_call_with`.
-  - Java: every JUnit `assert*` method and `fail`, AssertJ's `assertThat*`, Mockito's
-    `verify*`, and JUnit 4's `@Test(expected = ...)`. A constructor of a class whose name
-    starts with `Test` is no longer read as a test.
-  - TypeScript and JavaScript: Chai's `should` chains, `sinon.assert`, `t.assert`, `fail`,
-    and functions named `expect*` or `assert*`.
-  - C++: every GoogleTest and GoogleMock `EXPECT_*` and `ASSERT_*` macro, including
-    `ASSERT_THROW` with a type argument; `FAIL`, `ADD_FAILURE` and `GTEST_FAIL`; Catch2
-    and doctest `REQUIRE*` and `CHECK*`; Boost.Test `BOOST_CHECK*`, `BOOST_REQUIRE*`,
-    `BOOST_TEST`, `BOOST_FAIL` and `BOOST_ERROR`; and `static_assert`.
-  - Every language: a call to a function declared in the same file that asserts counts as
-    an assertion, if the test calls it bare, through `self` or `this`, or from inside the
-    function that declares it.
-- **A call that does not pass a function body is no longer analysed as a test
-  registration.** In Python, `test.assertEqual(3, 2)` was read as a call to `test(...)`
-  registering a test and was reported by `assertionless-test` and `empty-test`.
-  `it("name", handler)` in TypeScript and JavaScript was reported the same way.
-### Changed
-
-- **`rqx --help` lists the commands before the global options.** The command groups
-  come first, then an `Options:` heading with the global options, then the notes, the
-  examples and the exit codes. The text of each is unchanged.
-- **`-h` lists the common flags of a command, and `--help` lists all of them.** Under
-  `-h`, `rqx scan` shows 10 of its 39 flags, such as `--rule`, `--severity`, `--path`
-  and `--fail-on`, and its help flag says that `--help` lists every option. `check`,
-  `fix`, `verify`, `comment`, `perf`, `plan` and most other analysis commands do the
-  same with their own set. The global `--motion`, `--no-progress`, `--progress` and
-  `--hyperlinks` are also left out of `-h`. Every flag is still accepted and still in
-  `--help`, the man pages and the shell completion scripts.
-- **The session's `/` menu offers flags when asked, not after every space.** A command
-  followed by a space leaves the menu closed, so `enter` runs the line. Flags are
-  listed once a `-` is typed, or when `tab` is pressed. The flags that `-h` shows come
-  first, a flag already on the line is left out unless it can be repeated, and `esc`
-  keeps the menu closed until the next `-` or `tab`. The values a flag takes are still
-  listed right after the flag.
-- **`gate.baseline_match`.** Sets how a scan's findings are matched against the
-  baseline: `count` (the default) or `set`. With `count`, a baseline entry covers as
-  many findings with its identity as the baseline recorded, and any more are new. With
-  `set`, an entry covers every finding with its identity, which is how rqx 0.5.0 and
-  earlier matched. See `docs/baseline.md`.
-
-### Fixed
-
-- **A baseline records how many findings share an identity.** An identity is made of
-  the rule, the file and the subject, so two findings of one rule about the same name
-  in one file have the same identity. The baseline stored each identity once and
-  matched it as a set: a new finding with the same identity as an existing one was
-  marked `known` and did not count against the gate. On cobra 1.10.2 the baseline held
-  1,267 entries for 1,671 findings. Each entry now has a `count` field, written when it
-  is greater than 1. When a file has more findings with an identity than the baseline
-  recorded, the extra findings are new; findings are matched in source order, so the
-  last ones in the file are reported. A baseline file written by 0.5.0 still loads, and
-  each of its entries is read as one finding. **A gate can fail right after upgrading**
-  if the baseline was hiding repeated findings. Run `rqx baseline --update` to record
-  the counts, or set `gate.baseline_match: set` to restore the previous matching.
-  `rqx baseline` now prints the number of findings it recorded instead of the number of
-  entries, and `--update` compares finding totals.
-- **`oversized-module` and `cross-language-duplicate` findings are matched against the
-  baseline.** Findings built after the per-file analysis were matched only when their
-  rule was on a fixed list, and these two rules were missing from it, so right after
-  `rqx baseline` their findings in unchanged files were reported as new. Every finding
-  is now matched in one place, whichever stage built it.
-- **`rqx verify` and the resolved findings in `rqx comment` pair repeated findings one
-  to one.** When findings shared an identity, every one of them at the base revision
-  was paired with the same finding in the working tree. Two findings reduced to one
-  were reported as two unchanged instead of one unchanged and one resolved. Each
-  finding at the base is now paired with at most one finding in the working tree, in
-  source order. `rqx verify` also keys a finding from a SARIF file on its own rule id,
-  so findings from two rules of another tool are no longer paired with each other.
-- **`fix.min_confidence`.** The lowest finding confidence whose fix `rqx fix` applies:
-  `verified` (the default), `heuristic` or `low`. It applies to `rqx fix`, `rqx check
-  --fix`, the editor's code actions and the MCP `fix_preview` tool. The preview counts the
-  fixes it left out on a `Floor` row, the JSON summary as `below_floor`, and `fix_preview`
-  as `below_floor`. See `docs/configuration.md`.
-- **A package check in `rqx fix`.** Before writing, `rqx fix` compares what each edited
-  file declares before and after the edit. An edit that removes a name, or changes the
-  signature of a function, that another file still uses is withheld, and the report names
-  the name and the file. The search covers every file the scan read and every file of the
-  same language in the edited file's directory, so a Go file excluded by a build tag or a
-  `_windows.go` suffix is included. A Go edit that changes any function signature is
-  withheld.
-- **`rqx fix --verify-build`.** Runs `go vet ./...` on a temporary copy of each Go module
-  with an edit, before and after the edits. A module that fails after the edits, or
-  already fails before them, has all of its edits withheld. Off by default; needs `go` on
-  `PATH`.
-
-### Changed
-
-- **`rqx fix` applies only the fixes of `verified` findings by default.** Fixes for
-  `heuristic` and `low` findings, such as `banner-comment`, `commented-out-code` and
-  `redundant-comment`, are counted and left in place. `fix.min_confidence: low` restores
-  the 0.5.0 behaviour. The `autofixable` flag in JSON and editor diagnostics, and the
-  findings `rqx fix --plan` lists, follow the same setting.
-- **`unused-parameter` checks the parameters of Go functions that return values.** It
-  previously read their result list instead, so a scan of Go code can report findings it
-  did not report before.
-
-### Fixed
-
-- **`rqx fix --write` could delete licence header lines and package-level declarations
-  still used by other files.** On cobra v1.10.2 it removed the Apache licence URL line
-  from 31 files, deleted `var preExecHookFn` from two build-tagged files that
-  `command.go` reads, and deleted result types from Go functions, after which `go vet`
-  failed. The summary still said every fix was re-analysed clean. The causes:
-  - `banner-comment` matched any comment that was one punctuated word, which included
-    URLs, licence lines, encoding declarations and commented-out code. It now reports a
-    divider (`// ======`) or a heading of one or two words fenced by one
-    (`// --- helpers ---`), and never a comment in a licence or copyright block.
-  - No fix removes a comment block that carries licence or copyright text (licence,
-    copyright, SPDX, "all rights reserved", Apache, MIT, GPL, BSD, Mozilla and similar
-    words), or a comment that holds a URL.
-  - `unused-local` reported names declared at package, module, namespace or class level,
-    which other files can read. It now reports only names declared inside a function, and
-    its fix removes only those. Go package-level variables and C++ globals declared
-    `extern` in a header are no longer reported.
-  - `unused-parameter` read the last parameter list of a Go function, which is the result
-    list when the function returns values. It reported result types as unused parameters,
-    and its fix deleted them along with an argument at every call site, which produced
-    `completions.go:187: too many return values`. The fix now edits only the list the
-    grammar names as the parameters.
-- **`dead-store` reported package-level and class-level names.** A call between the two
-  writes can read such a name. The rule now judges only names the function declares or
-  takes as parameters.
-- **A fix that added a second copy of an existing finding passed verification.**
-  Verification compared finding identities as a set, so a new finding with the same rule,
-  file and subject as an existing one was not seen. It now compares the count of each
-  identity.
-### Fixed
-
-- **`output-parameter` reports only assignments to a parameter.** It reported any
-  assignment whose target had the name of a parameter anywhere in the file, so a local
-  declared with `:=`, a class-level annotation in Python, and a local that shared a name
-  with another function's parameter were all reported. The target is now resolved
-  through the file's scopes and must be a parameter of an enclosing function. A Go
-  receiver, a named result in a Go signature and a name inside a function type in a
-  signature are not counted, and each parameter is reported once.
-- **`unused-parameter` reads only a function's parameter list.** The rule took the
-  last parameter list in a signature, which in Go is the result list when the results
-  are in parentheses, and in a C++ trailing return type or a TypeScript return type
-  can be the list of a function type. Result types such as `ShellCompDirective`, named
-  results, and the parameters of a returned function type were reported as unused
-  parameters. The list the grammar marks as the parameters is now read, and a
-  parameter written as a bare type, such as Go's `func(int)`, has no name to report.
-  The `TEST(Suite, Name)` macros of GoogleTest are no longer read as two unused
-  parameters either.
-- **Python parameters without a type annotation are parameters.** In `def f(x)` the
-  name sits directly in the parameter list, and only typed or defaulted parameters
-  were recognised, so `unused-parameter` and `output-parameter` did not see most
-  Python code. Both now do, which adds findings on Python projects. To keep them to
-  parameters a caller chooses, `unused-parameter` leaves out `self` and `cls`,
-  `*args` and `**kwargs`, names starting with `_`, dunder methods other than
-  `__init__` and `__new__`, functions under a decorator other than `staticmethod` or
-  `classmethod`, method bodies that only document or refuse (`...`, `pass`, a
-  docstring, a lone `raise`, or a closing `raise NotImplementedError`), and functions
-  the file passes or returns by name. `output-parameter` leaves out `self` and `cls`.
-  The name in a keyword argument, `limit` in `StreamReader(limit=limit)`, is no longer
-  read as a new name, and a parameter's default value is no longer read as a
-  parameter.
-- **`long-parameter-list` and `flag-argument` read only the parameters.** They used
-  the same last list as `unused-parameter`, so a Go function with six named results
-  was reported as taking six parameters, and a `found bool` result as a boolean flag
-  argument.
-- **`discarded-error` reads the error position of a Go assignment with several
-  targets.** It looked only at the first target, so `_, err := w.Write(b)`, which keeps
-  the error and drops the byte count, was reported. With several targets the rule now
-  reads the last one, where Go returns the error, and the message says that the error
-  is the result being thrown away. In Go, `var _ io.Writer = (*Sink)(nil)` checks that
-  a type satisfies an interface and is no longer reported, and neither is a call to a
-  function declared in the same file whose results include no `error`.
-- **`ambient-dependency` no longer reports a parameter default or a test file.** A
-  default such as `random: () => number = Math.random` is the injection the rule asks
-  for, and it was reported. A file that registers tests with `describe`, `it` or `test`
-  was checked outside the test bodies, so setup callbacks such as `beforeEach`, mock
-  factories and helper functions were reported for reading the clock or the
-  environment. Such files are now skipped, as `import-time-work` already skips them.
-- **`mixed-language-file` recognises SQL by the shape of a statement.** Any string
-  containing a keyword such as `update ` in any case counted as SQL, so an error message
-  like `"Failed to update user"` was reported, once for each string. A string now counts
-  as SQL when it opens with the statement keyword in capitals and contains the clause
-  that statement needs: `SELECT … FROM`, `UPDATE … SET`, `INSERT INTO … VALUES` or
-  `… SELECT`, `DELETE FROM`, `WITH … AS`, or `CREATE TABLE`, `INDEX` or `VIEW`. A file
-  is reported once per language, at its first such string. Files whose name marks a
-  data-access layer (`users.repository.ts`, `OrderDao.java`, `UserRepo.go`,
-  `report.sql.ts`, `queries.py`) and files that register tests are not reported.
-- **`distant-declaration` and `short-name-wide-scope` count only locals inside a
-  body.** Both rules read every local binding, including those declared at the top of
-  a module, so a module constant read near the bottom of its file was reported as
-  declared far from its use. A binding in the file's own scope is now left out, as the
-  `distant-declaration` documentation already said.
-- **`distant-declaration` measures from the end of the declaration.** The distance ran
-  from the declared name, so a table or a command literal written across sixty lines
-  and used on the next line was reported as declared sixty lines before its use. It
-  now runs from the end of the declaration.
-- **`imprecise-type` reports a chain of casts once.** `value as unknown as Row` is two
-  nested casts and produced two findings on one line. A cast whose value is another
-  cast of the same kind is now reported once, at the outermost cast. The same applies
-  to `(Row) (Object) value` in Java and C++.
-- **`imprecise-type` reports `any` only where it is a type.** Any node spelled `any`
-  counted, so the matcher `expect.any(Function)`, a variable named `any` in TypeScript
-  or Go, and `from typing import Any` in Python were reported. A member name is no
-  longer read as a type, and a plain identifier counts only inside a type annotation.
-- **`empty-method` no longer reports a constructor that initialises members outside
-  its braces.** A C++ constructor with a member initialiser list, `Meter(int factor) :
-  factor_(factor) {}`, and a TypeScript constructor with parameter properties,
-  `constructor(private readonly label: string) {}`, do their work before the body and
-  were reported as empty.
-- **`hungarian-notation` no longer reads a constant or an acronym as an interface
-  prefix.** `IDLE_TIMEOUT_SECONDS`, a Go field named `ID`, `IOError` and `IPAddress`
-  were reported as interface names with an `I` prefix. A name with no lowercase letter
-  is now never reported, and the `I` prefix needs a word after it, as in `IOrder`.
-- **`never-reassigned` sees a `final` or `const` that follows a parenthesis.** The
-  marker was looked for among words separated by spaces, so in `for (final String item
-  : items)` and `catch (final IOException error)` it was read as `(final` and the
-  already-final variable was reported.
-- **`magic-number` leaves out the value of a declaration.** The rule describes itself
-  as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
-  toward the repeats of `3`, so naming a number, which is the fix the rule recommends,
-  could still produce the finding. A literal that is the whole value of a variable,
-  constant or field declaration, optionally with a sign or parentheses, is no longer
-  counted.
-- **`import-time-work` no longer reports registrations or entry points.** A top-level
-  `router.get('/x', handler)`, `app.use(auth)`, `emitter.on('e', () => …)` or
-  `atexit.register(flush)` only hands over a handler, and it was reported as work done
-  on load. A top-level call is now skipped when one of its arguments is a function
-  written in place or declared in the file, or, for a method named like a registration
-  (`use`, `get`, `post`, `on`, `command`, `register` and similar), any argument other
-  than a plain literal, such as a router or a handler built by a factory call. Files
-  configured in `entrypoints.paths` and files named `index`, `main`, `server`, `app`,
-  `cli` or `__main__` are skipped, since running top-level statements is what they are
-  for. Calls such as `fs.readFileSync(path)` or `connect()` at the top of a module are
-  still reported.
-- **`no-base-case` and `branching-recursion` count a call as recursion only when it
-  reaches the same function.** A Go method that calls the package function it is named
-  after, such as `(c *Command) MarkFlagRequired` calling `MarkFlagRequired`, was read
-  as calling itself, and so were methods in Python, TypeScript and JavaScript that call
-  a module function of the same name. In those languages a method now recurses only
-  through its receiver (`self`, `this`, or the Go receiver's own name), which also
-  means a Go method that recurses through its receiver is now found. In Java a call
-  with a different number of arguments is another overload, and in C++ `::name()` is
-  the global function.
-- **`closure-over-loop-variable` leaves out closures that run before the loop moves
-  on, and Go modules on 1.22 or later.** A function literal passed to a call that runs
-  it before returning, such as Go's `t.Run`, `sort.Slice` or `strings.Map`, a
-  JavaScript `sort` or `replace`, or Python's `sorted` or `re.sub`, was reported as
-  if it ran after the loop had finished. A `t.Run` whose case calls `t.Parallel()` is
-  still reported. In a Go module whose `go.mod` declares Go 1.22 or later each
-  iteration has its own loop variables, so the rule does not report there at all.
-- **`closure-over-loop-variable` reports a JavaScript or TypeScript loop only when its
-  variable is shared between passes.** A loop that declares its variable with `let` or
-  `const`, as in `for (const row of rows)` or `for (let i = 0; …)`, gives each pass a
-  binding of its own, and a closure keeps the value of its pass. Only a `var` loop, or a
-  loop over a variable declared before it, is reported now.
 
 ## 0.5.0 — 2026-11-18
 
