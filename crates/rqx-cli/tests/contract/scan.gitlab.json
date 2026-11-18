@@ -168,6 +168,18 @@
     "severity": "major"
   },
   {
+    "check_name": "self-asserting-test",
+    "description": "`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail. — it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour",
+    "fingerprint": "27d21920c2198958",
+    "location": {
+      "lines": {
+        "begin": 98
+      },
+      "path": "typescript/suite.test.ts"
+    },
+    "severity": "major"
+  },
+  {
     "check_name": "deep-recursion",
     "description": "`sumTo` calls itself once with `n` one smaller each time, so the stack it needs is O(n) deep. — every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach",
     "fingerprint": "b0afecb87f1cd3c8",

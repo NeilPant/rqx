@@ -70,3 +70,6 @@ it("stands something in", () => {
   const client = jest.fn();
   expect(add(1, 1)).toBe(2);
 });
+it("builds both sides from one helper", () => {
+  expect(add(add(1, 1), 1)).toBe(add(1, 1) + 1);
+});

@@ -93,3 +93,7 @@ var spare int
 func setup() {
 	spare = 1
 }
+
+func TestBuildsBothSidesFromOneHelper(t *testing.T) {
+	require.Equal(t, Add(1, 1)+1, Add(Add(1, 1), 1))
+}

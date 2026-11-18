@@ -85,6 +85,11 @@ public class SuiteTest {
     }
 
     @Test
+    public void testBuildsBothSidesFromOneHelper() {
+        assertEquals(new Clean().add(1, 1) + 1, new Clean().add(new Clean().add(1, 1), 1));
+    }
+
+    @Test
     public void testExpectsANumberFromNowhere() {
         assertEquals(4999, new Clean().add(2400, 2599));
     }

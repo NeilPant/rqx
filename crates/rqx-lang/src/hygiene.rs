@@ -2395,23 +2395,201 @@ impl<'a> Walker<'a> {
     }
 
     /// Whether a check has the same expression on both sides, so it holds the code
-    /// to whatever the code already does.
+    /// to whatever the code already does. Only the two sides as wholes count: a
+    /// helper such as `at(8)` that builds part of the checked value and part of the
+    /// expected one is not a comparison of a value with itself.
     fn compares_itself(&self, check: Node<'a>) -> bool {
-        let profile = self.profile;
-        let calls: Vec<String> = descendants(check)
+        self.compared_sides(check)
             .into_iter()
-            .filter(|node| profile.is_call(*node))
-            .filter(|node| {
-                !self
-                    .called_name(*node)
-                    .is_some_and(|name| profile.test.is_assertion(&name))
-            })
-            .map(|node| squashed(self.text(node)))
+            .any(|(checked, expected)| self.same_value(checked, expected))
+    }
+
+    /// The pairs of expressions a check holds against each other, however the
+    /// framework spells them: `expect(a).toBe(b)`, `assertThat(a).isEqualTo(b)`,
+    /// `assertEquals(a, b)`, `require.Equal(t, a, b)`, `EXPECT_EQ(a, b)`,
+    /// `assert a == b` and `assert(a === b)`.
+    fn compared_sides(&self, check: Node<'a>) -> Vec<(Node<'a>, Node<'a>)> {
+        let profile = self.profile;
+        let mut sides = Vec::new();
+        // A callback inside a check is code the check runs, not one of its sides.
+        for node in crate::tree::descendants_outside(check, |node| profile.is_function(node)) {
+            if profile.assertion_statement_kinds.contains(&kind_of(node)) {
+                sides.extend(
+                    node.named_child(0)
+                        .and_then(|asserted| self.equated(asserted)),
+                );
+                continue;
+            }
+            let is_assertion = profile.is_call(node)
+                && self
+                    .called_name(node)
+                    .is_some_and(|name| profile.test.is_assertion(&name));
+            if !is_assertion {
+                continue;
+            }
+            let arguments = self.names().arguments(node);
+            // A matcher's arguments are all expected values, two of them alike in
+            // `toHaveBeenCalledWith(expect.anything(), expect.anything())`.
+            match self.chain_head(node) {
+                Some(head) => {
+                    if let (Some(checked), Some(expected)) =
+                        (self.names().arguments(head).first(), arguments.first())
+                    {
+                        sides.push((*checked, *expected));
+                    }
+                }
+                None => {
+                    if let [checked, expected, ..] = self.compared_arguments(arguments.clone())[..]
+                    {
+                        sides.push((checked, expected));
+                    }
+                }
+            }
+            sides.extend(
+                arguments
+                    .into_iter()
+                    .filter_map(|argument| self.equated(argument)),
+            );
+        }
+        sides
+    }
+
+    /// The two sides of an equality written as an operator. A negated one is left
+    /// out: `x != x` is how a value is checked for NaN, and otherwise it fails.
+    fn equated(&self, node: Node<'a>) -> Option<(Node<'a>, Node<'a>)> {
+        let node = self.see_through(node);
+        let operator = operator_of(node, self.source)?;
+        (self.profile.binary_kinds.contains(&kind_of(node))
+            && self.profile.equality_operators.contains(&operator)
+            && !operator.starts_with('!'))
+        .then(|| operands_of(node))
+        .flatten()
+    }
+
+    /// The arguments of a positional check that are values, without the runner's
+    /// handle Go passes first or the message JUnit 4 puts first.
+    fn compared_arguments(&self, mut arguments: Vec<Node<'a>>) -> Vec<Node<'a>> {
+        let profile = self.profile;
+        let leader = match arguments[..] {
+            [leader, _, _, ..] => leader,
+            _ => return arguments,
+        };
+        let leads = match profile.language {
+            rqx_core::Language::Go => profile.is_identifier(leader),
+            rqx_core::Language::Java => profile.string_kinds.contains(&kind_of(leader)),
+            _ => false,
+        };
+        if leads {
+            arguments.remove(0);
+        }
+        arguments
+    }
+
+    /// The call a fluent check starts from: `expect(a)` in `expect(a).not.toBe(b)`,
+    /// `assertThat(a)` in `assertThat(a).isEqualTo(b)`. None for a call that is not
+    /// written on another call's answer.
+    fn chain_head(&self, call: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let mut head = None;
+        let mut current = call;
+        while let Some(mut receiver) = self.call_receiver(current) {
+            while profile.is_member_access(receiver) && !profile.is_call(receiver) {
+                match receiver.child_by_field_name(profile.object_field) {
+                    Some(object) => receiver = self.see_through(object),
+                    None => break,
+                }
+            }
+            if !profile.is_call(receiver) {
+                break;
+            }
+            head = Some(receiver);
+            current = receiver;
+        }
+        head
+    }
+
+    /// What a call is written on: `a` in `a.b()`.
+    fn call_receiver(&self, call: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let reach = if profile.is_member_access(call) {
+            call
+        } else {
+            self.see_through(call.child_by_field_name(profile.callee_field)?)
+        };
+        if !profile.is_member_access(reach) {
+            return None;
+        }
+        reach
+            .child_by_field_name(profile.object_field)
+            .map(|object| self.see_through(object))
+    }
+
+    /// Whether two sides of a check are one value: the same expression written
+    /// twice, or one side a copy of the other.
+    fn same_value(&self, checked: Node<'a>, expected: Node<'a>) -> bool {
+        let checked = self.see_through(checked);
+        let expected = self.unwrap_matcher(self.see_through(expected));
+        self.same_expression(checked, expected)
+            || self.copies(expected, checked)
+            || self.copies(checked, expected)
+    }
+
+    fn same_expression(&self, one: Node<'a>, other: Node<'a>) -> bool {
+        squashed(self.text(one)) == squashed(self.text(other))
+    }
+
+    /// `is(x)`, `equalTo(x)`, `Eq(x)`, `Equal(x)`: a matcher that only says "equal
+    /// to", read as the value it wraps.
+    fn unwrap_matcher(&self, expected: Node<'a>) -> Node<'a> {
+        const EQUALITY_MATCHERS: [&str; 5] = ["is", "equalTo", "Eq", "Equal", "BeEquivalentTo"];
+        if !self.profile.is_call(expected)
+            || !self
+                .called_name(expected)
+                .is_some_and(|name| EQUALITY_MATCHERS.contains(&name.as_str()))
+        {
+            return expected;
+        }
+        match self.names().arguments(expected)[..] {
+            [wrapped] => self.see_through(wrapped),
+            _ => expected,
+        }
+    }
+
+    /// A value built from `original` and nothing else: `[...x]`, `{ ...x }`,
+    /// `[*x]`, `structuredClone(x)`, `copy.deepcopy(x)`, `x.clone()`, `x.slice()`.
+    fn copies(&self, copy: Node<'a>, original: Node<'a>) -> bool {
+        const SPREADS: [&str; 3] = ["spread_element", "list_splat", "dictionary_splat"];
+        const CLONING_CALLS: [&str; 3] = ["structuredClone", "copy.copy", "copy.deepcopy"];
+        const CLONING_METHODS: [&str; 3] = ["clone", "copy", "slice"];
+        let profile = self.profile;
+        let spread: Vec<Node<'a>> = copy
+            .named_children(&mut copy.walk())
+            .filter(|child| !profile.is_comment(*child))
             .collect();
-        // Any two of them, not just two in a row: the tree walk interleaves a call
-        // with whatever it was written on.
-        let mut seen: std::collections::HashSet<&String> = std::collections::HashSet::new();
-        calls.iter().any(|call| !seen.insert(call))
+        if let [only] = spread[..]
+            && SPREADS.contains(&kind_of(only))
+            && let Some(spread_from) = only.named_child(0)
+        {
+            return self.same_expression(spread_from, original);
+        }
+        if !profile.is_call(copy) {
+            return false;
+        }
+        let Some(name) = self.called_name(copy) else {
+            return false;
+        };
+        let arguments = self.names().arguments(copy);
+        if let [argument] = arguments[..]
+            && CLONING_CALLS.contains(&name.as_str())
+        {
+            return self.same_expression(argument, original);
+        }
+        let method = name.rsplit('.').next().unwrap_or_default();
+        arguments.is_empty()
+            && CLONING_METHODS.contains(&method)
+            && self
+                .call_receiver(copy)
+                .is_some_and(|receiver| self.same_expression(receiver, original))
     }
 
     /// A number a check expects with nothing anywhere saying where it came from.

@@ -52,6 +52,20 @@ them. `tools/release.sh` turns that section into the release notes.
   document reporters and `--watch` are not paged, and the exit code is the same with
   and without the pager. See `docs/ci.md`.
 
+### Fixed
+
+- **`self-asserting-test` compares the two sides of a check as wholes.** In 0.5.1 it
+  reported any check that held the same call twice anywhere in it, so
+  `expect(window(at(8), at(12))).toEqual([{ start: at(8) }])`, where a helper builds
+  part of both values, was reported. A check is now reported only when the value
+  checked and the value expected are the same expression, or when one is a spread or
+  clone of the other (`[...x]`, `{ ...x }`, `structuredClone(x)`, `copy.deepcopy(x)`,
+  `x.clone()`). The sides are read per framework: `expect(a).toBe(b)` and other
+  matcher chains, `assertThat(a).isEqualTo(b)`, `assertEquals(a, b)` (skipping JUnit
+  4's leading message), `require.Equal(t, a, b)`, `EXPECT_EQ(a, b)` and `assert a == b`.
+  A negated comparison such as `x !== x` checks for NaN and is not reported. A check
+  that compares a literal with itself, such as `assertEquals(1, 1)`, is now reported.
+
 ## 0.5.1 — 2026-11-18
 
 

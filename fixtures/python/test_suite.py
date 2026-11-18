@@ -95,3 +95,7 @@ def setup_function():
 def test_stands_something_in():
     client = Mock()
     assert add(1, 1) == 2
+
+
+def test_builds_both_sides_from_one_helper():
+    assert add(add(1, 1), 1) == add(1, 1) + 1

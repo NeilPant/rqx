@@ -366,6 +366,31 @@
           "ruleId": "self-asserting-test"
         },
         {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/suite.test.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 98,
+                  "startColumn": 3,
+                  "startLine": 98
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail. it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour Fix: write the expected value as a literal, instead of the call that produces it"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "self-asserting-test"
+        },
+        {
           "level": "warning",
           "locations": [
             {
