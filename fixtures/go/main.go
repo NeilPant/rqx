@@ -16,6 +16,8 @@ func main() {
 	_ = fixtures.Schedules
 	_ = fixtures.Paced
 	_ = fixtures.Prunes
+	_ = fixtures.PrunesStale
+	_ = fixtures.Doubles
 	_ = FreshTotal
 	_ = Halved
 	_ = Ignored

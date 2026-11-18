@@ -126,3 +126,39 @@ export async function fires(rows: number[]): Promise<number> {
   loadOne();
   return rows.length;
 }
+
+export function prunesStale(seen: Map<string, number>, limit: number): void {
+  for (const [key, at] of seen) {
+    if (at < limit) {
+      seen.delete(key);
+    }
+  }
+}
+
+class Heartbeat {
+  private beats = 0;
+
+  stop(): number {
+    this.beats = 0;
+    return this.beats;
+  }
+}
+
+export class Poller {
+  private readonly heartbeat = new Heartbeat();
+  private polls = 0;
+
+  async stop(): Promise<void> {
+    this.heartbeat.stop();
+    this.polls = 0;
+  }
+
+  async refresh(): Promise<number> {
+    this.polls += 1;
+    return this.polls;
+  }
+
+  restart(): void {
+    this.refresh();
+  }
+}

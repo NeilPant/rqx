@@ -87,3 +87,7 @@ int spare = 0;
 void SetUp() {
     spare = 1;
 }
+
+TEST(Pricing, BuildsBothSidesFromOneHelper) {
+    EXPECT_EQ(add(1, 1) + 1, add(add(1, 1), 1));
+}

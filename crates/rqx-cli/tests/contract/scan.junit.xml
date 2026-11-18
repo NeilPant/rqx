@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="309" failures="163" time="0">
+<testsuites name="rqx" tests="311" failures="165" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -1054,7 +1054,7 @@ Fix: give `action.kind` a type per case and let each one carry its own behaviour
       <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/performance.ts" tests="19" failures="16">
+  <testsuite name="typescript/performance.ts" tests="20" failures="17">
     <testcase classname="typescript/performance.ts" name="mutated-while-iterated at 85:7">
       <failure type="mutated-while-iterated" message="`rows` is modified inside the loop that iterates over it.">`rows` is modified inside the loop that iterates over it.
 
@@ -1063,6 +1063,12 @@ Fix: collect what to change, and change it after the walk</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="dropped-promise at 126:3">
       <failure type="dropped-promise" message="`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.">`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.
+
+Why: nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
+Fix: await it, or state in the code what handles its result</failure>
+    </testcase>
+    <testcase classname="typescript/performance.ts" name="dropped-promise at 162:5">
+      <failure type="dropped-promise" message="`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.">`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.
 
 Why: nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
 Fix: await it, or state in the code what handles its result</failure>
@@ -1396,7 +1402,7 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
       <skipped message="The test contains 3 branches or loops, so which path ran depends on the data." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/suite.test.ts" tests="18" failures="11">
+  <testsuite name="typescript/suite.test.ts" tests="19" failures="12">
     <testcase classname="typescript/suite.test.ts" name="focused-test at 7:1">
       <failure type="focused-test" message="`only` makes the runner skip every other test.">`only` makes the runner skip every other test.
 
@@ -1405,6 +1411,12 @@ Fix: remove the focus before merging; a focused test is rarely meant to be commi
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="self-asserting-test at 56:3">
       <failure type="self-asserting-test" message="`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail.">`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail.
+
+Why: it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour
+Fix: write the expected value as a literal, instead of the call that produces it</failure>
+    </testcase>
+    <testcase classname="typescript/suite.test.ts" name="self-asserting-test at 98:3">
+      <failure type="self-asserting-test" message="`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail.">`expect(sums).toEqual([...sums]);` compares an expression with itself, so it cannot fail.
 
 Why: it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour
 Fix: write the expected value as a literal, instead of the call that produces it</failure>

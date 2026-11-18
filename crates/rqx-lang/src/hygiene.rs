@@ -53,6 +53,13 @@ impl Helpers {
     }
 }
 
+/// An async function the file declares, with the class it is a method of. A call
+/// reaches it by its name and, for a method, through that class.
+struct AsyncFunction {
+    name: String,
+    class: Option<String>,
+}
+
 /// What one statement in the arm of an `if` inside a test does to the test.
 enum Ending {
     /// Fails or skips it.
@@ -2050,6 +2057,27 @@ impl<'a> Walker<'a> {
         None
     }
 
+    /// The class a function is a method of: `Some(None)` for a function of its own,
+    /// and None for one no call can name, a method of an unnamed class or of an
+    /// object literal.
+    fn owning_class(&self, function: Node<'a>) -> Option<Option<String>> {
+        let profile = self.profile;
+        let mut parent = function.parent();
+        while let Some(current) = parent {
+            if profile.is_class(current) {
+                return self.class_name(current).map(Some);
+            }
+            if profile.is_function(current) {
+                return Some(None);
+            }
+            if kind_of(current) == "object" {
+                return None;
+            }
+            parent = current.parent();
+        }
+        Some(None)
+    }
+
     fn class_body(&self, class: Node<'a>) -> Option<Node<'a>> {
         let profile = self.profile;
         class.child_by_field_name("body").or_else(|| {
@@ -2395,23 +2423,201 @@ impl<'a> Walker<'a> {
     }
 
     /// Whether a check has the same expression on both sides, so it holds the code
-    /// to whatever the code already does.
+    /// to whatever the code already does. Only the two sides as wholes count: a
+    /// helper such as `at(8)` that builds part of the checked value and part of the
+    /// expected one is not a comparison of a value with itself.
     fn compares_itself(&self, check: Node<'a>) -> bool {
-        let profile = self.profile;
-        let calls: Vec<String> = descendants(check)
+        self.compared_sides(check)
             .into_iter()
-            .filter(|node| profile.is_call(*node))
-            .filter(|node| {
-                !self
-                    .called_name(*node)
-                    .is_some_and(|name| profile.test.is_assertion(&name))
-            })
-            .map(|node| squashed(self.text(node)))
+            .any(|(checked, expected)| self.same_value(checked, expected))
+    }
+
+    /// The pairs of expressions a check holds against each other, however the
+    /// framework spells them: `expect(a).toBe(b)`, `assertThat(a).isEqualTo(b)`,
+    /// `assertEquals(a, b)`, `require.Equal(t, a, b)`, `EXPECT_EQ(a, b)`,
+    /// `assert a == b` and `assert(a === b)`.
+    fn compared_sides(&self, check: Node<'a>) -> Vec<(Node<'a>, Node<'a>)> {
+        let profile = self.profile;
+        let mut sides = Vec::new();
+        // A callback inside a check is code the check runs, not one of its sides.
+        for node in crate::tree::descendants_outside(check, |node| profile.is_function(node)) {
+            if profile.assertion_statement_kinds.contains(&kind_of(node)) {
+                sides.extend(
+                    node.named_child(0)
+                        .and_then(|asserted| self.equated(asserted)),
+                );
+                continue;
+            }
+            let is_assertion = profile.is_call(node)
+                && self
+                    .called_name(node)
+                    .is_some_and(|name| profile.test.is_assertion(&name));
+            if !is_assertion {
+                continue;
+            }
+            let arguments = self.names().arguments(node);
+            // A matcher's arguments are all expected values, two of them alike in
+            // `toHaveBeenCalledWith(expect.anything(), expect.anything())`.
+            match self.chain_head(node) {
+                Some(head) => {
+                    if let (Some(checked), Some(expected)) =
+                        (self.names().arguments(head).first(), arguments.first())
+                    {
+                        sides.push((*checked, *expected));
+                    }
+                }
+                None => {
+                    if let [checked, expected, ..] = self.compared_arguments(arguments.clone())[..]
+                    {
+                        sides.push((checked, expected));
+                    }
+                }
+            }
+            sides.extend(
+                arguments
+                    .into_iter()
+                    .filter_map(|argument| self.equated(argument)),
+            );
+        }
+        sides
+    }
+
+    /// The two sides of an equality written as an operator. A negated one is left
+    /// out: `x != x` is how a value is checked for NaN, and otherwise it fails.
+    fn equated(&self, node: Node<'a>) -> Option<(Node<'a>, Node<'a>)> {
+        let node = self.see_through(node);
+        let operator = operator_of(node, self.source)?;
+        (self.profile.binary_kinds.contains(&kind_of(node))
+            && self.profile.equality_operators.contains(&operator)
+            && !operator.starts_with('!'))
+        .then(|| operands_of(node))
+        .flatten()
+    }
+
+    /// The arguments of a positional check that are values, without the runner's
+    /// handle Go passes first or the message JUnit 4 puts first.
+    fn compared_arguments(&self, mut arguments: Vec<Node<'a>>) -> Vec<Node<'a>> {
+        let profile = self.profile;
+        let leader = match arguments[..] {
+            [leader, _, _, ..] => leader,
+            _ => return arguments,
+        };
+        let leads = match profile.language {
+            rqx_core::Language::Go => profile.is_identifier(leader),
+            rqx_core::Language::Java => profile.string_kinds.contains(&kind_of(leader)),
+            _ => false,
+        };
+        if leads {
+            arguments.remove(0);
+        }
+        arguments
+    }
+
+    /// The call a fluent check starts from: `expect(a)` in `expect(a).not.toBe(b)`,
+    /// `assertThat(a)` in `assertThat(a).isEqualTo(b)`. None for a call that is not
+    /// written on another call's answer.
+    fn chain_head(&self, call: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let mut head = None;
+        let mut current = call;
+        while let Some(mut receiver) = self.call_receiver(current) {
+            while profile.is_member_access(receiver) && !profile.is_call(receiver) {
+                match receiver.child_by_field_name(profile.object_field) {
+                    Some(object) => receiver = self.see_through(object),
+                    None => break,
+                }
+            }
+            if !profile.is_call(receiver) {
+                break;
+            }
+            head = Some(receiver);
+            current = receiver;
+        }
+        head
+    }
+
+    /// What a call is written on: `a` in `a.b()`.
+    fn call_receiver(&self, call: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let reach = if profile.is_member_access(call) {
+            call
+        } else {
+            self.see_through(call.child_by_field_name(profile.callee_field)?)
+        };
+        if !profile.is_member_access(reach) {
+            return None;
+        }
+        reach
+            .child_by_field_name(profile.object_field)
+            .map(|object| self.see_through(object))
+    }
+
+    /// Whether two sides of a check are one value: the same expression written
+    /// twice, or one side a copy of the other.
+    fn same_value(&self, checked: Node<'a>, expected: Node<'a>) -> bool {
+        let checked = self.see_through(checked);
+        let expected = self.unwrap_matcher(self.see_through(expected));
+        self.same_expression(checked, expected)
+            || self.copies(expected, checked)
+            || self.copies(checked, expected)
+    }
+
+    fn same_expression(&self, one: Node<'a>, other: Node<'a>) -> bool {
+        squashed(self.text(one)) == squashed(self.text(other))
+    }
+
+    /// `is(x)`, `equalTo(x)`, `Eq(x)`, `Equal(x)`: a matcher that only says "equal
+    /// to", read as the value it wraps.
+    fn unwrap_matcher(&self, expected: Node<'a>) -> Node<'a> {
+        const EQUALITY_MATCHERS: [&str; 5] = ["is", "equalTo", "Eq", "Equal", "BeEquivalentTo"];
+        if !self.profile.is_call(expected)
+            || !self
+                .called_name(expected)
+                .is_some_and(|name| EQUALITY_MATCHERS.contains(&name.as_str()))
+        {
+            return expected;
+        }
+        match self.names().arguments(expected)[..] {
+            [wrapped] => self.see_through(wrapped),
+            _ => expected,
+        }
+    }
+
+    /// A value built from `original` and nothing else: `[...x]`, `{ ...x }`,
+    /// `[*x]`, `structuredClone(x)`, `copy.deepcopy(x)`, `x.clone()`, `x.slice()`.
+    fn copies(&self, copy: Node<'a>, original: Node<'a>) -> bool {
+        const SPREADS: [&str; 3] = ["spread_element", "list_splat", "dictionary_splat"];
+        const CLONING_CALLS: [&str; 3] = ["structuredClone", "copy.copy", "copy.deepcopy"];
+        const CLONING_METHODS: [&str; 3] = ["clone", "copy", "slice"];
+        let profile = self.profile;
+        let spread: Vec<Node<'a>> = copy
+            .named_children(&mut copy.walk())
+            .filter(|child| !profile.is_comment(*child))
             .collect();
-        // Any two of them, not just two in a row: the tree walk interleaves a call
-        // with whatever it was written on.
-        let mut seen: std::collections::HashSet<&String> = std::collections::HashSet::new();
-        calls.iter().any(|call| !seen.insert(call))
+        if let [only] = spread[..]
+            && SPREADS.contains(&kind_of(only))
+            && let Some(spread_from) = only.named_child(0)
+        {
+            return self.same_expression(spread_from, original);
+        }
+        if !profile.is_call(copy) {
+            return false;
+        }
+        let Some(name) = self.called_name(copy) else {
+            return false;
+        };
+        let arguments = self.names().arguments(copy);
+        if let [argument] = arguments[..]
+            && CLONING_CALLS.contains(&name.as_str())
+        {
+            return self.same_expression(argument, original);
+        }
+        let method = name.rsplit('.').next().unwrap_or_default();
+        arguments.is_empty()
+            && CLONING_METHODS.contains(&method)
+            && self
+                .call_receiver(copy)
+                .is_some_and(|receiver| self.same_expression(receiver, original))
     }
 
     /// A number a check expects with nothing anywhere saying where it came from.
@@ -3405,8 +3611,31 @@ impl<'a> Walker<'a> {
         })
     }
 
-    /// Growing or shrinking the very collection a loop is walking.
+    /// Growing or shrinking the very collection a loop is walking, in a way the
+    /// language's own iteration does not survive.
     fn note_mutation_while_iterating(&mut self, loop_node: Node<'a>) {
+        let Some(walked) = self.iterated_name(loop_node) else {
+            return;
+        };
+        let Some(body) = self.loop_statements(loop_node) else {
+            return;
+        };
+        let Some(changed) = descendants(body).into_iter().find(|node| {
+            self.calls_a_changer(*node, &walked)
+                || self.rewrites_walked(*node, &walked)
+                || self.deletes_from(*node, &walked)
+        }) else {
+            return;
+        };
+        self.out.mutated_while_iterated.push(Spot {
+            span: span_of(changed),
+            detail: walked,
+            count: 1,
+        });
+    }
+
+    /// A method that adds or removes elements, called on the collection being walked.
+    fn calls_a_changer(&self, node: Node<'a>, walked: &str) -> bool {
         const CHANGERS: [&str; 16] = [
             "push",
             "pop",
@@ -3425,37 +3654,99 @@ impl<'a> Walker<'a> {
             "clear",
             "removeIf",
         ];
+        // A JavaScript Map or Set defines removal during a walk: an entry removed
+        // before the walk reaches it is skipped and the rest are visited once. An
+        // array has neither method.
+        const SAFE_IN_JAVASCRIPT: [&str; 2] = ["delete", "clear"];
         let profile = self.profile;
-        let Some(walked) = self.iterated_name(loop_node) else {
-            return;
-        };
-        let Some(body) = self.loop_statements(loop_node) else {
-            return;
-        };
-        let Some(changed) = descendants(body).into_iter().find(|node| {
-            let calls_a_changer = profile.is_call(*node)
-                && self.called_name(*node).is_some_and(|dotted| {
-                    let mut parts = dotted.rsplitn(2, '.');
-                    let tail = parts.next().unwrap_or_default();
-                    let receiver = parts.next().unwrap_or_default();
-                    receiver == walked && CHANGERS.contains(&tail)
-                });
-            // A language whose collections are values rewrites the name instead of
-            // calling a method on it.
-            let rewrites = (profile.assignment_kinds.contains(&kind_of(node))
-                || profile.local_declaring_kinds.contains(&kind_of(node)))
-                && node
-                    .child_by_field_name("left")
-                    .is_some_and(|target| self.text(target) == walked);
-            calls_a_changer || rewrites
-        }) else {
-            return;
-        };
-        self.out.mutated_while_iterated.push(Spot {
-            span: span_of(changed),
-            detail: walked,
-            count: 1,
-        });
+        let javascript = matches!(
+            profile.language,
+            rqx_core::Language::TypeScript | rqx_core::Language::JavaScript
+        );
+        profile.is_call(node)
+            && self.called_name(node).is_some_and(|dotted| {
+                let mut parts = dotted.rsplitn(2, '.');
+                let tail = parts.next().unwrap_or_default();
+                let receiver = parts.next().unwrap_or_default();
+                receiver == walked
+                    && CHANGERS.contains(&tail)
+                    && !(javascript && SAFE_IN_JAVASCRIPT.contains(&tail))
+            })
+    }
+
+    /// An assignment to the walked name that changes what the walk sees. Giving the
+    /// name a new value does not: the loop keeps the collection it started with.
+    fn rewrites_walked(&self, node: Node<'a>, walked: &str) -> bool {
+        let profile = self.profile;
+        let kind = kind_of(node);
+        let assigns_walked = (profile.assignment_kinds.contains(&kind)
+            || profile.local_declaring_kinds.contains(&kind))
+            && node
+                .child_by_field_name("left")
+                .is_some_and(|target| self.text(target) == walked);
+        if !assigns_walked {
+            return false;
+        }
+        match profile.language {
+            // `items += more` extends a list, set or dict in place.
+            rqx_core::Language::Python => profile.compound_assignment_kinds.contains(&kind),
+            // A range-for holds a reference to the container, so assigning to it
+            // invalidates the iterators the loop is using.
+            rqx_core::Language::Cpp => true,
+            // A range reads the slice it was given; only an append onto a slice of
+            // it, `s = append(s[:i], s[i+1:]...)`, moves the elements it reads.
+            rqx_core::Language::Go => node
+                .child_by_field_name("right")
+                .is_some_and(|value| self.shifts_elements_of(value, walked)),
+            _ => false,
+        }
+    }
+
+    /// `append(s[:i], …)`: writing into the array behind `s` from inside it.
+    fn shifts_elements_of(&self, value: Node<'a>, walked: &str) -> bool {
+        let profile = self.profile;
+        let mut value = self.see_through(value);
+        while profile.expression_list_kinds.contains(&kind_of(value))
+            && value.named_child_count() == 1
+            && let Some(only) = value.named_child(0)
+        {
+            value = self.see_through(only);
+        }
+        profile.is_call(value)
+            && self.called_name(value).as_deref() == Some("append")
+            && self.names().arguments(value).first().is_some_and(|first| {
+                kind_of(*first) == "slice_expression"
+                    && first
+                        .child_by_field_name("operand")
+                        .is_some_and(|operand| self.text(operand) == walked)
+            })
+    }
+
+    /// Python's `del items[key]`: a dict raises when its size changes during the
+    /// walk, and a list skips the element after the one removed.
+    fn deletes_from(&self, node: Node<'a>, walked: &str) -> bool {
+        let profile = self.profile;
+        if profile.language != rqx_core::Language::Python || kind_of(node) != "delete_statement" {
+            return false;
+        }
+        // `del a[k], b[k]` lists its targets; `del cache[items[0]]` deletes from
+        // `cache`, so only the targets themselves are read.
+        let targets: Vec<Node<'a>> = node
+            .named_children(&mut node.walk())
+            .flat_map(|target| {
+                if profile.expression_list_kinds.contains(&kind_of(target)) {
+                    target.named_children(&mut target.walk()).collect()
+                } else {
+                    vec![target]
+                }
+            })
+            .collect();
+        targets.into_iter().any(|target| {
+            kind_of(target) == "subscript"
+                && target
+                    .child_by_field_name("value")
+                    .is_some_and(|value| self.text(value) == walked)
+        })
     }
 
     /// What a loop is walking, where the loop names it.
@@ -4146,7 +4437,12 @@ impl<'a> Walker<'a> {
 
     /// Starting work that answers later and throwing the answer away. Nothing waits
     /// for it and nothing hears if it fails.
-    fn note_dropped_promise(&mut self, statement: Node<'a>, awaited: &[String]) {
+    ///
+    /// Only a call that reaches one of the file's own async functions counts: `f()`
+    /// for a function, `this.f()` for a method of the class it is written in, and
+    /// `Type.f()` for a static one. `this.loop.stop()` reaches whatever `loop` holds,
+    /// which this file cannot see, however many async `stop` methods it declares.
+    fn note_dropped_promise(&mut self, statement: Node<'a>, awaited: &[AsyncFunction]) {
         let profile = self.profile;
         let Some(call) = self.only_call(statement) else {
             return;
@@ -4160,8 +4456,24 @@ impl<'a> Walker<'a> {
         let Some(dotted) = self.called_name(call) else {
             return;
         };
-        let tail = dotted.rsplit('.').next().unwrap_or(&dotted).to_owned();
-        if !awaited.contains(&tail) {
+        let (receiver, name) = match dotted.rsplit_once('.') {
+            Some((receiver, name)) => (Some(receiver), name),
+            None => (None, dotted.as_str()),
+        };
+        let class = match receiver {
+            None => None,
+            Some(receiver) if profile.self_names.contains(&receiver) => {
+                let Some(class) = self.enclosing_class_name(statement) else {
+                    return;
+                };
+                Some(class)
+            }
+            Some(receiver) => Some(receiver.to_owned()),
+        };
+        if !awaited
+            .iter()
+            .any(|function| function.name == name && function.class == class)
+        {
             return;
         }
         self.out.dropped_promises.push(Spot {
@@ -5881,12 +6193,15 @@ pub fn collect_over(
     // seen, so the functions that hand one back are read afterwards.
     // Which functions answer later is only settled once the file has been read, so
     // the statements that drop one of those answers are found afterwards.
-    let awaited: Vec<String> = nodes
+    let awaited: Vec<AsyncFunction> = nodes
         .iter()
         .filter(|node| profile.is_function(*node) && profile.is_async(*node))
         .filter_map(|node| {
             let named = node.child_by_field_name("name")?;
-            Some(text_of(named, source).to_owned())
+            Some(AsyncFunction {
+                name: text_of(named, source).to_owned(),
+                class: walker.owning_class(node)?,
+            })
         })
         .collect();
     if !awaited.is_empty() {

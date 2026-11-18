@@ -105,3 +105,24 @@ def tabs_open():
 async def fires(rows):
     _load_one()
     return len(rows)
+
+
+def prunes_stale(seen, limit):
+    for key in seen:
+        if seen[key] < limit:
+            del seen[key]
+
+
+class Heartbeat:
+    def stop(self):
+        return 0
+
+
+class Poller:
+    def __init__(self, heartbeat):
+        self.heartbeat = heartbeat
+        self.polls = 0
+
+    async def stop(self):
+        self.heartbeat.stop()
+        self.polls = 0

@@ -77,6 +77,38 @@ them. `tools/release.sh` turns that section into the release notes.
   `file://server/share/a.py` is read as the path `//server/share/a.py`. It used to
   be read as the relative path `server/share/a.py`, which could attach a result to
   the wrong file. A drive path such as `file:///C:/work/a.py` is read as before.
+- **`self-asserting-test` compares the two sides of a check as wholes.** In 0.5.1 it
+  reported any check that held the same call twice anywhere in it, so
+  `expect(window(at(8), at(12))).toEqual([{ start: at(8) }])`, where a helper builds
+  part of both values, was reported. A check is now reported only when the value
+  checked and the value expected are the same expression, or when one is a spread or
+  clone of the other (`[...x]`, `{ ...x }`, `structuredClone(x)`, `copy.deepcopy(x)`,
+  `x.clone()`). The sides are read per framework: `expect(a).toBe(b)` and other
+  matcher chains, `assertThat(a).isEqualTo(b)`, `assertEquals(a, b)` (skipping JUnit
+  4's leading message), `require.Equal(t, a, b)`, `EXPECT_EQ(a, b)` and `assert a == b`.
+  A negated comparison such as `x !== x` checks for NaN and is not reported. A check
+  that compares a literal with itself, such as `assertEquals(1, 1)`, is now reported.
+
+- **`mutated-while-iterated` follows each language's iteration rules.** In 0.5.1 it
+  reported `map.delete(key)` inside `for (const [key] of map)`. The JavaScript
+  specification defines that case: a Map or Set entry removed before the walk reaches
+  it is skipped. In JavaScript and TypeScript, `delete` and `clear` on the walked
+  collection are no longer reported, and `splice`, `push`, `shift` and the other array
+  changers still are. Assigning a new value to the walked name is no longer reported in
+  JavaScript, TypeScript, Java or Python, because the loop keeps the collection it
+  started with. Python's `items += more` changes the list in place and is still
+  reported. In Go, `delete(m, k)` during `range` is not reported, as before;
+  `s = append(s, x)` is no longer reported, and `s = append(s[:i], s[i+1:]...)`, which
+  moves the elements the range reads, still is. Python's `del items[key]` inside
+  `for key in items` is now reported. C++ is unchanged.
+
+- **`dropped-promise` reports only calls that reach one of the file's own async
+  functions.** In 0.5.1 it matched the last segment of the call's name, so
+  `this.eventLoop.stop()` was reported in any file that declared an async `stop`. It
+  now reports `f()` when `f` is an async function declared in the file, `this.f()` or
+  `self.f()` when `f` is an async method of the enclosing class, and `Type.f()` when
+  `f` is an async method of class `Type` in the file. Calls on any other receiver are
+  not reported, because the file does not show what that receiver's method returns.
 
 ## 0.5.1 — 2026-11-18
 
