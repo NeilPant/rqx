@@ -9,6 +9,48 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **A finding can carry a `focus`.** It is the exact range that is the problem, inside
+  the statement or declaration that `location` covers. `discarded-error` focuses on the
+  name that discards the value, `ambient-dependency` and `import-time-work` on the
+  call's name without its arguments, `redundant-else` on the `else` keyword, and
+  `passthrough-function`, `static-only-class` and `many-collaborators` on the
+  declaration's name. `location` is unchanged, so baselines and waivers keep matching.
+  In `--reporter json` the key `focus` is present only when a rule set it. In SARIF the
+  focus is `physicalLocation.properties.focus`, and `region` is unchanged.
+
+### Changed
+
+- **Finding messages name the subject and the numbers.** About a hundred rules have a
+  sentence of their own in place of the generic one. `discarded-error` says which call's
+  result is assigned to an ignored name, `magic-number` says how often the literal
+  appears, `branching-test` and `many-exits` count in the singular when the count is 1,
+  and `no-base-case` and `branching-recursion` no longer share one sentence. The sentence
+  appears in the terminal, SARIF, GitLab, GitHub, JUnit, Markdown and HTML reports, in
+  editor diagnostics and in the MCP tools. The `evidence` object in JSON is unchanged,
+  and so are the fingerprints in the GitLab report and in SARIF `partialFingerprints`,
+  which still hash the evidence's own text. `--search` matches both texts.
+- **Every finding in the terminal has a reason.** The whole rationale for a rule prints
+  under its first finding, as before. The later findings of that rule print a one-line
+  form of it instead of nothing. The catalogue entry takes an optional `short`; without
+  one, the short form is the first clause of `why`. `--detail full` still prints the
+  whole rationale every time.
+- **Thirty-five rules name a different fix technique.** The earlier pairings were
+  mismatches: `discarded-error` suggested Decompose Conditional, `sequential-await`
+  suggested Replace Algorithm, `loop-concatenation` suggested Replace Algorithm where
+  Accumulate in Place exists, and `many-locals` suggested Extract Variable, which adds a
+  local. The `fixes` array in JSON, the technique names in SARIF and GitLab help text,
+  and the technique under each finding change with them. Six techniques are new, in the
+  existing groups and a new `Errors` group: Handle the Failure, Narrow the Handler,
+  Replace Exit with Error, Declare Immutable, Narrow the Type and Share Ownership. A
+  test lists, for each technique, the rules it applies to, so a new pairing has to be
+  added there on purpose.
+- **The terminal marks the focus, not the whole statement.** A finding with a focus
+  underlines only that range and shows the rest of its statement as a count of lines.
+  A multi-line finding with no focus shows its first line and `⋮ N more lines` instead of
+  one row of carets per line.
+
 ## 0.5.0 — 2026-11-18
 
 ### Added

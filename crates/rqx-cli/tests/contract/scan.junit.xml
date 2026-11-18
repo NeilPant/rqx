@@ -2,7 +2,7 @@
 <testsuites name="rqx" tests="309" failures="163" time="0">
   <testsuite name="typescript/bloat.ts" tests="19" failures="10">
     <testcase classname="typescript/bloat.ts" name="no-base-case at 86:17">
-      <failure type="no-base-case" message="Calls itself 1 times per invocation with no memo in sight.">Calls itself 1 times per invocation with no memo in sight.
+      <failure type="no-base-case" message="The function calls itself once and has no branch that can stop the recursion.">The function calls itself once and has no branch that can stop the recursion.
 
 Why: nothing can stop the recursion, so the first call exhausts the stack
 Fix: give `loops` the case that answers without calling itself</failure>
@@ -14,19 +14,19 @@ Why: it is the number of tests needed to cover the body, and past a point those 
 Fix: split `manyPaths` so each part has a number of paths that tests can cover</failure>
     </testcase>
     <testcase classname="typescript/bloat.ts" name="working-constructor at 33:3">
-      <failure type="working-constructor" message="1 statements doing work while the object is built (limit 0).">1 statements doing work while the object is built (limit 0).
+      <failure type="working-constructor" message="The constructor runs 1 statement of real work (limit 0).">The constructor runs 1 statement of real work (limit 0).
 
 Why: the object cannot exist without whatever that work needs, so every test of it has to set the work up first
 Fix: accept what it needs as an argument, and do the work in a method the caller calls explicitly</failure>
     </testcase>
     <testcase classname="typescript/bloat.ts" name="wide-try at 53:7">
-      <failure type="wide-try" message="12 statements under one handler (limit 10).">12 statements under one handler (limit 10).
+      <failure type="wide-try" message="One `try` covers 12 statements (limit 10), so its handler cannot tell which one failed.">One `try` covers 12 statements (limit 10), so its handler cannot tell which one failed.
 
 Why: the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it
 Fix: guard the line that can fail, and leave the rest outside</failure>
     </testcase>
     <testcase classname="typescript/bloat.ts" name="blanket-try at 53:7">
-      <failure type="blanket-try" message="12 statements under one handler (limit 0).">12 statements under one handler (limit 0).
+      <failure type="blanket-try" message="One `try` covers 12 statements, so its handler cannot tell which one failed.">One `try` covers 12 statements, so its handler cannot tell which one failed.
 
 Why: the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for
 Fix: guard only the line that can fail, and let the rest propagate</failure>
@@ -62,31 +62,31 @@ Why: each nested decision point multiplies the paths a reader has to trace, and 
 Fix: lift the conditions in `manyPaths` into named predicates, then extract the deepest block into its own function</failure>
     </testcase>
     <testcase classname="typescript/bloat.ts" name="empty-subclass at 24:8">
-      <skipped message="`SameAsFeeder` inherits and adds nothing." />
+      <skipped message="`SameAsFeeder` extends its parent without adding a member." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="empty-method at 21:3">
-      <skipped message="`m1` has an empty body." />
+      <skipped message="`m1` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="empty-method at 21:11">
-      <skipped message="`m2` has an empty body." />
+      <skipped message="`m2` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="empty-method at 21:19">
-      <skipped message="`m3` has an empty body." />
+      <skipped message="`m3` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="passthrough-function at 86:8">
-      <skipped message="`loops to loops` forwards its arguments unchanged." />
+      <skipped message="`loops` only calls `loops` with the same arguments." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="static-only-class at 26:8">
-      <skipped message="2 methods, none of them on an instance (limit 2)." />
+      <skipped message="All 2 methods are static (limit 2), so the class is a namespace." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="many-locals at 44:17">
-      <skipped message="16 names introduced in one body (limit 15)." />
+      <skipped message="The function declares 16 local names (limit 15)." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="many-results at 83:3">
-      <skipped message="4 values handed back at once (limit 3)." />
+      <skipped message="The function returns 4 values at once (limit 3)." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="guard-cascade at 63:17">
-      <skipped message="9 checks before the body starts (limit 3)." />
+      <skipped message="9 checks run before the body starts (limit 3)." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/clean.ts" tests="1" failures="0">
@@ -94,19 +94,19 @@ Fix: lift the conditions in `manyPaths` into named predicates, then extract the 
   </testsuite>
   <testsuite name="typescript/config.ts" tests="6" failures="3">
     <testcase classname="typescript/config.ts" name="collapsible-if at 3:5">
-      <failure type="collapsible-if" message="This `if` is the only statement inside another one.">This `if` is the only statement inside another one.
+      <failure type="collapsible-if" message="This `if` is the only statement inside another `if`, so the two conditions can be joined.">This `if` is the only statement inside another `if`, so the two conditions can be joined.
 
 Why: this is one condition written as two, so a reader has to follow a branch that never branches
 Fix: join the two conditions with `&amp;&amp;` and keep one branch</failure>
     </testcase>
     <testcase classname="typescript/config.ts" name="collapsible-if at 4:7">
-      <failure type="collapsible-if" message="This `if` is the only statement inside another one.">This `if` is the only statement inside another one.
+      <failure type="collapsible-if" message="This `if` is the only statement inside another `if`, so the two conditions can be joined.">This `if` is the only statement inside another `if`, so the two conditions can be joined.
 
 Why: this is one condition written as two, so a reader has to follow a branch that never branches
 Fix: join the two conditions with `&amp;&amp;` and keep one branch</failure>
     </testcase>
     <testcase classname="typescript/config.ts" name="example-value at 5:16">
-      <failure type="example-value" message="`example.com` reads as something other than the code.">`example.com` reads as something other than the code.
+      <failure type="example-value" message="`example.com` is a placeholder value left in the code.">`example.com` is a placeholder value left in the code.
 
 Why: a placeholder that looks real is a value that can ship, and the first person to notice is whoever receives it
 Fix: name it as configuration, or move it to a test, where a placeholder is appropriate</failure>
@@ -123,25 +123,25 @@ Fix: name it as configuration, or move it to a test, where a placeholder is appr
   </testsuite>
   <testsuite name="typescript/conventions.ts" tests="8" failures="1">
     <testcase classname="typescript/conventions.ts" name="split-cohesion at 17:8">
-      <failure type="split-cohesion" message="2 groups of methods sharing no state (limit 1).">2 groups of methods sharing no state (limit 1).
+      <failure type="split-cohesion" message="The class&apos;s methods fall into 2 groups that share no state (limit 1).">The class&apos;s methods fall into 2 groups that share no state (limit 1).
 
 Why: each group of fields is a type that has not been separated, so a change to one is read against the fields of all of them
 Fix: give each group its own type, and have one type hold the other</failure>
     </testcase>
     <testcase classname="typescript/conventions.ts" name="passthrough-function at 21:3">
-      <skipped message="`record to this.entryList.push` forwards its arguments unchanged." />
+      <skipped message="`record` only calls `this.entryList.push` with the same arguments." />
     </testcase>
     <testcase classname="typescript/conventions.ts" name="over-logging at 32:17">
-      <skipped message="3 of the statements here are log calls (limit 40)." />
+      <skipped message="3 statements in this function are log calls, over 40% of its body." />
     </testcase>
     <testcase classname="typescript/conventions.ts" name="plural-mismatch at 30:14">
-      <skipped message="`tier` disagrees in number with what it holds." />
+      <skipped message="The name `tier` and the value it holds disagree on singular or plural." />
     </testcase>
     <testcase classname="typescript/conventions.ts" name="name-repeats-type at 18:11">
-      <skipped message="`entryList (List)` spells its type into its name." />
+      <skipped message="`entryList` ends with `List`, which repeats its type." />
     </testcase>
     <testcase classname="typescript/conventions.ts" name="mixed-conventions at 1:7">
-      <skipped message="1 name in this file use snake_case while the rest do not." />
+      <skipped message="1 name in this file uses snake_case while the rest do not." />
     </testcase>
     <testcase classname="typescript/conventions.ts" name="boundary-arithmetic at 9:22">
       <skipped message="`cursor` is adjusted by one in 3 places, each of them a chance to be off by one." />
@@ -152,13 +152,13 @@ Fix: give each group its own type, and have one type hold the other</failure>
   </testsuite>
   <testsuite name="typescript/cost-allocation-in-loop.ts" tests="4" failures="0">
     <testcase classname="typescript/cost-allocation-in-loop.ts" name="plural-mismatch at 4:11">
-      <skipped message="`pair` disagrees in number with what it holds." />
+      <skipped message="The name `pair` and the value it holds disagree on singular or plural." />
     </testcase>
     <testcase classname="typescript/cost-allocation-in-loop.ts" name="plural-mismatch at 6:11">
-      <skipped message="`spare` disagrees in number with what it holds." />
+      <skipped message="The name `spare` and the value it holds disagree on singular or plural." />
     </testcase>
     <testcase classname="typescript/cost-allocation-in-loop.ts" name="plural-mismatch at 24:11">
-      <skipped message="`pair` disagrees in number with what it holds." />
+      <skipped message="The name `pair` and the value it holds disagree on singular or plural." />
     </testcase>
     <testcase classname="typescript/cost-allocation-in-loop.ts" name="boundary-arithmetic at 4:24">
       <skipped message="`row` is adjusted by one in 3 places, each of them a chance to be off by one." />
@@ -174,7 +174,7 @@ Fix: walk the input with a loop and an explicit stack, so the depth is not limit
   </testsuite>
   <testsuite name="typescript/cost-linear-op-in-loop.ts" tests="1" failures="1">
     <testcase classname="typescript/cost-linear-op-in-loop.ts" name="linear-op-in-loop at 5:15">
-      <failure type="linear-op-in-loop" message="`entries.shift` runs on every pass of the loop.">`entries.shift` runs on every pass of the loop.
+      <failure type="linear-op-in-loop" message="`entries.shift` takes time proportional to the collection&apos;s size and runs on every pass of the loop.">`entries.shift` takes time proportional to the collection&apos;s size and runs on every pass of the loop.
 
 Why: the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection&apos;s
 Fix: use a structure whose operation takes constant time, or take the operation out of the loop</failure>
@@ -182,13 +182,13 @@ Fix: use a structure whose operation takes constant time, or take the operation 
   </testsuite>
   <testsuite name="typescript/cost-lock-in-loop.ts" tests="2" failures="1">
     <testcase classname="typescript/cost-lock-in-loop.ts" name="lock-in-loop at 9:5">
-      <failure type="lock-in-loop" message="`latch.lock` runs on every pass of the loop.">`latch.lock` runs on every pass of the loop.
+      <failure type="lock-in-loop" message="`latch.lock` takes the lock again on every pass of the loop.">`latch.lock` takes the lock again on every pass of the loop.
 
 Why: each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop
 Fix: take the lock once around the whole loop, or keep it per pass only if other threads need the gaps</failure>
     </testcase>
     <testcase classname="typescript/cost-lock-in-loop.ts" name="never-reassigned at 18:12">
-      <skipped message="`at` is declared changeable and never changes." />
+      <skipped message="`at` is declared with a keyword that allows reassignment, and nothing reassigns it." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/cost-pair-scan-could-hash.ts" tests="1" failures="0">
@@ -202,26 +202,26 @@ Why: the callee does work in proportion to a collection on every pass of the loo
 Fix: index what the callee searches once above the loop, or change the callee to look up by key so each pass costs constant time</failure>
     </testcase>
     <testcase classname="typescript/cost-quadratic-via-call.ts" name="never-reassigned at 2:12">
-      <skipped message="`i` is declared changeable and never changes." />
+      <skipped message="`i` is declared with a keyword that allows reassignment, and nothing reassigns it." />
     </testcase>
     <testcase classname="typescript/cost-quadratic-via-call.ts" name="never-reassigned at 12:12">
-      <skipped message="`at` is declared changeable and never changes." />
+      <skipped message="`at` is declared with a keyword that allows reassignment, and nothing reassigns it." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/cost-repeated-computation-in-loop.ts" tests="2" failures="1">
     <testcase classname="typescript/cost-repeated-computation-in-loop.ts" name="repeated-computation-in-loop at 12:5">
-      <failure type="repeated-computation-in-loop" message="`totalLength` runs on every pass of the loop.">`totalLength` runs on every pass of the loop.
+      <failure type="repeated-computation-in-loop" message="`totalLength` is computed again on every pass of the loop, with nothing that changes between passes.">`totalLength` is computed again on every pass of the loop, with nothing that changes between passes.
 
 Why: the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do
 Fix: compute it once above the loop: nothing in the loop changes what it is given</failure>
     </testcase>
     <testcase classname="typescript/cost-repeated-computation-in-loop.ts" name="plural-mismatch at 21:11">
-      <skipped message="`own` disagrees in number with what it holds." />
+      <skipped message="The name `own` and the value it holds disagree on singular or plural." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/cost-sort-in-loop.ts" tests="1" failures="1">
     <testcase classname="typescript/cost-sort-in-loop.ts" name="sort-in-loop at 4:17">
-      <failure type="sort-in-loop" message="`&lt;expression&gt;.sort` runs on every pass of the loop.">`&lt;expression&gt;.sort` runs on every pass of the loop.
+      <failure type="sort-in-loop" message="`&lt;expression&gt;.sort` sorts again on every pass of the loop.">`&lt;expression&gt;.sort` sorts again on every pass of the loop.
 
 Why: every pass after the first sorts input that is already sorted, at a cost of n log n each time
 Fix: sort once above the loop: nothing in the loop changes what is being sorted</failure>
@@ -243,7 +243,7 @@ Why: the number of requests in flight equals the size of the collection, so a la
 Fix: run the work through a semaphore, a limiter or a fixed-size pool</failure>
     </testcase>
     <testcase classname="typescript/cost-unbounded-concurrency.ts" name="query-in-loop at 4:38">
-      <failure type="query-in-loop" message="`fetch` runs on every pass of the loop.">`fetch` runs on every pass of the loop.
+      <failure type="query-in-loop" message="`fetch` makes a separate call on every pass of the loop, one round trip per element.">`fetch` makes a separate call on every pass of the loop, one round trip per element.
 
 Why: every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them
 Fix: gather the keys first and ask for all of them in one call</failure>
@@ -251,7 +251,7 @@ Fix: gather the keys first and ask for all of them in one call</failure>
   </testsuite>
   <testsuite name="typescript/cycle-a.ts" tests="1" failures="1">
     <testcase classname="typescript/cycle-a.ts" name="circular-dependency at 1:1">
-      <failure type="circular-dependency" message="cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts.">cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts.
+      <failure type="circular-dependency" message="Import cycle: cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts.">Import cycle: cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts.
 
 Why: no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that works today is accidental
 Fix: break the cycle by moving what they share into a module both can import, or invert the weaker of the two dependencies behind an interface</failure>
@@ -299,13 +299,13 @@ Fix: drop `node` from `visitProduct` and from its call sites</failure>
   </testsuite>
   <testsuite name="typescript/flow.ts" tests="43" failures="28">
     <testcase classname="typescript/flow.ts" name="silent-fallthrough at 193:5">
-      <failure type="silent-fallthrough" message="`case 1:` runs on into the arm below">`case 1:` runs on into the arm below
+      <failure type="silent-fallthrough" message="`case 1:` has a body and no `break`, so it continues into the next case.">`case 1:` has a body and no `break`, so it continues into the next case.
 
 Why: the arm below also runs, and nothing here says whether that was intended
 Fix: end the arm, or say in the code that falling through is the point</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="duplicate-condition at 177:13">
-      <failure type="duplicate-condition" message="`(kind === &quot;a&quot;)` is asked twice in one chain">`(kind === &quot;a&quot;)` is asked twice in one chain
+      <failure type="duplicate-condition" message="`(kind === &quot;a&quot;)` is tested twice in the same if/else chain, so the second branch cannot run.">`(kind === &quot;a&quot;)` is tested twice in the same if/else chain, so the second branch cannot run.
 
 Why: the second branch cannot be reached, so whatever it was written to do has never run
 Fix: decide which of the two arms was meant, and delete the other</failure>
@@ -329,25 +329,25 @@ Why: it reads as a comparison and behaves as an assignment, so an accidental ass
 Fix: assign above the branch, or compare if that is what was meant</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="output-parameter at 112:5">
-      <failure type="output-parameter" message="Parameter `total` is reassigned inside the function.">Parameter `total` is reassigned inside the function.
+      <failure type="output-parameter" message="Parameter `total` is assigned a new value inside the function.">Parameter `total` is assigned a new value inside the function.
 
 Why: the caller&apos;s value changes without the call site saying so, which is hard to find when it turns out to be wrong
 Fix: assign to a local instead of `total`, and return the result</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="float-equality at 128:10">
-      <failure type="float-equality" message="`0.1` is compared for exact equality">`0.1` is compared for exact equality
+      <failure type="float-equality" message="`0.1` is compared for exact equality, which floating-point rounding can make false.">`0.1` is compared for exact equality, which floating-point rounding can make false.
 
 Why: a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value
 Fix: compare the difference against a tolerance chosen for the domain</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="discarded-expression at 132:3">
-      <failure type="discarded-expression" message="`total === other` is computed and dropped">`total === other` is computed and dropped
+      <failure type="discarded-expression" message="`total === other` is evaluated and its value is not used.">`total === other` is evaluated and its value is not used.
 
 Why: either the line was meant to do something and does not, or it does nothing and should be removed, and a reader cannot tell which
 Fix: use the value, or delete the line</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="dead-store at 57:7">
-      <failure type="dead-store" message="`found` is written again before anything reads it.">`found` is written again before anything reads it.
+      <failure type="dead-store" message="The value assigned to `found` is overwritten before anything reads it.">The value assigned to `found` is overwritten before anything reads it.
 
 Why: the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary
 Fix: delete the unread assignment, or read it</failure>
@@ -365,7 +365,7 @@ Why: the language defines which operator binds tighter but the reader has to rem
 Fix: put the tighter half in parentheses, or name it</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="nested-ternary at 137:32">
-      <failure type="nested-ternary" message="`score &gt; 50 ? &quot;silver&quot; : &quot;bronze&quot;` is the inner half of another conditional">`score &gt; 50 ? &quot;silver&quot; : &quot;bronze&quot;` is the inner half of another conditional
+      <failure type="nested-ternary" message="This conditional expression is nested in another one: `score &gt; 50 ? &quot;silver&quot; : &quot;bronze&quot;`.">This conditional expression is nested in another one: `score &gt; 50 ? &quot;silver&quot; : &quot;bronze&quot;`.
 
 Why: two conditions folded into one expression have to be unfolded by the reader before either can be checked
 Fix: give the inner condition a named value, or write the whole thing as statements</failure>
@@ -413,43 +413,43 @@ Why: a fix applied to one copy leaves the others unfixed, and nothing in the cod
 Fix: extract the shared block into one function and call it from all 2 sites</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="accumulate-by-copy at 186:5">
-      <failure type="accumulate-by-copy" message="`out` runs on every pass of the loop.">`out` runs on every pass of the loop.
+      <failure type="accumulate-by-copy" message="`out` is copied into a new value on every pass of the loop, which makes the loop quadratic.">`out` is copied into a new value on every pass of the loop, which makes the loop quadratic.
 
 Why: each step copies everything gathered so far, so building a result of n items touches about half of n squared items
 Fix: add to the accumulator in place instead of rebuilding it</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="no-default-branch at 149:3">
-      <failure type="no-default-branch" message="3 arms, none of them the last resort (limit 3).">3 arms, none of them the last resort (limit 3).
+      <failure type="no-default-branch" message="The `switch` has 3 cases and no default (limit 3).">The `switch` has 3 cases and no default (limit 3).
 
 Why: a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended
 Fix: add a default arm that handles unnamed values, even if it only raises</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="loop-concatenation at 186:5">
-      <failure type="loop-concatenation" message="`out` is rebuilt on every pass.">`out` is rebuilt on every pass.
+      <failure type="loop-concatenation" message="`out` is rebuilt from its own previous value on every pass.">`out` is rebuilt from its own previous value on every pass.
 
 Why: each pass copies everything written so far, so the work grows with the square of the number of pieces
 Fix: collect the pieces and join them once</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="callback-nesting at 101:20">
-      <failure type="callback-nesting" message="4 levels deep (limit 3).">4 levels deep (limit 3).
+      <failure type="callback-nesting" message="Callbacks nest 4 levels deep (limit 3).">Callbacks nest 4 levels deep (limit 3).
 
 Why: the steps run in the reverse of the order in which they are written, so following the sequence means reading from the inside out
 Fix: name the inner steps and call them, so the order they run in is the order they read in</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="wide-switch at 65:3">
-      <failure type="wide-switch" message="14 arms (limit 12).">14 arms (limit 12).
+      <failure type="wide-switch" message="The `switch` has 14 cases (limit 12).">The `switch` has 14 cases (limit 12).
 
 Why: past a certain width the arms are no longer a table a reader scans, and become a list the reader has to search
 Fix: give the value being switched on a type that provides the behaviour for each case</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="many-exits at 32:17">
-      <failure type="many-exits" message="6 ways out (limit 4).">6 ways out (limit 4).
+      <failure type="many-exits" message="The function has 6 exit points (limit 4).">The function has 6 exit points (limit 4).
 
 Why: a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss
 Fix: give the function one exit, or extract the branches that end early</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="many-exits at 64:17">
-      <failure type="many-exits" message="14 ways out (limit 4).">14 ways out (limit 4).
+      <failure type="many-exits" message="The function has 14 exit points (limit 4).">The function has 14 exit points (limit 4).
 
 Why: a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss
 Fix: give the function one exit, or extract the branches that end early</failure>
@@ -467,16 +467,16 @@ Why: each nested decision point multiplies the paths a reader has to trace, and 
 Fix: lift the conditions in `buriedExits` into named predicates, then extract the deepest block into its own function</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="redundant-jump at 113:5">
-      <skipped message="`continue` is the last statement of the loop" />
+      <skipped message="`continue` is the last statement of the loop body, so it changes nothing." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="negated-comparison at 145:10">
-      <skipped message="a negation wrapped around `===`" />
+      <skipped message="A negation wraps a `===` comparison, which the opposite operator states directly." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="abstract-nothing at 202:8">
-      <skipped message="`Settled` is abstract and leaves nothing unfinished." />
+      <skipped message="`Settled` is declared abstract but has no abstract member for a subclass to finish." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="return-of-fresh-local at 168:3">
-      <skipped message="`total` is introduced and returned in two lines." />
+      <skipped message="`total` is declared on one line and returned on the next." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="literal-comparison at 10:7">
       <skipped message="Compared against the literal `true`." />
@@ -491,40 +491,40 @@ Fix: lift the conditions in `buriedExits` into named predicates, then extract th
       <skipped message="Boolean parameter `ready` (1 in the list) selects between behaviours." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="ambient-dependency at 102:11">
-      <skipped message="`globalThis` answers with something no caller set." />
+      <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="ambient-dependency at 194:7">
-      <skipped message="`globalThis` answers with something no caller set." />
+      <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 1:17">
-      <skipped message="`restated` answers true or false without asking anything." />
+      <skipped message="`restated` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 127:17">
-      <skipped message="`settled` answers true or false without asking anything." />
+      <skipped message="`settled` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 140:17">
-      <skipped message="`admits` answers true or false without asking anything." />
+      <skipped message="`admits` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 144:17">
-      <skipped message="`changed` answers true or false without asking anything." />
+      <skipped message="`changed` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="magic-number at 34:29">
-      <skipped message="Unnamed literal `3`, repeated 4 times in this file." />
+      <skipped message="`3` appears 4 times in this file outside a named constant." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/gateway-a.ts" tests="1" failures="0">
     <testcase classname="typescript/gateway-a.ts" name="passthrough-function at 3:8">
-      <skipped message="`collectA to charge` forwards its arguments unchanged." />
+      <skipped message="`collectA` only calls `charge` with the same arguments." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/gateway-b.ts" tests="1" failures="0">
     <testcase classname="typescript/gateway-b.ts" name="passthrough-function at 3:8">
-      <skipped message="`collectB to charge` forwards its arguments unchanged." />
+      <skipped message="`collectB` only calls `charge` with the same arguments." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/gateway-c.ts" tests="1" failures="0">
     <testcase classname="typescript/gateway-c.ts" name="passthrough-function at 3:8">
-      <skipped message="`collectC to charge` forwards its arguments unchanged." />
+      <skipped message="`collectC` only calls `charge` with the same arguments." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/hierarchy-food.ts" tests="1" failures="0">
@@ -532,7 +532,7 @@ Fix: lift the conditions in `buriedExits` into named predicates, then extract th
   </testsuite>
   <testsuite name="typescript/hierarchy.ts" tests="11" failures="6">
     <testcase classname="typescript/hierarchy.ts" name="discarded-error at 48:9">
-      <failure type="discarded-error" message="`countRows` answers something the line throws away.">`countRows` answers something the line throws away.
+      <failure type="discarded-error" message="`countRows` returns a result that is assigned to an ignored name and never read.">`countRows` returns a result that is assigned to an ignored name and never read.
 
 Why: the code receives the result and ignores it, and nothing records what happens when the call fails
 Fix: handle the result, or state in the code why nothing needs to be done</failure>
@@ -544,13 +544,13 @@ Why: answering what one method does requires reading every type above it, and a 
 Fix: give it what it needs as a collaborator, so the answer is one object away rather than four types up</failure>
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="nested-then at 32:10">
-      <failure type="nested-then" message="a `then` inside a `then`">a `then` inside a `then`
+      <failure type="nested-then" message="A `then` callback contains another `then`, so the steps nest instead of reading in order.">A `then` callback contains another `then`, so the steps nest instead of reading in order.
 
 Why: the order is real but is not written as an order, so a reader follows it by tracing which callback holds which
 Fix: await each in turn where the language allows it, so the order of execution is the order of the lines</failure>
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="duplicate-function at 25:8">
-      <failure type="duplicate-function" message="`secondWay and firstWay` are written the same way.">`secondWay and firstWay` are written the same way.
+      <failure type="duplicate-function" message="`secondWay` and `firstWay` have the same body.">`secondWay` and `firstWay` have the same body.
 
 Why: one was copied from the other, and the next change to either has to find both or leave them inconsistent
 Fix: keep one and call it from the other, or delete the copy</failure>
@@ -562,30 +562,30 @@ Why: a fix applied to one copy leaves the others unfixed, and nothing in the cod
 Fix: extract the shared block into one function and call it from all 2 sites</failure>
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="integer-division at 44:10">
-      <failure type="integer-division" message="`7 / 2` divides one whole number by another">`7 / 2` divides one whole number by another
+      <failure type="integer-division" message="`7 / 2` divides two integers, so the fraction is dropped.">`7 / 2` divides two integers, so the fraction is dropped.
 
 Why: the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right
 Fix: state what happens to the remainder, by rounding explicitly or dividing as a fraction</failure>
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="empty-subclass at 38:1">
-      <skipped message="`Level2` inherits and adds nothing." />
+      <skipped message="`Level2` extends its parent without adding a member." />
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="empty-subclass at 39:1">
-      <skipped message="`Level3` inherits and adds nothing." />
+      <skipped message="`Level3` extends its parent without adding a member." />
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="empty-subclass at 40:8">
-      <skipped message="`Level4` inherits and adds nothing." />
+      <skipped message="`Level4` extends its parent without adding a member." />
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="orphan-todo at 43:3">
-      <skipped message="`TODO` names nobody and no ticket." />
+      <skipped message="This `TODO` has no owner and no ticket number." />
     </testcase>
     <testcase classname="typescript/hierarchy.ts" name="passthrough-override at 14:3">
-      <skipped message="`feed` overrides and then calls what it overrode." />
+      <skipped message="`feed` overrides the parent&apos;s method and does nothing but call it." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/hygiene.ts" tests="41" failures="18">
     <testcase classname="typescript/hygiene.ts" name="exit-from-finally at 78:5">
-      <failure type="exit-from-finally" message="`return` inside the clause that runs on the way out">`return` inside the clause that runs on the way out
+      <failure type="exit-from-finally" message="`return` sits in the block that runs on the way out, and overrides whatever was in flight.">`return` sits in the block that runs on the way out, and overrides whatever was in flight.
 
 Why: it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened
 Fix: move it after the block, so the block&apos;s own exit is preserved</failure>
@@ -603,7 +603,7 @@ Why: this code cannot run, so whatever it was written to do is not happening
 Fix: delete it, or move it above the exit if it was meant to run</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="output-parameter at 30:3">
-      <failure type="output-parameter" message="Parameter `value` is reassigned inside the function.">Parameter `value` is reassigned inside the function.
+      <failure type="output-parameter" message="Parameter `value` is assigned a new value inside the function.">Parameter `value` is assigned a new value inside the function.
 
 Why: the caller&apos;s value changes without the call site saying so, which is hard to find when it turns out to be wrong
 Fix: assign to a local instead of `value`, and return the result</failure>
@@ -621,7 +621,7 @@ Why: the waiver is refused and the finding still counts, because a waiver that n
 Fix: say why the finding is acceptable here, or fix it</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="rethrow-only-catch at 58:5">
-      <failure type="rethrow-only-catch" message="the handler is only `throw error;`">the handler is only `throw error;`
+      <failure type="rethrow-only-catch" message="The catch block only rethrows (`throw error;`), so it adds nothing.">The catch block only rethrows (`throw error;`), so it adds nothing.
 
 Why: it reads as a decision about the failure and makes none, and in languages that rebuild the stack trace on rethrow it loses the original
 Fix: delete the handler so the failure propagates, or add handling specific to this level</failure>
@@ -639,7 +639,7 @@ Why: it makes the file appear to depend on something it does not use, and the de
 Fix: delete it; the module it names is not one this file depends on</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="catch-all-handler at 89:5">
-      <failure type="catch-all-handler" message="catches `any`">catches `any`
+      <failure type="catch-all-handler" message="The handler catches `any`, so a failure it was not written for is swallowed too.">The handler catches `any`, so a failure it was not written for is swallowed too.
 
 Why: it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state
 Fix: name the failures this level handles, and let the rest propagate</failure>
@@ -657,7 +657,7 @@ Why: the branch above already exits, so the code after the `else` is indented on
 Fix: drop the `else` and outdent its body; the branch above already returned</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="imprecise-type at 89:19">
-      <failure type="imprecise-type" message="`any` throws away what the type checker had already worked out.">`any` throws away what the type checker had already worked out.
+      <failure type="imprecise-type" message="`any` accepts every value, so the checker cannot tell what this one is.">`any` accepts every value, so the checker cannot tell what this one is.
 
 Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
 Fix: name the shape the code accepts, or use `unknown` and narrow it</failure>
@@ -669,19 +669,19 @@ Why: the value is computed and discarded, which either wastes the work or hides 
 Fix: delete `neverRead`, or use it if the work computing it still matters</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="placeholder-body at 51:8">
-      <failure type="placeholder-body" message="`stillToWrite: not implemented` promises work it does not do.">`stillToWrite: not implemented` promises work it does not do.
+      <failure type="placeholder-body" message="`stillToWrite` has a placeholder body (`not implemented`), so callers get no behaviour.">`stillToWrite` has a placeholder body (`not implemented`), so callers get no behaviour.
 
 Why: it is a callable promise with nothing behind it, and every caller that trusts the signature finds out at run time
 Fix: write it, or delete it until there is a caller that needs it</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="library-exit at 95:3">
-      <failure type="library-exit" message="`process.exit` ends the process.">`process.exit` ends the process.
+      <failure type="library-exit" message="`process.exit` ends the whole process from library code, so a caller cannot recover.">`process.exit` ends the whole process from library code, so a caller cannot recover.
 
 Why: it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner
 Fix: return or raise, and let the code that owns the process decide whether to stop</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="blanket-try at 141:7">
-      <failure type="blanket-try" message="4 statements under one handler (limit 0).">4 statements under one handler (limit 0).
+      <failure type="blanket-try" message="One `try` covers 4 statements, so its handler cannot tell which one failed.">One `try` covers 4 statements, so its handler cannot tell which one failed.
 
 Why: the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for
 Fix: guard only the line that can fail, and let the rest propagate</failure>
@@ -693,19 +693,19 @@ Why: readers cannot tell whether the code still matters, so it is left in place,
 Fix: delete it; version control already preserves it</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="duplicate-import at 5:1">
-      <skipped message="`./cycle-a` imported more than once." />
+      <skipped message="`./cycle-a` is imported again; an earlier import already brings it in." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="wildcard-import at 1:8">
       <skipped message="`* as everything` takes every name the module offers." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="generic-throw at 52:3">
-      <skipped message="`Error` is the root of the hierarchy." />
+      <skipped message="`Error` is the root exception type, so a caller cannot catch this failure on its own." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="generic-throw at 83:3">
-      <skipped message="`Error` is the root of the hierarchy." />
+      <skipped message="`Error` is the root exception type, so a caller cannot catch this failure on its own." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="empty-method at 44:8">
-      <skipped message="`nothingHappens` has an empty body." />
+      <skipped message="`nothingHappens` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="complex-condition at 14:7">
       <skipped message="4 boolean operands in one condition (limit 3)." />
@@ -717,31 +717,31 @@ Fix: delete it; version control already preserves it</failure>
       <skipped message="Boolean parameter `retry` (2 in the list) selects between behaviours." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="apology-comment at 42:1">
-      <skipped message="`sorry` reads as something other than the code." />
+      <skipped message="The comment apologises (`sorry`) instead of describing the code." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="chat-residue at 41:1">
-      <skipped message="`here&apos;s` reads as something other than the code." />
+      <skipped message="`here&apos;s` is chat wording left in the code." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="banner-comment at 40:1">
-      <skipped message="This comment says nothing about the code." />
+      <skipped message="This comment is a line of decoration, not a statement about the code." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="passthrough-function at 47:8">
-      <skipped message="`forwardOrbit to orbit` forwards its arguments unchanged." />
+      <skipped message="`forwardOrbit` only calls `orbit` with the same arguments." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="passthrough-function at 94:8">
-      <skipped message="`stops to process.exit` forwards its arguments unchanged." />
+      <skipped message="`stops` only calls `process.exit` with the same arguments." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="boolean-literal-argument at 99:25">
-      <skipped message="`fetchPage` is handed a bare true or false." />
+      <skipped message="`fetchPage` is called with a bare `true` or `false`, so the call does not say what the flag switches." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="deep-relative-import at 4:1">
-      <skipped message="3 levels up (limit 2)." />
+      <skipped message="This import climbs 3 levels up the directory tree (limit 2)." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="guard-cascade at 133:17">
-      <skipped message="3 checks before the body starts (limit 3)." />
+      <skipped message="3 checks run before the body starts (limit 3)." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="docstring-restates-signature at 128:1">
-      <skipped message="`scoreOfUser` is described in the words of its own signature." />
+      <skipped message="The docstring of `scoreOfUser` only repeats its name and parameters." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="explanation-longer-than-code at 117:1">
       <skipped message="7 lines of comment above the body (limit 2)." />
@@ -759,38 +759,38 @@ Fix: delete it; version control already preserves it</failure>
       <skipped message="Reaches 5 objects deep in one expression (limit 3)." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="magic-number at 14:33">
-      <skipped message="Unnamed literal `4999`, repeated 3 times in this file." />
+      <skipped message="`4999` appears 3 times in this file outside a named constant." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/index.ts" tests="2" failures="0">
     <testcase classname="typescript/index.ts" name="barrel-module at 1:1">
-      <skipped message="35 imports, every one of them passed straight back out (limit 35)." />
+      <skipped message="All 35 imports are re-exported unchanged, so the file only forwards names." />
     </testcase>
     <testcase classname="typescript/index.ts" name="wide-fan-out at 1:1">
-      <skipped message="26 modules imported (limit 20)." />
+      <skipped message="This file imports 26 modules (limit 20)." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/intimacy.ts" tests="8" failures="5">
     <testcase classname="typescript/intimacy.ts" name="import-time-work at 32:1">
-      <failure type="import-time-work" message="`warmTheCache` runs when the file is loaded.">`warmTheCache` runs when the file is loaded.
+      <failure type="import-time-work" message="`warmTheCache` is called at the top level of the file, so it runs when the file is loaded.">`warmTheCache` is called at the top level of the file, so it runs when the file is loaded.
 
 Why: it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it
 Fix: put it behind a function the caller chooses to call</failure>
     </testcase>
     <testcase classname="typescript/intimacy.ts" name="self-built-collaborators at 37:5">
-      <failure type="self-built-collaborators" message="`CsvWriter` is built by the object that holds it.">`CsvWriter` is built by the object that holds it.
+      <failure type="self-built-collaborators" message="The class creates its own `CsvWriter`, so a test cannot give it a different one.">The class creates its own `CsvWriter`, so a test cannot give it a different one.
 
 Why: nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it
 Fix: accept it as an argument, so a caller can decide what it is</failure>
     </testcase>
     <testcase classname="typescript/intimacy.ts" name="mutable-module-state at 30:8">
-      <failure type="mutable-module-state" message="`openSessions` is writable from anywhere in the file.">`openSessions` is writable from anywhere in the file.
+      <failure type="mutable-module-state" message="`openSessions` is module-level state that any function in the file can change.">`openSessions` is module-level state that any function in the file can change.
 
 Why: every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why
 Fix: declare it constant, or give it an owner that controls who writes it</failure>
     </testcase>
     <testcase classname="typescript/intimacy.ts" name="working-constructor at 36:3">
-      <failure type="working-constructor" message="1 statements doing work while the object is built (limit 0).">1 statements doing work while the object is built (limit 0).
+      <failure type="working-constructor" message="The constructor runs 1 statement of real work (limit 0).">The constructor runs 1 statement of real work (limit 0).
 
 Why: the object cannot exist without whatever that work needs, so every test of it has to set the work up first
 Fix: accept what it needs as an argument, and do the work in a method the caller calls explicitly</failure>
@@ -802,13 +802,13 @@ Why: neither class can be read, tested or moved without the other, so the pair b
 Fix: move what they share into one of them, or behind an interface both use</failure>
     </testcase>
     <testcase classname="typescript/intimacy.ts" name="empty-method at 21:3">
-      <skipped message="`close` has an empty body." />
+      <skipped message="`close` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/intimacy.ts" name="empty-method at 27:3">
-      <skipped message="`finish` has an empty body." />
+      <skipped message="`finish` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/intimacy.ts" name="ambient-dependency at 40:12">
-      <skipped message="`Date.now` answers with something no caller set." />
+      <skipped message="`Date.now` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/lifecycle.ts" tests="3" failures="1">
@@ -819,10 +819,10 @@ Why: the order in which the methods must be called is required but not written d
 Fix: set `opened` in the constructor, or split the stages into objects that cannot be used before they are ready</failure>
     </testcase>
     <testcase classname="typescript/lifecycle.ts" name="passthrough-function at 27:3">
-      <skipped message="`add to this.rows.push` forwards its arguments unchanged." />
+      <skipped message="`add` only calls `this.rows.push` with the same arguments." />
     </testcase>
     <testcase classname="typescript/lifecycle.ts" name="middle-man at 24:14">
-      <skipped message="1 of 1 methods do nothing but forward the call." />
+      <skipped message="1 of 1 method only forwards the call to another object." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/long.ts" tests="1" failures="1">
@@ -835,16 +835,16 @@ Fix: split `manySteps` into named steps, each one nameable without the word &quo
   </testsuite>
   <testsuite name="typescript/names.ts" tests="4" failures="1">
     <testcase classname="typescript/names.ts" name="shadows-builtin at 9:9">
-      <failure type="shadows-builtin" message="`Promise` is already the language&apos;s.">`Promise` is already the language&apos;s.
+      <failure type="shadows-builtin" message="`Promise` has the same name as a built-in and hides it here.">`Promise` has the same name as a built-in and hides it here.
 
 Why: the original is unreachable for the rest of the scope, and a later line that expects it fails in a place that names neither
 Fix: give it a name specific to this project</failure>
     </testcase>
     <testcase classname="typescript/names.ts" name="return-of-fresh-local at 3:3">
-      <skipped message="`temp2` is introduced and returned in two lines." />
+      <skipped message="`temp2` is declared on one line and returned on the next." />
     </testcase>
     <testcase classname="typescript/names.ts" name="negated-name at 8:9">
-      <skipped message="`notReady (not_)` says what the thing is not." />
+      <skipped message="`notReady` starts with `not_`, so a condition on it reads as a double negative." />
     </testcase>
     <testcase classname="typescript/names.ts" name="vague-function-name at 1:17">
       <skipped message="`process` names the act of running, not what is done." />
@@ -858,7 +858,7 @@ Why: nothing in the build reaches this file, so the effort of maintaining it has
 Fix: delete the file, or add it to `entrypoints` if it is reached from outside the project</failure>
     </testcase>
     <testcase classname="typescript/orphan.ts" name="negated-name at 1:17">
-      <skipped message="`noOneImportsThisFile (no_)` says what the thing is not." />
+      <skipped message="`noOneImportsThisFile` starts with `no_`, so a condition on it reads as a double negative." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/params.ts" tests="4" failures="4">
@@ -931,7 +931,7 @@ Why: a private member can be used only from inside its class, so one that nothin
 Fix: delete `pool`; nothing inside `Glyph` can reach it</failure>
     </testcase>
     <testcase classname="typescript/patterns.ts" name="no-default-branch at 78:3">
-      <failure type="no-default-branch" message="3 arms, none of them the last resort (limit 3).">3 arms, none of them the last resort (limit 3).
+      <failure type="no-default-branch" message="The `switch` has 3 cases and no default (limit 3).">The `switch` has 3 cases and no default (limit 3).
 
 Why: a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended
 Fix: add a default arm that handles unnamed values, even if it only raises</failure>
@@ -985,96 +985,96 @@ Why: the same set of cases is written out in several places, so adding a case re
 Fix: give `action.kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 2 edits</failure>
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 103:3">
-      <skipped message="`constructor` has an empty body." />
+      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 116:3">
-      <skipped message="`constructor` has an empty body." />
+      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 135:3">
-      <skipped message="`constructor` has an empty body." />
+      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 196:3">
-      <skipped message="`constructor` has an empty body." />
+      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 204:3">
-      <skipped message="`constructor` has an empty body." />
+      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 268:3">
-      <skipped message="`constructor` has an empty body." />
+      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="speculative-generality at 257:23">
       <skipped message="The class with no implementer `Importer` is declared and never read." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="passthrough-function at 104:3">
-      <skipped message="`send to this.inner.send` forwards its arguments unchanged." />
+      <skipped message="`send` only calls `this.inner.send` with the same arguments." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="passthrough-function at 117:3">
-      <skipped message="`send to this.inner.send` forwards its arguments unchanged." />
+      <skipped message="`send` only calls `this.inner.send` with the same arguments." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="passthrough-function at 136:3">
-      <skipped message="`send to this.gateway.transmit` forwards its arguments unchanged." />
+      <skipped message="`send` only calls `this.gateway.transmit` with the same arguments." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="passthrough-function at 146:3">
-      <skipped message="`attach to this.items.push` forwards its arguments unchanged." />
+      <skipped message="`attach` only calls `this.items.push` with the same arguments." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="passthrough-function at 226:3">
-      <skipped message="`addListener to this.listeners.push` forwards its arguments unchanged." />
+      <skipped message="`addListener` only calls `this.listeners.push` with the same arguments." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="passthrough-function at 239:3">
-      <skipped message="`onTick to this.handlers.push` forwards its arguments unchanged." />
+      <skipped message="`onTick` only calls `this.handlers.push` with the same arguments." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="passthrough-function at 269:3">
-      <skipped message="`transmit to this.gateway.transmit` forwards its arguments unchanged." />
+      <skipped message="`transmit` only calls `this.gateway.transmit` with the same arguments." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="single-method-field at 155:11">
-      <skipped message="`title` is read by one method and no other." />
+      <skipped message="Only one method reads the field `title`." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 102:14">
-      <skipped message="2 of 3 methods do nothing but forward the call." />
+      <skipped message="2 of 3 methods only forward the call to another object." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 115:14">
-      <skipped message="2 of 2 methods do nothing but forward the call." />
+      <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 134:14">
-      <skipped message="2 of 2 methods do nothing but forward the call." />
+      <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 144:14">
-      <skipped message="2 of 2 methods do nothing but forward the call." />
+      <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 217:14">
-      <skipped message="1 of 1 methods do nothing but forward the call." />
+      <skipped message="1 of 1 method only forwards the call to another object." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 224:14">
-      <skipped message="3 of 3 methods do nothing but forward the call." />
+      <skipped message="3 of 3 methods only forward the call to another object." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 237:14">
-      <skipped message="2 of 2 methods do nothing but forward the call." />
+      <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="middle-man at 267:14">
-      <skipped message="2 of 2 methods do nothing but forward the call." />
+      <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/performance.ts" tests="19" failures="16">
     <testcase classname="typescript/performance.ts" name="mutated-while-iterated at 85:7">
-      <failure type="mutated-while-iterated" message="`rows` is changed while it is being walked.">`rows` is changed while it is being walked.
+      <failure type="mutated-while-iterated" message="`rows` is modified inside the loop that iterates over it.">`rows` is modified inside the loop that iterates over it.
 
 Why: the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands
 Fix: collect what to change, and change it after the walk</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="dropped-promise at 126:3">
-      <failure type="dropped-promise" message="`loadOne` answers later and nothing takes the answer.">`loadOne` answers later and nothing takes the answer.
+      <failure type="dropped-promise" message="`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.">`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.
 
 Why: nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
 Fix: await it, or state in the code what handles its result</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="invariant-in-loop at 47:20">
-      <failure type="invariant-in-loop" message="`RegExp` runs on every pass of the loop.">`RegExp` runs on every pass of the loop.
+      <failure type="invariant-in-loop" message="`RegExp` is built again on every pass of the loop, though nothing in the loop changes it.">`RegExp` is built again on every pass of the loop, though nothing in the loop changes it.
 
 Why: the same pattern is parsed and compiled on every pass when once would do, and compiling is the expensive half of matching
 Fix: compile it once above the loop and reuse it</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="linear-op-in-loop at 85:7">
-      <failure type="linear-op-in-loop" message="`rows.splice` runs on every pass of the loop.">`rows.splice` runs on every pass of the loop.
+      <failure type="linear-op-in-loop" message="`rows.splice` takes time proportional to the collection&apos;s size and runs on every pass of the loop.">`rows.splice` takes time proportional to the collection&apos;s size and runs on every pass of the loop.
 
 Why: the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection&apos;s
 Fix: use a structure whose operation takes constant time, or take the operation out of the loop</failure>
@@ -1086,25 +1086,25 @@ Why: an async function is expected not to hold the thread and this call holds it
 Fix: call the asynchronous form of `readFileSync`, or move the work off this thread</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="branching-recursion at 61:17">
-      <failure type="branching-recursion" message="Calls itself 2 times per invocation with no memo in sight.">Calls itself 2 times per invocation with no memo in sight.
+      <failure type="branching-recursion" message="The function calls itself 2 times per call and keeps no cache of results, so the work can grow exponentially.">The function calls itself 2 times per call and keeps no cache of results, so the work can grow exponentially.
 
 Why: two calls per level is an exponential number of calls, and most of them recompute an answer another branch already found
 Fix: cache the results of `fibonacci`, or rewrite it as a loop over a table</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="accumulate-by-copy at 56:5">
-      <failure type="accumulate-by-copy" message="`flat` runs on every pass of the loop.">`flat` runs on every pass of the loop.
+      <failure type="accumulate-by-copy" message="`flat` is copied into a new value on every pass of the loop, which makes the loop quadratic.">`flat` is copied into a new value on every pass of the loop, which makes the loop quadratic.
 
 Why: each step copies everything gathered so far, so building a result of n items touches about half of n squared items
 Fix: add to the accumulator in place instead of rebuilding it</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="await-in-loop at 39:16">
-      <failure type="await-in-loop" message="`reader.read` runs on every pass of the loop.">`reader.read` runs on every pass of the loop.
+      <failure type="await-in-loop" message="`reader.read` waits for one call per pass, so the passes run one after another.">`reader.read` waits for one call per pass, so the passes run one after another.
 
 Why: each pass waits for the previous one to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together
 Fix: start every call before waiting on any of them</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="query-in-loop at 31:15">
-      <failure type="query-in-loop" message="`client.get` runs on every pass of the loop.">`client.get` runs on every pass of the loop.
+      <failure type="query-in-loop" message="`client.get` makes a separate call on every pass of the loop, one round trip per element.">`client.get` makes a separate call on every pass of the loop, one round trip per element.
 
 Why: every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them
 Fix: gather the keys first and ask for all of them in one call</failure>
@@ -1116,66 +1116,66 @@ Why: each level multiplies the passes of the one inside it, so the innermost bod
 Fix: index what the inner loops search, so `sumCube` walks the data once instead of once per pass</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="scan-in-loop at 9:9">
-      <failure type="scan-in-loop" message="`wanted.indexOf` runs on every pass of the loop.">`wanted.indexOf` runs on every pass of the loop.
+      <failure type="scan-in-loop" message="`wanted.indexOf` scans a whole collection on every pass of the loop.">`wanted.indexOf` scans a whole collection on every pass of the loop.
 
 Why: the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that is fast at a hundred items can stall at ten thousand
 Fix: build a set or a map of what the scan looks for once, above the loop</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="mutable-module-state at 110:1">
-      <failure type="mutable-module-state" message="`openTabs` is writable from anywhere in the file.">`openTabs` is writable from anywhere in the file.
+      <failure type="mutable-module-state" message="`openTabs` is module-level state that any function in the file can change.">`openTabs` is module-level state that any function in the file can change.
 
 Why: every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why
 Fix: declare it constant, or give it an owner that controls who writes it</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="sleep-in-production at 117:9">
-      <failure type="sleep-in-production" message="`sleep` waits for a length of time.">`sleep` waits for a length of time.
+      <failure type="sleep-in-production" message="`sleep` pauses the thread for a fixed time outside a test.">`sleep` pauses the thread for a fixed time outside a test.
 
 Why: it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary
 Fix: wait for the condition itself, with an explicit timeout</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="production-assert at 98:3">
-      <failure type="production-assert" message="`globalThis.console.assert(value &gt; 0)` outside a test">`globalThis.console.assert(value &gt; 0)` outside a test
+      <failure type="production-assert" message="`globalThis.console.assert(value &gt; 0)` is in production code, where assertions can be disabled.">`globalThis.console.assert(value &gt; 0)` is in production code, where assertions can be disabled.
 
 Why: the language may compile the assertion out, so the check a reader relies on may not run in production
 Fix: raise the failure this check guards against, so it is enforced wherever the code runs</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="sequential-await at 93:3">
-      <failure type="sequential-await" message="`const second = await loadTwo();` waits again for nothing the first answered">`const second = await loadTwo();` waits again for nothing the first answered
+      <failure type="sequential-await" message="`const second = await loadTwo();` does not use the result of the wait before it, so the two waits can run together.">`const second = await loadTwo();` does not use the result of the wait before it, so the two waits can run together.
 
 Why: nothing orders them, so the call takes the sum of two waits where it could take the longer one
 Fix: start both and wait for both together</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="closure-over-loop-variable at 75:14">
-      <failure type="closure-over-loop-variable" message="`at` is the name the loop moves.">`at` is the name the loop moves.
+      <failure type="closure-over-loop-variable" message="A closure created in the loop reads `at`, the variable the loop advances, so it can see a later value than the one it was made for.">A closure created in the loop reads `at`, the variable the loop advances, so it can see a later value than the one it was made for.
 
 Why: the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own
 Fix: pass the value in, so each function keeps the one it was made with</failure>
     </testcase>
     <testcase classname="typescript/performance.ts" name="global-accessor at 112:17">
-      <skipped message="`openTabs` is the shared value with a function around it." />
+      <skipped message="`openTabs` hands every caller the same shared value, so a caller cannot choose its own." />
     </testcase>
     <testcase classname="typescript/performance.ts" name="ambient-dependency at 98:3">
-      <skipped message="`globalThis` answers with something no caller set." />
+      <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
     <testcase classname="typescript/performance.ts" name="ambient-dependency at 122:35">
-      <skipped message="`globalThis` answers with something no caller set." />
+      <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/precision.ts" tests="5" failures="3">
     <testcase classname="typescript/precision.ts" name="imprecise-type at 5:30">
-      <failure type="imprecise-type" message="`any` throws away what the type checker had already worked out.">`any` throws away what the type checker had already worked out.
+      <failure type="imprecise-type" message="`any` accepts every value, so the checker cannot tell what this one is.">`any` accepts every value, so the checker cannot tell what this one is.
 
 Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
 Fix: name the shape the code accepts, or use `unknown` and narrow it</failure>
     </testcase>
     <testcase classname="typescript/precision.ts" name="imprecise-type at 6:15">
-      <failure type="imprecise-type" message="`as` throws away what the type checker had already worked out.">`as` throws away what the type checker had already worked out.
+      <failure type="imprecise-type" message="`as` overrides the type the checker worked out for this value.">`as` overrides the type the checker worked out for this value.
 
 Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
 Fix: narrow the value with a check the checker can follow</failure>
     </testcase>
     <testcase classname="typescript/precision.ts" name="imprecise-type at 7:10">
-      <failure type="imprecise-type" message="`!` throws away what the type checker had already worked out.">`!` throws away what the type checker had already worked out.
+      <failure type="imprecise-type" message="`!` asserts that the value is present, and the checker stops asking whether it is.">`!` asserts that the value is present, and the checker stops asking whether it is.
 
 Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
 Fix: check for the absent case and handle it</failure>
@@ -1189,7 +1189,7 @@ Fix: check for the absent case and handle it</failure>
   </testsuite>
   <testsuite name="typescript/queries.ts" tests="4" failures="2">
     <testcase classname="typescript/queries.ts" name="many-exits at 15:17">
-      <failure type="many-exits" message="6 ways out (limit 4).">6 ways out (limit 4).
+      <failure type="many-exits" message="The function has 6 exit points (limit 4).">The function has 6 exit points (limit 4).
 
 Why: a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss
 Fix: give the function one exit, or extract the branches that end early</failure>
@@ -1340,13 +1340,13 @@ Why: a long body usually does several things, and a reader has to hold all of th
 Fix: split `sweep` into named steps, each one nameable without the word &quot;and&quot;</failure>
     </testcase>
     <testcase classname="typescript/shapes.ts" name="generic-throw at 17:54">
-      <skipped message="`Error` is the root of the hierarchy." />
+      <skipped message="`Error` is the root exception type, so a caller cannot catch this failure on its own." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="empty-subclass at 48:8">
-      <skipped message="`CachedRegistry` inherits and adds nothing." />
+      <skipped message="`CachedRegistry` extends its parent without adding a member." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="empty-method at 6:3">
-      <skipped message="`constructor` has an empty body." />
+      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="speculative-generality at 10:23">
       <skipped message="The class with no implementer `Vehicle` is declared and never read." />
@@ -1355,10 +1355,10 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
       <skipped message="Boolean parameter `ready` (1 in the list) selects between behaviours." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="never-reassigned at 59:7">
-      <skipped message="`n` is declared changeable and never changes." />
+      <skipped message="`n` is declared with a keyword that allows reassignment, and nothing reassigns it." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="middle-man at 5:14">
-      <skipped message="2 of 2 methods do nothing but forward the call." />
+      <skipped message="2 of 2 methods only forward the call to another object." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="feature-envy at 19:3">
       <skipped message="Touches `basket` 4 times and its own members 0 times." />
@@ -1367,16 +1367,16 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
       <skipped message="`n` is declared 48 lines above the line that first reads it." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="magic-number at 29:25">
-      <skipped message="Unnamed literal `3`, repeated 4 times in this file." />
+      <skipped message="`3` appears 4 times in this file outside a named constant." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="magic-number at 63:15">
-      <skipped message="Unnamed literal `7331`, repeated 3 times in this file." />
+      <skipped message="`7331` appears 3 times in this file outside a named constant." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="data-class at 3:14">
-      <skipped message="Holds data but no behaviour: 2 fields, 1 methods, 1 of them trivial." />
+      <skipped message="The class has 2 fields and 1 method, and 1 of them does nothing but get or set a field." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="lazy-class at 4:14">
-      <skipped message="Does almost nothing: 1 fields, 0 methods, 0 of them trivial." />
+      <skipped message="The class has 1 field and 0 methods, and nothing in it does more than hold or pass on a value." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="inappropriate-static at 15:10">
       <skipped message="`build` is static but takes an instance of its own class as its first parameter." />
@@ -1390,31 +1390,31 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
   </testsuite>
   <testsuite name="typescript/suite.test.ts" tests="19" failures="12">
     <testcase classname="typescript/suite.test.ts" name="focused-test at 7:1">
-      <failure type="focused-test" message="Declared with `only`.">Declared with `only`.
+      <failure type="focused-test" message="`only` makes the runner skip every other test.">`only` makes the runner skip every other test.
 
 Why: this silently disables every other test in the file, so the suite passes while almost nothing runs
 Fix: remove the focus before merging; a focused test is rarely meant to be committed</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="self-asserting-test at 56:3">
-      <failure type="self-asserting-test" message="`expect(add(1, 1)).toBe(add(1, 1));` has the same expression on both sides">`expect(add(1, 1)).toBe(add(1, 1));` has the same expression on both sides
+      <failure type="self-asserting-test" message="`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail.">`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail.
 
 Why: it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour
 Fix: write the expected value as a literal, instead of the call that produces it</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="skipped-test at 3:1">
-      <failure type="skipped-test" message="Declared with `skip`.">Declared with `skip`.
+      <failure type="skipped-test" message="`skip` stops this test from running.">`skip` stops this test from running.
 
 Why: a skipped test reports success while the behaviour it names goes unchecked
 Fix: fix the test and enable it, or delete it and record what it was checking</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="branching-test at 16:29">
-      <failure type="branching-test" message="1 decisions inside the test (limit 0).">1 decisions inside the test (limit 0).
+      <failure type="branching-test" message="The test contains 1 branch or loop, so which path ran depends on the data.">The test contains 1 branch or loop, so which path ran depends on the data.
 
 Why: a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked
 Fix: write one test per path, so a passing run shows which case was checked</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="empty-test at 63:26">
-      <failure type="empty-test" message="`is not written yet` holds the code to nothing.">`is not written yet` holds the code to nothing.
+      <failure type="empty-test" message="`is not written yet` has an empty body, so it passes without running a check.">`is not written yet` has an empty body, so it passes without running a check.
 
 Why: it passes on every run and checks nothing, while counting towards the test total
 Fix: write the check it was meant to contain, or delete it</failure>
@@ -1450,37 +1450,37 @@ Why: it passes as long as nothing throws, so it reports success for behaviour it
 Fix: assert the behaviour it names, or delete it so the suite does not report coverage it lacks</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="mutable-module-state at 81:1">
-      <failure type="mutable-module-state" message="`spare` is writable from anywhere in the file.">`spare` is writable from anywhere in the file.
+      <failure type="mutable-module-state" message="`spare` is module-level state that any function in the file can change.">`spare` is module-level state that any function in the file can change.
 
 Why: every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why
 Fix: declare it constant, or give it an owner that controls who writes it</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="hand-rolled-throws at 28:3">
-      <failure type="hand-rolled-throws" message="`catches the failure itself` catches the failure itself">`catches the failure itself` catches the failure itself
+      <failure type="hand-rolled-throws" message="`catches the failure itself` catches the failure with its own `try`, instead of the framework&apos;s expected-failure assertion.">`catches the failure itself` catches the failure with its own `try`, instead of the framework&apos;s expected-failure assertion.
 
 Why: when the call stops failing, the handler never runs and the test still passes, which is the outcome the test was written to catch
 Fix: use the framework&apos;s expected-failure assertion, so a call that stops failing fails the test</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="unnamed-test at 45:13">
-      <skipped message="`works` says nothing about what it checks." />
+      <skipped message="The name `works` does not say what behaviour the test checks." />
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="debug-output-in-test at 36:3">
-      <skipped message="`console.log` prints on every run." />
+      <skipped message="`console.log` writes to the terminal inside a test, so every run prints it." />
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="duplicate-assertion at 22:36">
-      <skipped message="`expect(add(1, 1)).toBe(2);` asserted 2 times in one test." />
+      <skipped message="`expect(add(1, 1)).toBe(2);` is asserted more than once in the same test." />
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="unused-fixture at 84:3">
-      <skipped message="`spare` is prepared before every case and read by none." />
+      <skipped message="`spare` is set up before every case and no test reads it." />
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="unchecked-stub at 88:18">
-      <skipped message="`client` is built and never asked what it saw." />
+      <skipped message="`client` is a stub or mock that no assertion inspects." />
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="string-shape-assertion at 69:40">
-      <skipped message="`&apos;{&quot;two&quot;:4,&quot;spare&quot;:&quot;padding here&quot;}&apos;` is a shape written out as text." />
+      <skipped message="`&apos;{&quot;two&quot;:4,&quot;spare&quot;:&quot;padding here&quot;}&apos;` is a serialised structure compared as text, so spacing or key order can fail the test." />
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="magic-number at 4:50">
-      <skipped message="Unnamed literal `3`, repeated 3 times in this file." />
+      <skipped message="`3` appears 3 times in this file outside a named constant." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/vocabulary.ts" tests="1" failures="0">

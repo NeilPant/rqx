@@ -62,6 +62,7 @@ impl FindingBuilder<'_> {
             fix_hint,
             related: Vec::new(),
             known: false,
+            focus: None,
         };
         self.config.rules.adjust(&mut finding);
         out.push(finding);
@@ -497,7 +498,23 @@ pub fn check_cost_sites(sites: &[CostSite], builder: &FindingBuilder<'_>, out: &
     }
 }
 
+/// Findings for every hygiene spot, each carrying the focus its rule recorded for it.
 pub fn check_hygiene(
+    hygiene: &crate::facts::Hygiene,
+    builder: &FindingBuilder<'_>,
+    out: &mut Vec<Finding>,
+) {
+    let first = out.len();
+    hygiene_findings(hygiene, builder, out);
+    for finding in &mut out[first..] {
+        let within = Span::new(finding.location.start, finding.location.end);
+        finding.focus = hygiene
+            .focus_of(finding.rule, within)
+            .map(|focus| builder.range(focus));
+    }
+}
+
+fn hygiene_findings(
     hygiene: &crate::facts::Hygiene,
     builder: &FindingBuilder<'_>,
     out: &mut Vec<Finding>,

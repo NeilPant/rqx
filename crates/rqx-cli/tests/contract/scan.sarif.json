@@ -33,7 +33,7 @@
             }
           ],
           "message": {
-            "text": "Declared with `only`. this silently disables every other test in the file, so the suite passes while almost nothing runs Fix: remove the focus before merging; a focused test is rarely meant to be committed"
+            "text": "`only` makes the runner skip every other test. this silently disables every other test in the file, so the suite passes while almost nothing runs Fix: remove the focus before merging; a focused test is rarely meant to be committed"
           },
           "properties": {
             "confidence": "verified"
@@ -58,7 +58,7 @@
             }
           ],
           "message": {
-            "text": "`return` inside the clause that runs on the way out it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened Fix: move it after the block, so the block's own exit is preserved"
+            "text": "`return` sits in the block that runs on the way out, and overrides whatever was in flight. it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened Fix: move it after the block, so the block's own exit is preserved"
           },
           "properties": {
             "confidence": "verified"
@@ -83,7 +83,7 @@
             }
           ],
           "message": {
-            "text": "Calls itself 1 times per invocation with no memo in sight. nothing can stop the recursion, so the first call exhausts the stack Fix: give `loops` the case that answers without calling itself"
+            "text": "The function calls itself once and has no branch that can stop the recursion. nothing can stop the recursion, so the first call exhausts the stack Fix: give `loops` the case that answers without calling itself"
           },
           "properties": {
             "confidence": "verified"
@@ -108,7 +108,7 @@
             }
           ],
           "message": {
-            "text": "`rows` is changed while it is being walked. the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands Fix: collect what to change, and change it after the walk"
+            "text": "`rows` is modified inside the loop that iterates over it. the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands Fix: collect what to change, and change it after the walk"
           },
           "properties": {
             "confidence": "verified"
@@ -133,7 +133,7 @@
             }
           ],
           "message": {
-            "text": "`case 1:` runs on into the arm below the arm below also runs, and nothing here says whether that was intended Fix: end the arm, or say in the code that falling through is the point"
+            "text": "`case 1:` has a body and no `break`, so it continues into the next case. the arm below also runs, and nothing here says whether that was intended Fix: end the arm, or say in the code that falling through is the point"
           },
           "properties": {
             "confidence": "verified"
@@ -158,7 +158,7 @@
             }
           ],
           "message": {
-            "text": "`(kind === \"a\")` is asked twice in one chain the second branch cannot be reached, so whatever it was written to do has never run Fix: decide which of the two arms was meant, and delete the other"
+            "text": "`(kind === \"a\")` is tested twice in the same if/else chain, so the second branch cannot run. the second branch cannot be reached, so whatever it was written to do has never run Fix: decide which of the two arms was meant, and delete the other"
           },
           "properties": {
             "confidence": "verified"
@@ -308,7 +308,7 @@
             }
           ],
           "message": {
-            "text": "`loadOne` answers later and nothing takes the answer. nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it Fix: await it, or state in the code what handles its result"
+            "text": "`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen. nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it Fix: await it, or state in the code what handles its result"
           },
           "properties": {
             "confidence": "heuristic"
@@ -333,7 +333,7 @@
             }
           ],
           "message": {
-            "text": "`expect(add(1, 1)).toBe(add(1, 1));` has the same expression on both sides it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour Fix: write the expected value as a literal, instead of the call that produces it"
+            "text": "`expect(add(1, 1)).toBe(add(1, 1));` compares an expression with itself, so it cannot fail. it holds the code to whatever the code already does, so it keeps passing through every change, including a change that breaks the behaviour Fix: write the expected value as a literal, instead of the call that produces it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -408,7 +408,7 @@
             }
           ],
           "message": {
-            "text": "`RegExp` runs on every pass of the loop. the same pattern is parsed and compiled on every pass when once would do, and compiling is the expensive half of matching Fix: compile it once above the loop and reuse it"
+            "text": "`RegExp` is built again on every pass of the loop, though nothing in the loop changes it. the same pattern is parsed and compiled on every pass when once would do, and compiling is the expensive half of matching Fix: compile it once above the loop and reuse it"
           },
           "properties": {
             "confidence": "verified"
@@ -433,7 +433,7 @@
             }
           ],
           "message": {
-            "text": "Declared with `skip`. a skipped test reports success while the behaviour it names goes unchecked Fix: fix the test and enable it, or delete it and record what it was checking"
+            "text": "`skip` stops this test from running. a skipped test reports success while the behaviour it names goes unchecked Fix: fix the test and enable it, or delete it and record what it was checking"
           },
           "properties": {
             "confidence": "verified"
@@ -458,7 +458,7 @@
             }
           ],
           "message": {
-            "text": "Parameter `total` is reassigned inside the function. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong Fix: assign to a local instead of `total`, and return the result"
+            "text": "Parameter `total` is assigned a new value inside the function. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong Fix: assign to a local instead of `total`, and return the result"
           },
           "properties": {
             "confidence": "verified"
@@ -483,7 +483,7 @@
             }
           ],
           "message": {
-            "text": "Parameter `value` is reassigned inside the function. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong Fix: assign to a local instead of `value`, and return the result"
+            "text": "Parameter `value` is assigned a new value inside the function. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong Fix: assign to a local instead of `value`, and return the result"
           },
           "properties": {
             "confidence": "verified"
@@ -558,7 +558,7 @@
             }
           ],
           "message": {
-            "text": "the handler is only `throw error;` it reads as a decision about the failure and makes none, and in languages that rebuild the stack trace on rethrow it loses the original Fix: delete the handler so the failure propagates, or add handling specific to this level"
+            "text": "The catch block only rethrows (`throw error;`), so it adds nothing. it reads as a decision about the failure and makes none, and in languages that rebuild the stack trace on rethrow it loses the original Fix: delete the handler so the failure propagates, or add handling specific to this level"
           },
           "properties": {
             "confidence": "verified"
@@ -574,6 +574,13 @@
                   "uri": "typescript/intimacy.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 32,
+                    "startColumn": 1,
+                    "startLine": 32
+                  }
+                },
                 "region": {
                   "endLine": 32,
                   "startColumn": 1,
@@ -583,7 +590,7 @@
             }
           ],
           "message": {
-            "text": "`warmTheCache` runs when the file is loaded. it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it Fix: put it behind a function the caller chooses to call"
+            "text": "`warmTheCache` is called at the top level of the file, so it runs when the file is loaded. it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it Fix: put it behind a function the caller chooses to call"
           },
           "properties": {
             "confidence": "verified"
@@ -608,7 +615,7 @@
             }
           ],
           "message": {
-            "text": "`CsvWriter` is built by the object that holds it. nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it Fix: accept it as an argument, so a caller can decide what it is"
+            "text": "The class creates its own `CsvWriter`, so a test cannot give it a different one. nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it Fix: accept it as an argument, so a caller can decide what it is"
           },
           "properties": {
             "confidence": "verified"
@@ -683,7 +690,7 @@
             }
           ],
           "message": {
-            "text": "catches `any` it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state Fix: name the failures this level handles, and let the rest propagate"
+            "text": "The handler catches `any`, so a failure it was not written for is swallowed too. it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state Fix: name the failures this level handles, and let the rest propagate"
           },
           "properties": {
             "confidence": "verified"
@@ -733,7 +740,7 @@
             }
           ],
           "message": {
-            "text": "`0.1` is compared for exact equality a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value Fix: compare the difference against a tolerance chosen for the domain"
+            "text": "`0.1` is compared for exact equality, which floating-point rounding can make false. a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value Fix: compare the difference against a tolerance chosen for the domain"
           },
           "properties": {
             "confidence": "verified"
@@ -758,7 +765,7 @@
             }
           ],
           "message": {
-            "text": "`total === other` is computed and dropped either the line was meant to do something and does not, or it does nothing and should be removed, and a reader cannot tell which Fix: use the value, or delete the line"
+            "text": "`total === other` is evaluated and its value is not used. either the line was meant to do something and does not, or it does nothing and should be removed, and a reader cannot tell which Fix: use the value, or delete the line"
           },
           "properties": {
             "confidence": "verified"
@@ -774,6 +781,13 @@
                   "uri": "typescript/hierarchy.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 48,
+                    "startColumn": 9,
+                    "startLine": 48
+                  }
+                },
                 "region": {
                   "endLine": 48,
                   "startColumn": 9,
@@ -783,7 +797,7 @@
             }
           ],
           "message": {
-            "text": "`countRows` answers something the line throws away. the code receives the result and ignores it, and nothing records what happens when the call fails Fix: handle the result, or state in the code why nothing needs to be done"
+            "text": "`countRows` returns a result that is assigned to an ignored name and never read. the code receives the result and ignores it, and nothing records what happens when the call fails Fix: handle the result, or state in the code why nothing needs to be done"
           },
           "properties": {
             "confidence": "verified"
@@ -858,7 +872,7 @@
             }
           ],
           "message": {
-            "text": "`Promise` is already the language's. the original is unreachable for the rest of the scope, and a later line that expects it fails in a place that names neither Fix: give it a name specific to this project"
+            "text": "`Promise` has the same name as a built-in and hides it here. the original is unreachable for the rest of the scope, and a later line that expects it fails in a place that names neither Fix: give it a name specific to this project"
           },
           "properties": {
             "confidence": "verified"
@@ -883,7 +897,7 @@
             }
           ],
           "message": {
-            "text": "1 decisions inside the test (limit 0). a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked Fix: write one test per path, so a passing run shows which case was checked"
+            "text": "The test contains 1 branch or loop, so which path ran depends on the data. a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked Fix: write one test per path, so a passing run shows which case was checked"
           },
           "properties": {
             "confidence": "verified"
@@ -908,7 +922,7 @@
             }
           ],
           "message": {
-            "text": "`found` is written again before anything reads it. the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary Fix: delete the unread assignment, or read it"
+            "text": "The value assigned to `found` is overwritten before anything reads it. the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary Fix: delete the unread assignment, or read it"
           },
           "properties": {
             "confidence": "verified"
@@ -933,7 +947,7 @@
             }
           ],
           "message": {
-            "text": "`is not written yet` holds the code to nothing. it passes on every run and checks nothing, while counting towards the test total Fix: write the check it was meant to contain, or delete it"
+            "text": "`is not written yet` has an empty body, so it passes without running a check. it passes on every run and checks nothing, while counting towards the test total Fix: write the check it was meant to contain, or delete it"
           },
           "properties": {
             "confidence": "verified"
@@ -958,7 +972,7 @@
             }
           ],
           "message": {
-            "text": "a `then` inside a `then` the order is real but is not written as an order, so a reader follows it by tracing which callback holds which Fix: await each in turn where the language allows it, so the order of execution is the order of the lines"
+            "text": "A `then` callback contains another `then`, so the steps nest instead of reading in order. the order is real but is not written as an order, so a reader follows it by tracing which callback holds which Fix: await each in turn where the language allows it, so the order of execution is the order of the lines"
           },
           "properties": {
             "confidence": "verified"
@@ -983,7 +997,7 @@
             }
           ],
           "message": {
-            "text": "`secondWay and firstWay` are written the same way. one was copied from the other, and the next change to either has to find both or leave them inconsistent Fix: keep one and call it from the other, or delete the copy"
+            "text": "`secondWay` and `firstWay` have the same body. one was copied from the other, and the next change to either has to find both or leave them inconsistent Fix: keep one and call it from the other, or delete the copy"
           },
           "properties": {
             "confidence": "verified"
@@ -1058,7 +1072,7 @@
             }
           ],
           "message": {
-            "text": "`score > 50 ? \"silver\" : \"bronze\"` is the inner half of another conditional two conditions folded into one expression have to be unfolded by the reader before either can be checked Fix: give the inner condition a named value, or write the whole thing as statements"
+            "text": "This conditional expression is nested in another one: `score > 50 ? \"silver\" : \"bronze\"`. two conditions folded into one expression have to be unfolded by the reader before either can be checked Fix: give the inner condition a named value, or write the whole thing as statements"
           },
           "properties": {
             "confidence": "verified"
@@ -1133,7 +1147,7 @@
             }
           ],
           "message": {
-            "text": "This `if` is the only statement inside another one. this is one condition written as two, so a reader has to follow a branch that never branches Fix: join the two conditions with `&&` and keep one branch"
+            "text": "This `if` is the only statement inside another `if`, so the two conditions can be joined. this is one condition written as two, so a reader has to follow a branch that never branches Fix: join the two conditions with `&&` and keep one branch"
           },
           "properties": {
             "confidence": "verified"
@@ -1158,7 +1172,7 @@
             }
           ],
           "message": {
-            "text": "This `if` is the only statement inside another one. this is one condition written as two, so a reader has to follow a branch that never branches Fix: join the two conditions with `&&` and keep one branch"
+            "text": "This `if` is the only statement inside another `if`, so the two conditions can be joined. this is one condition written as two, so a reader has to follow a branch that never branches Fix: join the two conditions with `&&` and keep one branch"
           },
           "properties": {
             "confidence": "verified"
@@ -1173,6 +1187,13 @@
                 "artifactLocation": {
                   "uri": "typescript/flow.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 4,
+                    "startColumn": 5,
+                    "startLine": 4
+                  }
                 },
                 "region": {
                   "endLine": 6,
@@ -1198,6 +1219,13 @@
                 "artifactLocation": {
                   "uri": "typescript/flow.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 22,
+                    "startColumn": 5,
+                    "startLine": 22
+                  }
                 },
                 "region": {
                   "endLine": 24,
@@ -1224,6 +1252,13 @@
                   "uri": "typescript/flow.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 175,
+                    "startColumn": 5,
+                    "startLine": 175
+                  }
+                },
                 "region": {
                   "endLine": 179,
                   "startColumn": 5,
@@ -1248,6 +1283,13 @@
                 "artifactLocation": {
                   "uri": "typescript/flow.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 177,
+                    "startColumn": 5,
+                    "startLine": 177
+                  }
                 },
                 "region": {
                   "endLine": 179,
@@ -1274,6 +1316,13 @@
                   "uri": "typescript/hygiene.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 16,
+                    "startColumn": 5,
+                    "startLine": 16
+                  }
+                },
                 "region": {
                   "endLine": 18,
                   "startColumn": 5,
@@ -1298,6 +1347,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 21,
+                    "startColumn": 7,
+                    "startLine": 21
+                  }
                 },
                 "region": {
                   "endLine": 26,
@@ -1324,6 +1380,13 @@
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 23,
+                    "startColumn": 7,
+                    "startLine": 23
+                  }
+                },
                 "region": {
                   "endLine": 26,
                   "startColumn": 7,
@@ -1348,6 +1411,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 52,
+                    "startColumn": 5,
+                    "startLine": 52
+                  }
                 },
                 "region": {
                   "endLine": 56,
@@ -1374,6 +1444,13 @@
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 54,
+                    "startColumn": 5,
+                    "startLine": 54
+                  }
+                },
                 "region": {
                   "endLine": 56,
                   "startColumn": 5,
@@ -1398,6 +1475,13 @@
                 "artifactLocation": {
                   "uri": "typescript/shapes.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 35,
+                    "startColumn": 3,
+                    "startLine": 35
+                  }
                 },
                 "region": {
                   "endLine": 36,
@@ -1424,6 +1508,13 @@
                   "uri": "typescript/shapes.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 36,
+                    "startColumn": 3,
+                    "startLine": 36
+                  }
+                },
                 "region": {
                   "endLine": 36,
                   "startColumn": 3,
@@ -1448,6 +1539,13 @@
                 "artifactLocation": {
                   "uri": "typescript/shapes.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 53,
+                    "startColumn": 5,
+                    "startLine": 53
+                  }
                 },
                 "region": {
                   "endLine": 55,
@@ -1483,7 +1581,7 @@
             }
           ],
           "message": {
-            "text": "cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts. no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that works today is accidental Fix: break the cycle by moving what they share into a module both can import, or invert the weaker of the two dependencies behind an interface"
+            "text": "Import cycle: cycle-a.ts → cycle-b.ts → cycle-c.ts → cycle-a.ts. no module in the cycle can be understood, tested or loaded on its own, and the initialisation order that works today is accidental Fix: break the cycle by moving what they share into a module both can import, or invert the weaker of the two dependencies behind an interface"
           },
           "properties": {
             "confidence": "verified"
@@ -1561,7 +1659,7 @@
             }
           ],
           "message": {
-            "text": "`any` throws away what the type checker had already worked out. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: name the shape the code accepts, or use `unknown` and narrow it"
+            "text": "`any` accepts every value, so the checker cannot tell what this one is. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: name the shape the code accepts, or use `unknown` and narrow it"
           },
           "properties": {
             "confidence": "verified"
@@ -1586,7 +1684,7 @@
             }
           ],
           "message": {
-            "text": "`any` throws away what the type checker had already worked out. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: name the shape the code accepts, or use `unknown` and narrow it"
+            "text": "`any` accepts every value, so the checker cannot tell what this one is. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: name the shape the code accepts, or use `unknown` and narrow it"
           },
           "properties": {
             "confidence": "verified"
@@ -1611,7 +1709,7 @@
             }
           ],
           "message": {
-            "text": "`as` throws away what the type checker had already worked out. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: narrow the value with a check the checker can follow"
+            "text": "`as` overrides the type the checker worked out for this value. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: narrow the value with a check the checker can follow"
           },
           "properties": {
             "confidence": "verified"
@@ -1636,7 +1734,7 @@
             }
           ],
           "message": {
-            "text": "`!` throws away what the type checker had already worked out. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: check for the absent case and handle it"
+            "text": "`!` asserts that the value is present, and the checker stops asking whether it is. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: check for the absent case and handle it"
           },
           "properties": {
             "confidence": "verified"
@@ -2106,7 +2204,7 @@
             }
           ],
           "message": {
-            "text": "`totalLength` runs on every pass of the loop. the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do Fix: compute it once above the loop: nothing in the loop changes what it is given"
+            "text": "`totalLength` is computed again on every pass of the loop, with nothing that changes between passes. the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do Fix: compute it once above the loop: nothing in the loop changes what it is given"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2181,7 +2279,7 @@
             }
           ],
           "message": {
-            "text": "`latch.lock` runs on every pass of the loop. each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop Fix: take the lock once around the whole loop, or keep it per pass only if other threads need the gaps"
+            "text": "`latch.lock` takes the lock again on every pass of the loop. each pass pays to acquire and release the same lock, and other threads can only interleave at those points instead of waiting once for the whole loop Fix: take the lock once around the whole loop, or keep it per pass only if other threads need the gaps"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2206,7 +2304,7 @@
             }
           ],
           "message": {
-            "text": "`<expression>.sort` runs on every pass of the loop. every pass after the first sorts input that is already sorted, at a cost of n log n each time Fix: sort once above the loop: nothing in the loop changes what is being sorted"
+            "text": "`<expression>.sort` sorts again on every pass of the loop. every pass after the first sorts input that is already sorted, at a cost of n log n each time Fix: sort once above the loop: nothing in the loop changes what is being sorted"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2231,7 +2329,7 @@
             }
           ],
           "message": {
-            "text": "`entries.shift` runs on every pass of the loop. the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's Fix: use a structure whose operation takes constant time, or take the operation out of the loop"
+            "text": "`entries.shift` takes time proportional to the collection's size and runs on every pass of the loop. the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's Fix: use a structure whose operation takes constant time, or take the operation out of the loop"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2256,7 +2354,7 @@
             }
           ],
           "message": {
-            "text": "`rows.splice` runs on every pass of the loop. the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's Fix: use a structure whose operation takes constant time, or take the operation out of the loop"
+            "text": "`rows.splice` takes time proportional to the collection's size and runs on every pass of the loop. the call costs time proportional to the size of the collection on every pass, so the loop grows with the product of its own length and the collection's Fix: use a structure whose operation takes constant time, or take the operation out of the loop"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2306,7 +2404,7 @@
             }
           ],
           "message": {
-            "text": "Calls itself 2 times per invocation with no memo in sight. two calls per level is an exponential number of calls, and most of them recompute an answer another branch already found Fix: cache the results of `fibonacci`, or rewrite it as a loop over a table"
+            "text": "The function calls itself 2 times per call and keeps no cache of results, so the work can grow exponentially. two calls per level is an exponential number of calls, and most of them recompute an answer another branch already found Fix: cache the results of `fibonacci`, or rewrite it as a loop over a table"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2331,7 +2429,7 @@
             }
           ],
           "message": {
-            "text": "`out` runs on every pass of the loop. each step copies everything gathered so far, so building a result of n items touches about half of n squared items Fix: add to the accumulator in place instead of rebuilding it"
+            "text": "`out` is copied into a new value on every pass of the loop, which makes the loop quadratic. each step copies everything gathered so far, so building a result of n items touches about half of n squared items Fix: add to the accumulator in place instead of rebuilding it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2356,7 +2454,7 @@
             }
           ],
           "message": {
-            "text": "`flat` runs on every pass of the loop. each step copies everything gathered so far, so building a result of n items touches about half of n squared items Fix: add to the accumulator in place instead of rebuilding it"
+            "text": "`flat` is copied into a new value on every pass of the loop, which makes the loop quadratic. each step copies everything gathered so far, so building a result of n items touches about half of n squared items Fix: add to the accumulator in place instead of rebuilding it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2381,7 +2479,7 @@
             }
           ],
           "message": {
-            "text": "`reader.read` runs on every pass of the loop. each pass waits for the previous one to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together Fix: start every call before waiting on any of them"
+            "text": "`reader.read` waits for one call per pass, so the passes run one after another. each pass waits for the previous one to finish, so work that could overlap runs end to end and the loop takes as long as all of its waits added together Fix: start every call before waiting on any of them"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2406,7 +2504,7 @@
             }
           ],
           "message": {
-            "text": "`fetch` runs on every pass of the loop. every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them Fix: gather the keys first and ask for all of them in one call"
+            "text": "`fetch` makes a separate call on every pass of the loop, one round trip per element. every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them Fix: gather the keys first and ask for all of them in one call"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2431,7 +2529,7 @@
             }
           ],
           "message": {
-            "text": "`client.get` runs on every pass of the loop. every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them Fix: gather the keys first and ask for all of them in one call"
+            "text": "`client.get` makes a separate call on every pass of the loop, one round trip per element. every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them Fix: gather the keys first and ask for all of them in one call"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2481,7 +2579,7 @@
             }
           ],
           "message": {
-            "text": "`wanted.indexOf` runs on every pass of the loop. the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that is fast at a hundred items can stall at ten thousand Fix: build a set or a map of what the scan looks for once, above the loop"
+            "text": "`wanted.indexOf` scans a whole collection on every pass of the loop. the inner scan runs once per pass of the outer loop, so the work grows with the product of the two sizes and a list that is fast at a hundred items can stall at ten thousand Fix: build a set or a map of what the scan looks for once, above the loop"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2556,7 +2654,7 @@
             }
           ],
           "message": {
-            "text": "`example.com` reads as something other than the code. a placeholder that looks real is a value that can ship, and the first person to notice is whoever receives it Fix: name it as configuration, or move it to a test, where a placeholder is appropriate"
+            "text": "`example.com` is a placeholder value left in the code. a placeholder that looks real is a value that can ship, and the first person to notice is whoever receives it Fix: name it as configuration, or move it to a test, where a placeholder is appropriate"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2581,7 +2679,7 @@
             }
           ],
           "message": {
-            "text": "`stillToWrite: not implemented` promises work it does not do. it is a callable promise with nothing behind it, and every caller that trusts the signature finds out at run time Fix: write it, or delete it until there is a caller that needs it"
+            "text": "`stillToWrite` has a placeholder body (`not implemented`), so callers get no behaviour. it is a callable promise with nothing behind it, and every caller that trusts the signature finds out at run time Fix: write it, or delete it until there is a caller that needs it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2606,7 +2704,7 @@
             }
           ],
           "message": {
-            "text": "`openSessions` is writable from anywhere in the file. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
+            "text": "`openSessions` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2631,7 +2729,7 @@
             }
           ],
           "message": {
-            "text": "`openTabs` is writable from anywhere in the file. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
+            "text": "`openTabs` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2656,7 +2754,7 @@
             }
           ],
           "message": {
-            "text": "`spare` is writable from anywhere in the file. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
+            "text": "`spare` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2681,7 +2779,7 @@
             }
           ],
           "message": {
-            "text": "`process.exit` ends the process. it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner Fix: return or raise, and let the code that owns the process decide whether to stop"
+            "text": "`process.exit` ends the whole process from library code, so a caller cannot recover. it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner Fix: return or raise, and let the code that owns the process decide whether to stop"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2706,7 +2804,7 @@
             }
           ],
           "message": {
-            "text": "1 statements doing work while the object is built (limit 0). the object cannot exist without whatever that work needs, so every test of it has to set the work up first Fix: accept what it needs as an argument, and do the work in a method the caller calls explicitly"
+            "text": "The constructor runs 1 statement of real work (limit 0). the object cannot exist without whatever that work needs, so every test of it has to set the work up first Fix: accept what it needs as an argument, and do the work in a method the caller calls explicitly"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2731,7 +2829,7 @@
             }
           ],
           "message": {
-            "text": "1 statements doing work while the object is built (limit 0). the object cannot exist without whatever that work needs, so every test of it has to set the work up first Fix: accept what it needs as an argument, and do the work in a method the caller calls explicitly"
+            "text": "The constructor runs 1 statement of real work (limit 0). the object cannot exist without whatever that work needs, so every test of it has to set the work up first Fix: accept what it needs as an argument, and do the work in a method the caller calls explicitly"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2756,7 +2854,7 @@
             }
           ],
           "message": {
-            "text": "12 statements under one handler (limit 10). the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it Fix: guard the line that can fail, and leave the rest outside"
+            "text": "One `try` covers 12 statements (limit 10), so its handler cannot tell which one failed. the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it Fix: guard the line that can fail, and leave the rest outside"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2781,7 +2879,7 @@
             }
           ],
           "message": {
-            "text": "`7 / 2` divides one whole number by another the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right Fix: state what happens to the remainder, by rounding explicitly or dividing as a fraction"
+            "text": "`7 / 2` divides two integers, so the fraction is dropped. the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right Fix: state what happens to the remainder, by rounding explicitly or dividing as a fraction"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2806,7 +2904,7 @@
             }
           ],
           "message": {
-            "text": "12 statements under one handler (limit 0). the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for Fix: guard only the line that can fail, and let the rest propagate"
+            "text": "One `try` covers 12 statements, so its handler cannot tell which one failed. the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for Fix: guard only the line that can fail, and let the rest propagate"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2831,7 +2929,7 @@
             }
           ],
           "message": {
-            "text": "4 statements under one handler (limit 0). the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for Fix: guard only the line that can fail, and let the rest propagate"
+            "text": "One `try` covers 4 statements, so its handler cannot tell which one failed. the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for Fix: guard only the line that can fail, and let the rest propagate"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2856,7 +2954,7 @@
             }
           ],
           "message": {
-            "text": "`catches the failure itself` catches the failure itself when the call stops failing, the handler never runs and the test still passes, which is the outcome the test was written to catch Fix: use the framework's expected-failure assertion, so a call that stops failing fails the test"
+            "text": "`catches the failure itself` catches the failure with its own `try`, instead of the framework's expected-failure assertion. when the call stops failing, the handler never runs and the test still passes, which is the outcome the test was written to catch Fix: use the framework's expected-failure assertion, so a call that stops failing fails the test"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2881,7 +2979,7 @@
             }
           ],
           "message": {
-            "text": "2 groups of methods sharing no state (limit 1). each group of fields is a type that has not been separated, so a change to one is read against the fields of all of them Fix: give each group its own type, and have one type hold the other"
+            "text": "The class's methods fall into 2 groups that share no state (limit 1). each group of fields is a type that has not been separated, so a change to one is read against the fields of all of them Fix: give each group its own type, and have one type hold the other"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2906,7 +3004,7 @@
             }
           ],
           "message": {
-            "text": "`sleep` waits for a length of time. it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary Fix: wait for the condition itself, with an explicit timeout"
+            "text": "`sleep` pauses the thread for a fixed time outside a test. it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary Fix: wait for the condition itself, with an explicit timeout"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2931,7 +3029,7 @@
             }
           ],
           "message": {
-            "text": "`globalThis.console.assert(value > 0)` outside a test the language may compile the assertion out, so the check a reader relies on may not run in production Fix: raise the failure this check guards against, so it is enforced wherever the code runs"
+            "text": "`globalThis.console.assert(value > 0)` is in production code, where assertions can be disabled. the language may compile the assertion out, so the check a reader relies on may not run in production Fix: raise the failure this check guards against, so it is enforced wherever the code runs"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2956,7 +3054,7 @@
             }
           ],
           "message": {
-            "text": "`const second = await loadTwo();` waits again for nothing the first answered nothing orders them, so the call takes the sum of two waits where it could take the longer one Fix: start both and wait for both together"
+            "text": "`const second = await loadTwo();` does not use the result of the wait before it, so the two waits can run together. nothing orders them, so the call takes the sum of two waits where it could take the longer one Fix: start both and wait for both together"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2981,7 +3079,7 @@
             }
           ],
           "message": {
-            "text": "`at` is the name the loop moves. the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own Fix: pass the value in, so each function keeps the one it was made with"
+            "text": "A closure created in the loop reads `at`, the variable the loop advances, so it can see a later value than the one it was made for. the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own Fix: pass the value in, so each function keeps the one it was made with"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3006,7 +3104,7 @@
             }
           ],
           "message": {
-            "text": "3 arms, none of them the last resort (limit 3). a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended Fix: add a default arm that handles unnamed values, even if it only raises"
+            "text": "The `switch` has 3 cases and no default (limit 3). a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended Fix: add a default arm that handles unnamed values, even if it only raises"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3031,7 +3129,7 @@
             }
           ],
           "message": {
-            "text": "3 arms, none of them the last resort (limit 3). a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended Fix: add a default arm that handles unnamed values, even if it only raises"
+            "text": "The `switch` has 3 cases and no default (limit 3). a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended Fix: add a default arm that handles unnamed values, even if it only raises"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3056,7 +3154,7 @@
             }
           ],
           "message": {
-            "text": "`out` is rebuilt on every pass. each pass copies everything written so far, so the work grows with the square of the number of pieces Fix: collect the pieces and join them once"
+            "text": "`out` is rebuilt from its own previous value on every pass. each pass copies everything written so far, so the work grows with the square of the number of pieces Fix: collect the pieces and join them once"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3081,7 +3179,7 @@
             }
           ],
           "message": {
-            "text": "4 levels deep (limit 3). the steps run in the reverse of the order in which they are written, so following the sequence means reading from the inside out Fix: name the inner steps and call them, so the order they run in is the order they read in"
+            "text": "Callbacks nest 4 levels deep (limit 3). the steps run in the reverse of the order in which they are written, so following the sequence means reading from the inside out Fix: name the inner steps and call them, so the order they run in is the order they read in"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3106,7 +3204,7 @@
             }
           ],
           "message": {
-            "text": "14 arms (limit 12). past a certain width the arms are no longer a table a reader scans, and become a list the reader has to search Fix: give the value being switched on a type that provides the behaviour for each case"
+            "text": "The `switch` has 14 cases (limit 12). past a certain width the arms are no longer a table a reader scans, and become a list the reader has to search Fix: give the value being switched on a type that provides the behaviour for each case"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3131,7 +3229,7 @@
             }
           ],
           "message": {
-            "text": "6 ways out (limit 4). a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss Fix: give the function one exit, or extract the branches that end early"
+            "text": "The function has 6 exit points (limit 4). a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss Fix: give the function one exit, or extract the branches that end early"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3156,7 +3254,7 @@
             }
           ],
           "message": {
-            "text": "14 ways out (limit 4). a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss Fix: give the function one exit, or extract the branches that end early"
+            "text": "The function has 14 exit points (limit 4). a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss Fix: give the function one exit, or extract the branches that end early"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3181,7 +3279,7 @@
             }
           ],
           "message": {
-            "text": "6 ways out (limit 4). a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss Fix: give the function one exit, or extract the branches that end early"
+            "text": "The function has 6 exit points (limit 4). a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss Fix: give the function one exit, or extract the branches that end early"
           },
           "properties": {
             "confidence": "heuristic"
@@ -4181,7 +4279,7 @@
             }
           ],
           "message": {
-            "text": "`./cycle-a` imported more than once. two statements importing one module mean a reader has to check both to know what the file takes from it, and a merge can introduce one without anyone reviewing it Fix: fold these names into the first `./cycle-a` import"
+            "text": "`./cycle-a` is imported again; an earlier import already brings it in. two statements importing one module mean a reader has to check both to know what the file takes from it, and a merge can introduce one without anyone reviewing it Fix: fold these names into the first `./cycle-a` import"
           },
           "properties": {
             "confidence": "verified"
@@ -4231,7 +4329,7 @@
             }
           ],
           "message": {
-            "text": "`Error` is the root of the hierarchy. the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot Fix: raise a type named for the failure, so a caller can catch this one"
+            "text": "`Error` is the root exception type, so a caller cannot catch this failure on its own. the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot Fix: raise a type named for the failure, so a caller can catch this one"
           },
           "properties": {
             "confidence": "verified"
@@ -4256,7 +4354,7 @@
             }
           ],
           "message": {
-            "text": "`Error` is the root of the hierarchy. the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot Fix: raise a type named for the failure, so a caller can catch this one"
+            "text": "`Error` is the root exception type, so a caller cannot catch this failure on its own. the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot Fix: raise a type named for the failure, so a caller can catch this one"
           },
           "properties": {
             "confidence": "verified"
@@ -4281,7 +4379,7 @@
             }
           ],
           "message": {
-            "text": "`Error` is the root of the hierarchy. the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot Fix: raise a type named for the failure, so a caller can catch this one"
+            "text": "`Error` is the root exception type, so a caller cannot catch this failure on its own. the only way to react to it is to catch every failure, so a caller that wants to handle this one cannot Fix: raise a type named for the failure, so a caller can catch this one"
           },
           "properties": {
             "confidence": "verified"
@@ -4306,7 +4404,7 @@
             }
           ],
           "message": {
-            "text": "`SameAsFeeder` inherits and adds nothing. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
+            "text": "`SameAsFeeder` extends its parent without adding a member. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
           },
           "properties": {
             "confidence": "verified"
@@ -4331,7 +4429,7 @@
             }
           ],
           "message": {
-            "text": "`Level2` inherits and adds nothing. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
+            "text": "`Level2` extends its parent without adding a member. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
           },
           "properties": {
             "confidence": "verified"
@@ -4356,7 +4454,7 @@
             }
           ],
           "message": {
-            "text": "`Level3` inherits and adds nothing. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
+            "text": "`Level3` extends its parent without adding a member. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
           },
           "properties": {
             "confidence": "verified"
@@ -4381,7 +4479,7 @@
             }
           ],
           "message": {
-            "text": "`Level4` inherits and adds nothing. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
+            "text": "`Level4` extends its parent without adding a member. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
           },
           "properties": {
             "confidence": "verified"
@@ -4406,7 +4504,7 @@
             }
           ],
           "message": {
-            "text": "`CachedRegistry` inherits and adds nothing. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
+            "text": "`CachedRegistry` extends its parent without adding a member. it is a second name for the class it extends, and a reader has to open it to find that out Fix: use the class it inherits from, or give it the difference that justifies the subclass"
           },
           "properties": {
             "confidence": "verified"
@@ -4431,7 +4529,7 @@
             }
           ],
           "message": {
-            "text": "`TODO` names nobody and no ticket. there is no ticket to close and no one to ask, so it stays until someone deletes it without knowing what it was for Fix: add a ticket or an owner, or do the work and delete the note"
+            "text": "This `TODO` has no owner and no ticket number. there is no ticket to close and no one to ask, so it stays until someone deletes it without knowing what it was for Fix: add a ticket or an owner, or do the work and delete the note"
           },
           "properties": {
             "confidence": "verified"
@@ -4456,7 +4554,7 @@
             }
           ],
           "message": {
-            "text": "`works` says nothing about what it checks. a failing run reports the test name and nothing else, so the name is all the reader has before opening the file Fix: name the behaviour it holds to, so a failing run says what broke"
+            "text": "The name `works` does not say what behaviour the test checks. a failing run reports the test name and nothing else, so the name is all the reader has before opening the file Fix: name the behaviour it holds to, so a failing run says what broke"
           },
           "properties": {
             "confidence": "verified"
@@ -4481,7 +4579,7 @@
             }
           ],
           "message": {
-            "text": "`console.log` prints on every run. it was added to observe the test once, and it now prints on every run Fix: assert the value that was being inspected, or delete the line"
+            "text": "`console.log` writes to the terminal inside a test, so every run prints it. it was added to observe the test once, and it now prints on every run Fix: assert the value that was being inspected, or delete the line"
           },
           "properties": {
             "confidence": "verified"
@@ -4506,7 +4604,7 @@
             }
           ],
           "message": {
-            "text": "`expect(add(1, 1)).toBe(2);` asserted 2 times in one test. the second assertion cannot fail while the first passes, so it costs the reader a check they have already read Fix: delete the repeat, or assert what the second one was meant to check"
+            "text": "`expect(add(1, 1)).toBe(2);` is asserted more than once in the same test. the second assertion cannot fail while the first passes, so it costs the reader a check they have already read Fix: delete the repeat, or assert what the second one was meant to check"
           },
           "properties": {
             "confidence": "verified"
@@ -4531,7 +4629,7 @@
             }
           ],
           "message": {
-            "text": "`spare` is prepared before every case and read by none. every case in the file pays for it and none uses it, which adds time to every run and leaves a reader wondering what it is for Fix: delete it, or move it into the one case that wanted it"
+            "text": "`spare` is set up before every case and no test reads it. every case in the file pays for it and none uses it, which adds time to every run and leaves a reader wondering what it is for Fix: delete it, or move it into the one case that wanted it"
           },
           "properties": {
             "confidence": "verified"
@@ -4556,7 +4654,7 @@
             }
           ],
           "message": {
-            "text": "`feed` overrides and then calls what it overrode. it changes nothing and costs a reader a hop, and it suggests the type has its own behaviour for the member when it does not Fix: delete it, so the inherited member is used"
+            "text": "`feed` overrides the parent's method and does nothing but call it. it changes nothing and costs a reader a hop, and it suggests the type has its own behaviour for the member when it does not Fix: delete it, so the inherited member is used"
           },
           "properties": {
             "confidence": "verified"
@@ -4581,7 +4679,7 @@
             }
           ],
           "message": {
-            "text": "35 imports, every one of them passed straight back out (limit 35). it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
+            "text": "All 35 imports are re-exported unchanged, so the file only forwards names. it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
           },
           "properties": {
             "confidence": "verified"
@@ -4606,7 +4704,7 @@
             }
           ],
           "message": {
-            "text": "`openTabs` is the shared value with a function around it. it is a shared value behind a function call, and every caller still reads the same single instance Fix: pass the value to the code that needs it, so a caller can choose it"
+            "text": "`openTabs` hands every caller the same shared value, so a caller cannot choose its own. it is a shared value behind a function call, and every caller still reads the same single instance Fix: pass the value to the code that needs it, so a caller can choose it"
           },
           "properties": {
             "confidence": "verified"
@@ -4631,7 +4729,7 @@
             }
           ],
           "message": {
-            "text": "`m1` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`m1` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4656,7 +4754,7 @@
             }
           ],
           "message": {
-            "text": "`m2` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`m2` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4681,7 +4779,7 @@
             }
           ],
           "message": {
-            "text": "`m3` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`m3` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4706,7 +4804,7 @@
             }
           ],
           "message": {
-            "text": "`nothingHappens` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`nothingHappens` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4731,7 +4829,7 @@
             }
           ],
           "message": {
-            "text": "`close` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`close` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4756,7 +4854,7 @@
             }
           ],
           "message": {
-            "text": "`finish` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`finish` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4781,7 +4879,7 @@
             }
           ],
           "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4806,7 +4904,7 @@
             }
           ],
           "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4831,7 +4929,7 @@
             }
           ],
           "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4856,7 +4954,7 @@
             }
           ],
           "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4881,7 +4979,7 @@
             }
           ],
           "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4906,7 +5004,7 @@
             }
           ],
           "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4931,7 +5029,7 @@
             }
           ],
           "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
+            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
           },
           "properties": {
             "confidence": "verified"
@@ -4956,7 +5054,7 @@
             }
           ],
           "message": {
-            "text": "`continue` is the last statement of the loop control reaches that point anyway, so the keyword makes a reader look for a condition that does not exist Fix: delete it; control reaches that point without it"
+            "text": "`continue` is the last statement of the loop body, so it changes nothing. control reaches that point anyway, so the keyword makes a reader look for a condition that does not exist Fix: delete it; control reaches that point without it"
           },
           "properties": {
             "confidence": "verified"
@@ -4981,7 +5079,7 @@
             }
           ],
           "message": {
-            "text": "a negation wrapped around `===` the language already has an operator for this comparison, and the shorter form can be read without inverting anything Fix: invert the operator and drop the negation"
+            "text": "A negation wraps a `===` comparison, which the opposite operator states directly. the language already has an operator for this comparison, and the shorter form can be read without inverting anything Fix: invert the operator and drop the negation"
           },
           "properties": {
             "confidence": "verified"
@@ -5006,7 +5104,7 @@
             }
           ],
           "message": {
-            "text": "`Settled` is abstract and leaves nothing unfinished. the `abstract` keyword implies that subclasses have work to do, but there is none, so the only effect is to prevent construction Fix: drop the keyword, or give it a member that a subclass has to implement"
+            "text": "`Settled` is declared abstract but has no abstract member for a subclass to finish. the `abstract` keyword implies that subclasses have work to do, but there is none, so the only effect is to prevent construction Fix: drop the keyword, or give it a member that a subclass has to implement"
           },
           "properties": {
             "confidence": "verified"
@@ -5031,7 +5129,7 @@
             }
           ],
           "message": {
-            "text": "`total` is introduced and returned in two lines. the name is read once, by the line below it, and says nothing the expression it holds does not already say Fix: return the expression, or keep the name if it says something the expression does not"
+            "text": "`total` is declared on one line and returned on the next. the name is read once, by the line below it, and says nothing the expression it holds does not already say Fix: return the expression, or keep the name if it says something the expression does not"
           },
           "properties": {
             "confidence": "verified"
@@ -5056,7 +5154,7 @@
             }
           ],
           "message": {
-            "text": "`temp2` is introduced and returned in two lines. the name is read once, by the line below it, and says nothing the expression it holds does not already say Fix: return the expression, or keep the name if it says something the expression does not"
+            "text": "`temp2` is declared on one line and returned on the next. the name is read once, by the line below it, and says nothing the expression it holds does not already say Fix: return the expression, or keep the name if it says something the expression does not"
           },
           "properties": {
             "confidence": "verified"
@@ -5431,7 +5529,7 @@
             }
           ],
           "message": {
-            "text": "`sorry` reads as something other than the code. someone knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would allow it to be reversed Fix: fix it, or record why it stays and what would allow its removal"
+            "text": "The comment apologises (`sorry`) instead of describing the code. someone knew this was wrong and left it, so the comment records the decision without the reason or the ticket that would allow it to be reversed Fix: fix it, or record why it stays and what would allow its removal"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5456,7 +5554,7 @@
             }
           ],
           "message": {
-            "text": "`here's` reads as something other than the code. it is left over from a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on Fix: say what the code does that its name does not, or delete the comment"
+            "text": "`here's` is chat wording left in the code. it is left over from a conversation that ended before the commit, and it tells the next reader nothing about the code it sits on Fix: say what the code does that its name does not, or delete the comment"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5481,7 +5579,7 @@
             }
           ],
           "message": {
-            "text": "This comment says nothing about the code. it is a table of contents in a file short enough not to need one, and it becomes outdated when a section moves Fix: delete it; if the file needs sections, split it"
+            "text": "This comment is a line of decoration, not a statement about the code. it is a table of contents in a file short enough not to need one, and it becomes outdated when a section moves Fix: delete it; if the file needs sections, split it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5506,7 +5604,7 @@
             }
           ],
           "message": {
-            "text": "26 modules imported (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
+            "text": "This file imports 26 modules (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5522,6 +5620,13 @@
                   "uri": "typescript/bloat.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 86,
+                    "startColumn": 17,
+                    "startLine": 86
+                  }
+                },
                 "region": {
                   "endLine": 88,
                   "startColumn": 8,
@@ -5531,7 +5636,7 @@
             }
           ],
           "message": {
-            "text": "`loops to loops` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`loops` only calls `loops` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5547,6 +5652,13 @@
                   "uri": "typescript/conventions.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 21,
+                    "startColumn": 3,
+                    "startLine": 21
+                  }
+                },
                 "region": {
                   "endLine": 23,
                   "startColumn": 3,
@@ -5556,7 +5668,7 @@
             }
           ],
           "message": {
-            "text": "`record to this.entryList.push` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`record` only calls `this.entryList.push` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5572,6 +5684,13 @@
                   "uri": "typescript/gateway-a.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 3,
+                    "startColumn": 17,
+                    "startLine": 3
+                  }
+                },
                 "region": {
                   "endLine": 5,
                   "startColumn": 8,
@@ -5581,7 +5700,7 @@
             }
           ],
           "message": {
-            "text": "`collectA to charge` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`collectA` only calls `charge` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5597,6 +5716,13 @@
                   "uri": "typescript/gateway-b.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 3,
+                    "startColumn": 17,
+                    "startLine": 3
+                  }
+                },
                 "region": {
                   "endLine": 5,
                   "startColumn": 8,
@@ -5606,7 +5732,7 @@
             }
           ],
           "message": {
-            "text": "`collectB to charge` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`collectB` only calls `charge` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5622,6 +5748,13 @@
                   "uri": "typescript/gateway-c.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 3,
+                    "startColumn": 17,
+                    "startLine": 3
+                  }
+                },
                 "region": {
                   "endLine": 5,
                   "startColumn": 8,
@@ -5631,7 +5764,7 @@
             }
           ],
           "message": {
-            "text": "`collectC to charge` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`collectC` only calls `charge` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5646,6 +5779,13 @@
                 "artifactLocation": {
                   "uri": "typescript/hygiene.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 47,
+                    "startColumn": 17,
+                    "startLine": 47
+                  }
                 },
                 "region": {
                   "endLine": 49,
@@ -5656,7 +5796,7 @@
             }
           ],
           "message": {
-            "text": "`forwardOrbit to orbit` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`forwardOrbit` only calls `orbit` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5672,6 +5812,13 @@
                   "uri": "typescript/hygiene.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 94,
+                    "startColumn": 17,
+                    "startLine": 94
+                  }
+                },
                 "region": {
                   "endLine": 96,
                   "startColumn": 8,
@@ -5681,7 +5828,7 @@
             }
           ],
           "message": {
-            "text": "`stops to process.exit` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`stops` only calls `process.exit` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5697,6 +5844,13 @@
                   "uri": "typescript/lifecycle.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 27,
+                    "startColumn": 3,
+                    "startLine": 27
+                  }
+                },
                 "region": {
                   "endLine": 29,
                   "startColumn": 3,
@@ -5706,7 +5860,7 @@
             }
           ],
           "message": {
-            "text": "`add to this.rows.push` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`add` only calls `this.rows.push` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5721,6 +5875,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 104,
+                    "startColumn": 3,
+                    "startLine": 104
+                  }
                 },
                 "region": {
                   "endLine": 106,
@@ -5731,7 +5892,7 @@
             }
           ],
           "message": {
-            "text": "`send to this.inner.send` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`send` only calls `this.inner.send` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5746,6 +5907,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 117,
+                    "startColumn": 3,
+                    "startLine": 117
+                  }
                 },
                 "region": {
                   "endLine": 119,
@@ -5756,7 +5924,7 @@
             }
           ],
           "message": {
-            "text": "`send to this.inner.send` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`send` only calls `this.inner.send` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5771,6 +5939,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 136,
+                    "startColumn": 3,
+                    "startLine": 136
+                  }
                 },
                 "region": {
                   "endLine": 138,
@@ -5781,7 +5956,7 @@
             }
           ],
           "message": {
-            "text": "`send to this.gateway.transmit` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`send` only calls `this.gateway.transmit` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5796,6 +5971,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 146,
+                    "startColumn": 3,
+                    "startLine": 146
+                  }
                 },
                 "region": {
                   "endLine": 148,
@@ -5806,7 +5988,7 @@
             }
           ],
           "message": {
-            "text": "`attach to this.items.push` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`attach` only calls `this.items.push` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5821,6 +6003,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 226,
+                    "startColumn": 3,
+                    "startLine": 226
+                  }
                 },
                 "region": {
                   "endLine": 228,
@@ -5831,7 +6020,7 @@
             }
           ],
           "message": {
-            "text": "`addListener to this.listeners.push` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`addListener` only calls `this.listeners.push` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5846,6 +6035,13 @@
                 "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 239,
+                    "startColumn": 3,
+                    "startLine": 239
+                  }
                 },
                 "region": {
                   "endLine": 241,
@@ -5856,7 +6052,7 @@
             }
           ],
           "message": {
-            "text": "`onTick to this.handlers.push` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`onTick` only calls `this.handlers.push` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5872,6 +6068,13 @@
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 269,
+                    "startColumn": 3,
+                    "startLine": 269
+                  }
+                },
                 "region": {
                   "endLine": 271,
                   "startColumn": 3,
@@ -5881,7 +6084,7 @@
             }
           ],
           "message": {
-            "text": "`transmit to this.gateway.transmit` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+            "text": "`transmit` only calls `this.gateway.transmit` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5906,7 +6109,7 @@
             }
           ],
           "message": {
-            "text": "`globalThis` answers with something no caller set. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
+            "text": "`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5931,7 +6134,7 @@
             }
           ],
           "message": {
-            "text": "`globalThis` answers with something no caller set. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
+            "text": "`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5947,6 +6150,13 @@
                   "uri": "typescript/intimacy.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 40,
+                    "startColumn": 12,
+                    "startLine": 40
+                  }
+                },
                 "region": {
                   "endLine": 40,
                   "startColumn": 12,
@@ -5956,7 +6166,7 @@
             }
           ],
           "message": {
-            "text": "`Date.now` answers with something no caller set. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
+            "text": "`Date.now` reads the clock, the environment or a random source directly, so no caller can supply the value. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5981,7 +6191,7 @@
             }
           ],
           "message": {
-            "text": "`globalThis` answers with something no caller set. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
+            "text": "`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6006,7 +6216,7 @@
             }
           ],
           "message": {
-            "text": "`globalThis` answers with something no caller set. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
+            "text": "`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6031,7 +6241,7 @@
             }
           ],
           "message": {
-            "text": "`fetchPage` is handed a bare true or false. nothing at the call site says what the argument turns on, so the reader has to open the callee to find out Fix: name the value at the call site, or give the callee two methods"
+            "text": "`fetchPage` is called with a bare `true` or `false`, so the call does not say what the flag switches. nothing at the call site says what the argument turns on, so the reader has to open the callee to find out Fix: name the value at the call site, or give the callee two methods"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6056,7 +6266,7 @@
             }
           ],
           "message": {
-            "text": "3 levels up (limit 2). a path that climbs this far reaches across the project's structure instead of through it, and it breaks when either end moves Fix: move what `../../../shared/far` reaches for somewhere both ends can import, or turn the path into one the project resolves by name"
+            "text": "This import climbs 3 levels up the directory tree (limit 2). a path that climbs this far reaches across the project's structure instead of through it, and it breaks when either end moves Fix: move what `../../../shared/far` reaches for somewhere both ends can import, or turn the path into one the project resolves by name"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6072,6 +6282,13 @@
                   "uri": "typescript/bloat.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
+                "properties": {
+                  "focus": {
+                    "endLine": 26,
+                    "startColumn": 14,
+                    "startLine": 26
+                  }
+                },
                 "region": {
                   "endLine": 29,
                   "startColumn": 8,
@@ -6081,7 +6298,7 @@
             }
           ],
           "message": {
-            "text": "2 methods, none of them on an instance (limit 2). nothing is constructed from it, so the type is a namespace written as a class, and nothing can be substituted for it in a test Fix: make them functions in a module, or give the type the state that justifies a class"
+            "text": "All 2 methods are static (limit 2), so the class is a namespace. nothing is constructed from it, so the type is a namespace written as a class, and nothing can be substituted for it in a test Fix: make them functions in a module, or give the type the state that justifies a class"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6106,7 +6323,7 @@
             }
           ],
           "message": {
-            "text": "16 names introduced in one body (limit 15). each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot Fix: extract the run that uses one group of them into its own function"
+            "text": "The function declares 16 local names (limit 15). each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot Fix: extract the run that uses one group of them into its own function"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6131,7 +6348,7 @@
             }
           ],
           "message": {
-            "text": "3 of the statements here are log calls (limit 40). the body says more about what it is doing than it does, and the reader has to separate the work from the commentary on every line Fix: log decisions and failures, and leave the steps between them to the code"
+            "text": "3 statements in this function are log calls, over 40% of its body. the body says more about what it is doing than it does, and the reader has to separate the work from the commentary on every line Fix: log decisions and failures, and leave the steps between them to the code"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6156,7 +6373,7 @@
             }
           ],
           "message": {
-            "text": "`title` is read by one method and no other. it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed Fix: make it that method's own, or move the method to whatever the field belongs with"
+            "text": "Only one method reads the field `title`. it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed Fix: make it that method's own, or move the method to whatever the field belongs with"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6181,7 +6398,7 @@
             }
           ],
           "message": {
-            "text": "`tier` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+            "text": "The name `tier` and the value it holds disagree on singular or plural. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6206,7 +6423,7 @@
             }
           ],
           "message": {
-            "text": "`pair` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+            "text": "The name `pair` and the value it holds disagree on singular or plural. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6231,7 +6448,7 @@
             }
           ],
           "message": {
-            "text": "`spare` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+            "text": "The name `spare` and the value it holds disagree on singular or plural. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6256,7 +6473,7 @@
             }
           ],
           "message": {
-            "text": "`pair` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+            "text": "The name `pair` and the value it holds disagree on singular or plural. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6281,7 +6498,7 @@
             }
           ],
           "message": {
-            "text": "`own` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+            "text": "The name `own` and the value it holds disagree on singular or plural. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6306,7 +6523,7 @@
             }
           ],
           "message": {
-            "text": "`entryList (List)` spells its type into its name. the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes Fix: name what it is for, and let the declaration say what it is"
+            "text": "`entryList` ends with `List`, which repeats its type. the adjacent declaration already says what it is, so the word is read twice and becomes wrong when the type changes Fix: name what it is for, and let the declaration say what it is"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6331,7 +6548,7 @@
             }
           ],
           "message": {
-            "text": "`restated` answers true or false without asking anything. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
+            "text": "`restated` holds a boolean, and its name does not read as a yes-or-no question. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6356,7 +6573,7 @@
             }
           ],
           "message": {
-            "text": "`settled` answers true or false without asking anything. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
+            "text": "`settled` holds a boolean, and its name does not read as a yes-or-no question. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6381,7 +6598,7 @@
             }
           ],
           "message": {
-            "text": "`admits` answers true or false without asking anything. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
+            "text": "`admits` holds a boolean, and its name does not read as a yes-or-no question. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6406,7 +6623,7 @@
             }
           ],
           "message": {
-            "text": "`changed` answers true or false without asking anything. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
+            "text": "`changed` holds a boolean, and its name does not read as a yes-or-no question. a reader has to open the definition to learn which way round the answer runs, and a name phrased as a question says it in one word Fix: name it as the question it answers, so a condition reads as one"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6431,7 +6648,7 @@
             }
           ],
           "message": {
-            "text": "4 values handed back at once (limit 3). the caller has to know the order to read them, and nothing at either end says what each one is Fix: return one object that holds the values, so each has a name"
+            "text": "The function returns 4 values at once (limit 3). the caller has to know the order to read them, and nothing at either end says what each one is Fix: return one object that holds the values, so each has a name"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6456,7 +6673,7 @@
             }
           ],
           "message": {
-            "text": "9 checks before the body starts (limit 3). the body has not started and the reader has already read several decisions, none of which says what the function is for Fix: accept a type that cannot hold an invalid value, or validate once where the values enter"
+            "text": "9 checks run before the body starts (limit 3). the body has not started and the reader has already read several decisions, none of which says what the function is for Fix: accept a type that cannot hold an invalid value, or validate once where the values enter"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6481,7 +6698,7 @@
             }
           ],
           "message": {
-            "text": "3 checks before the body starts (limit 3). the body has not started and the reader has already read several decisions, none of which says what the function is for Fix: accept a type that cannot hold an invalid value, or validate once where the values enter"
+            "text": "3 checks run before the body starts (limit 3). the body has not started and the reader has already read several decisions, none of which says what the function is for Fix: accept a type that cannot hold an invalid value, or validate once where the values enter"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6506,7 +6723,7 @@
             }
           ],
           "message": {
-            "text": "`scoreOfUser` is described in the words of its own signature. it repeats the signature, so it costs a reader a second pass and becomes wrong when the signature changes Fix: say why it exists, or delete it"
+            "text": "The docstring of `scoreOfUser` only repeats its name and parameters. it repeats the signature, so it costs a reader a second pass and becomes wrong when the signature changes Fix: say why it exists, or delete it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6581,7 +6798,7 @@
             }
           ],
           "message": {
-            "text": "`notReady (not_)` says what the thing is not. every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning Fix: name the positive and let the call sites negate it"
+            "text": "`notReady` starts with `not_`, so a condition on it reads as a double negative. every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning Fix: name the positive and let the call sites negate it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6606,7 +6823,7 @@
             }
           ],
           "message": {
-            "text": "`noOneImportsThisFile (no_)` says what the thing is not. every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning Fix: name the positive and let the call sites negate it"
+            "text": "`noOneImportsThisFile` starts with `no_`, so a condition on it reads as a double negative. every test of the name that is itself negated has to be inverted twice by the reader before the condition has a meaning Fix: name the positive and let the call sites negate it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6631,7 +6848,7 @@
             }
           ],
           "message": {
-            "text": "`client` is built and never asked what it saw. it let the test run and checked nothing, so the call it replaces could stop happening and the test would still pass Fix: assert on the calls it received, or use the real implementation"
+            "text": "`client` is a stub or mock that no assertion inspects. it let the test run and checked nothing, so the call it replaces could stop happening and the test would still pass Fix: assert on the calls it received, or use the real implementation"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6656,7 +6873,7 @@
             }
           ],
           "message": {
-            "text": "`at` is declared changeable and never changes. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
+            "text": "`at` is declared with a keyword that allows reassignment, and nothing reassigns it. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6681,7 +6898,7 @@
             }
           ],
           "message": {
-            "text": "`i` is declared changeable and never changes. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
+            "text": "`i` is declared with a keyword that allows reassignment, and nothing reassigns it. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6706,7 +6923,7 @@
             }
           ],
           "message": {
-            "text": "`at` is declared changeable and never changes. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
+            "text": "`at` is declared with a keyword that allows reassignment, and nothing reassigns it. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6731,7 +6948,7 @@
             }
           ],
           "message": {
-            "text": "`n` is declared changeable and never changes. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
+            "text": "`n` is declared with a keyword that allows reassignment, and nothing reassigns it. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6756,7 +6973,7 @@
             }
           ],
           "message": {
-            "text": "`'{\"two\":4,\"spare\":\"padding here\"}'` is a shape written out as text. it checks how the result prints and not what it is, so a change in spacing fails a test about behaviour Fix: check the parts that matter, so spacing cannot fail the test"
+            "text": "`'{\"two\":4,\"spare\":\"padding here\"}'` is a serialised structure compared as text, so spacing or key order can fail the test. it checks how the result prints and not what it is, so a change in spacing fails a test about behaviour Fix: check the parts that matter, so spacing cannot fail the test"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6881,7 +7098,7 @@
             }
           ],
           "message": {
-            "text": "1 of 1 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `ReportFactory`"
+            "text": "1 of 1 method only forwards the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `ReportFactory`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6906,7 +7123,7 @@
             }
           ],
           "message": {
-            "text": "2 of 3 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `LoggingNotifier`"
+            "text": "2 of 3 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `LoggingNotifier`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6931,7 +7148,7 @@
             }
           ],
           "message": {
-            "text": "2 of 2 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `GuardedNotifier`"
+            "text": "2 of 2 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `GuardedNotifier`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6956,7 +7173,7 @@
             }
           ],
           "message": {
-            "text": "2 of 2 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `SmsNotifier`"
+            "text": "2 of 2 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `SmsNotifier`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -6981,7 +7198,7 @@
             }
           ],
           "message": {
-            "text": "2 of 2 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Menu`"
+            "text": "2 of 2 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Menu`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7006,7 +7223,7 @@
             }
           ],
           "message": {
-            "text": "1 of 1 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Pages`"
+            "text": "1 of 1 method only forwards the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Pages`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7031,7 +7248,7 @@
             }
           ],
           "message": {
-            "text": "3 of 3 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Feed`"
+            "text": "3 of 3 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Feed`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7056,7 +7273,7 @@
             }
           ],
           "message": {
-            "text": "2 of 2 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Ticker`"
+            "text": "2 of 2 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Ticker`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7081,7 +7298,7 @@
             }
           ],
           "message": {
-            "text": "2 of 2 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `RetryingGateway`"
+            "text": "2 of 2 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `RetryingGateway`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7106,7 +7323,7 @@
             }
           ],
           "message": {
-            "text": "2 of 2 methods do nothing but forward the call. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Facade`"
+            "text": "2 of 2 methods only forward the call to another object. every call pays for a hop that adds nothing, and every new method on the delegate needs a matching method here before callers can reach it Fix: let callers talk to the delegate directly and delete the pass-throughs in `Facade`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7331,7 +7548,7 @@
             }
           ],
           "message": {
-            "text": "1 name in this file use snake_case while the rest do not. a reader who has to guess which convention a name follows cannot skim, and the mixture spreads each time a neighbouring line is copied Fix: pick the convention the rest of the project uses and rename to match"
+            "text": "1 name in this file uses snake_case while the rest do not. a reader who has to guess which convention a name follows cannot skim, and the mixture spreads each time a neighbouring line is copied Fix: pick the convention the rest of the project uses and rename to match"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7431,7 +7648,7 @@
             }
           ],
           "message": {
-            "text": "Unnamed literal `3`, repeated 4 times in this file. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `3` once and refer to the name at all 4 sites"
+            "text": "`3` appears 4 times in this file outside a named constant. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `3` once and refer to the name at all 4 sites"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7456,7 +7673,7 @@
             }
           ],
           "message": {
-            "text": "Unnamed literal `4999`, repeated 3 times in this file. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `4999` once and refer to the name at all 3 sites"
+            "text": "`4999` appears 3 times in this file outside a named constant. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `4999` once and refer to the name at all 3 sites"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7481,7 +7698,7 @@
             }
           ],
           "message": {
-            "text": "Unnamed literal `3`, repeated 4 times in this file. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `3` once and refer to the name at all 4 sites"
+            "text": "`3` appears 4 times in this file outside a named constant. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `3` once and refer to the name at all 4 sites"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7506,7 +7723,7 @@
             }
           ],
           "message": {
-            "text": "Unnamed literal `7331`, repeated 3 times in this file. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `7331` once and refer to the name at all 3 sites"
+            "text": "`7331` appears 3 times in this file outside a named constant. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `7331` once and refer to the name at all 3 sites"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7531,7 +7748,7 @@
             }
           ],
           "message": {
-            "text": "Unnamed literal `3`, repeated 3 times in this file. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `3` once and refer to the name at all 3 sites"
+            "text": "`3` appears 3 times in this file outside a named constant. the number encodes a decision that is not recorded, so a reader cannot tell whether changing it is safe or what else depends on the same value Fix: name `3` once and refer to the name at all 3 sites"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7556,7 +7773,7 @@
             }
           ],
           "message": {
-            "text": "Holds data but no behaviour: 2 fields, 1 methods, 1 of them trivial. the behaviour that belongs with this data is implemented elsewhere, so the rules about the data are enforced everywhere except where the data is defined Fix: move the logic that operates on `Coordinate`'s fields onto `Coordinate`"
+            "text": "The class has 2 fields and 1 method, and 1 of them does nothing but get or set a field. the behaviour that belongs with this data is implemented elsewhere, so the rules about the data are enforced everywhere except where the data is defined Fix: move the logic that operates on `Coordinate`'s fields onto `Coordinate`"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7581,7 +7798,7 @@
             }
           ],
           "message": {
-            "text": "Does almost nothing: 1 fields, 0 methods, 0 of them trivial. the class costs a file, an import and a name, and does not do enough to justify them Fix: fold `Marker` into its only caller until it justifies its own file"
+            "text": "The class has 1 field and 0 methods, and nothing in it does more than hold or pass on a value. the class costs a file, an import and a name, and does not do enough to justify them Fix: fold `Marker` into its only caller until it justifies its own file"
           },
           "properties": {
             "confidence": "heuristic"
@@ -7725,7 +7942,7 @@
                 "text": "the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine"
               },
               "help": {
-                "text": "the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine\n\nFix: Introduce Parameter Object / Invert Dependency\nMetric: a body reaching for the clock, the environment or a random source"
+                "text": "the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine\n\nFix: Add Parameter / Invert Dependency\nMetric: a body reaching for the clock, the environment or a random source"
               },
               "id": "ambient-dependency",
               "name": "ambient-dependency",
@@ -7893,7 +8110,7 @@
                 "text": "it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from"
               },
               "help": {
-                "text": "it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from\n\nFix: Inline Class / Remove Dead Code\nMetric: a file whose every import comes straight back out of it"
+                "text": "it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from\n\nFix: Inline Delegation / Remove Dead Code\nMetric: a file whose every import comes straight back out of it"
               },
               "id": "barrel-module",
               "name": "barrel-module",
@@ -7941,7 +8158,7 @@
                 "text": "the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for"
               },
               "help": {
-                "text": "the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for\n\nFix: Decompose Conditional / Extract Method\nMetric: a guarded block holding nearly every statement of its function"
+                "text": "the handler wraps the whole body instead of answering one failure, so a mistake anywhere inside arrives as the failure the handler was written for\n\nFix: Extract Method / Narrow the Handler\nMetric: a guarded block holding nearly every statement of its function"
               },
               "id": "blanket-try",
               "name": "blanket-try",
@@ -8181,7 +8398,7 @@
                 "text": "it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state"
               },
               "help": {
-                "text": "it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state\n\nFix: Decompose Conditional\nMetric: a handler naming the root of the error hierarchy, or naming nothing at all"
+                "text": "it catches the failures it was written for and every other failure too, including failures that mean the program is already in an invalid state\n\nFix: Narrow the Handler\nMetric: a handler naming the root of the error hierarchy, or naming nothing at all"
               },
               "id": "catch-all-handler",
               "name": "catch-all-handler",
@@ -8253,7 +8470,7 @@
                 "text": "the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own"
               },
               "help": {
-                "text": "the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own\n\nFix: Extract Method / Introduce Parameter Object\nMetric: a function written inside a loop that reads the name the loop moves"
+                "text": "the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own\n\nFix: Extract Method / Add Parameter\nMetric: a function written inside a loop that reads the name the loop moves"
               },
               "id": "closure-over-loop-variable",
               "name": "closure-over-loop-variable",
@@ -8637,7 +8854,7 @@
                 "text": "the code receives the result and ignores it, and nothing records what happens when the call fails"
               },
               "help": {
-                "text": "the code receives the result and ignores it, and nothing records what happens when the call fails\n\nFix: Decompose Conditional\nMetric: a call whose answer is assigned to a name that means \"ignore this\""
+                "text": "the code receives the result and ignores it, and nothing records what happens when the call fails\n\nFix: Handle the Failure\nMetric: a call whose answer is assigned to a name that means \"ignore this\""
               },
               "id": "discarded-error",
               "name": "discarded-error",
@@ -8685,7 +8902,7 @@
                 "text": "a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter"
               },
               "help": {
-                "text": "a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter\n\nFix: Extract Variable / Inline Variable\nMetric: lines between a local's declaration and the line that first reads it"
+                "text": "a reader has to keep the name in mind while reading everything in between, without knowing whether it will matter\n\nFix: Inline Variable\nMetric: lines between a local's declaration and the line that first reads it"
               },
               "id": "distant-declaration",
               "name": "distant-declaration",
@@ -8733,7 +8950,7 @@
                 "text": "nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it"
               },
               "help": {
-                "text": "nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it\n\nFix: Separate Query from Modifier\nMetric: an asynchronous call whose result is discarded"
+                "text": "nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it\n\nFix: Handle the Failure\nMetric: an asynchronous call whose result is discarded"
               },
               "id": "dropped-promise",
               "name": "dropped-promise",
@@ -8901,7 +9118,7 @@
                 "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two"
               },
               "help": {
-                "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two\n\nFix: Remove Dead Code\nMetric: catch clause with an empty body"
+                "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two\n\nFix: Handle the Failure\nMetric: catch clause with an empty body"
               },
               "id": "empty-catch",
               "name": "empty-catch",
@@ -9021,7 +9238,7 @@
                 "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened"
               },
               "help": {
-                "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened\n\nFix: Decompose Conditional\nMetric: a return, break, continue or raise inside the clause that runs on the way out"
+                "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened\n\nFix: Handle the Failure\nMetric: a return, break, continue or raise inside the clause that runs on the way out"
               },
               "id": "exit-from-finally",
               "name": "exit-from-finally",
@@ -9117,7 +9334,7 @@
                 "text": "a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value"
               },
               "help": {
-                "text": "a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value\n\nFix: Introduce Assertion\nMetric: an equality test against a literal with a fractional part"
+                "text": "a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value\n\nFix: Replace Algorithm\nMetric: an equality test against a literal with a fractional part"
               },
               "id": "float-equality",
               "name": "float-equality",
@@ -9285,7 +9502,7 @@
                 "text": "it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it"
               },
               "help": {
-                "text": "it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it\n\nFix: Extract Method / Separate Query from Modifier\nMetric: a call that runs the moment the file is loaded"
+                "text": "it runs before any caller has asked for anything, in whatever order the imports resolve, and nothing can prevent it\n\nFix: Extract Method\nMetric: a call that runs the moment the file is loaded"
               },
               "id": "import-time-work",
               "name": "import-time-work",
@@ -9309,7 +9526,7 @@
                 "text": "each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here"
               },
               "help": {
-                "text": "each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here\n\nFix: Replace Data Value with Object / Introduce Assertion\nMetric: an `any` annotation, a non-null assertion, or a cast that is not `as const`"
+                "text": "each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here\n\nFix: Narrow the Type / Introduce Assertion\nMetric: an `any` annotation, a non-null assertion, or a cast that is not `as const`"
               },
               "id": "imprecise-type",
               "name": "imprecise-type",
@@ -9381,7 +9598,7 @@
                 "text": "the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right"
               },
               "help": {
-                "text": "the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right\n\nFix: Introduce Assertion\nMetric: one whole number divided by another"
+                "text": "the remainder is discarded and nothing on the line says that was intended, so a reader has to know the operand types to know whether the result is right\n\nFix: Replace Algorithm\nMetric: one whole number divided by another"
               },
               "id": "integer-division",
               "name": "integer-division",
@@ -9501,7 +9718,7 @@
                 "text": "it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner"
               },
               "help": {
-                "text": "it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner\n\nFix: Separate Query from Modifier\nMetric: a call that ends the process, written outside the entry point"
+                "text": "it takes the decision away from every caller above it, and a test that reaches the line terminates the test runner\n\nFix: Replace Exit with Error\nMetric: a call that ends the process, written outside the entry point"
               },
               "id": "library-exit",
               "name": "library-exit",
@@ -9645,7 +9862,7 @@
                 "text": "each pass copies everything written so far, so the work grows with the square of the number of pieces"
               },
               "help": {
-                "text": "each pass copies everything written so far, so the work grows with the square of the number of pieces\n\nFix: Replace Algorithm\nMetric: text built one piece at a time inside a loop"
+                "text": "each pass copies everything written so far, so the work grows with the square of the number of pieces\n\nFix: Accumulate in Place\nMetric: text built one piece at a time inside a loop"
               },
               "id": "loop-concatenation",
               "name": "loop-concatenation",
@@ -9741,7 +9958,7 @@
                 "text": "each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot"
               },
               "help": {
-                "text": "each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot\n\nFix: Extract Method / Extract Variable\nMetric: distinct names one function body introduces"
+                "text": "each local variable is something the reader has to keep in mind to the end of the body, and there is a number past which readers cannot\n\nFix: Extract Method / Inline Variable\nMetric: distinct names one function body introduces"
               },
               "id": "many-locals",
               "name": "many-locals",
@@ -9861,7 +10078,7 @@
                 "text": "a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time"
               },
               "help": {
-                "text": "a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time\n\nFix: Extract Class / Extract Variable\nMetric: SQL or HTML markup inside a template literal"
+                "text": "a second language in the file gets none of the tooling the first language has, so nothing checks it until it fails at run time\n\nFix: Extract Shared Module\nMetric: SQL or HTML markup inside a template literal"
               },
               "id": "mixed-language-file",
               "name": "mixed-language-file",
@@ -9885,7 +10102,7 @@
                 "text": "a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider"
               },
               "help": {
-                "text": "a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider\n\nFix: Separate Query from Modifier / Decompose Conditional\nMetric: one function answering with a value on one path and with nothing on another"
+                "text": "a caller cannot write one line that handles both kinds of result, so every call site carries a check for the case the author happened to consider\n\nFix: Extract Method / Replace Data Value with Object\nMetric: one function answering with a value on one path and with nothing on another"
               },
               "id": "mixed-return",
               "name": "mixed-return",
@@ -10077,7 +10294,7 @@
                 "text": "a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need"
               },
               "help": {
-                "text": "a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need\n\nFix: Rename Variable\nMetric: a name declared as changeable that never changes"
+                "text": "a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need\n\nFix: Declare Immutable\nMetric: a name declared as changeable that never changes"
               },
               "id": "never-reassigned",
               "name": "never-reassigned",
@@ -10101,7 +10318,7 @@
                 "text": "nothing can stop the recursion, so the first call exhausts the stack"
               },
               "help": {
-                "text": "nothing can stop the recursion, so the first call exhausts the stack\n\nFix: Decompose Conditional\nMetric: a function that calls itself with no decision anywhere in the body"
+                "text": "nothing can stop the recursion, so the first call exhausts the stack\n\nFix: Replace Nested Conditional with Guard Clauses\nMetric: a function that calls itself with no decision anywhere in the body"
               },
               "id": "no-base-case",
               "name": "no-base-case",
@@ -10125,7 +10342,7 @@
                 "text": "a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended"
               },
               "help": {
-                "text": "a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended\n\nFix: Consolidate Conditional / Replace Conditional with Polymorphism\nMetric: a switch with enough arms to count as one and no arm for the values it does not name"
+                "text": "a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended\n\nFix: Introduce Assertion / Replace Conditional with Polymorphism\nMetric: a switch with enough arms to count as one and no arm for the values it does not name"
               },
               "id": "no-default-branch",
               "name": "no-default-branch",
@@ -10341,7 +10558,7 @@
                 "text": "the language may compile the assertion out, so the check a reader relies on may not run in production"
               },
               "help": {
-                "text": "the language may compile the assertion out, so the check a reader relies on may not run in production\n\nFix: Introduce Assertion\nMetric: an assertion outside a test"
+                "text": "the language may compile the assertion out, so the check a reader relies on may not run in production\n\nFix: Replace Exit with Error\nMetric: an assertion outside a test"
               },
               "id": "production-assert",
               "name": "production-assert",
@@ -10653,7 +10870,7 @@
                 "text": "nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it"
               },
               "help": {
-                "text": "nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it\n\nFix: Invert Dependency / Introduce Parameter Object\nMetric: a field filled with something the object constructed itself"
+                "text": "nothing can be substituted for them, so every test of the owner has to set up the real collaborator and everything behind it\n\nFix: Invert Dependency / Add Parameter\nMetric: a field filled with something the object constructed itself"
               },
               "id": "self-built-collaborators",
               "name": "self-built-collaborators",
@@ -10701,7 +10918,7 @@
                 "text": "nothing orders them, so the call takes the sum of two waits where it could take the longer one"
               },
               "help": {
-                "text": "nothing orders them, so the call takes the sum of two waits where it could take the longer one\n\nFix: Replace Algorithm\nMetric: two waits in a row where the second does not read the first's answer"
+                "text": "nothing orders them, so the call takes the sum of two waits where it could take the longer one\n\nFix: Await Concurrently\nMetric: two waits in a row where the second does not read the first's answer"
               },
               "id": "sequential-await",
               "name": "sequential-await",
@@ -10773,7 +10990,7 @@
                 "text": "it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed"
               },
               "help": {
-                "text": "it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed\n\nFix: Extract Class / Inline Variable\nMetric: a field only one method of its type ever reads"
+                "text": "it is that method's local variable kept where every other method can reach it, so every method has to be read before it can be changed\n\nFix: Extract Class / Move Method\nMetric: a field only one method of its type ever reads"
               },
               "id": "single-method-field",
               "name": "single-method-field",
@@ -10821,7 +11038,7 @@
                 "text": "it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary"
               },
               "help": {
-                "text": "it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary\n\nFix: Replace Algorithm\nMetric: a call that stops the thread for a fixed time, outside a test"
+                "text": "it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary\n\nFix: Replace Blocking Call\nMetric: a call that stops the thread for a fixed time, outside a test"
               },
               "id": "sleep-in-production",
               "name": "sleep-in-production",
@@ -10845,7 +11062,7 @@
                 "text": "a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection"
               },
               "help": {
-                "text": "a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection\n\nFix: Replace Algorithm\nMetric: a sleep or timeout inside a test body above the configured pause"
+                "text": "a suite that is slow enough to be skipped stops being run, and a test that is not run provides no protection\n\nFix: Replace Algorithm / Invert Dependency\nMetric: a sleep or timeout inside a test body above the configured pause"
               },
               "id": "slow-test",
               "name": "slow-test",
@@ -11493,7 +11710,7 @@
                 "text": "the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it"
               },
               "help": {
-                "text": "the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it\n\nFix: Extract Method / Decompose Conditional\nMetric: statements inside one guarded block"
+                "text": "the handler is written for one of the calls and catches failures from all of them, so a failure from any other line reaches a handler that cannot answer it\n\nFix: Extract Method / Narrow the Handler\nMetric: statements inside one guarded block"
               },
               "id": "wide-try",
               "name": "wide-try",
@@ -11541,7 +11758,7 @@
                 "text": "the object cannot exist without whatever that work needs, so every test of it has to set the work up first"
               },
               "help": {
-                "text": "the object cannot exist without whatever that work needs, so every test of it has to set the work up first\n\nFix: Extract Method / Separate Query from Modifier\nMetric: calls made while an object is being built, beyond recording what it was given"
+                "text": "the object cannot exist without whatever that work needs, so every test of it has to set the work up first\n\nFix: Extract Method\nMetric: calls made while an object is being built, beyond recording what it was given"
               },
               "id": "working-constructor",
               "name": "working-constructor",

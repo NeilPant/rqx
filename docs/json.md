@@ -22,7 +22,9 @@ One line per finding, then one summary line.
 
 A finding line has `"kind": "finding"` and the finding's own fields: `rule`,
 `category`, `severity`, `confidence`, `location`, `evidence`, `why`, `fixes`, `metric`,
-`fix_hint` and `related`.
+`fix_hint` and `related`. A finding also has `focus` when its rule narrowed the problem
+down: the range inside `location` that a reader should look at, in the same shape as
+`location`. A finding without the key has no narrower range than `location`.
 
 The summary line has `"kind": "summary"` and:
 

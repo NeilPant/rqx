@@ -235,7 +235,7 @@ the result depends on something no caller can set, so the only way to test the b
 | Measures | a body reaching for the clock, the environment or a random source |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Introduce Parameter Object / Invert Dependency |
+| Fix | Add Parameter / Invert Dependency |
 
 From `fixtures/typescript/flow.ts`, line 102:
 
@@ -256,7 +256,7 @@ nothing can be substituted for them, so every test of the owner has to set up th
 | Measures | a field filled with something the object constructed itself |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
-| Fix | Invert Dependency / Introduce Parameter Object |
+| Fix | Invert Dependency / Add Parameter |
 | Not in Go | a value is built by a literal, which names no type to stand in for |
 
 From `fixtures/typescript/intimacy.ts`, line 37:
@@ -278,7 +278,7 @@ it runs before any caller has asked for anything, in whatever order the imports 
 | Measures | a call that runs the moment the file is loaded |
 | Reported as | warning, verified |
 | Reads | the syntax tree alone |
-| Fix | Extract Method / Separate Query from Modifier |
+| Fix | Extract Method |
 | Not in Go | a file holds declarations, and only `init` runs on load |
 | Not in Java | a file holds declarations, and only a static block runs on load |
 | Not in C++ | a translation unit holds declarations |

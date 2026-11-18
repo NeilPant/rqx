@@ -528,6 +528,7 @@ pub mod tests {
                 fix_hint: "fix".to_owned(),
                 related: Vec::new(),
                 known: false,
+                focus: None,
             };
             outcome.counts.record(&finding);
             *outcome
@@ -598,6 +599,7 @@ pub mod tests {
                 fix_hint: "extract".to_owned(),
                 related: Vec::new(),
                 known: false,
+                focus: None,
             };
             outcome.counts.record(&finding);
             *outcome

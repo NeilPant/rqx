@@ -270,7 +270,7 @@ the failure is swallowed silently, so it first appears as wrong data elsewhere, 
 | Measures | catch clause with an empty body |
 | Reported as | error, verified |
 | Reads | resolved scopes and symbols |
-| Fix | Remove Dead Code |
+| Fix | Handle the Failure |
 | Not in Go | Go has no exceptions and so no catch clause; an ignored error is a different shape this rule does not measure |
 
 From `fixtures/typescript/hygiene.ts`, line 21:
@@ -315,7 +315,7 @@ a second language in the file gets none of the tooling the first language has, s
 | Measures | SQL or HTML markup inside a template literal |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Fix | Extract Class / Extract Variable |
+| Fix | Extract Shared Module |
 
 From `fixtures/typescript/conventions.ts`, line 5:
 
@@ -336,7 +336,7 @@ a reader has to keep the name in mind while reading everything in between, witho
 | Measures | lines between a local's declaration and the line that first reads it |
 | Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
-| Fix | Extract Variable / Inline Variable |
+| Fix | Inline Variable |
 | Tuned by | `thresholds.declaration_distance_lines` |
 
 From `fixtures/typescript/queries.ts`, line 16:
@@ -480,7 +480,7 @@ it adds a name to every path through the project and answers no question of its 
 | Measures | a file whose every import comes straight back out of it |
 | Reported as | info, verified |
 | Reads | resolved scopes and symbols |
-| Fix | Inline Class / Remove Dead Code |
+| Fix | Inline Delegation / Remove Dead Code |
 | Not in Go | a package is the unit of import, and it has no index file |
 | Not in Java | a class is imported by its own name |
 | Not in C++ | a header is included by its own path |
@@ -573,7 +573,7 @@ a reader has to allow for the possibility that the variable changes, and it neve
 | Measures | a name declared as changeable that never changes |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Rename Variable |
+| Fix | Declare Immutable |
 | Not in Python | the language has no word for a name that cannot change |
 | Not in Go | a short declaration says nothing about whether the name moves |
 

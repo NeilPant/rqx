@@ -105,10 +105,12 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
                 markup(&path),
                 markup(&name)
             )?;
-            let message = markup(&finding.evidence.to_string());
+            let message = markup(&finding.message());
             let body = markup(&format!(
                 "{}\n\nWhy: {}\nFix: {}",
-                finding.evidence, spec.why, finding.fix_hint
+                finding.message(),
+                spec.why,
+                finding.fix_hint
             ));
             match finding.severity {
                 Severity::Info => {

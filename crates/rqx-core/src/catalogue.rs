@@ -74,7 +74,7 @@ catalogue! {
         category: Size,
         analysis: Semantics,
         metric: "a type alias that is a union of three or more string literals",
-        fixes: [ReplaceTypeCodeWithClass, IntroduceParameterObject],
+        fixes: [ReplaceTypeCodeWithClass, ReplaceDataValueWithObject],
         confidence: Low,
         severity: Info,
         why: "a raw string or number carries no rules of its own, so each place that uses it \
@@ -176,7 +176,7 @@ catalogue! {
         category: Change,
         analysis: Syntax,
         metric: "a file with its own history and a single author",
-        fixes: [ExtractMethod],
+        fixes: [ShareOwnership],
         confidence: Verified,
         severity: Info,
         why: "no one else has read the file closely enough to change it, so its knowledge is lost \
@@ -255,6 +255,7 @@ catalogue! {
         severity: Warning,
         why: "an export that nothing imports still has to be read, type-checked and kept working \
               during every refactoring that touches it",
+        short: "an export nothing imports still has to be read and kept working",
     },
     UnusedFile {
         slug: "unused-file",
@@ -315,6 +316,7 @@ catalogue! {
         confidence: Verified,
         severity: Error,
         why: "this code cannot run, so whatever it was written to do is not happening",
+        short: "this code cannot run, so whatever it was written to do is not happening",
         autofix: Deletion,
     },
     CommentedOutCode {
@@ -370,7 +372,7 @@ catalogue! {
         category: Waste,
         analysis: Semantics,
         metric: "catch clause with an empty body",
-        fixes: [RemoveDeadCode],
+        fixes: [HandleTheFailure],
         confidence: Verified,
         severity: Error,
         why: "the failure is swallowed silently, so it first appears as wrong data elsewhere, \
@@ -396,7 +398,7 @@ catalogue! {
         category: Safety,
         analysis: Semantics,
         metric: "an `any` annotation, a non-null assertion, or a cast that is not `as const`",
-        fixes: [ReplaceDataValueWithObject, IntroduceAssertion],
+        fixes: [NarrowTheType, IntroduceAssertion],
         confidence: Verified,
         severity: Warning,
         why: "each of these types turns off type checking for the value, so the guarantees the \
@@ -409,7 +411,7 @@ catalogue! {
         category: Waste,
         analysis: Semantics,
         metric: "SQL or HTML markup inside a template literal",
-        fixes: [ExtractClass, ExtractVariable],
+        fixes: [ExtractSharedModule],
         confidence: Heuristic,
         severity: Info,
         why: "a second language in the file gets none of the tooling the first language has, so \
@@ -442,7 +444,7 @@ catalogue! {
         category: Tests,
         analysis: Semantics,
         metric: "a sleep or timeout inside a test body above the configured pause",
-        fixes: [ReplaceAlgorithm],
+        fixes: [ReplaceAlgorithm, InvertDependency],
         confidence: Verified,
         severity: Warning,
         why: "a suite that is slow enough to be skipped stops being run, and a test that is not \
@@ -454,11 +456,12 @@ catalogue! {
         category: Waste,
         analysis: Semantics,
         metric: "lines between a local's declaration and the line that first reads it",
-        fixes: [ExtractVariable, InlineVariable],
+        fixes: [InlineVariable],
         confidence: Heuristic,
         severity: Info,
         why: "a reader has to keep the name in mind while reading everything in between, without \
               knowing whether it will matter",
+        short: "a reader has to keep the name in mind through everything in between",
     },
 
     ObscuredExpression {
@@ -635,6 +638,7 @@ catalogue! {
         severity: Info,
         why: "a reader who has seen `fetchUser` cannot tell whether `getUser` is the same \
               operation or a different one, so both have to be read before either is used",
+        short: "one idea has several names, so a reader cannot tell whether they are one operation",
         off_by_default: true,
     },
 
@@ -835,6 +839,7 @@ catalogue! {
         severity: Info,
         why: "a name that describes nothing requires each reader to work out the value's purpose \
               from its uses",
+        short: "a name that describes nothing makes every reader work out the purpose from its uses",
         off_by_default: true,
     },
     ShortNameWideScope {
@@ -889,7 +894,7 @@ catalogue! {
         category: Performance,
         analysis: Syntax,
         metric: "text built one piece at a time inside a loop",
-        fixes: [ReplaceAlgorithm],
+        fixes: [AccumulateInPlace],
         confidence: Heuristic,
         severity: Warning,
         why: "each pass copies everything written so far, so the work grows with the square of \
@@ -921,6 +926,7 @@ catalogue! {
         confidence: Verified,
         severity: Error,
         why: "the arm below also runs, and nothing here says whether that was intended",
+        short: "the arm below also runs, and nothing says whether that was meant",
         not_applicable: [
             (Go, "an arm ends where the next begins unless it says otherwise"),
             (Python, "an arm ends where the next begins"),
@@ -936,6 +942,7 @@ catalogue! {
         severity: Warning,
         why: "two conditions folded into one expression have to be unfolded by the reader before \
               either can be checked",
+        short: "two conditions in one expression have to be unfolded before either can be checked",
         not_applicable: [(Go, "Go has no conditional expression")],
     },
     AmbiguousPrecedence {
@@ -967,7 +974,7 @@ catalogue! {
         analysis: Syntax,
         metric: "a switch with enough arms to count as one and no arm for the values \
                  it does not name",
-        fixes: [ConsolidateConditional, ReplaceConditionalWithPolymorphism],
+        fixes: [IntroduceAssertion, ReplaceConditionalWithPolymorphism],
         confidence: Heuristic,
         severity: Warning,
         why: "a value the switch does not anticipate passes through it unhandled, and nothing in \
@@ -1024,7 +1031,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "a function written inside a loop that reads the name the loop moves",
-        fixes: [ExtractMethod, IntroduceParameterObject],
+        fixes: [ExtractMethod, AddParameter],
         confidence: Heuristic,
         severity: Warning,
         why: "the closure reads whichever value the loop variable holds when it runs, so every \
@@ -1047,11 +1054,12 @@ catalogue! {
         category: Performance,
         analysis: Syntax,
         metric: "two waits in a row where the second does not read the first's answer",
-        fixes: [ReplaceAlgorithm],
+        fixes: [AwaitConcurrently],
         confidence: Heuristic,
         severity: Warning,
         why: "nothing orders them, so the call takes the sum of two waits where it could take the \
               longer one",
+        short: "nothing orders the two waits, so the call takes their sum",
         not_applicable: [
             (Go, "waiting is a channel receive, which the language does not mark"),
             (Java, "waiting is a call like any other"),
@@ -1063,7 +1071,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "an assertion outside a test",
-        fixes: [IntroduceAssertion],
+        fixes: [ReplaceExitWithError],
         confidence: Heuristic,
         severity: Warning,
         why: "the language may compile the assertion out, so the check a reader relies on may not \
@@ -1087,7 +1095,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "a call that stops the thread for a fixed time, outside a test",
-        fixes: [ReplaceAlgorithm],
+        fixes: [ReplaceBlockingCall],
         confidence: Heuristic,
         severity: Warning,
         why: "it waits for a fixed length of time instead of for the condition it needs, so the \
@@ -1098,7 +1106,7 @@ catalogue! {
         category: Tests,
         analysis: Syntax,
         metric: "a run of checks in one test with nothing said about any of them",
-        fixes: [IntroduceAssertion],
+        fixes: [ExtractMethod],
         confidence: Heuristic,
         severity: Info,
         why: "a failing run prints two values, and the reader has to count lines to find which \
@@ -1145,7 +1153,7 @@ catalogue! {
         category: Waste,
         analysis: Semantics,
         metric: "a file whose every import comes straight back out of it",
-        fixes: [InlineClass, RemoveDeadCode],
+        fixes: [InlineDelegation, RemoveDeadCode],
         confidence: Verified,
         severity: Info,
         why: "it adds a name to every path through the project and answers no question of its \
@@ -1189,7 +1197,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "a handler that takes everything, written before one that takes less",
-        fixes: [DecomposeConditional],
+        fixes: [NarrowTheHandler],
         confidence: Verified,
         severity: Error,
         why: "the handler below can never run, so whatever it was written to do about that \
@@ -1259,7 +1267,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "an asynchronous call whose result is discarded",
-        fixes: [SeparateQueryFromModifier],
+        fixes: [HandleTheFailure],
         confidence: Heuristic,
         severity: Error,
         why: "nothing waits for it and nothing observes its failure, so a failure surfaces \
@@ -1309,7 +1317,7 @@ catalogue! {
         category: Waste,
         analysis: Syntax,
         metric: "a name declared as changeable that never changes",
-        fixes: [RenameVariable],
+        fixes: [DeclareImmutable],
         confidence: Heuristic,
         severity: Info,
         why: "a reader has to allow for the possibility that the variable changes, and it never \
@@ -1324,7 +1332,7 @@ catalogue! {
         category: Abstraction,
         analysis: Syntax,
         metric: "a changeable field only the constructor ever writes",
-        fixes: [EncapsulateField],
+        fixes: [DeclareImmutable],
         confidence: Heuristic,
         severity: Info,
         why: "nothing after construction changes it, and every reader has to verify that for \
@@ -1411,6 +1419,7 @@ catalogue! {
         severity: Info,
         why: "every test of the name that is itself negated has to be inverted twice by the \
               reader before the condition has a meaning",
+        short: "a condition on a negated name has to be inverted twice before it has a meaning",
     },
     ShadowsBuiltin {
         slug: "shadows-builtin",
@@ -1456,6 +1465,7 @@ catalogue! {
         severity: Info,
         why: "it repeats the signature, so it costs a reader a second pass and becomes wrong when \
               the signature changes",
+        short: "it repeats the signature, so it becomes wrong when the signature changes",
     },
     GuardCascade {
         slug: "guard-cascade",
@@ -1467,13 +1477,14 @@ catalogue! {
         severity: Info,
         why: "the body has not started and the reader has already read several decisions, none of \
               which says what the function is for",
+        short: "the reader meets several decisions before the body says what the function is for",
     },
     BlanketTry {
         slug: "blanket-try",
         category: Safety,
         analysis: Syntax,
         metric: "a guarded block holding nearly every statement of its function",
-        fixes: [DecomposeConditional, ExtractMethod],
+        fixes: [ExtractMethod, NarrowTheHandler],
         confidence: Heuristic,
         severity: Warning,
         why: "the handler wraps the whole body instead of answering one failure, so a mistake \
@@ -1511,7 +1522,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "a function that calls itself with no decision anywhere in the body",
-        fixes: [DecomposeConditional],
+        fixes: [ReplaceNestedConditionalWithGuardClauses],
         confidence: Verified,
         severity: Error,
         why: "nothing can stop the recursion, so the first call exhausts the stack",
@@ -1566,7 +1577,7 @@ catalogue! {
         category: Abstraction,
         analysis: Syntax,
         metric: "a field only one method of its type ever reads",
-        fixes: [ExtractClass, InlineVariable],
+        fixes: [ExtractClass, MoveMethod],
         confidence: Heuristic,
         severity: Info,
         why: "it is that method's local variable kept where every other method can reach it, so \
@@ -1640,7 +1651,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "one whole number divided by another",
-        fixes: [IntroduceAssertion],
+        fixes: [ReplaceAlgorithm],
         confidence: Heuristic,
         severity: Warning,
         why: "the remainder is discarded and nothing on the line says that was intended, so a \
@@ -1651,7 +1662,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "a call whose answer is assigned to a name that means \"ignore this\"",
-        fixes: [DecomposeConditional],
+        fixes: [HandleTheFailure],
         confidence: Verified,
         severity: Warning,
         why: "the code receives the result and ignores it, and nothing records what happens when \
@@ -1662,7 +1673,7 @@ catalogue! {
         category: Size,
         analysis: Syntax,
         metric: "distinct names one function body introduces",
-        fixes: [ExtractMethod, ExtractVariable],
+        fixes: [ExtractMethod, InlineVariable],
         confidence: Heuristic,
         severity: Info,
         why: "each local variable is something the reader has to keep in mind to the end of the \
@@ -1673,7 +1684,7 @@ catalogue! {
         category: Size,
         analysis: Syntax,
         metric: "statements inside one guarded block",
-        fixes: [ExtractMethod, DecomposeConditional],
+        fixes: [ExtractMethod, NarrowTheHandler],
         confidence: Heuristic,
         severity: Warning,
         why: "the handler is written for one of the calls and catches failures from all of them, \
@@ -1711,7 +1722,7 @@ catalogue! {
         analysis: Syntax,
         metric: "calls made while an object is being built, beyond recording what it \
                  was given",
-        fixes: [ExtractMethod, SeparateQueryFromModifier],
+        fixes: [ExtractMethod],
         confidence: Heuristic,
         severity: Warning,
         why: "the object cannot exist without whatever that work needs, so every test of it has \
@@ -1739,6 +1750,7 @@ catalogue! {
         severity: Warning,
         why: "either the line was meant to do something and does not, or it does nothing and \
               should be removed, and a reader cannot tell which",
+        short: "either the line was meant to do something and does not, or it should go",
         not_applicable: [
             (Go, "the grammar allows only a call or a receive as a statement, so the compiler rejects this first"),
             (Java, "the grammar allows only a call, an assignment or an increment as a statement"),
@@ -1749,7 +1761,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "an equality test against a literal with a fractional part",
-        fixes: [IntroduceAssertion],
+        fixes: [ReplaceAlgorithm],
         confidence: Verified,
         severity: Warning,
         why: "a binary float rarely equals the decimal a person wrote, so a branch that depends \
@@ -1776,7 +1788,7 @@ catalogue! {
         analysis: Syntax,
         metric: "one function answering with a value on one path and with nothing on \
                  another",
-        fixes: [SeparateQueryFromModifier, DecomposeConditional],
+        fixes: [ExtractMethod, ReplaceDataValueWithObject],
         confidence: Verified,
         severity: Warning,
         why: "a caller cannot write one line that handles both kinds of result, so every call \
@@ -1793,7 +1805,7 @@ catalogue! {
         analysis: Syntax,
         metric: "a return, break, continue or raise inside the clause that runs on the \
                  way out",
-        fixes: [DecomposeConditional],
+        fixes: [HandleTheFailure],
         confidence: Verified,
         severity: Error,
         why: "it replaces whatever the block was leaving with, so a failure raised in the body \
@@ -1809,11 +1821,12 @@ catalogue! {
         analysis: Syntax,
         metric: "a handler naming the root of the error hierarchy, or naming nothing at \
                  all",
-        fixes: [DecomposeConditional],
+        fixes: [NarrowTheHandler],
         confidence: Verified,
         severity: Warning,
         why: "it catches the failures it was written for and every other failure too, including \
               failures that mean the program is already in an invalid state",
+        short: "it catches the failures it was written for and every other one too",
         not_applicable: [
             (Go, "errors are values, so there is no handler to widen"),
             (JavaScript, "a catch clause cannot name a type in JavaScript, so none can name the root of the hierarchy"),
@@ -1836,7 +1849,7 @@ catalogue! {
         category: Safety,
         analysis: Syntax,
         metric: "a call that ends the process, written outside the entry point",
-        fixes: [SeparateQueryFromModifier],
+        fixes: [ReplaceExitWithError],
         confidence: Heuristic,
         severity: Warning,
         why: "it takes the decision away from every caller above it, and a test that reaches the \
@@ -1884,7 +1897,7 @@ catalogue! {
         category: Coupling,
         analysis: Syntax,
         metric: "a body reaching for the clock, the environment or a random source",
-        fixes: [IntroduceParameterObject, InvertDependency],
+        fixes: [AddParameter, InvertDependency],
         confidence: Heuristic,
         severity: Info,
         why: "the result depends on something no caller can set, so the only way to test the \
@@ -1895,7 +1908,7 @@ catalogue! {
         category: Coupling,
         analysis: Syntax,
         metric: "a field filled with something the object constructed itself",
-        fixes: [InvertDependency, IntroduceParameterObject],
+        fixes: [InvertDependency, AddParameter],
         confidence: Verified,
         severity: Warning,
         why: "nothing can be substituted for them, so every test of the owner has to set up the \
@@ -1908,7 +1921,7 @@ catalogue! {
         category: Coupling,
         analysis: Syntax,
         metric: "a call that runs the moment the file is loaded",
-        fixes: [ExtractMethod, SeparateQueryFromModifier],
+        fixes: [ExtractMethod],
         confidence: Verified,
         severity: Warning,
         why: "it runs before any caller has asked for anything, in whatever order the imports \
@@ -2006,6 +2019,7 @@ catalogue! {
         severity: Info,
         why: "two statements importing one module mean a reader has to check both to know what \
               the file takes from it, and a merge can introduce one without anyone reviewing it",
+        short: "two imports of one module mean a reader has to check both",
     },
     WideFanOut {
         slug: "wide-fan-out",
@@ -2017,6 +2031,7 @@ catalogue! {
         severity: Info,
         why: "a file that reaches into this many places cannot be read, moved or tested without \
               most of the project coming with it",
+        short: "a file that reaches into this many places drags most of the project with it",
     },
     WideFanIn {
         slug: "wide-fan-in",
@@ -2348,6 +2363,7 @@ catalogue! {
         severity: Info,
         why: "the collection grows by reallocating and copying its contents as it fills, work \
               that a capacity set from the loop's size avoids",
+        short: "the collection reallocates and copies its contents as it fills",
         off_by_default: true,
         not_applicable: [
             (JavaScript, "arrays grow without a capacity to set"),
@@ -2426,6 +2442,7 @@ catalogue! {
         severity: Warning,
         why: "each pass copies the element into the variable, allocating and copying its \
               contents, when a reference to it would read the same value",
+        short: "each pass copies the element where a reference would read the same value",
         not_applicable: [
             (JavaScript, "the loop variable refers to the element; nothing is copied"),
             (TypeScript, "the loop variable refers to the element; nothing is copied"),

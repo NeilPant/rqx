@@ -20,6 +20,9 @@ pub struct Line {
     /// Byte range within `text` that the finding points at. Empty on context lines.
     pub mark: Option<Range<usize>>,
     pub role: Role,
+    /// Source lines left out between this line and the next one shown, so a reporter
+    /// can say so where the gap is rather than at a position it has to work out.
+    pub gap_after: u32,
 }
 
 impl Line {
@@ -82,6 +85,9 @@ pub fn of(index: &LineIndex<'_>, range: &SourceRange, context: u32) -> Option<Pr
     for (position, number) in offending.iter().copied().enumerate() {
         if offending.len() > HEAD_LINES + TAIL + 1 && position == HEAD_LINES {
             elided = (offending.len() - HEAD_LINES - TAIL) as u32;
+            if let Some(shown) = lines.last_mut() {
+                shown.gap_after = elided;
+            }
         }
         if elided > 0 && position >= HEAD_LINES && position < offending.len() - TAIL {
             continue;
@@ -121,7 +127,92 @@ fn push(
         text,
         mark,
         role,
+        gap_after: 0,
     });
+}
+
+/// What the terminal shows for a finding: only the focus is marked, and the statement
+/// around it is shown as far as it helps to place the focus. A finding with no focus
+/// whose location runs over several lines shows the first of them and says how many
+/// were left out, so a long statement never prints as a wall of carets.
+pub fn of_finding(
+    index: &LineIndex<'_>,
+    location: &SourceRange,
+    focus: Option<&SourceRange>,
+    context: u32,
+) -> Option<Preview> {
+    let total = index.line_count();
+    if total == 0 {
+        return None;
+    }
+    if location.line == 0 {
+        return of(index, location, context);
+    }
+    let first = location.line.clamp(1, total);
+    let last = location.end_line.clamp(first, total);
+    // A focus outside the location, such as a name above a body, is shown on its own.
+    if let Some(outside) = focus.filter(|inner| inner.line > 0 && !location.contains(inner)) {
+        return of_finding(index, outside, None, context);
+    }
+    let focus = focus.filter(|inner| inner.line > 0);
+    let marked = focus.unwrap_or(location);
+    let marked_first = marked.line.clamp(first, last);
+    let marked_last = if focus.is_some() {
+        marked.end_line.clamp(marked_first, last)
+    } else {
+        marked_first
+    };
+    let (end_line, end_column) = index.locate(marked.end);
+
+    let mut lines = Vec::new();
+    for number in first.saturating_sub(context).max(1)..first {
+        push(&mut lines, index, number, None, Role::Context);
+    }
+
+    let context_from = marked_first.saturating_sub(1).max(first);
+    if first < context_from {
+        push(&mut lines, index, first, None, Role::Context);
+        set_gap(&mut lines, context_from - first - 1);
+    }
+    let marked_lines = marked_last - context_from + 1;
+    let capped = marked_lines as usize > HEAD_LINES + TAIL + 1;
+    for number in context_from..=marked_last {
+        let position = (number - context_from) as usize;
+        if capped && position == HEAD_LINES {
+            set_gap(&mut lines, marked_lines - (HEAD_LINES + TAIL) as u32);
+        }
+        if capped && position >= HEAD_LINES && position < marked_lines as usize - TAIL {
+            continue;
+        }
+        if number < marked_first {
+            push(&mut lines, index, number, None, Role::Context);
+            continue;
+        }
+        let text = index.line_text(number);
+        let from = (number == marked_first).then_some(marked.column);
+        let to = (number == end_line).then_some(end_column);
+        push(
+            &mut lines,
+            index,
+            number,
+            mark_of(text, from, to),
+            Role::Offence,
+        );
+    }
+    set_gap(&mut lines, last - marked_last);
+
+    for number in (last + 1)..=(last + context).min(total) {
+        push(&mut lines, index, number, None, Role::Context);
+    }
+    Some(Preview { lines, elided: 0 })
+}
+
+fn set_gap(lines: &mut [Line], hidden: u32) {
+    if hidden > 0
+        && let Some(shown) = lines.last_mut()
+    {
+        shown.gap_after = hidden;
+    }
 }
 
 #[cfg(test)]
@@ -192,6 +283,85 @@ mod tests {
         let preview = of(&index, &range(&source, 1, 1, 40, 0, source.len() as u32), 0).unwrap();
         assert_eq!(preview.elided, 40 - (HEAD_LINES + TAIL) as u32);
         assert_eq!(preview.lines.len(), HEAD_LINES + TAIL);
+    }
+
+    fn inner(range: &SourceRange, line: u32, column: u32, start: u32, end: u32) -> SourceRange {
+        SourceRange {
+            line,
+            column,
+            start,
+            end,
+            end_line: line,
+            ..range.clone()
+        }
+    }
+
+    #[test]
+    fn only_the_focus_is_marked_and_the_rest_of_the_statement_is_a_count() {
+        let source = "_ = call(a, func() {\n    one()\n    two()\n})\nafter()\n";
+        let index = LineIndex::new(source);
+        let whole = range(source, 1, 1, 4, 0, 46);
+        let focus = inner(&whole, 1, 1, 0, 1);
+        let preview = of_finding(&index, &whole, Some(&focus), 0).unwrap();
+        assert_eq!(preview.lines.len(), 1);
+        assert_eq!(preview.lines[0].ruler(), Some((0, 1)));
+        assert_eq!(preview.lines[0].gap_after, 3);
+    }
+
+    #[test]
+    fn a_focus_below_the_first_line_keeps_the_line_above_it_as_context() {
+        let source = "start(\n  one,\n  two,\n  bad,\n)\n";
+        let index = LineIndex::new(source);
+        let whole = range(source, 1, 1, 5, 0, 28);
+        let focus = inner(&whole, 4, 3, 23, 26);
+        let preview = of_finding(&index, &whole, Some(&focus), 0).unwrap();
+        let shown: Vec<(u32, Role, u32)> = preview
+            .lines
+            .iter()
+            .map(|line| (line.number, line.role, line.gap_after))
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                (1, Role::Context, 1),
+                (3, Role::Context, 0),
+                (4, Role::Offence, 1)
+            ]
+        );
+        assert_eq!(preview.lines[2].ruler(), Some((2, 3)));
+    }
+
+    #[test]
+    fn a_multi_line_location_without_a_focus_shows_its_first_line_only() {
+        let source: String = (1..=12).map(|n| format!("line {n}\n")).collect();
+        let index = LineIndex::new(&source);
+        let whole = range(&source, 3, 1, 10, 14, 70);
+        let preview = of_finding(&index, &whole, None, 0).unwrap();
+        assert_eq!(preview.lines.len(), 1);
+        assert_eq!(preview.lines[0].number, 3);
+        assert_eq!(preview.lines[0].gap_after, 7);
+    }
+
+    #[test]
+    fn a_single_line_location_without_a_focus_is_marked_as_before() {
+        let source = "alpha beta gamma\n";
+        let index = LineIndex::new(source);
+        let whole = range(source, 1, 7, 1, 6, 10);
+        let preview = of_finding(&index, &whole, None, 0).unwrap();
+        assert_eq!(preview.lines[0].ruler(), Some((6, 4)));
+        assert_eq!(preview.lines[0].gap_after, 0);
+    }
+
+    #[test]
+    fn a_focus_outside_the_location_is_shown_on_its_own() {
+        let source = "func name() {\n  body()\n}\n";
+        let index = LineIndex::new(source);
+        let body = range(source, 2, 3, 3, 16, 25);
+        let name = inner(&range(source, 1, 1, 1, 0, 0), 1, 6, 5, 9);
+        let preview = of_finding(&index, &body, Some(&name), 0).unwrap();
+        assert_eq!(preview.lines.len(), 1);
+        assert_eq!(preview.lines[0].number, 1);
+        assert_eq!(preview.lines[0].ruler(), Some((5, 4)));
     }
 
     /// A caret counted in characters lands short on a line holding wide glyphs, which

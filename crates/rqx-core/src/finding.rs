@@ -820,6 +820,11 @@ impl fmt::Display for Evidence {
 pub struct Finding {
     pub rule: RuleId,
     pub location: SourceRange,
+    /// The exact range that is the problem, when `location` is the wider statement or
+    /// declaration around it. Absent where the two are the same. `location` stays the
+    /// finding's identity, so a baseline or a waiver written against it keeps matching.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<SourceRange>,
     pub severity: Severity,
     pub confidence: Confidence,
     pub evidence: Evidence,
@@ -835,6 +840,12 @@ pub struct Finding {
 }
 
 impl Finding {
+    /// The range a reader should look at: the focus when the rule narrowed one down,
+    /// the whole location otherwise.
+    pub fn focus_or_location(&self) -> &SourceRange {
+        self.focus.as_ref().unwrap_or(&self.location)
+    }
+
     pub fn rank(&self) -> (Severity, Confidence, RuleId) {
         (self.severity, self.confidence, self.rule)
     }

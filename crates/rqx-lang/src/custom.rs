@@ -127,6 +127,7 @@ pub fn run(
                 fix_hint: rule.hint.clone(),
                 related: Vec::new(),
                 known: false,
+                focus: None,
             });
         }
     }

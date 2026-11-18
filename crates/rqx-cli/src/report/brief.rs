@@ -98,7 +98,7 @@ pub fn render(
             paint(palette.style(Ink::Accent), spec.slug),
             paint(dim, &item.finding.location)
         )?;
-        writeln!(out, "     {}", item.finding.evidence)?;
+        writeln!(out, "     {}", item.finding.message())?;
         writeln!(out, "     {} {}", paint(dim, "Why: "), spec.why)?;
         writeln!(
             out,
@@ -178,7 +178,7 @@ pub fn markdown(outcome: &ScanOutcome, settings: &Resolved, out: &mut dyn Write)
             spec.slug, item.finding.location.file, item.finding.location.line
         )?;
         writeln!(out, "{}\n", spec.why)?;
-        writeln!(out, "- **Measured** {}", item.finding.evidence)?;
+        writeln!(out, "- **Measured** {}", item.finding.message())?;
         writeln!(
             out,
             "- **Refactoring** {}",

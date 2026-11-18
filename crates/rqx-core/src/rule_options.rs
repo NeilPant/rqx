@@ -353,6 +353,7 @@ mod tests {
             fix_hint: String::new(),
             related: Vec::new(),
             known: false,
+            focus: None,
         };
         parsed.adjust(&mut finding);
         assert_eq!(finding.severity, Severity::Error);

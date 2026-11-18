@@ -8,7 +8,7 @@ use rqx_core::finding::{Finding, Severity};
 use rqx_core::rule::RuleId;
 
 use crate::brand::{Ink, Palette, grade_ink, paint, score_ink, severity_ink};
-use crate::preview::{self, HEAD_LINES};
+use crate::preview;
 use crate::regressions::{Regressions, State, named};
 use crate::report::tally::{RuleCount, Tally};
 use crate::report::{Links, Report, plural, wrap};
@@ -48,7 +48,8 @@ pub enum Order {
 pub enum Detail {
     /// One line per finding: where, how bad, which rule, and what it found.
     Terse,
-    /// The reason once per rule and the cost once per file.
+    /// The whole reason once per rule, a one-line reason on every finding, and the cost
+    /// once per file.
     #[default]
     Normal,
     /// Every line on every finding.
@@ -611,7 +612,7 @@ fn write_finding(
             paint(palette.style(ink), finding.severity.label()),
             paint(palette.style(Ink::Muted), place()),
             paint(palette.style(Ink::Accent), finding.slug()),
-            finding.evidence
+            finding.message()
         )
         .map_err(Into::into);
     }
@@ -629,12 +630,15 @@ fn write_finding(
         write_excerpt(out, layout, finding, index)?;
     }
 
-    write_prose(out, layout, 5, "", &finding.evidence.to_string(), None)?;
+    write_prose(out, layout, 5, "", &finding.message(), None)?;
     // A rule the project wrote has already said why in its own message; the
-    // catalogue's rationale belongs to a rule rqx ships.
-    let fresh = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
-    if fresh && !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
-        write_prose(out, layout, 5, "Why: ", spec.why, None)?;
+    // catalogue's rationale belongs to a rule rqx ships. The whole rationale is printed
+    // once per rule; every other finding of it gets the short form, so none is left
+    // without a reason.
+    if !matches!(finding.evidence, rqx_core::finding::Evidence::Custom { .. }) {
+        let first = listing.said.insert(spec.slug) || layout.detail == Detail::Full;
+        let why = if first { spec.why } else { spec.short_why() };
+        write_prose(out, layout, 5, "Why: ", why, None)?;
     }
     if let Some(cost) = cost {
         write_prose(out, layout, 5, "Cost:", cost, Some(Ink::Warn))?;
@@ -677,27 +681,19 @@ fn write_excerpt(
     finding: &Finding,
     index: &LineIndex<'_>,
 ) -> Result<()> {
-    let Some(view) = preview::of(index, &finding.location, layout.context) else {
+    let Some(view) = preview::of_finding(
+        index,
+        &finding.location,
+        finding.focus.as_ref(),
+        layout.context,
+    ) else {
         return Ok(());
     };
     let palette = layout.palette;
     let dim = palette.style(Ink::Muted);
     let ink = severity_ink(finding.severity);
-    let mut elided = view.elided;
 
-    for (position, line) in view.lines.iter().enumerate() {
-        if elided > 0
-            && position == HEAD_LINES + usize::from(layout.context > 0) * layout.context as usize
-        {
-            writeln!(
-                out,
-                "{:6} {} {}",
-                "",
-                paint(dim, "\u{22ee}"),
-                paint(dim, format!("{elided} more lines"))
-            )?;
-            elided = 0;
-        }
+    for line in &view.lines {
         // Context is dimmed so the eye lands on the offending lines first; without it
         // a five-line window reads as five equally important lines.
         let body = match (&line.mark, line.role, palette.is_monochrome()) {
@@ -734,8 +730,21 @@ fn write_excerpt(
                 paint(palette.style(ink), caret)
             )?;
         }
+        if line.gap_after > 0 {
+            writeln!(
+                out,
+                "{:6} {} {}",
+                "",
+                paint(dim, "\u{22ee}"),
+                paint(dim, more_lines(line.gap_after))
+            )?;
+        }
     }
     Ok(())
+}
+
+fn more_lines(count: u32) -> String {
+    format!("{count} more {}", if count == 1 { "line" } else { "lines" })
 }
 
 /// The finding says what is wrong; this says what it costs. A smell in a file
@@ -1073,10 +1082,7 @@ fn write_architecture(
                     finding.location.file, finding.location.line
                 )
             ),
-            paint(
-                layout.palette.style(Ink::Danger),
-                finding.evidence.to_string()
-            )
+            paint(layout.palette.style(Ink::Danger), finding.message())
         )?;
     }
     Ok(())
@@ -1531,6 +1537,30 @@ mod tests {
         );
         assert!(!full.contains("more"), "{full}");
         assert!(full.contains("big-14.ts"), "{full}");
+    }
+
+    #[test]
+    fn every_finding_gets_a_reason_and_the_whole_rationale_is_printed_once() {
+        let outcome = outcome_with(
+            &[
+                ("a.ts", Severity::Error),
+                ("a.ts", Severity::Error),
+                ("a.ts", Severity::Error),
+            ],
+            2,
+        );
+
+        let text = rendered_text(&outcome, &layout());
+
+        let spec = RuleId::LongFunction.spec();
+        assert_eq!(text.matches("Why:  ").count(), 3, "{text}");
+        assert_eq!(text.matches(spec.why).count(), 1, "{text}");
+        assert_eq!(
+            text.matches(&format!("Why:  {}\n", spec.short_why()))
+                .count(),
+            2,
+            "{text}"
+        );
     }
 
     #[test]

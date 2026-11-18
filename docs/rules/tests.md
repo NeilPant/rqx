@@ -11,7 +11,7 @@ a suite that is slow enough to be skipped stops being run, and a test that is no
 | Measures | a sleep or timeout inside a test body above the configured pause |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Fix | Replace Algorithm |
+| Fix | Replace Algorithm / Invert Dependency |
 | Tuned by | `thresholds.slow_test_ms` |
 
 From `fixtures/typescript/suite.test.ts`, line 12:
@@ -55,7 +55,7 @@ a failing run prints two values, and the reader has to count lines to find which
 | Measures | a run of checks in one test with nothing said about any of them |
 | Reported as | info, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Introduce Assertion |
+| Fix | Extract Method |
 | Default | off; name it under `rules.enabled` |
 
 From `fixtures/typescript/suite.test.ts`, line 22:

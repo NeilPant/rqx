@@ -137,6 +137,7 @@ mod tests {
             fix_hint: String::new(),
             related: Vec::new(),
             known: false,
+            focus: None,
         }
     }
 

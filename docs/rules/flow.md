@@ -283,7 +283,7 @@ a value the switch does not anticipate passes through it unhandled, and nothing 
 | Measures | a switch with enough arms to count as one and no arm for the values it does not name |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
-| Fix | Consolidate Conditional / Replace Conditional with Polymorphism |
+| Fix | Introduce Assertion / Replace Conditional with Polymorphism |
 
 From `fixtures/typescript/flow.ts`, line 149:
 
