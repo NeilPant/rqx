@@ -861,8 +861,9 @@ mod tests {
 
     #[test]
     fn quotes_group_words_and_a_backslash_escapes() {
+        // The escaping rules outside Windows; the Windows rules have a test of their own.
         assert_eq!(
-            split_words(r#"graph --focus "src/a b.ts" x\ y 'z'"#).unwrap(),
+            split_words_escaping(r#"graph --focus "src/a b.ts" x\ y 'z'"#, true).unwrap(),
             ["graph", "--focus", "src/a b.ts", "x y", "z"]
         );
         assert!(split_words("graph --focus 'oops").is_err());
