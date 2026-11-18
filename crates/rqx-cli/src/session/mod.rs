@@ -208,11 +208,28 @@ impl App {
         if self.job.is_some() {
             SCANNING_ROWS
         } else {
-            view::idle_rows(self.menu.visible())
+            view::idle_rows(self.menu_rows())
         }
     }
 
+    /// How many suggestions the menu shows at once in the terminal as it is now.
+    fn menu_window(&self) -> usize {
+        menu::window_rows(self.viewport.rows())
+    }
+
+    fn menu_rows(&self) -> u16 {
+        if !self.menu.visible() {
+            return 0;
+        }
+        let window = self.menu_window();
+        view::menu_height(
+            self.menu.shown(window).len(),
+            self.menu.hidden_above() + self.menu.hidden_below(window),
+        )
+    }
+
     fn fit_viewport(&mut self) -> Result<()> {
+        self.menu.reveal(self.menu_window());
         self.viewport.resize(self.wanted_rows())?;
         Ok(())
     }
@@ -233,9 +250,10 @@ impl App {
         }
         let status = self.status();
         let input = self.prompt.text();
+        let window = self.menu_window();
         let rows: Vec<MenuRow<'_>> = self
             .menu
-            .suggestions
+            .shown(window)
             .iter()
             .map(|suggestion| MenuRow {
                 label: &suggestion.label,
@@ -247,7 +265,10 @@ impl App {
             cursor: self.prompt.cursor(),
             menu: self.menu.visible().then_some(Menu {
                 rows: &rows,
-                selected: self.menu.selected,
+                selected: self.menu.selected_in_view(),
+                above: self.menu.hidden_above(),
+                below: self.menu.hidden_below(window),
+                label_width: self.menu.label_width(),
             }),
             status: &status,
         };
@@ -416,6 +437,10 @@ impl App {
             KeyCode::Esc => self.menu.dismissed = true,
             KeyCode::Up => self.up(),
             KeyCode::Down => self.down(),
+            KeyCode::PageUp if self.menu.visible() => self.menu.page(false, self.menu_window()),
+            KeyCode::PageDown if self.menu.visible() => self.menu.page(true, self.menu_window()),
+            KeyCode::Home if self.menu.visible() => self.menu.first(self.menu_window()),
+            KeyCode::End if self.menu.visible() => self.menu.last(self.menu_window()),
             _ => {
                 if self.prompt.edit(key) {
                     self.refresh_menu_after_edit(key);
@@ -470,7 +495,7 @@ impl App {
     /// which hides the menu so the next arrow keeps walking it.
     fn up(&mut self) {
         if self.menu.visible() {
-            self.menu.step(false);
+            self.menu.step(false, self.menu_window());
         } else {
             self.prompt.recall_older();
             self.menu.dismissed = true;
@@ -479,7 +504,7 @@ impl App {
 
     fn down(&mut self) {
         if self.menu.visible() {
-            self.menu.step(true);
+            self.menu.step(true, self.menu_window());
         } else {
             self.prompt.recall_newer();
             self.menu.dismissed = true;

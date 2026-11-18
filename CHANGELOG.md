@@ -9,6 +9,16 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Changed
+
+- **The `/` menu in the session scrolls and lists every match.** It used to show the
+  first six, and the others could be reached only by typing more. It now shows up to
+  10 rows (fewer in a short terminal) that follow the highlight. `↑` and `↓` still wrap
+  at the ends, `pgup` and `pgdn` move by a page, and `home` and `end` jump to the first
+  and last row while the menu is open. A bar on the right edge and an `↑ N more` /
+  `↓ N more` line under the rows show where the window sits in the list. The
+  descriptions keep one column while it scrolls.
+
 ## 0.5.1 — 2026-11-18
 
 

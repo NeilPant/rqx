@@ -118,11 +118,12 @@ diff instead.
 
 | Key | Does |
 |---|---|
-| `←` `→` `home` `end` | move in the line; `ctrl-a` and `ctrl-e` do the same |
+| `←` `→` `home` `end` | move in the line; `ctrl-a` and `ctrl-e` do the same. While the menu is open, `home` and `end` go to its first and last row |
 | `backspace` `delete` | remove before and at the cursor |
 | `ctrl-u` | delete everything before the cursor |
 | `ctrl-w` | delete the word before the cursor |
-| `↑` `↓` | walk the history, or the menu when it is open |
+| `↑` `↓` | walk the history, or the menu when it is open, wrapping at its ends |
+| `pgup` `pgdn` | while the menu is open, move the highlight by one page |
 | `?` on an empty line | print the keys into scrollback |
 | `tab` | accept the highlighted row; with no list open, list the command's flags |
 | `esc` | close the list; it stays closed until a `-` is typed or `tab` is pressed |
@@ -137,9 +138,16 @@ History is kept per user in the platform state directory (`$XDG_STATE_HOME/rqx` 
 
 A line that starts with `/` shows a list of commands under the prompt. Each row has
 the command and the first sentence of `rqx <command> --help`, and `tab` or `enter`
-takes the highlighted row. The list is ranked by how closely the typed letters sit
-together, so `cplx` matches `/complexity`. A line that does not start with `/`
-shows no list.
+takes the highlighted row. The list holds every match, ranked by how closely the
+typed letters sit together, so `cplx` matches `/complexity`. A line that does not
+start with `/` shows no list.
+
+The menu shows up to 10 rows at a time, and fewer in a short terminal so that the
+prompt and the status line always fit. The rows in view follow the highlight. A thin
+bar down the right edge shows where they sit in the list, and a line under the rows
+says how many are above (`↑ 3 more`) and below (`↓ 14 more`). Without colour the bar
+is drawn with `|` and `#`. Typing changes the list and puts the highlight back on its
+first row.
 
 After a command and a space the list stays closed, so a finished line runs on
 `enter`. Typing `-` lists that command's flags, read from the same definition the

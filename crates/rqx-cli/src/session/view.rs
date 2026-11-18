@@ -119,17 +119,41 @@ pub fn progress_lines(
     ]
 }
 
-/// Rows the completion menu reserves under the prompt while it is open.
-pub const MENU_ROWS: u16 = 6;
-
 pub struct MenuRow<'a> {
     pub label: &'a str,
     pub about: &'a str,
 }
 
+/// The rows of the menu that are in view, and how much of the list is not.
 pub struct Menu<'a> {
     pub rows: &'a [MenuRow<'a>],
+    /// The chosen row's place among `rows`.
     pub selected: usize,
+    /// How many suggestions lie above and below the rows.
+    pub above: usize,
+    pub below: usize,
+    /// The widest label in the whole list, so the descriptions keep their column while
+    /// the window moves.
+    pub label_width: usize,
+}
+
+impl Menu<'_> {
+    fn height(&self) -> u16 {
+        menu_height(self.rows.len(), self.above + self.below)
+    }
+
+    fn total(&self) -> usize {
+        self.rows.len() + self.above + self.below
+    }
+}
+
+/// Rows the menu takes under the prompt: the ones in view, and one more that says how
+/// much is out of view when something is.
+pub fn menu_height(shown: usize, hidden: usize) -> u16 {
+    let overflow = u16::from(hidden > 0);
+    u16::try_from(shown)
+        .unwrap_or(u16::MAX)
+        .saturating_add(overflow)
 }
 
 pub struct Idle<'a> {
@@ -139,19 +163,16 @@ pub struct Idle<'a> {
     pub status: &'a str,
 }
 
-/// The rows the viewport needs for this state of the prompt.
-pub const fn idle_rows(menu_open: bool) -> u16 {
-    if menu_open {
-        IDLE_ROWS + MENU_ROWS
-    } else {
-        IDLE_ROWS
-    }
+/// The rows the viewport needs for a prompt with a menu of this height under it, which
+/// is none while the menu is shut.
+pub const fn idle_rows(menu_height: u16) -> u16 {
+    IDLE_ROWS + menu_height
 }
 
 /// The prompt between two rules, across the whole width, with the menu under it when
 /// it is open and the status line last.
 pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
-    let menu_height = if state.menu.is_some() { MENU_ROWS } else { 0 };
+    let menu_height = state.menu.as_ref().map_or(0, Menu::height);
     let [top, prompt, below, bottom, status] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(1),
@@ -183,14 +204,18 @@ pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
 }
 
 fn menu_lines(look: &Look, menu: &Menu<'_>, width: u16) -> Vec<Line<'static>> {
+    let thumb = thumb(menu.rows.len(), menu.above, menu.total());
     let label_width = menu
         .rows
         .iter()
         .map(|row| row.label.width())
         .max()
-        .unwrap_or(0);
-    let room = usize::from(width).saturating_sub(label_width + 4);
-    menu.rows
+        .unwrap_or(0)
+        .max(menu.label_width);
+    let bar_columns = usize::from(thumb.is_some());
+    let room = usize::from(width).saturating_sub(label_width + 4 + bar_columns);
+    let mut lines: Vec<Line<'static>> = menu
+        .rows
         .iter()
         .enumerate()
         .map(|(at, row)| {
@@ -200,12 +225,66 @@ fn menu_lines(look: &Look, menu: &Menu<'_>, width: u16) -> Vec<Line<'static>> {
                 (look.style(Ink::Text), look.dim())
             };
             let padding = " ".repeat(label_width - row.label.width());
-            Line::from(vec![
+            let about_text = clip(row.about, room);
+            let used = label_width + 4 + about_text.width();
+            let mut spans = vec![
                 Span::styled(format!("  {}{padding}  ", row.label), label),
-                Span::styled(clip(row.about, room), about),
-            ])
+                Span::styled(about_text, about),
+            ];
+            if let Some(thumb) = &thumb {
+                let gap = usize::from(width).saturating_sub(used + 1);
+                spans.push(Span::raw(" ".repeat(gap)));
+                spans.push(scrollbar_cell(look, thumb.contains(&at)));
+            }
+            Line::from(spans)
         })
-        .collect()
+        .collect();
+    if menu.above + menu.below > 0 {
+        lines.push(overflow_line(look, menu, width));
+    }
+    lines
+}
+
+/// What is out of view, in the dim ink the descriptions use.
+fn overflow_line(look: &Look, menu: &Menu<'_>, width: u16) -> Line<'static> {
+    let mut parts = Vec::new();
+    if menu.above > 0 {
+        parts.push(format!("\u{2191} {} more", menu.above));
+    }
+    if menu.below > 0 {
+        parts.push(format!("\u{2193} {} more", menu.below));
+    }
+    let text = format!("  {}", parts.join("  "));
+    Line::styled(clip(&text, usize::from(width)), look.dim())
+}
+
+/// The rows of a `window`-tall track that the thumb covers, `None` when the whole list
+/// fits and there is nothing to show. The thumb is as tall as the share of the list in
+/// view, at least one row, and sits where `top` is in the list.
+fn thumb(window: usize, top: usize, total: usize) -> Option<std::ops::Range<usize>> {
+    if window == 0 || total <= window {
+        return None;
+    }
+    let length = ((window * window + total / 2) / total).clamp(1, window.max(2) - 1);
+    let travel = window - length;
+    let scrollable = total - window;
+    let start = (top * travel + scrollable / 2) / scrollable;
+    Some(start..start + length)
+}
+
+/// One cell of the bar. Without colour the thumb and the track are told apart by their
+/// characters alone, and plain ASCII keeps them legible wherever colour is off.
+fn scrollbar_cell(look: &Look, thumb: bool) -> Span<'static> {
+    let (track, grip) = if look.palette.is_monochrome() {
+        ("|", "#")
+    } else {
+        ("\u{2502}", "\u{2588}")
+    };
+    if thumb {
+        Span::styled(grip, look.dim())
+    } else {
+        Span::styled(track, look.palette.rule())
+    }
 }
 
 /// The one pointer at the keys on the left and the project's state on the right. When
@@ -427,7 +506,7 @@ pub fn note(look: &Look, message: &str) -> Line<'static> {
 }
 
 /// The keys, for `?` on an empty prompt.
-const SHORTCUTS: [(&str, &str); 8] = [
+const SHORTCUTS: [(&str, &str); 9] = [
     (
         "/",
         "commands: type to narrow them, tab or enter takes one, esc closes the list; - or tab lists flags",
@@ -435,6 +514,10 @@ const SHORTCUTS: [(&str, &str); 8] = [
     (
         "\u{2191} \u{2193}",
         "walk the history, or the command list while it is open",
+    ),
+    (
+        "pgup pgdn",
+        "a page up or down the open list; home and end jump to its ends",
     ),
     ("text", "a line without a slash searches the findings"),
     ("ctrl-u", "delete to the start of the line"),
@@ -620,7 +703,7 @@ mod tests {
 
     #[test]
     fn an_open_menu_sits_under_the_prompt_with_the_choice_marked() {
-        let mut terminal = Terminal::new(TestBackend::new(60, idle_rows(true))).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(60, idle_rows(2))).unwrap();
         let choices = [
             MenuRow {
                 label: "/plan",
@@ -637,6 +720,9 @@ mod tests {
             menu: Some(Menu {
                 rows: &choices,
                 selected: 1,
+                above: 0,
+                below: 0,
+                label_width: 0,
             }),
             status: "health 82",
         };
@@ -645,14 +731,158 @@ mod tests {
         assert_eq!(shown[1], "> /p");
         assert_eq!(shown[2], "  /plan  Rank the work");
         assert_eq!(shown[3], "  /perf  Where the work grows");
-        assert!(shown[2 + usize::from(MENU_ROWS)].starts_with('\u{2500}'));
-        assert!(shown[3 + usize::from(MENU_ROWS)].ends_with("health 82"));
+        assert!(shown[4].starts_with('\u{2500}'));
+        assert!(shown[5].ends_with("health 82"));
     }
 
     #[test]
-    fn a_closed_menu_takes_no_rows() {
-        assert_eq!(idle_rows(false), IDLE_ROWS);
-        assert_eq!(idle_rows(true), IDLE_ROWS + MENU_ROWS);
+    fn a_closed_menu_takes_no_rows_and_an_open_one_takes_what_it_shows() {
+        assert_eq!(idle_rows(0), IDLE_ROWS);
+        assert_eq!(idle_rows(menu_height(10, 0)), IDLE_ROWS + 10);
+    }
+
+    #[test]
+    fn a_list_longer_than_its_window_takes_one_more_row_for_what_is_hidden() {
+        assert_eq!(menu_height(10, 20), 11);
+        assert_eq!(menu_height(3, 0), 3);
+    }
+
+    fn rows_of<'a>(labels: &'a [String]) -> Vec<MenuRow<'a>> {
+        labels
+            .iter()
+            .map(|label| MenuRow {
+                label,
+                about: "What it does",
+            })
+            .collect()
+    }
+
+    fn coloured() -> Look {
+        Look {
+            palette: Palette::with_depth(ColorDepth::Truecolor),
+        }
+    }
+
+    fn long_menu(rows: &[MenuRow<'_>], above: usize, below: usize) -> Vec<String> {
+        let menu = Menu {
+            rows,
+            selected: 0,
+            above,
+            below,
+            label_width: 0,
+        };
+        menu_lines(&coloured(), &menu, 40)
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    #[test]
+    fn a_long_list_has_a_scrollbar_down_the_right_edge_and_says_what_is_hidden() {
+        let labels: Vec<String> = (0..10).map(|at| format!("/c{at}")).collect();
+        let rows = rows_of(&labels);
+        let lines = long_menu(&rows, 0, 20);
+        assert_eq!(lines.len(), 11, "{lines:?}");
+        for line in &lines[..10] {
+            assert_eq!(line.width(), 40, "{line:?}");
+        }
+        let bar: String = lines[..10]
+            .iter()
+            .map(|line| line.chars().last().unwrap())
+            .collect();
+        assert_eq!(
+            bar,
+            "\u{2588}\u{2588}\u{2588}\u{2502}\u{2502}\u{2502}\u{2502}\u{2502}\u{2502}\u{2502}"
+        );
+        assert_eq!(lines[10].trim(), "\u{2193} 20 more");
+    }
+
+    #[test]
+    fn the_overflow_row_names_both_directions_in_the_middle_of_a_list() {
+        let labels: Vec<String> = (0..10).map(|at| format!("/c{at}")).collect();
+        let rows = rows_of(&labels);
+        let lines = long_menu(&rows, 5, 15);
+        assert_eq!(lines[10].trim(), "\u{2191} 5 more  \u{2193} 15 more");
+        let last = long_menu(&rows, 20, 0);
+        assert_eq!(last[10].trim(), "\u{2191} 20 more");
+    }
+
+    #[test]
+    fn the_descriptions_keep_the_column_of_the_widest_label_in_the_whole_list() {
+        let rows = [MenuRow {
+            label: "/c0",
+            about: "What it does",
+        }];
+        let menu = Menu {
+            rows: &rows,
+            selected: 0,
+            above: 0,
+            below: 5,
+            label_width: 8,
+        };
+        let line = menu_lines(&coloured(), &menu, 40)[0].to_string();
+        assert!(line.starts_with("  /c0       What it does"), "{line}");
+    }
+
+    #[test]
+    fn a_list_that_fits_has_no_scrollbar_and_no_overflow_row() {
+        let labels: Vec<String> = (0..4).map(|at| format!("/c{at}")).collect();
+        let rows = rows_of(&labels);
+        let lines = long_menu(&rows, 0, 0);
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines[0], "  /c0  What it does");
+    }
+
+    #[test]
+    fn the_thumb_is_the_share_of_the_list_in_view_and_moves_with_the_window() {
+        assert_eq!(thumb(10, 0, 10), None);
+        assert_eq!(thumb(10, 0, 5), None);
+        assert_eq!(thumb(10, 0, 30), Some(0..3));
+        assert_eq!(thumb(10, 10, 30), Some(4..7));
+        assert_eq!(thumb(10, 20, 30), Some(7..10));
+        assert_eq!(thumb(10, 0, 100), Some(0..1));
+        assert_eq!(thumb(10, 90, 100), Some(9..10));
+        assert_eq!(thumb(10, 0, 11), Some(0..9));
+        assert_eq!(thumb(10, 1, 11), Some(1..10));
+        assert_eq!(thumb(1, 0, 5), Some(0..1));
+    }
+
+    #[test]
+    fn without_colour_the_scrollbar_is_ascii() {
+        let look = Look {
+            palette: Palette::with_depth(ColorDepth::Monochrome),
+        };
+        let labels: Vec<String> = (0..10).map(|at| format!("/c{at}")).collect();
+        let rows = rows_of(&labels);
+        let menu = Menu {
+            rows: &rows,
+            selected: 0,
+            above: 0,
+            below: 20,
+            label_width: 0,
+        };
+        let lines = menu_lines(&look, &menu, 40);
+        assert!(lines[0].to_string().ends_with('#'));
+        assert!(lines[9].to_string().ends_with('|'));
+    }
+
+    #[test]
+    fn a_narrow_terminal_clips_the_description_and_keeps_the_scrollbar() {
+        let rows = [MenuRow {
+            label: "/complexity",
+            about: "A description far too long for the width it is given here",
+        }];
+        let menu = Menu {
+            rows: &rows,
+            selected: 0,
+            above: 0,
+            below: 20,
+            label_width: 0,
+        };
+        let line = menu_lines(&coloured(), &menu, 30)[0].to_string();
+        assert_eq!(line.width(), 30);
+        assert!(line.contains('\u{2026}'), "{line}");
+        assert!(line.ends_with('\u{2588}') || line.ends_with('\u{2502}'));
     }
 
     #[test]
@@ -684,6 +914,9 @@ mod tests {
             &Menu {
                 rows: &choices,
                 selected: 1,
+                above: 0,
+                below: 0,
+                label_width: 0,
             },
             60,
         );
@@ -698,7 +931,7 @@ mod tests {
         assert_eq!(lines.len(), SHORTCUTS.len());
         let text = lines.join("\n");
         assert!(
-            text.contains("ctrl-d") && text.contains("tab or enter"),
+            text.contains("ctrl-d") && text.contains("tab or enter") && text.contains("pgdn"),
             "{text}"
         );
     }

@@ -16,9 +16,6 @@ use rqx_core::rule::{Category, RuleId};
 use super::commands::{SESSION_ONLY, TWINS, subcommand_of};
 use super::fuzzy::score;
 
-/// How many suggestions the menu shows.
-pub const SHOWN: usize = 6;
-
 /// What a flag, or a command's own argument, takes after it.
 #[derive(Clone)]
 enum Values {
@@ -334,7 +331,6 @@ fn ranked(
     });
     scored
         .into_iter()
-        .take(SHOWN)
         .map(|(_, _, _, suggestion)| suggestion)
         .collect()
 }
@@ -404,7 +400,14 @@ mod tests {
     fn a_bare_slash_offers_the_commands_in_the_order_help_lists_them() {
         let suggestions = catalogue().suggest("/");
         assert_eq!(labels(&suggestions)[0], "/findings");
-        assert_eq!(suggestions.len(), SHOWN);
+    }
+
+    #[test]
+    fn a_bare_slash_offers_every_command_and_cuts_none_off() {
+        let catalogue = catalogue();
+        let suggestions = catalogue.suggest("/");
+        assert_eq!(suggestions.len(), catalogue.entries.len());
+        assert!(suggestions.len() > 10, "{}", suggestions.len());
     }
 
     #[test]
@@ -512,8 +515,8 @@ mod tests {
             .filter_map(|arg| arg.get_long().map(|long| format!("--{long}")))
             .collect();
         let found = catalogue().suggest("/findings -");
-        assert_eq!(found.len(), SHOWN);
-        for suggestion in &found {
+        assert!(found.len() > 6, "{found:?}");
+        for suggestion in &found[..6] {
             assert!(common.contains(&suggestion.label), "{found:?}");
         }
     }
@@ -550,7 +553,7 @@ mod tests {
     #[test]
     fn family_flags_offer_families() {
         let found = catalogue().suggest("/findings --category ");
-        assert_eq!(found.len(), SHOWN.min(Category::ALL.len()));
+        assert_eq!(found.len(), Category::ALL.len());
     }
 
     #[test]

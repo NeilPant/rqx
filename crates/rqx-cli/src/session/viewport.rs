@@ -80,6 +80,10 @@ impl Viewport {
         crossterm::terminal::size().map_or(80, |(columns, _)| columns)
     }
 
+    pub fn rows(&self) -> u16 {
+        crossterm::terminal::size().map_or(24, |(_, rows)| rows)
+    }
+
     pub fn draw(&mut self, render: impl FnOnce(&mut Frame<'_>)) -> io::Result<()> {
         self.screen.draw(render).map(|_| ())
     }
