@@ -6,8 +6,10 @@
 //!
 //! `#` replaces `//` in Python. `time` and `space` are orders in the grammar of
 //! `rqx_core::cost::Order`; `space` is the auxiliary space, counting the call stack.
-//! `rule` names the rules that must fire on the function, separated by commas, and
-//! `none` one that must not.
+//! `rule` names the rules that must fire on the function, separated by commas, `none`
+//! one that must not, and `may` rules that cover the same code under another name, so
+//! that firing counts for nothing and against nothing. `scan-in-loop` and
+//! `linear-op-in-loop` overlap this way on a call that walks a collection in a loop.
 //! `scope=local` says the time is what the function costs on its own, with no call to
 //! another function and no recursion in it, so the per-file extraction alone can be
 //! held to it. Values may hold spaces (`O(n log n)`), so a field runs until the next
@@ -18,7 +20,7 @@ use std::fmt;
 use rqx_core::cost::{Conf, Order};
 
 const TAG: &str = "@complexity";
-const KEYS: [&str; 6] = ["time", "space", "conf", "rule", "none", "scope"];
+const KEYS: [&str; 7] = ["time", "space", "conf", "rule", "none", "may", "scope"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Annotation {
@@ -31,6 +33,7 @@ pub struct Annotation {
     pub conf: Conf,
     pub rule: Option<String>,
     pub none: Option<String>,
+    pub may: Option<String>,
     /// The time is the function's own, with nothing composed in.
     pub local: bool,
 }
@@ -50,7 +53,7 @@ impl fmt::Display for Problem {
 /// How a language starts a line comment, from the file extension.
 pub fn comment_marker(extension: &str) -> Option<&'static str> {
     match extension {
-        "ts" | "js" | "go" | "java" | "cpp" => Some("//"),
+        "ts" | "js" | "go" | "java" | "cpp" | "hpp" => Some("//"),
         "py" => Some("#"),
         _ => None,
     }
@@ -151,6 +154,7 @@ fn annotation(line: usize, target_line: usize, fields: &Fields) -> Result<Annota
         conf: required("conf")?.parse()?,
         rule: get("rule").map(str::to_owned),
         none: get("none").map(str::to_owned),
+        may: get("may").map(str::to_owned),
         local: match get("scope") {
             None => false,
             Some("local") => true,
@@ -207,6 +211,16 @@ mod tests {
         assert_eq!(found.rule.as_deref(), Some("quadratic-via-call"));
         assert_eq!(found.none.as_deref(), Some("sort-in-loop"));
         assert_eq!((found.line, found.target_line), (1, 2));
+    }
+
+    #[test]
+    fn a_rule_that_may_fire_is_recorded_beside_the_ones_that_must_and_must_not() {
+        let found = one(
+            "// @complexity time=O(n) space=O(1) conf=verified rule=scan-in-loop may=linear-op-in-loop\n\
+             function f() {}\n",
+        );
+        assert_eq!(found.rule.as_deref(), Some("scan-in-loop"));
+        assert_eq!(found.may.as_deref(), Some("linear-op-in-loop"));
     }
 
     #[test]

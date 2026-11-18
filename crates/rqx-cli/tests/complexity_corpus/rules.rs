@@ -33,13 +33,19 @@ pub fn scored(corpus: &Corpus) -> BTreeSet<String> {
         .collect()
 }
 
+/// Whether the annotation names the rule in a field.
+fn names(field: Option<&str>, slug: &str) -> bool {
+    field.is_some_and(|rules| rules.split(',').any(|rule| rule == slug))
+}
+
 /// Whether the function is annotated as one the rule must report.
 fn is_wanted(function: &Function, slug: &str) -> bool {
-    function
-        .annotation
-        .rule
-        .as_deref()
-        .is_some_and(|rules| rules.split(',').any(|rule| rule == slug))
+    names(function.annotation.rule.as_deref(), slug)
+}
+
+/// Whether the function is annotated as one the rule may report without being wrong.
+fn is_tolerated(function: &Function, slug: &str) -> bool {
+    names(function.annotation.may.as_deref(), slug)
 }
 
 /// What each scored rule did on the functions of one set.
@@ -53,6 +59,7 @@ pub fn counts(corpus: &Corpus, inference: &Inference, set: Set) -> BTreeMap<Stri
             match (is_wanted(function, slug), inference.fires(function, slug)) {
                 (true, true) => tally.tp += 1,
                 (true, false) => tally.missed += 1,
+                (false, true) if is_tolerated(function, slug) => {}
                 (false, true) => tally.fp += 1,
                 (false, false) => {}
             }
@@ -69,7 +76,7 @@ pub fn explain(corpus: &Corpus, inference: &Inference, ids: &[String]) -> Vec<St
         for slug in &scored {
             let wanted = is_wanted(function, slug);
             let fired = inference.fires(function, slug);
-            if wanted != fired {
+            if wanted != fired && !(fired && is_tolerated(function, slug)) {
                 let what = if wanted { "missed" } else { "fired wrongly" };
                 lines.push(format!("{id}: {slug} {what}"));
             }

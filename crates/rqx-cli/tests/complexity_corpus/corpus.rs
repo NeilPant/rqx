@@ -197,7 +197,7 @@ pub fn language_of(extension: &str) -> Option<&'static str> {
         "py" => Some("python"),
         "go" => Some("go"),
         "java" => Some("java"),
-        "cpp" => Some("cpp"),
+        "cpp" | "hpp" => Some("cpp"),
         _ => None,
     }
 }
