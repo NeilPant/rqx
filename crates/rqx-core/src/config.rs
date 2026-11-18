@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::advice::{AdviceId, Stance};
 use crate::cost::Order;
+use crate::fact_plan::{Fact, FactPlan};
 use crate::finding::{Confidence, Finding, Severity};
 use crate::language::Language;
 use crate::pattern::{Pattern, PatternFamily};
@@ -254,15 +255,22 @@ const fn verified() -> Confidence {
 }
 
 impl RqxConfig {
-    /// Rules and advisories read the same collectors, so a stage runs when either wants it.
-    /// Asking `rules` alone is what would leave the pattern advisories looking at facts
-    /// nothing had collected.
+    /// The facts the rules and advisories this config enables read. Rules and
+    /// advisories read the same collectors, so a stage runs when either wants it.
+    pub fn facts(&self) -> FactPlan {
+        FactPlan::of(self)
+    }
+
+    #[deprecated(
+        since = "0.5.2",
+        note = "decided by the declared tier, which most `Syntax` rules read past; use `facts().builds(Fact::Collected)`"
+    )]
     pub fn needs_semantics(&self) -> bool {
-        self.rules.needs_semantics() || self.patterns.needs(Analysis::Semantics)
+        self.facts().builds(Fact::Collected)
     }
 
     pub fn needs_modules(&self) -> bool {
-        self.rules.needs_modules() || self.patterns.needs(Analysis::Modules)
+        self.facts().builds(Fact::ImportGraph)
     }
 
     /// A name that resolves to nothing would otherwise be a silent no-op, or worse: a
@@ -1005,21 +1013,25 @@ impl Rules {
         self.categories.is_empty() || self.categories.contains(family)
     }
 
+    #[deprecated(
+        since = "0.5.2",
+        note = "decided by the declared tier, which most `Syntax` rules read past; use `RqxConfig::facts`"
+    )]
     pub fn needs_semantics(&self) -> bool {
-        self.needs(Analysis::Semantics)
+        self.reads(Fact::Collected)
     }
 
     /// Resolving the import graph costs a walk of every module's specifiers, so it
     /// runs only when a rule actually reads it.
     pub fn needs_modules(&self) -> bool {
-        self.needs(Analysis::Modules)
+        self.reads(Fact::ImportGraph)
     }
 
-    fn needs(&self, level: Analysis) -> bool {
+    fn reads(&self, fact: Fact) -> bool {
         RuleId::ALL
             .iter()
             .copied()
-            .filter(|rule| rule.spec().analysis >= level)
+            .filter(|rule| rule.facts().contains(&fact))
             .any(|rule| self.enabled(rule))
     }
 

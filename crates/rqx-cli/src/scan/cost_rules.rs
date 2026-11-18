@@ -16,7 +16,7 @@ pub(super) fn wanted(settings: &Resolved) -> bool {
 }
 
 /// The findings for `sites`, in the order the stage found them.
-pub(super) fn staged(sites: Vec<CrossSite>, root: &Path, settings: &Resolved) -> Staged {
+pub(super) fn staged(sites: Vec<CrossSite>, root: &Path) -> Staged {
     let mut at = Positions::new(root);
     let mut staged = Staged::default();
     for site in sites {
@@ -32,7 +32,7 @@ pub(super) fn staged(sites: Vec<CrossSite>, root: &Path, settings: &Resolved) ->
             Vec::new(),
         );
         finding.confidence = site.confidence();
-        staged.accept_if_enabled(settings.for_file(&path), finding);
+        staged.propose(finding);
     }
     staged
 }

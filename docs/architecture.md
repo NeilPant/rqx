@@ -52,8 +52,14 @@ present the result.
    parallelism.
 3. **Per-file analysis.** Each worker calls `analyze_file`. A file larger than
    `scan.max_filesize` is skipped with a reason. Otherwise the worker consults the
-   cache, and on a miss calls `rqx_lang::analyze`, which parses the file and runs
-   every rule that needs only that file. The result is a `FileAnalysis`: findings,
+   cache, and on a miss calls `rqx_lang::analyze_planned`, which parses the file and
+   runs every rule that needs only that file. Which facts it builds is the file's
+   `FactPlan` (`crates/rqx-core/src/fact_plan.rs`): the union of `RuleId::facts` over
+   the rules and advisories enabled for that file, plus what any enabled rule reads
+   from every file, such as the imports the graph is built from. The parse tree's
+   metrics are always built; the scope resolver and the collectors on it are built
+   only when the plan includes them. A rule's declared `Analysis` is documentation and
+   does not decide what is built. The result is a `FileAnalysis`: findings,
    advice, clone sites, module facts, suppressions and other facts the cross-file
    stages need.
 4. **Collector.** One thread receives `ScanMessage` values over a bounded channel
@@ -65,7 +71,12 @@ present the result.
    unused files and exports, layer violations, module size) and git history (churn,
    hotspots, single-author files, stale TODOs, co-change). These stages run on every
    scan, including a fully cached one, because a deleted import changes what the graph
-   says about files that did not change.
+   says about files that did not change. A stage proposes findings and does not
+   decide whether they are reported. `Collector::absorb` admits each one under the
+   settings of the file it is reported in (`Resolved::for_file`), which is the same
+   resolution a per-file finding gets in its worker, and the stages read their
+   thresholds from the same file's settings. A finding that spans files, such as a
+   duplicated block or an import cycle, is judged by the file of its primary location.
 6. **Outcome.** The collector sorts findings, advice and waivers with total keys and
    returns a `ScanOutcome`.
 7. **Gate.** `gate::judge` in `crates/rqx-cli/src/gate.rs` turns an outcome and the
@@ -106,8 +117,9 @@ turns it off.
   fingerprint instead.
 - The index carries a version, which is a hash of the cache format number, the rqx
   package version, a signature of the settings that change what a finding is
-  (thresholds, rule settings, pattern settings, `scan.skip_generated` and the same
-  settings in each directory override), and a fingerprint of the catalogue (every rule
+  (thresholds, rule settings, pattern settings, `scan.skip_generated`, the facts those
+  rule settings build, the project's custom rules, and the same settings in each
+  directory override), and a fingerprint of the catalogue (every rule
   slug, severity, confidence and off-by-default flag, and every advisory slug). A
   different version makes every entry a miss.
 - Only per-file results are cached. The cross-file stages and the git history are

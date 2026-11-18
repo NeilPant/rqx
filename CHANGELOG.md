@@ -110,6 +110,41 @@ them. `tools/release.sh` turns that section into the release notes.
   `self.f()` when `f` is an async method of the enclosing class, and `Type.f()` when
   `f` is an async method of class `Type` in the file. Calls on any other receiver are
   not reported, because the file does not show what that receiver's method returns.
+- **A rule reports the same findings whichever other rules are enabled.** The scan
+  built the scope resolver and the collectors only when an enabled rule declared the
+  `Semantics` or `Modules` analysis, and most rules declared `Syntax` read those
+  collectors too. A configuration that switched the `Semantics` and `Modules` rules off
+  lost findings of rules that were still on, with exit code 0 and no warning. On cobra 1.10.2,
+  disabling every `Semantics` and `Modules` rule and the pattern advisories cut the
+  findings of `Syntax` rules from 401 to 108, and `rules.categories: [flow]` reported
+  nothing at a health of 100. Each rule now names the facts it reads, and the scan
+  builds every fact that an enabled rule or advisory reads. A file in an `overrides`
+  subtree also builds what rules elsewhere read from every file, such as its imports
+  for the import graph, so a file imported only from that subtree is no longer
+  reported as unused. The default configuration already built every fact, and its
+  output is unchanged. Configurations that disable rules, set `categories`, or use
+  `overrides` can report findings they did not report before.
+
+- **`overrides` apply to findings that need the whole project.** The rules decided
+  after the walk, such as `unused-export`, `unused-file`, `wide-fan-in`, `wide-fan-out`,
+  `circular-dependency`, `deep-inheritance`, `oversized-module`, `stale-todo`,
+  `hotspot` and `single-author-file`, read the root configuration. A subtree that
+  disabled one of them, changed its severity or raised its threshold still got its
+  findings at the root's settings. On cobra 1.10.2, an override on `doc/**` that
+  disabled `unused-export` and set `fan_out: 100` still reported 15 `unused-export`
+  and 11 `wide-fan-out` findings there. Every finding is now admitted, and its
+  severity set, under the configuration of the file it is reported in, and these
+  rules read their thresholds from that file's configuration. A finding that involves
+  more than one file, such as a duplicated block or an import cycle, follows the
+  configuration of the file it is reported at. A rule enabled only in a subtree now
+  also reports there. Only configurations with `overrides` see a change.
+
+- **Editing a custom rule invalidates the cache.** The cache key covered thresholds,
+  rule and pattern settings, but not the `rule` entries a project writes. After a
+  custom rule's query or message changed, files that had not changed were served from
+  the cache with the findings of the old query. The custom rules are now part of the
+  key, so the first scan after an edit analyses every file again. Projects without
+  custom rules see no change.
 
 ## 0.5.1 — 2026-11-18
 
