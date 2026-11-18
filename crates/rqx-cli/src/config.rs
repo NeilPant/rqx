@@ -223,7 +223,9 @@ impl Resolved {
     /// files are skipped is part of it because a file served from the cache is not read,
     /// and so is never looked at for the marker that would skip it. The fact plans are
     /// part of it so that an analysis built with fewer facts is never served to a run
-    /// whose rules read more.
+    /// whose rules read more. The project's own rules are part of it because every file's
+    /// analysis runs their queries, and an edited query must not replay the old one's
+    /// findings. An override cannot add rules of its own, so the root's are all there is.
     pub fn signature(&self) -> impl std::hash::Hash + '_ {
         (
             &self.config.thresholds,
@@ -231,6 +233,7 @@ impl Resolved {
             &self.config.patterns,
             self.config.scan.skip_generated,
             self.config.facts(),
+            &self.config.custom,
             self.scopes
                 .iter()
                 .map(|scope| {

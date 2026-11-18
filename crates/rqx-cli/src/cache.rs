@@ -619,6 +619,43 @@ mod tests {
         assert_ne!(before, analysis_version(&Resolved::of(config)));
     }
 
+    /// Every file's analysis runs the project's own queries, so a cache written under
+    /// one query must not serve its findings once the query is edited.
+    #[test]
+    fn editing_a_custom_rule_invalidates_the_cache() {
+        let custom = |query: &str, message: &str| rqx_core::config::CustomRule {
+            id: "no-eval".to_owned(),
+            languages: vec![rqx_core::Language::TypeScript],
+            query: query.to_owned(),
+            message: message.to_owned(),
+            severity: rqx_core::Severity::Warning,
+            family: rqx_core::rule::Category::Safety,
+            confidence: rqx_core::Confidence::Verified,
+            hint: String::new(),
+        };
+        let version_with = |rules: Vec<rqx_core::config::CustomRule>| {
+            let mut config = RqxConfig::default();
+            config.custom = rules;
+            analysis_version(&Resolved::of(config))
+        };
+        let query = "(call_expression function: (identifier) @site (#eq? @site \"eval\"))";
+        let written = version_with(vec![custom(query, "eval runs text as code")]);
+
+        assert_eq!(
+            written,
+            version_with(vec![custom(query, "eval runs text as code")])
+        );
+        assert_ne!(written, version_with(Vec::new()));
+        assert_ne!(
+            written,
+            version_with(vec![custom(
+                &query.replace("eval", "Function"),
+                "eval runs text as code"
+            )])
+        );
+        assert_ne!(written, version_with(vec![custom(query, "do not eval")]));
+    }
+
     fn a_scratch_project(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!("rqx-{name}-{}", std::process::id()));
         std::fs::create_dir_all(root.join(CACHE_DIRECTORY)).unwrap();

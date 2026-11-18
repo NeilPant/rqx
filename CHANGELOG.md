@@ -83,6 +83,13 @@ them. `tools/release.sh` turns that section into the release notes.
   configuration of the file it is reported at. A rule enabled only in a subtree now
   also reports there. Only configurations with `overrides` see a change.
 
+- **Editing a custom rule invalidates the cache.** The cache key covered thresholds,
+  rule and pattern settings, but not the `rule` entries a project writes. After a
+  custom rule's query or message changed, files that had not changed were served from
+  the cache with the findings of the old query. The custom rules are now part of the
+  key, so the first scan after an edit analyses every file again. Projects without
+  custom rules see no change.
+
 ## 0.5.1 — 2026-11-18
 
 
