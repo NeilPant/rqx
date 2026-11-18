@@ -21,7 +21,7 @@ for family in size abstraction change waste coupling flow naming safety tests no
   label "family:$family" "6e6150" "The $family rule family"
 done
 
-for language in typescript python go java cpp; do
+for language in typescript javascript python go java cpp; do
   label "language:$language" "785d3f" "Specific to $language"
 done
 
