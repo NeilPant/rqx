@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+
+use rqx_core::Language;
 use rqx_core::facts::UnusedParameter;
 use tree_sitter::Node;
 
@@ -23,6 +26,9 @@ struct Grader<'a> {
     owner: Vec<SignatureOwner>,
     enclosing: Vec<Option<String>>,
     exported_depth: u32,
+    /// Names the file mentions without calling them, for Python, where a function
+    /// handed to someone else as a callback is told apart only by that.
+    handed_out: HashSet<&'a str>,
     out: Vec<UnusedParameter>,
 }
 
@@ -75,6 +81,62 @@ impl<'a> Grader<'a> {
                 .field_declaring_modifiers
                 .contains(&kind_of(child))
         })
+    }
+
+    /// A function wrapped in a decorator other than `staticmethod` or `classmethod`:
+    /// a route, a fixture, an abstract method, a property setter. Its parameters are
+    /// what the decorator's caller passes.
+    fn is_registered(&self, function: Node<'a>) -> bool {
+        let Some(decorated) = function
+            .parent()
+            .filter(|parent| self.profile.decorated_kinds.contains(&kind_of(*parent)))
+        else {
+            return false;
+        };
+        let mut cursor = decorated.walk();
+        decorated
+            .named_children(&mut cursor)
+            .filter(|child| self.profile.decorator_kinds.contains(&kind_of(*child)))
+            .any(|decorator| {
+                let text = text_of(decorator, self.source)
+                    .trim_start_matches('@')
+                    .trim();
+                !matches!(text, "staticmethod" | "classmethod")
+            })
+    }
+
+    /// A body that only documents, passes or refuses: `...`, `pass`, a docstring, a
+    /// lone `raise`, or `raise NotImplementedError` at the end.
+    fn is_stub(&self, function: Node<'a>) -> bool {
+        let Some(body) = function.child_by_field_name("body") else {
+            return true;
+        };
+        let mut cursor = body.walk();
+        let statements: Vec<Node<'a>> = body
+            .named_children(&mut cursor)
+            .filter(|statement| !self.profile.is_comment(*statement))
+            .collect();
+        let documents = |statement: &Node<'a>| {
+            kind_of(*statement) == "pass_statement"
+                || (kind_of(*statement) == "expression_statement"
+                    && statement
+                        .named_child(0)
+                        .is_some_and(|value| matches!(kind_of(value), "string" | "ellipsis")))
+        };
+        let rest: Vec<&Node<'a>> = statements.iter().filter(|s| !documents(s)).collect();
+        // `raise NotImplementedError` at the end says "subclasses fill this in",
+        // whatever checks come before it.
+        if rest.last().is_some_and(|last| {
+            kind_of(**last) == "raise_statement"
+                && text_of(**last, self.source).contains("NotImplementedError")
+        }) {
+            return true;
+        }
+        match rest.as_slice() {
+            [] => true,
+            [only] if kind_of(**only) == "raise_statement" => true,
+            _ => false,
+        }
     }
 
     fn is_used(&self, name: &str, node: Node<'a>) -> bool {
@@ -136,10 +198,27 @@ impl<'a> Grader<'a> {
         {
             return;
         }
+        // `__exit__(self, kind, value, trace)` has the shape its protocol calls it with,
+        // and a decorated function is called by whatever the decorator handed it to.
+        if name.as_deref().is_some_and(is_protocol_method) || self.is_registered(function) {
+            return;
+        }
+        // Python declares no interfaces, so a base class spells one as methods whose
+        // body only documents or refuses, for subclasses to override; and a function
+        // passed or returned by name is called with whatever its caller supplies.
+        if self.profile.language == Language::Python
+            && (self.is_stub(function)
+                || name
+                    .as_deref()
+                    .is_some_and(|name| self.handed_out.contains(name)))
+        {
+            return;
+        }
 
         let mut unused = Vec::new();
         for (index, parameter) in parameters.iter().enumerate() {
-            if self.declares_a_field(*parameter) {
+            // `*args` and `**kwargs` take whatever a caller passes, used or not.
+            if self.declares_a_field(*parameter) || kind_of(*parameter).contains("splat") {
                 continue;
             }
             let Some((identifier, node)) = self.name_of(*parameter) else {
@@ -255,6 +334,52 @@ impl<'a> Grader<'a> {
     }
 }
 
+/// Every name the file mentions other than to call it or to define it: `return
+/// select`, `parser.Handler = self.on_start`, `register(on_exit)`.
+fn names_used_without_a_call<'s>(
+    profile: &LanguageProfile,
+    source: &'s str,
+    root: Node<'_>,
+) -> HashSet<&'s str> {
+    crate::tree::descendants(root)
+        .into_iter()
+        .filter(|node| profile.is_identifier(*node))
+        .filter(|node| {
+            let Some(parent) = node.parent() else {
+                return false;
+            };
+            // `self.on_start` names `on_start`; the call is around the attribute.
+            let (named, holder) = if kind_of(parent) == "attribute" {
+                if crate::tree::field_name_under(parent, *node) != Some("attribute") {
+                    return false;
+                }
+                (parent, parent.parent())
+            } else {
+                (*node, Some(parent))
+            };
+            let Some(holder) = holder else {
+                return true;
+            };
+            let called = profile.is_call(holder)
+                && holder.child_by_field_name(profile.callee_field) == Some(named);
+            let defined =
+                profile.is_function(holder) && holder.child_by_field_name("name") == Some(named);
+            !called && !defined
+        })
+        .map(|node| text_of(node, source))
+        .collect()
+}
+
+/// `__exit__`, `__eq__`, `__getitem__`: a method the language calls with arguments it
+/// chooses. `__init__` and `__new__` take what the caller constructing the object
+/// passes, so an unused one there is the author's to delete.
+fn is_protocol_method(name: &str) -> bool {
+    name.len() > 4
+        && name.starts_with("__")
+        && name.ends_with("__")
+        && !matches!(name, "__init__" | "__new__")
+}
+
 /// The parameter list a function's callers fill. A Go signature can hold three lists,
 /// receiver, parameters and results, and a function type written in a signature
 /// brings its own, so the one the grammar files under `parameters` is preferred.
@@ -314,6 +439,11 @@ pub fn unused(
         owner: Vec::new(),
         enclosing: Vec::new(),
         exported_depth: 0,
+        handed_out: if profile.language == Language::Python {
+            names_used_without_a_call(profile, source, root)
+        } else {
+            HashSet::new()
+        },
         out: Vec::new(),
     };
     grader.walk(root);

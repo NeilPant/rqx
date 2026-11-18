@@ -5552,8 +5552,9 @@ fn once_per_language(strings: Vec<Spot>) -> Vec<Spot> {
 /// The assignments whose target is a parameter of a function around it, one per
 /// parameter. A name is matched through the scopes rather than by spelling: a local
 /// that happens to share its name with a parameter elsewhere in the file is not one,
-/// and neither is a declaration that introduces a new name. A Go receiver or named
-/// result is not an input, and filling a named result is how a Go function answers.
+/// and neither is a declaration that introduces a new name. A receiver (Go's, or
+/// Python's `self`) or a Go named result is not an input, and filling a named result
+/// is how a Go function answers.
 fn reassigned_parameters(
     profile: &LanguageProfile,
     root: Node<'_>,
@@ -5563,6 +5564,7 @@ fn reassigned_parameters(
     let mut parameter_of: HashMap<(u32, u32), usize> = HashMap::new();
     for (index, binding) in scopes.bindings.iter().enumerate() {
         if binding.kind == BindingKind::Parameter
+            && !profile.self_names.contains(&binding.name.as_str())
             && crate::parameters::is_input_parameter(profile, root, binding.span)
         {
             for reference in &binding.references {

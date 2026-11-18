@@ -174,3 +174,12 @@ class Importer(ABC):
         row = self.read()
         self.write(row)
         return row
+
+
+# unused-parameter: `__exit__` has the arguments the `with` statement passes.
+class Transaction:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, kind, value, trace):
+        return False

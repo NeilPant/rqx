@@ -27,6 +27,19 @@ them. `tools/release.sh` turns that section into the release notes.
   parameter written as a bare type, such as Go's `func(int)`, has no name to report.
   The `TEST(Suite, Name)` macros of GoogleTest are no longer read as two unused
   parameters either.
+- **Python parameters without a type annotation are parameters.** In `def f(x)` the
+  name sits directly in the parameter list, and only typed or defaulted parameters
+  were recognised, so `unused-parameter` and `output-parameter` did not see most
+  Python code. Both now do, which adds findings on Python projects. To keep them to
+  parameters a caller chooses, `unused-parameter` leaves out `self` and `cls`,
+  `*args` and `**kwargs`, names starting with `_`, dunder methods other than
+  `__init__` and `__new__`, functions under a decorator other than `staticmethod` or
+  `classmethod`, method bodies that only document or refuse (`...`, `pass`, a
+  docstring, a lone `raise`, or a closing `raise NotImplementedError`), and functions
+  the file passes or returns by name. `output-parameter` leaves out `self` and `cls`.
+  The name in a keyword argument, `limit` in `StreamReader(limit=limit)`, is no longer
+  read as a new name, and a parameter's default value is no longer read as a
+  parameter.
 - **`long-parameter-list` and `flag-argument` read only the parameters.** They used
   the same last list as `unused-parameter`, so a Go function with six named results
   was reported as taking six parameters, and a `found bool` result as a boolean flag

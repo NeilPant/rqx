@@ -1,5 +1,6 @@
 # Code that resembles a finding and is not one. Every rule should stay silent here.
 import atexit
+import functools
 import re
 import time
 
@@ -123,3 +124,38 @@ def spelled(word: str) -> int:
         "zulu",
     ]
     return code_words.index(word)
+
+
+
+# unused-parameter: signatures fixed by the language, a framework or a caller.
+class Router:
+    def __init__(self) -> None:
+        self.routes: dict = {}
+
+    def route(self, path: str):
+        return functools.partial(self.register, path)
+
+    def register(self, path: str, handler):
+        self.routes[path] = handler
+        return handler
+
+
+ROUTER = Router()
+
+
+@ROUTER.route("/health")
+def health(request):
+    return "ok"
+
+
+class Session:
+    @classmethod
+    def opened(cls, *args, **kwargs):
+        return cls()
+
+    def close(self, _reason):
+        return self
+
+
+def ranked(rows):
+    return sorted(rows, key=lambda row: 0)
