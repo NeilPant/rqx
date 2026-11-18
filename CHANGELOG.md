@@ -75,6 +75,10 @@ them. `tools/release.sh` turns that section into the release notes.
   prefix.** `IDLE_TIMEOUT_SECONDS`, a Go field named `ID`, `IOError` and `IPAddress`
   were reported as interface names with an `I` prefix. A name with no lowercase letter
   is now never reported, and the `I` prefix needs a word after it, as in `IOrder`.
+- **`never-reassigned` sees a `final` or `const` that follows a parenthesis.** The
+  marker was looked for among words separated by spaces, so in `for (final String item
+  : items)` and `catch (final IOException error)` it was read as `(final` and the
+  already-final variable was reported.
 - **`magic-number` leaves out the value of a declaration.** The rule describes itself
   as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
   toward the repeats of `3`, so naming a number, which is the fix the rule recommends,

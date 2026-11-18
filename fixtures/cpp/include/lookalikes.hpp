@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 int scaled(int factor);
 int counted(int items);
@@ -8,6 +9,7 @@ std::string zone_label();
 int timeout_budget();
 int level(int value);
 int spelled(const std::string& word);
+std::size_t longest(const std::vector<std::string>& words);
 
 // no-base-case: `::level` is the free function, not the member calling itself.
 // empty-method: the constructor's work is its member initialiser list.

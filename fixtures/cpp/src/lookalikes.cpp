@@ -74,3 +74,12 @@ int spelled(const std::string& word) {
     };
     return static_cast<int>(std::count(code_words.begin(), code_words.end(), word));
 }
+
+// never-reassigned: a range-for variable already declared const.
+std::size_t longest(const std::vector<std::string>& words) {
+    std::size_t longest = 0;
+    for (const std::string& word : words) {
+        longest = std::max(longest, word.size());
+    }
+    return longest;
+}

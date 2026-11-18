@@ -64,6 +64,19 @@ public class Lookalikes {
         return codeWords.indexOf(word);
     }
 
+    // never-reassigned: a loop variable or a catch parameter already marked final.
+    public int longest(String[] items) {
+        int longest = 0;
+        for (final String item : items) {
+            longest = Math.max(longest, item.length());
+        }
+        try {
+            return Math.addExact(longest, 1);
+        } catch (final ArithmeticException overflow) {
+            return overflow.getMessage().length();
+        }
+    }
+
     // mixed-language-file: an error message that names an update is not SQL.
     public String updateFailure(String id) {
         return "Failed to update user " + id;

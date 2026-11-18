@@ -3843,10 +3843,13 @@ impl<'a> Walker<'a> {
                     .next()
                     .unwrap_or_default()
                     .trim_start();
-                let fixed = profile
-                    .immutable_markers
-                    .iter()
-                    .any(|marker| opens.split_whitespace().any(|word| word == *marker));
+                // Split on punctuation as well as spaces: in `for (final String row :`
+                // and `for (const auto& row :` the marker follows a parenthesis.
+                let fixed = profile.immutable_markers.iter().any(|marker| {
+                    opens
+                        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                        .any(|word| word == *marker)
+                });
                 if !fixed {
                     self.out.never_reassigned.push(Spot {
                         span: Span::new(first.at as u32, first.at as u32 + name.len() as u32),

@@ -128,6 +128,7 @@ int main() {
     Gauge().level(1);
     spelled("a");
     Meter(2).scaled(1);
+    longest({});
     adder(1)(2);
     return 0;
 }
