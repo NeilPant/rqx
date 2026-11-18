@@ -86,6 +86,12 @@ them. `tools/release.sh` turns that section into the release notes.
   the error names the key, the policy file and the flag or variable. Giving the locked
   value is still accepted.
 
+- **`rqx baseline --update` refuses when the count of any rule rises.** It compared only
+  the totals, so an update that added findings of one rule and removed more findings of
+  another was accepted. The error now lists each rule whose count rose, with the recorded
+  and the new count. `--force` still records the new set. For a baseline file written by
+  0.5.0, which has no counts, each rule is compared by its number of entries.
+
 - **`oversized-module` and `cross-language-duplicate` findings counted as project-wide.** The
   health projection after `rqx fix` and the resolved credit in `rqx comment` no longer drop
   them when only some files are re-analysed.

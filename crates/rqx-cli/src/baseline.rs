@@ -123,6 +123,39 @@ impl Baseline {
         self.findings
     }
 
+    /// Each rule whose count is higher in `taken` than here, with both counts. A file
+    /// written before entries carried counts recorded each identity once, so against
+    /// one of those both sides count identities, which is all such a file can answer.
+    pub fn risen_in<'a>(&self, taken: &'a Self) -> Vec<(&'a str, u32, u32)> {
+        let repeats = self.records_repeats();
+        let before = self.by_rule(repeats);
+        taken
+            .by_rule(repeats)
+            .into_iter()
+            .filter_map(|(rule, now)| {
+                let was = before.get(rule).copied().unwrap_or(0);
+                (now > was).then_some((rule, was, now))
+            })
+            .collect()
+    }
+
+    /// How many findings, or with `repeats` off how many identities, of each rule.
+    fn by_rule(&self, repeats: bool) -> BTreeMap<&str, u32> {
+        let mut counts: BTreeMap<&str, u32> = BTreeMap::new();
+        for entry in &self.entries {
+            *counts.entry(entry.rule.as_str()).or_default() +=
+                if repeats { entry.count } else { 1 };
+        }
+        counts
+    }
+
+    /// Whether its entries' counts add up to the findings it was taken over. A file
+    /// written by 0.5.0 has no counts, so when two findings shared an identity they
+    /// add up to less.
+    fn records_repeats(&self) -> bool {
+        self.entries.iter().map(|entry| entry.count).sum::<u32>() == self.findings
+    }
+
     /// The entries, ready to match a scan against as `matching` says.
     pub fn recorded(&self, matching: BaselineMatch) -> Recorded {
         let mut counts: HashMap<Identity, u32> = HashMap::new();
@@ -235,15 +268,9 @@ pub fn take_drawn(
     let outcome = crate::scan::scan_drawn(root, &settings, progress)?;
     let taken = Baseline::of(&outcome);
     if let Some(previous) = &previous
-        && taken.findings() > previous.findings()
         && !force
     {
-        anyhow::bail!(
-            "this would record {} findings against the {} already recorded. \
-             Fix them, or pass --force to accept the larger set.",
-            taken.findings(),
-            previous.findings()
-        );
+        refuse_growth(previous, &taken)?;
     }
     taken.write(&file)?;
     Ok(Taken {
@@ -254,6 +281,37 @@ pub fn take_drawn(
         replaced_findings: previous.as_ref().map(Baseline::findings),
         configured: settings.config.gate.baseline.is_some(),
     })
+}
+
+/// A baseline may shrink, but no rule's count may grow, even where another rule's
+/// fell further: a total alone would let new debt in under a cleanup.
+fn refuse_growth(previous: &Baseline, taken: &Baseline) -> Result<()> {
+    let risen = previous.risen_in(taken);
+    if !risen.is_empty() {
+        let listed: Vec<String> = risen
+            .iter()
+            .map(|(rule, was, now)| format!("{rule} from {was} to {now}"))
+            .collect();
+        anyhow::bail!(
+            "this would record more findings than the baseline holds for {}: {}. \
+             Fix them, or pass --force to accept the larger set.",
+            if risen.len() == 1 {
+                "one rule"
+            } else {
+                "these rules"
+            },
+            listed.join(", ")
+        );
+    }
+    if taken.findings() > previous.findings() {
+        anyhow::bail!(
+            "this would record {} findings against the {} already recorded. \
+             Fix them, or pass --force to accept the larger set.",
+            taken.findings(),
+            previous.findings()
+        );
+    }
+    Ok(())
 }
 
 /// Where the baseline lives: what the gate names, or the conventional path.
@@ -389,5 +447,114 @@ mod tests {
         let written = serde_json::to_value([entry("1", 1), entry("2", 3)]).unwrap();
         assert!(written[0].get("count").is_none(), "{written}");
         assert_eq!(written[1]["count"], 3);
+    }
+
+    /// A baseline over `findings` findings, one entry per `(rule, identity, count)`.
+    fn taken_over(findings: u32, entries: &[(&str, &str, u32)]) -> Baseline {
+        let entries: Vec<String> = entries
+            .iter()
+            .map(|(rule, identity, count)| {
+                format!(
+                    r#"{{"identity": "{identity}", "rule": "{rule}", "file": "a.go", "count": {count}}}"#
+                )
+            })
+            .collect();
+        serde_json::from_str(&format!(
+            r#"{{"version": 1, "created": 0, "rqx": "0.5.1", "findings": {findings}, "entries": [{}]}}"#,
+            entries.join(", ")
+        ))
+        .unwrap()
+    }
+
+    fn refusal(previous: &Baseline, taken: &Baseline) -> Option<String> {
+        refuse_growth(previous, taken)
+            .err()
+            .map(|error| error.to_string())
+    }
+
+    #[test]
+    fn a_rule_that_rises_is_refused_although_the_total_falls() {
+        let previous = taken_over(
+            12,
+            &[("magic-number", "a1", 2), ("unused-parameter", "b1", 10)],
+        );
+        let taken = taken_over(
+            5,
+            &[("magic-number", "a1", 4), ("unused-parameter", "b1", 1)],
+        );
+        assert_eq!(
+            refusal(&previous, &taken).as_deref(),
+            Some(
+                "this would record more findings than the baseline holds for one rule: \
+                 magic-number from 2 to 4. Fix them, or pass --force to accept the larger set."
+            )
+        );
+    }
+
+    #[test]
+    fn every_rule_that_rises_is_listed_and_a_new_rule_rises_from_zero() {
+        let previous = taken_over(3, &[("magic-number", "a1", 3)]);
+        let taken = taken_over(6, &[("deep-nesting", "c1", 1), ("magic-number", "a1", 5)]);
+        let refused = refusal(&previous, &taken).expect("refused");
+        assert!(
+            refused.contains("these rules: deep-nesting from 0 to 1, magic-number from 3 to 5."),
+            "{refused}"
+        );
+    }
+
+    #[test]
+    fn a_baseline_that_no_rule_grows_in_is_accepted() {
+        let previous = taken_over(
+            5,
+            &[("magic-number", "a1", 2), ("unused-parameter", "b1", 3)],
+        );
+        let same = taken_over(
+            5,
+            &[("magic-number", "a2", 2), ("unused-parameter", "b1", 3)],
+        );
+        let smaller = taken_over(1, &[("unused-parameter", "b1", 1)]);
+        assert_eq!(refusal(&previous, &same), None);
+        assert_eq!(refusal(&previous, &smaller), None);
+    }
+
+    /// 0.5.0 wrote one entry per identity and no counts, so its rules can only be
+    /// compared by identity; the total still stops repeats from growing.
+    #[test]
+    fn a_file_without_counts_is_compared_by_identities_and_by_its_total() {
+        let previous = taken_over(
+            5,
+            &[("magic-number", "a1", 1), ("unused-parameter", "b1", 1)],
+        );
+        let same_repeats = taken_over(
+            5,
+            &[("magic-number", "a1", 3), ("unused-parameter", "b1", 2)],
+        );
+        assert_eq!(refusal(&previous, &same_repeats), None);
+
+        let new_identity = taken_over(
+            5,
+            &[
+                ("magic-number", "a1", 2),
+                ("magic-number", "a2", 1),
+                ("unused-parameter", "b1", 2),
+            ],
+        );
+        assert!(
+            refusal(&previous, &new_identity)
+                .expect("refused")
+                .contains("magic-number from 1 to 2"),
+        );
+
+        let more_repeats = taken_over(
+            6,
+            &[("magic-number", "a1", 4), ("unused-parameter", "b1", 2)],
+        );
+        assert_eq!(
+            refusal(&previous, &more_repeats).as_deref(),
+            Some(
+                "this would record 6 findings against the 5 already recorded. \
+                 Fix them, or pass --force to accept the larger set."
+            )
+        );
     }
 }

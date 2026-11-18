@@ -42,13 +42,17 @@ raise it. Only `fail_on` and `max_findings` respect the baseline.
 A baseline that is only ever regenerated with more findings works as a permanent
 exemption. Two mechanisms limit this.
 
-`rqx baseline --update` refuses to record more findings than the previous baseline
-held:
+`rqx baseline --update` refuses to record more findings of any rule than the previous
+baseline held for that rule, even when the total falls:
 
 ```
-Error: this would record 412 findings against the 408 already recorded.
-Fix them, or pass --force to accept the larger set.
+Error: this would record more findings than the baseline holds for these rules:
+deep-nesting from 7 to 9, magic-number from 5 to 6. Fix them, or pass --force to
+accept the larger set.
 ```
+
+A baseline file written by rqx 0.5.0 or earlier has no counts, so each rule is compared
+by its number of entries, and the total number of findings is compared as well.
 
 The ratchet fails the gate whenever the total number of findings exceeds the number
 the baseline recorded. It applies regardless of which files the new findings are in:
@@ -64,7 +68,7 @@ gate:
 ```
 
 After a cleanup, run `rqx baseline --update` on the default branch and commit the
-smaller file. Without `--force`, the recorded total cannot increase.
+smaller file. Without `--force`, the recorded count of a rule cannot increase.
 
 ## Identity
 
