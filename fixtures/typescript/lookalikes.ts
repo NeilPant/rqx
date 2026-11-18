@@ -105,3 +105,36 @@ export function hasOdd(values: Counter): number {
   any += values.any((value) => value > 0);
   return any;
 }
+
+// distant-declaration: the table is read while it is declared, and used on the next line.
+export function spelled(word: string): number {
+  const codeWords = [
+    "alfa",
+    "bravo",
+    "charlie",
+    "delta",
+    "echo",
+    "foxtrot",
+    "golf",
+    "hotel",
+    "india",
+    "juliett",
+    "kilo",
+    "lima",
+    "mike",
+    "november",
+    "oscar",
+    "papa",
+    "quebec",
+    "romeo",
+    "sierra",
+    "tango",
+    "uniform",
+    "victor",
+    "whiskey",
+    "xray",
+    "yankee",
+    "zulu",
+  ];
+  return codeWords.indexOf(word);
+}

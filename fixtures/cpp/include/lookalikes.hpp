@@ -7,6 +7,7 @@ std::string update_failure(const std::string& id);
 std::string zone_label();
 int timeout_budget();
 int level(int value);
+int spelled(const std::string& word);
 
 // no-base-case: `::level` is the free function, not the member calling itself.
 struct Gauge {

@@ -55,14 +55,14 @@ one decision is spread across files that must be edited together, and nothing in
 | Reads | the syntax tree alone |
 | Fix | Extract Class / Move Method |
 
-From `fixtures/go/fixtures/lookalikes.go`, line 1:
+From `fixtures/python/__main__.py`, line 1:
 
-```go
-// Code that resembles a finding and is not one. Every rule should stay silent here.
-package fixtures
+```python
+from .bloat import Spiral, Catalogue, Formatting, Overgrown, SameAsOvergrown, crowded_scope, deeply_nested, too_many_parameters, widely_guarded, loops, many_paths, spread_out
+from .clean import add, describe
 ```
 
-Suggested fix: the decision these two share has no home; move it into one place so `main.go` stops needing an edit every time this file does
+Suggested fix: the decision these two share has no home; move it into one place so `lookalikes.py` stops needing an edit every time this file does
 
 ## `divergent-change`
 

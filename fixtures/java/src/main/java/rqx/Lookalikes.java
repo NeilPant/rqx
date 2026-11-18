@@ -31,6 +31,39 @@ public class Lookalikes {
         return start + items.length;
     }
 
+    // distant-declaration: the table is read while it is declared, and used on the next line.
+    public int spelled(String word) {
+        final java.util.List<String> codeWords = java.util.List.of(
+            "alfa",
+            "bravo",
+            "charlie",
+            "delta",
+            "echo",
+            "foxtrot",
+            "golf",
+            "hotel",
+            "india",
+            "juliett",
+            "kilo",
+            "lima",
+            "mike",
+            "november",
+            "oscar",
+            "papa",
+            "quebec",
+            "romeo",
+            "sierra",
+            "tango",
+            "uniform",
+            "victor",
+            "whiskey",
+            "xray",
+            "yankee",
+            "zulu"
+        );
+        return codeWords.indexOf(word);
+    }
+
     // mixed-language-file: an error message that names an update is not SQL.
     public String updateFailure(String id) {
         return "Failed to update user " + id;

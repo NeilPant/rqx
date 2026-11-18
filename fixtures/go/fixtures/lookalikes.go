@@ -124,3 +124,41 @@ func HasOdd(values []int) bool {
 	}
 	return any
 }
+
+// distant-declaration: the table is read while it is declared, and used on the next line.
+func Spelled(word string) int {
+	codeWords := []string{
+		"alfa",
+		"bravo",
+		"charlie",
+		"delta",
+		"echo",
+		"foxtrot",
+		"golf",
+		"hotel",
+		"india",
+		"juliett",
+		"kilo",
+		"lima",
+		"mike",
+		"november",
+		"oscar",
+		"papa",
+		"quebec",
+		"romeo",
+		"sierra",
+		"tango",
+		"uniform",
+		"victor",
+		"whiskey",
+		"xray",
+		"yankee",
+		"zulu",
+	}
+	for index, known := range codeWords {
+		if known == word {
+			return index
+		}
+	}
+	return -1
+}

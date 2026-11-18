@@ -1,6 +1,9 @@
 // Code that resembles a finding and is not one. Every rule should stay silent here.
 #include "lookalikes.hpp"
 
+#include <algorithm>
+#include <vector>
+
 // distant-declaration, short-name-wide-scope: `tz` belongs to the module, so being
 // read at the bottom of the file is where it belongs.
 const std::string tz = "UTC";
@@ -37,4 +40,37 @@ int timeout_budget() {
 
 int level(int value) {
     return value < 0 ? 0 : value;
+}
+
+// distant-declaration: the table is read while it is declared, and used on the next line.
+int spelled(const std::string& word) {
+    const std::vector<std::string> code_words = {
+        "alfa",
+        "bravo",
+        "charlie",
+        "delta",
+        "echo",
+        "foxtrot",
+        "golf",
+        "hotel",
+        "india",
+        "juliett",
+        "kilo",
+        "lima",
+        "mike",
+        "november",
+        "oscar",
+        "papa",
+        "quebec",
+        "romeo",
+        "sierra",
+        "tango",
+        "uniform",
+        "victor",
+        "whiskey",
+        "xray",
+        "yankee",
+        "zulu",
+    };
+    return static_cast<int>(std::count(code_words.begin(), code_words.end(), word));
 }

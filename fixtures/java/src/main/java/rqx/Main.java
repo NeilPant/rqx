@@ -129,5 +129,6 @@ public class Main {
         new Lookalikes().updateFailure("a");
         new Lookalikes().timeoutBudget();
         new Lookalikes().total(new String[0]);
+        new Lookalikes().spelled("a");
     }
 }

@@ -5017,18 +5017,25 @@ fn short_names(scopes: &Scopes, source: &str, scope_lines: u32) -> Vec<Spot> {
 /// A binding declared far above the line that first reads it makes a reader hold it
 /// in mind across everything in between. Only locals count: a module constant read at
 /// the bottom of the file is where it belongs.
-fn distant_declarations(scopes: &Scopes, source: &str, distance: u32) -> Vec<Spot> {
+fn distant_declarations(
+    profile: &LanguageProfile,
+    root: Node<'_>,
+    scopes: &Scopes,
+    source: &str,
+    distance: u32,
+) -> Vec<Spot> {
     let mut spots: Vec<Spot> = locals_inside_a_body(scopes)
         .filter(|binding| !binding.name.starts_with('_'))
         .filter_map(|binding| {
+            let declared = declaration_end(profile, root, binding.span);
             let first = binding
                 .references
                 .iter()
                 .map(|span| span.start)
-                .filter(|start| *start > binding.span.end)
+                .filter(|start| *start > declared)
                 .min()?;
             let lines = source
-                .get(binding.span.end as usize..first as usize)
+                .get(declared as usize..first as usize)
                 .map_or(0, |text| text.lines().count() as u32);
             (lines > distance).then(|| Spot {
                 span: binding.span,
@@ -5039,6 +5046,25 @@ fn distant_declarations(scopes: &Scopes, source: &str, distance: u32) -> Vec<Spo
         .collect();
     spots.sort_by_key(|spot| spot.span.start);
     spots
+}
+
+/// Where the declaration of a name ends. A table or an object written across sixty
+/// lines is read while it is declared, so the distance to the first use starts after
+/// it. A name bound by a loop or a `with` has no declaration of its own to end.
+fn declaration_end(profile: &LanguageProfile, root: Node<'_>, name: Span) -> u32 {
+    let mut current = root.descendant_for_byte_range(name.start as usize, name.end as usize);
+    for _ in 0..4 {
+        let Some(node) = current else {
+            break;
+        };
+        let kind = kind_of(node);
+        if profile.declarator_kinds.contains(&kind) || profile.local_declaring_kinds.contains(&kind)
+        {
+            return node.end_byte() as u32;
+        }
+        current = node.parent();
+    }
+    name.end
 }
 
 /// A name an import binds and the file never mentions again. Read from the module
@@ -5473,8 +5499,13 @@ pub fn collect_over(
 
     out.unused_locals = unused_locals(scopes);
     out.short_names = short_names(scopes, source, limits.short_name_scope_lines);
-    out.distant_declarations =
-        distant_declarations(scopes, source, limits.declaration_distance_lines);
+    out.distant_declarations = distant_declarations(
+        profile,
+        root,
+        scopes,
+        source,
+        limits.declaration_distance_lines,
+    );
     scan_comments(profile, source, nodes, limits, &mut out);
 
     out.mutated_parameters = reassigned_parameters(

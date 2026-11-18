@@ -82,3 +82,36 @@ export function laterEach(rows) {
   }
   return out;
 }
+
+// distant-declaration: the table is read while it is declared, and used on the next line.
+export function spelled(word) {
+  const codeWords = [
+    "alfa",
+    "bravo",
+    "charlie",
+    "delta",
+    "echo",
+    "foxtrot",
+    "golf",
+    "hotel",
+    "india",
+    "juliett",
+    "kilo",
+    "lima",
+    "mike",
+    "november",
+    "oscar",
+    "papa",
+    "quebec",
+    "romeo",
+    "sierra",
+    "tango",
+    "uniform",
+    "victor",
+    "whiskey",
+    "xray",
+    "yankee",
+    "zulu",
+  ];
+  return codeWords.indexOf(word);
+}

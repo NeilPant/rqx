@@ -126,6 +126,7 @@ int main() {
     zone_label();
     timeout_budget();
     Gauge().level(1);
+    spelled("a");
     adder(1)(2);
     return 0;
 }

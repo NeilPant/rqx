@@ -89,3 +89,37 @@ def suffixed(text: str, suffixes: list[str]) -> list[str]:
 def first_truthy(values: list[int]) -> int:
     Any = max(values, default=0)
     return Any * 2 if Any else 0
+
+
+
+# distant-declaration: the table is read while it is declared, and used on the next line.
+def spelled(word: str) -> int:
+    code_words = [
+        "alfa",
+        "bravo",
+        "charlie",
+        "delta",
+        "echo",
+        "foxtrot",
+        "golf",
+        "hotel",
+        "india",
+        "juliett",
+        "kilo",
+        "lima",
+        "mike",
+        "november",
+        "oscar",
+        "papa",
+        "quebec",
+        "romeo",
+        "sierra",
+        "tango",
+        "uniform",
+        "victor",
+        "whiskey",
+        "xray",
+        "yankee",
+        "zulu",
+    ]
+    return code_words.index(word)
