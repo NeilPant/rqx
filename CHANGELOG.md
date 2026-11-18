@@ -77,6 +77,7 @@ them. `tools/release.sh` turns that section into the release notes.
   `file://server/share/a.py` is read as the path `//server/share/a.py`. It used to
   be read as the relative path `server/share/a.py`, which could attach a result to
   the wrong file. A drive path such as `file:///C:/work/a.py` is read as before.
+
 - **`self-asserting-test` compares the two sides of a check as wholes.** In 0.5.1 it
   reported any check that held the same call twice anywhere in it, so
   `expect(window(at(8), at(12))).toEqual([{ start: at(8) }])`, where a helper builds
