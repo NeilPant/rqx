@@ -173,14 +173,30 @@ pub fn function_name(declaration: &str) -> Option<String> {
     let line = line.strip_prefix("func (").map_or(line, |rest| {
         rest.split_once(')').map_or(rest, |(_, after)| after)
     });
-    let before_parameters = line.split('(').next()?;
+    let before_parameters = without_type_arguments(line.split('(').next()?);
     let before_assignment = before_parameters
         .split_once('=')
-        .map_or(before_parameters, |(name, _)| name);
+        .map_or(before_parameters.as_str(), |(name, _)| name);
     before_assignment
         .split(|c: char| !(c.is_alphanumeric() || c == '_'))
         .rfind(|word| !word.is_empty())
         .map(str::to_owned)
+}
+
+/// `text` without anything between angle brackets, so that `Map<K, V> find` and
+/// `sort<T extends Record<string, any>>` leave the name last.
+fn without_type_arguments(text: &str) -> String {
+    let mut depth = 0_u32;
+    let mut kept = String::new();
+    for character in text.chars() {
+        match character {
+            '<' => depth += 1,
+            '>' if depth > 0 => depth -= 1,
+            _ if depth == 0 => kept.push(character),
+            _ => {}
+        }
+    }
+    kept
 }
 
 #[cfg(test)]
@@ -336,6 +352,11 @@ mod tests {
                 "long long sum_all(const std::vector<int>& values) {",
                 "sum_all",
             ),
+            (
+                "export function sortKeys<T extends Record<string, any>>(obj: T): T {",
+                "sortKeys",
+            ),
+            ("    public Node<K, V> first() {", "first"),
         ];
         for (declaration, expected) in cases {
             assert_eq!(function_name(declaration).as_deref(), Some(expected));
