@@ -172,6 +172,7 @@ Every threshold is the highest acceptable value: a finding fires strictly above 
 | `data_clump_sites` | 3 | `data-clump` |
 | `short_name_scope_lines` | 25 | `short-name-wide-scope` |
 | `slow_test_ms` | 100 | `slow-test` |
+| `test_decisions` | 2 | `branching-test` |
 | `boundary_repeats` | 3 | `boundary-arithmetic` |
 | `declaration_distance_lines` | 20 | `distant-declaration` |
 | `expression_operations` | 6 | `obscured-expression` |

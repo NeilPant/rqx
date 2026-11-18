@@ -776,6 +776,9 @@ pub struct Thresholds {
     pub short_name_scope_lines: u32,
     /// Milliseconds a test may pause: a longer pause is wall clock on every run. Tunes `slow-test`.
     pub slow_test_ms: u32,
+    /// Decisions one test body may make before it is reported. An `if` that only fails
+    /// the test and a loop over a table of cases are not counted. Tunes `branching-test`.
+    pub test_decisions: u32,
     /// Times the same off-by-one boundary arithmetic may repeat. Tunes `boundary-arithmetic`.
     pub boundary_repeats: u32,
     /// Lines a reader must hold a binding in mind before its first use is too far. Tunes `distant-declaration`.
@@ -792,7 +795,7 @@ impl Thresholds {
     /// Which rules each threshold moves. A number in a config file is not an answer on
     /// its own: "what will change if I raise this" is the question, and nothing else in
     /// the tool could answer it.
-    pub const TUNES: [(&'static str, &'static [RuleId]); 44] = [
+    pub const TUNES: [(&'static str, &'static [RuleId]); 45] = [
         ("long_function_statements", &[RuleId::LongFunction]),
         ("cognitive_complexity", &[RuleId::CognitiveComplexity]),
         ("nesting_depth", &[RuleId::DeepNesting]),
@@ -838,6 +841,7 @@ impl Thresholds {
         ("data_clump_sites", &[RuleId::DataClump]),
         ("short_name_scope_lines", &[RuleId::ShortNameWideScope]),
         ("slow_test_ms", &[RuleId::SlowTest]),
+        ("test_decisions", &[RuleId::BranchingTest]),
         ("boundary_repeats", &[RuleId::BoundaryArithmetic]),
         ("declaration_distance_lines", &[RuleId::DistantDeclaration]),
         ("expression_operations", &[RuleId::ObscuredExpression]),
@@ -912,6 +916,7 @@ impl Default for Thresholds {
             data_clump_sites: 3,
             short_name_scope_lines: 25,
             slow_test_ms: 100,
+            test_decisions: 2,
             boundary_repeats: 3,
             declaration_distance_lines: 20,
             expression_operations: 6,
@@ -1770,6 +1775,7 @@ mod tests {
                     t.data_clump_sites,
                     t.short_name_scope_lines,
                     t.slow_test_ms,
+                    t.test_decisions,
                     t.boundary_repeats,
                     t.declaration_distance_lines,
                     t.expression_operations,

@@ -1372,7 +1372,7 @@ catalogue! {
         metric: "a decision inside a test body",
         fixes: [ExtractMethod, DecomposeConditional],
         confidence: Verified,
-        severity: Warning,
+        severity: Info,
         why: "a test that branches has paths of its own and nothing says which one ran, so a \
               passing result no longer shows that the case was checked",
     },

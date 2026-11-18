@@ -50,6 +50,51 @@ them. `tools/release.sh` turns that section into the release notes.
   underlines only that range and shows the rest of its statement as a count of lines.
   A multi-line finding with no focus shows its first line and `⋮ N more lines` instead of
   one row of carets per line.
+- **`thresholds.test_decisions` sets how many decisions a test body may make before
+  `branching-test` reports it.** The default is 2. The key can also be written as
+  `rules.branching-test.test_decisions`. An `if` whose arms only fail or skip the test
+  (`if got != want { t.Errorf(...) }`) is not counted, and neither is a loop over a table
+  of cases written in the test (`for _, tt := range tests`, `for (const row of [...])`) or
+  a loop driven by a benchmark's handle (`for i := 0; i < b.N; i++`).
+
+### Changed
+
+- **`branching-test` reports at `info` instead of `warning`, and only when a test makes
+  more decisions than `thresholds.test_decisions`.** In 0.5.0 a single `if`, loop or
+  switch anywhere in a test was reported. Set `rules.branching-test.severity: warning` to
+  keep the previous severity, and `thresholds.test_decisions: 0` to report every counted
+  decision.
+
+### Fixed
+
+- **`assertionless-test` recognises the standard assertions of each supported test
+  framework.** In 0.5.0 only the first segment of a call was compared against a short
+  list, so `t.Errorf`, `self.assertIn` and `EXPECT_NE` were not assertions.
+  - Go: `Error`, `Errorf`, `Fatal`, `Fatalf`, `Fail` and `FailNow` on the test's
+    `*testing.T`, `*testing.B`, `*testing.F` or `testing.TB`, and on `s.T()`; any call
+    that passes that handle on, such as `checkOutput(t, got)`; a subtest passed by name,
+    `t.Run(name, tc.test)`; Gomega's `Expect`, `Eventually` and `Consistently`;
+    testify's `Fail` and `FailNow`, and suite assertions written through `s.Require()` and
+    `s.Assert()`. Benchmarks and fuzz targets are not reported.
+  - Python: every unittest `self.assert*` method and `self.fail`, mock's `assert_*`
+    methods, `pytest.raises`, `pytest.warns`, `pytest.deprecated_call`, `pytest.fail`, and
+    `ThreadingMock`'s `wait_until_called` and `wait_until_any_call_with`.
+  - Java: every JUnit `assert*` method and `fail`, AssertJ's `assertThat*`, Mockito's
+    `verify*`, and JUnit 4's `@Test(expected = ...)`. A constructor of a class whose name
+    starts with `Test` is no longer read as a test.
+  - TypeScript and JavaScript: Chai's `should` chains, `sinon.assert`, `t.assert`, `fail`,
+    and functions named `expect*` or `assert*`.
+  - C++: every GoogleTest and GoogleMock `EXPECT_*` and `ASSERT_*` macro, including
+    `ASSERT_THROW` with a type argument; `FAIL`, `ADD_FAILURE` and `GTEST_FAIL`; Catch2
+    and doctest `REQUIRE*` and `CHECK*`; Boost.Test `BOOST_CHECK*`, `BOOST_REQUIRE*`,
+    `BOOST_TEST`, `BOOST_FAIL` and `BOOST_ERROR`; and `static_assert`.
+  - Every language: a call to a function declared in the same file that asserts counts as
+    an assertion, if the test calls it bare, through `self` or `this`, or from inside the
+    function that declares it.
+- **A call that does not pass a function body is no longer analysed as a test
+  registration.** In Python, `test.assertEqual(3, 2)` was read as a call to `test(...)`
+  registering a test and was reported by `assertionless-test` and `empty-test`.
+  `it("name", handler)` in TypeScript and JavaScript was reported the same way.
 
 ## 0.5.0 — 2026-11-18
 

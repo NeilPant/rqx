@@ -30,6 +30,39 @@ struct PerfFrame {
     statement_loops: u32,
 }
 
+/// Functions in one file that assert, each with the stretch of source that can call
+/// it: the whole file for one declared at the top or in a class, its enclosing
+/// function for one declared inside a function.
+#[derive(Default)]
+struct Helpers {
+    known: Vec<(String, Option<std::ops::Range<usize>>)>,
+}
+
+impl Helpers {
+    fn reaches(&self, name: &str, call: Node<'_>) -> bool {
+        self.known.iter().any(|(known, scope)| {
+            known == name
+                && scope
+                    .as_ref()
+                    .is_none_or(|scope| scope.contains(&call.start_byte()))
+        })
+    }
+
+    fn is_empty(&self) -> bool {
+        self.known.is_empty()
+    }
+}
+
+/// What one statement in the arm of an `if` inside a test does to the test.
+enum Ending {
+    /// Fails or skips it.
+    Fails,
+    /// Leaves the arm without doing anything of its own: a `return`, or a `t.Logf`.
+    Leaves,
+    /// Carries on with work of its own, so the arm is a path the test takes.
+    Continues,
+}
+
 struct Walker<'a> {
     profile: &'static LanguageProfile,
     source: &'a str,
@@ -53,6 +86,8 @@ struct Walker<'a> {
     /// walk is over, so the rules that need it run after it.
     holds_tests: bool,
     block_depth: u32,
+    /// Functions in this file that assert, so a test calling one asserts through it.
+    asserting_helpers: Helpers,
 }
 
 impl<'a> Walker<'a> {
@@ -140,12 +175,6 @@ impl<'a> Walker<'a> {
             .count() as u32
     }
 
-    /// Looks for an assertion anywhere in the test's body rather than tracking a
-    /// stack, because a helper called from the test is still the test asserting.
-    fn body_asserts(&self, body: Node<'a>) -> bool {
-        descendants(body).into_iter().any(|node| self.asserts(node))
-    }
-
     /// One node that checks something, whether the language spells a check as a call
     /// or as a statement of its own.
     fn asserts(&self, node: Node<'a>) -> bool {
@@ -160,6 +189,387 @@ impl<'a> Walker<'a> {
             && self
                 .called_name(node)
                 .is_some_and(|name| self.profile.test.is_assertion(&name))
+    }
+
+    /// The names a runner's handle goes by inside `scope`: the test's own `t`, and the
+    /// `t` of every subtest written in it.
+    fn test_handles(&self, scope: Node<'a>) -> Vec<&'a str> {
+        let profile = self.profile;
+        if profile.test.handle_types.is_empty() {
+            return Vec::new();
+        }
+        let mut handles = Vec::new();
+        for parameter in descendants(scope)
+            .into_iter()
+            .filter(|node| profile.parameter_kinds.contains(&kind_of(node)))
+        {
+            let typed_as_handle = parameter
+                .child_by_field_name("type")
+                .is_some_and(|written| profile.test.is_handle_type(self.text(written)));
+            if typed_as_handle {
+                let mut cursor = parameter.walk();
+                handles.extend(
+                    parameter
+                        .children_by_field_name("name", &mut cursor)
+                        .map(|name| self.text(name)),
+                );
+            }
+        }
+        handles
+    }
+
+    /// Looks for a check anywhere in the test's body rather than tracking a stack,
+    /// because a subtest or a closure written in the test is still the test checking.
+    fn body_verifies(&self, body: Node<'a>, handles: &[&str], helpers: &Helpers) -> bool {
+        descendants(body)
+            .into_iter()
+            .any(|node| self.verifies(node, handles, helpers))
+    }
+
+    /// One node that checks something on the test's behalf: an assertion, a call that
+    /// fails the test, a call that hands the runner's handle to a helper, or a call to
+    /// a function in this file that asserts.
+    fn verifies(&self, node: Node<'a>, handles: &[&str], helpers: &Helpers) -> bool {
+        let profile = self.profile;
+        let vocabulary = &profile.test;
+        let kind = kind_of(node);
+        if profile.assertion_statement_kinds.contains(&kind)
+            || vocabulary.assertion_kinds.contains(&kind)
+        {
+            return true;
+        }
+        if vocabulary.misread_call_kinds.contains(&kind) {
+            return node
+                .child_by_field_name("declarator")
+                .is_some_and(|macro_name| vocabulary.checks(self.text(macro_name)));
+        }
+        if !profile.is_call(node) {
+            return false;
+        }
+        let named = self.called_name(node).is_some_and(|name| {
+            vocabulary.checks(&name)
+                || vocabulary.fails_on_handle(&name, handles)
+                || self.names_a_helper(&name, node, helpers)
+        });
+        named || self.hands_on_a_handle(node, handles) || self.hands_on_a_helper(node, helpers)
+    }
+
+    /// `t.Run(name, tc.test)`: the subtest is a helper passed by name.
+    fn hands_on_a_helper(&self, call: Node<'a>, helpers: &Helpers) -> bool {
+        let profile = self.profile;
+        !helpers.is_empty()
+            && call
+                .child_by_field_name("arguments")
+                .is_some_and(|arguments| {
+                    let mut cursor = arguments.walk();
+                    arguments.named_children(&mut cursor).any(|argument| {
+                        (profile.is_identifier(argument) || profile.is_member_access(argument))
+                            && self
+                                .text(argument)
+                                .rsplit('.')
+                                .next()
+                                .is_some_and(|name| helpers.reaches(name, call))
+                    })
+                })
+    }
+
+    /// A helper is called bare or on the object it is a method of. Anything else
+    /// named the same belongs to some other type.
+    fn names_a_helper(&self, name: &str, call: Node<'a>, helpers: &Helpers) -> bool {
+        match name.rsplit_once('.') {
+            None => helpers.reaches(name, call),
+            Some((receiver, method)) => {
+                self.profile.self_names.contains(&receiver) && helpers.reaches(method, call)
+            }
+        }
+    }
+
+    fn hands_on_a_handle(&self, call: Node<'a>, handles: &[&str]) -> bool {
+        !handles.is_empty()
+            && call
+                .child_by_field_name("arguments")
+                .is_some_and(|arguments| {
+                    let mut cursor = arguments.walk();
+                    arguments.named_children(&mut cursor).any(|argument| {
+                        self.profile.is_identifier(argument)
+                            && handles.contains(&self.text(argument))
+                    })
+                })
+    }
+
+    /// The name a function is called by, whether it is declared with one or bound to
+    /// one: `const expectSame = () => ...`.
+    fn defined_name(&self, function: Node<'a>) -> Option<&'a str> {
+        if let Some(name) = self.function_name(function) {
+            return Some(self.text(name));
+        }
+        let parent = function.parent()?;
+        self.profile
+            .binding_fields
+            .iter()
+            .find_map(|field| parent.child_by_field_name(field))
+            .filter(|name| self.profile.is_identifier(*name))
+            .map(|name| self.text(name))
+    }
+
+    /// Functions in this file that assert. Settled over a few rounds, because one
+    /// helper can assert through another.
+    fn find_asserting_helpers(&self) -> Helpers {
+        const ROUNDS: usize = 3;
+        let profile = self.profile;
+        let functions: Vec<(&'a str, Node<'a>, Node<'a>)> = self
+            .nodes
+            .iter()
+            .filter(|node| profile.is_function(*node))
+            .filter_map(|function| {
+                Some((
+                    self.defined_name(function)?,
+                    function,
+                    self.function_body(function)?,
+                ))
+            })
+            .collect();
+        let mut helpers = Helpers::default();
+        let mut settled = vec![false; functions.len()];
+        for _ in 0..ROUNDS {
+            let found: Vec<usize> = functions
+                .iter()
+                .enumerate()
+                .filter(|(at, _)| !settled[*at])
+                .filter(|(_, (_, function, body))| {
+                    self.body_verifies(*body, &self.test_handles(*function), &helpers)
+                })
+                .map(|(at, _)| at)
+                .collect();
+            if found.is_empty() {
+                break;
+            }
+            for at in found {
+                settled[at] = true;
+                let (name, function, _) = functions[at];
+                let scope = self
+                    .enclosing_function(function)
+                    .map(|outer| outer.start_byte()..outer.end_byte());
+                helpers.known.push((name.to_owned(), scope));
+            }
+        }
+        helpers
+    }
+
+    /// `if got != want { t.Errorf(...) }`: an `if` whose every arm only fails or skips
+    /// the test is a check written out by hand, not a path the test takes.
+    fn only_fails(&self, branch: Node<'a>, handles: &[&str]) -> bool {
+        let profile = self.profile;
+        let Some(consequence) = branch.child_by_field_name("consequence") else {
+            return false;
+        };
+        let helpers = &self.asserting_helpers;
+        // `if !assert.NoError(t, err) { return }` checks in the condition and leaves.
+        let condition_checks = branch
+            .child_by_field_name(profile.condition_field)
+            .is_some_and(|condition| self.body_verifies(condition, handles, helpers));
+        let mut arms = vec![consequence];
+        let mut cursor = branch.walk();
+        for alternative in branch.children_by_field_name("alternative", &mut cursor) {
+            let arm = if profile.is_block(alternative)
+                || !profile.else_clause_kinds.contains(&kind_of(alternative))
+            {
+                Some(alternative)
+            } else {
+                alternative
+                    .child_by_field_name("consequence")
+                    .or_else(|| alternative.child_by_field_name("body"))
+                    .or_else(|| alternative.named_child(0))
+            };
+            // An `else if` is an `if` of its own and is judged on its own.
+            match arm {
+                Some(arm) if kind_of(arm) == profile.if_kind => {}
+                Some(arm) => arms.push(arm),
+                None => return false,
+            }
+        }
+        arms.into_iter()
+            .all(|arm| self.arm_only_fails(arm, condition_checks, handles))
+    }
+
+    fn arm_only_fails(&self, arm: Node<'a>, condition_checks: bool, handles: &[&str]) -> bool {
+        let profile = self.profile;
+        let statements: Vec<Node<'a>> = if profile.is_block(arm) {
+            let mut cursor = arm.walk();
+            arm.named_children(&mut cursor)
+                .filter(|child| !profile.is_comment(*child))
+                .collect()
+        } else {
+            vec![arm]
+        };
+        let mut fails = condition_checks;
+        for statement in statements {
+            match self.ending_of(statement, handles) {
+                Ending::Fails => fails = true,
+                Ending::Leaves => {}
+                Ending::Continues => return false,
+            }
+        }
+        fails
+    }
+
+    fn ending_of(&self, statement: Node<'a>, handles: &[&str]) -> Ending {
+        let profile = self.profile;
+        let kind = kind_of(statement);
+        if profile.throw_kinds.contains(&kind) {
+            return Ending::Fails;
+        }
+        if matches!(
+            kind,
+            "return_statement" | "continue_statement" | "break_statement"
+        ) {
+            return Ending::Leaves;
+        }
+        let names: Vec<String> = descendants(statement)
+            .into_iter()
+            .filter(|node| profile.is_call(*node))
+            .filter_map(|call| self.called_name(call))
+            .collect();
+        let vocabulary = &profile.test;
+        if names.iter().any(|name| {
+            vocabulary.fails(name)
+                || vocabulary.skips(name)
+                || vocabulary.fails_on_handle(name, handles)
+        }) {
+            return Ending::Fails;
+        }
+        // `t.Logf` before `t.FailNow()` says why the test is about to stop.
+        let on_handle = |name: &String| {
+            name.rsplit_once('.')
+                .is_some_and(|(receiver, _)| handles.contains(&receiver))
+        };
+        if !names.is_empty() && names.iter().all(on_handle) {
+            return Ending::Leaves;
+        }
+        Ending::Continues
+    }
+
+    /// `for _, tt := range tests`: a loop over a table the test wrote out runs one
+    /// case per row rather than choosing between paths. So does the loop a benchmark
+    /// runner drives through its handle: `for i := 0; i < b.N; i++`.
+    fn iterates_a_table(&self, loop_node: Node<'a>, scope: Node<'a>, handles: &[&str]) -> bool {
+        let profile = self.profile;
+        let body = loop_node.child_by_field_name("body");
+        let mut cursor = loop_node.walk();
+        let driven_by_runner = !handles.is_empty()
+            && loop_node
+                .named_children(&mut cursor)
+                .filter(|child| Some(*child) != body)
+                .flat_map(descendants)
+                .any(|node| profile.is_identifier(node) && handles.contains(&self.text(node)));
+        if driven_by_runner {
+            return true;
+        }
+        let Some(collection) = self.iterated_collection(loop_node) else {
+            return false;
+        };
+        if self.is_table(collection) {
+            return true;
+        }
+        self.table_name(collection)
+            .is_some_and(|name| self.bound_to_table(name, scope))
+    }
+
+    fn iterated_collection(&self, loop_node: Node<'a>) -> Option<Node<'a>> {
+        self.profile.loops.each.iter().find_map(|(kind, field)| {
+            let header = if kind_of(loop_node) == *kind {
+                Some(loop_node)
+            } else {
+                let mut cursor = loop_node.walk();
+                loop_node
+                    .named_children(&mut cursor)
+                    .find(|child| kind_of(child) == *kind)
+            };
+            header?
+                .child_by_field_name(field)
+                .map(|collection| self.see_through(collection))
+        })
+    }
+
+    /// The name a loop reads its rows from: `cases`, or `cases` in `cases.items()`.
+    fn table_name(&self, collection: Node<'a>) -> Option<&'a str> {
+        let profile = self.profile;
+        if profile.is_identifier(collection) {
+            return Some(self.text(collection));
+        }
+        if !profile.is_call(collection) {
+            return None;
+        }
+        let name = self.called_name(collection)?;
+        let (receiver, method) = name.rsplit_once('.').unwrap_or(("", &name));
+        let derived_from_receiver = !receiver.is_empty()
+            && !receiver.contains('.')
+            && profile.loops.derived_methods.contains(&method);
+        if derived_from_receiver {
+            return descendants(collection)
+                .into_iter()
+                .find(|node| profile.is_identifier(*node) && self.text(*node) == receiver)
+                .map(|node| self.text(node));
+        }
+        if profile.loops.derived_functions.contains(&name.as_str()) {
+            let arguments = collection.child_by_field_name("arguments")?;
+            let first = arguments.named_child(0)?;
+            return profile.is_identifier(first).then(|| self.text(first));
+        }
+        None
+    }
+
+    fn is_table(&self, node: Node<'a>) -> bool {
+        let node = self.see_through(node);
+        let vocabulary = &self.profile.test;
+        vocabulary.table_kinds.contains(&kind_of(node))
+            || (self.profile.is_call(node)
+                && self
+                    .called_name(node)
+                    .is_some_and(|name| vocabulary.builds_table(&name)))
+    }
+
+    /// Whether `name` is given a table anywhere in `scope`, in any of the shapes a
+    /// declaration or an assignment takes.
+    fn bound_to_table(&self, name: &str, scope: Node<'a>) -> bool {
+        let profile = self.profile;
+        descendants(scope).into_iter().any(|node| {
+            let target = ["left", "name", "declarator"]
+                .iter()
+                .find_map(|field| node.child_by_field_name(field));
+            let value = ["right", "value"]
+                .iter()
+                .find_map(|field| node.child_by_field_name(field));
+            let (Some(target), Some(value)) = (target, value) else {
+                return false;
+            };
+            let targets = self.listed(target);
+            let values = self.listed(value);
+            targets
+                .iter()
+                .position(|target| {
+                    let named = if profile.is_identifier(*target) {
+                        Some(*target)
+                    } else {
+                        descendants(*target)
+                            .into_iter()
+                            .find(|inner| profile.is_identifier(*inner))
+                    };
+                    named.is_some_and(|named| self.text(named) == name)
+                })
+                .and_then(|at| values.get(at))
+                .is_some_and(|value| self.is_table(*value))
+        })
+    }
+
+    /// Both sides of `a, b := x, y` as lists, and either side of `a = x` as a list of one.
+    fn listed(&self, node: Node<'a>) -> Vec<Node<'a>> {
+        if self.profile.expression_list_kinds.contains(&kind_of(node)) {
+            let mut cursor = node.walk();
+            node.named_children(&mut cursor).collect()
+        } else {
+            vec![node]
+        }
     }
 
     /// A query that writes is only interesting when the write outlives the call, so
@@ -322,6 +732,10 @@ impl<'a> Walker<'a> {
     fn note_declared_test(&mut self, function: Node<'a>) {
         let profile = self.profile;
         let vocabulary: &TestVocabulary = &profile.test;
+        // A constructor of a class whose name starts like a case builds a value.
+        if profile.constructor_kinds.contains(&kind_of(function)) {
+            return;
+        }
         let Some(name) = self.function_name(function) else {
             return;
         };
@@ -329,6 +743,7 @@ impl<'a> Walker<'a> {
         if !vocabulary.names_a_case(&label) {
             return;
         }
+        let measures = vocabulary.measures(&label);
         // A framework whose case is a macro puts the name in the arguments, so the
         // declaration itself is called nothing but the macro.
         if vocabulary.case_prefixes.contains(&label.as_str())
@@ -370,15 +785,22 @@ impl<'a> Walker<'a> {
         if marked {
             return;
         }
+        let expects = self
+            .annotations(function)
+            .iter()
+            .any(|annotation| vocabulary.expects_by_annotation(annotation));
         if let Some(body) = self.function_body(function) {
-            if !self.body_asserts(body) {
+            let handles = self.test_handles(function);
+            let checks =
+                measures || expects || self.body_verifies(body, &handles, &self.asserting_helpers);
+            if !checks {
                 self.out.assertionless_tests.push(Spot {
                     span: span_of(name),
                     detail: label.clone(),
                     count: 1,
                 });
             }
-            self.note_test_body(body, &label, true);
+            self.note_test_body(body, &label, true, &handles);
         }
     }
 
@@ -449,7 +871,11 @@ impl<'a> Walker<'a> {
             // cases inside it.
             if vocabulary.is_case(&name) && vocabulary.directive(&name).is_none() {
                 let arguments = call.child_by_field_name("arguments");
-                let body = arguments.and_then(|list| list.named_child(1));
+                // A registration hands the runner a function. Anything else written
+                // on the same name, `test.assertEqual(...)`, is a call on a value.
+                let body = arguments
+                    .and_then(|list| list.named_child(1))
+                    .filter(|body| self.profile.is_function(*body));
                 if let Some(body) = body {
                     // A framework that takes the case's name as a string gives the
                     // reader a name; one that takes a bare identifier gives the call.
@@ -459,14 +885,15 @@ impl<'a> Walker<'a> {
                         .map(|node| self.text(node).trim_matches(['"', '\'', '`']).to_owned());
                     let named = written.is_some();
                     let label = written.unwrap_or_else(|| name.clone());
-                    if !self.body_asserts(body) {
+                    let handles = self.test_handles(body);
+                    if !self.body_verifies(body, &handles, &self.asserting_helpers) {
                         self.out.assertionless_tests.push(Spot {
                             span: span_of(call),
                             detail: label.clone(),
                             count: 1,
                         });
                     }
-                    self.note_test_body(body, &label, named);
+                    self.note_test_body(body, &label, named, &handles);
                 }
             }
 
@@ -1671,7 +2098,7 @@ impl<'a> Walker<'a> {
     /// The four questions asked of one test body, wherever that body was found: a
     /// framework that registers a case with a callback and one that names a function
     /// give the same body two shapes and one meaning.
-    fn note_test_body(&mut self, body: Node<'a>, label: &str, named: bool) {
+    fn note_test_body(&mut self, body: Node<'a>, label: &str, named: bool, handles: &[&str]) {
         let profile = self.profile;
         let mut branches = 0_u32;
         let mut guarded = None;
@@ -1683,11 +2110,13 @@ impl<'a> Walker<'a> {
         for node in crate::tree::descendants_outside(body, |node| profile.is_function(node)) {
             let kind = kind_of(node);
             // Deliberately not every branch kind: a ternary is an expression the test
-            // evaluates, not a path the test can take.
-            if kind == profile.if_kind
-                || profile.loop_kinds.contains(&kind)
-                || profile.switch_kinds.contains(&kind)
-            {
+            // evaluates, not a path the test can take. Nor is a hand-written check, or
+            // a loop over a table of cases.
+            let decides = (kind == profile.if_kind && !self.only_fails(node, handles))
+                || (profile.loop_kinds.contains(&kind)
+                    && !self.iterates_a_table(node, body, handles))
+                || profile.switch_kinds.contains(&kind);
+            if decides {
                 branches += 1;
             }
             if kind == "try_statement" && !descendants(node).is_empty() {
@@ -5055,7 +5484,9 @@ pub fn collect_over(
         test_depth: 0,
         holds_tests: false,
         block_depth: 0,
+        asserting_helpers: Helpers::default(),
     };
+    walker.asserting_helpers = walker.find_asserting_helpers();
     walker.walk(root);
     // A test file is a list of registrations, and registering is the whole of what
     // loading it is for — which is only knowable once the file has been read.

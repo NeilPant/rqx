@@ -1322,7 +1322,12 @@ fn hygiene_findings(
             "assert on the calls it received, or use the real implementation".to_owned(),
         );
     }
-    for spot in &hygiene.branching_tests {
+    let test_decisions = limits.test_decisions;
+    for spot in hygiene
+        .branching_tests
+        .iter()
+        .filter(|spot| spot.count > test_decisions)
+    {
         emit(
             out,
             RuleId::BranchingTest,
@@ -1330,7 +1335,7 @@ fn hygiene_findings(
             Evidence::Breadth {
                 counted: "decisions inside the test".to_owned(),
                 found: spot.count,
-                limit: 0,
+                limit: test_decisions,
             },
             "write one test per path, so a passing run shows which case was checked".to_owned(),
         );

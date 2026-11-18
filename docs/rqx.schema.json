@@ -1667,6 +1667,13 @@
                 }
               ],
               "description": "Report this rule's findings at this severity instead of the catalogue's."
+            },
+            "test_decisions": {
+              "default": 2,
+              "description": "Decisions one test body may make before it is reported. An `if` that only fails the test and a loop over a table of cases are not counted. Tunes `branching-test`.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
             }
           },
           "required": [
@@ -10675,6 +10682,13 @@
           "minimum": 0,
           "type": "integer"
         },
+        "test_decisions": {
+          "default": 2,
+          "description": "Decisions one test body may make before it is reported. An `if` that only fails the test and a loop over a table of cases are not counted. Tunes `branching-test`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
         "todo_age_days": {
           "default": 180,
           "description": "Days a TODO may stand before it is stale. Tunes `stale-todo`.",
@@ -10934,6 +10948,7 @@
         "short_name_scope_lines": 25,
         "slow_test_ms": 100,
         "sole_author_commits": 6,
+        "test_decisions": 2,
         "todo_age_days": 180,
         "try_statements": 10
       }

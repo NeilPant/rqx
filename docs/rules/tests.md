@@ -234,18 +234,23 @@ a test that branches has paths of its own and nothing says which one ran, so a p
 | | |
 |---|---|
 | Measures | a decision inside a test body |
-| Reported as | warning, verified |
+| Reported as | info, verified |
 | Reads | the syntax tree alone |
 | Fix | Extract Method / Decompose Conditional |
+| Tuned by | `thresholds.test_decisions` |
 
-From `fixtures/typescript/suite.test.ts`, line 16:
+From `fixtures/typescript/suite-checks.test.ts`, line 43:
 
 ```ts
 
-it("branches on the input", () => {
-  if (add(1, 1) === 2) {
-    expect(add(1, 1)).toBe(2);
+it("decides three ways", () => {
+  let total = add(0, 1);
+  if (total > 1) {
+    total = add(total, -1);
+  } else {
+    total = add(total, 1);
   }
+  expect(total).toBe(2);
 });
 
 ```
