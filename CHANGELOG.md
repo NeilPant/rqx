@@ -77,6 +77,15 @@ them. `tools/release.sh` turns that section into the release notes.
   another tool's rule (`tool/rule-id`) waives nothing under that name, and is now
   reported as `unjustified-suppression` with the closest rule name when there is one.
 
+- **A policy's locked keys hold against flags and environment variables.** In 0.5.0
+  `--fail-on`, `--allow-findings`, `--min-health`, `--min-grade`, `--fail-on-incomplete`,
+  `--threads`, `--max-findings`, `--coverage`, `--profile`, `--sarif-in` and
+  `rqx hotspots --since`, and the `RQX_*` variables behind them, replaced the value of a
+  key the policy locks, so `--fail-on never --min-health 0` passed a gate the policy had
+  fixed. Giving a locked key a different value from a flag or a variable now exits 2, and
+  the error names the key, the policy file and the flag or variable. Giving the locked
+  value is still accepted.
+
 - **`oversized-module` and `cross-language-duplicate` findings counted as project-wide.** The
   health projection after `rqx fix` and the resolved credit in `rqx comment` no longer drop
   them when only some files are re-analysed.

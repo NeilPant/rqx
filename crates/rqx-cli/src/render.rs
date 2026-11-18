@@ -173,16 +173,18 @@ pub struct Hotspots {
 
 impl Hotspots {
     /// The request, with the churn window written into the settings so the scan reads
-    /// the history the request names.
-    pub fn over(settings: &mut Resolved, top: usize, since: Option<u32>) -> Self {
+    /// the history the request names. Refused when the policy locks a different window.
+    pub fn over(settings: &mut Resolved, top: usize, since: Option<u32>) -> Result<Self> {
         if let Some(days) = since {
-            settings.config.scan.churn_days = days;
+            settings.set_by_flag("scan.churn_days", "--since", |config| {
+                config.scan.churn_days = days;
+            })?;
         }
-        Self {
+        Ok(Self {
             top,
             days: settings.config.scan.churn_days,
             json: false,
-        }
+        })
     }
 
     pub const fn printed_as(self, json: bool) -> Self {

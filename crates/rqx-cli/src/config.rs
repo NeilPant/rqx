@@ -262,6 +262,37 @@ impl Resolved {
         self.locked.contains(&format!("{table}.{key}"))
     }
 
+    /// Writes the setting `key` the way a flag or an environment variable asks, unless
+    /// the policy locks `key` and the value would differ from the locked one. Merged
+    /// after every file, a flag would otherwise win over the lock. `given_by` names the
+    /// flag or variable for the refusal.
+    pub fn set_by_flag(
+        &mut self,
+        key: &str,
+        given_by: &str,
+        write: impl FnOnce(&mut RqxConfig),
+    ) -> Result<()> {
+        if !self.locked.contains(key) {
+            write(&mut self.config);
+            return Ok(());
+        }
+        let locked = setting_at(&self.config, key);
+        write(&mut self.config);
+        let asked = setting_at(&self.config, key);
+        if asked == locked {
+            return Ok(());
+        }
+        let policy = self.policy.as_deref().map_or_else(
+            || "the policy".to_owned(),
+            |file| file.display().to_string(),
+        );
+        bail!(
+            "`{key}` is locked to {} by {policy}; {given_by} asks for {}.",
+            shown(locked.as_ref()),
+            shown(asked.as_ref())
+        )
+    }
+
     /// Whether a key was written down rather than moved by the level.
     pub fn was_written(&self, table: &str, key: &str) -> bool {
         self.written
@@ -725,6 +756,19 @@ fn flatten(prefix: &str, value: &Value, out: &mut Vec<(String, Value)>) {
         }
         other => out.push((prefix.to_owned(), other.clone())),
     }
+}
+
+/// One setting of a resolved config, addressed `table.key` the way `locked.keys`
+/// names it, in the form a config file writes it.
+fn setting_at(config: &RqxConfig, key: &str) -> Option<Value> {
+    let whole = serde_json::to_value(config).ok()?;
+    key.split('.')
+        .try_fold(&whole, |value, part| value.get(part))
+        .cloned()
+}
+
+fn shown(value: Option<&Value>) -> String {
+    value.map_or_else(|| "nothing".to_owned(), Value::to_string)
 }
 
 /// A locked key may not be given a different value by anything above the policy.

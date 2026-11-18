@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use clap::builder::{EnumValueParser, FalseyValueParser};
 use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum, ValueHint, value_parser};
-use rqx_core::config::{GateGrade, GateSeverity, RqxConfig};
+use rqx_core::config::{GateGrade, GateSeverity};
 use rqx_core::finding::Severity;
 
 mod agent_setup;
@@ -1067,17 +1067,23 @@ impl Evidence {
         self.coverage.is_empty() && self.profile.is_empty() && self.sarif_in.is_empty()
     }
 
-    fn apply(&self, settings: &mut config::Resolved) {
-        let scan = &mut settings.config.scan;
+    fn apply(&self, settings: &mut config::Resolved) -> Result<()> {
         if !self.coverage.is_empty() {
-            scan.coverage = display_all(&self.coverage);
+            settings.set_by_flag("scan.coverage", "--coverage", |config| {
+                config.scan.coverage = display_all(&self.coverage);
+            })?;
         }
         if !self.profile.is_empty() {
-            scan.profile = display_all(&self.profile);
+            settings.set_by_flag("scan.profile", "--profile", |config| {
+                config.scan.profile = display_all(&self.profile);
+            })?;
         }
         if !self.sarif_in.is_empty() {
-            scan.sarif_in = display_all(&self.sarif_in);
+            settings.set_by_flag("scan.sarif_in", "--sarif-in", |config| {
+                config.scan.sarif_in = display_all(&self.sarif_in);
+            })?;
         }
+        Ok(())
     }
 }
 
@@ -1120,10 +1126,13 @@ impl DisplayCap {
         self.max_findings.is_some()
     }
 
-    fn apply(&self, settings: &mut config::Resolved) {
+    fn apply(&self, settings: &mut config::Resolved) -> Result<()> {
         if let Some(max) = self.max_findings {
-            settings.config.scan.max_findings = max;
+            settings.set_by_flag("scan.max_findings", "--max-findings", |config| {
+                config.scan.max_findings = max;
+            })?;
         }
+        Ok(())
     }
 }
 
@@ -1131,7 +1140,11 @@ impl Run {
     fn resolve(&self, path: &Path) -> Result<config::Resolved> {
         let mut settings = config::resolve(path, self.config.as_deref(), self.standard.chosen()?)?;
         if let Some(count) = self.threads {
-            settings.config.scan.threads = count;
+            settings.set_by_flag(
+                "scan.threads",
+                &given_by("--threads", Some("RQX_THREADS")),
+                |config| config.scan.threads = count,
+            )?;
         }
         Ok(settings)
     }
@@ -1398,7 +1411,8 @@ enum CacheAction {
 /// once for every job. A flag wins over the variable, and the variable over
 /// `rqx.yaml`; setting any of them opts a scan into gating, as a flag does. A variable
 /// set to an empty string is not set, because a template that has nothing to say
-/// still names it.
+/// still names it. A key the policy locks keeps its value: asking for another is
+/// refused.
 #[derive(Args)]
 struct Gate {
     /// Lowest severity that fails the run
@@ -1491,22 +1505,65 @@ impl Gate {
         Setting::of(self.min_grade)
     }
 
-    fn apply(&self, config: &mut RqxConfig) {
+    /// Refuses a value for a key the policy locks, the way a config file is refused.
+    fn apply(&self, settings: &mut config::Resolved) -> Result<()> {
         if let Some(fail_on) = self.fail_on() {
-            config.gate.fail_on = fail_on.into();
+            settings.set_by_flag(
+                "gate.fail_on",
+                &given_by("--fail-on", Some("RQX_FAIL_ON")),
+                |config| config.gate.fail_on = fail_on.into(),
+            )?;
         }
         if let Some(allowed) = self.allow_findings() {
-            config.gate.max_findings = allowed;
+            settings.set_by_flag(
+                "gate.max_findings",
+                &given_by("--allow-findings", Some("RQX_ALLOW_FINDINGS")),
+                |config| config.gate.max_findings = allowed,
+            )?;
         }
         if let Some(health) = self.min_health() {
-            config.gate.min_health = health;
+            settings.set_by_flag(
+                "gate.min_health",
+                &given_by("--min-health", Some("RQX_MIN_HEALTH")),
+                |config| config.gate.min_health = health,
+            )?;
         }
         if let Some(grade) = self.min_grade() {
-            config.gate.min_grade = grade.into();
+            settings.set_by_flag(
+                "gate.min_grade",
+                &given_by("--min-grade", Some("RQX_MIN_GRADE")),
+                |config| config.gate.min_grade = grade.into(),
+            )?;
         }
         if self.fail_on_incomplete {
-            config.gate.fail_on_incomplete = true;
+            settings.set_by_flag(
+                "gate.fail_on_incomplete",
+                &given_by("--fail-on-incomplete", Some("RQX_FAIL_ON_INCOMPLETE")),
+                |config| config.gate.fail_on_incomplete = true,
+            )?;
         }
+        Ok(())
+    }
+}
+
+/// The variable when it is set and the command line does not carry the flag, and the
+/// flag otherwise: clap takes a flag over its variable. The interface parses commands
+/// typed into it, which are not on the process's command line, so a variable that is
+/// not set never answers.
+fn given_by(long: &str, env: Option<&str>) -> String {
+    let on_command_line = std::env::args_os().skip(1).any(|arg| {
+        arg.to_str().is_some_and(|arg| {
+            arg == long
+                || arg
+                    .strip_prefix(long)
+                    .is_some_and(|rest| rest.starts_with('='))
+        })
+    });
+    let variable_set =
+        |variable: &str| std::env::var_os(variable).is_some_and(|value| !value.is_empty());
+    match env {
+        Some(variable) if !on_command_line && variable_set(variable) => variable.to_owned(),
+        _ => long.to_owned(),
     }
 }
 
@@ -2060,9 +2117,9 @@ fn run() -> Result<Exit> {
             // Started before the scan rather than after it: the answer needs the length
             // of the work to arrive in, and `process::exit` does not wait for a thread.
             update::start(settings.config.update.check);
-            cap.apply(&mut settings);
-            evidence.apply(&mut settings);
-            gate.apply(&mut settings.config);
+            cap.apply(&mut settings)?;
+            evidence.apply(&mut settings)?;
+            gate.apply(&mut settings)?;
 
             let progress = progress_for(view.quiet);
             let view = view.on_terminal(verbosity, hyperlinks);
@@ -2378,10 +2435,9 @@ fn run() -> Result<Exit> {
             // The display cap would drop findings this ranking has to weigh.
             settings.config.scan.max_findings = 0;
             if !profile.is_empty() {
-                settings.config.scan.profile = profile
-                    .iter()
-                    .map(|path| path.display().to_string())
-                    .collect();
+                settings.set_by_flag("scan.profile", "--profile", |config| {
+                    config.scan.profile = display_all(&profile);
+                })?;
             }
             let sinks = printing.sinks(json)?;
             let outcome =
@@ -2458,7 +2514,7 @@ fn run() -> Result<Exit> {
         } => {
             let mut settings = run.resolve(&path)?;
             settings.config.scan.max_findings = 0;
-            let request = render::Hotspots::over(&mut settings, top, since);
+            let request = render::Hotspots::over(&mut settings, top, since)?;
             let sinks = printing.sinks(json)?;
             let outcome = scan::scan_drawn(&path, &settings, progress)?;
             sink::deliver(&sinks, palette, |rendering, palette, out| {
@@ -2633,8 +2689,8 @@ fn run() -> Result<Exit> {
                 );
             }
             let mut settings = run.resolve(&path)?;
-            gate.apply(&mut settings.config);
-            evidence.apply(&mut settings);
+            gate.apply(&mut settings)?;
+            evidence.apply(&mut settings)?;
             // The whole review, not the first five hundred: a display cap is for a
             // terminal, and this is a document somebody scrolls.
             settings.config.scan.max_findings = 0;
@@ -2807,9 +2863,9 @@ fn run() -> Result<Exit> {
             // Started before the scan rather than after it: the answer needs the length
             // of the work to arrive in, and `process::exit` does not wait for a thread.
             update::start(settings.config.update.check);
-            gate.apply(&mut settings.config);
-            cap.apply(&mut settings);
-            evidence.apply(&mut settings);
+            gate.apply(&mut settings)?;
+            cap.apply(&mut settings)?;
+            evidence.apply(&mut settings)?;
 
             let progress = progress_for(view.quiet);
             let view = view.on_terminal(verbosity, hyperlinks);

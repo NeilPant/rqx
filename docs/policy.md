@@ -52,12 +52,33 @@ service therefore cannot override the policy or change a key the policy locks. S
 ## Locked keys
 
 A key in `locked.keys` cannot be given a different value by anything above the
-policy: the project's configuration, an entry of `overrides`, or `--level`.
+policy: the project's configuration, an entry of `overrides`, `--level`, or a flag or
+environment variable that writes the key. A run that tries exits 2.
 
 ```
 Error: `thresholds.cognitive_complexity` is locked to 12 by ../../platform/rqx-policy.yaml;
        services/billing/rqx.yaml sets 25.
 ```
+
+```
+Error: `gate.fail_on` is locked to "warning" by ../../platform/rqx-policy.yaml;
+       RQX_FAIL_ON asks for "never".
+```
+
+| Key | Flag | Variable |
+|---|---|---|
+| `gate.fail_on` | `--fail-on` | `RQX_FAIL_ON` |
+| `gate.max_findings` | `--allow-findings` | `RQX_ALLOW_FINDINGS` |
+| `gate.min_health` | `--min-health` | `RQX_MIN_HEALTH` |
+| `gate.min_grade` | `--min-grade` | `RQX_MIN_GRADE` |
+| `gate.fail_on_incomplete` | `--fail-on-incomplete` | `RQX_FAIL_ON_INCOMPLETE` |
+| `level` | `--level` | `RQX_LEVEL` |
+| `scan.threads` | `--threads` | `RQX_THREADS` |
+| `scan.max_findings` | `--max-findings` | |
+| `scan.coverage` | `--coverage` | |
+| `scan.profile` | `--profile` | |
+| `scan.sarif_in` | `--sarif-in` | |
+| `scan.churn_days` | `rqx hotspots --since` | |
 
 Restating the policy's own value is allowed, so a service can record the standard it
 meets.
