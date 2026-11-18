@@ -800,6 +800,7 @@ fix --reporter
 fix --threads
 fix --threads [env RQX_THREADS]
 fix --verbose
+fix --verify-build
 fix --write
 fix -h
 fix -v
