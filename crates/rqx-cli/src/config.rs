@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -90,7 +90,7 @@ pub struct Resolved {
     modules: bool,
     /// The debt already recorded, when the gate names a baseline. Shared rather than
     /// copied because every worker reads it and none of them writes it.
-    pub baseline: Option<Arc<HashSet<rqx_core::identity::Identity>>>,
+    pub baseline: Option<Arc<crate::baseline::Recorded>>,
     /// How many findings the baseline was taken over, for the ratchet.
     pub baseline_findings: Option<u32>,
     /// What library calls cost: the built-in tables and the project's own entries,
@@ -546,6 +546,8 @@ fn resolve_with(
         }
         None => None,
     };
+    let baseline_findings = recorded.as_ref().map(crate::baseline::Baseline::findings);
+    let baseline = recorded.map(|recorded| Arc::new(recorded.recorded(config.gate.baseline_match)));
 
     Ok(Resolved {
         cost_tables: CostTables::for_performance(&config.performance),
@@ -559,8 +561,8 @@ fn resolve_with(
         written: merged,
         scopes,
         modules,
-        baseline_findings: recorded.as_ref().map(crate::baseline::Baseline::findings),
-        baseline: recorded.map(|recorded| Arc::new(recorded.recorded())),
+        baseline_findings,
+        baseline,
     })
 }
 

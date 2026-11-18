@@ -725,6 +725,9 @@ fn configuration_page() -> String {
          `gate.owners` sets a health floor and a severity limit for each owner named in a \
          CODEOWNERS file. See [ownership.md](ownership.md). `comment.mention_owners` makes \
          `rqx comment` write those owners as real mentions.\n\n\
+         `gate.baseline_match` takes `count` (the default) or `set`. It sets how many findings \
+         with one identity a baseline entry covers: as many as the baseline recorded, or all of \
+         them. See [baseline.md](baseline.md#repeated-findings).\n\n\
          `gate.complexity_regression` takes `off` (the default), `warning` or `error`. It sets \
          what a function whose time order grew against the base revision does to the verdict of \
          `rqx check`: `warning` reports it, and `error` fails the run. Anything but `off` makes \

@@ -9,8 +9,9 @@ rqx baseline
 ```
 
 The command scans the project and writes `.rqx/baseline.json`. The file has one entry
-per finding, sorted, and each entry is keyed by an identity that does not change when
-the finding moves to a different line. Commit the file, then point the gate at it:
+per identity, sorted. An identity does not change when the finding moves to a
+different line, and each entry records how many findings have it (see
+[Repeated findings](#repeated-findings)). Commit the file, then point the gate at it:
 
 ```yaml
 gate:
@@ -77,6 +78,36 @@ the finding counts as one resolved finding and one new finding.
 The identity is an FNV-1a hash. rqx implements it directly instead of using the
 standard library's hasher, because the value is stored in a committed file and must be
 the same across toolchain versions.
+
+## Repeated findings
+
+Several findings can have the same identity. For example, two `discarded-error`
+findings for calls to the same function in one file have the same rule, file and
+subject. The entry for that identity records how many findings had it in a `count`
+field, which is written only when the count is greater than 1.
+
+A scan matches findings to entries by count. When a file has more findings with an
+identity than the entry records, the extra findings are new. Findings are matched in
+source order, so the findings reported as new are the last ones in the file, which
+are not always the lines a change added.
+
+`gate.baseline_match` selects how findings are matched:
+
+| Value | Effect |
+|---|---|
+| `count` (default) | An entry covers as many findings with its identity as it records. Any more are new. |
+| `set` | An entry covers every finding with its identity, however many there are. rqx 0.5.0 and earlier matched this way. |
+
+```yaml
+gate:
+  baseline: .rqx/baseline.json
+  baseline_match: count
+```
+
+A baseline file written by rqx 0.5.0 or earlier has no counts, and each of its
+entries is read as one finding. Under `count`, repeated findings that such a file did
+not distinguish are reported as new until `rqx baseline --update` records the counts.
+With `set`, the result is the same as in 0.5.0.
 
 ## Interaction with waivers
 

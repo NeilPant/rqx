@@ -2275,10 +2275,10 @@ fn run() -> Result<Exit> {
             let taken = baseline::take_drawn(&path, &settings, update, force, progress)?;
             println!(
                 "  recorded {} findings in {}{}",
-                taken.recorded,
+                taken.findings,
                 taken.path.display(),
-                match taken.replaced {
-                    Some(was) if was != taken.recorded => format!(" ({was} before)"),
+                match taken.replaced_findings {
+                    Some(was) if was != taken.findings => format!(" ({was} before)"),
                     _ => String::new(),
                 }
             );

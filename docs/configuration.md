@@ -98,6 +98,8 @@ A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule sl
 
 `gate.owners` sets a health floor and a severity limit for each owner named in a CODEOWNERS file. See [ownership.md](ownership.md). `comment.mention_owners` makes `rqx comment` write those owners as real mentions.
 
+`gate.baseline_match` takes `count` (the default) or `set`. It sets how many findings with one identity a baseline entry covers: as many as the baseline recorded, or all of them. See [baseline.md](baseline.md#repeated-findings).
+
 `gate.complexity_regression` takes `off` (the default), `warning` or `error`. It sets what a function whose time order grew against the base revision does to the verdict of `rqx check`: `warning` reports it, and `error` fails the run. Anything but `off` makes `rqx check` and `rqx comment` compare against the base revision, which `--regressions` does for one run. See [ci.md](ci.md#complexity-regressions).
 
 ## Performance cost settings

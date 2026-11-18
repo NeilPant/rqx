@@ -51,6 +51,9 @@ pub(crate) struct Analyzed {
     canonical: Option<PathBuf>,
     language: Language,
     findings: Vec<Finding>,
+    /// The identity of the finding at the same position, resolved on the worker where
+    /// the file's text is in hand, or kept from the cache when it was not read.
+    identities: Vec<rqx_core::Identity>,
     advice: Vec<rqx_core::Advice>,
     clones: Vec<rqx_lang::CloneSite>,
     module: rqx_core::facts::ModuleFacts,
@@ -407,9 +410,9 @@ struct Collector {
     /// long each note has been there.
     todos: HashMap<Arc<str>, Vec<rqx_core::facts::Spot>>,
     cycles: Vec<Vec<String>>,
-    baseline: Option<Arc<std::collections::HashSet<rqx_core::Identity>>>,
+    baseline: Option<crate::baseline::Matcher>,
     baseline_findings: Option<u32>,
-    /// Only the files a project-scoped finding names, read once each.
+    /// Only the files a stage's finding names, read once each.
     texts: HashMap<Arc<str>, String>,
     root: PathBuf,
     suppressed: Vec<rqx_core::suppress::Suppressed>,
@@ -536,16 +539,20 @@ impl Collector {
 
     fn accept_if_enabled(&mut self, config: &RqxConfig, finding: Finding) {
         if let Some(finding) = offered(config, finding) {
-            self.accept(finding);
+            self.accept_all(vec![(finding, None)]);
         }
     }
 
     /// What the stages after the walk found, taken in the order the stages come in
     /// rather than the order they finished.
     fn absorb(&mut self, staged: Staged) {
-        for finding in staged.findings {
-            self.accept(finding);
-        }
+        self.accept_all(
+            staged
+                .findings
+                .into_iter()
+                .map(|finding| (finding, None))
+                .collect(),
+        );
         self.advice.extend(staged.advice);
         self.import_edges.extend(staged.import_edges);
         self.cycles.extend(staged.cycles);
@@ -575,41 +582,68 @@ impl Collector {
             .find(|waiver| waiver.covers(finding, &self.today))
     }
 
-    fn accept(&mut self, mut finding: Finding) {
-        // A cycle or a dead export is built after the walk drained, so no worker saw
-        // it and nothing has tagged it yet. There are a handful of these against a
-        // file per worker, so reading their text here costs almost nothing.
-        if let Some(baseline) = &self.baseline
-            && (finding.rule.is_project_scoped() || finding.is_external())
-        {
-            let text = self
-                .texts
-                .entry(Arc::clone(&finding.location.file))
-                .or_insert_with(|| {
-                    std::fs::read_to_string(self.root.join(&*finding.location.file))
-                        .unwrap_or_default()
-                });
-            finding.known = baseline.contains(&rqx_core::Identity::resolved(&finding, text));
+    /// Every finding arrives here: one file's off the channel, and each stage's built
+    /// after it drained, whatever rule they are of. So this is the one place a waiver
+    /// and the baseline reach all of them. A batch pairs each finding with its identity
+    /// when a worker already resolved it. A waived finding is set aside before the
+    /// baseline is consulted, because a baseline never records a waived finding and so
+    /// one must not use up what the baseline recorded for the others.
+    fn accept_all(&mut self, batch: Vec<(Finding, Option<rqx_core::Identity>)>) {
+        let mut findings = Vec::with_capacity(batch.len());
+        let mut identities = Vec::with_capacity(batch.len());
+        for (finding, identity) in batch {
+            let Some(finding) = self.unless_waived(finding) else {
+                continue;
+            };
+            if self.baseline.is_some() {
+                identities.push(identity.unwrap_or_else(|| self.identity_of(&finding)));
+            }
+            findings.push(finding);
         }
-        // Every finding arrives here — the per-file ones off the channel and the
-        // graph, clone and history ones built after it drained — so this is the one
-        // place a waiver can reach all of them.
-        if let Some(waiver) = self.waived(&finding) {
-            self.suppressed.push(rqx_core::suppress::Suppressed {
-                at: SourceRange {
-                    file: Arc::clone(&finding.location.file),
-                    start: waiver.span.start,
-                    end: waiver.span.end,
-                    line: waiver.line,
-                    column: 1,
-                    end_line: waiver.line,
-                },
-                reason: waiver.reason.clone(),
-                until: waiver.until.clone(),
-                finding,
+        if let Some(baseline) = &mut self.baseline {
+            baseline.mark(&mut findings, &identities);
+        }
+        for finding in findings {
+            self.record(finding);
+        }
+    }
+
+    /// A stage's finding was built after the walk drained, so no worker resolved its
+    /// identity. There are a handful of these against a file per worker, so reading
+    /// their text here costs almost nothing.
+    fn identity_of(&mut self, finding: &Finding) -> rqx_core::Identity {
+        let text = self
+            .texts
+            .entry(Arc::clone(&finding.location.file))
+            .or_insert_with(|| {
+                std::fs::read_to_string(self.root.join(&*finding.location.file)).unwrap_or_default()
             });
-            return;
-        }
+        rqx_core::Identity::resolved(finding, text)
+    }
+
+    /// Sets the finding aside with the waiver that covers it, or hands it back.
+    fn unless_waived(&mut self, finding: Finding) -> Option<Finding> {
+        let Some(waiver) = self.waived(&finding) else {
+            return Some(finding);
+        };
+        let waived = rqx_core::suppress::Suppressed {
+            at: SourceRange {
+                file: Arc::clone(&finding.location.file),
+                start: waiver.span.start,
+                end: waiver.span.end,
+                line: waiver.line,
+                column: 1,
+                end_line: waiver.line,
+            },
+            reason: waiver.reason.clone(),
+            until: waiver.until.clone(),
+            finding,
+        };
+        self.suppressed.push(waived);
+        None
+    }
+
+    fn record(&mut self, finding: Finding) {
         self.counts.record(&finding);
         *self
             .findings_by_file
@@ -2317,7 +2351,10 @@ pub(crate) fn collect_against(
     collector.watcher = watch.map(|watch| watch.updates.clone());
     collector.coverage = read_coverage(root, &settings.config.scan.coverage);
     collector.profile = read_profile(root, &settings.config.scan.profile);
-    collector.baseline = settings.baseline.clone();
+    collector.baseline = settings
+        .baseline
+        .as_ref()
+        .map(crate::baseline::Recorded::matcher);
     collector.baseline_findings = settings.baseline_findings;
     collector.root = root.to_path_buf();
     collector.keep_costs = comparison.keeps_costs(settings);
@@ -2330,6 +2367,7 @@ pub(crate) fn collect_against(
                     canonical,
                     language,
                     findings,
+                    identities,
                     advice,
                     clones,
                     module,
@@ -2353,9 +2391,11 @@ pub(crate) fn collect_against(
                     collector.todos.insert(Arc::clone(&shared), todos);
                 }
                 let covered = rqx_core::cost_sites::lines_reported_in_loops(&findings);
-                for finding in findings {
-                    collector.accept(finding);
-                }
+                let resolved = identities
+                    .into_iter()
+                    .map(Some)
+                    .chain(std::iter::repeat(None));
+                collector.accept_all(findings.into_iter().zip(resolved).collect());
                 collector.advice.extend(advice);
                 for site in clones {
                     collector.record_clone(site, language);
@@ -2484,7 +2524,8 @@ fn skipped(path: &Path, reason: String) -> ScanMessage {
 }
 
 /// Resolved here, where the file's text is already in hand, and kept with the cached
-/// analysis so that a file that is not read again can still be held against a baseline.
+/// analysis so that a file that is not read again can still be matched against a
+/// baseline.
 fn identities_of(findings: &[Finding], source: &str) -> Vec<rqx_core::Identity> {
     findings
         .iter()
@@ -2494,16 +2535,9 @@ fn identities_of(findings: &[Finding], source: &str) -> Vec<rqx_core::Identity> 
 
 fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -> ScanMessage {
     let Cached {
-        mut analysis,
+        analysis,
         identities,
     } = cached;
-    // Tagged here rather than on the collector, which every worker's output funnels
-    // through.
-    if let Some(baseline) = &settings.baseline {
-        for (finding, identity) in analysis.findings.iter_mut().zip(&identities) {
-            finding.known = baseline.contains(identity);
-        }
-    }
     // The cost analysis follows calls across imports, which it can only do for a file it
     // can name the way the import resolver does.
     let takes_part_in_cost =
@@ -2514,6 +2548,7 @@ fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -
         display,
         language: analysis.language,
         findings: analysis.findings,
+        identities,
         advice: analysis.advice,
         clones: analysis.clones,
         module: analysis.module,
@@ -3182,20 +3217,105 @@ mod tests {
         assert!(!cold.findings.is_empty());
         let mut settings = Resolved::of(rqx_core::config::RqxConfig::default());
         settings.baseline = Some(Arc::new(
-            cold.findings
-                .iter()
-                .map(|finding| {
-                    let source =
-                        std::fs::read_to_string(project.root.join(&*finding.location.file));
-                    rqx_core::Identity::resolved(finding, &source.unwrap())
-                })
-                .collect(),
+            crate::baseline::Baseline::of(&cold).recorded(rqx_core::config::BaselineMatch::Count),
         ));
 
         let warm = scan_with(&project.root, &settings, None, CachePolicy::Forced).unwrap();
 
         assert_eq!(warm.stats.files_read, 0);
+        assert!(
+            warm.findings
+                .iter()
+                .any(|finding| finding.rule.is_project_scoped())
+        );
         assert!(warm.findings.iter().all(|finding| finding.known));
+    }
+
+    fn baseline_holding(findings: &[Finding]) -> crate::baseline::Matcher {
+        let mut outcome = crate::report::tests::outcome_with(&[], 0);
+        outcome.root = PathBuf::from("/nowhere/rqx-baseline-test");
+        outcome.findings = findings.to_vec();
+        Arc::new(
+            crate::baseline::Baseline::of(&outcome)
+                .recorded(rqx_core::config::BaselineMatch::Count),
+        )
+        .matcher()
+    }
+
+    fn of_every_rule() -> Vec<Finding> {
+        RuleId::ALL
+            .iter()
+            .map(|&rule| Finding {
+                rule,
+                ..ranked("a.ts", 1).0
+            })
+            .collect()
+    }
+
+    /// Matching does not depend on the rule or on the stage that built a finding, so no
+    /// list of rules can leave one out: a finding of any rule that the baseline recorded
+    /// is known whether it arrived with a file or was built after the walk.
+    #[test]
+    fn a_recorded_finding_of_every_rule_is_known_from_a_file_and_from_a_stage() {
+        let findings = of_every_rule();
+        let identities: Vec<Option<rqx_core::Identity>> = findings
+            .iter()
+            .map(|finding| Some(rqx_core::Identity::resolved(finding, "")))
+            .collect();
+
+        let mut from_files = Collector::new(0, false, false, false, None);
+        from_files.baseline = Some(baseline_holding(&findings));
+        from_files.accept_all(findings.iter().cloned().zip(identities).collect());
+
+        let mut from_stages = Collector::new(0, false, false, false, None);
+        from_stages.baseline = Some(baseline_holding(&findings));
+        from_stages.absorb(Staged {
+            findings: findings.clone(),
+            ..Staged::default()
+        });
+
+        for collector in [from_files, from_stages] {
+            let unknown: Vec<&str> = collector
+                .retained
+                .iter()
+                .filter(|Reverse(Ranked(finding))| !finding.known)
+                .map(|Reverse(Ranked(finding))| finding.slug())
+                .collect();
+            assert_eq!(collector.retained.len(), RuleId::ALL.len());
+            assert!(unknown.is_empty(), "reported as new: {unknown:?}");
+        }
+    }
+
+    /// A baseline never records a waived finding, so a waived repeat must not use up
+    /// the one the baseline recorded for the finding that is not waived.
+    #[test]
+    fn a_waived_finding_does_not_use_up_what_the_baseline_recorded() {
+        let recorded = ranked("a.ts", 9).0;
+        let waived = ranked("a.ts", 1).0;
+        let mut collector = Collector::new(0, false, false, false, None);
+        collector.baseline = Some(baseline_holding(std::slice::from_ref(&recorded)));
+        collector.suppressions.insert(
+            Arc::from("a.ts"),
+            vec![rqx_core::suppress::Suppression {
+                span: Span::new(0, 1),
+                line: 1,
+                rules: vec!["imprecise-type".to_owned()],
+                reason: Some("generated".to_owned()),
+                until: None,
+                whole_file: false,
+            }],
+        );
+
+        collector.absorb(Staged {
+            findings: vec![waived, recorded],
+            ..Staged::default()
+        });
+
+        assert_eq!(collector.suppressed.len(), 1);
+        let Some(Reverse(Ranked(kept))) = collector.retained.peek() else {
+            panic!("the recorded finding was not kept");
+        };
+        assert!(kept.known);
     }
 
     #[test]
