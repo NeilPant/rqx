@@ -92,8 +92,8 @@ impl Viewer {
             KeyCode::Down | KeyCode::Char('j') | KeyCode::Enter => self.scroll(1),
             KeyCode::PageUp | KeyCode::Char('b') => self.scroll(-self.page_step()),
             KeyCode::PageDown | KeyCode::Char(' ' | 'f') => self.scroll(self.page_step()),
-            KeyCode::Home | KeyCode::Char('g') => self.top = 0,
-            KeyCode::End | KeyCode::Char('G') => self.top = self.last_top(),
+            KeyCode::Home | KeyCode::Char('g') => self.scroll(isize::MIN),
+            KeyCode::End | KeyCode::Char('G') => self.scroll(isize::MAX),
             KeyCode::Char('/') => self.search.typing = Some(String::new()),
             KeyCode::Char('n') => self.next_hit(true),
             KeyCode::Char('N') => self.next_hit(false),
@@ -244,7 +244,10 @@ impl Viewer {
         self.top = self.search.hits[at].min(self.last_top());
     }
 
+    /// Moving by hand leaves the match `n` last went to, so the next `n` counts from
+    /// the new top row.
     fn scroll(&mut self, by: isize) {
+        self.search.current = None;
         self.top = self.top.saturating_add_signed(by).min(self.last_top());
     }
 
@@ -501,6 +504,14 @@ mod tests {
         shown.key(press(KeyCode::Char('N')));
         assert_eq!(shown.search.current, Some(3));
         assert_eq!(shown.found(), "match 4 of 4");
+        shown.key(press(KeyCode::Char('g')));
+        assert_eq!(
+            shown.found(),
+            "4 rows match",
+            "moving by hand forgets the match"
+        );
+        shown.key(press(KeyCode::Char('n')));
+        assert_eq!(shown.top, 24);
     }
 
     #[test]
