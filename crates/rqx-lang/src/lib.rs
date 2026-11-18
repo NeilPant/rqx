@@ -31,6 +31,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use rqx_core::config::RqxConfig;
+use rqx_core::fact_plan::{Fact, FactPlan};
 use rqx_core::facts::{Limits, ModuleFacts, PatternLimits};
 use rqx_core::finding::{Finding, SourceRange};
 use rqx_core::line_index::LineIndex;
@@ -326,8 +327,22 @@ pub fn analyze_with(
     config: &RqxConfig,
     tables: &CostTables,
 ) -> Result<FileAnalysis, AnalysisError> {
+    analyze_planned(path, display, source, config, tables, config.facts())
+}
+
+/// As [`analyze_with`], building the facts `plan` names. A scan passes more than this
+/// file's own rules read when a rule reads the same facts from every file, as the
+/// import graph does. `plan` must include `config.facts()`.
+pub fn analyze_planned(
+    path: &Path,
+    display: &str,
+    source: &str,
+    config: &RqxConfig,
+    tables: &CostTables,
+    plan: FactPlan,
+) -> Result<FileAnalysis, AnalysisError> {
     let language = Language::of_path(path).ok_or(AnalysisError::UnsupportedFile)?;
-    analyze_as_with(language, display, source, config, tables)
+    analyze_as_planned(language, display, source, config, tables, plan)
 }
 
 pub fn analyze_as(
@@ -352,6 +367,24 @@ pub fn analyze_as_with(
     config: &RqxConfig,
     tables: &CostTables,
 ) -> Result<FileAnalysis, AnalysisError> {
+    analyze_as_planned(language, display, source, config, tables, config.facts())
+}
+
+/// As [`analyze_as_with`], building the facts `plan` names. `plan` must include
+/// `config.facts()`.
+pub fn analyze_as_planned(
+    language: Language,
+    display: &str,
+    source: &str,
+    config: &RqxConfig,
+    tables: &CostTables,
+    plan: FactPlan,
+) -> Result<FileAnalysis, AnalysisError> {
+    debug_assert_eq!(
+        plan.union(config.facts()),
+        plan,
+        "a plan that builds less than the enabled rules read"
+    );
     let support = support(language);
     let profile = support.profile;
     let tree = parse(language, profile, holds_markup(display), source)?;
@@ -361,9 +394,8 @@ pub fn analyze_as_with(
     let measured = metrics::measure(profile, source, root);
 
     // Scope and symbol data is only built when a rule will read it: it is the most
-    // expensive stage in the per-file pipeline and the structural rules need none of
-    // it.
-    let deep = config.needs_semantics();
+    // expensive stage in the per-file pipeline and the metric rules need none of it.
+    let deep = plan.builds(Fact::Collected);
     let scopes = deep.then(|| scope::resolve(profile, source, root));
     let thresholds = &config.thresholds;
 

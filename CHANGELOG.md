@@ -52,6 +52,23 @@ them. `tools/release.sh` turns that section into the release notes.
   document reporters and `--watch` are not paged, and the exit code is the same with
   and without the pager. See `docs/ci.md`.
 
+### Fixed
+
+- **A rule reports the same findings whichever other rules are enabled.** The scan
+  built the scope resolver and the collectors only when an enabled rule declared the
+  `Semantics` or `Modules` analysis, and most rules declared `Syntax` read those
+  collectors too. A configuration that switched the `Semantics` and `Modules` rules off
+  lost findings of rules that were still on, with exit code 0 and no warning. On cobra 1.10.2,
+  disabling every `Semantics` and `Modules` rule and the pattern advisories cut the
+  findings of `Syntax` rules from 401 to 108, and `rules.categories: [flow]` reported
+  nothing at a health of 100. Each rule now names the facts it reads, and the scan
+  builds every fact that an enabled rule or advisory reads. A file in an `overrides`
+  subtree also builds what rules elsewhere read from every file, such as its imports
+  for the import graph, so a file imported only from that subtree is no longer
+  reported as unused. The default configuration already built every fact, and its
+  output is unchanged. Configurations that disable rules, set `categories`, or use
+  `overrides` can report findings they did not report before.
+
 ## 0.5.1 — 2026-11-18
 
 

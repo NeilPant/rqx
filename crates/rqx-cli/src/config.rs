@@ -7,6 +7,7 @@ use ignore::overrides::{Override, OverrideBuilder};
 use rqx_core::config::{
     CONFIG_FILE_NAME, Level, RqxConfig, SCOPED_TABLES, SubtreeOverride, TABLES, UnknownName,
 };
+use rqx_core::fact_plan::{Fact, FactPlan};
 use rqx_lang::cost::tables::CostTables;
 use serde_json::{Map, Value};
 
@@ -29,6 +30,8 @@ pub const POLICY_ENV: &str = "RQX_POLICY";
 struct Scope {
     matcher: Override,
     config: RqxConfig,
+    /// What this override's rules read, worked out once rather than per file.
+    facts: FactPlan,
     /// The directory the globs were built against. An `Override` matches paths under
     /// its own root only, so comparing two checkouts needs the globs rebuilt against
     /// the other one rather than reused.
@@ -87,7 +90,6 @@ pub struct Resolved {
     /// the `from` column can tell a value a file set from one a level moved.
     written: Value,
     scopes: Vec<Scope>,
-    modules: bool,
     /// The debt already recorded, when the gate names a baseline. Shared rather than
     /// copied because every worker reads it and none of them writes it.
     pub baseline: Option<Arc<crate::baseline::Recorded>>,
@@ -115,11 +117,11 @@ impl Clone for Resolved {
                 .map(|scope| Scope {
                     matcher: scope.matcher.clone(),
                     config: scope.config.clone(),
+                    facts: scope.facts,
                     directory: scope.directory.clone(),
                     globs: scope.globs.clone(),
                 })
                 .collect(),
-            modules: self.modules,
             baseline: self.baseline.clone(),
             baseline_findings: self.baseline_findings,
             cost_tables: Arc::clone(&self.cost_tables),
@@ -137,7 +139,6 @@ impl Resolved {
     /// One config, no files, no scopes. What the language server and the tests use
     /// when they already hold the settings they mean.
     pub fn of(config: RqxConfig) -> Self {
-        let modules = config.needs_modules();
         Self {
             cost_tables: CostTables::for_performance(&config.performance),
             config,
@@ -151,29 +152,54 @@ impl Resolved {
             scopes: Vec::new(),
             baseline: None,
             baseline_findings: None,
-            modules,
         }
     }
 
     /// The settings that govern one file. Overrides are tried last-declared first, so
     /// the most specific rule a project wrote is the one that answers.
     pub fn for_file(&self, path: &Path) -> &RqxConfig {
-        if self.scopes.is_empty() {
-            return &self.config;
+        self.for_file_with_facts(path).0
+    }
+
+    /// The settings that govern one file, with the facts its analysis builds: what
+    /// its own rules read, and what any rule reads from every file. A file whose own
+    /// rules read nothing beyond its metrics still has to give the import graph its
+    /// imports when a rule elsewhere reads the graph.
+    pub fn for_file_with_facts(&self, path: &Path) -> (&RqxConfig, FactPlan) {
+        // The root's plan is read from its config every time rather than stored:
+        // `config` is public, and a command that switches rules on after resolving
+        // would otherwise analyse with the plan of the rules it started with.
+        let root = self.config.facts();
+        let everywhere = self.everywhere(root);
+        match self.scope_of(path) {
+            Some(scope) => (&scope.config, scope.facts.union(everywhere)),
+            None => (&self.config, root.union(everywhere)),
         }
-        let file = resolved_form(path);
+    }
+
+    /// What some rule, in any layer, reads from every file of the project, so every
+    /// file builds it whatever its own rules are.
+    fn everywhere(&self, root: FactPlan) -> FactPlan {
         self.scopes
             .iter()
-            .rev()
-            .find(|scope| scope.covers(&file))
-            .map_or(&self.config, |scope| &scope.config)
+            .fold(root.for_every_file(), |everywhere, scope| {
+                everywhere.union(scope.facts.for_every_file())
+            })
+    }
+
+    fn scope_of(&self, path: &Path) -> Option<&Scope> {
+        if self.scopes.is_empty() {
+            return None;
+        }
+        let file = resolved_form(path);
+        self.scopes.iter().rev().find(|scope| scope.covers(&file))
     }
 
     /// The import graph is built once for every file the walk saw, so it has to be
-    /// collected if a single subtree asks for a rule that reads it. Per-file stages
-    /// need no such union: each file is analysed under its own settings.
-    pub const fn needs_modules(&self) -> bool {
-        self.modules
+    /// collected if a single subtree asks for a rule that reads it.
+    pub fn needs_modules(&self) -> bool {
+        self.everywhere(self.config.facts())
+            .builds(Fact::ImportGraph)
     }
 
     /// Whether any layer runs this rule. Collection that happens once for the whole
@@ -195,13 +221,16 @@ impl Resolved {
 
     /// Everything that changes what a finding is, for the cache key. Whether generated
     /// files are skipped is part of it because a file served from the cache is not read,
-    /// and so is never looked at for the marker that would skip it.
+    /// and so is never looked at for the marker that would skip it. The fact plans are
+    /// part of it so that an analysis built with fewer facts is never served to a run
+    /// whose rules read more.
     pub fn signature(&self) -> impl std::hash::Hash + '_ {
         (
             &self.config.thresholds,
             &self.config.rules,
             &self.config.patterns,
             self.config.scan.skip_generated,
+            self.config.facts(),
             self.scopes
                 .iter()
                 .map(|scope| {
@@ -210,6 +239,7 @@ impl Resolved {
                         &scope.config.rules,
                         &scope.config.patterns,
                         scope.config.scan.skip_generated,
+                        scope.facts,
                     )
                 })
                 .collect::<Vec<_>>(),
@@ -332,6 +362,7 @@ impl Resolved {
                     )
                 })?,
                 config: scope.config.clone(),
+                facts: scope.facts,
                 directory,
                 globs: scope.globs.clone(),
             });
@@ -349,7 +380,6 @@ impl Resolved {
             baseline: self.baseline.clone(),
             baseline_findings: self.baseline_findings,
             cost_tables: Arc::clone(&self.cost_tables),
-            modules: self.modules,
         })
     }
 }
@@ -555,8 +585,6 @@ fn resolve_with(
         scopes.push(scope(&path, entry, &merged, chosen, tolerance)?);
     }
 
-    let modules = config.needs_modules() || scopes.iter().any(|scope| scope.config.needs_modules());
-
     // Compiled once, before anything is scanned, so a typo in a query is a config
     // error naming the rule rather than a rule that silently never fires.
     rqx_lang::custom::validate(&config.custom).map_err(|error| anyhow::anyhow!("{error}"))?;
@@ -591,7 +619,6 @@ fn resolve_with(
         presets,
         written: merged,
         scopes,
-        modules,
         baseline_findings,
         baseline,
     })
@@ -931,6 +958,7 @@ fn scope(
 
     Ok(Scope {
         matcher,
+        facts: config.facts(),
         config,
         directory,
         globs,

@@ -2443,7 +2443,7 @@ pub(crate) fn analyze_file(
     cache: Option<&crate::cache::Cache>,
     reads: &FileReads,
 ) -> ScanMessage {
-    let config = settings.for_file(path);
+    let (config, facts) = settings.for_file_with_facts(path);
     if size.is_some_and(|bytes| bytes > config.scan.max_filesize) {
         return ScanMessage::Skipped {
             path: path.to_owned(),
@@ -2477,7 +2477,14 @@ pub(crate) fn analyze_file(
     let cached = match cache.and_then(|cache| cache.get(&display, &source, stamp)) {
         Some(cached) => cached,
         None => {
-            match rqx_lang::analyze_with(path, &display, &source, config, &settings.cost_tables) {
+            match rqx_lang::analyze_planned(
+                path,
+                &display,
+                &source,
+                config,
+                &settings.cost_tables,
+                facts,
+            ) {
                 Ok(analysis) => {
                     let identities = identities_of(&analysis.findings, &source);
                     if let Some(cache) = cache {
@@ -2944,6 +2951,9 @@ pub(crate) fn scan_against(
 
 #[cfg(test)]
 mod cost_tests;
+
+#[cfg(test)]
+mod isolation_tests;
 
 #[cfg(test)]
 mod tests {
