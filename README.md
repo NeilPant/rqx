@@ -395,7 +395,7 @@ import resolver. Nothing else about a language reaches the rules.
 | **Imports resolve via** | extensions, `index`, `tsconfig` paths, `package.json` | the same, and one graph with TypeScript: `./x.js` finds `x.ts` | packages and `__init__.py`, relative dots | `go.mod` module path, package directories | package to directory under a source root | `#include "…"` against the file and include roots |
 | **Entry points** | `package.json` `main`/`exports`/`bin` | `package.json` `main`/`exports`/`bin` | `__main__.py`, `main.py`, `conftest.py`, `test_*`, `[project.scripts]` | `package main`, `_test.go` | `static void main`, `@Test` | every translation unit, `TEST(…)` |
 | **Tests** | Jest/Mocha/Vitest | Jest/Mocha/Vitest | pytest, unittest | `go test` | JUnit | GoogleTest |
-| **Rules that apply** | 185 | 177 | 175 | 140 | 172 | 170 |
+| **Rules that apply** | 195 | 187 | 185 | 151 | 184 | 183 |
 
 JavaScript is read as TypeScript without its types. TypeScript and JavaScript files
 in one project share a module graph, so an import of `./util.js` that is really
@@ -743,7 +743,7 @@ rules:
   enabled: [short-name-wide-scope]        # opt into an off-by-default rule
 ```
 
-Twenty-one rules ship off by default: the ones whose signal is real but noisy, or
+Twenty-four rules ship off by default: the ones whose signal is real but noisy, or
 which encode a convention a given project may not share. They are listed with
 `(off by default)` in `rqx rules`.
 
@@ -771,8 +771,17 @@ keeps its constants when its syntax changes.
 
 Several costs that a profiler would find are visible in source: a query inside a
 loop, a linear search inside a loop, an await per item, a pattern recompiled on every
-pass. Ten rules read those shapes, and `rqx perf` ranks the functions carrying them
-by what they cost against how much of the project leans on the file they are in.
+pass. Twenty-five rules read those shapes, three of them off by default, and `rqx perf`
+ranks the functions carrying them by what they cost against how much of the project
+leans on the file they are in.
+
+The orders in the table are estimates. Big-O cannot be decided from source, so rqx
+reads loops, the types of the receivers and the calls it can follow, and each row
+carries a confidence and, with `--explain`, the evidence behind it. On the precision
+corpus the time and space orders were exact for 0.91 of 437 functions written for the
+corpus and for 0.48 of 31 functions copied from five open source projects. The sample
+of real code is small. [docs/perf-precision.md](docs/perf-precision.md) has the figures
+per language and per rule.
 
 ```
 $ rqx perf --top 2

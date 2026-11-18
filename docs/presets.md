@@ -25,7 +25,7 @@ file: rqx suggests the closest preset and lists the rest.
 | `strict` | The strict level: thresholds close to what a well-factored module already meets, four naming rules on, and a gate that fails on a warning. |
 | `legacy-adoption` | The relaxed level's thresholds and rules, a gate that fails only on errors, and the ratchet on. Use it with `rqx baseline` and `gate.baseline`. The ratchet has no effect until a baseline exists, so extending the preset does not fail a run by itself. |
 | `ci-gate` | A gate for a pipeline: no errors, a health score of at least 70, and no single file graded `critical`. Thresholds stay at their defaults, so the preset changes what fails the build and leaves what is reported unchanged. |
-| `perf` | Every performance rule is reported as an error, so the default gate fails on one, and nested loops and nested callbacks are reported one level earlier than the defaults allow. |
+| `perf` | Every performance rule is reported as an error, so the default gate fails on one, and nested loops and nested callbacks are reported one level earlier than the defaults allow. The performance rules that ship off (`allocation-in-loop`, `missing-capacity` and `pair-scan-could-hash`) are switched on. |
 
 The level names `relaxed`, `standard` and `pristine` can also be used under
 `extends`, as `strict` can. `rqx levels` prints what each one changes.

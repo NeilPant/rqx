@@ -6,8 +6,10 @@ requests with the measured fact, the reason it matters and the named refactoring
 fixes it.
 
 The server also scans the whole project on its own, once after the handshake and again
-after every save. Eight rules are cross-file rules: unused exports, unused files,
-import cycles, duplication, and the two co-change rules. They cannot be evaluated from
+after every save. Twelve rules are cross-file rules: unused exports, unused files,
+import cycles, duplication, the two co-change rules, and the four performance rules that
+compose function costs across calls (`quadratic-via-call`, `deep-recursion`,
+`repeated-computation-in-loop` and `pair-scan-could-hash`). They cannot be evaluated from
 a single open file, so without the project scan a client would miss them. Diagnostics
 for files that were never opened are published in the same way as diagnostics for open
 files.
