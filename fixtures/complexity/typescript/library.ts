@@ -10,7 +10,7 @@ export function drain(queue: number[], count: number): void {
   }
 }
 
-// @complexity time=O(n*m log m) space=O(m) conf=heuristic scope=local
+// @complexity time=O(n*m log m) space=O(m) conf=heuristic none=scan-in-loop scope=local
 export function sortEach(batches: number[][]): void {
   for (const batch of batches) {
     batch.sort();
@@ -26,7 +26,7 @@ export function lookupAll(index: Map<string, number>, keys: string[]): number {
   return total;
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=scan-in-loop scope=local
 export function mentions(text: string, words: string[]): number {
   let hits = 0;
   for (const word of words) {

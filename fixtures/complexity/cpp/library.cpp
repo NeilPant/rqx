@@ -62,7 +62,7 @@ void push_front_list(std::list<int>& target, const std::vector<int>& values) {
     }
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=scan-in-loop scope=local
 int mentions(const std::string& text, const std::vector<std::string>& words) {
     int hits = 0;
     for (const auto& word : words) {

@@ -49,7 +49,7 @@ func JoinAll(parts []string) string {
 	return strings.Join(parts, ",")
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=scan-in-loop scope=local
 func MentionAll(text string, words []string) int {
 	hits := 0
 	for _, word := range words {

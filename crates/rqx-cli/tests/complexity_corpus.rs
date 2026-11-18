@@ -9,6 +9,10 @@
 //! when any language's precision or recall is lower than the baseline's. `RQX_BLESS=1`
 //! rewrites the baseline on purpose.
 //!
+//! The functions under `real/` were copied from public projects. They are scored the
+//! same way, in a section of the baseline of their own, so that the number for real code
+//! is not averaged into the number for the functions written for the corpus.
+//!
 //! The extraction alone is also held to the time of every function marked `scope=local`.
 
 #[path = "complexity_corpus/annotation.rs"]
@@ -24,13 +28,13 @@ mod ratchet;
 #[path = "complexity_corpus/rules.rs"]
 mod rules;
 
-use std::collections::BTreeMap;
 use std::sync::{Once, OnceLock};
 
-use baseline::Baseline;
-use corpus::{Corpus, LANGUAGES};
+use baseline::{Baseline, RuleTable, Section};
+use corpus::{Corpus, LANGUAGES, Set};
 use inference::Inference;
 use rqx_core::cost::Order;
+use rqx_core::precision::{FORMAT, language_of_id};
 use rqx_lang::cost::{local, tables::CostTables};
 
 const SEED_FUNCTIONS: usize = 30;
@@ -41,6 +45,11 @@ fn blessing() -> bool {
 
 fn baseline_path() -> std::path::PathBuf {
     corpus::root().join("baseline.json")
+}
+
+/// The copy of the baseline's rule counts that the binary embeds.
+fn rule_table_path() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../rqx-core/src/precision/rules.json")
 }
 
 fn loaded() -> &'static Corpus {
@@ -59,20 +68,32 @@ fn inferred() -> &'static Inference {
     INFERENCE.get_or_init(|| Inference::of(loaded()))
 }
 
-/// What the inference says of every function of the corpus, by id.
-fn current_baseline() -> Baseline {
+/// What the inference says of every function of one set, and how its rules did on them.
+fn section_of(set: Set) -> Section {
     let corpus = loaded();
     let inference = inferred();
-    let mut baseline = Baseline::of(
-        corpus
-            .ids()
-            .into_iter()
-            .zip(&corpus.functions)
-            .map(|(id, function)| (id, inference.outcome(function)))
-            .collect(),
-    );
-    baseline.rules = rules::counts(corpus, inference);
-    baseline
+    let functions = corpus
+        .ids()
+        .into_iter()
+        .zip(&corpus.functions)
+        .filter(|(_, function)| function.set == set)
+        .map(|(id, function)| (id, inference.outcome(function)))
+        .collect();
+    Section {
+        functions,
+        rules: rules::counts(corpus, inference, set),
+    }
+}
+
+/// What the inference says of every function of the corpus, by id.
+fn current_baseline() -> Baseline {
+    let written = section_of(Set::Written);
+    Baseline {
+        format: FORMAT,
+        functions: written.functions,
+        rules: written.rules,
+        real: section_of(Set::Real),
+    }
 }
 
 /// Rewrites the baseline when asked to, once, before any test reads it.
@@ -80,39 +101,30 @@ fn bless_if_asked() {
     static BLESSED: Once = Once::new();
     BLESSED.call_once(|| {
         if blessing() {
-            current_baseline()
-                .write(&baseline_path())
-                .expect("the baseline is written");
+            let current = current_baseline();
+            baseline::write(&current, &baseline_path()).expect("the baseline is written");
+            baseline::write_rule_table(&current, &rule_table_path())
+                .expect("the rule table is written");
         }
     });
 }
 
-/// The language of every function, by id, for the metrics that are kept per language.
-fn languages_by_id() -> BTreeMap<String, &'static str> {
-    let corpus = loaded();
-    corpus
-        .ids()
-        .into_iter()
-        .zip(&corpus.functions)
-        .map(|(id, function)| (id, function.language))
-        .collect()
-}
-
-fn report(baseline: &Baseline, languages: &BTreeMap<String, &'static str>) {
-    let tallies =
-        baseline.tallies(&|id| languages.get(id).copied().unwrap_or("unknown").to_owned());
-    for (group, tally) in &tallies {
-        let ratio = |value: Option<f64>| value.map_or("-".to_owned(), |v| format!("{v:.3}"));
-        eprintln!(
-            "complexity corpus: {group:<10} {:>3} functions  exact {:>3} over {:>2} under {:>2} abstained {:>2}  precision {}  recall {}",
-            tally.functions(),
-            tally.exact,
-            tally.over,
-            tally.under,
-            tally.abstained,
-            ratio(tally.precision()),
-            ratio(tally.recall()),
-        );
+fn report(baseline: &Baseline) {
+    let sections = [("", baseline.synthetic()), ("real ", baseline.real.clone())];
+    for (label, section) in sections {
+        for (group, tally) in &section.tallies_by_language() {
+            let ratio = |value: Option<f64>| value.map_or("-".to_owned(), |v| format!("{v:.3}"));
+            eprintln!(
+                "complexity corpus: {label}{group:<10} {:>3} functions  exact {:>3} over {:>2} under {:>2} abstained {:>2}  precision {}  recall {}",
+                tally.functions(),
+                tally.exact,
+                tally.over,
+                tally.under,
+                tally.abstained,
+                ratio(tally.precision()),
+                ratio(tally.recall()),
+            );
+        }
     }
 }
 
@@ -121,17 +133,22 @@ fn every_annotation_in_the_corpus_is_well_formed() {
     let corpus = loaded();
     for language in LANGUAGES {
         eprintln!(
-            "complexity corpus: {language:<10} {}",
-            corpus.count_in(language)
+            "complexity corpus: {language:<10} {} written, {} real",
+            corpus.count_in(Set::Written, language),
+            corpus.count_in(Set::Real, language)
         );
-        assert!(corpus.count_in(language) >= 4, "{language} is too thin");
+        assert!(
+            corpus.count_in(Set::Written, language) >= 4,
+            "{language} is too thin"
+        );
     }
     eprintln!(
-        "complexity corpus: {:<10} {}",
+        "complexity corpus: {:<10} {} written, {} real",
         "total",
-        corpus.functions.len()
+        corpus.count_of(Set::Written),
+        corpus.count_of(Set::Real)
     );
-    assert!(corpus.functions.len() >= SEED_FUNCTIONS);
+    assert!(corpus.count_of(Set::Written) >= SEED_FUNCTIONS);
 }
 
 #[test]
@@ -147,8 +164,13 @@ fn function_ids_are_unique() {
 fn the_baseline_names_exactly_the_functions_of_the_corpus() {
     let corpus = loaded();
     bless_if_asked();
-    let baseline = Baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
-    let recorded: Vec<&String> = baseline.functions.keys().collect();
+    let baseline = baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
+    let mut recorded: Vec<&String> = baseline
+        .functions
+        .keys()
+        .chain(baseline.real.functions.keys())
+        .collect();
+    recorded.sort();
     let ids = corpus.ids();
     let mut expected: Vec<&String> = ids.iter().collect();
     expected.sort();
@@ -159,23 +181,59 @@ fn the_baseline_names_exactly_the_functions_of_the_corpus() {
 }
 
 #[test]
+fn the_real_functions_are_scored_apart_from_the_written_ones() {
+    let baseline = baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
+    assert!(
+        baseline
+            .functions
+            .keys()
+            .all(|id| !id.starts_with(corpus::REAL)),
+        "a real function is in the section of the written ones"
+    );
+    assert!(
+        baseline
+            .real
+            .functions
+            .keys()
+            .all(|id| id.starts_with(corpus::REAL)),
+        "a written function is in the real section"
+    );
+}
+
+#[test]
+fn the_binary_embeds_the_rule_counts_of_the_baseline() {
+    bless_if_asked();
+    let baseline = baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
+    let text = std::fs::read_to_string(rule_table_path()).expect("the embedded rule table");
+    assert_eq!(
+        RuleTable::parse(&text).expect("the embedded rule table parses"),
+        RuleTable::of(&baseline),
+        "crates/rqx-core/src/precision/rules.json is out of step with the baseline; run \
+         `RQX_BLESS=1 cargo test -p rqx --test complexity_corpus`"
+    );
+}
+
+#[test]
 fn the_composed_inference_holds_to_the_baseline() {
     let corpus = loaded();
     bless_if_asked();
-    let recorded = Baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
+    let recorded = baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");
     let current = current_baseline();
-    let languages = languages_by_id();
-    report(&current, &languages);
+    report(&current);
 
     let ids = corpus.ids();
     let mut missed = Vec::new();
     for (id, function) in ids.iter().zip(&corpus.functions) {
-        if current.functions[id] != baseline::Outcome::Exact {
+        let outcomes = match function.set {
+            Set::Written => &current.functions,
+            Set::Real => &current.real.functions,
+        };
+        if outcomes[id] != baseline::Outcome::Exact {
             missed.push(inferred().explain(function, id));
         }
     }
     eprintln!("complexity corpus: not exact:\n{}", missed.join("\n"));
-    for (slug, tally) in &current.rules {
+    for (slug, tally) in &current.rules_overall() {
         eprintln!(
             "complexity corpus: {slug:<30} tp {:>2} fp {:>2} fn {:>2}",
             tally.tp, tally.fp, tally.missed
@@ -186,9 +244,7 @@ fn the_composed_inference_holds_to_the_baseline() {
         rules::explain(corpus, inferred(), &ids).join("\n")
     );
 
-    let violations = ratchet::violations(&recorded, &current, &|id| {
-        languages.get(id).copied().unwrap_or("unknown").to_owned()
-    });
+    let violations = ratchet::violations(&recorded, &current, &|id| language_of_id(id).to_owned());
     assert!(
         violations.is_empty(),
         "the inference is worse than the baseline; fix it, or bless a lower baseline on purpose \

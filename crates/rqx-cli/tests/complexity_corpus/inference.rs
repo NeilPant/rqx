@@ -23,6 +23,8 @@ pub struct Inference {
     composed: BTreeMap<String, Summaries>,
     /// The places the cross-file rules report, by group of files.
     sites: BTreeMap<String, Vec<CrossSite>>,
+    /// Where the rules that read one file report, as the rule and the line, by file.
+    reports: BTreeMap<String, Vec<(String, u32)>>,
 }
 
 struct Read {
@@ -31,6 +33,7 @@ struct Read {
     cost: FileCost,
     /// The lines where a per-file rule already reports work in a loop.
     reported: Vec<u32>,
+    reports: Vec<(String, u32)>,
 }
 
 impl Inference {
@@ -45,6 +48,7 @@ impl Inference {
             extracted: BTreeMap::new(),
             composed: BTreeMap::new(),
             sites: BTreeMap::new(),
+            reports: BTreeMap::new(),
         };
         for group in groups {
             let analysed: Vec<Read> = corpus::files_of(&corpus::root(), group)
@@ -75,6 +79,9 @@ impl Inference {
                 inference
                     .extracted
                     .insert(file.name.clone(), file.cost.clone());
+                inference
+                    .reports
+                    .insert(file.name.clone(), file.reports.clone());
             }
             inference
                 .composed
@@ -116,9 +123,28 @@ impl Inference {
         let Some(start) = self.start_of(function) else {
             return false;
         };
-        self.sites[&function.group].iter().any(|site| {
+        let across_files = self.sites[&function.group].iter().any(|site| {
             site.rule.slug() == rule && site.file == function.file && site.function == start
-        })
+        });
+        across_files || self.reported_by_file_rule(function, rule)
+    }
+
+    /// Whether a rule that reads one file reports on a line of the function. A report
+    /// belongs to the last function the extraction recorded that starts at or before its
+    /// line.
+    fn reported_by_file_rule(&self, function: &Function, rule: &str) -> bool {
+        let starts: Vec<u32> = self.extracted[&function.file]
+            .functions
+            .iter()
+            .map(|found| found.line)
+            .collect();
+        let own = function.annotation.target_line as u32;
+        self.reports[&function.file]
+            .iter()
+            .filter(|(slug, _)| slug == rule)
+            .any(|(_, line)| {
+                starts.iter().copied().filter(|start| start <= line).max() == Some(own)
+            })
     }
 
     pub fn outcome(&self, function: &Function) -> Outcome {
@@ -174,6 +200,11 @@ fn analyse(path: &Path) -> Read {
             facts: analysis.module,
         },
         reported: lines_reported_in_loops(&analysis.findings),
+        reports: analysis
+            .findings
+            .iter()
+            .map(|finding| (finding.slug().to_owned(), finding.location.line))
+            .collect(),
         cost: analysis.cost,
     }
 }

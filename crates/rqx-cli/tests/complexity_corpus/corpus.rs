@@ -9,7 +9,16 @@ use super::annotation::{self, Annotation};
 
 pub const LANGUAGES: [&str; 6] = ["typescript", "javascript", "python", "go", "java", "cpp"];
 
+/// Which of the two sets a function scores in: the ones written for the corpus, or the
+/// ones copied from public projects.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Set {
+    Written,
+    Real,
+}
+
 pub struct Function {
+    pub set: Set,
     pub language: &'static str,
     /// Path under the corpus root, such as `python/loops.py`.
     pub file: String,
@@ -46,10 +55,15 @@ impl Corpus {
             functions: Vec::new(),
             problems: Vec::new(),
         };
-        for language in LANGUAGES {
-            for path in files_in(&root.join(language)) {
-                let group = relative_to(root, &path);
-                corpus.read(root, language, &path, &group, true);
+        for (set, base) in [
+            (Set::Written, root.to_path_buf()),
+            (Set::Real, root.join(REAL)),
+        ] {
+            for language in LANGUAGES {
+                for path in files_in(&base.join(language)) {
+                    let group = relative_to(root, &path);
+                    corpus.read(set, root, language, &path, &group, true);
+                }
             }
         }
         for project in directories_in(&root.join(PROJECTS)) {
@@ -58,7 +72,9 @@ impl Corpus {
                 let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
                 match language_of(extension) {
                     // A barrel that only re-exports has nothing to annotate.
-                    Some(language) => corpus.read(root, language, &path, &group, false),
+                    Some(language) => {
+                        corpus.read(Set::Written, root, language, &path, &group, false);
+                    }
                     None => corpus.problems.push(format!(
                         "{}: no language for `.{extension}`",
                         relative_to(root, &path)
@@ -71,6 +87,7 @@ impl Corpus {
 
     fn read(
         &mut self,
+        set: Set,
         root: &Path,
         language: &'static str,
         path: &Path,
@@ -99,6 +116,7 @@ impl Corpus {
         for annotation in annotations {
             let declaration = lines.get(annotation.target_line - 1).copied().unwrap_or("");
             self.functions.push(Function {
+                set,
                 language,
                 file: relative.clone(),
                 group: group.to_owned(),
@@ -126,15 +144,25 @@ impl Corpus {
             .collect()
     }
 
-    pub fn count_in(&self, language: &str) -> usize {
+    pub fn count_in(&self, set: Set, language: &str) -> usize {
         self.functions
             .iter()
-            .filter(|function| function.language == language)
+            .filter(|function| function.set == set && function.language == language)
+            .count()
+    }
+
+    pub fn count_of(&self, set: Set) -> usize {
+        self.functions
+            .iter()
+            .filter(|function| function.set == set)
             .count()
     }
 }
 
 pub const PROJECTS: &str = "projects";
+
+/// Where the functions copied from public projects are, one directory per language.
+pub const REAL: &str = "real";
 
 /// The files a group is analysed from: the one file, or everything in the project.
 pub fn files_of(root: &Path, group: &str) -> Vec<PathBuf> {
@@ -259,7 +287,7 @@ mod tests {
                 "python/b.py:same#2"
             ]
         );
-        assert_eq!(corpus.count_in("python"), 2);
+        assert_eq!(corpus.count_in(Set::Written, "python"), 2);
         std::fs::remove_dir_all(root).unwrap();
     }
 

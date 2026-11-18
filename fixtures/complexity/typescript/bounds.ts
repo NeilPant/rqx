@@ -96,7 +96,7 @@ export function lengths(words: string[]): number[] {
   return words.filter((w) => w.length > 0).map((w) => w.length);
 }
 
-// @complexity time=O(1) space=O(1) conf=verified scope=local
+// @complexity time=O(1) space=O(1) conf=verified none=accumulate-by-copy scope=local
 export function threeLetters(): string {
   let joined = "";
   for (const letter of ["a", "b", "c"]) {

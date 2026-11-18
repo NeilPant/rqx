@@ -14,7 +14,7 @@ export function power(base: number, exponent: number): number {
   return exponent % 2 === 0 ? half * half : half * half * base;
 }
 
-// @complexity time=O(n log n) space=O(n) conf=verified
+// @complexity time=O(n log n) space=O(n) conf=verified none=branching-recursion
 export function mergeSort(values: number[]): number[] {
   if (values.length <= 1) {
     return values;
@@ -31,7 +31,7 @@ export function mergeSort(values: number[]): number[] {
   return merged.concat(left.slice(i), right.slice(j));
 }
 
-// @complexity time=O(n^2) space=O(n^2) conf=verified rule=accumulate-by-copy,deep-recursion
+// @complexity time=O(n^2) space=O(n^2) conf=verified rule=deep-recursion
 export function sumTail(values: number[]): number {
   if (values.length === 0) {
     return 0;
