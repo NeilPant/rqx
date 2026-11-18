@@ -1,12 +1,15 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use rqx_core::Language;
 use rqx_core::facts::{ClassMetrics, CloneCandidate, FileMetrics, FunctionMetrics, SuspiciousName};
 use rqx_core::naming;
 use rqx_core::span::Span;
 use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
-use crate::tree::{find_within, is_binding_position, kind_of, operator_of, span_of, text_of};
+use crate::tree::{
+    field_name_under, find_within, is_binding_position, kind_of, operator_of, span_of, text_of,
+};
 use crate::vocabulary::MEMO_HINTS;
 
 struct FunctionFrame {
@@ -14,6 +17,8 @@ struct FunctionFrame {
     report: Span,
     extent: Span,
     parameters: u32,
+    /// Whether the last parameter takes any number of arguments.
+    variadic: bool,
     statements: u32,
     complexity: u32,
     /// The same decisions, counted flat. Cognitive complexity weighs a nested
@@ -25,6 +30,19 @@ struct FunctionFrame {
     max_loops: u32,
     self_calls: u32,
     memo_guard: bool,
+    recursion: Recursion,
+}
+
+/// How a function names itself when it recurses. A method that calls a function of
+/// the same name without its receiver is calling that other function: cobra's
+/// `(c *Command) MarkFlagRequired` calls the package's `MarkFlagRequired`.
+enum Recursion {
+    /// A plain function, or a Java or C++ method, which reach their own members
+    /// without a receiver: an unqualified call is the function itself.
+    Unqualified,
+    /// A method in a language that has to name its receiver: `self.f()` in Python,
+    /// `this.f()` in TypeScript, and `c.f()` in Go, whose receiver is named here.
+    ThroughReceiver(Option<String>),
 }
 
 struct ClassFrame {
@@ -115,6 +133,10 @@ impl<'a> MetricsWalker<'a> {
             report,
             extent: span_of(node),
             parameters: self.parameter_count(node),
+            variadic: self.parameter_list(node).is_some_and(|list| {
+                list.named_children(&mut list.walk())
+                    .any(|parameter| kind_of(parameter).starts_with("spread"))
+            }),
             statements: 0,
             complexity: 0,
             decisions: 0,
@@ -124,7 +146,42 @@ impl<'a> MetricsWalker<'a> {
             max_loops: inherited,
             self_calls: 0,
             memo_guard: false,
+            recursion: self.recursion_of(node),
         });
+    }
+
+    fn recursion_of(&self, function: Node<'a>) -> Recursion {
+        let profile = self.profile;
+        if matches!(profile.language, Language::Java | Language::Cpp) {
+            return Recursion::Unqualified;
+        }
+        let receiver = function.child_by_field_name("receiver");
+        let in_a_class = function
+            .parent()
+            .filter(|parent| kind_of(*parent) == "decorated_definition")
+            .or(Some(function))
+            .and_then(|member| member.parent())
+            .is_some_and(|body| {
+                profile.is_class(body) || body.parent().is_some_and(|class| profile.is_class(class))
+            });
+        let is_method = receiver.is_some()
+            || (profile.method_kinds.contains(&kind_of(function))
+                && (in_a_class || kind_of(function) != "function_definition"));
+        if !is_method {
+            return Recursion::Unqualified;
+        }
+        let named = receiver.and_then(|list| {
+            crate::tree::descendants(list)
+                .into_iter()
+                .find(|node| {
+                    profile.is_identifier(*node)
+                        && node
+                            .parent()
+                            .is_some_and(|parent| field_name_under(parent, *node) == Some("name"))
+                })
+                .map(|name| text_of(name, self.source).to_owned())
+        });
+        Recursion::ThroughReceiver(named)
     }
 
     fn pop_function(&mut self) {
@@ -185,16 +242,43 @@ impl<'a> MetricsWalker<'a> {
                     .filter(|callee| self.profile.is_member_access(*callee))
                     .and_then(|callee| callee.child_by_field_name(self.profile.object_field))
             });
-        let own = match receiver {
-            None => true,
-            Some(object) => self
-                .profile
-                .self_names
-                .contains(&text_of(object, self.source)),
+        let Some(frame) = self.functions.last() else {
+            return;
         };
-        if own && let Some(frame) = self.functions.last_mut() {
+        let own = match (receiver, &frame.recursion) {
+            // `::name()` in C++ is the global function, whatever the member is called.
+            (None, Recursion::Unqualified) => !self.callee_text(node).starts_with("::"),
+            (None, Recursion::ThroughReceiver(_)) => false,
+            (Some(object), recursion) => {
+                let object = text_of(object, self.source);
+                self.profile.self_names.contains(&object)
+                    || matches!(recursion, Recursion::ThroughReceiver(Some(name)) if name == object)
+            }
+        };
+        // Java picks an overload by its arguments, so `size(items)` inside `size()` is
+        // another method.
+        let overload = self.profile.language == Language::Java
+            && self
+                .argument_count(node)
+                .is_some_and(|arguments| arguments != frame.parameters && !frame.variadic);
+        if own
+            && !overload
+            && let Some(frame) = self.functions.last_mut()
+        {
             frame.self_calls += 1;
         }
+    }
+
+    fn callee_text(&self, call: Node<'a>) -> &'a str {
+        call.child_by_field_name(self.profile.callee_field)
+            .map_or("", |callee| text_of(callee, self.source))
+    }
+
+    fn argument_count(&self, call: Node<'a>) -> Option<u32> {
+        let mut cursor = call.walk();
+        call.named_children(&mut cursor)
+            .find(|child| self.profile.argument_list_kinds.contains(&kind_of(child)))
+            .map(|list| list.named_child_count() as u32)
     }
 
     /// A receiver in first position — `this`, `self`, `cls` — is not an argument

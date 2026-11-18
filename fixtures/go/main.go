@@ -158,6 +158,9 @@ func main() {
 	_ = fixtures.UpdateFailure
 	_ = fixtures.ZoneLabel
 	_ = fixtures.TimeoutBudget
+	_ = fixtures.Spiral
+	_ = fixtures.Flags
+	_ = fixtures.HasFlag
 	_ = fixtures.Labelled
 	_ = fixtures.Divide
 	_ = fixtures.Writer

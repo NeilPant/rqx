@@ -88,3 +88,21 @@ func Writer() func(w io.Writer, text string) (int, error) {
 		return io.WriteString(out, body)
 	}
 }
+
+// no-base-case: the method calls the function it is named after, not itself.
+type Flags struct {
+	names []string
+}
+
+func HasFlag(flags *Flags, name string) bool {
+	for _, known := range flags.names {
+		if known == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *Flags) HasFlag(name string) bool {
+	return HasFlag(f, name)
+}

@@ -108,3 +108,9 @@ func SpreadOut(rows []int) (int, int, int, int) {
 func Loops(rows []int) int {
 	return Loops(rows)
 }
+
+type Spiral struct{}
+
+func (s *Spiral) Turn(rows []int) int {
+	return s.Turn(rows)
+}

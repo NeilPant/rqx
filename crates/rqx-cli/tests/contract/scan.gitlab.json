@@ -36,6 +36,18 @@
     "severity": "major"
   },
   {
+    "check_name": "no-base-case",
+    "description": "Calls itself 1 times per invocation with no memo in sight. — nothing can stop the recursion, so the first call exhausts the stack",
+    "fingerprint": "3d76d686f6062eb50001",
+    "location": {
+      "lines": {
+        "begin": 91
+      },
+      "path": "typescript/bloat.ts"
+    },
+    "severity": "major"
+  },
+  {
     "check_name": "mutated-while-iterated",
     "description": "`rows` is changed while it is being walked. — the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands",
     "fingerprint": "c760077446060ba7",
@@ -2610,6 +2622,18 @@
     "location": {
       "lines": {
         "begin": 86
+      },
+      "path": "typescript/bloat.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "passthrough-function",
+    "description": "`turn to this.turn` forwards its arguments unchanged. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
+    "fingerprint": "e37b50eeb0833305",
+    "location": {
+      "lines": {
+        "begin": 91
       },
       "path": "typescript/bloat.ts"
     },

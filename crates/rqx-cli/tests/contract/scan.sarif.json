@@ -96,6 +96,31 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/bloat.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 91,
+                  "startColumn": 3,
+                  "startLine": 91
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Calls itself 1 times per invocation with no memo in sight. nothing can stop the recursion, so the first call exhausts the stack Fix: give `turn` the case that answers without calling itself"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "no-base-case"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/performance.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -5532,6 +5557,31 @@
           ],
           "message": {
             "text": "`loops to loops` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "passthrough-function"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/bloat.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 93,
+                  "startColumn": 3,
+                  "startLine": 91
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`turn to this.turn` forwards its arguments unchanged. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"

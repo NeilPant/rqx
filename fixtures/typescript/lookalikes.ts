@@ -59,3 +59,14 @@ events.on("trim", (payload: string) => payload.trim());
 export function adder(step: number): (value: number) => number {
   return (current) => current + step;
 }
+
+// no-base-case: the method calls the function it is named after, not itself.
+function render(text: string): string {
+  return text.trim();
+}
+
+export class Page {
+  render(text: string): string {
+    return render(text) + "\n";
+  }
+}

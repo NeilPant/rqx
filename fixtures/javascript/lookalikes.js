@@ -50,3 +50,14 @@ function shout(payload) {
 
 events.on("shout", shout);
 events.on("trim", (payload) => payload.trim());
+
+// no-base-case: the method calls the function it is named after, not itself.
+function render(text) {
+  return text.trim();
+}
+
+export class Page {
+  render(text) {
+    return render(text) + "\n";
+  }
+}

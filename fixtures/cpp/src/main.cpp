@@ -125,6 +125,7 @@ int main() {
     update_failure("a");
     zone_label();
     timeout_budget();
+    Gauge().level(1);
     adder(1)(2);
     return 0;
 }

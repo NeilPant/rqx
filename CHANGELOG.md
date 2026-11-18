@@ -72,6 +72,15 @@ them. `tools/release.sh` turns that section into the release notes.
   `index`, `main`, `server`, `app`, `cli` or `__main__` are skipped, since running
   top-level statements is what they are for. Calls such as `fs.readFileSync(path)` or
   `connect()` at the top of a module are still reported.
+- **`no-base-case` and `branching-recursion` count a call as recursion only when it
+  reaches the same function.** A Go method that calls the package function it is named
+  after, such as `(c *Command) MarkFlagRequired` calling `MarkFlagRequired`, was read
+  as calling itself, and so were methods in Python, TypeScript and JavaScript that call
+  a module function of the same name. In those languages a method now recurses only
+  through its receiver (`self`, `this`, or the Go receiver's own name), which also
+  means a Go method that recurses through its receiver is now found. In Java a call
+  with a different number of arguments is another overload, and in C++ `::name()` is
+  the global function.
 
 ## 0.5.0 — 2026-11-18
 

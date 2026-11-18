@@ -61,3 +61,14 @@ def _flush() -> None:
 
 atexit.register(_flush)
 atexit.register(lambda: print("closed"))
+
+
+
+# no-base-case: the method calls the function it is named after, not itself.
+def render(text: str) -> str:
+    return text.strip()
+
+
+class Page:
+    def render(self, text: str) -> str:
+        return render(text) + "\n"

@@ -34,3 +34,7 @@ int timeout_budget() {
     const int idle_timeout_seconds = 30;
     return connect_timeout_seconds + read_timeout_seconds + idle_timeout_seconds;
 }
+
+int level(int value) {
+    return value < 0 ? 0 : value;
+}

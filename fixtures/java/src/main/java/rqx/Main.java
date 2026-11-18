@@ -128,5 +128,6 @@ public class Main {
         new Lookalikes().counted(new String[0]);
         new Lookalikes().updateFailure("a");
         new Lookalikes().timeoutBudget();
+        new Lookalikes().total(new String[0]);
     }
 }

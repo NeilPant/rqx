@@ -22,6 +22,15 @@ public class Lookalikes {
         return factor;
     }
 
+    // no-base-case: `total(items)` calls the overload that takes a starting value.
+    public int total(String[] items) {
+        return total(items, 0);
+    }
+
+    public int total(String[] items, int start) {
+        return start + items.length;
+    }
+
     // mixed-language-file: an error message that names an update is not SQL.
     public String updateFailure(String id) {
         return "Failed to update user " + id;
