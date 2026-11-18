@@ -46,6 +46,37 @@ fn module_path(manifest: &Path) -> Option<String> {
         .map(|rest| rest.trim().to_owned())
 }
 
+/// Whether the module a Go file belongs to declares Go 1.22 or later, from which a
+/// `for` loop gives each iteration its own copy of the loop variables, so a closure
+/// that captures one no longer sees the value the loop stopped on. Read from the
+/// nearest `go.mod` above the file.
+pub fn loop_variables_per_iteration(file: &Path) -> bool {
+    file.ancestors()
+        .skip(1)
+        .find_map(|directory| std::fs::read_to_string(directory.join("go.mod")).ok())
+        .and_then(|manifest| declared_go_version(&manifest))
+        .is_some_and(|version| version >= (1, 22))
+}
+
+/// The `go` directive of a `go.mod`: `go 1.22`, `go 1.22.3`.
+fn declared_go_version(manifest: &str) -> Option<(u32, u32)> {
+    let version = manifest
+        .lines()
+        .map(str::trim)
+        .find_map(|line| line.strip_prefix("go "))?
+        .trim();
+    let mut parts = version.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts
+        .next()
+        .and_then(|minor| {
+            let digits: String = minor.chars().take_while(char::is_ascii_digit).collect();
+            digits.parse().ok()
+        })
+        .unwrap_or(0);
+    Some((major, minor))
+}
+
 impl Resolver for GoResolver {
     fn resolve(&self, _importer: &Path, specifier: &str) -> Vec<PathBuf> {
         let relative = match &self.module {
@@ -115,4 +146,20 @@ pub fn is_vendor(specifier: &str) -> bool {
         .split('/')
         .next()
         .is_some_and(|root| root.contains('.'))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::declared_go_version;
+
+    #[test]
+    fn the_go_directive_names_the_language_version() {
+        assert_eq!(declared_go_version("module m\n\ngo 1.22\n"), Some((1, 22)));
+        assert_eq!(
+            declared_go_version("module m\ngo 1.23.4\ntoolchain go1.24.0\n"),
+            Some((1, 23))
+        );
+        assert_eq!(declared_go_version("module m\ngo 1.15\n"), Some((1, 15)));
+        assert_eq!(declared_go_version("module m\n"), None);
+    }
 }

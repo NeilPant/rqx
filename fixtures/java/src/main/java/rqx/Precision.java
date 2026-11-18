@@ -10,6 +10,11 @@ public class Precision {
         return raw.trim();
     }
 
+    // imprecise-type: two casts in a row are one decision, so this reports once.
+    public Integer forced(String input) {
+        return (Integer) (Object) input;
+    }
+
     // user name
     public String userName = "ada";
 

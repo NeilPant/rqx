@@ -71,7 +71,7 @@ export async function settingsOf(path: string): Promise<string> {
 
 export function schedules(rows: number[]): Array<() => number> {
   const out: Array<() => number> = [];
-  for (let at = 0; at < rows.length; at++) {
+  for (var at = 0; at < rows.length; at++) {
     out.push(function later(): number {
       return at;
     });

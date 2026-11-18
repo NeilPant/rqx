@@ -134,7 +134,18 @@ impl<'a> Builder<'a> {
             return None;
         }
         let parent = above?;
-        if self.profile.parameter_kinds.contains(&kind_of(parent)) {
+        if names_a_keyword(parent, node) {
+            return None;
+        }
+        // A parameter's default value is an expression, not a name it declares.
+        if self.profile.parameter_kinds.contains(&kind_of(parent))
+            && field_name_under(parent, node) != Some("value")
+        {
+            return Some(BindingKind::Parameter);
+        }
+        // Python's `def f(x)` and Java's `(a, b) -> …` put a bare name straight into the
+        // list, with no parameter node around it.
+        if self.profile.parameter_list_kinds.contains(&kind_of(parent)) {
             return Some(BindingKind::Parameter);
         }
         if self.profile.import_binding_kinds.contains(&kind_of(parent)) {
@@ -179,6 +190,9 @@ impl<'a> Builder<'a> {
         let Some(parent) = above else {
             return false;
         };
+        if names_a_keyword(parent, node) {
+            return false;
+        }
         let names_a_property = self.profile.is_member_access(parent)
             && field_name_under(parent, node).is_some_and(|field| field == "property");
         !names_a_property
@@ -252,6 +266,12 @@ impl<'a> Builder<'a> {
             scopes: self.scopes,
         }
     }
+}
+
+/// `limit` in Python's `StreamReader(limit=limit)` names the callee's parameter: the
+/// first is neither a binding here nor a use of one, and only the value is a read.
+fn names_a_keyword(parent: Node<'_>, node: Node<'_>) -> bool {
+    kind_of(parent) == "keyword_argument" && field_name_under(parent, node) == Some("name")
 }
 
 pub fn resolve(profile: &'static LanguageProfile, source: &str, root: Node<'_>) -> Scopes {

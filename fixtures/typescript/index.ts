@@ -1,5 +1,5 @@
 export { add, describe } from "./clean";
-export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
+export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops, Spiral } from "./bloat";
 export { manySteps } from "./long";
 export { Reconciler } from "./reconcile";
 export { process, guardsTheGate } from "./names";
@@ -10,7 +10,7 @@ export { pricing, unreachable, suppressed, ship, nothingHappens, forwardOrbit, s
 export { Coordinate, Marker, Facade, Vehicle, Engine, Broken, Totals, routeOf, priceOf, notify, enqueue, record } from "./shapes";
 export type { Channel, IShipment } from "./shapes";
 export { Registry, CachedRegistry, gate, sweep } from "./shapes";
-export { widen, userName, narrowed } from "./precision";
+export { widen, userName, narrowed, forced } from "./precision";
 export { query, window as slice, limits, Ledger as ConventionLedger, narrates, tier } from "./conventions";
 export { Ledger, handle, summarise } from "./queries";
 export { endpoint, score } from "./config";
@@ -33,3 +33,5 @@ export { Shape, RedCircle, RedSquare, BlueCircle, BlueSquare } from "./families"
 export { Expression, Literal, Sum, Product, Printer } from "./families";
 export { restated, compared, sameEitherWay, decidedNothing, buriedExits, assigns, wideSwitch, deeplyNestedCallbacks, trailingJump, twoArmed, settled, dropped, tierOf, admits, changed, labelOf, firstOf, freshTotal, asksTwice, joined, fallsThrough, Settled } from "./flow";
 export { keepWanted, sumCube, queryEach, readEach, countDigits, flattenByCopy, fibonacci, settingsOf, schedules, prunes, bothWaits, guards, tabsOpen, paced, openTabs, fires } from "./performance";
+export { scaled, counted, delay, updateFailure, zoneLabel, timeoutBudget, events, adder, Page, suffixed, laterEach, hasOdd, spelled, Stamp } from "./lookalikes";
+export { accountById } from "./accounts.repository";

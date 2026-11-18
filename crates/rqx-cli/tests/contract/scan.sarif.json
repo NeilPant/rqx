@@ -96,6 +96,31 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/bloat.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 91,
+                  "startColumn": 3,
+                  "startLine": 91
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The function calls itself once and has no branch that can stop the recursion. nothing can stop the recursion, so the first call exhausts the stack Fix: give `turn` the case that answers without calling itself"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "no-base-case"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/performance.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -439,31 +464,6 @@
             "confidence": "verified"
           },
           "ruleId": "skipped-test"
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/flow.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 112,
-                  "startColumn": 5,
-                  "startLine": 112
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Parameter `total` is assigned a new value inside the function. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong Fix: assign to a local instead of `total`, and return the result"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "output-parameter"
         },
         {
           "level": "warning",
@@ -1710,6 +1710,31 @@
           ],
           "message": {
             "text": "`!` asserts that the value is present, and the checker stops asking whether it is. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: check for the absent case and handle it"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "imprecise-type"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/precision.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 15,
+                  "startColumn": 10,
+                  "startLine": 15
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`as` overrides the type the checker worked out for this value. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: narrow the value with a check the checker can follow"
           },
           "properties": {
             "confidence": "verified"
@@ -4679,7 +4704,7 @@
             }
           ],
           "message": {
-            "text": "All 35 imports are re-exported unchanged, so the file only forwards names. it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
+            "text": "All 37 imports are re-exported unchanged, so the file only forwards names. it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
           },
           "properties": {
             "confidence": "verified"
@@ -4871,81 +4896,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 103,
-                  "startColumn": 3,
-                  "startLine": 103
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 116,
-                  "startColumn": 3,
-                  "startLine": 116
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 135,
-                  "startColumn": 3,
-                  "startLine": 135
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "endLine": 196,
                   "startColumn": 3,
                   "startLine": 196
@@ -4974,56 +4924,6 @@
                   "endLine": 204,
                   "startColumn": 3,
                   "startLine": 204
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 268,
-                  "startColumn": 3,
-                  "startLine": 268
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` is declared with an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/shapes.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 6,
-                  "startColumn": 3,
-                  "startLine": 6
                 }
               }
             }
@@ -5604,7 +5504,7 @@
             }
           ],
           "message": {
-            "text": "This file imports 26 modules (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
+            "text": "This file imports 28 modules (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
           },
           "properties": {
             "confidence": "heuristic"
@@ -5637,6 +5537,38 @@
           ],
           "message": {
             "text": "`loops` only calls `loops` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "passthrough-function"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/bloat.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 91,
+                    "startColumn": 3,
+                    "startLine": 91
+                  }
+                },
+                "region": {
+                  "endLine": 93,
+                  "startColumn": 3,
+                  "startLine": 91
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`turn` only calls `this.turn` with the same arguments. it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged Fix: let the caller call the target directly, unless this name marks a deliberate boundary"
           },
           "properties": {
             "confidence": "heuristic"

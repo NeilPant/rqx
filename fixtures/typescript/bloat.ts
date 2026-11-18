@@ -86,3 +86,9 @@ export function spreadOut(rows: number[]): [number, number, number, number] {
 export function loops(rows: number[]): number {
   return loops(rows);
 }
+
+export class Spiral {
+  turn(rows: number[]): number {
+    return this.turn(rows);
+  }
+}

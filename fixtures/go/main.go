@@ -151,5 +151,25 @@ func main() {
 	_ = fixtures.SizeOfEach
 	_ = fixtures.SizeOfEachInTurn
 	_ = fixtures.SizeOfOne
+	_ = fixtures.SplitHost
+	_ = fixtures.Scaled
+	_ = fixtures.Counted
+	_ = fixtures.CanWrite
+	_ = fixtures.UpdateFailure
+	_ = fixtures.ZoneLabel
+	_ = fixtures.TimeoutBudget
+	_ = fixtures.Spiral
+	_ = fixtures.Flags
+	_ = fixtures.HasFlag
+	_ = fixtures.Labelled
+	_ = fixtures.Divide
+	_ = fixtures.Writer
+	_ = fixtures.Branch
+	_ = ParsedOrZero
+	_ = Forgotten
+	_ = fixtures.Sink
+	_ = fixtures.HasOdd
+	_ = fixtures.Spelled
+	_ = fixtures.Bounds
 	_ = cyclea.Orbit
 }

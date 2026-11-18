@@ -105,7 +105,7 @@ the closure reads whichever value the loop variable holds when it runs, so every
 From `fixtures/typescript/performance.ts`, line 75:
 
 ```ts
-  for (let at = 0; at < rows.length; at++) {
+  for (var at = 0; at < rows.length; at++) {
     out.push(function later(): number {
       return at;
     });
@@ -571,15 +571,15 @@ the caller's value changes without the call site saying so, which is hard to fin
 | Reads | resolved scopes and symbols |
 | Fix | Remove Assignments to Parameters / Separate Query from Modifier |
 
-From `fixtures/typescript/flow.ts`, line 112:
+From `fixtures/typescript/hygiene.ts`, line 30:
 
 ```ts
-  for (const item of items) {
-    total += item;
-    continue;
+  return value + seed;
+  value = 1;
+}
 ```
 
-Suggested fix: assign to a local instead of `total`, and return the result
+Suggested fix: assign to a local instead of `value`, and return the result
 
 ## `complex-condition`
 

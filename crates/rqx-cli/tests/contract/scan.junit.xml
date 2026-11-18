@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="309" failures="162" time="0">
-  <testsuite name="typescript/bloat.ts" tests="19" failures="10">
+<testsuites name="rqx" tests="309" failures="163" time="0">
+  <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
+    <testcase classname="typescript/accounts.repository.ts" name="rqx" />
+  </testsuite>
+  <testsuite name="typescript/bloat.ts" tests="21" failures="11">
     <testcase classname="typescript/bloat.ts" name="no-base-case at 86:17">
       <failure type="no-base-case" message="The function calls itself once and has no branch that can stop the recursion.">The function calls itself once and has no branch that can stop the recursion.
 
 Why: nothing can stop the recursion, so the first call exhausts the stack
 Fix: give `loops` the case that answers without calling itself</failure>
+    </testcase>
+    <testcase classname="typescript/bloat.ts" name="no-base-case at 91:3">
+      <failure type="no-base-case" message="The function calls itself once and has no branch that can stop the recursion.">The function calls itself once and has no branch that can stop the recursion.
+
+Why: nothing can stop the recursion, so the first call exhausts the stack
+Fix: give `turn` the case that answers without calling itself</failure>
     </testcase>
     <testcase classname="typescript/bloat.ts" name="cyclomatic-complexity at 63:17">
       <failure type="cyclomatic-complexity" message="15 paths through the body (limit 12).">15 paths through the body (limit 12).
@@ -75,6 +84,9 @@ Fix: lift the conditions in `manyPaths` into named predicates, then extract the 
     </testcase>
     <testcase classname="typescript/bloat.ts" name="passthrough-function at 86:8">
       <skipped message="`loops` only calls `loops` with the same arguments." />
+    </testcase>
+    <testcase classname="typescript/bloat.ts" name="passthrough-function at 91:3">
+      <skipped message="`turn` only calls `this.turn` with the same arguments." />
     </testcase>
     <testcase classname="typescript/bloat.ts" name="static-only-class at 26:8">
       <skipped message="All 2 methods are static (limit 2), so the class is a namespace." />
@@ -297,7 +309,7 @@ Why: every caller passes a value that is never read, so the parameter list misde
 Fix: drop `node` from `visitProduct` and from its call sites</failure>
     </testcase>
   </testsuite>
-  <testsuite name="typescript/flow.ts" tests="43" failures="28">
+  <testsuite name="typescript/flow.ts" tests="42" failures="27">
     <testcase classname="typescript/flow.ts" name="silent-fallthrough at 193:5">
       <failure type="silent-fallthrough" message="`case 1:` has a body and no `break`, so it continues into the next case.">`case 1:` has a body and no `break`, so it continues into the next case.
 
@@ -327,12 +339,6 @@ Fix: one side was meant to be something else; decide which</failure>
 
 Why: it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review
 Fix: assign above the branch, or compare if that is what was meant</failure>
-    </testcase>
-    <testcase classname="typescript/flow.ts" name="output-parameter at 112:5">
-      <failure type="output-parameter" message="Parameter `total` is assigned a new value inside the function.">Parameter `total` is assigned a new value inside the function.
-
-Why: the caller&apos;s value changes without the call site saying so, which is hard to find when it turns out to be wrong
-Fix: assign to a local instead of `total`, and return the result</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="float-equality at 128:10">
       <failure type="float-equality" message="`0.1` is compared for exact equality, which floating-point rounding can make false.">`0.1` is compared for exact equality, which floating-point rounding can make false.
@@ -764,10 +770,10 @@ Fix: delete it; version control already preserves it</failure>
   </testsuite>
   <testsuite name="typescript/index.ts" tests="2" failures="0">
     <testcase classname="typescript/index.ts" name="barrel-module at 1:1">
-      <skipped message="All 35 imports are re-exported unchanged, so the file only forwards names." />
+      <skipped message="All 37 imports are re-exported unchanged, so the file only forwards names." />
     </testcase>
     <testcase classname="typescript/index.ts" name="wide-fan-out at 1:1">
-      <skipped message="This file imports 26 modules (limit 20)." />
+      <skipped message="This file imports 28 modules (limit 20)." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/intimacy.ts" tests="8" failures="5">
@@ -833,6 +839,12 @@ Why: a long body usually does several things, and a reader has to hold all of th
 Fix: split `manySteps` into named steps, each one nameable without the word &quot;and&quot;</failure>
     </testcase>
   </testsuite>
+  <testsuite name="typescript/lookalikes.test.ts" tests="1" failures="0">
+    <testcase classname="typescript/lookalikes.test.ts" name="rqx" />
+  </testsuite>
+  <testsuite name="typescript/lookalikes.ts" tests="1" failures="0">
+    <testcase classname="typescript/lookalikes.ts" name="rqx" />
+  </testsuite>
   <testsuite name="typescript/names.ts" tests="4" failures="1">
     <testcase classname="typescript/names.ts" name="shadows-builtin at 9:9">
       <failure type="shadows-builtin" message="`Promise` has the same name as a built-in and hides it here.">`Promise` has the same name as a built-in and hides it here.
@@ -887,7 +899,7 @@ Why: every caller passes a value that is never read, so the parameter list misde
 Fix: drop `deadB` from `twoDeadOnOneLine` and from its call sites</failure>
     </testcase>
   </testsuite>
-  <testsuite name="typescript/patterns.ts" tests="39" failures="16">
+  <testsuite name="typescript/patterns.ts" tests="35" failures="16">
     <testcase classname="typescript/patterns.ts" name="redundant-else at 21:7">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
@@ -984,22 +996,10 @@ Fix: give `this.state` a type per case and let each one carry its own behaviour,
 Why: the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one
 Fix: give `action.kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 2 edits</failure>
     </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 103:3">
-      <skipped message="`constructor` is declared with an empty body." />
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 116:3">
-      <skipped message="`constructor` is declared with an empty body." />
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 135:3">
-      <skipped message="`constructor` is declared with an empty body." />
-    </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 196:3">
       <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 204:3">
-      <skipped message="`constructor` is declared with an empty body." />
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 268:3">
       <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="speculative-generality at 257:23">
@@ -1161,7 +1161,7 @@ Fix: pass the value in, so each function keeps the one it was made with</failure
       <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/precision.ts" tests="5" failures="3">
+  <testsuite name="typescript/precision.ts" tests="6" failures="4">
     <testcase classname="typescript/precision.ts" name="imprecise-type at 5:30">
       <failure type="imprecise-type" message="`any` accepts every value, so the checker cannot tell what this one is.">`any` accepts every value, so the checker cannot tell what this one is.
 
@@ -1179,6 +1179,12 @@ Fix: narrow the value with a check the checker can follow</failure>
 
 Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
 Fix: check for the absent case and handle it</failure>
+    </testcase>
+    <testcase classname="typescript/precision.ts" name="imprecise-type at 15:10">
+      <failure type="imprecise-type" message="`as` overrides the type the checker worked out for this value.">`as` overrides the type the checker worked out for this value.
+
+Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
+Fix: narrow the value with a check the checker can follow</failure>
     </testcase>
     <testcase classname="typescript/precision.ts" name="journal-comment at 1:1">
       <skipped message="This comment carries `@author`, which version control already records." />
@@ -1254,7 +1260,7 @@ Fix: lift the conditions in `reconcileBatch` into named predicates, then extract
       <skipped message="Touches `row` 5 times and its own members 0 times." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/shapes.ts" tests="30" failures="14">
+  <testsuite name="typescript/shapes.ts" tests="29" failures="14">
     <testcase classname="typescript/shapes.ts" name="redundant-else at 35:3">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
@@ -1344,9 +1350,6 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
     </testcase>
     <testcase classname="typescript/shapes.ts" name="empty-subclass at 48:8">
       <skipped message="`CachedRegistry` extends its parent without adding a member." />
-    </testcase>
-    <testcase classname="typescript/shapes.ts" name="empty-method at 6:3">
-      <skipped message="`constructor` is declared with an empty body." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="speculative-generality at 10:23">
       <skipped message="The class with no implementer `Vehicle` is declared and never read." />

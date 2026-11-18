@@ -13,11 +13,19 @@ use crate::tree::{
 /// `strName`, `bEnabled`, `IOrder`: a type spelled into a name the compiler already
 /// knows the type of.
 fn encoding_of(name: &str, prefixes: &[(&'static str, &'static str)]) -> Option<&'static str> {
+    // `IDLE_TIMEOUT` and `MAX_RETRIES` are constants spelled in capitals, which says
+    // nothing about their type.
+    if !name.chars().any(|c| c.is_ascii_lowercase()) {
+        return None;
+    }
     let mut characters = name.chars();
     let first = characters.next()?;
     let second = characters.next()?;
-    // `IOrder` but not `Iterator`: a capital directly after the I is the convention.
-    if first == 'I' && second.is_ascii_uppercase() {
+    let third = characters.next();
+    // `IOrder` but not `Iterator`: a capital directly after the I is the convention,
+    // and a word follows it. `IOError` and `IPAddress` open with an acronym instead.
+    if first == 'I' && second.is_ascii_uppercase() && third.is_some_and(|c| c.is_ascii_lowercase())
+    {
         return Some("interface I-prefix");
     }
     if first == 'b' && (second.is_ascii_uppercase() || second == '_') {
@@ -734,4 +742,26 @@ pub fn collect(
     out.encoded_names.sort_by_key(|item| item.span.start);
     out.type_codes.sort_by_key(|item| item.span.start);
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encoding_of;
+
+    #[test]
+    fn an_interface_prefix_is_an_i_before_a_word() {
+        assert_eq!(encoding_of("IOrder", &[]), Some("interface I-prefix"));
+        assert_eq!(encoding_of("IShipment", &[]), Some("interface I-prefix"));
+        assert_eq!(encoding_of("Iterator", &[]), None);
+        assert_eq!(encoding_of("IOError", &[]), None);
+        assert_eq!(encoding_of("IPAddress", &[]), None);
+    }
+
+    #[test]
+    fn a_constant_in_capitals_carries_no_encoding() {
+        assert_eq!(encoding_of("IDLE_TIMEOUT_SECONDS", &[]), None);
+        assert_eq!(encoding_of("B_SIDE", &[]), None);
+        assert_eq!(encoding_of("STR_LIMIT", &[("str", "string")]), None);
+        assert_eq!(encoding_of("strName", &[("str", "string")]), Some("string"));
+    }
 }

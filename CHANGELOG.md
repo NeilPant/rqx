@@ -209,6 +209,131 @@ them. `tools/release.sh` turns that section into the release notes.
   Verification compared finding identities as a set, so a new finding with the same rule,
   file and subject as an existing one was not seen. It now compares the count of each
   identity.
+### Fixed
+
+- **`output-parameter` reports only assignments to a parameter.** It reported any
+  assignment whose target had the name of a parameter anywhere in the file, so a local
+  declared with `:=`, a class-level annotation in Python, and a local that shared a name
+  with another function's parameter were all reported. The target is now resolved
+  through the file's scopes and must be a parameter of an enclosing function. A Go
+  receiver, a named result in a Go signature and a name inside a function type in a
+  signature are not counted, and each parameter is reported once.
+- **`unused-parameter` reads only a function's parameter list.** The rule took the
+  last parameter list in a signature, which in Go is the result list when the results
+  are in parentheses, and in a C++ trailing return type or a TypeScript return type
+  can be the list of a function type. Result types such as `ShellCompDirective`, named
+  results, and the parameters of a returned function type were reported as unused
+  parameters. The list the grammar marks as the parameters is now read, and a
+  parameter written as a bare type, such as Go's `func(int)`, has no name to report.
+  The `TEST(Suite, Name)` macros of GoogleTest are no longer read as two unused
+  parameters either.
+- **Python parameters without a type annotation are parameters.** In `def f(x)` the
+  name sits directly in the parameter list, and only typed or defaulted parameters
+  were recognised, so `unused-parameter` and `output-parameter` did not see most
+  Python code. Both now do, which adds findings on Python projects. To keep them to
+  parameters a caller chooses, `unused-parameter` leaves out `self` and `cls`,
+  `*args` and `**kwargs`, names starting with `_`, dunder methods other than
+  `__init__` and `__new__`, functions under a decorator other than `staticmethod` or
+  `classmethod`, method bodies that only document or refuse (`...`, `pass`, a
+  docstring, a lone `raise`, or a closing `raise NotImplementedError`), and functions
+  the file passes or returns by name. `output-parameter` leaves out `self` and `cls`.
+  The name in a keyword argument, `limit` in `StreamReader(limit=limit)`, is no longer
+  read as a new name, and a parameter's default value is no longer read as a
+  parameter.
+- **`long-parameter-list` and `flag-argument` read only the parameters.** They used
+  the same last list as `unused-parameter`, so a Go function with six named results
+  was reported as taking six parameters, and a `found bool` result as a boolean flag
+  argument.
+- **`discarded-error` reads the error position of a Go assignment with several
+  targets.** It looked only at the first target, so `_, err := w.Write(b)`, which keeps
+  the error and drops the byte count, was reported. With several targets the rule now
+  reads the last one, where Go returns the error, and the message says that the error
+  is the result being thrown away. In Go, `var _ io.Writer = (*Sink)(nil)` checks that
+  a type satisfies an interface and is no longer reported, and neither is a call to a
+  function declared in the same file whose results include no `error`.
+- **`ambient-dependency` no longer reports a parameter default or a test file.** A
+  default such as `random: () => number = Math.random` is the injection the rule asks
+  for, and it was reported. A file that registers tests with `describe`, `it` or `test`
+  was checked outside the test bodies, so setup callbacks such as `beforeEach`, mock
+  factories and helper functions were reported for reading the clock or the
+  environment. Such files are now skipped, as `import-time-work` already skips them.
+- **`mixed-language-file` recognises SQL by the shape of a statement.** Any string
+  containing a keyword such as `update ` in any case counted as SQL, so an error message
+  like `"Failed to update user"` was reported, once for each string. A string now counts
+  as SQL when it opens with the statement keyword in capitals and contains the clause
+  that statement needs: `SELECT … FROM`, `UPDATE … SET`, `INSERT INTO … VALUES` or
+  `… SELECT`, `DELETE FROM`, `WITH … AS`, or `CREATE TABLE`, `INDEX` or `VIEW`. A file
+  is reported once per language, at its first such string. Files whose name marks a
+  data-access layer (`users.repository.ts`, `OrderDao.java`, `UserRepo.go`,
+  `report.sql.ts`, `queries.py`) and files that register tests are not reported.
+- **`distant-declaration` and `short-name-wide-scope` count only locals inside a
+  body.** Both rules read every local binding, including those declared at the top of
+  a module, so a module constant read near the bottom of its file was reported as
+  declared far from its use. A binding in the file's own scope is now left out, as the
+  `distant-declaration` documentation already said.
+- **`distant-declaration` measures from the end of the declaration.** The distance ran
+  from the declared name, so a table or a command literal written across sixty lines
+  and used on the next line was reported as declared sixty lines before its use. It
+  now runs from the end of the declaration.
+- **`imprecise-type` reports a chain of casts once.** `value as unknown as Row` is two
+  nested casts and produced two findings on one line. A cast whose value is another
+  cast of the same kind is now reported once, at the outermost cast. The same applies
+  to `(Row) (Object) value` in Java and C++.
+- **`imprecise-type` reports `any` only where it is a type.** Any node spelled `any`
+  counted, so the matcher `expect.any(Function)`, a variable named `any` in TypeScript
+  or Go, and `from typing import Any` in Python were reported. A member name is no
+  longer read as a type, and a plain identifier counts only inside a type annotation.
+- **`empty-method` no longer reports a constructor that initialises members outside
+  its braces.** A C++ constructor with a member initialiser list, `Meter(int factor) :
+  factor_(factor) {}`, and a TypeScript constructor with parameter properties,
+  `constructor(private readonly label: string) {}`, do their work before the body and
+  were reported as empty.
+- **`hungarian-notation` no longer reads a constant or an acronym as an interface
+  prefix.** `IDLE_TIMEOUT_SECONDS`, a Go field named `ID`, `IOError` and `IPAddress`
+  were reported as interface names with an `I` prefix. A name with no lowercase letter
+  is now never reported, and the `I` prefix needs a word after it, as in `IOrder`.
+- **`never-reassigned` sees a `final` or `const` that follows a parenthesis.** The
+  marker was looked for among words separated by spaces, so in `for (final String item
+  : items)` and `catch (final IOException error)` it was read as `(final` and the
+  already-final variable was reported.
+- **`magic-number` leaves out the value of a declaration.** The rule describes itself
+  as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
+  toward the repeats of `3`, so naming a number, which is the fix the rule recommends,
+  could still produce the finding. A literal that is the whole value of a variable,
+  constant or field declaration, optionally with a sign or parentheses, is no longer
+  counted.
+- **`import-time-work` no longer reports registrations or entry points.** A top-level
+  `router.get('/x', handler)`, `app.use(auth)`, `emitter.on('e', () => …)` or
+  `atexit.register(flush)` only hands over a handler, and it was reported as work done
+  on load. A top-level call is now skipped when one of its arguments is a function
+  written in place or declared in the file, or, for a method named like a registration
+  (`use`, `get`, `post`, `on`, `command`, `register` and similar), any argument other
+  than a plain literal, such as a router or a handler built by a factory call. Files
+  configured in `entrypoints.paths` and files named `index`, `main`, `server`, `app`,
+  `cli` or `__main__` are skipped, since running top-level statements is what they are
+  for. Calls such as `fs.readFileSync(path)` or `connect()` at the top of a module are
+  still reported.
+- **`no-base-case` and `branching-recursion` count a call as recursion only when it
+  reaches the same function.** A Go method that calls the package function it is named
+  after, such as `(c *Command) MarkFlagRequired` calling `MarkFlagRequired`, was read
+  as calling itself, and so were methods in Python, TypeScript and JavaScript that call
+  a module function of the same name. In those languages a method now recurses only
+  through its receiver (`self`, `this`, or the Go receiver's own name), which also
+  means a Go method that recurses through its receiver is now found. In Java a call
+  with a different number of arguments is another overload, and in C++ `::name()` is
+  the global function.
+- **`closure-over-loop-variable` leaves out closures that run before the loop moves
+  on, and Go modules on 1.22 or later.** A function literal passed to a call that runs
+  it before returning, such as Go's `t.Run`, `sort.Slice` or `strings.Map`, a
+  JavaScript `sort` or `replace`, or Python's `sorted` or `re.sub`, was reported as
+  if it ran after the loop had finished. A `t.Run` whose case calls `t.Parallel()` is
+  still reported. In a Go module whose `go.mod` declares Go 1.22 or later each
+  iteration has its own loop variables, so the rule does not report there at all.
+- **`closure-over-loop-variable` reports a JavaScript or TypeScript loop only when its
+  variable is shared between passes.** A loop that declares its variable with `let` or
+  `const`, as in `for (const row of rows)` or `for (let i = 0; …)`, gives each pass a
+  binding of its own, and a closure keeps the value of its pass. Only a `var` loop, or a
+  loop over a variable declared before it, is reported now.
 
 ## 0.5.0 — 2026-11-18
 

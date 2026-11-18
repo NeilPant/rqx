@@ -52,6 +52,7 @@ public class Main {
         new Lifecycle();
         new Intimacy();
         new Precision().widen("");
+        new Precision().forced("");
         new Queries();
         new Vocabulary().getAccount("");
         new Conventions().query("");
@@ -123,5 +124,12 @@ public class Main {
         new CostLinearOpInLoop().sumArray(new java.util.ArrayList<>(), 0);
         new CostSortInLoop().rankEach(java.util.List.of(), new java.util.ArrayList<>());
         new CostSortInLoop().rankOwn(java.util.List.of());
+        new Lookalikes().scaled(1);
+        new Lookalikes().counted(new String[0]);
+        new Lookalikes().updateFailure("a");
+        new Lookalikes().timeoutBudget();
+        new Lookalikes().total(new String[0]);
+        new Lookalikes().spelled("a");
+        new Lookalikes().longest(new String[0]);
     }
 }

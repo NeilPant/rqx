@@ -33,6 +33,7 @@
 #include "cost_sort_in_loop.hpp"
 #include "cost_linear_op_in_loop.hpp"
 #include "vocabulary.hpp"
+#include "lookalikes.hpp"
 
 int main() {
     keep_wanted({}, {});
@@ -119,5 +120,15 @@ int main() {
     count_characters_by_reference({});
     shouted("");
     Collected({}).size();
+    scaled(1);
+    counted(1);
+    update_failure("a");
+    zone_label();
+    timeout_budget();
+    Gauge().level(1);
+    spelled("a");
+    Meter(2).scaled(1);
+    longest({});
+    adder(1)(2);
     return 0;
 }

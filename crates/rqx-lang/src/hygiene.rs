@@ -630,13 +630,7 @@ impl<'a> Walker<'a> {
         if self.function_body(function).is_none() {
             return;
         }
-        let Some(list) = find_within(
-            function,
-            self.profile.parameter_list_kinds,
-            self.profile.block_kinds,
-        )
-        .into_iter()
-        .next_back() else {
+        let Some(list) = crate::parameters::input_list(self.profile, function) else {
             return;
         };
         let mut cursor = list.walk();
@@ -955,6 +949,7 @@ impl<'a> Walker<'a> {
         if CONVENTIONAL
             .iter()
             .any(|known| (known - value).abs() < f64::EPSILON)
+            || self.is_declared_value(node)
         {
             return;
         }
@@ -962,6 +957,36 @@ impl<'a> Walker<'a> {
             .entry(raw.to_owned())
             .or_default()
             .push(span_of(node));
+    }
+
+    /// A literal that is the whole value of a declaration, as in `const MAX_RETRIES = 3`,
+    /// already has the name the rule asks for. A sign, parentheses or a list of values
+    /// around it do not change that; an expression does.
+    fn is_declared_value(&self, literal: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut value = literal;
+        let mut owner = literal.parent();
+        while let Some(parent) = owner {
+            let kind = kind_of(parent);
+            let wraps = profile.negation_kinds.contains(&kind)
+                || profile.transparent_kinds.contains(&kind)
+                || profile.expression_list_kinds.contains(&kind);
+            if !wraps {
+                break;
+            }
+            value = parent;
+            owner = parent.parent();
+        }
+        owner.is_some_and(|owner| {
+            let kind = kind_of(owner);
+            let declares = profile.declarator_kinds.contains(&kind)
+                || profile.local_declaring_kinds.contains(&kind)
+                || profile.field_kinds.contains(&kind);
+            declares
+                && ["value", "right", "default_value"]
+                    .iter()
+                    .any(|field| owner.child_by_field_name(field) == Some(value))
+        })
     }
 
     /// `n + 1` and `n - 1` written about the same subject several times is where
@@ -1204,7 +1229,9 @@ impl<'a> Walker<'a> {
     /// languages spell "the default, but private".
     fn note_empty_method(&mut self, function: Node<'a>) {
         let profile = self.profile;
-        if profile.constructor_kinds.contains(&kind_of(function)) {
+        if profile.constructor_kinds.contains(&kind_of(function))
+            || self.initialises_outside_its_body(function)
+        {
             return;
         }
         let Some(body) = self.function_body(function) else {
@@ -1229,6 +1256,25 @@ impl<'a> Walker<'a> {
             detail: name,
             count: 1,
         });
+    }
+
+    /// A constructor whose work is written outside the braces: a C++ member
+    /// initialiser list, `Gauge(int scale) : scale(scale) {}`, or TypeScript parameter
+    /// properties, `constructor(private readonly clock: Clock) {}`.
+    fn initialises_outside_its_body(&self, function: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut cursor = function.walk();
+        if function
+            .named_children(&mut cursor)
+            .any(|child| kind_of(child) == "field_initializer_list")
+        {
+            return true;
+        }
+        crate::parameters::input_list(profile, function).is_some_and(|list| {
+            descendants(list)
+                .into_iter()
+                .any(|node| profile.field_declaring_modifiers.contains(&kind_of(node)))
+        })
     }
 
     /// A `continue` or `break` that control was reaching anyway. The keyword makes a
@@ -2509,6 +2555,13 @@ impl<'a> Walker<'a> {
     /// has asked for anything.
     fn note_import_time_work(&mut self, root: Node<'a>) {
         let profile = self.profile;
+        let functions: HashSet<&str> = self
+            .nodes
+            .iter()
+            .filter(|node| profile.is_function(*node))
+            .filter_map(|node| self.function_name(node))
+            .map(|name| self.text(name))
+            .collect();
         for statement in root.named_children(&mut root.walk()) {
             if kind_of(statement) != "expression_statement" {
                 continue;
@@ -2525,7 +2578,10 @@ impl<'a> Walker<'a> {
             };
             // A test file is a list of registrations, and registering is the whole of
             // what loading it is for.
-            if profile.test.is_test(&name) || profile.test.is_assertion(&name) {
+            if profile.test.is_test(&name)
+                || profile.test.is_assertion(&name)
+                || self.registers(call, &functions)
+            {
                 continue;
             }
             self.out.import_time_work.push(Spot {
@@ -2538,6 +2594,66 @@ impl<'a> Walker<'a> {
                     .focus(RuleId::ImportTimeWork, span_of(statement), callee);
             }
         }
+    }
+
+    /// A call that hands over something to be run later: a route, a listener, a
+    /// command. The work happens when the handler is called, not when the file loads.
+    /// A handler is a function written in place or a function this file declares. A
+    /// method spelled like a registration (`router.use(auth)`,
+    /// `router.get("/health", healthHandler())`) registers whatever it is handed, so
+    /// any argument other than a plain literal counts.
+    fn registers(&self, call: Node<'a>, functions: &HashSet<&str>) -> bool {
+        const REGISTRATIONS: [&str; 17] = [
+            "use",
+            "get",
+            "post",
+            "put",
+            "patch",
+            "delete",
+            "head",
+            "options",
+            "all",
+            "route",
+            "on",
+            "once",
+            "addListener",
+            "command",
+            "register",
+            "subscribe",
+            "handle",
+        ];
+        let profile = self.profile;
+        let Some(arguments) = call
+            .named_children(&mut call.walk())
+            .find(|child| profile.argument_list_kinds.contains(&kind_of(child)))
+        else {
+            return false;
+        };
+        let registering_method = call
+            .child_by_field_name(profile.callee_field)
+            .is_some_and(|callee| profile.is_member_access(callee))
+            && profile
+                .call_tail(call, self.source)
+                .is_some_and(|tail| REGISTRATIONS.contains(&tail));
+        arguments
+            .named_children(&mut arguments.walk())
+            .map(|argument| self.see_through(argument))
+            .any(|argument| {
+                let named = profile.is_identifier(argument);
+                profile.is_function(argument)
+                    || (named && functions.contains(self.text(argument)))
+                    || (registering_method && !self.is_plain_literal(argument))
+            })
+    }
+
+    fn is_plain_literal(&self, node: Node<'a>) -> bool {
+        let kind = kind_of(node);
+        self.profile.string_kinds.contains(&kind)
+            || self.profile.number_kinds.contains(&kind)
+            || matches!(
+                self.text(node),
+                "true" | "false" | "null" | "undefined" | "None" | "True" | "False" | "nil"
+            )
     }
 
     /// Reaching for the clock, the environment or a random source from inside a body
@@ -2568,8 +2684,9 @@ impl<'a> Walker<'a> {
             return;
         }
         // Only inside a body: a file-level constant reading the environment once is
-        // configuration, and every caller can see it happen.
-        if !self.inside_body(node) {
+        // configuration, and every caller can see it happen. A parameter's default
+        // is the injection the rule asks for, with the ambient source as the fallback.
+        if !self.inside_body(node) || self.inside_parameter(node) {
             return;
         }
         self.out.ambient_dependencies.push(Spot {
@@ -2587,6 +2704,23 @@ impl<'a> Walker<'a> {
         let mut parent = node.parent();
         while let Some(current) = parent {
             if self.profile.is_function(current) {
+                return true;
+            }
+            parent = current.parent();
+        }
+        false
+    }
+
+    /// Whether the node is part of a parameter's declaration, which in practice means
+    /// its default value: `(clock = () => Date.now())` is the fallback as much as
+    /// `(now = Date.now)` is.
+    fn inside_parameter(&self, node: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut parent = node.parent();
+        while let Some(current) = parent {
+            if profile.parameter_kinds.contains(&kind_of(current))
+                || profile.parameter_list_kinds.contains(&kind_of(current))
+            {
                 return true;
             }
             parent = current.parent();
@@ -3051,7 +3185,10 @@ impl<'a> Walker<'a> {
         };
         // A callback the loop itself calls, once per element, closes over nothing it
         // will outlive.
-        if profile.is_loop_callback(function, self.source) {
+        if profile.is_loop_callback(function, self.source)
+            || self.runs_in_place(function)
+            || self.binds_per_iteration(loop_node)
+        {
             return;
         }
         let moved: Vec<String> = self.loop_names(loop_node);
@@ -3074,6 +3211,136 @@ impl<'a> Walker<'a> {
             detail: captured.to_owned(),
             count: 1,
         });
+    }
+
+    /// A function literal handed to a call that runs it before returning: a sort's
+    /// comparison, `strings.Map`, a Go subtest. It is done with the loop variable
+    /// before the loop moves on. A subtest that calls `t.Parallel()` is the exception:
+    /// it waits until the loop has finished.
+    fn runs_in_place(&self, function: Node<'a>) -> bool {
+        let profile = self.profile;
+        let callers: &[&str] = match profile.language {
+            rqx_core::Language::Go => &[
+                "Run",
+                "Slice",
+                "SliceStable",
+                "SortFunc",
+                "SortStableFunc",
+                "BinarySearchFunc",
+                "IndexFunc",
+                "ContainsFunc",
+                "DeleteFunc",
+                "CompactFunc",
+                "EqualFunc",
+                "MinFunc",
+                "MaxFunc",
+                "Map",
+                "FieldsFunc",
+                "TrimFunc",
+                "TrimLeftFunc",
+                "TrimRightFunc",
+                "Walk",
+                "WalkDir",
+                "Do",
+            ],
+            rqx_core::Language::TypeScript | rqx_core::Language::JavaScript => &[
+                "sort",
+                "toSorted",
+                "findLastIndex",
+                "replace",
+                "replaceAll",
+                "from",
+            ],
+            rqx_core::Language::Python => &[
+                "sorted", "sort", "min", "max", "filter", "map", "any", "all", "reduce", "sub",
+            ],
+            rqx_core::Language::Java => &[
+                "sort",
+                "removeIf",
+                "replaceAll",
+                "computeIfAbsent",
+                "computeIfPresent",
+                "compute",
+                "merge",
+            ],
+            rqx_core::Language::Cpp => &[
+                "sort",
+                "stable_sort",
+                "find_if",
+                "count_if",
+                "any_of",
+                "all_of",
+                "none_of",
+                "remove_if",
+                "accumulate",
+            ],
+        };
+        // Python passes a key function by keyword: `sorted(rows, key=lambda row: …)`.
+        let mut list = function.parent();
+        if list.is_some_and(|parent| kind_of(parent) == "keyword_argument") {
+            list = list.and_then(|parent| parent.parent());
+        }
+        let Some(call) = list
+            .filter(|list| profile.argument_list_kinds.contains(&kind_of(*list)))
+            .and_then(|list| list.parent())
+            .filter(|call| profile.is_call(*call))
+        else {
+            return false;
+        };
+        let Some(tail) = profile.call_tail(call, self.source) else {
+            return false;
+        };
+        callers.contains(&tail) && !(tail == "Run" && self.text(function).contains(".Parallel()"))
+    }
+
+    /// Whether a name spelled like an imprecise type is used as one. `expect.any(…)`,
+    /// a variable called `any` and `from typing import Any` name something else: a
+    /// member name never counts, and a plain identifier counts only inside a type
+    /// annotation, which is how Python writes its types.
+    fn is_in_type_position(&self, node: Node<'a>) -> bool {
+        const MEMBER_NAMES: [&str; 3] = [
+            "property_identifier",
+            "field_identifier",
+            "shorthand_property_identifier",
+        ];
+        if MEMBER_NAMES.contains(&kind_of(node)) {
+            return false;
+        }
+        if kind_of(node) != "identifier" {
+            return true;
+        }
+        let mut current = node.parent();
+        for _ in 0..3 {
+            let Some(parent) = current else {
+                return false;
+            };
+            let kind = kind_of(parent);
+            if kind == "type" || kind.ends_with("_type") || kind.ends_with("type_annotation") {
+                return true;
+            }
+            current = parent.parent();
+        }
+        false
+    }
+
+    /// A JavaScript loop that declares its variable with `let` or `const` gives every
+    /// pass a binding of its own, so a closure keeps the value of its own pass. Only
+    /// `var`, or a variable declared before the loop, is shared between passes.
+    fn binds_per_iteration(&self, loop_node: Node<'a>) -> bool {
+        if !matches!(
+            self.profile.language,
+            rqx_core::Language::TypeScript | rqx_core::Language::JavaScript
+        ) {
+            return false;
+        }
+        let lexical = |node: Node<'a>| matches!(self.text(node), "let" | "const");
+        match kind_of(loop_node) {
+            "for_in_statement" => loop_node.child_by_field_name("kind").is_some_and(lexical),
+            "for_statement" => loop_node
+                .child_by_field_name("initializer")
+                .is_some_and(|initializer| kind_of(initializer) == "lexical_declaration"),
+            _ => false,
+        }
     }
 
     fn enclosing_loop(&self, node: Node<'a>) -> Option<Node<'a>> {
@@ -4048,10 +4315,13 @@ impl<'a> Walker<'a> {
                     .next()
                     .unwrap_or_default()
                     .trim_start();
-                let fixed = profile
-                    .immutable_markers
-                    .iter()
-                    .any(|marker| opens.split_whitespace().any(|word| word == *marker));
+                // Split on punctuation as well as spaces: in `for (final String row :`
+                // and `for (const auto& row :` the marker follows a parenthesis.
+                let fixed = profile.immutable_markers.iter().any(|marker| {
+                    opens
+                        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                        .any(|word| word == *marker)
+                });
                 if !fixed {
                     self.out.never_reassigned.push(Spot {
                         span: Span::new(first.at as u32, first.at as u32 + name.len() as u32),
@@ -4146,7 +4416,9 @@ impl<'a> Walker<'a> {
     }
 
     /// A call whose answer is put somewhere nobody reads. The name says the author
-    /// saw the answer and decided not to look at it.
+    /// saw the answer and decided not to look at it. A call with several results puts
+    /// the error last, so only that position decides: `_, err := w.Write(b)` drops
+    /// the count and keeps the error. The spot counts the results the call returned.
     fn note_discarded_error(&mut self, node: Node<'a>) {
         let profile = self.profile;
         let Some(target) = node.child_by_field_name("left").or_else(|| {
@@ -4157,12 +4429,16 @@ impl<'a> Walker<'a> {
         }) else {
             return;
         };
-        let target = if profile.expression_list_kinds.contains(&kind_of(target)) {
-            target.named_child(0).unwrap_or(target)
-        } else {
-            target
+        let targets = self.listed(target);
+        let Some(last) = targets.last() else {
+            return;
         };
-        if !profile.is_ignored_name(self.text(target)) || self.text(target).len() > 2 {
+        if !profile.is_ignored_name(self.text(*last)) || self.text(*last).len() > 2 {
+            return;
+        }
+        // `var _ Handler = (*server)(nil)` asks the compiler whether a type satisfies
+        // an interface; nothing is called and nothing is thrown away.
+        if node.child_by_field_name("type").is_some() {
             return;
         }
         let Some(value) = node
@@ -4172,12 +4448,17 @@ impl<'a> Walker<'a> {
         else {
             return;
         };
-        let value = if profile.expression_list_kinds.contains(&kind_of(value)) {
-            value.named_child(0).unwrap_or(value)
+        let values = self.listed(value);
+        let paired = values.len() == targets.len();
+        let Some(value) = (if paired {
+            values.last()
         } else {
-            value
+            values.first()
+        })
+        .map(|value| self.see_through(*value)) else {
+            return;
         };
-        if !profile.is_call(value) {
+        if !profile.is_call(value) || self.answers_without_an_error(value) {
             return;
         }
         self.out.discarded_errors.push(Spot {
@@ -4185,10 +4466,43 @@ impl<'a> Walker<'a> {
             detail: self
                 .called_name(value)
                 .unwrap_or_else(|| "the call".to_owned()),
-            count: 1,
+            count: if paired { 1 } else { targets.len() as u32 },
         });
         self.out
             .focus(RuleId::DiscardedError, span_of(node), span_of(target));
+    }
+
+    /// A Go call to a function this file declares, whose results do not include an
+    /// error: discarding one of them drops a value, not a failure.
+    fn answers_without_an_error(&self, call: Node<'a>) -> bool {
+        if self.profile.language != rqx_core::Language::Go {
+            return false;
+        }
+        let Some(callee) = call
+            .child_by_field_name(self.profile.callee_field)
+            .filter(|callee| self.profile.is_identifier(*callee))
+        else {
+            return false;
+        };
+        let callee = self.text(callee);
+        self.nodes
+            .iter()
+            .filter(|node| kind_of(*node) == "function_declaration")
+            .find(|function| {
+                function
+                    .child_by_field_name("name")
+                    .is_some_and(|name| self.text(name) == callee)
+            })
+            .is_some_and(|function| {
+                function
+                    .child_by_field_name("result")
+                    .is_some_and(|result| {
+                        !descendants(result)
+                            .into_iter()
+                            .chain(std::iter::once(result))
+                            .any(|node| self.text(node) == "error")
+                    })
+            })
     }
 
     fn note_exits(&mut self, function: Node<'a>) {
@@ -5078,11 +5392,21 @@ impl<'a> Walker<'a> {
             .iter()
             .find(|(candidate, _)| *candidate == kind)
         {
-            let excepted = profile
-                .imprecise_type_exceptions
-                .iter()
-                .any(|exception| self.text(node).trim_end().ends_with(exception));
-            if !excepted {
+            let excepted = |cast: Node<'a>| {
+                profile
+                    .imprecise_type_exceptions
+                    .iter()
+                    .any(|exception| self.text(cast).trim_end().ends_with(exception))
+            };
+            // `value as unknown as Row` and `(Row) (Object) value` are one decision
+            // written as two casts, so a chain is reported once, at the outermost cast.
+            let chained = node.parent().is_some_and(|outer| {
+                let cast_value = outer
+                    .child_by_field_name("value")
+                    .or_else(|| outer.named_child(0));
+                kind_of(outer) == kind && cast_value == Some(node) && !excepted(outer)
+            });
+            if !excepted(node) && !chained {
                 self.out.imprecise_types.push(Spot {
                     span: span_of(node),
                     detail: (*label).to_owned(),
@@ -5090,7 +5414,9 @@ impl<'a> Walker<'a> {
                 });
             }
         }
-        if node.named_child_count() == 0 && profile.imprecise_type_names.contains(&self.text(node))
+        if node.named_child_count() == 0
+            && profile.imprecise_type_names.contains(&self.text(node))
+            && self.is_in_type_position(node)
         {
             self.out.imprecise_types.push(Spot {
                 span: span_of(node),
@@ -5146,12 +5472,19 @@ fn note_conventions(bindings: &[Binding], out: &mut Vec<(String, Span)>) {
     }
 }
 
+/// Locals declared below the file's own scope. A name assigned at the top of a module
+/// is the module's, read from anywhere in it, however the language spells it.
+fn locals_inside_a_body(scopes: &Scopes) -> impl Iterator<Item = &Binding> {
+    scopes
+        .of_kind(BindingKind::Local)
+        .filter(|binding| scopes.depth(binding.scope) > 1)
+}
+
 /// A one-letter name is perfectly readable while its whole life fits on screen, and
 /// stops being readable the moment it does not — so the scope's size decides this,
 /// not the name's length alone.
 fn short_names(scopes: &Scopes, source: &str, scope_lines: u32) -> Vec<Spot> {
-    let mut spots: Vec<Spot> = scopes
-        .of_kind(BindingKind::Local)
+    let mut spots: Vec<Spot> = locals_inside_a_body(scopes)
         .filter(|binding| binding.name.len() <= 2 && !binding.name.starts_with('_'))
         .filter_map(|binding| {
             let last = binding.references.iter().map(|span| span.end).max()?;
@@ -5172,19 +5505,25 @@ fn short_names(scopes: &Scopes, source: &str, scope_lines: u32) -> Vec<Spot> {
 /// A binding declared far above the line that first reads it makes a reader hold it
 /// in mind across everything in between. Only locals count: a module constant read at
 /// the bottom of the file is where it belongs.
-fn distant_declarations(scopes: &Scopes, source: &str, distance: u32) -> Vec<Spot> {
-    let mut spots: Vec<Spot> = scopes
-        .of_kind(BindingKind::Local)
+fn distant_declarations(
+    profile: &LanguageProfile,
+    root: Node<'_>,
+    scopes: &Scopes,
+    source: &str,
+    distance: u32,
+) -> Vec<Spot> {
+    let mut spots: Vec<Spot> = locals_inside_a_body(scopes)
         .filter(|binding| !binding.name.starts_with('_'))
         .filter_map(|binding| {
+            let declared = declaration_end(profile, root, binding.span);
             let first = binding
                 .references
                 .iter()
                 .map(|span| span.start)
-                .filter(|start| *start > binding.span.end)
+                .filter(|start| *start > declared)
                 .min()?;
             let lines = source
-                .get(binding.span.end as usize..first as usize)
+                .get(declared as usize..first as usize)
                 .map_or(0, |text| text.lines().count() as u32);
             (lines > distance).then(|| Spot {
                 span: binding.span,
@@ -5195,6 +5534,25 @@ fn distant_declarations(scopes: &Scopes, source: &str, distance: u32) -> Vec<Spo
         .collect();
     spots.sort_by_key(|spot| spot.span.start);
     spots
+}
+
+/// Where the declaration of a name ends. A table or an object written across sixty
+/// lines is read while it is declared, so the distance to the first use starts after
+/// it. A name bound by a loop or a `with` has no declaration of its own to end.
+fn declaration_end(profile: &LanguageProfile, root: Node<'_>, name: Span) -> u32 {
+    let mut current = root.descendant_for_byte_range(name.start as usize, name.end as usize);
+    for _ in 0..4 {
+        let Some(node) = current else {
+            break;
+        };
+        let kind = kind_of(node);
+        if profile.declarator_kinds.contains(&kind) || profile.local_declaring_kinds.contains(&kind)
+        {
+            return node.end_byte() as u32;
+        }
+        current = node.parent();
+    }
+    name.end
 }
 
 /// A name an import binds and the file never mentions again. Read from the module
@@ -5507,11 +5865,18 @@ pub fn collect_over(
     };
     walker.asserting_helpers = walker.find_asserting_helpers();
     walker.walk(root);
-    // A test file is a list of registrations, and registering is the whole of what
-    // loading it is for — which is only knowable once the file has been read.
-    if !walker.holds_tests {
+    // Whether the file holds tests is only knowable once it has been read. A test file
+    // is a list of registrations, and registering is the whole of what loading it is
+    // for. Its setup, mocks and helpers reach for the clock and the environment to
+    // arrange a case, which is the test controlling them, not depending on them, and
+    // the statements it seeds a database with are fixtures.
+    if walker.holds_tests {
+        walker.out.ambient_dependencies.clear();
+        walker.out.mixed_languages.clear();
+    } else {
         walker.note_import_time_work(root);
     }
+    walker.out.mixed_languages = once_per_language(std::mem::take(&mut walker.out.mixed_languages));
     // Which names the file shares is only settled once every declaration has been
     // seen, so the functions that hand one back are read afterwards.
     // Which functions answer later is only settled once the file has been read, so
@@ -5633,20 +5998,70 @@ pub fn collect_over(
 
     out.unused_locals = unused_locals(scopes);
     out.short_names = short_names(scopes, source, limits.short_name_scope_lines);
-    out.distant_declarations =
-        distant_declarations(scopes, source, limits.declaration_distance_lines);
+    out.distant_declarations = distant_declarations(
+        profile,
+        root,
+        scopes,
+        source,
+        limits.declaration_distance_lines,
+    );
     scan_comments(profile, source, nodes, limits, &mut out);
 
-    // A parameter that is only ever reassigned is a different finding from a local
-    // that is, so the list is narrowed to actual parameters here.
-    let parameters: Vec<&str> = scopes
-        .of_kind(BindingKind::Parameter)
-        .map(|binding| binding.name.as_str())
-        .collect();
-    out.mutated_parameters
-        .retain(|spot| parameters.contains(&spot.detail.as_str()));
-    out.mutated_parameters.dedup_by(|a, b| a.detail == b.detail);
+    out.mutated_parameters = reassigned_parameters(
+        profile,
+        root,
+        scopes,
+        std::mem::take(&mut out.mutated_parameters),
+    );
     out
+}
+
+/// One finding per foreign language in a file, at its first string, counting every
+/// string written in it. Moving the language out is one change, however many strings
+/// it touches.
+fn once_per_language(strings: Vec<Spot>) -> Vec<Spot> {
+    let mut first: Vec<Spot> = Vec::new();
+    for spot in strings {
+        match first.iter_mut().find(|seen| seen.detail == spot.detail) {
+            Some(seen) => seen.count += spot.count,
+            None => first.push(spot),
+        }
+    }
+    first
+}
+
+/// The assignments whose target is a parameter of a function around it, one per
+/// parameter. A name is matched through the scopes rather than by spelling: a local
+/// that happens to share its name with a parameter elsewhere in the file is not one,
+/// and neither is a declaration that introduces a new name. A receiver (Go's, or
+/// Python's `self`) or a Go named result is not an input, and filling a named result
+/// is how a Go function answers.
+fn reassigned_parameters(
+    profile: &LanguageProfile,
+    root: Node<'_>,
+    scopes: &Scopes,
+    assigned: Vec<Spot>,
+) -> Vec<Spot> {
+    let mut parameter_of: HashMap<(u32, u32), usize> = HashMap::new();
+    for (index, binding) in scopes.bindings.iter().enumerate() {
+        if binding.kind == BindingKind::Parameter
+            && !profile.self_names.contains(&binding.name.as_str())
+            && crate::parameters::is_input_parameter(profile, root, binding.span)
+        {
+            for reference in &binding.references {
+                parameter_of.insert((reference.start, reference.end), index);
+            }
+        }
+    }
+    let mut reported = HashSet::new();
+    assigned
+        .into_iter()
+        .filter(|spot| {
+            parameter_of
+                .get(&(spot.span.start, spot.span.end))
+                .is_some_and(|index| reported.insert(*index))
+        })
+        .collect()
 }
 
 /// The three rules about a comment's relationship to the code under it. They share

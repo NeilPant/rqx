@@ -36,6 +36,18 @@
     "severity": "major"
   },
   {
+    "check_name": "no-base-case",
+    "description": "The function calls itself once and has no branch that can stop the recursion. — nothing can stop the recursion, so the first call exhausts the stack",
+    "fingerprint": "3d76d686f6062eb50001",
+    "location": {
+      "lines": {
+        "begin": 91
+      },
+      "path": "typescript/bloat.ts"
+    },
+    "severity": "major"
+  },
+  {
     "check_name": "mutated-while-iterated",
     "description": "`rows` is modified inside the loop that iterates over it. — the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands",
     "fingerprint": "c760077446060ba7",
@@ -200,18 +212,6 @@
         "begin": 3
       },
       "path": "typescript/suite.test.ts"
-    },
-    "severity": "minor"
-  },
-  {
-    "check_name": "output-parameter",
-    "description": "Parameter `total` is assigned a new value inside the function. — the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
-    "fingerprint": "a16eb9f8aae542e6",
-    "location": {
-      "lines": {
-        "begin": 112
-      },
-      "path": "typescript/flow.ts"
     },
     "severity": "minor"
   },
@@ -750,6 +750,18 @@
     "location": {
       "lines": {
         "begin": 7
+      },
+      "path": "typescript/precision.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "imprecise-type",
+    "description": "`as` overrides the type the checker worked out for this value. — each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here",
+    "fingerprint": "139a3b4709fae40e0001",
+    "location": {
+      "lines": {
+        "begin": 15
       },
       "path": "typescript/precision.ts"
     },
@@ -2149,8 +2161,8 @@
   },
   {
     "check_name": "barrel-module",
-    "description": "All 35 imports are re-exported unchanged, so the file only forwards names. — it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
-    "fingerprint": "a31847da5ff5e364",
+    "description": "All 37 imports are re-exported unchanged, so the file only forwards names. — it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
+    "fingerprint": "49c411b00b837f20",
     "location": {
       "lines": {
         "begin": 1
@@ -2249,7 +2261,7 @@
     "fingerprint": "ae2b1baa040b774a",
     "location": {
       "lines": {
-        "begin": 103
+        "begin": 196
       },
       "path": "typescript/patterns.ts"
     },
@@ -2261,69 +2273,9 @@
     "fingerprint": "ae2b1baa040b774a0001",
     "location": {
       "lines": {
-        "begin": 116
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` is declared with an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0002",
-    "location": {
-      "lines": {
-        "begin": 135
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` is declared with an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0003",
-    "location": {
-      "lines": {
-        "begin": 196
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` is declared with an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0004",
-    "location": {
-      "lines": {
         "begin": 204
       },
       "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` is declared with an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0005",
-    "location": {
-      "lines": {
-        "begin": 268
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` is declared with an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "2a54bb93073a9e87",
-    "location": {
-      "lines": {
-        "begin": 6
-      },
-      "path": "typescript/shapes.ts"
     },
     "severity": "info"
   },
@@ -2593,8 +2545,8 @@
   },
   {
     "check_name": "wide-fan-out",
-    "description": "This file imports 26 modules (limit 20). — a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it",
-    "fingerprint": "43f9ddf006d15f57",
+    "description": "This file imports 28 modules (limit 20). — a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it",
+    "fingerprint": "e130b780d9896add",
     "location": {
       "lines": {
         "begin": 1
@@ -2610,6 +2562,18 @@
     "location": {
       "lines": {
         "begin": 86
+      },
+      "path": "typescript/bloat.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "passthrough-function",
+    "description": "`turn` only calls `this.turn` with the same arguments. — it adds a name and a stack frame between a caller and the function it wanted, and the indirection has no effect because it forwards unchanged",
+    "fingerprint": "e37b50eeb0833305",
+    "location": {
+      "lines": {
+        "begin": 91
       },
       "path": "typescript/bloat.ts"
     },

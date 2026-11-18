@@ -120,3 +120,8 @@ def spread_out(rows):
 
 def loops(rows):
     return loops(rows)
+
+
+class Spiral:
+    def turn(self, rows):
+        return self.turn(rows)
