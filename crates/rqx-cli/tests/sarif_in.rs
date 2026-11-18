@@ -3,6 +3,8 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+mod common;
+
 const CLEAN: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
 const ESLINT: &str = include_str!("sarif/eslint.sarif");
 
@@ -12,11 +14,8 @@ fn project(name: &str) -> PathBuf {
     std::fs::create_dir_all(root.join("src")).expect("a temp project");
     std::fs::write(root.join("src/a.js"), "var unused = 1;\nconsole.log(2)\n").expect("a file");
     std::fs::write(root.join("src/clean.ts"), CLEAN).expect("a file");
-    std::fs::write(
-        root.join("eslint.sarif"),
-        ESLINT.replace("{root}", &root.to_string_lossy()),
-    )
-    .expect("a SARIF file");
+    std::fs::write(root.join("eslint.sarif"), common::sarif_for(ESLINT, &root))
+        .expect("a SARIF file");
     root
 }
 

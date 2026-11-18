@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{Context, Result, bail};
 use rmcp::handler::server::tool::ToolRouter;
-use rmcp::model::{Implementation, ServerCapabilities, ServerInfo};
+use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
 use rmcp::transport::io::stdio;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
@@ -109,8 +109,8 @@ impl Rqx {
 
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for Rqx {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("rqx", env!("CARGO_PKG_VERSION")))
             .with_instructions(INSTRUCTIONS)
     }

@@ -308,16 +308,12 @@ impl Sources {
     /// for a result in a file outside it.
     fn project_path(&self, run: &Run, artifact: &Artifact) -> Option<String> {
         let uri = artifact.uri.as_deref()?;
-        let mut path = uri_path(uri);
-        if !is_absolute(&path)
-            && let Some(base) = artifact
-                .uri_base_id
-                .as_ref()
-                .and_then(|id| run.original_uri_base_ids.get(id))
-                .and_then(|base| base.uri.as_deref())
-        {
-            path = format!("{}/{path}", uri_path(base).trim_end_matches('/'));
-        }
+        let base = artifact
+            .uri_base_id
+            .as_ref()
+            .and_then(|id| run.original_uri_base_ids.get(id))
+            .and_then(|base| base.uri.as_deref());
+        let path = reference_path(uri, base);
         if is_absolute(&path) {
             return self.beneath_root(Path::new(&path));
         }
@@ -355,18 +351,47 @@ fn offset(text: &str, starts: &LineStarts, line: u32, column: Option<u32>) -> u3
 }
 
 fn is_absolute(path: &str) -> bool {
-    Path::new(path).is_absolute() || path.as_bytes().get(1) == Some(&b':')
+    Path::new(path).is_absolute() || starts_with_drive(path)
+}
+
+/// `C:`, `C:/` or `C:\work`: a drive letter, which is absolute whatever platform reads it.
+fn starts_with_drive(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.first().is_some_and(u8::is_ascii_alphabetic)
+        && bytes.get(1) == Some(&b':')
+        && bytes.get(2).is_none_or(|next| matches!(next, b'/' | b'\\'))
+}
+
+/// The path a reference names: absolute as written, or joined to the base the run
+/// declares for it.
+fn reference_path(uri: &str, base: Option<&str>) -> String {
+    let path = uri_path(uri);
+    match base {
+        Some(base) if !is_absolute(&path) => {
+            format!("{}/{path}", uri_path(base).trim_end_matches('/'))
+        }
+        _ => path,
+    }
 }
 
 /// `file:///a/b%20c` as `/a/b c`; a relative reference is decoded and left as it is.
+/// A drive path loses the slash the URI put before it, and a host other than this
+/// machine makes a network path: `file://server/share/a` is `//server/share/a`.
 fn uri_path(uri: &str) -> String {
-    let path = uri
-        .strip_prefix("file://")
-        .map_or(uri, |rest| rest.trim_start_matches("localhost"));
+    let Some(rest) = uri.strip_prefix("file://") else {
+        return percent_decode(uri);
+    };
+    let (authority, path) = rest.split_at(rest.find('/').unwrap_or(rest.len()));
+    if starts_with_drive(authority) && authority.len() == 2 {
+        // `file://C:/work` is not valid, but some tools write it, and it means `C:/work`.
+        return percent_decode(rest);
+    }
     let decoded = percent_decode(path);
-    // `file:///C:/work` carries the slash of the URI, which is not part of the path.
+    if !authority.is_empty() && !authority.eq_ignore_ascii_case("localhost") {
+        return format!("//{authority}{decoded}");
+    }
     match decoded.strip_prefix('/') {
-        Some(drive) if drive.as_bytes().get(1) == Some(&b':') => drive.to_owned(),
+        Some(drive) if starts_with_drive(drive) => drive.to_owned(),
         _ => decoded,
     }
 }
@@ -440,8 +465,32 @@ mod tests {
     const ESLINT: &str = include_str!("../tests/sarif/eslint.sarif");
     const SEMGREP: &str = include_str!("../tests/sarif/semgrep.sarif");
 
+    /// A path as the path of a file URI: forward slashes and a leading slash, so a
+    /// Windows drive reads as `/C:/work` and `file://` + this is `file:///C:/work`.
+    fn uri_path_of(path: &Path) -> String {
+        let text = path.to_string_lossy().replace('\\', "/");
+        if text.starts_with('/') {
+            text
+        } else {
+            format!("/{text}")
+        }
+    }
+
+    /// The fixture with `{root}` filled in. It goes through a JSON value so that the
+    /// root is escaped as JSON, whatever characters the platform puts in a path.
     fn at(root: &Path, fixture: &str) -> String {
-        fixture.replace("{root}", &root.to_string_lossy())
+        fn fill(value: &mut serde_json::Value, root: &str) {
+            match value {
+                serde_json::Value::String(text) => *text = text.replace("{root}", root),
+                serde_json::Value::Array(items) => items.iter_mut().for_each(|v| fill(v, root)),
+                serde_json::Value::Object(map) => map.values_mut().for_each(|v| fill(v, root)),
+                _ => {}
+            }
+        }
+        let mut document: serde_json::Value =
+            serde_json::from_str(fixture).expect("a SARIF fixture");
+        fill(&mut document, &uri_path_of(root));
+        document.to_string()
     }
 
     #[test]
@@ -519,12 +568,19 @@ mod tests {
     #[test]
     fn a_base_uri_declared_by_the_run_is_joined_to_a_relative_path() {
         let root = project(&[("pkg/a.py", "x = 1\n")]);
-        let sarif = format!(
-            r#"{{"runs":[{{"tool":{{"driver":{{"name":"t"}}}},"originalUriBaseIds":{{"ROOT":{{"uri":"file://{}/"}}}},"results":[
-            {{"ruleId":"r","message":{{"text":"m"}},"locations":[{{"physicalLocation":{{"artifactLocation":{{"uri":"pkg/a.py","uriBaseId":"ROOT"}},"region":{{"startLine":1}}}}}}]}}
-            ]}}]}}"#,
-            root.to_string_lossy()
-        );
+        let sarif = serde_json::json!({"runs": [{
+            "tool": {"driver": {"name": "t"}},
+            "originalUriBaseIds": {"ROOT": {"uri": format!("file://{}/", uri_path_of(&root))}},
+            "results": [{
+                "ruleId": "r",
+                "message": {"text": "m"},
+                "locations": [{"physicalLocation": {
+                    "artifactLocation": {"uri": "pkg/a.py", "uriBaseId": "ROOT"},
+                    "region": {"startLine": 1}
+                }}]
+            }]
+        }]})
+        .to_string();
         let found = findings_of(&root, &sarif);
         assert_eq!(found.len(), 1);
         assert_eq!(&*found[0].location.file, "pkg/a.py");
@@ -588,5 +644,73 @@ mod tests {
         assert_eq!(uri_path("file:///work/my%20dir/a.py"), "/work/my dir/a.py");
         assert_eq!(uri_path("file:///C:/work/a.py"), "C:/work/a.py");
         assert_eq!(uri_path("src/a%2Bb.py"), "src/a+b.py");
+    }
+
+    #[test]
+    fn a_windows_file_uri_names_the_drive_path() {
+        for (uri, path) in [
+            ("file:///C:/Users/me/proj/a.py", "C:/Users/me/proj/a.py"),
+            ("file:///c:/Users/me/a.py", "c:/Users/me/a.py"),
+            ("file:///C%3A/Users/me/a.py", "C:/Users/me/a.py"),
+            ("file:///C:/My%20Work/a.py", "C:/My Work/a.py"),
+            ("file://localhost/C:/work/a.py", "C:/work/a.py"),
+            ("file://C:/work/a.py", "C:/work/a.py"),
+            ("C:/work/a.py", "C:/work/a.py"),
+            (r"C:\work\a.py", r"C:\work\a.py"),
+        ] {
+            assert_eq!(uri_path(uri), path, "{uri}");
+            assert!(is_absolute(path), "{path} is absolute");
+        }
+    }
+
+    #[test]
+    fn a_host_in_a_file_uri_makes_a_network_path() {
+        assert_eq!(uri_path("file://server/share/a.py"), "//server/share/a.py");
+        assert_eq!(uri_path("file://LOCALHOST/work/a.py"), "/work/a.py");
+        assert_eq!(uri_path("file:///work/a.py"), "/work/a.py");
+    }
+
+    #[test]
+    fn only_a_letter_and_a_colon_make_a_drive() {
+        assert!(starts_with_drive("C:"));
+        assert!(starts_with_drive("c:/work"));
+        assert!(starts_with_drive(r"D:\work"));
+        assert!(!starts_with_drive("C:work"), "a drive-relative path");
+        assert!(!starts_with_drive("1:/work"));
+        assert!(!starts_with_drive("src/a.py"));
+        assert!(!is_absolute("a:b.py"));
+    }
+
+    #[test]
+    fn a_relative_reference_joins_the_base_with_a_drive() {
+        assert_eq!(
+            reference_path("pkg/a.py", Some("file:///C:/Users/me/proj/")),
+            "C:/Users/me/proj/pkg/a.py"
+        );
+        assert_eq!(
+            reference_path("pkg/a.py", Some("file:///work/")),
+            "/work/pkg/a.py"
+        );
+        assert_eq!(
+            reference_path("file:///C:/other/a.py", Some("file:///C:/proj/")),
+            "C:/other/a.py",
+            "an absolute reference ignores the base"
+        );
+        assert_eq!(reference_path("pkg/a.py", None), "pkg/a.py");
+    }
+
+    #[test]
+    fn a_windows_root_is_escaped_into_the_fixture_as_json() {
+        let root = Path::new(r"C:\Users\runner\proj");
+        let document: Document =
+            serde_json::from_str(&at(root, RUFF)).expect("backslashes do not break the JSON");
+        let uri = document.runs[0].results[0].locations[0]
+            .physical_location
+            .as_ref()
+            .and_then(|physical| physical.artifact_location.as_ref())
+            .and_then(|artifact| artifact.uri.as_deref())
+            .expect("a location uri");
+        assert_eq!(uri, "file:///C:/Users/runner/proj/app/main.py");
+        assert_eq!(uri_path(uri), "C:/Users/runner/proj/app/main.py");
     }
 }

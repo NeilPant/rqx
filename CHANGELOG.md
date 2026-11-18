@@ -52,6 +52,29 @@ them. `tools/release.sh` turns that section into the release notes.
   document reporters and `--watch` are not paged, and the exit code is the same with
   and without the pager. See `docs/ci.md`.
 
+### Fixed
+
+- **`rqx mcp --http` could be made to use all of a machine's memory.** rmcp 3.2, the
+  MCP library behind the server, kept the tool name of every `tools/call` request in
+  a map with no size limit, including names that match no tool. A client that could
+  reach the endpoint could send requests with distinct tool names until the process
+  ran out of memory (RUSTSEC-2026-0461). rqx now uses rmcp 3.11, which looks the tool
+  up on each request and keeps no map. The endpoint listens on `127.0.0.1` unless
+  `--http` names another address, and a non-loopback address already requires
+  `RQX_MCP_TOKEN`, so the exposure was local processes on a loopback server without a
+  token, and token holders otherwise. `rqx mcp` over stdio was not affected. The same
+  update carries rmcp's fixes for its OAuth and HTTP client code (RUSTSEC-2026-0457
+  and RUSTSEC-2026-0462), which rqx does not use.
+
+- **tokio is updated to 1.54.** Versions before 1.53.3 let safe code build an
+  `AsyncFd` from a file descriptor it did not own (RUSTSEC-2026-0386). rqx does not
+  call `AsyncFd`, so the update clears the advisory without changing behavior.
+
+- **SARIF files read with `--sarif-in` resolve `file://` URIs for network shares.**
+  `file://server/share/a.py` is read as the path `//server/share/a.py`. It used to
+  be read as the relative path `server/share/a.py`, which could attach a result to
+  the wrong file. A drive path such as `file:///C:/work/a.py` is read as before.
+
 ## 0.5.1 — 2026-11-18
 
 

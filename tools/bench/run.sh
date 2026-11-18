@@ -96,7 +96,10 @@ scan_command() {
 measure() {
     scenario=$1
     kind=$2
-    set -- hyperfine --warmup 1 --runs 10 --export-json "$out/$scenario.json"
+    # The commands redirect output and the edit prepare is a small shell script, so
+    # hyperfine is told to hand them to the shell. It refuses to guess when a command
+    # holds unquoted shell syntax, and a run that fails there measures nothing.
+    set -- hyperfine --shell=default --warmup 1 --runs 10 --export-json "$out/$scenario.json"
     if [ "$kind" != none ]; then
         [ -z "$baseline" ] || set -- "$@" --prepare "$(prepare_for "$kind" "$baseline")"
         set -- "$@" --prepare "$(prepare_for "$kind" "$bin")"
