@@ -1,5 +1,6 @@
 # Code that resembles a finding and is not one. Every rule should stay silent here.
 import atexit
+import re
 import time
 
 # distant-declaration, short-name-wide-scope: `TZ` belongs to the module, so being
@@ -72,3 +73,12 @@ def render(text: str) -> str:
 class Page:
     def render(self, text: str) -> str:
         return render(text) + "\n"
+
+
+
+# closure-over-loop-variable: `re.sub` calls the function before it returns.
+def suffixed(text: str, suffixes: list[str]) -> list[str]:
+    out = []
+    for suffix in suffixes:
+        out.append(re.sub("o", lambda match: match.group(0) + suffix, text))
+    return out

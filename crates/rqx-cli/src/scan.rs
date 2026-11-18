@@ -2492,8 +2492,31 @@ fn identities_of(findings: &[Finding], source: &str) -> Vec<rqx_core::Identity> 
 fn analyzed(path: &Path, display: String, cached: Cached, settings: &Resolved) -> ScanMessage {
     let Cached {
         mut analysis,
-        identities,
+        mut identities,
     } = cached;
+    // Which Go a module is written for is in its `go.mod`, not in the file, so it is
+    // applied here rather than kept in the file's cached analysis.
+    if analysis.language == Language::Go
+        && analysis
+            .findings
+            .iter()
+            .any(|finding| finding.rule == RuleId::ClosureOverLoopVariable)
+        && rqx_lang::go::loop_variables_per_iteration(path)
+    {
+        let kept: Vec<bool> = analysis
+            .findings
+            .iter()
+            .map(|finding| finding.rule != RuleId::ClosureOverLoopVariable)
+            .collect();
+        let mut index = 0;
+        identities.retain(|_| {
+            index += 1;
+            kept.get(index - 1).copied().unwrap_or(true)
+        });
+        analysis
+            .findings
+            .retain(|finding| finding.rule != RuleId::ClosureOverLoopVariable);
+    }
     // Tagged here rather than on the collector, which every worker's output funnels
     // through.
     if let Some(baseline) = &settings.baseline {

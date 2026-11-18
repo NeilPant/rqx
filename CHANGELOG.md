@@ -81,6 +81,13 @@ them. `tools/release.sh` turns that section into the release notes.
   means a Go method that recurses through its receiver is now found. In Java a call
   with a different number of arguments is another overload, and in C++ `::name()` is
   the global function.
+- **`closure-over-loop-variable` leaves out closures that run before the loop moves
+  on, and Go modules on 1.22 or later.** A function literal passed to a call that runs
+  it before returning, such as Go's `t.Run`, `sort.Slice` or `strings.Map`, a
+  JavaScript `sort` or `replace`, or Python's `sorted` or `re.sub`, was reported as
+  if it ran after the loop had finished. A `t.Run` whose case calls `t.Parallel()` is
+  still reported. In a Go module whose `go.mod` declares Go 1.22 or later each
+  iteration has its own loop variables, so the rule does not report there at all.
 
 ## 0.5.0 — 2026-11-18
 

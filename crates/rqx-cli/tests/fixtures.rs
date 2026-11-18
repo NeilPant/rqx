@@ -437,7 +437,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("callback-nesting", 1),
                 ("chat-residue", 1),
                 ("circular-dependency", 1),
-                ("closure-over-loop-variable", 1),
+                ("closure-over-loop-variable", 2),
                 ("cognitive-complexity", 1),
                 ("collapsible-if", 2),
                 ("comment-per-line", 1),

@@ -61,3 +61,12 @@ export class Page {
     return render(text) + "\n";
   }
 }
+
+// closure-over-loop-variable: `replace` calls the function before it returns.
+export function suffixed(text, suffixes) {
+  const out = [];
+  for (const suffix of suffixes) {
+    out.push(text.replace(/o/g, (match) => match + suffix));
+  }
+  return out;
+}

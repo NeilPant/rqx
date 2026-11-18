@@ -2692,7 +2692,7 @@ impl<'a> Walker<'a> {
         };
         // A callback the loop itself calls, once per element, closes over nothing it
         // will outlive.
-        if profile.is_loop_callback(function, self.source) {
+        if profile.is_loop_callback(function, self.source) || self.runs_in_place(function) {
             return;
         }
         let moved: Vec<String> = self.loop_names(loop_node);
@@ -2715,6 +2715,86 @@ impl<'a> Walker<'a> {
             detail: captured.to_owned(),
             count: 1,
         });
+    }
+
+    /// A function literal handed to a call that runs it before returning: a sort's
+    /// comparison, `strings.Map`, a Go subtest. It is done with the loop variable
+    /// before the loop moves on. A subtest that calls `t.Parallel()` is the exception:
+    /// it waits until the loop has finished.
+    fn runs_in_place(&self, function: Node<'a>) -> bool {
+        let profile = self.profile;
+        let callers: &[&str] = match profile.language {
+            rqx_core::Language::Go => &[
+                "Run",
+                "Slice",
+                "SliceStable",
+                "SortFunc",
+                "SortStableFunc",
+                "BinarySearchFunc",
+                "IndexFunc",
+                "ContainsFunc",
+                "DeleteFunc",
+                "CompactFunc",
+                "EqualFunc",
+                "MinFunc",
+                "MaxFunc",
+                "Map",
+                "FieldsFunc",
+                "TrimFunc",
+                "TrimLeftFunc",
+                "TrimRightFunc",
+                "Walk",
+                "WalkDir",
+                "Do",
+            ],
+            rqx_core::Language::TypeScript | rqx_core::Language::JavaScript => &[
+                "sort",
+                "toSorted",
+                "findLastIndex",
+                "replace",
+                "replaceAll",
+                "from",
+            ],
+            rqx_core::Language::Python => &[
+                "sorted", "sort", "min", "max", "filter", "map", "any", "all", "reduce", "sub",
+            ],
+            rqx_core::Language::Java => &[
+                "sort",
+                "removeIf",
+                "replaceAll",
+                "computeIfAbsent",
+                "computeIfPresent",
+                "compute",
+                "merge",
+            ],
+            rqx_core::Language::Cpp => &[
+                "sort",
+                "stable_sort",
+                "find_if",
+                "count_if",
+                "any_of",
+                "all_of",
+                "none_of",
+                "remove_if",
+                "accumulate",
+            ],
+        };
+        // Python passes a key function by keyword: `sorted(rows, key=lambda row: …)`.
+        let mut list = function.parent();
+        if list.is_some_and(|parent| kind_of(parent) == "keyword_argument") {
+            list = list.and_then(|parent| parent.parent());
+        }
+        let Some(call) = list
+            .filter(|list| profile.argument_list_kinds.contains(&kind_of(*list)))
+            .and_then(|list| list.parent())
+            .filter(|call| profile.is_call(*call))
+        else {
+            return false;
+        };
+        let Some(tail) = profile.call_tail(call, self.source) else {
+            return false;
+        };
+        callers.contains(&tail) && !(tail == "Run" && self.text(function).contains(".Parallel()"))
     }
 
     fn enclosing_loop(&self, node: Node<'a>) -> Option<Node<'a>> {
