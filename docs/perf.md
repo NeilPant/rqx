@@ -5,6 +5,16 @@ read. `rqx perf` reports which function bodies do work that grows faster than th
 data they process, what that work costs once the functions they call are counted, and
 whether a profile shows that anything executes them.
 
+Big-O cannot be decided from source, so every order `rqx perf` prints is an estimate.
+The analysis reads loops, the types of the receivers it can find, and the calls it can
+follow, and each row carries a confidence and, with `--explain`, the evidence behind
+it. On the precision corpus the time and space orders were exact for 0.91 of the 437
+functions written for it and for 0.48 of the 31 functions copied from five open source
+projects (vite, flask, cobra, gson and fmt). The real sample is small, and its per-language
+figures run from 0.20 to 0.80. Treat an order as something to check, and use
+`--profile` to see whether anything runs the function. The figures are in
+[perf-precision.md](perf-precision.md).
+
 ```sh
 rqx perf
 ```
@@ -215,11 +225,13 @@ factor for the share of samples when a profile was read, and by `1 + rank / 4`, 
 
 ## The rules behind it
 
-Eight rules in the `performance` family each report a code shape that can be checked
-by reading:
+Ten of the rules in the `performance` family each report a code shape that can be
+checked by reading:
 
 | rule | |
 |---|---|
+| `loop-concatenation` | text built one piece at a time inside a loop |
+| `sequential-await` | two waits in a row where the second does not read the first's answer |
 | `scan-in-loop` | a whole-collection search, sort or copy inside a loop |
 | `deep-loop-nesting` | loops nested past the `loop_nesting` threshold |
 | `query-in-loop` | a database, HTTP or queue call inside a loop |
