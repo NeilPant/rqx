@@ -9,8 +9,30 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **`gate.baseline_match`.** Sets how a scan's findings are matched against the
+  baseline: `count` (the default) or `set`. With `count`, a baseline entry covers as
+  many findings with its identity as the baseline recorded, and any more are new. With
+  `set`, an entry covers every finding with its identity, which is how rqx 0.5.0 and
+  earlier matched. See `docs/baseline.md`.
+
 ### Fixed
 
+- **A baseline records how many findings share an identity.** An identity is made of
+  the rule, the file and the subject, so two findings of one rule about the same name
+  in one file have the same identity. The baseline stored each identity once and
+  matched it as a set: a new finding with the same identity as an existing one was
+  marked `known` and did not count against the gate. On cobra 1.10.2 the baseline held
+  1,267 entries for 1,671 findings. Each entry now has a `count` field, written when it
+  is greater than 1. When a file has more findings with an identity than the baseline
+  recorded, the extra findings are new; findings are matched in source order, so the
+  last ones in the file are reported. A baseline file written by 0.5.0 still loads, and
+  each of its entries is read as one finding. **A gate can fail right after upgrading**
+  if the baseline was hiding repeated findings. Run `rqx baseline --update` to record
+  the counts, or set `gate.baseline_match: set` to restore the previous matching.
+  `rqx baseline` now prints the number of findings it recorded instead of the number of
+  entries, and `--update` compares finding totals.
 - **`oversized-module` and `cross-language-duplicate` findings are matched against the
   baseline.** Findings built after the per-file analysis were matched only when their
   rule was on a fixed list, and these two rules were missing from it, so right after

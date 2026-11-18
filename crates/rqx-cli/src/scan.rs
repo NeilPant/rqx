@@ -410,7 +410,7 @@ struct Collector {
     /// long each note has been there.
     todos: HashMap<Arc<str>, Vec<rqx_core::facts::Spot>>,
     cycles: Vec<Vec<String>>,
-    baseline: Option<Arc<std::collections::HashSet<rqx_core::Identity>>>,
+    baseline: Option<crate::baseline::Matcher>,
     baseline_findings: Option<u32>,
     /// Only the files a stage's finding names, read once each.
     texts: HashMap<Arc<str>, String>,
@@ -585,7 +585,9 @@ impl Collector {
     /// Every finding arrives here: one file's off the channel, and each stage's built
     /// after it drained, whatever rule they are of. So this is the one place a waiver
     /// and the baseline reach all of them. A batch pairs each finding with its identity
-    /// when a worker already resolved it.
+    /// when a worker already resolved it. A waived finding is set aside before the
+    /// baseline is consulted, because a baseline never records a waived finding and so
+    /// one must not use up what the baseline recorded for the others.
     fn accept_all(&mut self, batch: Vec<(Finding, Option<rqx_core::Identity>)>) {
         let mut findings = Vec::with_capacity(batch.len());
         let mut identities = Vec::with_capacity(batch.len());
@@ -598,10 +600,8 @@ impl Collector {
             }
             findings.push(finding);
         }
-        if let Some(baseline) = &self.baseline {
-            for (finding, identity) in findings.iter_mut().zip(&identities) {
-                finding.known = baseline.contains(identity);
-            }
+        if let Some(baseline) = &mut self.baseline {
+            baseline.mark(&mut findings, &identities);
         }
         for finding in findings {
             self.record(finding);
@@ -2348,7 +2348,10 @@ pub(crate) fn collect_against(
     collector.watcher = watch.map(|watch| watch.updates.clone());
     collector.coverage = read_coverage(root, &settings.config.scan.coverage);
     collector.profile = read_profile(root, &settings.config.scan.profile);
-    collector.baseline = settings.baseline.clone();
+    collector.baseline = settings
+        .baseline
+        .as_ref()
+        .map(crate::baseline::Recorded::matcher);
     collector.baseline_findings = settings.baseline_findings;
     collector.root = root.to_path_buf();
     collector.keep_costs = comparison.keeps_costs(settings);
@@ -3210,7 +3213,9 @@ mod tests {
         let cold = project.scan();
         assert!(!cold.findings.is_empty());
         let mut settings = Resolved::of(rqx_core::config::RqxConfig::default());
-        settings.baseline = Some(Arc::new(crate::baseline::Baseline::of(&cold).recorded()));
+        settings.baseline = Some(Arc::new(
+            crate::baseline::Baseline::of(&cold).recorded(rqx_core::config::BaselineMatch::Count),
+        ));
 
         let warm = scan_with(&project.root, &settings, None, CachePolicy::Forced).unwrap();
 
@@ -3223,13 +3228,15 @@ mod tests {
         assert!(warm.findings.iter().all(|finding| finding.known));
     }
 
-    fn baseline_holding(
-        findings: &[Finding],
-    ) -> Arc<std::collections::HashSet<rqx_core::Identity>> {
+    fn baseline_holding(findings: &[Finding]) -> crate::baseline::Matcher {
         let mut outcome = crate::report::tests::outcome_with(&[], 0);
         outcome.root = PathBuf::from("/nowhere/rqx-baseline-test");
         outcome.findings = findings.to_vec();
-        Arc::new(crate::baseline::Baseline::of(&outcome).recorded())
+        Arc::new(
+            crate::baseline::Baseline::of(&outcome)
+                .recorded(rqx_core::config::BaselineMatch::Count),
+        )
+        .matcher()
     }
 
     fn of_every_rule() -> Vec<Finding> {
@@ -3274,6 +3281,38 @@ mod tests {
             assert_eq!(collector.retained.len(), RuleId::ALL.len());
             assert!(unknown.is_empty(), "reported as new: {unknown:?}");
         }
+    }
+
+    /// A baseline never records a waived finding, so a waived repeat must not use up
+    /// the one the baseline recorded for the finding that is not waived.
+    #[test]
+    fn a_waived_finding_does_not_use_up_what_the_baseline_recorded() {
+        let recorded = ranked("a.ts", 9).0;
+        let waived = ranked("a.ts", 1).0;
+        let mut collector = Collector::new(0, false, false, false, None);
+        collector.baseline = Some(baseline_holding(std::slice::from_ref(&recorded)));
+        collector.suppressions.insert(
+            Arc::from("a.ts"),
+            vec![rqx_core::suppress::Suppression {
+                span: Span::new(0, 1),
+                line: 1,
+                rules: vec!["imprecise-type".to_owned()],
+                reason: Some("generated".to_owned()),
+                until: None,
+                whole_file: false,
+            }],
+        );
+
+        collector.absorb(Staged {
+            findings: vec![waived, recorded],
+            ..Staged::default()
+        });
+
+        assert_eq!(collector.suppressed.len(), 1);
+        let Some(Reverse(Ranked(kept))) = collector.retained.peek() else {
+            panic!("the recorded finding was not kept");
+        };
+        assert!(kept.known);
     }
 
     #[test]

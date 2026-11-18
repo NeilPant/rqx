@@ -53,6 +53,14 @@
       },
       "type": "object"
     },
+    "BaselineMatch": {
+      "description": "How many findings one baseline entry covers.",
+      "enum": [
+        "count",
+        "set"
+      ],
+      "type": "string"
+    },
     "Category": {
       "description": "The top-level organisation, because eight axes are what a reader can hold in their head where sixty rules are not.",
       "oneOf": [
@@ -289,6 +297,11 @@
             "string",
             "null"
           ]
+        },
+        "baseline_match": {
+          "$ref": "#/$defs/BaselineMatch",
+          "default": "count",
+          "description": "How a scan's findings are matched against the baseline's entries. `count`: an entry covers as many findings with its identity as the baseline recorded, and any beyond that count are new. `set`: an entry covers every finding with its identity, however many there are, which is how rqx 0.5.0 and earlier matched."
         },
         "complexity_regression": {
           "$ref": "#/$defs/RegressionGate",
@@ -10747,6 +10760,7 @@
       "$ref": "#/$defs/Gate",
       "default": {
         "baseline": null,
+        "baseline_match": "count",
         "complexity_regression": "off",
         "fail_on": "error",
         "fail_on_incomplete": false,

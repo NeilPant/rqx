@@ -548,6 +548,11 @@ pub struct Gate {
     /// what lets a codebase with ten years of history turn the gate on at all.
     /// `min_health` and `min_grade` still see everything.
     pub baseline: Option<String>,
+    /// How a scan's findings are matched against the baseline's entries. `count`: an
+    /// entry covers as many findings with its identity as the baseline recorded, and
+    /// any beyond that count are new. `set`: an entry covers every finding with its
+    /// identity, however many there are, which is how rqx 0.5.0 and earlier matched.
+    pub baseline_match: BaselineMatch,
     /// Fail when the total number of findings is above what the baseline recorded.
     /// A baseline says which debt is tolerated; this says it may not grow.
     pub ratchet: bool,
@@ -561,6 +566,17 @@ pub struct Gate {
     /// and `rqx comment` compare against the base revision, which `--regressions` does
     /// for one run.
     pub complexity_regression: RegressionGate,
+}
+
+/// How many findings one baseline entry covers.
+#[derive(
+    Copy, Clone, Debug, Default, Deserialize, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum BaselineMatch {
+    #[default]
+    Count,
+    Set,
 }
 
 /// Whether, and how loudly, a complexity regression counts against the gate.
@@ -681,6 +697,7 @@ impl Default for Gate {
             min_grade: GateGrade::Never,
             fail_on_incomplete: false,
             baseline: None,
+            baseline_match: BaselineMatch::Count,
             ratchet: false,
             owners: BTreeMap::new(),
             complexity_regression: RegressionGate::Off,
@@ -1518,6 +1535,14 @@ mod tests {
     }
 
     #[test]
+    fn a_baseline_is_matched_by_count_unless_set_is_written() {
+        assert_eq!(Gate::default().baseline_match, BaselineMatch::Count);
+        let config: RqxConfig = serde_saphyr::from_str("gate:\n  baseline_match: set\n").unwrap();
+        assert_eq!(config.gate.baseline_match, BaselineMatch::Set);
+        assert!(serde_saphyr::from_str::<RqxConfig>("gate:\n  baseline_match: bag\n").is_err());
+    }
+
+    #[test]
     fn the_schema_describes_the_performance_and_gate_additions() {
         let schema = json_schema();
         let performance = property(&schema, &["performance"]);
@@ -1529,6 +1554,7 @@ mod tests {
         }
         let gate = property(&schema, &["gate"]);
         assert!(gate["properties"]["complexity_regression"].is_object());
+        assert!(gate["properties"]["baseline_match"]["description"].is_string());
         assert!(schema["$defs"]["CostEntry"]["properties"]["fn"].is_object());
     }
 
@@ -1796,6 +1822,7 @@ mod tests {
                     config.gate.min_health.to_string(),
                     format!("{:?}", config.gate.min_grade),
                     config.gate.baseline.clone().unwrap_or_default(),
+                    format!("{:?}", config.gate.baseline_match),
                     config.gate.ratchet.to_string(),
                     format!("{:?}", config.gate.complexity_regression),
                 ],

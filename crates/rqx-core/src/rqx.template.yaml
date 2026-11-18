@@ -205,6 +205,10 @@ gate:
   # codebase with years of history can gate on what a change adds. min_health and
   # min_grade still count everything. Unset means every finding counts.
   # baseline: .rqx/baseline.json
+  # How findings are matched against the baseline: count (an entry covers as many
+  # findings with its identity as the baseline recorded, and any more are new) or set
+  # (an entry covers every finding with its identity, as in rqx 0.5.0 and earlier).
+  baseline_match: count
   # Refuse to let the total grow past what the baseline recorded.
   ratchet: false
   # Fail when a design pattern is half applied — a decorator that cannot substitute for
