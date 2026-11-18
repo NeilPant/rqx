@@ -103,6 +103,9 @@ thresholds:
   data_clump_sites: 3
   short_name_scope_lines: 25
   slow_test_ms: 100
+  # Decisions one test may make. An `if` that only fails the test and a loop over a
+  # table of cases are not counted.
+  test_decisions: 2
   boundary_repeats: 3
   declaration_distance_lines: 20
   expression_operations: 6

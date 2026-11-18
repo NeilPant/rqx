@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="313" failures="167" time="0">
+<testsuites name="rqx" tests="309" failures="162" time="0">
   <testsuite name="typescript/bloat.ts" tests="19" failures="10">
     <testcase classname="typescript/bloat.ts" name="no-base-case at 86:17">
       <failure type="no-base-case" message="Calls itself 1 times per invocation with no memo in sight.">Calls itself 1 times per invocation with no memo in sight.
@@ -1388,33 +1388,12 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
       <skipped message="The group (channel, locale, userId) appears in 3 signatures." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/suite-checks.test.ts" tests="4" failures="4">
-    <testcase classname="typescript/suite-checks.test.ts" name="branching-test at 16:21">
-      <failure type="branching-test" message="1 decisions inside the test (limit 0).">1 decisions inside the test (limit 0).
-
-Why: a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked
-Fix: write one test per path, so a passing run shows which case was checked</failure>
-    </testcase>
-    <testcase classname="typescript/suite-checks.test.ts" name="branching-test at 26:20">
-      <failure type="branching-test" message="1 decisions inside the test (limit 0).">1 decisions inside the test (limit 0).
-
-Why: a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked
-Fix: write one test per path, so a passing run shows which case was checked</failure>
-    </testcase>
-    <testcase classname="typescript/suite-checks.test.ts" name="branching-test at 32:26">
-      <failure type="branching-test" message="1 decisions inside the test (limit 0).">1 decisions inside the test (limit 0).
-
-Why: a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked
-Fix: write one test per path, so a passing run shows which case was checked</failure>
-    </testcase>
+  <testsuite name="typescript/suite-checks.test.ts" tests="1" failures="0">
     <testcase classname="typescript/suite-checks.test.ts" name="branching-test at 43:26">
-      <failure type="branching-test" message="3 decisions inside the test (limit 0).">3 decisions inside the test (limit 0).
-
-Why: a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked
-Fix: write one test per path, so a passing run shows which case was checked</failure>
+      <skipped message="3 decisions inside the test (limit 2)." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/suite.test.ts" tests="19" failures="12">
+  <testsuite name="typescript/suite.test.ts" tests="18" failures="11">
     <testcase classname="typescript/suite.test.ts" name="focused-test at 7:1">
       <failure type="focused-test" message="Declared with `only`.">Declared with `only`.
 
@@ -1432,12 +1411,6 @@ Fix: write the expected value as a literal, instead of the call that produces it
 
 Why: a skipped test reports success while the behaviour it names goes unchecked
 Fix: fix the test and enable it, or delete it and record what it was checking</failure>
-    </testcase>
-    <testcase classname="typescript/suite.test.ts" name="branching-test at 16:29">
-      <failure type="branching-test" message="1 decisions inside the test (limit 0).">1 decisions inside the test (limit 0).
-
-Why: a test that branches has paths of its own and nothing says which one ran, so a passing result no longer shows that the case was checked
-Fix: write one test per path, so a passing run shows which case was checked</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="empty-test at 63:26">
       <failure type="empty-test" message="`is not written yet` holds the code to nothing.">`is not written yet` holds the code to nothing.

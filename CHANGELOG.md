@@ -9,6 +9,23 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- **`thresholds.test_decisions` sets how many decisions a test body may make before
+  `branching-test` reports it.** The default is 2. The key can also be written as
+  `rules.branching-test.test_decisions`. An `if` whose arms only fail or skip the test
+  (`if got != want { t.Errorf(...) }`) is not counted, and neither is a loop over a table
+  of cases written in the test (`for _, tt := range tests`, `for (const row of [...])`) or
+  a loop driven by a benchmark's handle (`for i := 0; i < b.N; i++`).
+
+### Changed
+
+- **`branching-test` reports at `info` instead of `warning`, and only when a test makes
+  more decisions than `thresholds.test_decisions`.** In 0.5.0 a single `if`, loop or
+  switch anywhere in a test was reported. Set `rules.branching-test.severity: warning` to
+  keep the previous severity, and `thresholds.test_decisions: 0` to report every counted
+  decision.
+
 ### Fixed
 
 - **`assertionless-test` recognises the standard assertions of each supported test

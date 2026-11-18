@@ -409,6 +409,12 @@ fn threshold_rows(
             defaults.slow_test_ms,
         ),
         (
+            "test decisions",
+            "test_decisions",
+            values.test_decisions,
+            defaults.test_decisions,
+        ),
+        (
             "boundary repeats",
             "boundary_repeats",
             values.boundary_repeats,
