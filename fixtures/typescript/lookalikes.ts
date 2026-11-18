@@ -21,3 +21,8 @@ export function delay(
 ): number {
   return base * random() + clock();
 }
+
+// mixed-language-file: an error message that names an update is not SQL.
+export function updateFailure(id: string): string {
+  return "Failed to update user " + id;
+}

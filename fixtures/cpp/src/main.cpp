@@ -122,5 +122,6 @@ int main() {
     Collected({}).size();
     scaled(1);
     counted(1);
+    update_failure("a");
     return 0;
 }

@@ -5053,12 +5053,15 @@ pub fn collect_over(
     // Whether the file holds tests is only knowable once it has been read. A test file
     // is a list of registrations, and registering is the whole of what loading it is
     // for. Its setup, mocks and helpers reach for the clock and the environment to
-    // arrange a case, which is the test controlling them, not depending on them.
+    // arrange a case, which is the test controlling them, not depending on them, and
+    // the statements it seeds a database with are fixtures.
     if walker.holds_tests {
         walker.out.ambient_dependencies.clear();
+        walker.out.mixed_languages.clear();
     } else {
         walker.note_import_time_work(root);
     }
+    walker.out.mixed_languages = once_per_language(std::mem::take(&mut walker.out.mixed_languages));
     // Which names the file shares is only settled once every declaration has been
     // seen, so the functions that hand one back are read afterwards.
     // Which functions answer later is only settled once the file has been read, so
@@ -5187,6 +5190,20 @@ pub fn collect_over(
     out.mutated_parameters =
         reassigned_parameters(root, scopes, std::mem::take(&mut out.mutated_parameters));
     out
+}
+
+/// One finding per foreign language in a file, at its first string, counting every
+/// string written in it. Moving the language out is one change, however many strings
+/// it touches.
+fn once_per_language(strings: Vec<Spot>) -> Vec<Spot> {
+    let mut first: Vec<Spot> = Vec::new();
+    for spot in strings {
+        match first.iter_mut().find(|seen| seen.detail == spot.detail) {
+            Some(seen) => seen.count += spot.count,
+            None => first.push(spot),
+        }
+    }
+    first
 }
 
 /// The assignments whose target is a parameter of a function around it, one per

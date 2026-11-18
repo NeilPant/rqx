@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="310" failures="162" time="0">
+<testsuites name="rqx" tests="311" failures="162" time="0">
+  <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
+    <testcase classname="typescript/accounts.repository.ts" name="rqx" />
+  </testsuite>
   <testsuite name="typescript/bloat.ts" tests="19" failures="10">
     <testcase classname="typescript/bloat.ts" name="no-base-case at 86:17">
       <failure type="no-base-case" message="Calls itself 1 times per invocation with no memo in sight.">Calls itself 1 times per invocation with no memo in sight.
@@ -758,10 +761,10 @@ Fix: delete it; version control already preserves it</failure>
   </testsuite>
   <testsuite name="typescript/index.ts" tests="2" failures="0">
     <testcase classname="typescript/index.ts" name="barrel-module at 1:1">
-      <skipped message="36 imports, every one of them passed straight back out (limit 36)." />
+      <skipped message="37 imports, every one of them passed straight back out (limit 37)." />
     </testcase>
     <testcase classname="typescript/index.ts" name="wide-fan-out at 1:1">
-      <skipped message="27 modules imported (limit 20)." />
+      <skipped message="28 modules imported (limit 20)." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/intimacy.ts" tests="8" failures="5">

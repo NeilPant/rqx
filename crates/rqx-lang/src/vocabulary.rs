@@ -616,23 +616,57 @@ pub fn redundant_subject(text: &str, following: &str, keywords: &[&str]) -> Opti
 /// Only the two languages a string can hold without ambiguity. Guessing at CSS from
 /// braces and colons would flag every object written across lines.
 pub fn foreign_language(text: &str) -> Option<&'static str> {
-    let upper = text.to_ascii_uppercase();
-    if [
-        "SELECT ",
-        "INSERT INTO",
-        "UPDATE ",
-        "DELETE FROM",
-        "CREATE TABLE",
-    ]
-    .iter()
-    .any(|clause| upper.contains(clause))
-    {
+    if is_sql_statement(text) {
         return Some("SQL");
     }
     ["<div", "<span", "<table", "<html", "<section", "<button"]
         .iter()
         .any(|tag| text.contains(tag))
         .then_some("HTML")
+}
+
+/// A statement, not a sentence that happens to hold a keyword: "Failed to update
+/// user" names an UPDATE and is still an error message. The text has to open with
+/// the statement's keyword in capitals and carry the clause that statement needs.
+fn is_sql_statement(text: &str) -> bool {
+    // Each clause group needs one of its words somewhere after the opening keyword.
+    const STATEMENTS: [(&str, &[&[&str]]); 6] = [
+        ("SELECT", &[&["FROM"]]),
+        ("UPDATE", &[&["SET"]]),
+        ("INSERT", &[&["INTO"], &["VALUES", "SELECT"]]),
+        ("DELETE", &[&["FROM"]]),
+        ("WITH", &[&["AS"]]),
+        ("CREATE", &[&["TABLE", "INDEX", "VIEW"]]),
+    ];
+    let body = without_string_prefix(text)
+        .trim_start()
+        .trim_start_matches('(');
+    let words: Vec<&str> = body
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|word| !word.is_empty())
+        .collect();
+    let Some((opening, rest)) = words.split_first() else {
+        return false;
+    };
+    body.starts_with(opening)
+        && STATEMENTS.iter().any(|(keyword, groups)| {
+            opening == keyword
+                && groups
+                    .iter()
+                    .all(|group| rest.iter().any(|word| group.contains(word)))
+        })
+}
+
+/// Python spells a string's kind in letters before the quote: `f"…"`, `rb'…'`.
+fn without_string_prefix(text: &str) -> &str {
+    let letters = text
+        .chars()
+        .take_while(|c| matches!(c.to_ascii_lowercase(), 'f' | 'r' | 'b' | 'u'))
+        .count();
+    match text[letters..].strip_prefix(['"', '\'']) {
+        Some(rest) if letters > 0 && letters <= 2 => rest.trim_start_matches(['"', '\'']),
+        _ => text,
+    }
 }
 
 pub fn convention_of(name: &str) -> Option<&'static str> {
@@ -757,5 +791,28 @@ mod tests {
             &markers,
             &[" = "]
         ));
+    }
+
+    #[test]
+    fn sql_is_a_statement_with_its_clause_not_a_keyword_in_a_sentence() {
+        for statement in [
+            "SELECT id FROM users",
+            "\n    UPDATE users SET name = $1",
+            "INSERT INTO users (id) VALUES ($1)",
+            "DELETE FROM users WHERE id = $1",
+            "WITH recent AS (SELECT 1) SELECT * FROM recent",
+            "f\"SELECT id FROM users WHERE id = {user_id}",
+        ] {
+            assert_eq!(foreign_language(statement), Some("SQL"), "{statement}");
+        }
+        for sentence in [
+            "Failed to update user",
+            "UPDATE failed for the account",
+            "Select a user from the list",
+            "please select one",
+            "INSERT a coin",
+        ] {
+            assert_eq!(foreign_language(sentence), None, "{sentence}");
+        }
     }
 }

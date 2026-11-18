@@ -125,5 +125,6 @@ public class Main {
         new CostSortInLoop().rankOwn(java.util.List.of());
         new Lookalikes().scaled(1);
         new Lookalikes().counted(new String[0]);
+        new Lookalikes().updateFailure("a");
     }
 }

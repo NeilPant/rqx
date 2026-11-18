@@ -155,6 +155,7 @@ func main() {
 	_ = fixtures.Scaled
 	_ = fixtures.Counted
 	_ = fixtures.CanWrite
+	_ = fixtures.UpdateFailure
 	_ = ParsedOrZero
 	_ = cyclea.Orbit
 }

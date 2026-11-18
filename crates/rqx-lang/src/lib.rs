@@ -235,6 +235,24 @@ pub fn holds_markup(display: &str) -> bool {
     })
 }
 
+/// A file whose name says it is the data-access layer: `users.repository.ts`,
+/// `OrderDao.java`, `queries.go`, `report.sql.ts`. Holding the SQL is that file's job.
+/// Matched on the end of each part of the name, so `report.ts` is not a repository.
+fn is_data_access_file(display: &str) -> bool {
+    const LAYERS: [&str; 6] = ["repository", "repositories", "repo", "repos", "dao", "daos"];
+    let name = display
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(display)
+        .to_ascii_lowercase();
+    let stem = name
+        .rsplit_once('.')
+        .map_or(name.as_str(), |(stem, _)| stem);
+    stem.split(['.', '_', '-']).any(|part| {
+        part == "sql" || part == "queries" || LAYERS.iter().any(|layer| part.ends_with(layer))
+    })
+}
+
 /// Long enough that no file anybody maintains reaches it, short enough that one
 /// pathological file costs a scan seconds rather than the whole run.
 const PARSE_BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
@@ -440,6 +458,9 @@ pub fn analyze_as_with(
     hygiene
         .unused_locals
         .retain(|spot| !exported.contains(spot.detail.as_str()));
+    if is_data_access_file(display) {
+        hygiene.mixed_languages.clear();
+    }
     hygiene.unused_imports = hygiene::unused_imports_over(
         profile,
         source,

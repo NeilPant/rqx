@@ -30,3 +30,8 @@ def counted(items: list[str]) -> int:
 # default.
 def elapsed_since(start: float, clock=time.time) -> float:
     return clock() - start
+
+
+# mixed-language-file: an error message that names an update is not SQL.
+def update_failure(user_id: str) -> str:
+    return "Failed to update user " + user_id

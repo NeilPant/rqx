@@ -12,3 +12,8 @@ int counted(int items) {
     factor += 1;
     return factor;
 }
+
+// mixed-language-file: an error message that names an update is not SQL.
+std::string update_failure(const std::string& id) {
+    return "Failed to update user " + id;
+}

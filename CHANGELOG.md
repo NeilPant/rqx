@@ -28,6 +28,15 @@ them. `tools/release.sh` turns that section into the release notes.
   was checked outside the test bodies, so setup callbacks such as `beforeEach`, mock
   factories and helper functions were reported for reading the clock or the
   environment. Such files are now skipped, as `import-time-work` already skips them.
+- **`mixed-language-file` recognises SQL by the shape of a statement.** Any string
+  containing a keyword such as `update ` in any case counted as SQL, so an error message
+  like `"Failed to update user"` was reported, once for each string. A string now counts
+  as SQL when it opens with the statement keyword in capitals and contains the clause
+  that statement needs: `SELECT … FROM`, `UPDATE … SET`, `INSERT INTO … VALUES` or
+  `… SELECT`, `DELETE FROM`, `WITH … AS`, or `CREATE TABLE`, `INDEX` or `VIEW`. A file
+  is reported once per language, at its first such string. Files named as a
+  data-access layer (`*.repository.*`, `*Repo*`, `*Dao*`, `*.sql.*`, `queries.*`) and
+  files that register tests are not reported.
 
 ## 0.5.0 — 2026-11-18
 

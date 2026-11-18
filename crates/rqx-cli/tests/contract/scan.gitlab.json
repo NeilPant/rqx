@@ -2137,8 +2137,8 @@
   },
   {
     "check_name": "barrel-module",
-    "description": "36 imports, every one of them passed straight back out (limit 36). — it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
-    "fingerprint": "fac1dd389e190a84",
+    "description": "37 imports, every one of them passed straight back out (limit 37). — it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
+    "fingerprint": "49c411b00b837f20",
     "location": {
       "lines": {
         "begin": 1
@@ -2581,8 +2581,8 @@
   },
   {
     "check_name": "wide-fan-out",
-    "description": "27 modules imported (limit 20). — a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it",
-    "fingerprint": "7861e6d3d44a4b36",
+    "description": "28 modules imported (limit 20). — a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it",
+    "fingerprint": "e130b780d9896add",
     "location": {
       "lines": {
         "begin": 1

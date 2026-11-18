@@ -27,3 +27,8 @@ func CanWrite(w io.Writer, b []byte) bool {
 	_, err := w.Write(b)
 	return err == nil
 }
+
+// mixed-language-file: an error message that names an update is not SQL.
+func UpdateFailure(id string) string {
+	return "UPDATE failed for user " + id
+}

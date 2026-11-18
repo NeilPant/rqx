@@ -13,4 +13,9 @@ public class Lookalikes {
         factor += 1;
         return factor;
     }
+
+    // mixed-language-file: an error message that names an update is not SQL.
+    public String updateFailure(String id) {
+        return "Failed to update user " + id;
+    }
 }

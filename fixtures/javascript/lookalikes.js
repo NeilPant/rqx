@@ -17,3 +17,8 @@ export function counted(items) {
 export function delay(base, random = Math.random, clock = () => Date.now()) {
   return base * random() + clock();
 }
+
+// mixed-language-file: an error message that names an update is not SQL.
+export function updateFailure(id) {
+  return "Failed to update user " + id;
+}
