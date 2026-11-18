@@ -158,7 +158,8 @@ impl Resolved {
     /// The settings that govern one file. Overrides are tried last-declared first, so
     /// the most specific rule a project wrote is the one that answers.
     pub fn for_file(&self, path: &Path) -> &RqxConfig {
-        self.for_file_with_facts(path).0
+        self.scope_of(path)
+            .map_or(&self.config, |scope| &scope.config)
     }
 
     /// The settings that govern one file, with the facts its analysis builds: what

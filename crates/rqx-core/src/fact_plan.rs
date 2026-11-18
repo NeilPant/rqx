@@ -116,7 +116,8 @@ impl FactPlan {
         import_graph: true,
     };
 
-    /// What the rules and advisories `config` enables read.
+    /// What the rules and advisories `config` enables read. A scan asks once per file,
+    /// so it stops asking which rules are on once the plan holds everything.
     pub fn of(config: &RqxConfig) -> Self {
         let rules = RuleId::ALL
             .iter()
@@ -126,9 +127,14 @@ impl FactPlan {
             .iter()
             .filter(|advisory| config.patterns.enabled(**advisory))
             .map(|advisory| advisory.facts());
-        rules
-            .chain(advisories)
-            .fold(Self::METRICS, |plan, facts| plan.with_all(facts))
+        let mut plan = Self::METRICS;
+        for facts in rules.chain(advisories) {
+            plan = plan.with_all(facts);
+            if plan == Self::ALL {
+                break;
+            }
+        }
+        plan
     }
 
     /// Everything either plan builds.
