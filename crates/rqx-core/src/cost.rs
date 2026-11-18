@@ -221,6 +221,43 @@ impl Indicators {
     }
 }
 
+/// What a call made in a loop is, for the rule that reports work repeated unchanged.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Invoked {
+    /// A call to code of the project, by index into [`FunctionCost::calls`].
+    Call(u16),
+    /// A library call a table marks as having no effect but its result, working on a
+    /// collection of this size.
+    Lib {
+        entry: u16,
+        size: ArgSize,
+        #[serde(default, skip_serializing_if = "ArgSize::is_const")]
+        arg: ArgSize,
+    },
+}
+
+/// A call in a loop whose result the loop cannot change: nothing its arguments read is
+/// assigned in the loop, and none of them is the loop's own variable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepeatedCall {
+    pub line: u32,
+    /// The callee, as written.
+    pub subject: String,
+    pub of: Invoked,
+}
+
+/// Two loops over different collections, the inner one comparing something of each
+/// element with `==`: the shape a lookup by key does in one pass.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PairScan {
+    /// The comparison.
+    pub line: u32,
+    pub outer: String,
+    pub inner: String,
+    /// The comparison as written.
+    pub comparison: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Param {
     pub name: String,
@@ -252,6 +289,11 @@ pub struct FunctionCost {
     pub rec: Option<Recurrence>,
     #[serde(default, skip_serializing_if = "Indicators::is_empty")]
     pub ind: Indicators,
+    /// Calls in a loop that the loop cannot change the result of.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repeats: Vec<RepeatedCall>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pair_scans: Vec<PairScan>,
     /// How sure the function's own cost is, before its callees are folded in. A loop
     /// whose bound is not known, or a cost taken from a method name alone, makes it
     /// less than verified.
@@ -418,6 +460,28 @@ mod tests {
                 static_growth: vec!["REGISTRY".to_owned()],
                 ..Indicators::default()
             },
+            repeats: vec![
+                RepeatedCall {
+                    line: 7,
+                    subject: "has".to_owned(),
+                    of: Invoked::Call(0),
+                },
+                RepeatedCall {
+                    line: 9,
+                    subject: "items.includes".to_owned(),
+                    of: Invoked::Lib {
+                        entry: 2,
+                        size: ArgSize::Param(0),
+                        arg: ArgSize::Const,
+                    },
+                },
+            ],
+            pair_scans: vec![PairScan {
+                line: 12,
+                outer: "orders".to_owned(),
+                inner: "users".to_owned(),
+                comparison: "order.userId === user.id".to_owned(),
+            }],
             conf: Conf::Heuristic,
             exported_as: Some("find".to_owned()),
         };

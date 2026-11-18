@@ -479,3 +479,89 @@ async function loadEveryPage(ids: string[]): Promise<unknown[]> {
 
 Suggested fix: run the work through a semaphore, a limiter or a fixed-size pool
 
+## `quadratic-via-call`
+
+the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop
+
+| | |
+|---|---|
+| Measures | a loop over a collection around a call whose cost grows with a collection the function was given |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Replace Loop with Lookup / Replace Algorithm |
+
+From `fixtures/typescript/cost-quadratic-via-call.ts`, line 13:
+
+```ts
+  for (let at = 0; at < items.length; at++) {
+    if (indexOfItem(items, items[at]) === at) {
+      firsts.push(items[at]);
+```
+
+Suggested fix: index what the callee searches once above the loop, or change the callee to look up by key so each pass costs constant time
+
+## `deep-recursion`
+
+every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach
+
+| | |
+|---|---|
+| Measures | a function that calls itself once, on an argument one smaller than its own |
+| Reported as | warning, verified |
+| Reads | resolved scopes and symbols |
+| Fix | Replace Algorithm |
+| Not in Go | a goroutine's stack grows on demand up to a limit set by the runtime, so depth is bounded by memory and not by a fixed stack size |
+
+From `fixtures/typescript/cost-deep-recursion.ts`, line 5:
+
+```ts
+  }
+  return n + sumTo(n - 1);
+}
+```
+
+Suggested fix: walk the input with a loop and an explicit stack, so the depth is not limited by the call stack
+
+## `repeated-computation-in-loop`
+
+the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do
+
+| | |
+|---|---|
+| Measures | a call that costs at least linear time, in a loop that changes nothing the call reads |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Hoist Invariant |
+
+From `fixtures/typescript/cost-repeated-computation-in-loop.ts`, line 12:
+
+```ts
+  for (const weight of weights) {
+    const whole = totalLength(parts);
+    out.push(weight / whole);
+```
+
+Suggested fix: compute it once above the loop: nothing in the loop changes what it is given
+
+## `pair-scan-could-hash`
+
+every element of one collection is compared with every element of the other to find its match, which a map keyed on the compared field answers in constant time per element
+
+| | |
+|---|---|
+| Measures | two nested loops over different collections, comparing a field of each element with == |
+| Reported as | warning, measured threshold |
+| Reads | resolved scopes and symbols |
+| Fix | Replace Loop with Lookup |
+| Default | off; name it under `rules.enabled` |
+
+From `fixtures/typescript/cost-pair-scan-could-hash.ts`, line 15:
+
+```ts
+    for (const user of users) {
+      if (order.userId === user.id) {
+        names.push(user.name);
+```
+
+Suggested fix: build a map from the key of one collection above the loop and look each element of the other up in it
+

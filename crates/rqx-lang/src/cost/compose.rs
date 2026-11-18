@@ -7,9 +7,12 @@
 
 mod fold;
 mod graph;
+mod sites;
 mod solve;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_sites;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
@@ -18,6 +21,7 @@ use rqx_core::cost::{
     Conf, FileCost, Order, Recurrence, Shrink, SizeId, SizeSrc, SizeVar, Summaries, Summary,
     TraceStep,
 };
+use rqx_core::cost_sites::CrossSite;
 use rqx_core::facts::{ImportRequest, ModuleFacts};
 
 use self::fold::{Done, Fold, TRACE_STEPS, Work, bind};
@@ -45,6 +49,18 @@ pub struct Analysed<'a> {
     pub cost: &'a FileCost,
 }
 
+/// Whether a per-file rule already reports work in a loop at a line of a file.
+pub type Reported<'r> = &'r dyn Fn(&str, u32) -> bool;
+
+/// What a composition found: the summary of every function, and the places in them
+/// that the cross-file performance rules report.
+pub struct Composed {
+    pub summaries: Summaries,
+    pub links: CallLinks,
+    /// Empty unless the composition was asked for them and covered the whole project.
+    pub sites: Vec<CrossSite>,
+}
+
 /// The summary of every function the extraction recorded, from the files of one scan.
 /// `complete` says whether those were all the files of the project.
 pub fn summarise(
@@ -53,7 +69,7 @@ pub fn summarise(
     tables: &CostTables,
     complete: bool,
 ) -> Summaries {
-    summarise_linked(files, root, tables, complete).0
+    summarise_with_sites(files, root, tables, complete, None).summaries
 }
 
 /// [`summarise`], and with each summary the functions its calls were taken to reach, so
@@ -64,8 +80,28 @@ pub fn summarise_linked(
     tables: &CostTables,
     complete: bool,
 ) -> (Summaries, CallLinks) {
+    let composed = summarise_with_sites(files, root, tables, complete, None);
+    (composed.summaries, composed.links)
+}
+
+/// As [`summarise_linked`], and with the places the cross-file rules report when `reported`
+/// is given. It answers whether a per-file rule already reports work in a loop at a line of
+/// a file. A call into a file the scan did not read costs nothing to the composition, so
+/// a rule that concludes from a cost that crosses files has no places unless the scan
+/// was `complete`. A place in a language its rule does not apply to is left out.
+pub fn summarise_with_sites(
+    files: &[Analysed<'_>],
+    root: &Path,
+    tables: &CostTables,
+    complete: bool,
+    reported: Option<Reported<'_>>,
+) -> Composed {
     if files.iter().all(|file| file.cost.is_empty()) {
-        return (Summaries::new(complete), CallLinks::default());
+        return Composed {
+            summaries: Summaries::new(complete),
+            links: CallLinks::default(),
+            sites: Vec::new(),
+        };
     }
     let units: Vec<Unit<'_>> = files
         .iter()
@@ -77,7 +113,21 @@ pub fn summarise_linked(
         })
         .collect();
     let requests = requests_of(files, &units, root);
-    compose_linked(&units, &requests, tables, complete)
+    let mut composed = compose_with_sites(&units, &requests, tables, complete, reported.is_some());
+    if let Some(reported) = reported {
+        composed
+            .sites
+            .retain(|site| is_wanted(site, files, reported));
+    }
+    composed
+}
+
+fn is_wanted(site: &CrossSite, files: &[Analysed<'_>], reported: Reported<'_>) -> bool {
+    let applies = files
+        .iter()
+        .find(|file| file.name == site.file)
+        .is_none_or(|file| site.rule.applies_to(file.module.language));
+    applies && !(site.generalises_per_file_rules() && reported(&site.file, site.line))
 }
 
 /// The import requests the composition may follow, resolved per language family because
@@ -185,7 +235,7 @@ pub fn compose(
     tables: &CostTables,
     complete: bool,
 ) -> Summaries {
-    compose_linked(units, requests, tables, complete).0
+    compose_with_sites(units, requests, tables, complete, false).summaries
 }
 
 /// [`compose`], with the functions each call reaches.
@@ -195,6 +245,19 @@ pub fn compose_linked(
     tables: &CostTables,
     complete: bool,
 ) -> (Summaries, CallLinks) {
+    let composed = compose_with_sites(units, requests, tables, complete, false);
+    (composed.summaries, composed.links)
+}
+
+/// As [`compose_linked`], and with the places the cross-file rules report when `sites` is
+/// set and the units are `complete`.
+pub fn compose_with_sites(
+    units: &[Unit<'_>],
+    requests: &ResolvedRequests,
+    tables: &CostTables,
+    complete: bool,
+    sites: bool,
+) -> Composed {
     let mut ordered: Vec<&Unit<'_>> = units.iter().collect();
     ordered.sort_by(|left, right| left.name.cmp(right.name));
     let mut graph = Graph::new(ordered, requests, tables);
@@ -219,6 +282,11 @@ pub fn compose_linked(
         }
     }
 
+    let found = if sites && complete {
+        self::sites::find(&graph, &done, tables)
+    } else {
+        Vec::new()
+    };
     let links = CallLinks::of(&graph, &done);
     let mut summaries = Summaries::new(complete);
     for (node, answer) in done.into_iter().enumerate() {
@@ -236,7 +304,11 @@ pub fn compose_linked(
             },
         );
     }
-    (summaries, links)
+    Composed {
+        summaries,
+        links,
+        sites: found,
+    }
 }
 
 /// A function a call may reach, named the way [`Summaries`] names it.

@@ -24,6 +24,8 @@ use crate::cache::{Cached, Loading, Stamp};
 use crate::config::Resolved;
 use crate::stats::{FileReads, ScanStats};
 
+mod cost_rules;
+
 /// The walk analyzes files far faster than one collector drains them, so an
 /// unbounded channel becomes the place a whole repo's findings pile up. Bounding
 /// it makes producers wait instead, which is what keeps peak memory a function of
@@ -431,6 +433,9 @@ struct Collector {
     modules: Vec<rqx_lang::module_graph::ModuleEntry>,
     /// The cost facts of the file at the same position in `modules`.
     costs: Vec<CostFile>,
+    /// The lines of each file where a per-file rule already reports work in a loop, for the
+    /// cost stage to leave out of the rules that stand in for them.
+    covered: HashMap<Arc<str>, Vec<u32>>,
     summaries: rqx_core::cost::Summaries,
     keep_costs: bool,
     call_links: rqx_lang::cost::compose::CallLinks,
@@ -491,6 +496,7 @@ impl Collector {
             ported: HashMap::new(),
             modules: Vec::new(),
             costs: Vec::new(),
+            covered: HashMap::new(),
             summaries: rqx_core::cost::Summaries::default(),
             keep_costs: false,
             call_links: rqx_lang::cost::compose::CallLinks::default(),
@@ -1659,26 +1665,28 @@ impl Collector {
     /// collected. `complete` says whether the walk covered the project or only part of it.
     fn cost_summaries(
         inputs: &CostFacts,
+        covered: &HashMap<Arc<str>, Vec<u32>>,
         root: &Path,
-        tables: &rqx_lang::cost::tables::CostTables,
+        settings: &Resolved,
         complete: bool,
         keep: bool,
     ) -> Staged {
         let files: Vec<rqx_lang::cost::compose::Analysed<'_>> = inputs.files().collect();
-        if !keep {
-            let summaries = rqx_lang::cost::compose::summarise(&files, root, tables, complete);
-            return Staged {
-                summaries: Some(summaries),
-                ..Staged::default()
-            };
+        let reported =
+            |file: &str, line: u32| covered.get(file).is_some_and(|lines| lines.contains(&line));
+        let composed = rqx_lang::cost::compose::summarise_with_sites(
+            &files,
+            root,
+            &inputs.tables,
+            complete,
+            cost_rules::wanted(settings).then_some(&reported),
+        );
+        let mut staged = cost_rules::staged(composed.sites, root, settings);
+        staged.summaries = Some(composed.summaries);
+        if keep {
+            staged.call_links = Some(composed.links);
         }
-        let (summaries, links) =
-            rqx_lang::cost::compose::summarise_linked(&files, root, tables, complete);
-        Staged {
-            summaries: Some(summaries),
-            call_links: Some(links),
-            ..Staged::default()
-        }
+        staged
     }
 
     /// What other tools reported, read from the SARIF files the project named.
@@ -1726,6 +1734,8 @@ impl Collector {
             &[]
         };
         let inputs_ref = &inputs;
+        let covered = std::mem::take(&mut self.covered);
+        let covered_ref = &covered;
         let reference_ref = reference.as_deref();
         let complete = !root.is_file();
         let keep_costs = self.keep_costs;
@@ -1748,8 +1758,9 @@ impl Collector {
             let costed = scope.spawn(move || {
                 Self::cost_summaries(
                     inputs_ref,
+                    covered_ref,
                     root,
-                    &settings.cost_tables,
+                    settings,
                     complete,
                     keep_costs,
                 )
@@ -2175,6 +2186,25 @@ impl Positions {
         rqx_core::paths::display_path(path)
     }
 
+    /// The text of a line, without the indentation in front of it.
+    fn line_range(&mut self, path: &Path, line: u32) -> Option<SourceRange> {
+        let span = {
+            let read = self
+                .files
+                .entry(path.to_path_buf())
+                .or_insert_with(|| ReadFile::read(path))
+                .as_ref()?;
+            let start = read.lines.line_start(line) as usize;
+            let text = read.text.get(start..)?.lines().next().unwrap_or_default();
+            let indent = text.len() - text.trim_start().len();
+            Span::new(
+                (start + indent) as u32,
+                (start + text.trim_end().len()) as u32,
+            )
+        };
+        self.range(path, span)
+    }
+
     fn range(&mut self, path: &Path, span: Span) -> Option<SourceRange> {
         let file: Arc<str> = Arc::from(self.relative(path));
         let read = self
@@ -2319,6 +2349,7 @@ pub(crate) fn collect_against(
                 if !todos.is_empty() {
                     collector.todos.insert(Arc::clone(&shared), todos);
                 }
+                let covered = rqx_core::cost_sites::lines_reported_in_loops(&findings);
                 for finding in findings {
                     collector.accept(finding);
                 }
@@ -2340,6 +2371,7 @@ pub(crate) fn collect_against(
                         name: Arc::clone(&shared),
                         cost,
                     });
+                    collector.covered.insert(Arc::clone(&shared), covered);
                 }
                 collector.analyzed.insert(display);
                 collector.showing = Some(Arc::clone(&shared));

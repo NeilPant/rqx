@@ -346,6 +346,56 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/cost-deep-recursion.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 5,
+                  "startColumn": 3,
+                  "startLine": 5
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`sumTo` calls itself once with `n` one smaller each time, so the stack it needs is O(n) deep. every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach Fix: walk the input with a loop and an explicit stack, so the depth is not limited by the call stack"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "deep-recursion"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-quadratic-via-call.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 13,
+                  "startColumn": 5,
+                  "startLine": 13
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`indexOfItem` is called on every pass of a loop over `items` and itself takes time in `items`. O(n²): loop :12 → indexOfItem O(n) :1 → loop :2. the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop Fix: index what the callee searches once above the loop, or change the callee to look up by key so each pass costs constant time"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "quadratic-via-call"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/performance.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -2037,6 +2087,31 @@
             "confidence": "verified"
           },
           "ruleId": "refused-bequest"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-repeated-computation-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 12,
+                  "startColumn": 5,
+                  "startLine": 12
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`totalLength` runs on every pass of the loop. the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do Fix: compute it once above the loop: nothing in the loop changes what it is given"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "repeated-computation-in-loop"
         },
         {
           "level": "warning",
@@ -6194,6 +6269,31 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/cost-repeated-computation-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 21,
+                  "startColumn": 11,
+                  "startLine": 21
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`own` disagrees in number with what it holds. a reader relies on the name to say whether there is one value or many, and here it says the opposite Fix: make the name agree with how many there are"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "plural-mismatch"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/conventions.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -6551,6 +6651,56 @@
                   "endLine": 18,
                   "startColumn": 12,
                   "startLine": 18
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`at` is declared changeable and never changes. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "never-reassigned"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-quadratic-via-call.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 2,
+                  "startColumn": 12,
+                  "startLine": 2
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`i` is declared changeable and never changes. a reader has to allow for the possibility that the variable changes, and it never does, so the declaration draws attention it does not need Fix: declare it as constant, so the compiler enforces it"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "never-reassigned"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-quadratic-via-call.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 12,
+                  "startColumn": 12,
+                  "startLine": 12
                 }
               }
             }
@@ -8433,6 +8583,30 @@
             },
             {
               "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach"
+              },
+              "help": {
+                "text": "every level keeps its stack frame until the last one returns, so an input larger than the stack allows ends in a stack overflow that tests on small inputs never reach\n\nFix: Replace Algorithm\nMetric: a function that calls itself once, on an argument one smaller than its own"
+              },
+              "id": "deep-recursion",
+              "name": "deep-recursion",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "a function that calls itself once, on an argument one smaller than its own"
+              }
+            },
+            {
+              "defaultConfiguration": {
                 "level": "note"
               },
               "fullDescription": {
@@ -10188,6 +10362,30 @@
                 "level": "warning"
               },
               "fullDescription": {
+                "text": "the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop"
+              },
+              "help": {
+                "text": "the callee does work in proportion to a collection on every pass of the loop, so the total grows with the product of the two sizes, and with the square of the size when they are one collection, although the caller shows only one loop\n\nFix: Replace Loop with Lookup / Replace Algorithm\nMetric: a loop over a collection around a call whose cost grows with a collection the function was given"
+              },
+              "id": "quadratic-via-call",
+              "name": "quadratic-via-call",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "a loop over a collection around a call whose cost grows with a collection the function was given"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
                 "text": "every pass pays a round trip, so listing a hundred rows makes a hundred and one requests and the page waits for the sum of them"
               },
               "help": {
@@ -10325,6 +10523,30 @@
               },
               "shortDescription": {
                 "text": "override whose body only throws or is empty"
+              }
+            },
+            {
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "fullDescription": {
+                "text": "the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do"
+              },
+              "help": {
+                "text": "the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do\n\nFix: Hoist Invariant\nMetric: a call that costs at least linear time, in a loop that changes nothing the call reads"
+              },
+              "id": "repeated-computation-in-loop",
+              "name": "repeated-computation-in-loop",
+              "properties": {
+                "problem.severity": "warning",
+                "tags": [
+                  "rqx",
+                  "maintainability",
+                  "performance"
+                ]
+              },
+              "shortDescription": {
+                "text": "a call that costs at least linear time, in a loop that changes nothing the call reads"
               }
             },
             {

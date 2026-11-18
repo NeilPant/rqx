@@ -3,6 +3,8 @@
 //! so an improvement in one place cannot be paid for by a loss in another. Getting better
 //! is recorded by blessing a new baseline on purpose.
 
+#[cfg(test)]
+use super::baseline::RuleCounts;
 use super::baseline::{Baseline, Outcome};
 
 /// Metrics are ratios of whole numbers, so anything closer than this is the same number.
@@ -39,6 +41,29 @@ pub fn violations(
                 )),
                 None => found.push(format!("{group}: {name} fell from {before:.3} to nothing")),
             }
+        }
+    }
+    found.extend(rule_violations(recorded, current));
+    found
+}
+
+/// A rule may not catch fewer of the functions it should, or raise more false alarms,
+/// than the baseline recorded.
+fn rule_violations(recorded: &Baseline, current: &Baseline) -> Vec<String> {
+    let mut found = Vec::new();
+    for (rule, was) in &recorded.rules {
+        let now = current.rules.get(rule).copied().unwrap_or_default();
+        if now.tp < was.tp {
+            found.push(format!(
+                "{rule}: caught {} functions, was {}",
+                now.tp, was.tp
+            ));
+        }
+        if now.fp > was.fp {
+            found.push(format!("{rule}: {} false alarms, was {}", now.fp, was.fp));
+        }
+        if now.missed > was.missed {
+            found.push(format!("{rule}: missed {}, was {}", now.missed, was.missed));
         }
     }
     found
@@ -114,6 +139,28 @@ mod tests {
             !found.iter().any(|line| line.contains("recall")),
             "recall is unchanged: {found:?}"
         );
+    }
+
+    #[test]
+    fn a_rule_may_not_catch_less_or_raise_more_false_alarms() {
+        let counts = |tp, fp, missed| RuleCounts { tp, fp, missed };
+        let mut recorded = baseline(&[("go/a", Outcome::Exact)]);
+        recorded
+            .rules
+            .insert("deep-recursion".to_owned(), counts(3, 1, 1));
+        let mut current = recorded.clone();
+        assert!(violations(&recorded, &current, &language).is_empty());
+
+        current
+            .rules
+            .insert("deep-recursion".to_owned(), counts(4, 0, 0));
+        assert!(violations(&recorded, &current, &language).is_empty());
+
+        current
+            .rules
+            .insert("deep-recursion".to_owned(), counts(2, 2, 2));
+        let found = violations(&recorded, &current, &language);
+        assert_eq!(found.len(), 3, "{found:?}");
     }
 
     #[test]

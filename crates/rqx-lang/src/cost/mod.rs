@@ -101,6 +101,8 @@ pub fn apart_from_scans(sites: Vec<CostSite>, scans: &[Spot]) -> Vec<CostSite> {
 mod rules;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_repeats;
 
 #[cfg(test)]
 pub(crate) mod testing {

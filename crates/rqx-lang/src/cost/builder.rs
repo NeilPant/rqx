@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use rqx_core::config::Performance;
 use rqx_core::cost::{
-    ArgSize, Bound, CallSite, CalleeRef, Conf, Cost, FunctionCost, Indicators, Param, Recurrence,
-    SizeSrc,
+    ArgSize, Bound, CallSite, CalleeRef, Conf, Cost, FunctionCost, Indicators, PairScan, Param,
+    Recurrence, RepeatedCall, SizeSrc,
 };
 use rqx_core::facts::CostSite;
 use rqx_core::span::Span;
@@ -39,6 +39,8 @@ pub struct Shared<'f> {
 mod allocation;
 mod concurrency;
 mod copies;
+mod pairs;
+mod repeats;
 mod sites;
 mod statements;
 
@@ -89,6 +91,10 @@ struct Visitor<'a, 'f> {
     loop_bounds: Vec<Bound>,
     /// The loops the visit is inside, outermost first, to read what they leave alone.
     loop_nodes: Vec<Node<'a>>,
+    /// What each loop assigns to, worked out the first time a call in it asks.
+    written_in_loop: HashMap<usize, HashSet<&'a str>>,
+    repeats: Vec<RepeatedCall>,
+    pair_scans: Vec<PairScan>,
     sites: Vec<CostSite>,
     /// Boxed numbers declared here, by the loop depth they were declared at.
     boxed: HashMap<&'a str, u8>,
@@ -129,6 +135,9 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         frames: Vec::new(),
         loop_bounds: Vec::new(),
         loop_nodes: Vec::new(),
+        written_in_loop: HashMap::new(),
+        repeats: Vec::new(),
+        pair_scans: Vec::new(),
         sites: Vec::new(),
         boxed: HashMap::new(),
         unbounded: Vec::new(),
@@ -332,6 +341,7 @@ impl<'a> Visitor<'a, '_> {
         {
             self.locks_in_loop = true;
         }
+        self.note_pair_scan(node, kind);
     }
 
     // -- loops ---------------------------------------------------------------------
@@ -596,6 +606,7 @@ impl<'a> Visitor<'a, '_> {
         let lookup = self.library(node, dotted, receiver, tail, arguments, line);
         match lookup {
             Library::Matched(library) => {
+                self.note_repeated_library(node, &library.time, dotted, arguments);
                 parts.time = library.time;
                 parts.temp = library.temp;
             }
@@ -606,6 +617,7 @@ impl<'a> Visitor<'a, '_> {
                         .map(|argument| self.arg_size(*argument))
                         .collect();
                     let index = self.push_call(callee, args, line);
+                    self.note_repeated_call(node, index, dotted, arguments);
                     parts.time = Cost::Call(index);
                 }
             }
@@ -1127,6 +1139,8 @@ impl<'a> Visitor<'a, '_> {
             calls,
             rec,
             ind,
+            repeats: std::mem::take(&mut self.repeats),
+            pair_scans: std::mem::take(&mut self.pair_scans),
             conf: self.conf,
             exported_as,
         })

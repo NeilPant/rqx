@@ -23,7 +23,7 @@ export function digitsOf(n) {
   return digits;
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=pair-scan-could-hash scope=local
 export function overlap(left, right) {
   let shared = 0;
   for (const a of left) {

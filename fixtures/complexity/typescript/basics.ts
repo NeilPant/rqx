@@ -46,7 +46,7 @@ export function dedupeWithSet(values: number[]): number[] {
   return unique;
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=pair-scan-could-hash scope=local
 export function countMatches(left: string[], right: string[]): number {
   let matches = 0;
   for (const a of left) {

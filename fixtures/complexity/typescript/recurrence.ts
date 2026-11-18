@@ -1,6 +1,6 @@
 // Recursion, one shape each. Their cost needs the call graph, so none is marked local.
 
-// @complexity time=O(n) space=O(n) conf=verified
+// @complexity time=O(n) space=O(n) conf=verified rule=deep-recursion
 export function factorial(n: number): number {
   return n <= 1 ? 1 : n * factorial(n - 1);
 }
@@ -31,7 +31,7 @@ export function mergeSort(values: number[]): number[] {
   return merged.concat(left.slice(i), right.slice(j));
 }
 
-// @complexity time=O(n^2) space=O(n^2) conf=verified rule=accumulate-by-copy
+// @complexity time=O(n^2) space=O(n^2) conf=verified rule=accumulate-by-copy,deep-recursion
 export function sumTail(values: number[]): number {
   if (values.length === 0) {
     return 0;

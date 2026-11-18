@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 
 use rqx_core::config::RqxConfig;
 use rqx_core::cost::{Conf, FileCost, Order, SizeId, Summaries, Summary};
-use rqx_lang::cost::compose::{Analysed, summarise};
+use rqx_core::cost_sites::{CrossSite, lines_reported_in_loops};
+use rqx_lang::cost::compose::{Analysed, summarise_with_sites};
 use rqx_lang::cost::tables::CostTables;
 use rqx_lang::module_graph::ModuleEntry;
 
@@ -20,12 +21,16 @@ pub struct Inference {
     extracted: BTreeMap<String, FileCost>,
     /// The composition of each group of files.
     composed: BTreeMap<String, Summaries>,
+    /// The places the cross-file rules report, by group of files.
+    sites: BTreeMap<String, Vec<CrossSite>>,
 }
 
 struct Read {
     name: String,
     module: ModuleEntry,
     cost: FileCost,
+    /// The lines where a per-file rule already reports work in a loop.
+    reported: Vec<u32>,
 }
 
 impl Inference {
@@ -39,6 +44,7 @@ impl Inference {
         let mut inference = Self {
             extracted: BTreeMap::new(),
             composed: BTreeMap::new(),
+            sites: BTreeMap::new(),
         };
         for group in groups {
             let analysed: Vec<Read> = corpus::files_of(&corpus::root(), group)
@@ -59,13 +65,21 @@ impl Inference {
             } else {
                 directory.parent().unwrap_or(&directory).to_path_buf()
             };
-            let summaries = summarise(&files, &root, &tables, true);
+            let reported = |file: &str, line: u32| {
+                analysed
+                    .iter()
+                    .any(|read| read.name == file && read.reported.contains(&line))
+            };
+            let composed = summarise_with_sites(&files, &root, &tables, true, Some(&reported));
             for file in &analysed {
                 inference
                     .extracted
                     .insert(file.name.clone(), file.cost.clone());
             }
-            inference.composed.insert(group.to_owned(), summaries);
+            inference
+                .composed
+                .insert(group.to_owned(), composed.summaries);
+            inference.sites.insert(group.to_owned(), composed.sites);
         }
         inference
     }
@@ -79,7 +93,12 @@ impl Inference {
     /// extraction left out has no loop, calls nothing and has nothing to say, and that is
     /// an answer of its own: constant.
     fn summary_of(&self, function: &Function) -> Option<&Summary> {
-        let start = self.extracted[&function.file]
+        self.composed[&function.group].get(&function.file, self.start_of(function)?)
+    }
+
+    /// Where the function starts in its file, if the extraction recorded it.
+    fn start_of(&self, function: &Function) -> Option<u32> {
+        self.extracted[&function.file]
             .functions
             .iter()
             .find(|found| {
@@ -88,9 +107,18 @@ impl Inference {
                         .name
                         .as_ref()
                         .is_none_or(|name| found.name.as_ref() == Some(name))
-            })?
-            .start;
-        self.composed[&function.group].get(&function.file, start)
+            })
+            .map(|found| found.start)
+    }
+
+    /// Whether the rule reports somewhere in the function.
+    pub fn fires(&self, function: &Function, rule: &str) -> bool {
+        let Some(start) = self.start_of(function) else {
+            return false;
+        };
+        self.sites[&function.group].iter().any(|site| {
+            site.rule.slug() == rule && site.file == function.file && site.function == start
+        })
     }
 
     pub fn outcome(&self, function: &Function) -> Outcome {
@@ -145,6 +173,7 @@ fn analyse(path: &Path) -> Read {
             language: analysis.language,
             facts: analysis.module,
         },
+        reported: lines_reported_in_loops(&analysis.findings),
         cost: analysis.cost,
     }
 }

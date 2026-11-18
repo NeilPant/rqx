@@ -245,7 +245,29 @@ depend on any other file:
 `accumulate-by-copy` also reports a name declared as `String`, `string` or `str` that a
 loop adds to with `+=`, at `verified` confidence. A call that `scan-in-loop` reports is
 never reported again by `linear-op-in-loop` or `sort-in-loop`. The `perf` preset switches
-on the two rules above that ship off.
+on the rules above that ship off.
+
+Four more rules read the cost of a function composed with the functions it calls,
+across files, so an edit to a callee changes what its callers are reported for:
+
+| rule | |
+|---|---|
+| `quadratic-via-call` | a loop over a collection around a call whose time grows with a collection the function is given, the same one or another. It is the cost `scan-in-loop` reports for a library call, behind a function of the project. The evidence is the way to the cost, such as `O(n²): loop :90 → findMatch O(n) :12` |
+| `deep-recursion` | a function that calls itself once on an argument one smaller than its own, so its stack grows with the input. Not reported for Go, whose goroutine stacks grow on demand |
+| `repeated-computation-in-loop` | a call to a function that takes linear time or more, or to a library function the cost tables mark as pure, whose arguments the loop does not assign and which are not the loop variable. It stands in for `invariant-in-loop` where the call is not a regular expression, and a line `invariant-in-loop` reports is not reported again |
+| `pair-scan-could-hash` | two nested loops over different collections whose inner body compares something of each element with `==` (off by default) |
+
+A call that is a statement on its own is not a repeat, because it is made for what it
+does. A call is only known to be repeated, not to be free of side effects, so
+`repeated-computation-in-loop` is `heuristic`. `quadratic-via-call` is `verified`
+only when every function on the way to the cost is, and `heuristic` otherwise. Where
+a call is both repeated and quadratic, it is reported as repeated, since hoisting it is
+the fix. A callee is looked up by name, so a call that could reach more than four
+functions of the same name reaches none of them.
+
+These rules need every file of the project: a call into a file the scan did not read
+would be costed as constant. A scan of a single file, as in `rqx scan src/a.ts`,
+therefore skips all four.
 
 Names are weak evidence, so the rules that depend on one are `heuristic` and are not
 reported as `error`. A receiver that is already keyed (a `Set`, a `Map`, a `dict`, or

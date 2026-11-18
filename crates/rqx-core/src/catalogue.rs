@@ -2465,4 +2465,56 @@ catalogue! {
         why: "the number of requests in flight equals the size of the collection, so a large \
               input exhausts connections, memory or the other side's rate limit",
     },
+    QuadraticViaCall {
+        slug: "quadratic-via-call",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a loop over a collection around a call whose cost grows with a collection the function was given",
+        fixes: [ReplaceLoopWithLookup, ReplaceAlgorithm],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the callee does work in proportion to a collection on every pass of the loop, so the \
+              total grows with the product of the two sizes, and with the square of the size when \
+              they are one collection, although the caller shows only one loop",
+    },
+    DeepRecursion {
+        slug: "deep-recursion",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a function that calls itself once, on an argument one smaller than its own",
+        fixes: [ReplaceAlgorithm],
+        confidence: Verified,
+        severity: Warning,
+        why: "every level keeps its stack frame until the last one returns, so an input larger \
+              than the stack allows ends in a stack overflow that tests on small inputs never \
+              reach",
+        not_applicable: [
+            (Go, "a goroutine's stack grows on demand up to a limit set by the runtime, so depth \
+                  is bounded by memory and not by a fixed stack size"),
+        ],
+    },
+    RepeatedComputationInLoop {
+        slug: "repeated-computation-in-loop",
+        category: Performance,
+        analysis: Semantics,
+        metric: "a call that costs at least linear time, in a loop that changes nothing the call reads",
+        fixes: [HoistInvariant],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "the call returns the same answer on every pass, so the loop pays its cost once per \
+              pass where once in total would do",
+    },
+    PairScanCouldHash {
+        slug: "pair-scan-could-hash",
+        category: Performance,
+        analysis: Semantics,
+        metric: "two nested loops over different collections, comparing a field of each element with ==",
+        fixes: [ReplaceLoopWithLookup],
+        confidence: Heuristic,
+        severity: Warning,
+        why: "every element of one collection is compared with every element of the other to \
+              find its match, which a map keyed on the compared field answers in constant time \
+              per element",
+        off_by_default: true,
+    },
 }

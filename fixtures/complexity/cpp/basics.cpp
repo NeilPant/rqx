@@ -24,7 +24,7 @@ bool has_duplicate(const std::vector<int>& values) {
     return false;
 }
 
-// @complexity time=O(n*m) space=O(1) conf=verified scope=local
+// @complexity time=O(n*m) space=O(1) conf=verified rule=pair-scan-could-hash scope=local
 int count_matches(const std::vector<int>& left, const std::vector<int>& right) {
     int matches = 0;
     for (int a : left) {

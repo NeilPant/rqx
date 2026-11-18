@@ -21,6 +21,8 @@ mod corpus;
 mod inference;
 #[path = "complexity_corpus/ratchet.rs"]
 mod ratchet;
+#[path = "complexity_corpus/rules.rs"]
+mod rules;
 
 use std::collections::BTreeMap;
 use std::sync::{Once, OnceLock};
@@ -61,14 +63,16 @@ fn inferred() -> &'static Inference {
 fn current_baseline() -> Baseline {
     let corpus = loaded();
     let inference = inferred();
-    Baseline::of(
+    let mut baseline = Baseline::of(
         corpus
             .ids()
             .into_iter()
             .zip(&corpus.functions)
             .map(|(id, function)| (id, inference.outcome(function)))
             .collect(),
-    )
+    );
+    baseline.rules = rules::counts(corpus, inference);
+    baseline
 }
 
 /// Rewrites the baseline when asked to, once, before any test reads it.
@@ -171,6 +175,16 @@ fn the_composed_inference_holds_to_the_baseline() {
         }
     }
     eprintln!("complexity corpus: not exact:\n{}", missed.join("\n"));
+    for (slug, tally) in &current.rules {
+        eprintln!(
+            "complexity corpus: {slug:<30} tp {:>2} fp {:>2} fn {:>2}",
+            tally.tp, tally.fp, tally.missed
+        );
+    }
+    eprintln!(
+        "complexity corpus: rule mistakes:\n{}",
+        rules::explain(corpus, inferred(), &ids).join("\n")
+    );
 
     let violations = ratchet::violations(&recorded, &current, &|id| {
         languages.get(id).copied().unwrap_or("unknown").to_owned()
