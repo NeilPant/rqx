@@ -33,12 +33,12 @@
     },
     "repeated-computation-in-loop": {
       "tp": 20,
-      "fp": 3,
+      "fp": 4,
       "fn": 8
     },
     "scan-in-loop": {
       "tp": 29,
-      "fp": 3,
+      "fp": 5,
       "fn": 23
     }
   }

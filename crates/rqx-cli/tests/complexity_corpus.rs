@@ -201,6 +201,52 @@ fn the_real_functions_are_scored_apart_from_the_written_ones() {
 }
 
 #[test]
+fn every_language_has_real_functions_and_every_real_file_names_where_it_is_from() {
+    let corpus = loaded();
+    for language in LANGUAGES {
+        let found = corpus.count_in(Set::Real, language);
+        assert!(found >= 5, "only {found} real {language} functions");
+    }
+    assert!(corpus.count_of(Set::Real) >= 30);
+
+    let lock = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/bench/corpus.lock"),
+    )
+    .expect("tools/bench/corpus.lock");
+    let pinned: Vec<&str> = lock
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .filter_map(|line| line.split_whitespace().nth(2))
+        .collect();
+    let notice = std::fs::read_to_string(corpus::root().join(corpus::REAL).join("NOTICE"))
+        .expect("fixtures/complexity/real/NOTICE");
+    assert!(
+        notice.contains("Permission is hereby granted"),
+        "the MIT text"
+    );
+    assert!(notice.contains("Apache License"), "the Apache text");
+    assert!(notice.contains("Redistribution and use"), "the BSD text");
+    let mut files: Vec<&String> = corpus
+        .functions
+        .iter()
+        .filter(|function| function.set == Set::Real)
+        .map(|function| &function.file)
+        .collect();
+    files.dedup();
+    for file in files {
+        let text = std::fs::read_to_string(corpus::root().join(file)).expect("a real file reads");
+        assert!(
+            pinned.iter().any(|sha| text.contains(sha)),
+            "{file} does not name a commit of tools/bench/corpus.lock"
+        );
+        assert!(
+            text.contains("../NOTICE"),
+            "{file} does not point at the license"
+        );
+    }
+}
+
+#[test]
 fn the_binary_embeds_the_rule_counts_of_the_baseline() {
     bless_if_asked();
     let baseline = baseline::read(&baseline_path()).expect("fixtures/complexity/baseline.json");

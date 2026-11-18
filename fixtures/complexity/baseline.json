@@ -482,7 +482,39 @@
     }
   },
   "real": {
-    "functions": {},
+    "functions": {
+      "real/cpp/fmt.cpp:copy_n": "exact",
+      "real/cpp/fmt.cpp:display_width_of": "over",
+      "real/cpp/fmt.cpp:extract": "exact",
+      "real/cpp/fmt.cpp:fmul": "over",
+      "real/cpp/fmt.cpp:fpow": "under",
+      "real/cpp/fmt.cpp:mul": "exact",
+      "real/go/cobra.go:Root": "exact",
+      "real/go/cobra.go:argsMinusFirstX": "exact",
+      "real/go/cobra.go:ld": "under",
+      "real/go/cobra.go:stringInSlice": "exact",
+      "real/go/cobra.go:stripFlags": "exact",
+      "real/java/Gson.java:first": "exact",
+      "real/java/Gson.java:getPath": "over",
+      "real/java/Gson.java:indexOf": "exact",
+      "real/java/Gson.java:string": "exact",
+      "real/java/Gson.java:validateString": "exact",
+      "real/javascript/vite.js:asyncGenerator": "exact",
+      "real/javascript/vite.js:cloneDeep": "over",
+      "real/javascript/vite.js:fn": "over",
+      "real/javascript/vite.js:lookupTabWithUrl": "under",
+      "real/javascript/vite.js:renderRoot": "over",
+      "real/python/flask.py:_called_with_wrong_args": "exact",
+      "real/python/flask.py:_find_error_handler": "under",
+      "real/python/flask.py:_split_blueprint_path": "under",
+      "real/python/flask.py:find_best_app": "over",
+      "real/python/flask.py:prepare_import": "under",
+      "real/typescript/vite.ts:arrayEqual": "exact",
+      "real/typescript/vite.ts:deepClone": "over",
+      "real/typescript/vite.ts:extractHostnamesFromSubjectAltName": "under",
+      "real/typescript/vite.ts:posToNumber": "exact",
+      "real/typescript/vite.ts:sortObjectKeys": "over"
+    },
     "rules": {
       "accumulate-by-copy": {
         "tp": 0,
@@ -516,12 +548,12 @@
       },
       "repeated-computation-in-loop": {
         "tp": 0,
-        "fp": 0,
+        "fp": 1,
         "fn": 0
       },
       "scan-in-loop": {
         "tp": 0,
-        "fp": 0,
+        "fp": 2,
         "fn": 0
       }
     }
