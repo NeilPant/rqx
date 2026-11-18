@@ -307,7 +307,7 @@ impl RuleId {
     /// import graph, and the ones the scan computes across files although they declare
     /// `Syntax`: clones, reimplementations, history and notes. Listed by id because
     /// `analysis` alone would miss them.
-    pub const PROJECT_SCOPED: [Self; 21] = [
+    pub const PROJECT_SCOPED: [Self; 23] = [
         Self::ParallelInheritance,
         Self::UnusedExport,
         Self::UnusedFile,
@@ -329,6 +329,8 @@ impl RuleId {
         Self::DeepRecursion,
         Self::RepeatedComputationInLoop,
         Self::PairScanCouldHash,
+        Self::OversizedModule,
+        Self::CrossLanguageDuplicate,
     ];
 
     pub fn is_project_scoped(self) -> bool {

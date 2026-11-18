@@ -67,6 +67,10 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Fixed
 
+- **`oversized-module` and `cross-language-duplicate` findings counted as project-wide.** The
+  health projection after `rqx fix` and the resolved credit in `rqx comment` no longer drop
+  them when only some files are re-analysed.
+
 - **`assertionless-test` recognises the standard assertions of each supported test
   framework.** In 0.5.0 only the first segment of a call was compared against a short
   list, so `t.Errorf`, `self.assertIn` and `EXPECT_NE` were not assertions.
