@@ -9,6 +9,14 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Fixed
+
+- **`oversized-module` and `cross-language-duplicate` findings are matched against the
+  baseline.** Findings built after the per-file analysis were matched only when their
+  rule was on a fixed list, and these two rules were missing from it, so right after
+  `rqx baseline` their findings in unchanged files were reported as new. Every finding
+  is now matched in one place, whichever stage built it.
+
 ## 0.5.0 — 2026-11-18
 
 ### Added
