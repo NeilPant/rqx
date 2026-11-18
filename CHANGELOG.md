@@ -39,6 +39,16 @@ them. `tools/release.sh` turns that section into the release notes.
   `less -FRX`. `--no-pager` or an empty `RQX_PAGER` prints it directly. Pipes, files,
   document reporters and `--watch` are not paged, and the exit code is the same with
   and without the pager. See `docs/ci.md`.
+- **The session owl moves with what the session is doing.** While a command runs, the
+  owl reads: its pupils sweep along a line and jump back to the next, in place of the
+  left and right glance. When the first scan finishes, the header and the worst
+  findings stay in the redrawn rows above the prompt until the session prints anything
+  else, then move into scrollback where they were printed before. Until then the owl
+  in the header wakes up, reacts to the health score (a smile at 80 or more, a look
+  down from 50 to 79, a worried face below 50), rests on that face and makes a small
+  move every 4 to 10 seconds. A key press returns it to its resting face. With
+  `--motion off`, or on a window too short for the redrawn rows, the owl is still and
+  the header goes straight into scrollback as before.
 
 ## 0.5.1 — 2026-11-18
 

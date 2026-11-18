@@ -3,7 +3,7 @@
 //! values it is given into lines.
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Position};
+use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -172,6 +172,20 @@ pub const fn idle_rows(menu_height: u16) -> u16 {
 /// The prompt between two rules, across the whole width, with the menu under it when
 /// it is open and the status line last.
 pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
+    idle_in(frame, frame.area(), look, state);
+}
+
+/// The header and the first scan's summary above the prompt, drawn live so the owl in
+/// the header can move. Row for row, it is what scrollback holds once they are printed.
+pub fn opening(frame: &mut Frame<'_>, look: &Look, block: Vec<Line<'static>>, state: &Idle<'_>) {
+    let height = u16::try_from(block.len()).unwrap_or(u16::MAX);
+    let [above, below] =
+        Layout::vertical([Constraint::Length(height), Constraint::Min(0)]).areas(frame.area());
+    frame.render_widget(Paragraph::new(block), above);
+    idle_in(frame, below, look, state);
+}
+
+fn idle_in(frame: &mut Frame<'_>, area: Rect, look: &Look, state: &Idle<'_>) {
     let menu_height = state.menu.as_ref().map_or(0, Menu::height);
     let [top, prompt, below, bottom, status] = Layout::vertical([
         Constraint::Length(1),
@@ -180,7 +194,7 @@ pub fn idle(frame: &mut Frame<'_>, look: &Look, state: &Idle<'_>) {
         Constraint::Length(1),
         Constraint::Length(1),
     ])
-    .areas(frame.area());
+    .areas(area);
     let rule = Line::styled("\u{2500}".repeat(top.width as usize), look.palette.rule());
     frame.render_widget(Paragraph::new(rule.clone()), top);
     frame.render_widget(Paragraph::new(rule), bottom);
@@ -699,6 +713,36 @@ mod tests {
         assert!(rows[3].ends_with("health 82"));
         assert_eq!(rows.len(), 4, "the prompt has no other row");
         terminal.backend_mut().assert_cursor_position((19, 1));
+    }
+
+    #[test]
+    fn the_live_opening_is_the_header_and_summary_row_for_row_above_the_prompt() {
+        let look = look();
+        let outcome = outcome_with(&[("src/a.ts", Severity::Error)], 12);
+        let mut block = header(&look, &owl(&look), &outcome, "~/work/billing", 82, 60);
+        block.extend(summary(&look, &outcome));
+        let printed = plain(&block);
+        let height = u16::try_from(block.len()).unwrap() + IDLE_ROWS;
+        let mut terminal = Terminal::new(TestBackend::new(60, height)).unwrap();
+        let state = Idle {
+            input: "/pl",
+            cursor: 3,
+            menu: None,
+            status: "health 82",
+        };
+        terminal
+            .draw(|frame| opening(frame, &look, block, &state))
+            .unwrap();
+        let rows = screen(&terminal);
+        let (above, below) = rows.split_at(printed.len());
+        let trimmed: Vec<&str> = printed.iter().map(|line| line.trim_end()).collect();
+        assert_eq!(above, trimmed.as_slice());
+        assert_eq!(below[0], "\u{2500}".repeat(60));
+        assert_eq!(below[1], "> /pl");
+        assert!(below[3].ends_with("health 82"));
+        terminal
+            .backend_mut()
+            .assert_cursor_position((5, u16::try_from(printed.len()).unwrap() + 1));
     }
 
     #[test]

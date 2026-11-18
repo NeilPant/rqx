@@ -49,7 +49,7 @@ use job::{Finished, Job};
 use long_output::LongOutput;
 use menu::MenuState;
 use motion::Motion;
-use owl::Owl;
+use owl::{Owl, Verdict};
 use prompt::Prompt;
 use recall::Recall;
 use sprite::Sprite;
@@ -113,6 +113,8 @@ struct App {
     viewport: Viewport,
     look: Look,
     motion: Motion,
+    /// The running job's own clock, which the owl's reading loop starts from.
+    job_clock: Option<Motion>,
     owl: Owl,
     root: String,
     path: PathBuf,
@@ -121,7 +123,7 @@ struct App {
     outcome: Option<Arc<ScanOutcome>>,
     progress: ScanProgress,
     job: Option<(Job<Done>, Busy)>,
-    announced: bool,
+    opening: Opening,
     watcher: Option<Watcher>,
     /// Where the findings the summary listed are, which `/open 2` counts in.
     listing: Vec<(String, u32)>,
@@ -137,6 +139,47 @@ struct App {
     quit: bool,
 }
 
+/// The first scan's summary, which opens the session under the header. Both stay in the
+/// live rows, so the owl in the header can move, until the session prints anything
+/// else. Then they go into scrollback once, where a printed header would have been.
+#[derive(Default)]
+enum Opening {
+    /// No scan has landed yet.
+    #[default]
+    Waiting,
+    Live(Vec<Line<'static>>),
+    /// In scrollback, so a later scan prints only its own summary.
+    Printed,
+}
+
+impl Opening {
+    /// Takes a scan's summary. The first goes live and nothing is to be printed yet;
+    /// any later one comes back to be printed.
+    fn show(&mut self, summary: Vec<Line<'static>>) -> Option<Vec<Line<'static>>> {
+        if !matches!(self, Self::Waiting) {
+            return Some(summary);
+        }
+        *self = Self::Live(summary);
+        None
+    }
+
+    fn live(&self) -> Option<&[Line<'static>]> {
+        match self {
+            Self::Live(summary) => Some(summary),
+            Self::Waiting | Self::Printed => None,
+        }
+    }
+
+    /// The live summary, the one time it is due in scrollback.
+    fn settle(&mut self) -> Option<Vec<Line<'static>>> {
+        self.live()?;
+        match std::mem::replace(self, Self::Printed) {
+            Self::Live(summary) => Some(summary),
+            Self::Waiting | Self::Printed => None,
+        }
+    }
+}
+
 impl App {
     fn new(options: Launch<'_>, viewport: Viewport) -> Self {
         let recall = Recall::open();
@@ -146,6 +189,7 @@ impl App {
                 palette: Palette::detect(),
             },
             motion: Motion::new(options.reduced_motion),
+            job_clock: None,
             owl: Owl::new(Sprite::parse(MASCOT)),
             root: display_root(options.path),
             path: options.path.to_path_buf(),
@@ -154,7 +198,7 @@ impl App {
             outcome: None,
             progress: ScanProgress::default(),
             job: None,
-            announced: false,
+            opening: Opening::default(),
             watcher: None,
             listing: Vec::new(),
             asking: None,
@@ -183,6 +227,7 @@ impl App {
             }
             self.tick()?;
         }
+        self.settle_opening()?;
         let farewell = self.farewell();
         self.viewport.close()?;
         Ok(farewell)
@@ -222,7 +267,7 @@ impl App {
         if self.job.is_some() {
             SCANNING_ROWS
         } else {
-            view::idle_rows(self.menu_rows())
+            view::idle_rows(self.menu_rows()) + self.opening_rows()
         }
     }
 
@@ -242,7 +287,12 @@ impl App {
         )
     }
 
+    /// A window too short to hold the live header, the summary and the prompt gets the
+    /// header and summary in scrollback instead, as a session without motion does.
     fn fit_viewport(&mut self) -> Result<()> {
+        if self.wanted_rows() > terminal_rows() {
+            self.settle_opening()?;
+        }
         self.menu.reveal(self.menu_window());
         self.viewport.resize(self.wanted_rows())?;
         let wheel = menu::wants_wheel(self.wheel, self.menu.visible(), self.job.is_some());
@@ -267,7 +317,10 @@ impl App {
     fn draw(&mut self) -> Result<()> {
         let look = &self.look;
         if let Some((_, busy)) = &self.job {
-            let owl = self.owl.glancing(&self.motion, look.palette, self.signal());
+            let signal = self.signal();
+            let reduced = self.motion.reduced();
+            let clock = self.job_clock.get_or_insert_with(|| Motion::new(reduced));
+            let owl = self.owl.glancing(clock, look.palette, signal);
             let room = view::text_width(&owl, self.viewport.width());
             let spinner = self.motion.spinner();
             let text = match busy {
@@ -278,6 +331,8 @@ impl App {
                 .draw(|frame| view::working(frame, look, owl, text))?;
             return Ok(());
         }
+        let opening = self.live_opening();
+        let look = &self.look;
         let status = self.status();
         let input = self.prompt.text();
         let window = self.menu_window();
@@ -302,8 +357,10 @@ impl App {
             }),
             status: &status,
         };
-        self.viewport
-            .draw(|frame| view::idle(frame, look, &state))?;
+        self.viewport.draw(|frame| match opening {
+            Some(block) => view::opening(frame, look, block, &state),
+            None => view::idle(frame, look, &state),
+        })?;
         Ok(())
     }
 
@@ -328,6 +385,8 @@ impl App {
         let watching = self.watcher.as_ref().map_or(QUIET, Watcher::wakeup);
         let own = if self.job.is_some() {
             motion::FRAME
+        } else if self.opening.live().is_some() {
+            self.owl.next_change(&self.motion).unwrap_or(QUIET)
         } else {
             QUIET
         };
@@ -363,7 +422,7 @@ impl App {
         self.outcome = Some(Arc::clone(&change.after));
         self.catalogue = Catalogue::new(change.after.analyzed.iter().cloned());
         self.refresh_menu();
-        self.viewport.print(&lines)?;
+        self.print(&lines)?;
         Ok(())
     }
 
@@ -380,6 +439,7 @@ impl App {
         let Some((job, _)) = self.job.take() else {
             return Ok(());
         };
+        self.job_clock = None;
         match job.join() {
             Finished::Done(Done::Scanned(outcome)) => self.adopt(*outcome)?,
             Finished::Done(Done::Watching(project)) => {
@@ -398,31 +458,76 @@ impl App {
         Ok(())
     }
 
-    /// The scan is what the session knows from here on, so the header (the first time)
-    /// and the worst findings go into scrollback the moment it lands.
+    /// The scan is what the session knows from here on. The first one opens the session:
+    /// the header and the worst findings stay live above the prompt while the owl wakes
+    /// up. A later one prints its findings into scrollback the moment it lands.
     fn adopt(&mut self, outcome: ScanOutcome) -> Result<()> {
         let outcome = Arc::new(outcome);
         self.outcome = Some(Arc::clone(&outcome));
         self.catalogue = Catalogue::new(outcome.analyzed.iter().cloned());
         self.listing = view::listed_places(&outcome);
         self.refresh_menu();
-        let mut lines = Vec::new();
-        if !self.announced {
-            lines.extend(self.header());
-            self.announced = true;
+        let verdict = Verdict::of(self.health());
+        match self.opening.show(view::summary(&self.look, &outcome)) {
+            Some(summary) => self.print(&summary),
+            None if self.motion.reduced() => self.settle_opening(),
+            None => {
+                self.owl.enter(&self.motion);
+                self.owl.react(verdict, &self.motion);
+                Ok(())
+            }
         }
-        lines.extend(view::summary(&self.look, &outcome));
+    }
+
+    /// Everything the session prints goes through here, so the live header and summary
+    /// reach scrollback before whatever is printed after them.
+    fn print(&mut self, lines: &[Line<'static>]) -> Result<()> {
+        self.settle_opening()?;
+        self.viewport.print(lines)?;
+        Ok(())
+    }
+
+    /// Moves the live header and summary into scrollback, with the owl still, and gives
+    /// their rows back to the prompt.
+    fn settle_opening(&mut self) -> Result<()> {
+        let Some(summary) = self.opening.settle() else {
+            return Ok(());
+        };
+        let mut lines = self.header();
+        lines.extend(summary);
+        self.viewport.resize(self.wanted_rows())?;
         self.viewport.print(&lines)?;
         Ok(())
     }
 
+    /// The header and summary as the live rows show them, with the owl at the frame it
+    /// has reached.
+    fn live_opening(&mut self) -> Option<Vec<Line<'static>>> {
+        self.opening.live()?;
+        let signal = self.signal();
+        let owl = self.owl.live(&self.motion, self.look.palette, signal);
+        let mut block = self.header_with(&owl);
+        block.extend_from_slice(self.opening.live()?);
+        Some(block)
+    }
+
+    fn opening_rows(&self) -> u16 {
+        self.opening.live().map_or(0, |summary| {
+            u16::try_from(self.header().len() + summary.len()).unwrap_or(u16::MAX)
+        })
+    }
+
     fn header(&self) -> Vec<Line<'static>> {
+        self.header_with(&self.owl.still(self.look.palette, self.signal()))
+    }
+
+    fn header_with(&self, owl: &[Line<'static>]) -> Vec<Line<'static>> {
         let (Some(outcome), Some(health)) = (&self.outcome, self.health()) else {
             return Vec::new();
         };
         view::header(
             &self.look,
-            &self.owl.still(self.look.palette, self.signal()),
+            owl,
             outcome,
             &self.root,
             health,
@@ -431,7 +536,7 @@ impl App {
     }
 
     fn say(&mut self, message: &str) -> Result<()> {
-        self.viewport.print(&[view::note(&self.look, message)])?;
+        self.print(&[view::note(&self.look, message)])?;
         Ok(())
     }
 
@@ -440,16 +545,18 @@ impl App {
         let mut lines = message.lines();
         let mut printed = vec![view::failure(&self.look, lines.next().unwrap_or("failed"))];
         printed.extend(lines.map(|line| view::note(&self.look, line)));
-        self.viewport.print(&printed)?;
+        self.print(&printed)?;
         Ok(())
     }
 
     fn print_output(&mut self, bytes: &[u8]) -> Result<()> {
+        self.settle_opening()?;
         self.output.print(&mut self.viewport, &self.look, bytes)?;
         Ok(())
     }
 
     fn handle(&mut self, key: KeyEvent) -> Result<()> {
+        self.owl.typed(&self.motion);
         let control = key.modifiers.contains(KeyModifiers::CONTROL);
         match key.code {
             KeyCode::Char('d') if control => self.quit = true,
@@ -460,7 +567,7 @@ impl App {
             KeyCode::Char('?')
                 if !control && self.asking.is_none() && self.prompt.text().is_empty() =>
             {
-                self.viewport.print(&view::shortcuts(&self.look))?;
+                self.print(&view::shortcuts(&self.look))?;
             }
             KeyCode::Enter => self.enter()?,
             KeyCode::Tab => self.tab(),
@@ -592,8 +699,7 @@ impl App {
             self.asking = Some(order);
             return self.fail("a waiver needs a reason; esc cancels");
         }
-        self.viewport
-            .print(&[view::echo(&self.look, reason.trim())])?;
+        self.print(&[view::echo(&self.look, reason.trim())])?;
         let order = crate::waive::Order {
             reason: reason.trim().to_owned(),
             ..order
@@ -613,8 +719,7 @@ impl App {
         }
         self.recall.append(&line);
         self.output.running(line.trim());
-        self.viewport
-            .print(&[view::echo(&self.look, line.trim())])?;
+        self.print(&[view::echo(&self.look, line.trim())])?;
         match parsed {
             Ok(parsed) => self.dispatch(parsed),
             Err(message) => self.fail(&message),
@@ -634,13 +739,13 @@ impl App {
             }
             Parsed::Help => {
                 let lines = view::help(&self.look, &commands::help_rows(), self.viewport.width());
-                self.viewport.print(&lines)?;
+                self.print(&lines)?;
                 Ok(())
             }
             Parsed::Clear => {
                 self.viewport.clear_screen()?;
                 let header = self.header();
-                self.viewport.print(&header)?;
+                self.print(&header)?;
                 Ok(())
             }
             Parsed::Watch(mode) => self.watch(mode),
@@ -760,6 +865,10 @@ fn health_of(outcome: &ScanOutcome) -> u32 {
         .weighted_health_score(outcome.code_lines, &outcome.impact)
 }
 
+fn terminal_rows() -> u16 {
+    crossterm::terminal::size().map_or(u16::MAX, |(_, rows)| rows)
+}
+
 /// The directory the session is looking at, as a person would write it: relative to
 /// their home when it is under it.
 fn display_root(path: &Path) -> String {
@@ -769,5 +878,48 @@ fn display_root(path: &Path) -> String {
         Some(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
         Some(rest) => format!("~/{}", rest.display()),
         None => absolute.display().to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn summary(text: &str) -> Vec<Line<'static>> {
+        vec![Line::raw(text.to_owned())]
+    }
+
+    fn texts(lines: Option<Vec<Line<'static>>>) -> Option<Vec<String>> {
+        lines.map(|lines| lines.iter().map(ToString::to_string).collect())
+    }
+
+    #[test]
+    fn nothing_printed_before_the_first_scan_settles_the_opening() {
+        let mut opening = Opening::default();
+        assert!(opening.settle().is_none());
+        assert!(opening.live().is_none());
+        assert!(opening.show(summary("first")).is_none(), "it goes live");
+        assert!(opening.live().is_some());
+    }
+
+    #[test]
+    fn the_opening_goes_into_scrollback_once_on_the_first_print() {
+        let mut opening = Opening::default();
+        let _ = opening.show(summary("first"));
+        assert_eq!(texts(opening.settle()), Some(vec!["first".to_owned()]));
+        assert!(opening.live().is_none());
+        assert!(opening.settle().is_none(), "it is printed once");
+    }
+
+    #[test]
+    fn a_later_scan_prints_its_own_summary_and_no_second_header() {
+        let mut opening = Opening::default();
+        let _ = opening.show(summary("first"));
+        let _ = opening.settle();
+        assert_eq!(
+            texts(opening.show(summary("second"))),
+            Some(vec!["second".to_owned()])
+        );
+        assert!(opening.live().is_none() && opening.settle().is_none());
     }
 }

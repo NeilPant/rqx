@@ -44,11 +44,33 @@ The owl is three rows of half blocks, eight columns wide. The sketch above shows
 layout only.
 
 The session scans the working directory as it opens. While the scan runs, the owl
-looks left and right beside the phase, the number of files done and the file being
-read. It does the same while any other command runs. When the scan finishes, the
-header and the worst findings go into scrollback, and the prompt takes the full
-width at the bottom of the window. The owl's colouring follows the health score.
-`--motion off` draws the owl still.
+sits beside the phase, the number of files done and the file being read, and reads:
+its pupils sweep along a line and jump back to the start of the next, and every few
+seconds it looks up. It does the same while any other command runs.
+
+When the scan finishes, the header and the worst findings appear above the prompt,
+which takes the full width at the bottom of the window. They stay in the redrawn rows
+until the session prints anything else, such as the echo of a command or the `?`
+list, and then move into scrollback unchanged. The header in scrollback shows the
+owl's neutral face. While the header is still in the redrawn rows, the owl in it
+moves:
+
+| When | What the owl does |
+|------|-------------------|
+| The header appears | Wakes up over about 1.4 s, then reacts to the score for 0.8 s and keeps the face it ends on. |
+| Health 80 or more, or no score | Blinks, then closes its eyes in a smile. It rests on a content face. |
+| Health 50 to 79 | Looks down, half closes its eyes and blinks. It rests on the neutral face. |
+| Health below 50 | Flares its ear tufts, then lowers its brow and eyes. It rests on a worried face. |
+| At rest | Makes one small move every 4 to 10 seconds, chosen at random: a blink, a glance, a look down, a tuft twitch or a breath. |
+| A key is pressed | Returns to its resting face. The next move waits at least 4 seconds. |
+
+The owl's colouring follows the health score. When the window is too short to hold
+the header, the findings and the prompt (with its command list when that is open),
+the header and the findings go straight into scrollback and the owl in them does not
+move.
+
+`--motion off` draws the owl still everywhere: the neutral face in the colour of the
+score. The header and the findings go into scrollback as soon as the scan finishes.
 
 The line under the prompt shows `? for shortcuts` on the left and, on the right, the
 health, the grade, the findings and `watching` when it is on. When the window is too

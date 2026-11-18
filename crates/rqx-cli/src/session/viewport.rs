@@ -7,12 +7,12 @@
 //! see `MouseCapture`. Raw mode and that capture are all the session takes away, and
 //! `restore` gives both back on every way out: a normal return, an error and a panic.
 
-use std::io::{self, Stdout};
+use std::io::{self, Stdout, Write};
 
 use crossterm::cursor::{MoveTo, Show};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode};
+use crossterm::{execute, queue};
 use ratatui::backend::CrosstermBackend;
 use ratatui::text::Line;
 use ratatui::widgets::{Paragraph, Widget};
@@ -165,11 +165,17 @@ impl Viewport {
 
     /// Clears the rows and parks the cursor on the first of them. Ratatui's own `clear`
     /// puts the cursor back where it was, which is the prompt, so a new viewport made
-    /// from there would start a row lower every time.
+    /// from there would start a row lower every time. It also clears to the end of the
+    /// screen, which from the top-left corner tmux takes for clearing the whole screen
+    /// and copies the rows into scrollback first, so the rows are cleared one at a time.
     fn vacate(&mut self) -> io::Result<()> {
-        let top = self.screen.get_frame().area().as_position();
-        self.screen.clear()?;
-        self.screen.set_cursor_position(top)
+        let area = self.screen.get_frame().area();
+        let mut out = io::stdout();
+        for row in area.top()..area.bottom() {
+            queue!(out, MoveTo(0, row), Clear(ClearType::CurrentLine))?;
+        }
+        out.flush()?;
+        self.screen.set_cursor_position(area.as_position())
     }
 }
 
