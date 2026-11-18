@@ -95,6 +95,24 @@ them. `tools/release.sh` turns that section into the release notes.
   registration.** In Python, `test.assertEqual(3, 2)` was read as a call to `test(...)`
   registering a test and was reported by `assertionless-test` and `empty-test`.
   `it("name", handler)` in TypeScript and JavaScript was reported the same way.
+### Changed
+
+- **`rqx --help` lists the commands before the global options.** The command groups
+  come first, then an `Options:` heading with the global options, then the notes, the
+  examples and the exit codes. The text of each is unchanged.
+- **`-h` lists the common flags of a command, and `--help` lists all of them.** Under
+  `-h`, `rqx scan` shows 10 of its 39 flags, such as `--rule`, `--severity`, `--path`
+  and `--fail-on`, and its help flag says that `--help` lists every option. `check`,
+  `fix`, `verify`, `comment`, `perf`, `plan` and most other analysis commands do the
+  same with their own set. The global `--motion`, `--no-progress`, `--progress` and
+  `--hyperlinks` are also left out of `-h`. Every flag is still accepted and still in
+  `--help`, the man pages and the shell completion scripts.
+- **The session's `/` menu offers flags when asked, not after every space.** A command
+  followed by a space leaves the menu closed, so `enter` runs the line. Flags are
+  listed once a `-` is typed, or when `tab` is pressed. The flags that `-h` shows come
+  first, a flag already on the line is left out unless it can be repeated, and `esc`
+  keeps the menu closed until the next `-` or `tab`. The values a flag takes are still
+  listed right after the flag.
 
 ## 0.5.0 — 2026-11-18
 

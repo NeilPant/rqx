@@ -4,6 +4,12 @@
 //! takes: files the scan found, rule slugs, families and the choices clap lists. The
 //! flags come from the clap definition the command line parses with, so a flag added
 //! there is completable here with no second list to keep.
+//!
+//! Flags are offered once a `-` is typed, or when the caller asks for them (Tab), and
+//! never after a space on their own: a menu that opens on every space is in the way
+//! of a line that is finished. A flag already on the line is not offered again unless
+//! it can be given more than once, and the flags clap does not leave out of a short
+//! help come first.
 
 use rqx_core::rule::{Category, RuleId};
 
@@ -26,8 +32,37 @@ enum Values {
 
 struct Flag {
     long: String,
+    short: Option<char>,
     about: String,
     values: Values,
+    /// Listed in the command's `-h`, which is what people reach for first.
+    common: bool,
+    /// Can be given more than once, so being on the line does not use it up.
+    repeatable: bool,
+}
+
+impl Flag {
+    fn is_on(&self, words: &[&str]) -> bool {
+        let long = format!("--{}", self.long);
+        let short = self.short.map(|short| format!("-{short}"));
+        words.iter().any(|word| {
+            *word == long
+                || word
+                    .strip_prefix(&long)
+                    .is_some_and(|rest| rest.starts_with('='))
+                || short.as_deref() == Some(word)
+        })
+    }
+}
+
+/// One thing the menu may offer, before it is ranked.
+struct Candidate {
+    label: String,
+    about: String,
+    insert: String,
+    searched: String,
+    /// Listed ahead of the rest whatever they score.
+    first: bool,
 }
 
 struct Entry {
@@ -103,8 +138,18 @@ impl Catalogue {
         }
     }
 
-    /// Suggestions for the line left of the cursor. Empty when it is not a command.
+    /// Suggestions for the line left of the cursor. Empty when it is not a command, and
+    /// when the next word is neither a flag being typed nor the value of one.
     pub fn suggest(&self, before: &str) -> Vec<Suggestion> {
+        self.suggest_with(before, false)
+    }
+
+    /// The same, and the command's flags too when the next word is a new one.
+    pub fn suggest_with_flags(&self, before: &str) -> Vec<Suggestion> {
+        self.suggest_with(before, true)
+    }
+
+    fn suggest_with(&self, before: &str, flags_asked_for: bool) -> Vec<Suggestion> {
         let Some(typed) = before.strip_prefix('/') else {
             return Vec::new();
         };
@@ -128,13 +173,17 @@ impl Catalogue {
         let from = before.chars().count() - current.chars().count();
         let slot = Slot { current, from };
         if current.starts_with('-') {
-            return flags(entry, &slot);
+            return flags(entry, earlier, &slot);
         }
         if let Some(values) = earlier.last().and_then(|last| value_of(entry, last)) {
             return self.values(&values, &slot);
         }
         if matches!(entry.argument, Values::Nothing) {
-            return flags(entry, &slot);
+            return if flags_asked_for {
+                flags(entry, earlier, &slot)
+            } else {
+                Vec::new()
+            };
         }
         self.values(&entry.argument, &slot)
     }
@@ -144,13 +193,12 @@ impl Catalogue {
             current: typed,
             from: 0,
         };
-        let commands = self.entries.iter().map(|entry| {
-            (
-                format!("/{}", entry.name),
-                entry.about.clone(),
-                format!("/{} ", entry.name),
-                entry.name.clone(),
-            )
+        let commands = self.entries.iter().map(|entry| Candidate {
+            label: format!("/{}", entry.name),
+            about: entry.about.clone(),
+            insert: format!("/{} ", entry.name),
+            searched: entry.name.clone(),
+            first: false,
         });
         ranked(commands, &slot, true)
             .into_iter()
@@ -176,9 +224,13 @@ impl Catalogue {
                 .collect(),
         };
         ranked(
-            candidates
-                .into_iter()
-                .map(|value| (value.clone(), String::new(), format!("{value} "), value)),
+            candidates.into_iter().map(|value| Candidate {
+                label: value.clone(),
+                about: String::new(),
+                insert: format!("{value} "),
+                searched: value,
+                first: false,
+            }),
             slot,
             false,
         )
@@ -191,17 +243,20 @@ struct Slot<'a> {
     from: usize,
 }
 
-fn flags(entry: &Entry, slot: &Slot<'_>) -> Vec<Suggestion> {
+fn flags(entry: &Entry, earlier: &[&str], slot: &Slot<'_>) -> Vec<Suggestion> {
     let typed = slot.current.trim_start_matches('-');
     ranked(
-        entry.flags.iter().map(|flag| {
-            (
-                format!("--{}", flag.long),
-                flag.about.clone(),
-                format!("--{} ", flag.long),
-                flag.long.clone(),
-            )
-        }),
+        entry
+            .flags
+            .iter()
+            .filter(|flag| flag.repeatable || !flag.is_on(earlier))
+            .map(|flag| Candidate {
+                label: format!("--{}", flag.long),
+                about: flag.about.clone(),
+                insert: format!("--{} ", flag.long),
+                searched: flag.long.clone(),
+                first: flag.common,
+            }),
         &Slot {
             current: typed,
             ..*slot
@@ -216,6 +271,15 @@ fn flags(entry: &Entry, slot: &Slot<'_>) -> Vec<Suggestion> {
     .collect()
 }
 
+/// Where the word the cursor is in, or about to start, begins in the line.
+pub fn word_start(before: &str) -> usize {
+    let length = before.chars().count();
+    match before.split_whitespace().last() {
+        Some(word) if !before.ends_with(char::is_whitespace) => length - word.chars().count(),
+        _ => length,
+    }
+}
+
 /// What the flag just before the cursor takes, if it is one that takes anything.
 fn value_of(entry: &Entry, word: &str) -> Option<Values> {
     let long = word.strip_prefix("--")?;
@@ -223,44 +287,49 @@ fn value_of(entry: &Entry, word: &str) -> Option<Values> {
     (!matches!(flag.values, Values::Nothing)).then(|| flag.values.clone())
 }
 
-/// Scores each `(label, about, insert, searched)` against what was typed, best first,
-/// ties broken alphabetically. With nothing typed the order is alphabetical, which for
-/// commands is the order a reader would look for one in.
+/// Scores each candidate against what was typed, best first, ties broken alphabetically.
+/// Candidates marked `first` are listed ahead of the rest, each group in score order.
+/// With nothing typed the order is alphabetical, which for commands is the order a
+/// reader would look for one in.
 fn ranked(
-    candidates: impl Iterator<Item = (String, String, String, String)>,
+    candidates: impl Iterator<Item = Candidate>,
     slot: &Slot<'_>,
     keep_order: bool,
 ) -> Vec<Suggestion> {
-    let mut scored: Vec<(usize, usize, Suggestion)> = candidates
+    let mut scored: Vec<(bool, usize, usize, Suggestion)> = candidates
         .enumerate()
-        .filter_map(|(position, (label, about, insert, searched))| {
-            let rank = score(&searched, slot.current)?;
+        .filter_map(|(position, candidate)| {
+            let rank = score(&candidate.searched, slot.current)?;
             Some((
+                !candidate.first,
                 rank,
                 position,
                 Suggestion {
-                    label,
-                    about,
+                    label: candidate.label,
+                    about: candidate.about,
                     from: slot.from,
                     typed: slot.current.to_owned(),
-                    insert,
+                    insert: candidate.insert,
                 },
             ))
         })
         .collect();
     scored.sort_by(|left, right| {
-        left.0.cmp(&right.0).then_with(|| {
-            if keep_order {
-                left.1.cmp(&right.1)
-            } else {
-                left.2.label.cmp(&right.2.label)
-            }
-        })
+        left.0
+            .cmp(&right.0)
+            .then(left.1.cmp(&right.1))
+            .then_with(|| {
+                if keep_order {
+                    left.2.cmp(&right.2)
+                } else {
+                    left.3.label.cmp(&right.3.label)
+                }
+            })
     });
     scored
         .into_iter()
         .take(SHOWN)
-        .map(|(_, _, suggestion)| suggestion)
+        .map(|(_, _, _, suggestion)| suggestion)
         .collect()
 }
 
@@ -271,6 +340,12 @@ fn flag_of(argument: &clap::Arg) -> Option<Flag> {
     }
     Some(Flag {
         long: long.to_owned(),
+        short: argument.get_short(),
+        common: !argument.is_hide_short_help_set(),
+        repeatable: matches!(
+            argument.get_action(),
+            clap::ArgAction::Append | clap::ArgAction::Count
+        ),
         about: argument
             .get_help()
             .map(ToString::to_string)
@@ -363,10 +438,84 @@ mod tests {
     }
 
     #[test]
-    fn a_new_word_after_a_command_offers_its_flags() {
-        let found = catalogue().suggest("/plan ");
+    fn a_space_after_a_command_offers_no_flags_on_its_own() {
+        assert!(catalogue().suggest("/plan ").is_empty());
+        assert!(catalogue().suggest("/findings ").is_empty());
+        assert!(
+            catalogue()
+                .suggest("/findings --severity warning ")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_dash_offers_the_flags() {
+        for line in ["/findings -", "/findings --", "/findings --sev"] {
+            let found = catalogue().suggest(line);
+            assert!(!found.is_empty(), "{line}");
+            assert!(found.iter().all(|s| s.label.starts_with("--")), "{found:?}");
+        }
+    }
+
+    #[test]
+    fn asking_for_flags_after_a_space_offers_them() {
+        let found = catalogue().suggest_with_flags("/plan ");
+        assert!(!found.is_empty());
         assert!(found.iter().all(|s| s.label.starts_with("--")), "{found:?}");
         assert_eq!(found[0].from, 6);
+        let typing = catalogue().suggest_with_flags("/plan bud");
+        assert_eq!(typing[0].label, "--budget");
+        assert_eq!(typing[0].from, 6);
+    }
+
+    #[test]
+    fn asking_for_flags_still_offers_the_value_a_flag_is_waiting_for() {
+        let found = catalogue().suggest_with_flags("/findings --severity ");
+        assert_eq!(labels(&found), ["error", "info", "warning"]);
+    }
+
+    #[test]
+    fn a_flag_already_on_the_line_is_not_offered_again() {
+        let found = catalogue().suggest("/findings --severity warning --");
+        assert!(found.iter().all(|s| s.label != "--severity"), "{found:?}");
+        let by_prefix = catalogue().suggest("/findings --severity=warning --sever");
+        assert!(by_prefix.iter().all(|s| s.label != "--severity"));
+        let short = catalogue().suggest("/findings -q --qui");
+        assert!(short.iter().all(|s| s.label != "--quiet"), "{short:?}");
+        assert!(
+            catalogue()
+                .suggest("/findings --qui")
+                .iter()
+                .any(|s| s.label == "--quiet")
+        );
+    }
+
+    #[test]
+    fn a_flag_that_can_be_repeated_is_offered_again() {
+        let found = catalogue().suggest("/findings --rule empty-catch --ru");
+        assert!(found.iter().any(|s| s.label == "--rule"), "{found:?}");
+    }
+
+    #[test]
+    fn the_flags_a_short_help_lists_come_first() {
+        let parser = crate::parser();
+        let scan = parser.find_subcommand("scan").unwrap();
+        let common: Vec<String> = scan
+            .get_arguments()
+            .filter(|arg| !arg.is_hide_short_help_set() && !arg.is_global_set())
+            .filter_map(|arg| arg.get_long().map(|long| format!("--{long}")))
+            .collect();
+        let found = catalogue().suggest("/findings -");
+        assert_eq!(found.len(), SHOWN);
+        for suggestion in &found {
+            assert!(common.contains(&suggestion.label), "{found:?}");
+        }
+    }
+
+    #[test]
+    fn a_flag_left_out_of_short_help_is_still_reached_by_typing_it() {
+        let found = catalogue().suggest("/findings --tim");
+        assert_eq!(found[0].label, "--timings");
     }
 
     #[test]

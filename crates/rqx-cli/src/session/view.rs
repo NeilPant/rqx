@@ -430,7 +430,7 @@ pub fn note(look: &Look, message: &str) -> Line<'static> {
 const SHORTCUTS: [(&str, &str); 8] = [
     (
         "/",
-        "commands: type to narrow them, tab or enter takes one, esc closes the list",
+        "commands: type to narrow them, tab or enter takes one, esc closes the list; - or tab lists flags",
     ),
     (
         "\u{2191} \u{2193}",
