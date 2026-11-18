@@ -82,3 +82,10 @@ def suffixed(text: str, suffixes: list[str]) -> list[str]:
     for suffix in suffixes:
         out.append(re.sub("o", lambda match: match.group(0) + suffix, text))
     return out
+
+
+
+# imprecise-type: `Any` imported or named outside an annotation is not a type.
+def first_truthy(values: list[int]) -> int:
+    Any = max(values, default=0)
+    return Any * 2 if Any else 0

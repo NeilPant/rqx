@@ -58,6 +58,10 @@ them. `tools/release.sh` turns that section into the release notes.
   nested casts and produced two findings on one line. A cast whose value is another
   cast of the same kind is now reported once, at the outermost cast. The same applies
   to `(Row) (Object) value` in Java and C++.
+- **`imprecise-type` reports `any` only where it is a type.** Any node spelled `any`
+  counted, so the matcher `expect.any(Function)`, a variable named `any` in TypeScript
+  or Go, and `from typing import Any` in Python were reported. A member name is no
+  longer read as a type, and a plain identifier counts only inside a type annotation.
 - **`magic-number` leaves out the value of a declaration.** The rule describes itself
   as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
   toward the repeats of `3`, so naming a number, which is the fix the rule recommends,

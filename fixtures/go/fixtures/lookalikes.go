@@ -115,3 +115,12 @@ func (Sink) Write(data []byte) (int, error) {
 }
 
 var _ io.Writer = (*Sink)(nil)
+
+// imprecise-type: a method or a variable called `any` is not the `any` type.
+func HasOdd(values []int) bool {
+	any := false
+	for _, value := range values {
+		any = any || value%2 == 1
+	}
+	return any
+}

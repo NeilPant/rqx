@@ -168,5 +168,6 @@ func main() {
 	_ = ParsedOrZero
 	_ = Forgotten
 	_ = fixtures.Sink
+	_ = fixtures.HasOdd
 	_ = cyclea.Orbit
 }

@@ -2811,6 +2811,36 @@ impl<'a> Walker<'a> {
         callers.contains(&tail) && !(tail == "Run" && self.text(function).contains(".Parallel()"))
     }
 
+    /// Whether a name spelled like an imprecise type is used as one. `expect.any(…)`,
+    /// a variable called `any` and `from typing import Any` name something else: a
+    /// member name never counts, and a plain identifier counts only inside a type
+    /// annotation, which is how Python writes its types.
+    fn is_in_type_position(&self, node: Node<'a>) -> bool {
+        const MEMBER_NAMES: [&str; 3] = [
+            "property_identifier",
+            "field_identifier",
+            "shorthand_property_identifier",
+        ];
+        if MEMBER_NAMES.contains(&kind_of(node)) {
+            return false;
+        }
+        if kind_of(node) != "identifier" {
+            return true;
+        }
+        let mut current = node.parent();
+        for _ in 0..3 {
+            let Some(parent) = current else {
+                return false;
+            };
+            let kind = kind_of(parent);
+            if kind == "type" || kind.ends_with("_type") || kind.ends_with("type_annotation") {
+                return true;
+            }
+            current = parent.parent();
+        }
+        false
+    }
+
     /// A JavaScript loop that declares its variable with `let` or `const` gives every
     /// pass a binding of its own, so a closure keeps the value of its own pass. Only
     /// `var`, or a variable declared before the loop, is shared between passes.
@@ -4896,7 +4926,9 @@ impl<'a> Walker<'a> {
                 });
             }
         }
-        if node.named_child_count() == 0 && profile.imprecise_type_names.contains(&self.text(node))
+        if node.named_child_count() == 0
+            && profile.imprecise_type_names.contains(&self.text(node))
+            && self.is_in_type_position(node)
         {
             self.out.imprecise_types.push(Spot {
                 span: span_of(node),

@@ -96,3 +96,12 @@ export function laterEach(rows: number[]): Array<() => number> {
   }
   return out;
 }
+
+// imprecise-type: a method or a variable called `any` is not the `any` type.
+type Counter = { any(test: (value: number) => boolean): number };
+
+export function hasOdd(values: Counter): number {
+  let any = values.any((value) => value % 2 === 1);
+  any += values.any((value) => value > 0);
+  return any;
+}

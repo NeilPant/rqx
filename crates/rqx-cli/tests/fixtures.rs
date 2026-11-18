@@ -326,7 +326,7 @@ fn every_rule_fires_the_number_of_times_its_fixtures_ask_for() {
                 ("hand-rolled-throws", 1),
                 ("identical-branches", 1),
                 ("import-time-work", 1),
-                ("imprecise-type", 4),
+                ("imprecise-type", 3),
                 ("inappropriate-intimacy", 1),
                 ("inappropriate-static", 1),
                 ("integer-division", 1),
