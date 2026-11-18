@@ -92,7 +92,7 @@ present the result.
 |---|---|
 | `rqx-core` | The data model and the rules of the game: the rule catalogue (`catalogue.rs`, `rule.rs`), findings and their evidence (`finding.rs`), finding identity for baselines (`identity.rs`), the health score (`score.rs`), configuration types and the `rqx.yaml` template (`config.rs`, `rqx.template.yaml`), levels and presets, suppressions (`suppress.rs`), the design-pattern catalogue (`pattern.rs`, `advice.rs`), refactoring names (`technique.rs`), coverage and runtime profiles, and the import-impact map (`impact.rs`). No parsing and no I/O beyond reading configuration. |
 | `rqx-lang` | The tree-sitter side. `profile.rs` defines `LanguageProfile`, the table of node kinds each language fills in. `lib.rs` defines `Support` (module-surface reader, import resolver and class assembly per language) and `analyze`. Shared collectors read the profile: `hygiene/`, `metrics.rs`, `classes.rs`, `scope.rs`, `patterns.rs`, `parameters.rs`, `hierarchy.rs`, `module_graph.rs`. `custom.rs` runs user-written queries, `rewrite.rs` produces autofix edits, and `highlight.rs` colours source excerpts. One directory per language (`typescript`, `javascript`, `python`, `go`, `java`, `cpp`) holds its profile, surface reader and import resolver. |
-| `rqx-cli` | The binary. `main.rs` defines the clap parser and dispatches commands. `scan/` and `cache.rs` are the pipeline above. `check.rs`, `fix.rs`, `verify.rs`, `plan.rs`, `graph.rs`, `perf.rs`, `health.rs`, `complexity.rs`, `recommend.rs`, `slop.rs`, `hotspots.rs` and `badge.rs` implement the commands. `history.rs` reads git. `forge.rs` posts comments to GitLab and GitHub, `update.rs` and `release.rs` implement `rqx update`. `report/` holds the reporters and the docs generator (`report/docs.rs`). `session/`, `lsp/` and `mcp/` are the interactive session, the language server and the MCP server. |
+| `rqx-cli` | The binary. `main.rs` is the entry point. `cli/` holds the clap definitions (`args.rs`), the parser and its grouped help (`parser.rs`), command dispatch (`run.rs`) and output (`emit.rs`). `scan/` and `cache.rs` are the pipeline above. `check.rs`, `fix.rs`, `verify.rs`, `plan.rs`, `graph.rs`, `perf.rs`, `health.rs`, `complexity.rs`, `recommend.rs`, `slop.rs`, `hotspots.rs` and `badge.rs` implement the commands. `history.rs` reads git. `forge.rs` posts comments to GitLab and GitHub, `update.rs` and `release.rs` implement `rqx update`. `report/` holds the reporters and the docs generator (`report/docs.rs`). `session/`, `lsp/` and `mcp/` are the interactive session, the language server and the MCP server. |
 
 Rules are written once against facts that a language backend fills in. A rule in
 `rqx-core` or `rqx-lang` never names a language, so a language is added by supplying
@@ -309,13 +309,13 @@ A slash command is a command-line command. The session parses `/plan --budget 20
 the same clap definition as `rqx plan --budget 20`, so a new command appears in the
 session without a second parser.
 
-1. **Define the command** in `crates/rqx-cli/src/main.rs`: a variant of `Command` with
-   its flags, and a place in the grouped command list (a test fails for a command that
-   is not listed under a heading).
+1. **Define the command** in `crates/rqx-cli/src/cli/args.rs`: a variant of `Command`
+   with its flags. Give it a place in the grouped command list in `cli/parser.rs` (a
+   test fails for a command that is not listed under a heading).
 2. **Write the output function** in `crates/rqx-cli/src/render.rs`. It usually takes a
    `ScanOutcome`, a request value, a `Palette` and a `Write`, and prints. The command line
    and the session both call it, which keeps their output the same.
-3. **Dispatch from the command line**: add the match arm in `main.rs` that scans and
+3. **Dispatch from the command line**: add the match arm in `cli/run.rs` that scans and
    calls the render function.
 4. **Dispatch from the session**: add the command name to `TWINS` in
    `crates/rqx-cli/src/session/commands.rs`, adjust the array length, and add a match
