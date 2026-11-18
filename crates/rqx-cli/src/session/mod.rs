@@ -463,7 +463,7 @@ impl App {
     }
 
     fn print_output(&mut self, bytes: &[u8]) -> Result<()> {
-        self.output.print(&mut self.viewport, bytes)?;
+        self.output.print(&mut self.viewport, &self.look, bytes)?;
         Ok(())
     }
 

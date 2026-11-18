@@ -82,6 +82,14 @@ impl Viewport {
         self.screen.clear()
     }
 
+    /// Rows of the window above the viewport, where printed lines are visible before
+    /// they scroll away.
+    pub fn room(&self) -> u16 {
+        crossterm::terminal::size()
+            .map_or(24, |(_, rows)| rows)
+            .saturating_sub(self.height)
+    }
+
     pub fn width(&self) -> u16 {
         crossterm::terminal::size().map_or(80, |(columns, _)| columns)
     }
