@@ -60,12 +60,13 @@ them. `tools/release.sh` turns that section into the release notes.
   submodule that holds the scanned directory. Credentials in a URL are never printed.
   `scan.skip_submodules: none` scans every submodule and `all` leaves out every one.
 
-- **Minified files are no longer analysed by default.** A file is skipped as minified
-  when its longest line is over 4,000 characters and lines over 1,000 characters hold
-  at least 80% of it, when it has at least 5 lines averaging over 300 characters, or
-  when it has fewer than 5 lines averaging over 1,000 characters. A line that is one
-  string literal, such as an SVG path or a data URL, is treated as data embedded in an
-  ordinary file and counts towards none of these. The default `ignore.patterns` also
+- **Minified files are no longer analysed by default.** Only a file whose non-blank
+  lines are at least half over 300 characters can be skipped as minified, so a
+  component that embeds one or two long SVG paths among ordinary lines is analysed.
+  Such a file is skipped when its longest line is over 4,000 characters and lines over
+  1,000 characters hold at least 80% of it, when it has at least 5 lines averaging
+  over 300 characters, or when it has fewer than 5 lines averaging over 1,000
+  characters. The default `ignore.patterns` also
   gain `**/*.min.js`, `**/*.min.mjs`, `**/*.min.css` and `**/*.bundle.js`.
   `scan.skip_minified: false` analyses minified files again. A list in `rqx.yaml`
   replaces the default list, so a project that sets its own `ignore.patterns` gets the

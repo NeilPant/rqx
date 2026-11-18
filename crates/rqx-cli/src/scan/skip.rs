@@ -259,13 +259,16 @@ fn comment_lines(head: &str) -> impl Iterator<Item = &str> {
     })
 }
 
+/// A line longer than this is wide. A file is judged minified only when at least half
+/// of its lines are wide: a hand-written file that embeds a long SVG path or data URL
+/// has one or two wide lines among many ordinary ones.
+const WIDE_LINE: usize = 300;
 /// A line at least this long counts towards the share of a file held in long lines.
 const LONG_LINE: usize = 1_000;
 /// A file whose longest line passes this, with long lines holding most of it, is not
 /// one a person wrote.
 const LONGEST_LINE: usize = 4_000;
-/// The share of a file's characters that long lines must hold, in percent. Below it,
-/// the long line is data embedded in an ordinary file.
+/// The share of a file's characters that long lines must hold, in percent.
 const LONG_SHARE: usize = 80;
 /// Lines this long on average are a bundle broken into a few lines.
 const AVERAGE_LINE: usize = 300;
@@ -275,59 +278,32 @@ const AVERAGE_OVER: usize = 5;
 /// average, as a chunk a bundler wrapped at a few thousand characters is.
 const SHORT_FILE_AVERAGE: usize = 1_000;
 
-/// Why `source` reads as minified, or `None` when it reads as written by hand. A long
-/// line that is one string literal, such as an SVG path or a data URL, is data embedded
-/// in the file, so it counts towards neither the longest line nor the averages.
+/// Why `source` reads as minified, or `None` when it reads as written by hand. Blank
+/// lines are not counted, so spacing cannot move a file either way.
 pub fn minified(source: &str) -> Option<String> {
-    let (mut lines, mut characters, mut long, mut longest) = (0usize, 0usize, 0usize, 0usize);
-    for line in source.lines() {
-        lines += 1;
-        let length = line.chars().count();
-        if length >= LONG_LINE && is_embedded_data(line) {
-            continue;
-        }
-        characters += length;
-        longest = longest.max(length);
-        if length >= LONG_LINE {
-            long += length;
-        }
-    }
-    if lines == 0 {
+    let lengths: Vec<usize> = source
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.chars().count())
+        .collect();
+    let lines = lengths.len();
+    let wide = lengths.iter().filter(|length| **length > WIDE_LINE).count();
+    if lines == 0 || wide * 2 < lines {
         return None;
     }
+    let characters: usize = lengths.iter().sum();
+    let longest = lengths.iter().copied().max().unwrap_or_default();
+    let long: usize = lengths.iter().filter(|length| **length >= LONG_LINE).sum();
     if longest > LONGEST_LINE && long * 100 >= characters * LONG_SHARE {
         return Some(format!("a line of {longest} characters"));
     }
     let average = characters / lines;
-    let wide = if lines >= AVERAGE_OVER {
+    let wide_on_average = if lines >= AVERAGE_OVER {
         average > AVERAGE_LINE
     } else {
         average > SHORT_FILE_AVERAGE
     };
-    wide.then(|| format!("its {lines} lines average {average} characters"))
-}
-
-/// Whether one string literal makes up most of `line`: the shape of an SVG path, a data
-/// URL or a base64 blob written into an otherwise ordinary file. Minified code holds
-/// many short literals, never one that spans the line.
-fn is_embedded_data(line: &str) -> bool {
-    let bytes = line.as_bytes();
-    let mut longest = 0;
-    let mut open: Option<(u8, usize)> = None;
-    for (at, &byte) in bytes.iter().enumerate() {
-        if !matches!(byte, b'"' | b'\'' | b'`') || (at > 0 && bytes[at - 1] == b'\\') {
-            continue;
-        }
-        match open {
-            Some((quote, from)) if quote == byte => {
-                longest = longest.max(at - from);
-                open = None;
-            }
-            Some(_) => {}
-            None => open = Some((byte, at)),
-        }
-    }
-    longest * 100 >= bytes.len() * LONG_SHARE
+    wide_on_average.then(|| format!("its {lines} lines average {average} characters"))
 }
 
 #[cfg(test)]
@@ -496,28 +472,29 @@ mod tests {
     }
 
     #[test]
-    fn a_line_that_is_one_string_literal_is_embedded_data() {
-        assert!(is_embedded_data(&format!(
-            "  d=\"{}\"",
-            "M1 2 ".repeat(400)
-        )));
-        assert!(is_embedded_data(&format!(
-            "  png: 'data:image/png;base64,{}',",
-            "QUJD".repeat(500)
-        )));
-        assert!(!is_embedded_data(&format!(
-            "var a=\"x\",b='y';{}",
-            "c(\"z\");".repeat(300)
-        )));
-        assert!(is_embedded_data(&format!(
-            "s=\"{}\\\"{}\";",
-            "q".repeat(500),
-            "q".repeat(500)
-        )));
+    fn an_icon_with_two_long_paths_among_a_few_lines_is_not_minified() {
+        let path = format!("<Path d=\"M0 0{}Z\" />", " L1 2".repeat(1_500));
+        let source = format!(
+            "import Svg from \"react-native-svg\";\n\nexport const Icon = () => (\n  <Svg>\n\
+             {path}\n{path}\n  </Svg>\n);\n\nexport default Icon;\n"
+        );
+        assert_eq!(minified(&source), None);
     }
 
     fn entry(path: &str, reason: SkipReason) -> Skipped {
         Skipped::file(Path::new(path), reason, format!("{reason:?}"))
+    }
+
+    #[test]
+    fn a_minified_line_after_a_banner_is_still_minified() {
+        let source = format!(
+            "/*! lib v1.2.3 | MIT */\n!function(){{{}}}();\n",
+            "a();".repeat(2_000)
+        );
+        assert_eq!(
+            minified(&source).as_deref(),
+            Some("a line of 8016 characters")
+        );
     }
 
     #[test]
