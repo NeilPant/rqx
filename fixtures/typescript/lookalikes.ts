@@ -54,6 +54,11 @@ function shout(payload: string): string {
 
 events.on("shout", shout);
 events.on("trim", (payload: string) => payload.trim());
+events.on("loud", suffixer("!"));
+
+function suffixer(ending: string): (payload: string) => string {
+  return (payload) => payload + ending;
+}
 
 // unused-parameter: `value` belongs to the function type the result is declared as.
 export function adder(step: number): (value: number) => number {

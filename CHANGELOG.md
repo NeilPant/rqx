@@ -69,8 +69,8 @@ them. `tools/release.sh` turns that section into the release notes.
   `atexit.register(flush)` only hands over a handler, and it was reported as work done
   on load. A top-level call is now skipped when one of its arguments is a function
   written in place or declared in the file, or, for a method named like a registration
-  (`use`, `get`, `post`, `on`, `command`, `register` and similar), any name passed
-  without being called. Files configured in `entrypoints.paths` and files named
+  (`use`, `get`, `post`, `on`, `command`, `register` and similar), any argument other
+  than a plain literal, such as a router or a handler built by a factory call. Files configured in `entrypoints.paths` and files named
   `index`, `main`, `server`, `app`, `cli` or `__main__` are skipped, since running
   top-level statements is what they are for. Calls such as `fs.readFileSync(path)` or
   `connect()` at the top of a module are still reported.

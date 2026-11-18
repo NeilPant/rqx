@@ -2120,9 +2120,10 @@ impl<'a> Walker<'a> {
 
     /// A call that hands over something to be run later: a route, a listener, a
     /// command. The work happens when the handler is called, not when the file loads.
-    /// A handler is a function written in place, a function this file declares, or,
-    /// for a method spelled like a registration (`router.use(auth)`), any name passed
-    /// without being called.
+    /// A handler is a function written in place or a function this file declares. A
+    /// method spelled like a registration (`router.use(auth)`,
+    /// `router.get("/health", healthHandler())`) registers whatever it is handed, so
+    /// any argument other than a plain literal counts.
     fn registers(&self, call: Node<'a>, functions: &HashSet<&str>) -> bool {
         const REGISTRATIONS: [&str; 17] = [
             "use",
@@ -2163,8 +2164,18 @@ impl<'a> Walker<'a> {
                 let named = profile.is_identifier(argument);
                 profile.is_function(argument)
                     || (named && functions.contains(self.text(argument)))
-                    || (registering_method && (named || profile.is_member_access(argument)))
+                    || (registering_method && !self.is_plain_literal(argument))
             })
+    }
+
+    fn is_plain_literal(&self, node: Node<'a>) -> bool {
+        let kind = kind_of(node);
+        self.profile.string_kinds.contains(&kind)
+            || self.profile.number_kinds.contains(&kind)
+            || matches!(
+                self.text(node),
+                "true" | "false" | "null" | "undefined" | "None" | "True" | "False" | "nil"
+            )
     }
 
     /// Reaching for the clock, the environment or a random source from inside a body

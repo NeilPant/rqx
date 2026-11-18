@@ -55,14 +55,14 @@ one decision is spread across files that must be edited together, and nothing in
 | Reads | the syntax tree alone |
 | Fix | Extract Class / Move Method |
 
-From `fixtures/javascript/index.js`, line 1:
+From `fixtures/go/fixtures/lookalikes.go`, line 1:
 
-```js
-export { add, describe } from "./clean";
-export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops } from "./bloat";
+```go
+// Code that resembles a finding and is not one. Every rule should stay silent here.
+package fixtures
 ```
 
-Suggested fix: the decision these two share has no home; move it into one place so `lookalikes.js` stops needing an edit every time this file does
+Suggested fix: the decision these two share has no home; move it into one place so `main.go` stops needing an edit every time this file does
 
 ## `divergent-change`
 
