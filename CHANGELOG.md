@@ -46,9 +46,9 @@ them. `tools/release.sh` turns that section into the release notes.
   as SQL when it opens with the statement keyword in capitals and contains the clause
   that statement needs: `SELECT … FROM`, `UPDATE … SET`, `INSERT INTO … VALUES` or
   `… SELECT`, `DELETE FROM`, `WITH … AS`, or `CREATE TABLE`, `INDEX` or `VIEW`. A file
-  is reported once per language, at its first such string. Files named as a
-  data-access layer (`*.repository.*`, `*Repo*`, `*Dao*`, `*.sql.*`, `queries.*`) and
-  files that register tests are not reported.
+  is reported once per language, at its first such string. Files whose name marks a
+  data-access layer (`users.repository.ts`, `OrderDao.java`, `UserRepo.go`,
+  `report.sql.ts`, `queries.py`) and files that register tests are not reported.
 - **`distant-declaration` and `short-name-wide-scope` count only locals inside a
   body.** Both rules read every local binding, including those declared at the top of
   a module, so a module constant read near the bottom of its file was reported as
@@ -70,10 +70,11 @@ them. `tools/release.sh` turns that section into the release notes.
   on load. A top-level call is now skipped when one of its arguments is a function
   written in place or declared in the file, or, for a method named like a registration
   (`use`, `get`, `post`, `on`, `command`, `register` and similar), any argument other
-  than a plain literal, such as a router or a handler built by a factory call. Files configured in `entrypoints.paths` and files named
-  `index`, `main`, `server`, `app`, `cli` or `__main__` are skipped, since running
-  top-level statements is what they are for. Calls such as `fs.readFileSync(path)` or
-  `connect()` at the top of a module are still reported.
+  than a plain literal, such as a router or a handler built by a factory call. Files
+  configured in `entrypoints.paths` and files named `index`, `main`, `server`, `app`,
+  `cli` or `__main__` are skipped, since running top-level statements is what they are
+  for. Calls such as `fs.readFileSync(path)` or `connect()` at the top of a module are
+  still reported.
 - **`no-base-case` and `branching-recursion` count a call as recursion only when it
   reaches the same function.** A Go method that calls the package function it is named
   after, such as `(c *Command) MarkFlagRequired` calling `MarkFlagRequired`, was read
