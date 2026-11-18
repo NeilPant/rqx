@@ -105,6 +105,22 @@ impl<'a> Grader<'a> {
             })
     }
 
+    /// Whether the function is defined in a class body, directly or under decorators,
+    /// rather than inside another function.
+    fn is_method(&self, function: Node<'a>) -> bool {
+        let mut current = function.parent();
+        while let Some(node) = current {
+            if self.profile.is_class(node) {
+                return true;
+            }
+            if self.profile.is_function(node) {
+                return false;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
     /// A body that only documents, passes or refuses: `...`, `pass`, a docstring, a
     /// lone `raise`, or `raise NotImplementedError` at the end.
     fn is_stub(&self, function: Node<'a>) -> bool {
@@ -206,8 +222,13 @@ impl<'a> Grader<'a> {
         // Python declares no interfaces, so a base class spells one as methods whose
         // body only documents or refuses, for subclasses to override; and a function
         // passed or returned by name is called with whatever its caller supplies.
+        // A method is skipped as well: a base class's default that returns a fixed
+        // answer looks exactly like one that forgot its argument, and without the class
+        // hierarchy the two cannot be told apart (about 5 in 14 right on the standard
+        // library when methods were included).
         if self.profile.language == Language::Python
             && (self.is_stub(function)
+                || self.is_method(function)
                 || name
                     .as_deref()
                     .is_some_and(|name| self.handed_out.contains(name)))
