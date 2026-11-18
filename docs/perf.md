@@ -131,6 +131,11 @@ because the depth is not known.
 A composed cost is only as sure as its least sure part. `rqx perf --explain` lists the
 reasons.
 
+How often the orders matched a hand-worked answer is measured on a corpus of several hundred
+functions, some of them copied from real projects, and published per language and per rule
+in [perf-precision.md](perf-precision.md). `rqx explain RULE` prints the same measured
+precision for each performance rule the corpus scores.
+
 ## Explaining a function
 
 ```sh
