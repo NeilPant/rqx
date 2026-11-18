@@ -80,6 +80,24 @@ pub fn file_uri(path: &Path) -> String {
     format!("file://{}", text.replace(' ', "%20"))
 }
 
+/// A SARIF fixture with each `{root}` replaced by the path of `root` as a file URI
+/// carries it. The text goes through a JSON value, so the path is escaped as JSON and
+/// a Windows backslash or quote cannot corrupt the document.
+pub fn sarif_for(fixture: &str, root: &Path) -> String {
+    fn fill(value: &mut serde_json::Value, root: &str) {
+        match value {
+            serde_json::Value::String(text) => *text = text.replace("{root}", root),
+            serde_json::Value::Array(items) => items.iter_mut().for_each(|item| fill(item, root)),
+            serde_json::Value::Object(map) => map.values_mut().for_each(|item| fill(item, root)),
+            _ => {}
+        }
+    }
+    let mut document: serde_json::Value = serde_json::from_str(fixture).expect("a SARIF fixture");
+    let uri = file_uri(root);
+    fill(&mut document, uri.trim_start_matches("file://"));
+    document.to_string()
+}
+
 /// A throwaway git repository that commits the files it is given, so a test can build
 /// the history a review compares against instead of mocking git.
 pub struct Repository {
