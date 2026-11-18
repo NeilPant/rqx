@@ -1,7 +1,9 @@
 # rqx. The owl at header size: 8x6 pixels, which is eight columns and three rows of
-# terminal cells. The same four frames and the same letters as mascot.txt (S plumage,
-# H shade, T iris, K pupil); `tools/render-mascot.py` reads only that file, so the icons
-# are still drawn from the large owl.
+# terminal cells. The same letters as mascot.txt (S plumage, H shade, T iris, K pupil,
+# `.` transparent); `tools/render-mascot.py` reads only that file, so the icons are
+# still drawn from the large owl. This file also holds the session's motion frames:
+# waking, reading during a scan, idle moves and the verdict faces. owl.rs decides their
+# order and timing.
 #
 # Six pixel rows are too few to downscale the large owl and keep its face, so this one
 # is drawn by hand. The eyes are pixel rows 2 and 3, which share one cell row, so each
@@ -11,6 +13,25 @@
 #
 # A glance moves only the pupils, a pixel to one side inside the same iris, and both
 # eyes look the same way.
+#
+# `idle` stays first, because an unknown frame name falls back to frame 0.
+#
+# The outline and the beak are the same in every frame. A frame changes only the tufts
+# (row 0), the brow (row 1), the eyes (rows 2 and 3) or the chest (row 5), so the face
+# never shifts under an expression.
+#
+# The eye cell has four states. With the pupil on the top row the owl looks ahead; with
+# the pupil on the bottom row it looks down, which is how it reads files during a scan.
+# A lid over the top row is drowsy, and a lid over both rows is closed.
+#
+# The tufts tuck into the head while the owl sleeps, move out one pixel for a twitch and
+# flare to the corners in alarm.
+#
+# `happy` draws two ^ arcs in iris ink on closed lids. In pupil ink the arcs join in the
+# middle and read as a moustache. `content` is the open eye with the cheek raised under
+# the pupil. `worried` lowers the pupils, drops the outer lids and draws the outer brow
+# down from each tuft. The tufts stay put, so a blink from the worried face leaves them
+# where they are.
 #: idle
 .H....H.
 HSSSSSSH
@@ -36,6 +57,97 @@ HSSHHSSH
 .H....H.
 HSSSSSSH
 HTTKTTKH
+HTTTTTTH
+HSSHHSSH
+.HHHHHH.
+#: sleep
+........
+HHSSSSHH
+HSSSSSSH
+HHHHHHHH
+HSSHHSSH
+.HHHHHH.
+#: drowsy
+........
+HHSSSSHH
+HSSSSSSH
+HTKTTKTH
+HSSHHSSH
+.HHHHHH.
+#: half
+.H....H.
+HSSSSSSH
+HSSSSSSH
+HTKTTKTH
+HSSHHSSH
+.HHHHHH.
+#: look-down
+.H....H.
+HSSSSSSH
+HTTTTTTH
+HTKTTKTH
+HSSHHSSH
+.HHHHHH.
+#: look-down-left
+.H....H.
+HSSSSSSH
+HTTTTTTH
+HKTTKTTH
+HSSHHSSH
+.HHHHHH.
+#: look-down-right
+.H....H.
+HSSSSSSH
+HTTTTTTH
+HTTKTTKH
+HSSHHSSH
+.HHHHHH.
+#: twitch-left
+H.....H.
+HSSSSSSH
+HTKTTKTH
+HTTTTTTH
+HSSHHSSH
+.HHHHHH.
+#: twitch-right
+.H.....H
+HSSSSSSH
+HTKTTKTH
+HTTTTTTH
+HSSHHSSH
+.HHHHHH.
+#: breathe
+.H....H.
+HSSSSSSH
+HTKTTKTH
+HTTTTTTH
+HSSHHSSH
+HHHHHHHH
+#: happy
+.H....H.
+HSSSSSSH
+HSTSSTSH
+HTSTTSTH
+HSSHHSSH
+.HHHHHH.
+#: content
+.H....H.
+HSSSSSSH
+HTKTTKTH
+HTSTTSTH
+HSSHHSSH
+.HHHHHH.
+#: worried
+.H....H.
+HHSSSSHH
+HSTTTTSH
+HTKTTKTH
+HSSHHSSH
+.HHHHHH.
+#: alarm
+H......H
+HSSSSSSH
+HTKTTKTH
 HTTTTTTH
 HSSHHSSH
 .HHHHHH.

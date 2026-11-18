@@ -104,16 +104,42 @@ mod tests {
         );
     }
 
+    /// Every frame the session plays, in the order the asset holds them. `idle` is first
+    /// because an unknown name falls back to frame 0.
+    const FRAMES: [&str; 17] = [
+        "idle",
+        "blink",
+        "glance-left",
+        "glance-right",
+        "sleep",
+        "drowsy",
+        "half",
+        "look-down",
+        "look-down-left",
+        "look-down-right",
+        "twitch-left",
+        "twitch-right",
+        "breathe",
+        "happy",
+        "content",
+        "worried",
+        "alarm",
+    ];
+
     #[test]
-    fn the_compact_owl_is_eight_columns_and_three_rows_in_every_frame() {
+    fn the_compact_owl_is_eight_by_six_pixels_in_every_frame() {
         let sprite = Sprite::parse(include_str!("../../assets/mascot-compact.txt"));
         assert_eq!(sprite.width(), 8);
         assert_eq!(sprite.cell_height(), 3);
-        assert_eq!(sprite.frames(), 4);
-        let glances = ["glance-left", "glance-right"].map(|name| sprite.frame(name));
-        assert!(
-            glances.iter().all(|frame| *frame != 0),
-            "a glance is its own frame"
-        );
+        assert_eq!(sprite.frames(), FRAMES.len());
+        for (at, name) in FRAMES.iter().enumerate() {
+            assert_eq!(sprite.frame(name), at, "{name} is not where it should be");
+            let pixels = sprite.pixels(at);
+            assert_eq!(pixels.len(), 6, "{name} is not six pixels tall");
+            assert!(
+                pixels.iter().all(|row| row.len() == 8),
+                "{name} is not eight pixels wide"
+            );
+        }
     }
 }
