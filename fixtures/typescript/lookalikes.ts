@@ -148,3 +148,13 @@ export class Stamp {
     return "[" + this.label + "]";
   }
 }
+
+// empty-catch: a catch that says why it does nothing has handled the error.
+export function parsedOrNothing(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Malformed input means no settings, which the caller already handles.
+  }
+  return undefined;
+}

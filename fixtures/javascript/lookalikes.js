@@ -52,6 +52,16 @@ function shout(payload) {
 events.on("shout", shout);
 events.on("trim", (payload) => payload.trim());
 
+// empty-catch: a catch that says why it does nothing has handled the error.
+export function parsedOrNothing(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Malformed input means no settings, which the caller already handles.
+  }
+  return undefined;
+}
+
 // no-base-case: the method calls the function it is named after, not itself.
 function render(text) {
   return text.trim();

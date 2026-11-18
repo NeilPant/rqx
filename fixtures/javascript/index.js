@@ -32,4 +32,4 @@ export { Shape, RedCircle, RedSquare, BlueCircle, BlueSquare } from "./families"
 export { Expression, Literal, Sum, Product, Printer } from "./families";
 export { restated, compared, sameEitherWay, decidedNothing, buriedExits, assigns, wideSwitch, deeplyNestedCallbacks, trailingJump, twoArmed, settled, dropped, tierOf, admits, changed, labelOf, firstOf, freshTotal, asksTwice, joined, fallsThrough, Settled } from "./flow";
 export { keepWanted, sumCube, queryEach, readEach, countDigits, flattenByCopy, fibonacci, settingsOf, schedules, prunes, bothWaits, guards, tabsOpen, paced, openTabs, fires, prunesStale, Poller } from "./performance";
-export { scaled, counted, delay, updateFailure, zoneLabel, timeoutBudget, events, Page, suffixed, laterEach, spelled } from "./lookalikes";
+export { scaled, counted, delay, updateFailure, zoneLabel, timeoutBudget, events, Page, suffixed, laterEach, spelled, parsedOrNothing } from "./lookalikes";

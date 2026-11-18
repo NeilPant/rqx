@@ -131,5 +131,6 @@ public class Main {
         new Lookalikes().total(new String[0]);
         new Lookalikes().spelled("a");
         new Lookalikes().longest(new String[0]);
+        new Lookalikes().parsedOrZero("a");
     }
 }

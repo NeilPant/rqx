@@ -1493,6 +1493,24 @@ impl<'a> Walker<'a> {
         }
     }
 
+    /// A catch whose body does nothing and says nothing. A comment is the reason the
+    /// rule asks for; Python's sits beside the block rather than in it, so the whole
+    /// clause is searched.
+    fn swallows_silently(&self, catch: Node<'a>) -> bool {
+        let profile = self.profile;
+        let does_nothing = catch
+            .child_by_field_name("body")
+            .or_else(|| catch.named_child(catch.named_child_count().saturating_sub(1)))
+            .is_some_and(|body| {
+                body.named_children(&mut body.walk())
+                    .all(|child| profile.empty_body_kinds.contains(&kind_of(child)))
+            });
+        does_nothing
+            && !descendants(catch)
+                .into_iter()
+                .any(|node| profile.is_comment(node))
+    }
+
     /// A catch that catches only to raise the same thing again. The handler reads as
     /// a decision and makes none.
     fn note_rethrow_only_catch(&mut self, node: Node<'a>) {
@@ -5469,15 +5487,7 @@ impl<'a> Walker<'a> {
                 self.name_the_body(&text, span_of(name), self.function_body(node));
             }
         }
-        if profile.catch_kinds.contains(&kind)
-            && node
-                .child_by_field_name("body")
-                .or_else(|| node.named_child(node.named_child_count().saturating_sub(1)))
-                .is_some_and(|body| {
-                    body.named_children(&mut body.walk())
-                        .all(|child| profile.empty_body_kinds.contains(&kind_of(child)))
-                })
-        {
+        if profile.catch_kinds.contains(&kind) && self.swallows_silently(node) {
             self.out.empty_catches.push(Spot {
                 span: span_of(node),
                 detail: "catch clause".to_owned(),

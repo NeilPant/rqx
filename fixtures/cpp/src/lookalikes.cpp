@@ -29,6 +29,16 @@ std::string zone_label() {
     return "zone " + tz;
 }
 
+// empty-catch: a catch that says why it does nothing has handled the error.
+int parsed_or_zero(const std::string& text) {
+    try {
+        return std::stoi(text);
+    } catch (const std::invalid_argument&) {
+        // Malformed input counts as zero, which every caller expects.
+    }
+    return 0;
+}
+
 // magic-number: each 30 below is the value of a declaration, which names it.
 const int connect_timeout_seconds = 30;
 const int read_timeout_seconds = 30;

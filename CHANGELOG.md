@@ -152,6 +152,15 @@ them. `tools/release.sh` turns that section into the release notes.
   key, so the first scan after an edit analyses every file again. Projects without
   custom rules see no change.
 
+- **`empty-catch` no longer reports a catch clause that holds a comment.** In 0.5.1 a
+  comment counted as part of an empty body, so
+  `catch (error) { /* the default applies */ }` was reported, although the rule's fix
+  hint asks for the reason to be written down. A catch clause with a comment anywhere in it is no longer reported in
+  JavaScript, TypeScript, Python, Java or C++, including Python's
+  `except ValueError:  # optional` with the comment on the `except` line. A clause with
+  no comment and an empty body, such as `{}`, `{ ; }` or a bare `pass`, is still
+  reported.
+
 ## 0.5.1 — 2026-11-18
 
 

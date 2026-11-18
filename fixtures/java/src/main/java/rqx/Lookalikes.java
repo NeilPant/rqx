@@ -81,4 +81,14 @@ public class Lookalikes {
     public String updateFailure(String id) {
         return "Failed to update user " + id;
     }
+
+    // empty-catch: a catch that says why it does nothing has handled the error.
+    public int parsedOrZero(String text) {
+        try {
+            return Integer.decode(text);
+        } catch (NumberFormatException malformed) {
+            // Malformed input counts as zero, which every caller expects.
+        }
+        return 0;
+    }
 }

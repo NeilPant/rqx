@@ -129,6 +129,7 @@ int main() {
     spelled("a");
     Meter(2).scaled(1);
     longest({});
+    parsed_or_zero("1");
     adder(1)(2);
     return 0;
 }
