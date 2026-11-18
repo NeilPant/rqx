@@ -4,7 +4,8 @@
 //! next, and then the owl looks up and around. While the header is live at the prompt,
 //! the owl in it wakes up, reacts to the verdict, rests on the verdict's face, and makes
 //! one small move every few seconds; a keystroke stops it. The header that goes into
-//! scrollback carries the still frame.
+//! scrollback carries the still frame. After a later scan the busy owl plays the same
+//! reaction before its rows go away.
 //! With motion off it is the still frame always. The plumage follows the verdict, which
 //! is the caller's to say: this only picks the frame.
 //!
@@ -114,6 +115,12 @@ impl Verdict {
             Self::Fair => &[("look-down", 8), ("half", 10), ("blink", 3), ("idle", 3)],
             Self::Poor => &[("alarm", 5), ("worried", 7), ("blink", 3), ("worried", 9)],
         }
+    }
+
+    /// How long the reaction plays, which is how long the busy owl stays on screen for
+    /// it after a later scan.
+    pub fn reaction_time(self) -> Duration {
+        FRAME * length(self.reaction())
     }
 
     /// The face the owl rests on until the next verdict.
@@ -390,6 +397,22 @@ impl Owl {
         self.posed(name, palette, signal)
     }
 
+    /// The busy owl reacting to a verdict `elapsed` after the reaction began, on its last
+    /// frame once the reaction is over. It is the reaction the header owl plays.
+    pub fn reacting(
+        &self,
+        verdict: Verdict,
+        elapsed: Duration,
+        palette: Palette,
+        signal: Ink,
+    ) -> Vec<Line<'static>> {
+        let steps = verdict.reaction();
+        let name = frame_in(steps, ticks(elapsed))
+            .or_else(|| steps.last().map(|&(frame, _)| frame))
+            .unwrap_or("idle");
+        self.posed(name, palette, signal)
+    }
+
     /// The still owl a header carries, which cannot move because scrollback cannot.
     pub fn still(&self, palette: Palette, signal: Ink) -> Vec<Line<'static>> {
         self.posed("idle", palette, signal)
@@ -624,6 +647,27 @@ mod tests {
             assert_eq!(frames[0], first, "{verdict:?}");
             assert_eq!(frames[24], rest, "{verdict:?}");
         }
+    }
+
+    #[test]
+    fn the_busy_owls_reaction_lasts_as_long_as_the_header_owls() {
+        for verdict in [Verdict::Good, Verdict::Fair, Verdict::Poor] {
+            assert_eq!(verdict.reaction_time(), FRAME * 24, "{verdict:?}");
+        }
+    }
+
+    #[test]
+    fn the_busy_owl_reacts_with_the_verdicts_frames_and_holds_the_last_one() {
+        let owl = owl();
+        let palette = Palette::with_depth(ColorDepth::Monochrome);
+        let at = |verdict, tick: u32| owl.reacting(verdict, FRAME * tick, palette, Ink::Accent);
+        let posed = |name| owl.posed(name, palette, Ink::Accent);
+        assert_eq!(at(Verdict::Good, 0), posed("blink"));
+        assert_eq!(at(Verdict::Good, 3), posed("happy"));
+        assert_eq!(at(Verdict::Fair, 8), posed("half"));
+        assert_eq!(at(Verdict::Poor, 4), posed("alarm"));
+        assert_eq!(at(Verdict::Poor, 5), posed("worried"));
+        assert_eq!(at(Verdict::Poor, 500), posed("worried"), "held once over");
     }
 
     #[test]

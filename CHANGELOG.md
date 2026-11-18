@@ -34,9 +34,12 @@ them. `tools/release.sh` turns that section into the release notes.
   else, then move into scrollback where they were printed before. Until then the owl
   in the header wakes up, reacts to the health score (a smile at 80 or more, a look
   down from 50 to 79, a worried face below 50), rests on that face and makes a small
-  move every 4 to 10 seconds. A key press returns it to its resting face. With
-  `--motion off`, or on a window too short for the redrawn rows, the owl is still and
-  the header goes straight into scrollback as before.
+  move every 4 to 10 seconds. A key press returns it to its resting face. A scan that
+  finishes later (`/rescan`, or the rescan after `/waive` or `/fix --write`) prints its
+  summary at once and keeps the busy owl on screen for the same reaction, in the colour
+  of the new score, with a one-line result beside it in place of the spinner. Any key
+  ends it and is handled as usual. With `--motion off`, or on a window too short for the
+  redrawn rows, the owl is still and the header goes straight into scrollback as before.
 
 ### Added
 

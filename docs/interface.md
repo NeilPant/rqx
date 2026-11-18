@@ -63,6 +63,14 @@ moves:
 | Health below 50 | Flares its ear tufts, then lowers its brow and eyes. It rests on a worried face. |
 | At rest | Makes one small move every 4 to 10 seconds, chosen at random: a blink, a glance, a look down, a tuft twitch or a breath. |
 | A key is pressed | Returns to its resting face. The next move waits at least 4 seconds. |
+| A later scan finishes | The owl beside the spinner plays the same 0.8 s reaction before its rows go away. See below. |
+
+When a later scan finishes (`/rescan`, or the rescan that follows `/waive` and
+`/fix --write`), its summary goes into scrollback at once. The owl stays in its rows
+for the reaction, in the colour of the new score, and the spinner line becomes a
+one-line result such as `✓ health 46 · 1,578 findings`. Any key ends the reaction and
+is then handled as usual, so the prompt is never kept waiting. Commands that report
+without scanning, such as `/rules` or `/slop`, do not trigger a reaction.
 
 The owl's colouring follows the health score. When the window is too short to hold
 the header, the findings and the prompt (with its command list when that is open),
@@ -70,7 +78,8 @@ the header and the findings go straight into scrollback and the owl in them does
 move.
 
 `--motion off` draws the owl still everywhere: the neutral face in the colour of the
-score. The header and the findings go into scrollback as soon as the scan finishes.
+score. The header and the findings go into scrollback as soon as the scan finishes,
+and a later scan has no reaction. The same holds on a window shorter than 14 rows.
 
 The line under the prompt shows `? for shortcuts` on the left and, on the right, the
 health, the grade, the findings and `watching` when it is on. When the window is too

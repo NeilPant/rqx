@@ -25,6 +25,8 @@ pub const IDLE_ROWS: u16 = 4;
 const TOP_FINDINGS: usize = 5;
 const SHORTCUTS_HINT: &str = "? for shortcuts";
 const OWL_GAP: &str = "  ";
+/// What the row under the busy owl says while a job runs.
+pub const CANCEL_HINT: &str = " ctrl-c cancels";
 
 pub struct Look {
     pub palette: Palette,
@@ -45,12 +47,14 @@ impl Look {
 }
 
 /// The owl on the left and what the session is busy with beside it. `text` is built
-/// for the room `text_width` says there is, and is as tall as the owl.
+/// for the room `text_width` says there is, and is as tall as the owl. `hint` is the
+/// row under them.
 pub fn working(
     frame: &mut Frame<'_>,
     look: &Look,
     owl: Vec<Line<'static>>,
     text: Vec<Line<'static>>,
+    hint: &str,
 ) {
     let [body, hints] =
         Layout::vertical([Constraint::Length(SCANNING_ROWS - 1), Constraint::Length(1)])
@@ -62,10 +66,7 @@ pub fn working(
     .areas(body);
     frame.render_widget(Paragraph::new(owl), art);
     frame.render_widget(Paragraph::new(text), beside);
-    frame.render_widget(
-        Paragraph::new(Line::styled(" ctrl-c cancels", look.dim())),
-        hints,
-    );
+    frame.render_widget(Paragraph::new(Line::styled(hint, look.dim())), hints);
 }
 
 fn owl_columns(owl: &[Line<'static>]) -> u16 {
@@ -84,6 +85,22 @@ pub fn busy_lines(look: &Look, spinner: char, doing: &str) -> Vec<Line<'static>>
         Line::from(vec![
             Span::styled(format!("{spinner} "), look.bold(Ink::Accent)),
             Span::styled(doing.to_owned(), look.bold(Ink::Accent)),
+        ]),
+        Line::raw(""),
+    ]
+}
+
+/// The scan's result in the place of the spinner while the owl reacts to it, in the
+/// colour of the verdict, so the rows keep the layout they had while the scan ran.
+pub fn result_lines(look: &Look, ink: Ink, health: u32, findings: u32) -> Vec<Line<'static>> {
+    vec![
+        Line::raw(""),
+        Line::from(vec![
+            Span::styled("\u{2713} ", look.bold(ink)),
+            Span::styled(
+                format!("health {health} \u{b7} {} findings", thousands(findings)),
+                look.bold(ink),
+            ),
         ]),
         Line::raw(""),
     ]
@@ -995,7 +1012,7 @@ mod tests {
             .draw(|frame| {
                 let art = owl(&look);
                 let text = progress_lines(&look, '\u{280b}', &progress, text_width(&art, 60));
-                working(frame, &look, art, text);
+                working(frame, &look, art, text, CANCEL_HINT);
             })
             .unwrap();
         let text = screen(&terminal).join("\n");
@@ -1003,6 +1020,41 @@ mod tests {
         assert!(text.contains("src/api/client.ts"));
         assert!(text.contains("31 findings so far"));
         assert!(text.contains("ctrl-c cancels"));
+    }
+
+    #[test]
+    fn the_result_takes_the_spinners_line_beside_the_owl() {
+        let mut terminal = Terminal::new(TestBackend::new(60, SCANNING_ROWS)).unwrap();
+        let look = look();
+        terminal
+            .draw(|frame| {
+                let art = owl(&look);
+                let text = result_lines(&look, Ink::Danger, 46, 1578);
+                assert_eq!(text.len(), art.len(), "as tall as the owl");
+                working(frame, &look, art, text, "");
+            })
+            .unwrap();
+        let rows = screen(&terminal);
+        assert!(
+            rows[1].contains("\u{2713} health 46 \u{b7} 1,578 findings"),
+            "{rows:?}"
+        );
+        assert!(!rows.join("\n").contains("cancels"));
+    }
+
+    #[test]
+    fn the_result_is_in_the_verdicts_colour() {
+        let look = Look {
+            palette: Palette::with_depth(ColorDepth::Truecolor),
+        };
+        let lines = result_lines(&look, Ink::Danger, 46, 1578);
+        let colour = look.palette.color(Ink::Danger);
+        assert!(
+            lines[1]
+                .spans
+                .iter()
+                .all(|span| span.style.fg == Some(colour))
+        );
     }
 
     #[test]
