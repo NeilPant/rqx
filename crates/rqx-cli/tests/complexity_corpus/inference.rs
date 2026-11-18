@@ -224,6 +224,12 @@ fn classify(found: [&Order; 2], expected: [&Order; 2]) -> Outcome {
     }
 }
 
+/// Whether two times are the same once the sizes are named alike.
+pub fn same_time_up_to_naming(found: &Order, expected: &Order) -> bool {
+    let one = Order::one();
+    same_up_to_naming([found, &one], [expected, &one])
+}
+
 fn same_up_to_naming(found: [&Order; 2], expected: [&Order; 2]) -> bool {
     if found == expected {
         return true;

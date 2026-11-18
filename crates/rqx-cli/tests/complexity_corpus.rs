@@ -275,12 +275,9 @@ fn the_extraction_gets_the_own_time_of_every_local_function_right() {
             .filter(|found| found.name == function.name)
             .filter(|found| found.line as usize >= function.annotation.target_line)
             .min_by_key(|found| found.line)
-            .map_or_else(
-                || Order::one().to_string(),
-                |found| local::time(found, &tables).to_string(),
-            );
-        let expected = function.annotation.time.to_string();
-        if found != expected {
+            .map_or_else(Order::one, |found| local::time(found, &tables));
+        let expected = &function.annotation.time;
+        if !inference::same_time_up_to_naming(&found, expected) {
             wrong.push(format!("{id}: annotated {expected}, extracted {found}"));
         }
     }

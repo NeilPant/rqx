@@ -12,7 +12,9 @@
 //! `linear-op-in-loop` overlap this way on a call that walks a collection in a loop.
 //! `scope=local` says the time is what the function costs on its own, with no call to
 //! another function and no recursion in it, so the per-file extraction alone can be
-//! held to it. Values may hold spaces (`O(n log n)`), so a field runs until the next
+//! held to it. A function the extraction gets wrong is left unmarked, so that the check
+//! stays a hard one for the functions it covers and the miss is still scored in the
+//! composed outcome. Values may hold spaces (`O(n log n)`), so a field runs until the next
 //! `key=`.
 
 use std::fmt;
