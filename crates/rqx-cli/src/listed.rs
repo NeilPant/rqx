@@ -104,9 +104,12 @@ mod tests {
         let root = std::env::temp_dir().join(format!("rqx-listed-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("src")).expect("a directory");
-        for file in ["src/a.ts", "src/b.ts", "weird\nname.ts"] {
+        for file in ["src/a.ts", "src/b.ts"] {
             std::fs::write(root.join(file), "export {}\n").expect("a file");
         }
+        // Windows refuses a newline in a file name; the case only exists elsewhere.
+        #[cfg(unix)]
+        std::fs::write(root.join("weird\nname.ts"), "export {}\n").expect("a file");
         root
     }
 
@@ -125,6 +128,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn nul_separated_input_keeps_a_newline_inside_a_name() {
         let root = project("nul");
         let listed = Listed::parse(b"src/a.ts\0weird\nname.ts\0", &root);

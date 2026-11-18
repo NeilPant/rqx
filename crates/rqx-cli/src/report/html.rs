@@ -1128,21 +1128,28 @@ mod tests {
 
     #[test]
     fn source_text_cannot_become_markup() {
+        // Windows refuses `<` and `>` in a file name, so there the name's own markup is
+        // an ampersand; the source text is checked the same everywhere.
+        let (name, escaped) = if cfg!(windows) {
+            ("a&b.ts", "a&amp;b.ts")
+        } else {
+            ("<b>.ts", "&lt;b&gt;.ts")
+        };
         let scratch = Scratch::with(
             "escape",
-            "<b>.ts",
+            name,
             "const a = '<script>alert(1)</script>'\nconst b = 1\n",
         );
-        let mut outcome = outcome_of(&[(RuleId::LongFunction, "<b>.ts")]);
+        let mut outcome = outcome_of(&[(RuleId::LongFunction, name)]);
         outcome.root = scratch.0.clone();
         outcome.findings[0].fix_hint = "<img src=x onerror=alert(1)>".to_owned();
 
         let page = page_of(&outcome);
         assert!(!page.contains("<script"), "{page}");
         assert!(!page.contains("<img"), "{page}");
-        assert!(!page.contains("<b>.ts"), "{page}");
+        assert!(!page.contains(name), "{page}");
         assert!(page.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
-        assert!(page.contains("&lt;b&gt;.ts"));
+        assert!(page.contains(escaped));
         assert_well_formed(&page);
     }
 
