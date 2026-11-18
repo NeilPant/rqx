@@ -215,7 +215,7 @@ impl App {
         let (path, config) = (self.path.clone(), self.uncapped_config());
         self.progress = ScanProgress::default();
         let job = Job::start(move |watch| {
-            scan::scan_with_progress(&path, &config, watch)
+            scan::scan_costed(&path, &config, Some(watch))
                 .map(|outcome| Done::Scanned(Box::new(outcome)))
         });
         self.job = Some((job, Busy::Scanning));

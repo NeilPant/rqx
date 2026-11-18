@@ -498,6 +498,15 @@ enum Command {
         /// Skip entries whose loops nest less deeply than this
         #[arg(long, default_value_t = 0)]
         min_depth: u32,
+        /// Show how one function's cost was derived: its loops, where each bound came
+        /// from, what each callee costs and why the analysis is as sure as it is. Name
+        /// it as `name`, `Class.method` or `file:line`
+        #[arg(
+            long,
+            value_name = "FUNCTION",
+            conflicts_with_all = ["by", "sort", "top", "min_depth"]
+        )]
+        explain: Option<String>,
         /// A CPU profile; a finding in code that nothing ran stops counting. A V8
         /// .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are
         /// detected by content.
@@ -2213,6 +2222,7 @@ fn run() -> Result<Exit> {
             sort,
             top,
             min_depth,
+            explain,
             profile,
             json,
             printing,
@@ -2237,14 +2247,11 @@ fn run() -> Result<Exit> {
                 min_depth,
             };
             sink::deliver(&sinks, palette, |rendering, palette, out| {
-                render::perf(
-                    &outcome,
-                    &view,
-                    rendering.is_json(),
-                    &settings,
-                    palette,
-                    out,
-                )
+                let json = rendering.is_json();
+                match &explain {
+                    Some(target) => render::perf_explain(&outcome, target, json, palette, out),
+                    None => render::perf(&outcome, &view, json, &settings, palette, out),
+                }
             })
             .map(|()| Exit::Clean)
         }

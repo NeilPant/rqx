@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-perf \- Report code whose work grows faster than its input, ranked by reach
 .SH SYNOPSIS
-\fBrqx perf\fR [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\-depth\fR] [\fB\-\-profile\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx perf\fR [\fB\-\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-min\-depth\fR] [\fB\-\-explain\fR] [\fB\-\-profile\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Report code whose work grows faster than its input, ranked by reach
 .SH OPTIONS
@@ -50,6 +50,9 @@ How many rows
 .TP
 \fB\-\-min\-depth\fR \fI<MIN_DEPTH>\fR [default: 0]
 Skip entries whose loops nest less deeply than this
+.TP
+\fB\-\-explain\fR \fI<FUNCTION>\fR
+Show how one function\*(Aqs cost was derived: its loops, where each bound came from, what each callee costs and why the analysis is as sure as it is. Name it as `name`, `Class.method` or `file:line`
 .TP
 \fB\-\-profile\fR \fI<FILE>\fR
 A CPU profile; a finding in code that nothing ran stops counting. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content

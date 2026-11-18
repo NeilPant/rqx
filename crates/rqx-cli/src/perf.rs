@@ -17,6 +17,7 @@ use rqx_core::rule::Category;
 use crate::brand::{Ink, Palette, paint};
 use crate::scan::ScanOutcome;
 
+mod explain;
 mod measure;
 
 use measure::{Measure, align, measure_of};
@@ -451,6 +452,38 @@ fn figures(row: &Row, profiled: bool) -> Vec<String> {
         figures.push(share_text(row.sampled, profiled));
     }
     figures
+}
+
+/// `--explain`: how one function's cost was derived. Fails when the name matches no
+/// function or more than one.
+pub fn explain(
+    outcome: &ScanOutcome,
+    target: &str,
+    json: bool,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let explanation = explain::explain(outcome, target)?;
+    if json {
+        writeln!(out, "{}", explanation.json())?;
+        return Ok(());
+    }
+    writeln!(out)?;
+    for line in explanation.lines() {
+        let heading = !line.is_empty() && !line.starts_with([' ', '\u{2514}', '\u{251c}']);
+        let style = if heading {
+            palette.bold(Ink::Text)
+        } else {
+            palette.style(Ink::Text)
+        };
+        if line.is_empty() {
+            writeln!(out)?;
+        } else {
+            writeln!(out, "  {}", paint(style, line))?;
+        }
+    }
+    writeln!(out)?;
+    Ok(())
 }
 
 fn summary(outcome: &ScanOutcome, threshold: u32) -> String {

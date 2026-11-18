@@ -98,7 +98,6 @@ impl Measure {
 
     /// The sizes the orders are written in, in the order of their letters.
     pub fn variables(&self) -> Vec<Variable> {
-        let vars = self.vars();
         [&self.time, &self.space, &self.io]
             .into_iter()
             .flat_map(|order| order.terms())
@@ -106,14 +105,25 @@ impl Measure {
             .map(|(id, _, _)| *id)
             .collect::<BTreeSet<SizeId>>()
             .into_iter()
-            .map(|id| Variable {
-                id: standard_name(id),
-                name: name_of(vars, id),
-                source: vars
-                    .get(usize::from(id))
-                    .map_or("not named", |var| source_of(&var.src)),
+            .map(|id| {
+                let (name, source) = self.size(id);
+                Variable {
+                    id: standard_name(id),
+                    name,
+                    source,
+                }
             })
             .collect()
+    }
+
+    /// What a size variable of this function is called and where it comes from.
+    pub fn size(&self, id: SizeId) -> (String, &'static str) {
+        let vars = self.vars();
+        (
+            name_of(vars, id),
+            vars.get(usize::from(id))
+                .map_or("not named", |var| source_of(&var.src)),
+        )
     }
 
     fn vars(&self) -> &[SizeVar] {
@@ -169,6 +179,14 @@ fn heavier(left: Order, right: Order) -> Order {
 /// leave out when its body never measures that parameter. The composition adds it as the
 /// next variable, and the orders say so.
 fn name_the_depth(vars: &mut Vec<SizeVar>, facts: &FunctionCost, summary: &Summary) {
+    let recurses = facts.rec.is_some()
+        || summary
+            .trace
+            .iter()
+            .any(|step| step.what.ends_with("recursion"));
+    if !recurses {
+        return;
+    }
     let next = SizeId::try_from(vars.len()).unwrap_or(SizeId::MAX);
     let used = |order: &Order| {
         order
@@ -370,6 +388,36 @@ mod tests {
         assert_eq!(
             named,
             [("n", "orders", "parameter"), ("m", "prices", "parameter")]
+        );
+    }
+
+    #[test]
+    fn a_recursion_is_measured_in_the_parameter_that_shrinks_and_nothing_else_is_renamed() {
+        let counting = Summary {
+            time: "O(n)".parse().unwrap(),
+            trace: vec![TraceStep {
+                what: "recursion".to_owned(),
+                ..TraceStep::default()
+            }],
+            ..Summary::default()
+        };
+        let mut facts = facts(&[]);
+        facts.params = vec![rqx_core::cost::Param {
+            name: "count".to_owned(),
+            type_head: None,
+        }];
+        let recursive = Measure::of(Some(&counting), Some(&facts));
+        assert_eq!(recursive.expression(&recursive.time), "O(count)");
+
+        let looping = Summary {
+            trace: Vec::new(),
+            ..counting
+        };
+        let unread = Measure::of(Some(&looping), Some(&facts));
+        assert_eq!(
+            unread.expression(&unread.time),
+            "O(?0)",
+            "a size nothing names is not a parameter"
         );
     }
 

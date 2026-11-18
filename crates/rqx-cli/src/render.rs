@@ -119,6 +119,16 @@ pub fn perf(
     perf::render(outcome, view, threshold, palette, out)
 }
 
+pub fn perf_explain(
+    outcome: &ScanOutcome,
+    target: &str,
+    json: bool,
+    palette: Palette,
+    out: &mut dyn Write,
+) -> Result<()> {
+    perf::explain(outcome, target, json, palette, out)
+}
+
 pub fn recommend(
     outcome: &ScanOutcome,
     settings: &Resolved,

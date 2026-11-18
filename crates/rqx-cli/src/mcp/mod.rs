@@ -91,10 +91,11 @@ impl Rqx {
 
         let settings = Arc::clone(&self.settings);
         let target = scanned.clone();
-        let outcome = tokio::task::spawn_blocking(move || scan::scan(&target, &settings))
-            .await
-            .map_err(|error| McpError::internal_error(error.to_string(), None))?
-            .map_err(|error| McpError::internal_error(format!("{error:#}"), None))?;
+        let outcome =
+            tokio::task::spawn_blocking(move || scan::scan_costed(&target, &settings, None))
+                .await
+                .map_err(|error| McpError::internal_error(error.to_string(), None))?
+                .map_err(|error| McpError::internal_error(format!("{error:#}"), None))?;
 
         let snapshot = Arc::new(Snapshot {
             id: self.scans.fetch_add(1, Ordering::Relaxed),

@@ -323,7 +323,6 @@ pub struct CostFacts {
     pub links: rqx_lang::cost::compose::CallLinks,
     /// The tables the facts were extracted against. A library call in the facts is an
     /// index into them, so reading it back needs the same ones.
-    #[allow(dead_code)]
     pub tables: Arc<rqx_lang::cost::tables::CostTables>,
 }
 
@@ -347,7 +346,6 @@ impl CostFacts {
             .map(|file| &file.cost)
     }
 
-    #[allow(dead_code)]
     pub fn function(&self, file: &str, start: u32) -> Option<&rqx_core::cost::FunctionCost> {
         self.of_file(file)?
             .functions
@@ -2660,6 +2658,19 @@ pub fn scan_drawn(
     mode: crate::progress::Mode,
 ) -> Result<ScanOutcome> {
     scan_drawn_against(root, settings, mode, Comparison::default())
+}
+
+/// A scan that keeps the cost facts, for the callers that explain a cost: the session and
+/// the MCP server, which a person or an agent asks about any function.
+pub fn scan_costed(root: &Path, settings: &Resolved, watch: Option<Watch>) -> Result<ScanOutcome> {
+    scan_against(
+        root,
+        settings,
+        watch,
+        CachePolicy::FromSettings,
+        Comparison::costed(),
+        None,
+    )
 }
 
 /// `scan_drawn` for a caller that holds on to more than the answer, as `comparison` says.
