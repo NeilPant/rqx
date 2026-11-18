@@ -179,6 +179,17 @@ them. `tools/release.sh` turns that section into the release notes.
   `describe.only`, `it.skip`, `it.todo` and dotted forms such as `fit.each` are
   reported as before.
 
+- **`no-base-case` and `branching-recursion` no longer give a callback the name of the
+  variable its caller's result is stored in.** In 0.5.1 a declaration or class field
+  passed its name to the first function anywhere in its initialiser. In
+  `const unsubscribe = bus.subscribe(() => { unsubscribe(); })` the callback was named
+  `unsubscribe` and reported as recursion with no base case, and
+  `private stop = bus.on(() => this.stop())` was reported the same way. A function now
+  takes the name only when it is the value itself, with or without parentheses. Other
+  function findings on such a callback report it as unnamed, at its first line.
+  `const spin = (n) => spin(n)` and recursive functions and methods are reported as
+  before.
+
 ## 0.5.1 — 2026-11-18
 
 

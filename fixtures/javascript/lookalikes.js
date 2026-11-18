@@ -52,6 +52,18 @@ function shout(payload) {
 events.on("shout", shout);
 events.on("trim", (payload) => payload.trim());
 
+function subscribe(handler) {
+  events.on("close", handler);
+  return () => events.off("close", handler);
+}
+
+// no-base-case: the callback calls the function `subscribe` returned, not itself.
+export function listenOnce() {
+  const unsubscribe = subscribe(() => {
+    unsubscribe();
+  });
+}
+
 // focused-test: `fit` is this file's own function, and fitting a width is not a test.
 function fit(width, limit) {
   return Math.max(0, Math.min(width, limit));

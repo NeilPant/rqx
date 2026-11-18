@@ -149,6 +149,18 @@ export class Stamp {
   }
 }
 
+function subscribe(handler: () => void): () => void {
+  events.on("close", handler);
+  return () => events.off("close", handler);
+}
+
+// no-base-case: the callback calls the function `subscribe` returned, not itself.
+export function listenOnce(): void {
+  const unsubscribe = subscribe(() => {
+    unsubscribe();
+  });
+}
+
 // focused-test: `fit` is this file's own function, and fitting a width is not a test.
 function fit(width: number, limit: number): number {
   return Math.max(0, Math.min(width, limit));

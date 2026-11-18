@@ -260,3 +260,94 @@ fn a_check_against_itself_is_reported_only_when_neither_side_runs_code() {
         );
     }
 }
+
+#[test]
+fn a_callback_does_not_take_the_name_its_caller_result_is_bound_to() {
+    let cases = [
+        (
+            Language::TypeScript,
+            "a.ts",
+            "const spin = (n) => spin(n);\n",
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.ts",
+            "const spin = ((n) => spin(n));\n",
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.ts",
+            "const spin = function (n) { return spin(n); };\n",
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.ts",
+            "function spin(n) { return spin(n); }\n",
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.ts",
+            "class A { spin(n) { return this.spin(n); } }\n",
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.ts",
+            "class A { private spin = (n) => this.spin(n); }\n",
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.ts",
+            "const unsubscribe = bus.subscribe(() => { unsubscribe(); });\n",
+            0,
+        ),
+        (
+            Language::TypeScript,
+            "a.ts",
+            "class A { private stop = bus.on(() => this.stop()); }\n",
+            0,
+        ),
+        (
+            Language::JavaScript,
+            "a.js",
+            "const unsubscribe = bus.subscribe(() => { unsubscribe(); });\n",
+            0,
+        ),
+        (
+            Language::Python,
+            "a.py",
+            "def spin(n):\n    return spin(n)\n",
+            1,
+        ),
+        (
+            Language::Go,
+            "a.go",
+            "package a\n\nfunc Spin(n int) int {\n\treturn Spin(n)\n}\n",
+            1,
+        ),
+        (
+            Language::Java,
+            "A.java",
+            "class A { int spin(int n) { return spin(n); } }\n",
+            1,
+        ),
+        (
+            Language::Cpp,
+            "a.cpp",
+            "int spin(int n) { return spin(n); }\n",
+            1,
+        ),
+    ];
+    for (language, display, source, expected) in cases {
+        assert_eq!(
+            count(language, display, source, RuleId::NoBaseCase),
+            expected,
+            "{source}"
+        );
+    }
+}
