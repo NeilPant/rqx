@@ -14,6 +14,9 @@ use crate::progress::Mode;
 use crate::report::Report;
 use crate::scan::{self, ScanOutcome};
 
+mod build;
+mod package;
+
 #[derive(Clone, Debug, Default)]
 pub struct Options {
     pub write: bool,
@@ -25,6 +28,9 @@ pub struct Options {
     /// Plan edits for this rule alone. The other findings still take part in
     /// verification, so a narrowed fix is held to the same standard as a full one.
     pub rule: Option<RuleId>,
+    /// Also run `go vet` on a copy of each Go module with the round's edits applied,
+    /// and withhold the module's edits if it fails.
+    pub verify_build: bool,
 }
 
 /// One file's proven edits, with the text before and after so a preview renders
@@ -54,6 +60,8 @@ pub struct Round {
     pub withheld: Vec<Withholding>,
     /// Findings the round could not answer mechanically: the ones a person decides.
     pub undecided: u32,
+    /// Findings with a mechanical fix that `fix.min_confidence` leaves to a person.
+    pub below_floor: u32,
     pub files_scanned: u32,
     /// Project-scoped findings the next scan reported that the previous one did not.
     /// One file's verification cannot see these, so they are named after the fact
@@ -82,6 +90,12 @@ impl Outcome {
 
     pub fn withheld(&self) -> impl Iterator<Item = &Withholding> {
         self.rounds.iter().flat_map(|round| round.withheld.iter())
+    }
+
+    /// Fixes `fix.min_confidence` withheld in the last round, which is what is still
+    /// left once the earlier rounds were written.
+    pub fn below_floor(&self) -> u32 {
+        self.rounds.last().map_or(0, |round| round.below_floor)
     }
 
     pub fn introduced(&self) -> impl Iterator<Item = &Finding> {
@@ -170,21 +184,39 @@ fn plan_round(
         undecided: scanned
             .findings
             .iter()
-            .filter(|finding| !settings.config.fix.allows(finding.rule))
+            .filter(|finding| {
+                !settings
+                    .for_file(&root.join(&*finding.location.file))
+                    .fix
+                    .admits(finding)
+            })
             .count() as u32,
         ..Round::default()
     };
 
     for (file, findings) in by_file {
         let path = root.join(file);
-        if !findings.iter().any(|finding| {
-            wanted(options, finding) && settings.for_file(&path).fix.allows(finding.rule)
-        }) {
+        let fix = &settings.for_file(&path).fix;
+        let admitted = findings
+            .iter()
+            .any(|finding| wanted(options, finding) && fix.admits(finding));
+        let floored: Vec<&Finding> = findings
+            .iter()
+            .copied()
+            .filter(|finding| {
+                wanted(options, finding) && fix.allows(finding.rule) && fix.below_floor(finding)
+            })
+            .collect();
+        if !admitted && floored.is_empty() {
             continue;
         }
         let Some(language) = Language::of_path(&path) else {
             continue;
         };
+        if !admitted {
+            round.below_floor += floor_fixes(&path, language, file, &floored);
+            continue;
+        }
         let before = std::fs::read_to_string(&path)
             .with_context(|| format!("reading {} to fix it", path.display()))?;
         let owned: Vec<Finding> = findings.into_iter().cloned().collect();
@@ -199,12 +231,13 @@ fn plan_round(
                 continue;
             }
         };
+        round.below_floor += answerable(&rewriter, &floored);
         let asked: Vec<Finding> = owned
             .iter()
             .filter(|finding| wanted(options, finding))
             .cloned()
             .collect();
-        let plan = rewriter.plan(&asked, &settings.for_file(&path).fix);
+        let plan = rewriter.plan(&asked, fix);
         if plan.is_empty() {
             continue;
         }
@@ -225,7 +258,33 @@ fn plan_round(
             }),
         }
     }
+    let fixes = std::mem::take(&mut round.fixes);
+    let fixes = package::guard(root, &scanned.analyzed, fixes, &mut round.withheld);
+    round.fixes = if options.verify_build {
+        build::guard(root, fixes, &mut round.withheld)
+    } else {
+        fixes
+    };
     Ok(round)
+}
+
+/// How many of a file's below-floor findings the fixer would have answered, for a
+/// file with nothing else to fix. A file that cannot be read or parsed counts none.
+fn floor_fixes(path: &Path, language: Language, file: &str, floored: &[&Finding]) -> u32 {
+    let Ok(source) = std::fs::read_to_string(path) else {
+        return 0;
+    };
+    let Ok(rewriter) = Rewriter::new(language, rqx_lang::holds_markup(file), &source) else {
+        return 0;
+    };
+    answerable(&rewriter, floored)
+}
+
+fn answerable(rewriter: &Rewriter<'_>, findings: &[&Finding]) -> u32 {
+    findings
+        .iter()
+        .filter(|finding| !rewriter.edit(finding).is_empty())
+        .count() as u32
 }
 
 fn wanted(options: &Options, finding: &Finding) -> bool {

@@ -186,6 +186,16 @@ fn write_summary(
     }
     fixes.push_str(&format!(" \u{b7} {undecided} need a decision"));
     rows.push(("Fixes", fixes));
+    let below_floor = outcome.below_floor();
+    if below_floor > 0 {
+        rows.push((
+            "Floor",
+            format!(
+                "{} below fix.min_confidence, not applied",
+                plural(below_floor, "fix", "fixes")
+            ),
+        ));
+    }
 
     writeln!(out)?;
     for (label, value) in &rows {
@@ -224,7 +234,7 @@ fn write_summary(
     if outcome.applied() > 0 {
         writeln!(
             out,
-            "  {}every fix re-parsed and re-analysed clean",
+            "  {}every fix re-parsed, re-analysed, and checked against the files that use its names",
             paint(dim, format!("{:LABEL_WIDTH$}", "Verified"))
         )?;
     }
@@ -295,6 +305,7 @@ pub fn json(outcome: &Outcome, out: &mut dyn Write) -> Result<()> {
             "files": outcome.fixes().count(),
             "applied": outcome.applied(),
             "withheld": outcome.withheld().count(),
+            "below_floor": outcome.below_floor(),
             "rounds": outcome.rounds.len(),
             "health_before": outcome.health_before,
             "health_after": outcome.health_after,

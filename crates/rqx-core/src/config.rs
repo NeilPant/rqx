@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::advice::{AdviceId, Stance};
 use crate::cost::Order;
-use crate::finding::{Confidence, Severity};
+use crate::finding::{Confidence, Finding, Severity};
 use crate::language::Language;
 use crate::pattern::{Pattern, PatternFamily};
 use crate::rule::{Analysis, Autofix, Category, RuleId};
@@ -378,6 +378,9 @@ pub struct Fix {
     /// One fix can make the next possible, so fixing repeats. A cap rather than a
     /// fixed point, because a rule pair that undid each other would never settle.
     pub max_rounds: u32,
+    /// The lowest finding confidence whose fix is applied. `verified` by default;
+    /// `low` applies every mechanical fix, as rqx 0.5.0 did.
+    pub min_confidence: Confidence,
 }
 
 impl Default for Fix {
@@ -386,6 +389,7 @@ impl Default for Fix {
             apply: BTreeSet::new(),
             disabled: BTreeSet::new(),
             max_rounds: 3,
+            min_confidence: Confidence::Verified,
         }
     }
 }
@@ -406,6 +410,16 @@ impl Fix {
             || self.apply.contains(spec.slug)
             || self.apply.contains(spec.category.slug())
             || self.apply.contains(spec.autofix.slug())
+    }
+
+    /// Whether `rqx fix` applies this finding's fix: the rule is allowed and the
+    /// finding is at or above `min_confidence`.
+    pub fn admits(&self, finding: &Finding) -> bool {
+        self.allows(finding.rule) && !self.below_floor(finding)
+    }
+
+    pub fn below_floor(&self, finding: &Finding) -> bool {
+        finding.confidence < self.min_confidence
     }
 
     pub fn unknown_names(&self) -> Vec<UnknownName> {
@@ -1864,6 +1878,7 @@ mod tests {
                         .collect::<Vec<_>>()
                         .join(","),
                     config.fix.max_rounds.to_string(),
+                    format!("{:?}", config.fix.min_confidence),
                 ],
             }
         }

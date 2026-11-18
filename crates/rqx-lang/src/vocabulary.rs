@@ -484,24 +484,83 @@ pub fn chat_residue(text: &str) -> Option<&'static str> {
         .find(|opening| body.starts_with(opening))
 }
 
-/// A comment that is a divider or a one-word heading rather than a sentence. Both are
-/// a table of contents for a file short enough not to need one.
+/// Characters a divider is drawn with.
+const RULE_CHARACTERS: [char; 8] = ['-', '=', '~', '*', '#', '_', '+', '/'];
+
+/// A comment that is a divider, or a heading of one or two words fenced by one, rather
+/// than a sentence: `// ======`, `// --- helpers ---`, `# === STATE ===`. The rule's fix
+/// deletes the line, so anything else is left alone: a URL, a licence line, an
+/// encoding declaration and a line of commented-out code are not dividers.
 pub fn banner(text: &str) -> bool {
     let body = text.trim_start_matches(['/', '#', '!']).trim();
-    if body.chars().count() < 4 {
+    if body.chars().count() < 4 || carries_url(body) || licence_notice(body) {
         return false;
     }
-    let punctuation = body
+    let is_rule = |character: &char| RULE_CHARACTERS.contains(character);
+    if body
         .chars()
-        .filter(|character| !character.is_alphanumeric() && !character.is_whitespace())
-        .count();
-    // Mostly rule: `======`, `------`, `~~~~~~`.
-    if punctuation * 5 >= body.chars().count() * 3 {
-        return true;
+        .all(|character| is_rule(&character) || character.is_whitespace())
+    {
+        return body.chars().filter(is_rule).count() >= 4;
     }
-    // Or a single word fenced by them: `--- helpers ---`, `=== STATE ===`.
-    let fenced = body.trim_matches(|c: char| !c.is_alphanumeric());
-    punctuation >= 4 && fenced.split_whitespace().count() <= 2 && !fenced.is_empty()
+    let lead = body.chars().take_while(is_rule).count();
+    let trail = body.chars().rev().take_while(is_rule).count();
+    if lead < 2 || trail < 2 || lead + trail < 4 {
+        return false;
+    }
+    let heading: String = body
+        .chars()
+        .skip(lead)
+        .take(body.chars().count() - lead - trail)
+        .collect();
+    let heading = heading.trim();
+    !heading.is_empty()
+        && heading.split_whitespace().count() <= 2
+        && heading
+            .chars()
+            .all(|character| character.is_alphanumeric() || character.is_whitespace())
+}
+
+/// Text that belongs to a licence or copyright notice. A notice is a legal statement
+/// about the file, so no fix may remove any part of it.
+pub fn licence_notice(text: &str) -> bool {
+    const PHRASES: [&str; 10] = [
+        "license",
+        "licence",
+        "copyright",
+        "spdx",
+        "all rights reserved",
+        "\u{a9}",
+        "(c) ",
+        "creative commons",
+        "public domain",
+        "warranty",
+    ];
+    const WORDS: [&str; 12] = [
+        "apache",
+        "mit",
+        "gpl",
+        "lgpl",
+        "agpl",
+        "bsd",
+        "mozilla",
+        "mpl",
+        "isc",
+        "unlicense",
+        "eupl",
+        "cddl",
+    ];
+    let lower = text.to_lowercase();
+    PHRASES.iter().any(|phrase| lower.contains(phrase))
+        || lower
+            .split(|character: char| !character.is_alphanumeric())
+            .any(|word| WORDS.contains(&word))
+}
+
+/// A comment that points somewhere. A URL is a reference someone follows, so it is
+/// never decoration.
+pub fn carries_url(text: &str) -> bool {
+    text.contains("://") || text.contains("www.")
 }
 
 /// A placeholder that reads as real. Harmless in a test and a bug report waiting to

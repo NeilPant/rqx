@@ -642,6 +642,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
             json,
             plan,
             markdown,
+            verify_build,
             printing,
             run,
         } => {
@@ -665,6 +666,7 @@ pub fn run(invocation: Invocation, context: &Context<'_>) -> Result<Action> {
                 let options = fix::Options {
                     write,
                     max_rounds: rounds,
+                    verify_build,
                     ..fix::Options::default()
                 };
                 let outcome = fix::run(&path, &settings, options)?;

@@ -238,7 +238,7 @@ pub fn finding(finding: &Finding, settings: &Resolved, root: &Path) -> Value {
         settings
             .for_file(&root.join(&*finding.location.file))
             .fix
-            .allows(finding.rule)
+            .admits(finding)
     );
     value["known"] = json!(finding.known);
     value

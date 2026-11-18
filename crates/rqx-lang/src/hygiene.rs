@@ -4006,19 +4006,29 @@ impl<'a> Walker<'a> {
         {
             return;
         }
+        // A package, module or class level name can be read by anything the function
+        // calls between the two writes, so only the function's own names are judged.
+        let parameters: HashSet<&str> = descendants(function)
+            .into_iter()
+            .filter(|node| node.start_byte() < body.start_byte() && profile.is_identifier(*node))
+            .map(|node| self.text(node))
+            .collect();
         for (name, mentions) in self.touches(body) {
             if name.starts_with('_') {
                 continue;
             }
             let reassigned = mentions.iter().filter(|touch| touch.wrote).count();
             let read = mentions.iter().filter(|touch| touch.read).count();
-            if let Some(window) = mentions.windows(2).find(|pair| {
-                pair[0].wrote
-                    && !pair[0].read
-                    && pair[1].wrote
-                    && !pair[1].read
-                    && pair[0].block == pair[1].block
-            }) {
+            let local = parameters.contains(name) || mentions.iter().any(|touch| touch.declared);
+            if local
+                && let Some(window) = mentions.windows(2).find(|pair| {
+                    pair[0].wrote
+                        && !pair[0].read
+                        && pair[1].wrote
+                        && !pair[1].read
+                        && pair[0].block == pair[1].block
+                })
+            {
                 self.out.dead_stores.push(Spot {
                     span: Span::new(window[0].at as u32, window[0].at as u32 + name.len() as u32),
                     detail: name.to_owned(),
@@ -5256,9 +5266,13 @@ pub fn unused_imports_over(
     spots
 }
 
+/// Only names a function declares. A package, module or class level name may be read
+/// by another file, including one a build tag or platform suffix leaves out of this
+/// scan, so finding no reference in this file does not show that it is unused.
 fn unused_locals(scopes: &Scopes) -> Vec<Spot> {
     let mut spots: Vec<Spot> = scopes
         .of_kind(BindingKind::Local)
+        .filter(|binding| scopes.is_local(binding.scope))
         .filter(|binding| binding.references.is_empty() && !binding.name.starts_with('_'))
         .map(|binding| Spot {
             span: binding.span,
@@ -5325,6 +5339,11 @@ fn scan_comments(
     out: &mut Hygiene,
 ) {
     let mut runs: Vec<(Span, u32)> = Vec::new();
+    // A divider drawn inside a licence header is part of the notice.
+    let notices = crate::notices::protected_comments(
+        source,
+        nodes.iter().filter(|node| profile.is_comment(*node)),
+    );
     for comment in nodes.iter().filter(|node| profile.is_comment(*node)) {
         let span = span_of(comment);
         let text = text_of(comment, source);
@@ -5377,7 +5396,7 @@ fn scan_comments(
                 detail: regret.to_owned(),
                 count: 1,
             });
-        } else if crate::vocabulary::banner(text) {
+        } else if crate::vocabulary::banner(text) && notices.binary_search(&span).is_err() {
             out.banner_comments.push(Spot {
                 span,
                 detail: String::new(),

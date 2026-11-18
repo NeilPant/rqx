@@ -290,6 +290,14 @@ mod tests {
     }
 
     #[test]
+    fn the_fix_confidence_floor_explains_itself() {
+        let said = explained("fix.min_confidence", RqxConfig::default()).expect("explains");
+        assert!(said.contains("lowest finding confidence"), "{said}");
+        assert!(said.contains("one of low, heuristic, verified"), "{said}");
+        assert!(said.contains("default  verified"), "{said}");
+    }
+
+    #[test]
     fn a_table_lists_the_keys_beneath_it() {
         let said = explained("gate", RqxConfig::default()).expect("explains");
         assert!(said.contains("keys"), "{said}");

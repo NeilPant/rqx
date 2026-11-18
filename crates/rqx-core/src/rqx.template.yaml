@@ -233,6 +233,9 @@ fix:
   # One fix can make the next one possible, so fixing repeats until a round finds
   # nothing or this many rounds have run.
   max_rounds: 3
+  # The lowest finding confidence whose fix is applied: verified, heuristic or low.
+  # low applies every mechanical fix, as rqx 0.5.0 did.
+  min_confidence: verified
 
 performance:
   # Client and call names the I/O rules should recognise on top of the ones rqx

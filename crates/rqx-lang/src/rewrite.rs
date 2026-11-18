@@ -3,7 +3,7 @@
 //! and `edit` says so by returning `None` rather than guessing at one.
 
 use std::cell::OnceCell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use rqx_core::config::Fix;
@@ -32,6 +32,8 @@ pub struct Rewriter<'src> {
     /// Resolved on the first fix that needs it. Scope resolution is the most
     /// expensive stage in the per-file pipeline, and most fixes never ask.
     scopes: OnceCell<Scopes>,
+    /// Licence notices and comments holding a URL, which no edit may remove.
+    protected: OnceCell<Vec<Span>>,
 }
 
 /// Why a file's edits were not written. Every variant is a reason the reader gets
@@ -46,6 +48,16 @@ pub enum Withheld {
     Survives(Vec<Finding>),
     /// A finding absent before the edit is reported after it.
     Introduces(Vec<Finding>),
+    /// The edit removes or renames a name another file still uses.
+    StillReferenced {
+        name: String,
+        by: String,
+    },
+    /// The edit changes a function's signature where callers in other files of the
+    /// package cannot be checked.
+    ChangesSignature(Vec<String>),
+    /// The build check (`--verify-build`) failed after the edit, or could not run.
+    Build(String),
 }
 
 impl fmt::Display for Withheld {
@@ -76,6 +88,19 @@ impl fmt::Display for Withheld {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Self::StillReferenced { name, by } => {
+                write!(f, "removes `{name}`, which {by} still uses")
+            }
+            Self::ChangesSignature(functions) => write!(
+                f,
+                "changes the signature of {}, which other files in the package may call",
+                functions
+                    .iter()
+                    .map(|name| format!("`{name}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Self::Build(reason) => write!(f, "the build check failed: {reason}"),
         }
     }
 }
@@ -145,6 +170,7 @@ impl<'src> Rewriter<'src> {
             profile: support.profile,
             tree,
             scopes: OnceCell::new(),
+            protected: OnceCell::new(),
         })
     }
 
@@ -173,14 +199,22 @@ impl<'src> Rewriter<'src> {
 
         let targeted: BTreeSet<Identity> =
             resolution.kept.iter().map(|edit| edit.answers).collect();
-        let known: BTreeSet<Identity> = before
+        // Counted, not collected into a set: two findings can share an identity (two
+        // identical statements in one function), and an edit that adds another copy
+        // has introduced a finding even though its identity was already known.
+        let mut known: BTreeMap<Identity, usize> = BTreeMap::new();
+        for finding in before
             .iter()
             .filter(|finding| !finding.rule.is_project_scoped())
-            .map(|finding| Identity::resolved(finding, self.source))
-            .collect();
+        {
+            *known
+                .entry(Identity::resolved(finding, self.source))
+                .or_default() += 1;
+        }
 
         let mut survives = Vec::new();
         let mut introduced = Vec::new();
+        let mut seen: BTreeMap<Identity, usize> = BTreeMap::new();
         for finding in after
             .iter()
             .filter(|finding| !finding.rule.is_project_scoped())
@@ -188,7 +222,13 @@ impl<'src> Rewriter<'src> {
             let identity = Identity::resolved(finding, &source);
             if targeted.contains(&identity) {
                 survives.push(finding.clone());
-            } else if !known.contains(&identity) && !finding.rule.spec().autofix.is_automatic() {
+                continue;
+            }
+            let count = seen.entry(identity).or_default();
+            *count += 1;
+            if *count > known.get(&identity).copied().unwrap_or(0)
+                && !finding.rule.spec().autofix.is_automatic()
+            {
                 introduced.push(finding.clone());
             }
         }
@@ -224,6 +264,24 @@ impl<'src> Rewriter<'src> {
     /// places at once — removing a parameter also removes the argument at every call
     /// site — because applying half of that pair is worse than applying neither.
     pub fn edit(&self, finding: &Finding) -> Vec<Edit> {
+        let edits = self.edits_for(finding);
+        // All of a finding's edits or none of them, as everywhere else.
+        if edits
+            .iter()
+            .any(|edit| crate::notices::touches_protected(self.protected(), edit.span))
+        {
+            return Vec::new();
+        }
+        edits
+    }
+
+    fn protected(&self) -> &[Span] {
+        self.protected.get_or_init(|| {
+            crate::notices::protected_in(self.profile, self.source, self.tree.root_node())
+        })
+    }
+
+    fn edits_for(&self, finding: &Finding) -> Vec<Edit> {
         if !finding.rule.spec().autofix.is_automatic() {
             return Vec::new();
         }
@@ -289,6 +347,14 @@ impl<'src> Rewriter<'src> {
         let Some(function) = climb(list, |node| self.profile.is_function(node)) else {
             return Vec::new();
         };
+        // Go writes results and receivers as parameter lists too. Only the list the
+        // grammar names `parameters` is the one the call sites pass arguments to.
+        if function
+            .child_by_field_name("parameters")
+            .is_some_and(|parameters| parameters.id() != list.id())
+        {
+            return Vec::new();
+        }
         let Some(called) = function
             .child_by_field_name("name")
             .map(|node| text_of(node, self.source))
@@ -355,6 +421,9 @@ impl<'src> Rewriter<'src> {
             self.profile.declarator_kinds.contains(&kind_of(node))
                 || self.profile.local_declaring_kinds.contains(&kind_of(node))
         })?;
+        // A declaration outside a function belongs to the module or package, and
+        // another file may read it.
+        climb(declarator, |node| self.profile.is_function(node))?;
         if self.has_effect(declarator, name) {
             return None;
         }
@@ -440,7 +509,7 @@ impl<'src> Rewriter<'src> {
         resolve(
             findings
                 .iter()
-                .filter(|finding| allowed.allows(finding.rule))
+                .filter(|finding| allowed.admits(finding))
                 .flat_map(|finding| self.edit(finding))
                 .collect(),
         )
@@ -535,8 +604,15 @@ mod tests {
     use rqx_core::RqxConfig;
     use rqx_core::edit::apply;
 
+    /// Every confidence, so each rule's edit is exercised; the floor has its own tests.
+    fn every_confidence() -> RqxConfig {
+        let mut config = RqxConfig::default();
+        config.fix.min_confidence = Confidence::Low;
+        config
+    }
+
     fn fixed(language: Language, source: &str) -> String {
-        let config = RqxConfig::default();
+        let config = every_confidence();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
         let rewriter = Rewriter::new(language, false, source).expect("parse");
         let plan = rewriter.plan(&analysis.findings, &config.fix);
@@ -591,7 +667,7 @@ export const used = live;
     }
 
     fn verified(language: Language, source: &str) -> Result<Verified, Withheld> {
-        let config = RqxConfig::default();
+        let config = every_confidence();
         let analysis = crate::analyze_as(language, "fixture", source, &config).expect("analysis");
         let rewriter = Rewriter::new(language, false, source).expect("parse");
         let plan = rewriter.plan(&analysis.findings, &config.fix);
@@ -671,6 +747,204 @@ export const used = live;
             rewriter.verify("fixture", &config, &analysis.findings, &elsewhere),
             Err(Withheld::Survives(_))
         ));
+    }
+
+    /// The second `any` has the same rule, file and subject as the first, so a set
+    /// of identities sees nothing new. Counting them sees one more.
+    #[test]
+    fn an_edit_that_repeats_a_known_finding_is_withheld() {
+        let source = "export function f(a: any): number {\n  return 1\n  console.log(a)\n}\n";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::TypeScript, "fixture", source, &config).unwrap();
+        assert_eq!(
+            analysis
+                .findings
+                .iter()
+                .filter(|finding| finding.rule == RuleId::ImpreciseType)
+                .count(),
+            1
+        );
+        let dead = analysis
+            .findings
+            .iter()
+            .find(|finding| finding.rule == RuleId::UnreachableCode)
+            .expect("an unreachable finding");
+        let answers = Identity::resolved(dead, source);
+        let parameter_end = source.find("a: any").unwrap() as u32 + "a: any".len() as u32;
+        let repeating = resolve(vec![
+            Edit::deletion(
+                dead,
+                answers,
+                whole_lines(source, Span::new(dead.location.start, dead.location.end)),
+            ),
+            Edit::new(
+                dead,
+                answers,
+                Span::new(parameter_end, parameter_end),
+                ", b: any",
+            ),
+        ]);
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
+        match rewriter.verify("fixture", &config, &analysis.findings, &repeating) {
+            Err(Withheld::Introduces(found)) => assert!(
+                found
+                    .iter()
+                    .all(|finding| finding.rule == RuleId::ImpreciseType),
+                "{found:?}"
+            ),
+            other => panic!("expected the repeated finding to be refused: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_default_floor_leaves_heuristic_fixes_to_a_person() {
+        let source = "const live = 1;\n// const a = 1;\n// const b = 2;\n// const c = 3;\nexport const used = live;\n";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::TypeScript, "fixture", source, &config).unwrap();
+        let rewriter = Rewriter::new(Language::TypeScript, false, source).unwrap();
+        assert!(rewriter.plan(&analysis.findings, &config.fix).is_empty());
+        assert_eq!(
+            fixed(Language::TypeScript, source),
+            "const live = 1;\nexport const used = live;\n"
+        );
+    }
+
+    /// Deleting the divider is still the fix; the notice and the link are not part of
+    /// it, whichever comment rule asks.
+    #[test]
+    fn a_licence_header_and_a_link_survive_every_comment_fix() {
+        let source = "\
+// Copyright 2013-2023 The Cobra Authors
+//
+// Licensed under the Apache License, Version 2.0 (the \"License\");
+//      http://www.apache.org/licenses/LICENSE-2.0
+// ======================================================
+
+package cobra
+
+// ---------------- helpers ----------------
+
+func f() int {
+\t// https://github.com/spf13/cobra/issues/1257
+\t// \tflagName += \"=\"
+\treturn 1
+}
+";
+        let after = fixed(Language::Go, source);
+        assert!(after.starts_with("// Copyright 2013-2023 The Cobra Authors\n//\n// Licensed under the Apache License, Version 2.0 (the \"License\");\n//      http://www.apache.org/licenses/LICENSE-2.0\n// ======================================================\n"), "{after}");
+        assert!(
+            after.contains("// https://github.com/spf13/cobra/issues/1257"),
+            "{after}"
+        );
+        assert!(!after.contains("---- helpers ----"), "{after}");
+    }
+
+    /// `var preExecHookFn` in cobra's `command_win.go` is read by `command.go`, and a
+    /// C++ global by every file that includes its `extern` declaration.
+    #[test]
+    fn a_package_level_declaration_is_never_an_unused_local() {
+        for (language, source) in [
+            (
+                Language::Go,
+                "package cobra\n\nvar preExecHookFn = func(c int) {}\n",
+            ),
+            (Language::Cpp, "int retry_limit = 3;\n"),
+            (Language::Python, "retry_limit = 3\n"),
+            (Language::TypeScript, "let retryLimit = 3\n"),
+        ] {
+            let config = RqxConfig::default();
+            let analysis = crate::analyze_as(language, "fixture", source, &config).unwrap();
+            assert!(
+                !analysis
+                    .findings
+                    .iter()
+                    .any(|finding| finding.rule == RuleId::UnusedLocal),
+                "{language:?}: {:?}",
+                analysis.findings
+            );
+            assert_eq!(fixed(language, source), source, "{language:?}");
+        }
+    }
+
+    /// `flush` reads `counter` between the two writes, so the first is not dead. Only
+    /// a name the function declares is judged.
+    #[test]
+    fn a_package_level_name_written_twice_is_not_a_dead_store() {
+        let source = "\
+package p
+
+var counter int
+
+func flush() { println(counter) }
+
+func run() {
+\tcounter = 1
+\tflush()
+\tcounter = 2
+\tlocal := 1
+\tlocal = 2
+\tprintln(local)
+}
+";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::Go, "fixture", source, &config).unwrap();
+        let stores: Vec<&str> = analysis
+            .findings
+            .iter()
+            .filter(|finding| finding.rule == RuleId::DeadStore)
+            .filter_map(|finding| match &finding.evidence {
+                Evidence::Name { identifier, .. } => Some(identifier.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(stores, ["local"], "{:?}", analysis.findings);
+    }
+
+    /// The shape behind cobra's `completions.go:187: too many return values`: Go's
+    /// results are a parameter list too, and the fixer deleted them as if they were
+    /// unused parameters, with the "matching" argument at every call site.
+    #[test]
+    fn a_go_result_list_is_not_a_parameter_list() {
+        let source = "\
+package cobra
+
+type Func func()
+
+type Command struct{}
+
+func (c *Command) get(name string) (Func, bool) {
+\treturn nil, false
+}
+
+func check(args []string, lastArg string) (*Command, []string, string, error) {
+\treturn nil, args, \"\", nil
+}
+
+func use(c *Command, args []string, last string) {
+\tc.get(\"x\")
+\t_, _, _, _ = check(args, last)
+}
+";
+        let config = RqxConfig::default();
+        let analysis = crate::analyze_as(Language::Go, "fixture", source, &config).unwrap();
+        let named: Vec<&Finding> = analysis
+            .findings
+            .iter()
+            .filter(|finding| finding.rule == RuleId::UnusedParameter)
+            .collect();
+        assert!(
+            named.iter().all(|finding| matches!(
+                &finding.evidence,
+                Evidence::UnusedParameter { name, .. } if name == "name" || name == "lastArg"
+            )),
+            "{named:?}"
+        );
+        let after = fixed(Language::Go, source);
+        assert!(after.contains(") (Func, bool) {"), "{after}");
+        assert!(
+            after.contains("(*Command, []string, string, error) {"),
+            "{after}"
+        );
     }
 
     /// One source per language carrying all four syntactic-span rules, and the file

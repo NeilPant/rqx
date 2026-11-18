@@ -37,6 +37,10 @@ const FIXABLE: [(&str, &str, &str, &str); 5] = [
     ),
 ];
 
+/// `FIXABLE` covers heuristic rules too, so the projects that exercise all of it
+/// lower the confidence floor to where rqx 0.5.0 had it.
+const EVERY_CONFIDENCE: (&str, &str) = ("rqx.yaml", "fix:\n  min_confidence: low\n");
+
 fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let root = std::env::temp_dir().join(format!("rqx-fix-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -119,7 +123,7 @@ fn a_preview_writes_nothing() {
 #[test]
 fn every_language_is_fixed_to_the_file_it_should_become() {
     for (language, name, source, expected) in FIXABLE {
-        let root = project(language, &[(name, source)]);
+        let root = project(language, &[(name, source), EVERY_CONFIDENCE]);
         let report = fix(&root, &["--write"]);
 
         assert_eq!(summary_field(&report, "written"), "true", "{language}");
@@ -135,7 +139,7 @@ fn every_language_is_fixed_to_the_file_it_should_become() {
 #[test]
 fn the_findings_the_fixes_answered_are_gone_and_no_others_appeared() {
     let (_, name, source, _) = FIXABLE[0];
-    let root = project("scan-after", &[(name, source)]);
+    let root = project("scan-after", &[(name, source), EVERY_CONFIDENCE]);
     let path = root.to_str().unwrap();
 
     let before = counts_by_rule(&rqx(&[
@@ -176,7 +180,7 @@ fn the_findings_the_fixes_answered_are_gone_and_no_others_appeared() {
 #[test]
 fn fixing_a_fixed_project_changes_nothing() {
     let (_, name, source, expected) = FIXABLE[0];
-    let root = project("idempotent", &[(name, source)]);
+    let root = project("idempotent", &[(name, source), EVERY_CONFIDENCE]);
     fix(&root, &["--write"]);
 
     let again = fix(&root, &["--write"]);
@@ -338,5 +342,166 @@ fn a_go_test_keeps_the_parameter_its_runner_requires() {
     assert!(after.contains("func TestAdd(t *testing.T)"), "{after}");
     assert!(after.contains("func BenchmarkAdd(b *testing.B)"), "{after}");
 
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The default floor applies verified fixes and leaves the heuristic ones, and the
+/// summary counts what it left.
+#[test]
+fn the_default_floor_applies_verified_fixes_and_counts_the_rest() {
+    let (_, name, source, _) = FIXABLE[0];
+    let root = project("floor", &[(name, source)]);
+    let report = fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join(name)).unwrap();
+    assert!(!after.contains("console.log('dead')"), "{after}");
+    assert!(after.contains("// const a = 1;"), "{after}");
+    assert!(
+        summary_field(&report, "below_floor")
+            .parse::<u32>()
+            .unwrap()
+            >= 1,
+        "{report}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The cobra licence header: 0.5.0 deleted its URL line from every file as a banner.
+#[test]
+fn a_licence_header_survives_fixing_at_every_confidence() {
+    let header = "\
+// Copyright 2013-2023 The Cobra Authors
+//
+// Licensed under the Apache License, Version 2.0 (the \"License\");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an \"AS IS\" BASIS.
+";
+    let source = format!(
+        "{header}\npackage cobra\n\n// ---------------- helpers ----------------\n\nfunc Keep() int {{\n\t// https://github.com/spf13/cobra/issues/1257\n\treturn 1\n\tprintln(\"dead\")\n}}\n"
+    );
+    let root = project(
+        "licence",
+        &[
+            ("go.mod", "module example.com/cobra\n\ngo 1.22\n"),
+            ("cobra.go", &source),
+            EVERY_CONFIDENCE,
+        ],
+    );
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("cobra.go")).unwrap();
+    assert!(after.starts_with(header), "{after}");
+    assert!(
+        after.contains("// https://github.com/spf13/cobra/issues/1257"),
+        "{after}"
+    );
+    assert!(!after.contains("println(\"dead\")"), "{after}");
+    assert!(!after.contains("---- helpers ----"), "{after}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// cobra's `preExecHookFn`: declared at package level in two build-tagged files and
+/// read by a third. 0.5.0 deleted both declarations as unused locals.
+#[test]
+fn a_package_level_var_read_by_a_sibling_file_is_kept() {
+    let windows =
+        "//go:build windows\n\npackage cobra\n\nvar preExecHookFn = func(c *Command) {}\n";
+    let other = "//go:build !windows\n\npackage cobra\n\nvar preExecHookFn func(*Command)\n";
+    let reader = "package cobra\n\ntype Command struct{}\n\nfunc (c *Command) Execute() {\n\tif preExecHookFn != nil {\n\t\tpreExecHookFn(c)\n\t}\n}\n";
+    let root = project(
+        "hook",
+        &[
+            ("go.mod", "module example.com/cobra\n\ngo 1.22\n"),
+            ("command_win.go", windows),
+            ("command_notwin.go", other),
+            ("command.go", reader),
+            EVERY_CONFIDENCE,
+        ],
+    );
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("command_win.go")).unwrap(),
+        windows
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("command_notwin.go")).unwrap(),
+        other
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The shape behind cobra's `completions.go:187: too many return values`. The
+/// results stay, and a real unused parameter of a Go function is not removed either,
+/// because another file of the package may call it.
+#[test]
+fn a_go_function_keeps_its_signature() {
+    let source = "\
+package cobra
+
+type CompletionFunc func()
+
+type Command struct{}
+
+func (c *Command) GetFlagCompletionFunc(flagName string) (CompletionFunc, bool) {
+\treturn nil, false
+}
+
+func checkIfFlagCompletion(args []string, lastArg string) ([]string, string, error) {
+\treturn args, \"\", nil
+}
+
+func complete(c *Command, args []string, toComplete string) {
+\tc.GetFlagCompletionFunc(\"x\")
+\t_, _, _ = checkIfFlagCompletion(args, toComplete)
+}
+";
+    let root = project(
+        "signature",
+        &[
+            ("go.mod", "module example.com/cobra\n\ngo 1.22\n"),
+            ("completions.go", source),
+            EVERY_CONFIDENCE,
+        ],
+    );
+    let report = fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("completions.go")).unwrap(),
+        source,
+        "{report}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// `--verify-build` runs `go vet` on a copy, so it needs the toolchain; without it the
+/// test has nothing to check.
+#[test]
+fn verify_build_keeps_a_fix_that_builds() {
+    if Command::new("go").arg("version").output().is_err() {
+        return;
+    }
+    // A journal comment rather than dead code: `go vet` reports unreachable code, so
+    // a project holding some fails the check before any edit.
+    let source = "package keep\n\n// @author someone\nfunc Keep() int {\n\treturn 1\n}\n";
+    let root = project(
+        "verify-build",
+        &[
+            ("go.mod", "module example.com/keep\n\ngo 1.22\n"),
+            ("keep.go", source),
+        ],
+    );
+    let report = fix(&root, &["--write", "--verify-build"]);
+
+    assert_eq!(summary_field(&report, "applied"), "1", "{report}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("keep.go")).unwrap(),
+        "package keep\n\nfunc Keep() int {\n\treturn 1\n}\n"
+    );
     let _ = std::fs::remove_dir_all(&root);
 }

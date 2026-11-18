@@ -102,6 +102,19 @@ A key under `rules` that is not `disabled`, `enabled`, `categories` or a rule sl
 
 `gate.complexity_regression` takes `off` (the default), `warning` or `error`. It sets what a function whose time order grew against the base revision does to the verdict of `rqx check`: `warning` reports it, and `error` fails the run. Anything but `off` makes `rqx check` and `rqx comment` compare against the base revision, which `--regressions` does for one run. See [ci.md](ci.md#complexity-regressions).
 
+## Fixes
+
+`rqx fix` applies a mechanical fix only for a finding at or above `fix.min_confidence`. The value is `verified` (the default), `heuristic` or `low`. `low` applies every mechanical fix, which is what rqx 0.5.0 did. The preview reports the fixes the floor left out on a `Floor` row, and the JSON summary carries them as `below_floor`.
+
+```yaml
+fix:
+  min_confidence: heuristic
+```
+
+Before anything is written, `rqx fix` compares what each edited file declares before and after the edit. An edit is withheld when it removes, or changes the signature of, a name that another file still uses. The files searched are every file the scan read, and every file of the same language in the edited file's directory, which covers a Go file that a build tag or a `_windows.go` suffix excludes from the current build. A Go edit that changes any function signature is withheld, because every file in a Go package can call every function in it. A comment block that carries licence or copyright text, and any comment that holds a URL, is never removed.
+
+`rqx fix --verify-build` also runs `go vet ./...` on a temporary copy of each Go module that has an edit, before and after the edits are applied. When the module passes before and fails after, every edit in it is withheld. When it already fails before, its edits are withheld as well, because the check cannot judge them. The flag needs `go` on `PATH` and is off by default.
+
 ## Performance cost settings
 
 `performance.receivers` and `performance.methods` add names to the vocabulary of the I/O rules. Two further keys belong to the complexity analysis. They are validated when the config loads.

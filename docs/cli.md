@@ -246,6 +246,7 @@ Apply the fixes that have a single correct result, proving each one before it is
 | `--json` | Emit one JSON object per fixed file instead of the text preview |
 | `--plan` | Report the findings `fix` does not change, with the span, the source, the metric and the named refactoring |
 | `--markdown` | With --plan, emit Markdown for pasting instead of the terminal report |
+| `--verify-build` | Also run `go vet` on a temporary copy of each Go module with the fixes applied, and withhold a module's fixes if it fails. Needs `go` on PATH |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
