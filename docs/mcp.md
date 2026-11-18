@@ -60,7 +60,8 @@ keeps referring to the findings it was issued against.
   ],
   "ranked_below": 31,
   "advice": 26,
-  "skipped": []
+  "skipped": [],
+  "skipped_by": {}
 }
 ```
 

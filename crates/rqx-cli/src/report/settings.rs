@@ -162,6 +162,27 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
             config.scan.prune_dirs == default.scan.prune_dirs,
         ),
         row(
+            "skip submodules",
+            "scan",
+            "scan.skip_submodules",
+            config.scan.skip_submodules.label().to_owned(),
+            config.scan.skip_submodules == default.scan.skip_submodules,
+        ),
+        row(
+            "skip minified",
+            "scan",
+            "scan.skip_minified",
+            config.scan.skip_minified.to_string(),
+            config.scan.skip_minified == default.scan.skip_minified,
+        ),
+        row(
+            "respect .gitattributes",
+            "scan",
+            "scan.respect_gitattributes",
+            config.scan.respect_gitattributes.to_string(),
+            config.scan.respect_gitattributes == default.scan.respect_gitattributes,
+        ),
+        row(
             "ignored globs",
             "ignore",
             "ignore.patterns",

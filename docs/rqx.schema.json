@@ -392,7 +392,11 @@
             "**/*.pb.go",
             "**/*_gen.go",
             "**/*.pb.h",
-            "**/*.pb.cc"
+            "**/*.pb.cc",
+            "**/*.min.js",
+            "**/*.min.mjs",
+            "**/*.min.css",
+            "**/*.bundle.js"
           ],
           "description": "Globs of files rqx does not read, matched against paths relative to the scanned directory.",
           "items": {
@@ -10300,13 +10304,33 @@
             "obj",
             "cmake-build-debug",
             "cmake-build-release",
-            "third_party"
+            "third_party",
+            "vendored",
+            "charting_library",
+            "highcharts",
+            "lightweight-charts",
+            "tradingview",
+            "jquery",
+            "bower_components",
+            "jspm_packages",
+            ".next",
+            ".nuxt",
+            ".svelte-kit",
+            ".turbo",
+            ".expo",
+            "storybook-static",
+            "_next"
           ],
           "description": "Directory names never descended into.",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "respect_gitattributes": {
+          "default": true,
+          "description": "Skip files that `.gitattributes` marks `linguist-generated` or `linguist-vendored`, and list them as skipped. The file at the scanned directory and the one at the repository root are read.",
+          "type": "boolean"
         },
         "sarif_in": {
           "default": [],
@@ -10320,6 +10344,16 @@
           "default": true,
           "description": "Skip files carrying a generator's marker, and list them as skipped.",
           "type": "boolean"
+        },
+        "skip_minified": {
+          "default": true,
+          "description": "Skip files that read as minified, and list them as skipped. Only a file whose non-blank lines are at least half over 300 characters can be: then a line over 4,000 characters with lines over 1,000 holding at least 80% of the file, lines that average over 300 characters across at least 5, or over 1,000 across fewer.",
+          "type": "boolean"
+        },
+        "skip_submodules": {
+          "$ref": "#/$defs/SubmodulePolicy",
+          "default": "auto",
+          "description": "Which git submodules listed in `.gitmodules` to leave out, each reported as skipped. `auto` leaves out those hosted under another organisation than the project's `origin`, `all` leaves out every one, `none` scans them all."
         },
         "threads": {
           "default": 0,
@@ -10338,6 +10372,26 @@
         "error"
       ],
       "type": "string"
+    },
+    "SubmodulePolicy": {
+      "description": "Which git submodules a scan leaves out.",
+      "oneOf": [
+        {
+          "const": "auto",
+          "description": "Leave out a submodule whose URL names another host or organisation than the project's `origin` remote. A relative URL, or a project with no `origin`, counts as the project's own.",
+          "type": "string"
+        },
+        {
+          "const": "all",
+          "description": "Leave out every submodule.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "Scan every submodule as the project's own code.",
+          "type": "string"
+        }
+      ]
     },
     "SubtreeOverride": {
       "additionalProperties": false,
@@ -10804,7 +10858,11 @@
           "**/*.pb.go",
           "**/*_gen.go",
           "**/*.pb.h",
-          "**/*.pb.cc"
+          "**/*.pb.cc",
+          "**/*.min.js",
+          "**/*.min.mjs",
+          "**/*.min.css",
+          "**/*.bundle.js"
         ]
       }
     },
@@ -10916,10 +10974,28 @@
           "obj",
           "cmake-build-debug",
           "cmake-build-release",
-          "third_party"
+          "third_party",
+          "vendored",
+          "charting_library",
+          "highcharts",
+          "lightweight-charts",
+          "tradingview",
+          "jquery",
+          "bower_components",
+          "jspm_packages",
+          ".next",
+          ".nuxt",
+          ".svelte-kit",
+          ".turbo",
+          ".expo",
+          "storybook-static",
+          "_next"
         ],
+        "respect_gitattributes": true,
         "sarif_in": [],
         "skip_generated": true,
+        "skip_minified": true,
+        "skip_submodules": "auto",
         "threads": 0
       }
     },

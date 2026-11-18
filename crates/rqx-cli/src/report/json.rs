@@ -22,6 +22,9 @@ struct JsonSummary<'a> {
     /// a clean file from a quiet one.
     suppressed: usize,
     skipped: Vec<String>,
+    /// How many files were skipped for each reason, so a consumer can tell a
+    /// submodule left out on purpose from a file rqx failed to read.
+    skipped_by: BTreeMap<&'static str, crate::scan::skip::Tally>,
     /// Grade per file in scope, so a consumer can gate on one file rotting rather
     /// than on an average that hides it.
     grades: std::collections::BTreeMap<String, &'static str>,
@@ -196,8 +199,9 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         skipped: outcome
             .skipped
             .iter()
-            .map(|(path, reason)| format!("{}: {reason}", path.display()))
+            .map(crate::scan::Skipped::listed)
             .collect(),
+        skipped_by: crate::scan::skip::tally(&outcome.skipped, &outcome.root),
         grades: report
             .files
             .iter()

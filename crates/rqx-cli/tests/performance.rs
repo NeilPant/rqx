@@ -38,6 +38,10 @@ fn a_string_literal_with_thousands_of_escapes_is_not_quadratic() {
     let dir = scratch("escapes");
     // 8,000 escape sequences in one literal, the shape of a generated schema blob.
     let literal = "line one\\n".repeat(20_000);
+    // One 200,000-character line reads as minified, which would skip the very file
+    // this test times.
+    std::fs::write(dir.join("rqx.yaml"), "scan:\n  skip_minified: false\n")
+        .expect("writing the config");
     std::fs::write(
         dir.join("generated-shape.ts"),
         format!("export const schema = \"{literal}\";\nexport const value = 1;\n"),
@@ -71,4 +75,261 @@ fn a_generated_file_is_skipped_and_says_so() {
         summary.contains("client.ts") && summary.contains("generated"),
         "a skipped file has to say why, or it is indistinguishable from a missing one: {summary}"
     );
+}
+
+fn summary_of(dir: &std::path::Path) -> serde_json::Value {
+    let (_, report) = scan(dir);
+    serde_json::from_str(report.lines().last().expect("a summary line")).expect("json")
+}
+
+fn write(dir: &std::path::Path, path: &str, text: &str) {
+    let path = dir.join(path);
+    std::fs::create_dir_all(path.parent().expect("a parent")).expect("a directory");
+    std::fs::write(path, text).expect("writing");
+}
+
+/// A project whose `origin` is under `acme`, with one submodule from another
+/// organisation and one beside it under the same organisation.
+fn project_with_submodules(name: &str) -> std::path::PathBuf {
+    let dir = scratch(name);
+    write(
+        &dir,
+        ".git/config",
+        "[remote \"origin\"]\n\turl = git@github.com:acme/app.git\n",
+    );
+    write(
+        &dir,
+        ".gitmodules",
+        "[submodule \"design\"]\n\tpath = design\n\
+         \turl = https://github.com/Other-Org/design.git\n\
+         [submodule \"shared\"]\n\tpath = shared\n\turl = ../shared.git\n",
+    );
+    write(&dir, "design/.git", "gitdir: ../.git/modules/design\n");
+    write(&dir, "design/a.ts", "export const a = 1;\n");
+    write(&dir, "design/nested/b.ts", "export const b = 2;\n");
+    write(&dir, "shared/.git", "gitdir: ../.git/modules/shared\n");
+    write(&dir, "shared/c.ts", "export const c = 3;\n");
+    write(&dir, "app.ts", "export const app = 4;\n");
+    dir
+}
+
+#[test]
+fn a_foreign_submodule_is_left_out_as_one_entry_and_an_own_one_is_scanned() {
+    let dir = project_with_submodules("submodule");
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 2, "{summary}");
+    assert_eq!(
+        summary["skipped_by"]["submodule"],
+        serde_json::json!({ "files": 2, "paths": ["design"] }),
+        "{summary}"
+    );
+    let skipped = summary["skipped"].as_array().expect("a list");
+    assert_eq!(
+        skipped.len(),
+        1,
+        "one entry for the whole submodule: {summary}"
+    );
+    assert!(
+        skipped[0].as_str().is_some_and(|line| line.contains(
+            "design: a git submodule hosted at github.com/other-org, with 2 source files"
+        )),
+        "{summary}"
+    );
+
+    for (setting, scanned) in [("all", 1), ("true", 1), ("none", 4), ("false", 4)] {
+        write(
+            &dir,
+            "rqx.yaml",
+            &format!("scan:\n  skip_submodules: {setting}\n"),
+        );
+        let summary = summary_of(&dir);
+        assert_eq!(summary["files_scanned"], scanned, "{setting}: {summary}");
+    }
+}
+
+#[test]
+fn the_terminal_names_a_foreign_submodule_in_one_line() {
+    let dir = project_with_submodules("submodule-footer");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["scan", "--no-tui", "--no-pager", "--color", "never"])
+        .arg(&dir)
+        .env("RQX_NO_UPDATE_CHECK", "1")
+        .output()
+        .expect("failed to run rqx");
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains(
+            "skipped 2 files: 2 in foreign submodule design/ (github.com/other-org) \u{b7} -v lists them"
+        ),
+        "{text}"
+    );
+}
+
+#[test]
+fn minified_files_are_skipped_and_a_long_string_in_a_normal_file_is_not() {
+    let dir = scratch("minified");
+    write(
+        &dir,
+        "one-line.js",
+        &format!("var a=[{}];\n", "1,".repeat(3_000)),
+    );
+    write(
+        &dir,
+        "wide-lines.js",
+        &format!("var b=\"{}\";\n", "x".repeat(391)).repeat(10),
+    );
+    write(
+        &dir,
+        "chunk.js",
+        &format!(
+            "(self.webpackChunk=self.webpackChunk||[]).push([[1],{{{}}}]);\n",
+            "a:1,".repeat(700)
+        )
+        .repeat(3),
+    );
+    write(
+        &dir,
+        "Icon.tsx",
+        &format!(
+            "import Svg, {{ Path }} from \"react-native-svg\";\n\n\
+             export function Icon() {{\n  return (\n    <Svg viewBox=\"0 0 24 24\">\n\
+             \x20     <Path d=\"M0 0{}Z\" />\n    </Svg>\n  );\n}}\n{}",
+            " L12.5 7.25".repeat(1_500),
+            "export const size = 24;\n".repeat(21)
+        ),
+    );
+    write(&dir, "vendor.min.js", "var c=1;\n");
+    write(&dir, "app.bundle.js", "var d=1;\n");
+    write(
+        &dir,
+        "hand-written.ts",
+        &format!(
+            "export const blob = \"{}\";\n{}",
+            "A".repeat(3_000),
+            "export const e = 1;\n".repeat(20)
+        ),
+    );
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 2, "{summary}");
+    assert_eq!(summary["skipped_by"]["minified"]["files"], 3, "{summary}");
+    let skipped = summary["skipped"].to_string();
+    assert!(skipped.contains("a line of 6009 characters"), "{summary}");
+    assert!(skipped.contains("chunk.js"), "{summary}");
+    assert!(
+        !skipped.contains("Icon.tsx"),
+        "one embedded SVG path does not make a component minified: {summary}"
+    );
+    assert!(
+        skipped.contains("its 10 lines average 400 characters"),
+        "{summary}"
+    );
+    assert!(!skipped.contains("hand-written.ts"), "{summary}");
+    assert!(
+        !skipped.contains("min.js") && !skipped.contains("bundle.js"),
+        "an ignored file is not read, so it is not listed: {summary}"
+    );
+
+    write(&dir, "rqx.yaml", "scan:\n  skip_minified: false\n");
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 5, "{summary}");
+    assert_eq!(summary["skipped_by"], serde_json::json!({}), "{summary}");
+}
+
+#[test]
+fn each_generator_header_and_bundler_runtime_is_skipped_as_generated() {
+    let dir = scratch("markers");
+    let bodies = [
+        ("do-not-edit.ts", "// DO NOT EDIT. Rebuilt by `make api`.\n"),
+        ("automatic.py", "# Automatically generated by SWIG\n"),
+        ("auto-tag.ts", "/**\n * @auto-generated\n */\n"),
+        ("said.go", "// This file was automatically generated.\n"),
+        ("webpack.js", "/******/ (() => { // webpackBootstrap\n"),
+        (
+            "esbuild.js",
+            "var __commonJS = (cb, mod) => function __require() {};\n",
+        ),
+        (
+            "rollup.js",
+            "function getDefaultExportFromCjs (x) {\n\treturn x;\n}\n",
+        ),
+    ];
+    for (name, head) in bodies {
+        write(&dir, name, &format!("{head}export const a = 1;\n"));
+    }
+    write(
+        &dir,
+        "prose.ts",
+        "// The ID is automatically generated by the database.\nexport const b = 2;\n",
+    );
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 1, "{summary}");
+    assert_eq!(
+        summary["skipped_by"]["generated"]["files"],
+        bodies.len(),
+        "{summary}"
+    );
+
+    write(&dir, "rqx.yaml", "scan:\n  skip_generated: false\n");
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], bodies.len() + 1, "{summary}");
+}
+
+#[test]
+fn vendored_and_framework_output_directories_are_pruned_by_name() {
+    let dir = scratch("pruned");
+    for path in [
+        "src/assets/charting_library/bundle.js",
+        "public/vendored/lib.js",
+        "web/.next/server/page.js",
+        "highcharts/core.js",
+    ] {
+        write(&dir, path, "export const vendored = 1;\n");
+    }
+    write(&dir, "src/app.ts", "export const app = 1;\n");
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 1, "{summary}");
+}
+
+#[test]
+fn files_gitattributes_marks_generated_or_vendored_are_skipped_unless_unset() {
+    let dir = scratch("gitattributes");
+    write(
+        &dir,
+        ".gitattributes",
+        "*.ts text eol=lf\n\
+         src/api/** linguist-generated=true\n\
+         lib/** linguist-vendored\n\
+         lib/own/** -linguist-vendored\n\
+         src/legacy.ts linguist-generated=false\n",
+    );
+    write(&dir, "src/api/client.ts", "export const client = 1;\n");
+    write(&dir, "lib/chart/core.js", "export const core = 1;\n");
+    write(&dir, "lib/own/helper.ts", "export const helper = 1;\n");
+    write(&dir, "src/legacy.ts", "export const legacy = 1;\n");
+    write(&dir, "src/app.ts", "export const app = 1;\n");
+
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 3, "{summary}");
+    assert_eq!(
+        summary["skipped_by"]["gitattributes"]["files"], 2,
+        "{summary}"
+    );
+    let skipped = summary["skipped"].to_string();
+    assert!(
+        skipped.contains("marked linguist-generated in .gitattributes"),
+        "{summary}"
+    );
+    assert!(
+        skipped.contains("marked linguist-vendored in .gitattributes"),
+        "{summary}"
+    );
+
+    write(&dir, "rqx.yaml", "scan:\n  respect_gitattributes: false\n");
+    let summary = summary_of(&dir);
+    assert_eq!(summary["files_scanned"], 5, "{summary}");
 }

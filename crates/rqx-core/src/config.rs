@@ -1172,6 +1172,12 @@ impl Default for Ignore {
                 "**/*_gen.go",
                 "**/*.pb.h",
                 "**/*.pb.cc",
+                // Minified and bundled output, by the names bundlers give it. Files
+                // without such a name are caught by `scan.skip_minified` instead.
+                "**/*.min.js",
+                "**/*.min.mjs",
+                "**/*.min.css",
+                "**/*.bundle.js",
             ]
             .map(str::to_owned)
             .to_vec(),
@@ -1336,6 +1342,66 @@ impl Performance {
     }
 }
 
+/// Which git submodules a scan leaves out.
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum SubmodulePolicy {
+    /// Leave out a submodule whose URL names another host or organisation than the
+    /// project's `origin` remote. A relative URL, or a project with no `origin`, counts
+    /// as the project's own.
+    #[default]
+    Auto,
+    /// Leave out every submodule.
+    All,
+    /// Scan every submodule as the project's own code.
+    None,
+}
+
+impl SubmodulePolicy {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::All => "all",
+            Self::None => "none",
+        }
+    }
+}
+
+/// A boolean is read as the two plain answers, `true` as `all` and `false` as `none`,
+/// so a file written before the setting had three values still means what it said.
+impl<'de> Deserialize<'de> for SubmodulePolicy {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(SubmodulePolicyVisitor)
+    }
+}
+
+struct SubmodulePolicyVisitor;
+
+impl serde::de::Visitor<'_> for SubmodulePolicyVisitor {
+    type Value = SubmodulePolicy;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("`auto`, `all` or `none`")
+    }
+
+    fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<Self::Value, E> {
+        Ok(if value {
+            SubmodulePolicy::All
+        } else {
+            SubmodulePolicy::None
+        })
+    }
+
+    fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+        match value {
+            "auto" => Ok(SubmodulePolicy::Auto),
+            "all" => Ok(SubmodulePolicy::All),
+            "none" => Ok(SubmodulePolicy::None),
+            other => Err(E::unknown_variant(other, &["auto", "all", "none"])),
+        }
+    }
+}
+
 /// `prune_dirs` exists separately from `Ignore::patterns` because a glob still
 /// requires descending into a directory to produce the paths it then rejects,
 /// which on a populated `node_modules` is the difference between skipping a
@@ -1347,6 +1413,19 @@ pub struct Scan {
     pub threads: usize,
     /// Skip files carrying a generator's marker, and list them as skipped.
     pub skip_generated: bool,
+    /// Which git submodules listed in `.gitmodules` to leave out, each reported as
+    /// skipped. `auto` leaves out those hosted under another organisation than the
+    /// project's `origin`, `all` leaves out every one, `none` scans them all.
+    pub skip_submodules: SubmodulePolicy,
+    /// Skip files that read as minified, and list them as skipped. Only a file whose
+    /// non-blank lines are at least half over 300 characters can be: then a line over
+    /// 4,000 characters with lines over 1,000 holding at least 80% of the file, lines
+    /// that average over 300 characters across at least 5, or over 1,000 across fewer.
+    pub skip_minified: bool,
+    /// Skip files that `.gitattributes` marks `linguist-generated` or
+    /// `linguist-vendored`, and list them as skipped. The file at the scanned
+    /// directory and the one at the repository root are read.
+    pub respect_gitattributes: bool,
     /// Bytes. A larger file is reported as skipped.
     pub max_filesize: u64,
     /// How many findings the report shows. 0 shows every one. Never moves the score.
@@ -1376,6 +1455,9 @@ impl Default for Scan {
         Self {
             threads: 0,
             skip_generated: true,
+            skip_submodules: SubmodulePolicy::Auto,
+            skip_minified: true,
+            respect_gitattributes: true,
             max_filesize: 1 << 20,
             max_findings: 500,
             churn_days: 90,
@@ -1408,6 +1490,24 @@ impl Default for Scan {
                 "cmake-build-debug",
                 "cmake-build-release",
                 "third_party",
+                // Third-party code copied in by hand, and the output folders of web
+                // frameworks, under the names they are conventionally given. Anything
+                // vendored under another name is for `ignore.patterns`.
+                "vendored",
+                "charting_library",
+                "highcharts",
+                "lightweight-charts",
+                "tradingview",
+                "jquery",
+                "bower_components",
+                "jspm_packages",
+                ".next",
+                ".nuxt",
+                ".svelte-kit",
+                ".turbo",
+                ".expo",
+                "storybook-static",
+                "_next",
             ]
             .map(str::to_owned)
             .to_vec(),
@@ -1840,6 +1940,9 @@ mod tests {
                 scan: vec![
                     config.scan.threads.to_string(),
                     config.scan.skip_generated.to_string(),
+                    format!("{:?}", config.scan.skip_submodules),
+                    config.scan.skip_minified.to_string(),
+                    config.scan.respect_gitattributes.to_string(),
                     config.scan.max_filesize.to_string(),
                     config.scan.max_findings.to_string(),
                     config.scan.churn_days.to_string(),
