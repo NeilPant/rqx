@@ -981,7 +981,7 @@ rqx scan . \
 ```
 
 The reporters are `terminal`, `json`, `sarif`, `junit`, `gitlab`, `github`,
-`markdown` and `html`. JUnit XML and GitLab Code Quality together cover GitHub,
+`markdown` and `html` (deprecated, removed in 0.6.0). JUnit XML and GitLab Code Quality together cover GitHub,
 GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket and Buildkite natively.
 Snippets for each are in [docs/ci.md](docs/ci.md). `action.yml` is the GitHub
 Action: `uses: jadhamwi21/rqx@v0.2.1`. A moving major tag such as `@v1` is planned

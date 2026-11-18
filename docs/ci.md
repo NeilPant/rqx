@@ -158,6 +158,9 @@ that would otherwise overwrite each other.
 
 ### HTML report
 
+> Deprecated: the `html` reporter will be removed in 0.6.0. Use `json` or `sarif` for
+> a report kept as an artifact.
+
 `html` writes one self-contained file: findings grouped by family and rule, then every
 file, worst grade first, with its code frames, then the gate's verdict when there is
 one.

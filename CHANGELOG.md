@@ -99,6 +99,13 @@ them. `tools/release.sh` turns that section into the release notes.
   facts of each file, and a cache written by an earlier version is a miss. The cache key
   also covers the library cost tables and `performance.costs`.
 
+### Deprecated
+
+- **The `html` reporter.** It will be removed in 0.6.0. `--reporter html` still writes
+  the report and prints a notice on stderr. For a report kept as a pipeline artifact,
+  use `json` or `sarif`. `--trend` charts only in the HTML report and goes with it;
+  `rqx trend` keeps printing the series.
+
 ## 0.4.0 — 2026-11-17
 
 ### Added

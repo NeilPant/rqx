@@ -353,6 +353,9 @@ something that did, is reported, and `gate.complexity_regression` can fail the r
 
 ## The HTML report
 
+> Deprecated: the `html` reporter will be removed in 0.6.0. Use `json` or `sarif` for
+> a report kept as an artifact.
+
 `rqx scan --reporter html` has a Performance section after the findings by rule. It
 lists up to ten functions in the order `rqx perf` ranks them, with `time`, `space`,
 `io` and `conf`, and links each to its file further down the page. Under each row a

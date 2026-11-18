@@ -100,6 +100,9 @@ output.
 
 ## The chart in the HTML report
 
+> Deprecated: the `html` reporter and this chart will be removed in 0.6.0.
+> `rqx trend` prints the same series in the terminal.
+
 ```sh
 rqx scan . --record --trend .rqx/trend.ndjson --reporter html=rqx.html
 ```

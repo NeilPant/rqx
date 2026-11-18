@@ -1161,7 +1161,8 @@ struct View {
     /// How much of each finding to print
     #[arg(long, value_enum, default_value_t = DetailArg::Normal, help_heading = "Display")]
     detail: DetailArg,
-    /// Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable
+    /// Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable.
+    /// `html` is deprecated and will be removed in 0.6.0
     #[arg(
         long = "reporter",
         value_name = "NAME[=PATH]",
@@ -1520,6 +1521,20 @@ fn comparison_for(sinks: &[Sink]) -> scan::Comparison {
         scan::Comparison::costed()
     } else {
         scan::Comparison::default()
+    }
+}
+
+/// The HTML report goes in 0.6.0. Said on stderr, which no reporter writes a document
+/// to, so a pipeline that still asks for it sees the notice in its log.
+fn warn_of_deprecated(sinks: &[Sink]) {
+    if sinks
+        .iter()
+        .any(|sink| sink.reporter == report::Reporter::Html)
+    {
+        anstream::eprintln!(
+            "rqx: the html reporter is deprecated and will be removed in 0.6.0; \
+             use json or sarif for a report kept as an artifact"
+        );
     }
 }
 
@@ -1937,6 +1952,7 @@ fn run() -> Result<Exit> {
             let progress = progress_for(view.quiet);
             let view = view.on_terminal(verbosity, hyperlinks);
             let sinks = sinks(&view)?;
+            warn_of_deprecated(&sinks);
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
@@ -2683,6 +2699,7 @@ fn run() -> Result<Exit> {
             let progress = progress_for(view.quiet);
             let view = view.on_terminal(verbosity, hyperlinks);
             let sinks = sinks(&view)?;
+            warn_of_deprecated(&sinks);
             // The list is what is reviewed here, so it does not also narrow the report:
             // that would hide the findings in the files that import what it names.
             let listed = listed_files(&view, &path)?;

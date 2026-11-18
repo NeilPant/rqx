@@ -105,7 +105,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--show-suppressed` | Also list the findings a source comment waives |
 | `--context` | Lines of code shown on each side of a finding. Defaults to 2 under `--detail full` and 0 otherwise |
 | `--detail` | How much of each finding to print |
-| `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
+| `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. `html` is deprecated and will be removed in 0.6.0 |
 | `--fail-on` | Lowest severity that fails the run |
 | `--allow-findings` | Findings allowed before the run fails |
 | `--min-health` | Health score below which the run fails; 0 disables |
@@ -567,7 +567,7 @@ Analyze a project and report every finding
 | `--show-suppressed` | Also list the findings a source comment waives |
 | `--context` | Lines of code shown on each side of a finding. Defaults to 2 under `--detail full` and 0 otherwise |
 | `--detail` | How much of each finding to print |
-| `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable |
+| `--reporter` | Where a report goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. `html` is deprecated and will be removed in 0.6.0 |
 | `--fail-on` | Lowest severity that fails the run |
 | `--allow-findings` | Findings allowed before the run fails |
 | `--min-health` | Health score below which the run fails; 0 disables |
