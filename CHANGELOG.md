@@ -94,6 +94,13 @@ them. `tools/release.sh` turns that section into the release notes.
   4's leading message), `require.Equal(t, a, b)`, `EXPECT_EQ(a, b)` and `assert a == b`.
   A negated comparison such as `x !== x` checks for NaN and is not reported. A check
   that compares a literal with itself, such as `assertEquals(1, 1)`, is now reported.
+  Identical sides that contain a call, such as `expect(add(1, 1)).toBe(add(1, 1))`,
+  `new Money(1)` twice or `await load()` twice, are no longer reported: each side runs
+  the code, so the check verifies that it gives the same answer twice. A copy is
+  reported only when the original contains no call. `expect(total).toBe(total)`,
+  `order.total` against `order.total`, `[...x]` against `x` and `assert x == x` are
+  still reported. The fix hint now reads "write the value the code should produce as a
+  literal on the expected side".
 
 - **`mutated-while-iterated` follows each language's iteration rules.** In 0.5.1 it
   reported `map.delete(key)` inside `for (const [key] of map)`. The JavaScript

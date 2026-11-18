@@ -339,7 +339,7 @@ fn shaped(slug: &str, shape: &str) -> Option<String> {
             format!("The catch block only rethrows (`{code}`), so it adds nothing.")
         }
         ("self-asserting-test", Some(code)) => {
-            format!("`{code}` compares an expression with itself, so it cannot fail.")
+            format!("`{code}` checks a value against itself, so it cannot fail.")
         }
         ("sequential-await", Some(code)) => format!(
             "`{code}` does not use the result of the wait before it, so the two waits can run \

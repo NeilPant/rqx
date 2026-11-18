@@ -97,3 +97,8 @@ func setup() {
 func TestBuildsBothSidesFromOneHelper(t *testing.T) {
 	require.Equal(t, Add(1, 1)+1, Add(Add(1, 1), 1))
 }
+
+func TestHoldsATotalToItself(t *testing.T) {
+	total := Add(1, 1)
+	require.Equal(t, total, total)
+}

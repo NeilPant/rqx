@@ -2623,13 +2623,20 @@ impl<'a> Walker<'a> {
     }
 
     /// Whether two sides of a check are one value: the same expression written
-    /// twice, or one side a copy of the other.
+    /// twice, or one side a copy of the other. A call written twice runs twice, so
+    /// `expect(f(1)).toBe(f(1))` checks that `f` answers the same each time, and a
+    /// side with a call in it is never the same value as itself.
     fn same_value(&self, checked: Node<'a>, expected: Node<'a>) -> bool {
         let checked = self.see_through(checked);
         let expected = self.unwrap_matcher(self.see_through(expected));
-        self.same_expression(checked, expected)
-            || self.copies(expected, checked)
-            || self.copies(checked, expected)
+        let settled = |node: Node<'a>| {
+            !descendants(node)
+                .into_iter()
+                .any(|inner| self.profile.is_call(inner))
+        };
+        (settled(checked)
+            && (self.same_expression(checked, expected) || self.copies(expected, checked)))
+            || (settled(expected) && self.copies(checked, expected))
     }
 
     fn same_expression(&self, one: Node<'a>, other: Node<'a>) -> bool {

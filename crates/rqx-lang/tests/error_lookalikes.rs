@@ -151,3 +151,112 @@ fn a_local_function_named_like_a_marked_test_leaves_the_file_a_module() {
         1
     );
 }
+
+#[test]
+fn a_check_against_itself_is_reported_only_when_neither_side_runs_code() {
+    let cases = [
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", () => { const total = add(1, 1); expect(total).toBe(total); });"#,
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", () => { expect(order.total).toBe(order.total); });"#,
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", () => { const sums = [1]; expect(sums).toEqual([...sums]); });"#,
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", () => { const sums = [1]; expect(sums).toEqual(structuredClone(sums)); });"#,
+            1,
+        ),
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", () => { expect(add(1, 1)).toBe(add(1, 1)); });"#,
+            0,
+        ),
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", async () => { expect(await load()).toEqual(await load()); });"#,
+            0,
+        ),
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", () => { expect(new Money(1)).toEqual(new Money(1)); });"#,
+            0,
+        ),
+        (
+            Language::TypeScript,
+            "a.test.ts",
+            r#"it("t", () => { expect(rows()).toEqual([...rows()]); });"#,
+            0,
+        ),
+        (
+            Language::Python,
+            "test_a.py",
+            "def test_t():\n    x = 1\n    assert x == x\n",
+            1,
+        ),
+        (
+            Language::Python,
+            "test_a.py",
+            "def test_t():\n    assert add(1, 1) == add(1, 1)\n",
+            0,
+        ),
+        (
+            Language::Java,
+            "ATest.java",
+            "import org.junit.jupiter.api.Test;\nclass ATest { @Test public void testT() { assertEquals(1, 1); } }\n",
+            1,
+        ),
+        (
+            Language::Java,
+            "ATest.java",
+            "import org.junit.jupiter.api.Test;\nclass ATest { @Test public void testT() { assertEquals(add(1, 1), add(1, 1)); } }\n",
+            0,
+        ),
+        (
+            Language::Cpp,
+            "a_test.cpp",
+            "TEST(A, B) { EXPECT_EQ(1, 1); }\n",
+            1,
+        ),
+        (
+            Language::Cpp,
+            "a_test.cpp",
+            "TEST(A, B) { EXPECT_EQ(add(1, 1), add(1, 1)); }\n",
+            0,
+        ),
+        (
+            Language::Go,
+            "a_test.go",
+            "package a\n\nfunc TestT(t *testing.T) {\n\ttotal := 1\n\trequire.Equal(t, total, total)\n}\n",
+            1,
+        ),
+        (
+            Language::Go,
+            "a_test.go",
+            "package a\n\nfunc TestT(t *testing.T) {\n\trequire.Equal(t, Add(1, 1), Add(1, 1))\n}\n",
+            0,
+        ),
+    ];
+    for (language, display, source, expected) in cases {
+        assert_eq!(
+            count(language, display, source, RuleId::SelfAssertingTest),
+            expected,
+            "{source}"
+        );
+    }
+}

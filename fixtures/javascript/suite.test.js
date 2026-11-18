@@ -73,3 +73,7 @@ it("stands something in", () => {
 it("builds both sides from one helper", () => {
   expect(add(add(1, 1), 1)).toBe(add(1, 1) + 1);
 });
+it("holds a total to itself", () => {
+  const total = add(1, 1);
+  expect(total).toBe(total);
+});

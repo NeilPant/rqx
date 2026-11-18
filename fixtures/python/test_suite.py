@@ -99,3 +99,8 @@ def test_stands_something_in():
 
 def test_builds_both_sides_from_one_helper():
     assert add(add(1, 1), 1) == add(1, 1) + 1
+
+
+def test_holds_totals_to_a_copy():
+    totals = [add(1, 1)]
+    assert totals == [*totals]

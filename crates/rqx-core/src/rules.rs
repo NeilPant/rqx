@@ -1094,8 +1094,7 @@ fn hygiene_findings(
             Evidence::BranchShape {
                 shape: format!("`{}` has the same expression on both sides", spot.detail),
             },
-            "write the expected value as a literal, instead of the call that produces it"
-                .to_owned(),
+            "write the value the code should produce as a literal on the expected side".to_owned(),
         );
     }
     for spot in &hygiene.unexplained_values {

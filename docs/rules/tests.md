@@ -82,15 +82,15 @@ it holds the code to whatever the code already does, so it keeps passing through
 | Reads | the syntax tree alone |
 | Fix | Introduce Assertion |
 
-From `fixtures/typescript/suite.test.ts`, line 56:
+From `fixtures/typescript/suite.test.ts`, line 98:
 
 ```ts
-it("holds the code to itself", () => {
-  expect(add(1, 1)).toBe(add(1, 1));
+  const sums = [add(1, 1)];
+  expect(sums).toEqual([...sums]);
 });
 ```
 
-Suggested fix: write the expected value as a literal, instead of the call that produces it
+Suggested fix: write the value the code should produce as a literal on the expected side
 
 ## `unexplained-expected-value`
 
