@@ -14,6 +14,13 @@ them. `tools/release.sh` turns that section into the release notes.
 - **`rqx --help` lists the commands before the global options.** The command groups
   come first, then an `Options:` heading with the global options, then the notes, the
   examples and the exit codes. The text of each is unchanged.
+- **`-h` lists the common flags of a command, and `--help` lists all of them.** Under
+  `-h`, `rqx scan` shows 10 of its 39 flags, such as `--rule`, `--severity`, `--path`
+  and `--fail-on`, and its help flag says that `--help` lists every option. `check`,
+  `fix`, `verify`, `comment`, `perf`, `plan` and most other analysis commands do the
+  same with their own set. The global `--motion`, `--no-progress`, `--progress` and
+  `--hyperlinks` are also left out of `-h`. Every flag is still accepted and still in
+  `--help`, the man pages and the shell completion scripts.
 
 ## 0.5.0 — 2026-11-18
 
