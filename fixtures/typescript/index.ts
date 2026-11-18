@@ -10,7 +10,7 @@ export { pricing, unreachable, suppressed, ship, nothingHappens, forwardOrbit, s
 export { Coordinate, Marker, Facade, Vehicle, Engine, Broken, Totals, routeOf, priceOf, notify, enqueue, record } from "./shapes";
 export type { Channel, IShipment } from "./shapes";
 export { Registry, CachedRegistry, gate, sweep } from "./shapes";
-export { widen, userName, narrowed } from "./precision";
+export { widen, userName, narrowed, forced } from "./precision";
 export { query, window as slice, limits, Ledger as ConventionLedger, narrates, tier } from "./conventions";
 export { Ledger, handle, summarise } from "./queries";
 export { endpoint, score } from "./config";

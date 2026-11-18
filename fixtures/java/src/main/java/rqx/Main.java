@@ -52,6 +52,7 @@ public class Main {
         new Lifecycle();
         new Intimacy();
         new Precision().widen("");
+        new Precision().forced("");
         new Queries();
         new Vocabulary().getAccount("");
         new Conventions().query("");

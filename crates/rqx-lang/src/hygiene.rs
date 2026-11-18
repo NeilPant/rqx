@@ -4632,11 +4632,21 @@ impl<'a> Walker<'a> {
             .iter()
             .find(|(candidate, _)| *candidate == kind)
         {
-            let excepted = profile
-                .imprecise_type_exceptions
-                .iter()
-                .any(|exception| self.text(node).trim_end().ends_with(exception));
-            if !excepted {
+            let excepted = |cast: Node<'a>| {
+                profile
+                    .imprecise_type_exceptions
+                    .iter()
+                    .any(|exception| self.text(cast).trim_end().ends_with(exception))
+            };
+            // `value as unknown as Row` and `(Row) (Object) value` are one decision
+            // written as two casts, so a chain is reported once, at the outermost cast.
+            let chained = node.parent().is_some_and(|outer| {
+                let cast_value = outer
+                    .child_by_field_name("value")
+                    .or_else(|| outer.named_child(0));
+                kind_of(outer) == kind && cast_value == Some(node) && !excepted(outer)
+            });
+            if !excepted(node) && !chained {
                 self.out.imprecise_types.push(Spot {
                     span: span_of(node),
                     detail: (*label).to_owned(),

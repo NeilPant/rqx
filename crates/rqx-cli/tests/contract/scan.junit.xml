@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="311" failures="162" time="0">
+<testsuites name="rqx" tests="312" failures="163" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -1164,7 +1164,7 @@ Fix: pass the value in, so each function keeps the one it was made with</failure
       <skipped message="`globalThis` answers with something no caller set." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/precision.ts" tests="5" failures="3">
+  <testsuite name="typescript/precision.ts" tests="6" failures="4">
     <testcase classname="typescript/precision.ts" name="imprecise-type at 5:30">
       <failure type="imprecise-type" message="`any` throws away what the type checker had already worked out.">`any` throws away what the type checker had already worked out.
 
@@ -1182,6 +1182,12 @@ Fix: narrow the value with a check the checker can follow</failure>
 
 Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
 Fix: check for the absent case and handle it</failure>
+    </testcase>
+    <testcase classname="typescript/precision.ts" name="imprecise-type at 15:10">
+      <failure type="imprecise-type" message="`as` throws away what the type checker had already worked out.">`as` throws away what the type checker had already worked out.
+
+Why: each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here
+Fix: narrow the value with a check the checker can follow</failure>
     </testcase>
     <testcase classname="typescript/precision.ts" name="journal-comment at 1:1">
       <skipped message="This comment carries `@author`, which version control already records." />

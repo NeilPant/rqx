@@ -1624,6 +1624,31 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "typescript/precision.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 15,
+                  "startColumn": 10,
+                  "startLine": 15
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`as` throws away what the type checker had already worked out. each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here Fix: narrow the value with a check the checker can follow"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "imprecise-type"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "typescript/patterns.ts",
                   "uriBaseId": "%SRCROOT%"
                 },

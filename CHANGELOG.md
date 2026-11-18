@@ -42,6 +42,10 @@ them. `tools/release.sh` turns that section into the release notes.
   a module, so a module constant read near the bottom of its file was reported as
   declared far from its use. A binding in the file's own scope is now left out, as the
   `distant-declaration` documentation already said.
+- **`imprecise-type` reports a chain of casts once.** `value as unknown as Row` is two
+  nested casts and produced two findings on one line. A cast whose value is another
+  cast of the same kind is now reported once, at the outermost cast. The same applies
+  to `(Row) (Object) value` in Java and C++.
 
 ## 0.5.0 — 2026-11-18
 

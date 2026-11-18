@@ -756,6 +756,18 @@
     "severity": "minor"
   },
   {
+    "check_name": "imprecise-type",
+    "description": "`as` throws away what the type checker had already worked out. — each of these types turns off type checking for the value, so the guarantees the rest of the file relies on do not hold here",
+    "fingerprint": "139a3b4709fae40e0001",
+    "location": {
+      "lines": {
+        "begin": 15
+      },
+      "path": "typescript/precision.ts"
+    },
+    "severity": "minor"
+  },
+  {
     "check_name": "unused-private-member",
     "description": "The private member `instance` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
     "fingerprint": "fe9812d8440fc6cc",
