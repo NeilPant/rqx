@@ -2261,7 +2261,7 @@
     "fingerprint": "ae2b1baa040b774a",
     "location": {
       "lines": {
-        "begin": 103
+        "begin": 196
       },
       "path": "typescript/patterns.ts"
     },
@@ -2273,69 +2273,9 @@
     "fingerprint": "ae2b1baa040b774a0001",
     "location": {
       "lines": {
-        "begin": 116
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0002",
-    "location": {
-      "lines": {
-        "begin": 135
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0003",
-    "location": {
-      "lines": {
-        "begin": 196
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0004",
-    "location": {
-      "lines": {
         "begin": 204
       },
       "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "ae2b1baa040b774a0005",
-    "location": {
-      "lines": {
-        "begin": 268
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "empty-method",
-    "description": "`constructor` has an empty body. — a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision",
-    "fingerprint": "2a54bb93073a9e87",
-    "location": {
-      "lines": {
-        "begin": 6
-      },
-      "path": "typescript/shapes.ts"
     },
     "severity": "info"
   },

@@ -55,14 +55,14 @@ one decision is spread across files that must be edited together, and nothing in
 | Reads | the syntax tree alone |
 | Fix | Extract Class / Move Method |
 
-From `fixtures/python/__main__.py`, line 1:
+From `fixtures/typescript/index.ts`, line 1:
 
-```python
-from .bloat import Spiral, Catalogue, Formatting, Overgrown, SameAsOvergrown, crowded_scope, deeply_nested, too_many_parameters, widely_guarded, loops, many_paths, spread_out
-from .clean import add, describe
+```ts
+export { add, describe } from "./clean";
+export { tooManyParameters, deeplyNested, Overgrown, SameAsFeeder, Formatting, Catalogue, crowdedScope, widelyGuarded, manyPaths, spreadOut, loops, Spiral } from "./bloat";
 ```
 
-Suggested fix: the decision these two share has no home; move it into one place so `lookalikes.py` stops needing an edit every time this file does
+Suggested fix: the decision these two share has no home; move it into one place so `lookalikes.ts` stops needing an edit every time this file does
 
 ## `divergent-change`
 

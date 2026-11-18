@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="314" failures="164" time="0">
+<testsuites name="rqx" tests="309" failures="164" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -899,7 +899,7 @@ Why: every caller passes a value that is never read, so the parameter list misde
 Fix: drop `deadB` from `twoDeadOnOneLine` and from its call sites</failure>
     </testcase>
   </testsuite>
-  <testsuite name="typescript/patterns.ts" tests="39" failures="16">
+  <testsuite name="typescript/patterns.ts" tests="35" failures="16">
     <testcase classname="typescript/patterns.ts" name="redundant-else at 21:7">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
@@ -996,22 +996,10 @@ Fix: give `this.state` a type per case and let each one carry its own behaviour,
 Why: the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one
 Fix: give `action.kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 2 edits</failure>
     </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 103:3">
-      <skipped message="`constructor` has an empty body." />
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 116:3">
-      <skipped message="`constructor` has an empty body." />
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 135:3">
-      <skipped message="`constructor` has an empty body." />
-    </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 196:3">
       <skipped message="`constructor` has an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="empty-method at 204:3">
-      <skipped message="`constructor` has an empty body." />
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="empty-method at 268:3">
       <skipped message="`constructor` has an empty body." />
     </testcase>
     <testcase classname="typescript/patterns.ts" name="speculative-generality at 257:23">
@@ -1272,7 +1260,7 @@ Fix: lift the conditions in `reconcileBatch` into named predicates, then extract
       <skipped message="Touches `row` 5 times and its own members 0 times." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/shapes.ts" tests="30" failures="14">
+  <testsuite name="typescript/shapes.ts" tests="29" failures="14">
     <testcase classname="typescript/shapes.ts" name="redundant-else at 35:3">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
@@ -1362,9 +1350,6 @@ Fix: split `sweep` into named steps, each one nameable without the word &quot;an
     </testcase>
     <testcase classname="typescript/shapes.ts" name="empty-subclass at 48:8">
       <skipped message="`CachedRegistry` inherits and adds nothing." />
-    </testcase>
-    <testcase classname="typescript/shapes.ts" name="empty-method at 6:3">
-      <skipped message="`constructor` has an empty body." />
     </testcase>
     <testcase classname="typescript/shapes.ts" name="speculative-generality at 10:23">
       <skipped message="The class with no implementer `Vehicle` is declared and never read." />

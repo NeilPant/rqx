@@ -4798,81 +4798,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 103,
-                  "startColumn": 3,
-                  "startLine": 103
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 116,
-                  "startColumn": 3,
-                  "startLine": 116
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 135,
-                  "startColumn": 3,
-                  "startLine": 135
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "endLine": 196,
                   "startColumn": 3,
                   "startLine": 196
@@ -4901,56 +4826,6 @@
                   "endLine": 204,
                   "startColumn": 3,
                   "startLine": 204
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/patterns.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 268,
-                  "startColumn": 3,
-                  "startLine": 268
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`constructor` has an empty body. a caller receives no result and cannot distinguish it from work that succeeded, and a reader cannot tell whether the method is a stub or a decision Fix: give it a body, delete it, or state explicitly that doing nothing is intended"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "empty-method"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/shapes.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 6,
-                  "startColumn": 3,
-                  "startLine": 6
                 }
               }
             }

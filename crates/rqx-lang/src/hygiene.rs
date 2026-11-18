@@ -784,7 +784,9 @@ impl<'a> Walker<'a> {
     /// languages spell "the default, but private".
     fn note_empty_method(&mut self, function: Node<'a>) {
         let profile = self.profile;
-        if profile.constructor_kinds.contains(&kind_of(function)) {
+        if profile.constructor_kinds.contains(&kind_of(function))
+            || self.initialises_outside_its_body(function)
+        {
             return;
         }
         let Some(body) = self.function_body(function) else {
@@ -809,6 +811,25 @@ impl<'a> Walker<'a> {
             detail: name,
             count: 1,
         });
+    }
+
+    /// A constructor whose work is written outside the braces: a C++ member
+    /// initialiser list, `Gauge(int scale) : scale(scale) {}`, or TypeScript parameter
+    /// properties, `constructor(private readonly clock: Clock) {}`.
+    fn initialises_outside_its_body(&self, function: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut cursor = function.walk();
+        if function
+            .named_children(&mut cursor)
+            .any(|child| kind_of(child) == "field_initializer_list")
+        {
+            return true;
+        }
+        crate::parameters::input_list(profile, function).is_some_and(|list| {
+            descendants(list)
+                .into_iter()
+                .any(|node| profile.field_declaring_modifiers.contains(&kind_of(node)))
+        })
     }
 
     /// A `continue` or `break` that control was reaching anyway. The keyword makes a

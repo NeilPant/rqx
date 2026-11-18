@@ -138,3 +138,12 @@ export function spelled(word: string): number {
   ];
   return codeWords.indexOf(word);
 }
+
+// empty-method: the constructor's work is its parameter property.
+export class Stamp {
+  constructor(private readonly label: string) {}
+
+  describe(): string {
+    return "[" + this.label + "]";
+  }
+}

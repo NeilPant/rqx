@@ -66,6 +66,11 @@ them. `tools/release.sh` turns that section into the release notes.
   counted, so the matcher `expect.any(Function)`, a variable named `any` in TypeScript
   or Go, and `from typing import Any` in Python were reported. A member name is no
   longer read as a type, and a plain identifier counts only inside a type annotation.
+- **`empty-method` no longer reports a constructor that initialises members outside
+  its braces.** A C++ constructor with a member initialiser list, `Meter(int factor) :
+  factor_(factor) {}`, and a TypeScript constructor with parameter properties,
+  `constructor(private readonly label: string) {}`, do their work before the body and
+  were reported as empty.
 - **`magic-number` leaves out the value of a declaration.** The rule describes itself
   as counting literals outside a declaration, but `const MAX_RETRIES = 3` counted
   toward the repeats of `3`, so naming a number, which is the fix the rule recommends,
