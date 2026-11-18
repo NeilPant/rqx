@@ -633,10 +633,11 @@ mod tests {
             confidence: rqx_core::Confidence::Verified,
             hint: String::new(),
         };
-        let version_with = |rules: Vec<rqx_core::config::CustomRule>| {
-            let mut config = RqxConfig::default();
-            config.custom = rules;
-            analysis_version(&Resolved::of(config))
+        let version_with = |custom: Vec<rqx_core::config::CustomRule>| {
+            analysis_version(&Resolved::of(RqxConfig {
+                custom,
+                ..RqxConfig::default()
+            }))
         };
         let query = "(call_expression function: (identifier) @site (#eq? @site \"eval\"))";
         let written = version_with(vec![custom(query, "eval runs text as code")]);
