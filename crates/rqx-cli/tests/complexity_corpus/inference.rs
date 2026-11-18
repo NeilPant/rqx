@@ -191,7 +191,8 @@ fn analyse(path: &Path) -> Read {
     let source = std::fs::read_to_string(path).expect("a corpus file reads");
     let analysis = rqx_lang::analyze(path, &name, &source, &RqxConfig::default())
         .unwrap_or_else(|error| panic!("{name}: {error}"));
-    let canonical: PathBuf = path.canonicalize().expect("a corpus file exists");
+    // Without the `\\?\` prefix Windows adds, which the import resolver never builds.
+    let canonical: PathBuf = rqx_core::paths::canonicalize(path).expect("a corpus file exists");
     Read {
         name,
         module: ModuleEntry {
