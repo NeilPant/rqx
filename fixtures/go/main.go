@@ -151,5 +151,8 @@ func main() {
 	_ = fixtures.SizeOfEach
 	_ = fixtures.SizeOfEachInTurn
 	_ = fixtures.SizeOfOne
+	_ = fixtures.SplitHost
+	_ = fixtures.Scaled
+	_ = fixtures.Counted
 	_ = cyclea.Orbit
 }

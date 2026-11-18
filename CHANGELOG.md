@@ -9,6 +9,15 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Fixed
+
+- **`output-parameter` reports only assignments to a parameter.** It reported any
+  assignment whose target had the name of a parameter anywhere in the file, so a local
+  declared with `:=`, a class-level annotation in Python, and a local that shared a name
+  with another function's parameter were all reported. The target is now resolved
+  through the file's scopes and must be a parameter of an enclosing function. A named
+  result in a Go signature is not counted, and each parameter is reported once.
+
 ## 0.5.0 — 2026-11-18
 
 ### Added

@@ -446,31 +446,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "typescript/flow.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 112,
-                  "startColumn": 5,
-                  "startLine": 112
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Parameter `total` is reassigned inside the function. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong Fix: assign to a local instead of `total`, and return the result"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "output-parameter"
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "typescript/hygiene.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -4581,7 +4556,7 @@
             }
           ],
           "message": {
-            "text": "35 imports, every one of them passed straight back out (limit 35). it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
+            "text": "36 imports, every one of them passed straight back out (limit 36). it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
           },
           "properties": {
             "confidence": "verified"
@@ -5506,7 +5481,7 @@
             }
           ],
           "message": {
-            "text": "26 modules imported (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
+            "text": "27 modules imported (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
           },
           "properties": {
             "confidence": "heuristic"

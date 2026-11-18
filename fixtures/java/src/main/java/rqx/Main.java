@@ -123,5 +123,7 @@ public class Main {
         new CostLinearOpInLoop().sumArray(new java.util.ArrayList<>(), 0);
         new CostSortInLoop().rankEach(java.util.List.of(), new java.util.ArrayList<>());
         new CostSortInLoop().rankOwn(java.util.List.of());
+        new Lookalikes().scaled(1);
+        new Lookalikes().counted(new String[0]);
     }
 }

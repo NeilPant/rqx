@@ -5146,16 +5146,52 @@ pub fn collect_over(
         distant_declarations(scopes, source, limits.declaration_distance_lines);
     scan_comments(profile, source, nodes, limits, &mut out);
 
-    // A parameter that is only ever reassigned is a different finding from a local
-    // that is, so the list is narrowed to actual parameters here.
-    let parameters: Vec<&str> = scopes
-        .of_kind(BindingKind::Parameter)
-        .map(|binding| binding.name.as_str())
-        .collect();
-    out.mutated_parameters
-        .retain(|spot| parameters.contains(&spot.detail.as_str()));
-    out.mutated_parameters.dedup_by(|a, b| a.detail == b.detail);
+    out.mutated_parameters =
+        reassigned_parameters(root, scopes, std::mem::take(&mut out.mutated_parameters));
     out
+}
+
+/// The assignments whose target is a parameter of a function around it, one per
+/// parameter. A name is matched through the scopes rather than by spelling: a local
+/// that happens to share its name with a parameter elsewhere in the file is not one,
+/// and neither is a declaration that introduces a new name.
+fn reassigned_parameters(root: Node<'_>, scopes: &Scopes, assigned: Vec<Spot>) -> Vec<Spot> {
+    let mut parameter_of: HashMap<(u32, u32), usize> = HashMap::new();
+    for (index, binding) in scopes.bindings.iter().enumerate() {
+        if binding.kind == BindingKind::Parameter && !is_named_result(root, binding.span) {
+            for reference in &binding.references {
+                parameter_of.insert((reference.start, reference.end), index);
+            }
+        }
+    }
+    let mut reported = HashSet::new();
+    assigned
+        .into_iter()
+        .filter(|spot| {
+            parameter_of
+                .get(&(spot.span.start, spot.span.end))
+                .is_some_and(|index| reported.insert(*index))
+        })
+        .collect()
+}
+
+/// A Go result named in the signature is a variable the function is meant to fill,
+/// so assigning to it is how the function answers.
+fn is_named_result(root: Node<'_>, name: Span) -> bool {
+    let mut current = root.descendant_for_byte_range(name.start as usize, name.end as usize);
+    while let Some(node) = current {
+        if crate::tree::field_name(node) == Some("result") {
+            return true;
+        }
+        if node
+            .parent()
+            .is_some_and(|parent| parent.child_by_field_name("body").is_some())
+        {
+            return false;
+        }
+        current = node.parent();
+    }
+    false
 }
 
 /// The three rules about a comment's relationship to the code under it. They share

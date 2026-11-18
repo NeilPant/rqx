@@ -205,18 +205,6 @@
   },
   {
     "check_name": "output-parameter",
-    "description": "Parameter `total` is reassigned inside the function. — the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
-    "fingerprint": "a16eb9f8aae542e6",
-    "location": {
-      "lines": {
-        "begin": 112
-      },
-      "path": "typescript/flow.ts"
-    },
-    "severity": "minor"
-  },
-  {
-    "check_name": "output-parameter",
     "description": "Parameter `value` is reassigned inside the function. — the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
     "fingerprint": "c583c0e9e6173144",
     "location": {
@@ -2149,8 +2137,8 @@
   },
   {
     "check_name": "barrel-module",
-    "description": "35 imports, every one of them passed straight back out (limit 35). — it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
-    "fingerprint": "a31847da5ff5e364",
+    "description": "36 imports, every one of them passed straight back out (limit 36). — it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from",
+    "fingerprint": "fac1dd389e190a84",
     "location": {
       "lines": {
         "begin": 1
@@ -2593,8 +2581,8 @@
   },
   {
     "check_name": "wide-fan-out",
-    "description": "26 modules imported (limit 20). — a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it",
-    "fingerprint": "43f9ddf006d15f57",
+    "description": "27 modules imported (limit 20). — a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it",
+    "fingerprint": "7861e6d3d44a4b36",
     "location": {
       "lines": {
         "begin": 1
