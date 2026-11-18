@@ -9,6 +9,12 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Changed
+
+- **`rqx --help` lists the commands before the global options.** The command groups
+  come first, then an `Options:` heading with the global options, then the notes, the
+  examples and the exit codes. The text of each is unchanged.
+
 ## 0.5.0 — 2026-11-18
 
 ### Added

@@ -75,16 +75,19 @@ static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
     name = "rqx",
     version,
     about = "Reports dead code, duplication, complexity and architectural drift in TypeScript, JavaScript, Python, Go, Java and C++, with the reason each finding matters",
-    // `{subcommands}` is left out and the grouped list put in `after_help` instead:
+    // `{subcommands}` is left out and the grouped list put in `before_help` instead:
     // clap has no heading for a subcommand, and twenty-seven of them in one block is
     // a wall that gets worse with every one added. They stay visible to the parser
     // rather than hidden, because hiding them would group the help and silently
-    // break shell completion, which reads the same flag.
+    // break shell completion, which reads the same flag. The commands come before the
+    // options because what a reader came for is a command, and the global options
+    // are the same for all of them.
     help_template = "\
 {about}
 
 {usage-heading} {usage}
 
+{before-help}Options:
 {options}
 {after-help}",
 )]
@@ -199,8 +202,30 @@ pub fn parser() -> clap::Command {
 
     let base = Cli::command();
     let grouped = grouped_help(&base);
-    base.after_help(grouped)
+    base.before_help(grouped).after_help(HELP_NOTES)
 }
+
+/// What follows the options: how a bare `rqx` behaves, the examples and the exit codes.
+const HELP_NOTES: &str = "\
+Run without a subcommand in a terminal, `rqx` opens the interactive session on the
+working directory. In any other context it scans the working directory, as `rqx scan`
+does. `rqx scan` reports import cycles, layer violations against a configured
+`architecture`, dead code, duplication and churn. The commands under Look closer
+present the same scan for one question.
+
+Examples:
+  rqx                              the session in a terminal, the scan elsewhere
+  rqx scan .                       print the full report
+  rqx scan . --fail-on error       report, and exit 1 if any finding is an error
+  rqx check --base main            review the changed files and apply the gate
+  rqx explain unused-export        what one rule measures and how to fix it
+
+Exit codes:
+  0   completed; no gate failed
+  1   completed; the gate failed
+  2   rqx could not run: bad path, invalid configuration, unresolvable revision
+  101 internal error; please report it
+";
 
 /// Built from the parser rather than written out, so a description here cannot drift
 /// from the one `rqx <command> --help` gives.
@@ -240,29 +265,7 @@ fn grouped_help(command: &clap::Command) -> String {
         }
         out.push('\n');
     }
-    out.push_str(
-        "\
-Run without a subcommand in a terminal, `rqx` opens the interactive session on the
-working directory. In any other context it scans the working directory, as `rqx scan`
-does. `rqx scan` reports import cycles, layer violations against a configured
-`architecture`, dead code, duplication and churn. The commands under Look closer
-present the same scan for one question.
-
-Examples:
-  rqx                              the session in a terminal, the scan elsewhere
-  rqx scan .                       print the full report
-  rqx scan . --fail-on error       report, and exit 1 if any finding is an error
-  rqx check --base main            review the changed files and apply the gate
-  rqx explain unused-export        what one rule measures and how to fix it
-
-Exit codes:
-  0   completed; no gate failed
-  1   completed; the gate failed
-  2   rqx could not run: bad path, invalid configuration, unresolvable revision
-  101 internal error; please report it
-",
-    );
-    out
+    out.trim_end().to_owned()
 }
 
 #[derive(Subcommand)]

@@ -1037,6 +1037,12 @@ fn every_command_is_in_exactly_one_help_group() {
     ] {
         assert!(help.contains(heading), "no {heading} heading:\n{help}");
     }
+    let commands_at = help.find("The loop").expect("the first group");
+    let options_at = help.find("Options:").expect("the options heading");
+    assert!(
+        commands_at < options_at,
+        "the commands come before the global options:\n{help}"
+    );
 }
 
 #[test]
