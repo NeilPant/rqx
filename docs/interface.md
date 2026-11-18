@@ -124,8 +124,8 @@ diff instead.
 | `ctrl-w` | delete the word before the cursor |
 | `↑` `↓` | walk the history, or the menu when it is open |
 | `?` on an empty line | print the keys into scrollback |
-| `tab` | accept the highlighted command |
-| `esc` | close the list |
+| `tab` | accept the highlighted row; with no list open, list the command's flags |
+| `esc` | close the list; it stays closed until a `-` is typed or `tab` is pressed |
 | `enter` | accept the highlighted command if it would change the line, otherwise run the line |
 | `ctrl-c` | stop the running job; at the prompt, clear the line, and twice within a second, leave |
 | `ctrl-d` | leave |
@@ -141,11 +141,14 @@ takes the highlighted row. The list is ranked by how closely the typed letters s
 together, so `cplx` matches `/complexity`. A line that does not start with `/`
 shows no list.
 
-Once a command is typed and a space follows it, the list offers that command's
-flags, read from the same definition the command line parses with. After a flag it
-offers the values the flag takes: the choices clap lists, rule slugs for `--rule`
-and `--not-rule`, families for `--category`, and files from the scan for `--focus`.
-`/explain` offers rule slugs.
+After a command and a space the list stays closed, so a finished line runs on
+`enter`. Typing `-` lists that command's flags, read from the same definition the
+command line parses with, and `tab` lists them after a space. The flags that
+`rqx <command> -h` shows come first and the rest follow, ranked by the typed
+letters. A flag already on the line is not listed again unless it can be repeated.
+After a flag the list offers the values the flag takes: the choices clap lists,
+rule slugs for `--rule` and `--not-rule`, families for `--category`, and files from
+the scan for `--focus`. `/explain` offers rule slugs.
 
 ## Leaving
 
