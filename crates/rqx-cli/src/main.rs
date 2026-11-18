@@ -26,6 +26,7 @@ mod graph;
 mod health;
 mod history;
 mod hotspots;
+mod large_stack;
 mod listed;
 mod lsp;
 mod mcp;
@@ -2104,14 +2105,18 @@ fn reader_went_away(error: &anyhow::Error) -> bool {
 }
 
 fn main() {
+    std::process::exit(large_stack::run(exit_code));
+}
+
+fn exit_code() -> i32 {
     match run() {
-        Ok(code) => std::process::exit(code as i32),
-        Err(error) if reader_went_away(&error) => std::process::exit(Exit::Clean as i32),
+        Ok(code) => code as i32,
+        Err(error) if reader_went_away(&error) => Exit::Clean as i32,
         Err(error) => {
             eprintln!("Error: {error:#}");
             // Distinct from a failed gate: CI has to be able to tell "your code has
             // problems" from "rqx could not run".
-            std::process::exit(Exit::Failed as i32);
+            Exit::Failed as i32
         }
     }
 }
