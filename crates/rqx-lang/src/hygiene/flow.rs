@@ -161,7 +161,7 @@ impl<'a> Walker<'a> {
         let arms = self.chain_arms(head);
         let same = |first: &Arm<'a>, second: &Arm<'a>| {
             !self.text(first.body).trim().is_empty()
-                && squashed(self.text(first.body)) == squashed(self.text(second.body))
+                && self.written_as(first.body) == self.written_as(second.body)
         };
         if let [.., before, last] = arms.as_slice()
             && last.condition.is_none()
