@@ -93,6 +93,12 @@ them. `tools/release.sh` turns that section into the release notes.
   language, because reading a property can run a getter with side effects. The
   finding is still reported; only the deletion is withheld.
 
+- **The `unused-local` fix leaves a declaration whose name appears again in the same
+  function.** In pprof's `legacy_profile.go`, a later `case` declares its own `err`,
+  so `var err error` was reported as unused although an earlier `case` assigns and
+  reads it, and `fix --write` deleted it and broke `go build`. The finding is still
+  reported; only the deletion is withheld.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

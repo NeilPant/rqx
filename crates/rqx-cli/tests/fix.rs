@@ -801,3 +801,23 @@ fn a_local_that_reads_an_attribute_is_reported_and_kept() {
     assert!(scan_json(&root).contains("\"unused-local\""));
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// pprof's `legacy_profile.go`: the rule calls `var err error` unused because a later
+/// `case` declares its own `err`, while an earlier `case` assigns and reads the outer
+/// one. Deleting it broke `go build`; the fixer leaves a name its function mentions
+/// again.
+#[test]
+fn a_local_its_function_names_again_is_kept() {
+    let source = "package p\n\nimport \"strconv\"\n\nfunc Parse(key, val string) int64 {\n\tvar hz int64\n\tvar err error\n\tswitch key {\n\tcase \"hz\":\n\t\tif hz, err = strconv.ParseInt(val, 0, 64); err != nil {\n\t\t\treturn 0\n\t\t}\n\tcase \"ms\":\n\t\tms, err := strconv.ParseInt(val, 0, 64)\n\t\tif err != nil {\n\t\t\treturn 0\n\t\t}\n\t\thz = ms\n\t}\n\treturn hz\n}\n";
+    let root = project(
+        "named-again",
+        &[
+            ("go.mod", "module example.com/p\n\ngo 1.22\n"),
+            ("p.go", source),
+        ],
+    );
+    fix(&root, &["--write"]);
+    assert_eq!(std::fs::read_to_string(root.join("p.go")).unwrap(), source);
+    assert_vets(&root);
+    let _ = std::fs::remove_dir_all(&root);
+}

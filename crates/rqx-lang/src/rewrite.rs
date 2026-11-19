@@ -566,8 +566,13 @@ impl<'src> Rewriter<'src> {
         })?;
         // A declaration outside a function belongs to the module or package, and
         // another file may read it.
-        climb(declarator, |node| self.profile.is_function(node))?;
-        if self.has_effect(declarator, name) {
+        let function = climb(declarator, |node| self.profile.is_function(node))?;
+        // Any other mention of the name in the function may be a read the scope
+        // resolution missed, such as Go's `cpuHz, err = parse()` after `var err
+        // error`; deleting the declaration then leaves that read undefined.
+        if self.has_effect(declarator, name)
+            || self.mentions_within(function, text_of(name, self.source)) > 1
+        {
             return None;
         }
 
@@ -1235,6 +1240,23 @@ func use(c *Command, args []string, last string) {
             );
             assert_eq!(fixed(language, source), source, "{language:?}");
         }
+    }
+
+    /// pprof's `legacy_profile.go`: `err` is assigned and read inside the switch, which
+    /// the rule does not see. Deleting `var err error` would leave those undefined.
+    #[test]
+    fn a_local_named_again_in_its_function_is_left_alone() {
+        let source = "package p\n\nimport \"strconv\"\n\nfunc parse(key, val string) int64 {\n\tvar hz int64\n\tvar err error\n\tswitch key {\n\tcase \"hz\":\n\t\tif hz, err = strconv.ParseInt(val, 0, 64); err != nil {\n\t\t\treturn 0\n\t\t}\n\tcase \"ms\":\n\t\tms, err := strconv.ParseInt(val, 0, 64)\n\t\tif err != nil {\n\t\t\treturn 0\n\t\t}\n\t\thz = ms\n\t}\n\treturn hz\n}\n";
+        let analysis = crate::analyze_as(Language::Go, "fixture", source, &every_confidence())
+            .expect("analysis");
+        assert!(
+            analysis
+                .findings
+                .iter()
+                .any(|finding| finding.rule == RuleId::UnusedLocal),
+            "the rule no longer misreads this; the test needs a new case"
+        );
+        assert_eq!(fixed(Language::Go, source), source);
     }
 
     #[test]
