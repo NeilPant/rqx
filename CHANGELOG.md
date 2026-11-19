@@ -116,6 +116,28 @@ them. `tools/release.sh` turns that section into the release notes.
   at every `if`, or climbed towards the root with a parent lookup that is itself
   linear in depth. 400 branches now take about 0.1 seconds. The findings are the same.
 
+- **`check --base`, `scan --since`, `--changed` and the history rules see files whose
+  names git quotes.** git prints a path with a non-ASCII character, a tab, a quote or
+  a newline in quotes, and the quoted name matched no file. A change to `café.ts` was
+  never reviewed, and the gate passed without a warning. rqx now reads every path list
+  from git NUL-separated (`-z`).
+
+- **A base revision that begins with `-` is refused.** `--base`, `--since` and the
+  `base` of the MCP `check` and `verify` tools went to git unchecked, so
+  `--base=--output=x` made `git diff` write a file and the MCP `check` tool reported
+  success. Such a value now exits 2 with `is not a revision` before git runs.
+
+- **A failed git command is quoted in the error.** `check` said a review needs a git
+  repository and a revision that exists whatever went wrong, and left out what git
+  said, such as a broken `.gitmodules`. The error now names the git command and the
+  first line git wrote on stderr. `scan --since` and `verify` do the same.
+
+- **A base checkout left behind by a killed run is removed.** `check` and `verify`
+  register a temporary checkout of the base revision in the repository. A run killed
+  while it held one left it on disk and listed in `git worktree list`. Each checkout
+  now holds a lock while it is in use, and the next run in the same repository removes
+  every rqx checkout whose lock nobody holds.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

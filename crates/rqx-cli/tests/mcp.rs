@@ -611,6 +611,46 @@ fn a_scan_over_mcp_matches_the_json_reporter() {
     session.shutdown();
 }
 
+fn git(root: &Path, args: &[&str]) {
+    let status = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .status()
+        .expect("git runs");
+    assert!(status.success(), "git {args:?}");
+}
+
+/// The tools are read-only, and an agent picks the base. One that begins with `-`
+/// would reach git as an option, and `--output=` makes `git diff` write a file.
+#[test]
+fn a_base_that_reads_as_an_option_is_refused_by_check_and_verify() {
+    let root = workspace("option base");
+    git(&root, &["init", "-q"]);
+    git(&root, &["config", "user.email", "test@example.com"]);
+    git(&root, &["config", "user.name", "test"]);
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-qm", "base"]);
+    let mut session = Session::start(&root);
+    for tool in ["check", "verify"] {
+        let answer = session.call(tool, json!({ "base": "--output=victim.txt" }));
+        let failed =
+            answer.get("error").is_some() || answer["result"]["isError"].as_bool() == Some(true);
+        assert!(failed, "{tool} accepted the base: {answer}");
+        assert!(
+            answer.to_string().contains("is not a revision"),
+            "{tool} did not say why: {answer}"
+        );
+    }
+    session.shutdown();
+    let written: Vec<_> = std::fs::read_dir(&root)
+        .expect("the workspace")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("victim"))
+        .collect();
+    assert!(written.is_empty(), "git wrote {written:?}");
+}
+
 /// A server that binds a public address with no token hands every file it can parse to
 /// whoever reaches the port, so it refuses to start rather than warning.
 #[test]

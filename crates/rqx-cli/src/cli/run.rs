@@ -63,8 +63,9 @@ pub(crate) fn filter_of(
     .with_text(view.search.as_deref().unwrap_or_default());
     let mut touched: Option<Vec<String>> = None;
     if let Some(base) = &view.since {
-        touched = Some(history::changed_since(root, base).ok_or_else(|| {
-            anyhow::anyhow!("`{base}` is not a revision this repository knows about")
+        let base = history::revision(base).map_err(|refused| anyhow::anyhow!("{refused}"))?;
+        touched = Some(history::changed_files(root, base).map_err(|git_said| {
+            anyhow::anyhow!("`{base}` is not a revision this repository knows about: {git_said}")
         })?);
     }
     if view.changed {

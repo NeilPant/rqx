@@ -19,6 +19,7 @@ use std::process::Command;
 use anyhow::{Context, Result, bail};
 
 use crate::history;
+use crate::history::git;
 
 /// What the index differs from `HEAD` by, named from the top of the repository.
 struct Changes {
@@ -110,20 +111,6 @@ fn temporary_directory() -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |since| since.as_nanos());
     std::env::temp_dir().join(format!("rqx-staged-{}-{nanos}", std::process::id()))
-}
-
-/// A `git` in `directory`. A hook run by `git commit -a` or `git commit <path>` is
-/// handed a temporary index through a relative `GIT_INDEX_FILE`, and `-C` would
-/// otherwise make that path point somewhere else.
-fn git(directory: &Path) -> Command {
-    let mut command = Command::new("git");
-    command.arg("-C").arg(directory);
-    if let Some(index) = std::env::var_os("GIT_INDEX_FILE")
-        && let Ok(index) = std::path::absolute(index)
-    {
-        command.env("GIT_INDEX_FILE", index);
-    }
-    command
 }
 
 fn run(mut command: Command, description: &str) -> Result<Vec<u8>> {
