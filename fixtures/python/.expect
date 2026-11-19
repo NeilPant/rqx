@@ -152,6 +152,7 @@ hygiene.py rule=blanket-try #2 | total = 0
 hygiene.py rule=docstring-restates-signature | """Score of user id"""
 hygiene.py rule=catch-all-handler #2 | except Exception:
 hygiene.py rule=shadowed-handler #2 | except Exception:
+hygiene.py rule=unused-local | loop = stream._loop
 intimacy.py rule=inappropriate-intimacy | return Checkout.rate * len(self.items)
 intimacy.py rule=duplicate-code | def open(self, path: str) -> None:
 intimacy.py rule=import-time-work | warm_the_cache()
