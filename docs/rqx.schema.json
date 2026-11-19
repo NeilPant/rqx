@@ -10269,7 +10269,7 @@
         },
         "max_findings": {
           "default": 500,
-          "description": "How many findings the report shows. 0 shows every one. Never moves the score.",
+          "description": "How many findings a report for a person shows (terminal, markdown, html). 0 shows every one. The json, sarif, junit, gitlab and github reports list every finding unless `--max-findings` is passed. Never moves the score.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"

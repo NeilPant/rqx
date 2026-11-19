@@ -28,7 +28,7 @@ Write the health score as a small SVG badge
 | --- | --- |
 | `--output` | Write the SVG to this file. Without it, the SVG goes to standard output |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -50,7 +50,7 @@ Record the findings this project already has, so the gate evaluates only what a 
 | `--update` | Record the baseline again from the current findings. Refuses to record more findings than the previous baseline held unless --force is given |
 | `--force` | Record a larger set than the previous baseline held |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -122,12 +122,12 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
 | `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
-| `--max-findings` | Maximum number of findings listed; 0 lists every finding. Does not affect the health score |
+| `--max-findings` | Maximum number of findings listed; 0 lists every finding. Without it, the terminal, markdown and html reports list 500 (`scan.max_findings`) and the json, sarif, junit, gitlab and github reports list every finding. Does not affect the gate or the health score |
 | `--record` | Append a snapshot of this scan's health to a trend file. Without a path it writes to `.rqx/trend.ndjson` |
 | `--trend` | Draw the snapshots in this file as a chart in the HTML report. A file that does not exist yet draws nothing |
 | `--regressions` | List the functions whose time order grew against the base revision, even when `gate.complexity_regression` is `off`. They are reported and do not change the exit code; the setting does that |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -160,7 +160,7 @@ Post the review as a comment on its merge request, and grade the commit
 | `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
 | `--regressions` | List the functions whose time order grew against the base revision, even when `gate.complexity_regression` is `off`. They are reported and do not change the exit code; the setting does that |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -204,7 +204,7 @@ Report the complexity distribution, with the highest values
 | `--json` | Emit one JSON object per row |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -269,7 +269,7 @@ Apply the fixes that have a single correct result, proving each one before it is
 | `--verify-build` | Also run `go vet` on a temporary copy of each Go module with the fixes applied, and withhold a module's fixes if it fails. Needs `go` on PATH |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -294,7 +294,7 @@ Print the import graph as text, Graphviz, Mermaid or JSON
 | `--focus` | Only the files this file reaches and the files that reach it |
 | `--depth` | Distance from `--focus` to follow |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -316,7 +316,7 @@ Break the health score down by component and report what removing each would gai
 | `--json` | Emit one JSON object per bucket |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -344,7 +344,7 @@ Rank files by how often they change and how much is wrong with them
 | `--since` | Days of git history to count commits over. Defaults to `scan.churn_days` |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -438,7 +438,7 @@ Rank the owners named in CODEOWNERS by the health of the files they own
 | `--json` | Emit one JSON object per owner |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -461,7 +461,7 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--json` | Emit one JSON object per advisory instead of the text report |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -488,7 +488,7 @@ Report code whose work grows faster than its input, ranked by reach
 | `--json` | Emit one JSON object per row |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -513,7 +513,7 @@ Rank the work by value against effort, and report the health score after it
 | `--json` | Emit one JSON object per item instead of the text plan |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -556,7 +556,7 @@ Recommend actions for the project: configuration thresholds, refactorings, files
 | `--only` | Only this section |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -628,12 +628,12 @@ Analyze a project and report every finding
 | `--coverage` | A coverage file that can contradict a dead-code finding. lcov, a Go cover profile and coverage.py JSON are detected by content |
 | `--profile` | A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content |
 | `--sarif-in` | A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score |
-| `--max-findings` | Maximum number of findings listed; 0 lists every finding. Does not affect the health score |
+| `--max-findings` | Maximum number of findings listed; 0 lists every finding. Without it, the terminal, markdown and html reports list 500 (`scan.max_findings`) and the json, sarif, junit, gitlab and github reports list every finding. Does not affect the gate or the health score |
 | `--watch` | Rescan whenever a file changes, until interrupted |
 | `--record` | Append a snapshot of this scan's health to a trend file. Without a path it writes to `.rqx/trend.ndjson` |
 | `--trend` | Draw the snapshots in this file as a chart in the HTML report. A file that does not exist yet draws nothing |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -674,7 +674,7 @@ Score files that show signs of not having been reviewed after they were written
 | `--min` | Skip anything scoring below this |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -697,7 +697,7 @@ List every finding waived by a comment in the source, with its reason
 | `--json` | Emit one JSON object per waiver instead of the text report |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
@@ -781,7 +781,7 @@ Compare the working tree against a base revision and classify each finding as re
 | `--json` | Emit one JSON object per change instead of the text report |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--level` | relaxed, standard, strict or pristine |
-| `--threads` | Worker threads. Defaults to the machine's parallelism |
+| `--threads` | Worker threads, at most 256. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
 | `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |

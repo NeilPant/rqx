@@ -52,7 +52,7 @@ never
 A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score
 .TP
 \fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
-Maximum number of findings listed; 0 lists every finding. Does not affect the health score
+Maximum number of findings listed; 0 lists every finding. Without it, the terminal, markdown and html reports list 500 (`scan.max_findings`) and the json, sarif, junit, gitlab and github reports list every finding. Does not affect the gate or the health score
 .TP
 \fB\-\-motion\fR \fI<MOTION>\fR [default: on]
 Animation in the interactive interface
@@ -115,7 +115,7 @@ relaxed, standard, strict or pristine
 Print a report taller than the terminal directly instead of through the pager: `$RQX_PAGER`, then `$PAGER`, then `less \-FRX`
 .TP
 \fB\-\-threads\fR \fI<N>\fR
-Worker threads. Defaults to the machine\*(Aqs parallelism
+Worker threads, at most 256. Defaults to the machine\*(Aqs parallelism
 .TP
 \fB\-\-config\fR \fI<FILE>\fR
 Read settings from this file, layered over any `rqx.yaml` found
