@@ -234,6 +234,110 @@ The test still fails afterwards in three cases, each of which needs an edit by h
 the repository that contains the fixtures, so they have no entries. A test that builds
 its own repository covers them.
 
+## Walkthrough: fix a false positive
+
+This follows one real change, commit `effd661` (`fix(empty-catch): leave a catch that
+explains itself alone`), from the report to the pull request. Find it with
+`git log --grep=empty-catch`. A different rule changes different files, and the order
+is the same.
+
+**1. The report.** The [false-positive form](../.github/ISSUE_TEMPLATE/false-positive.yml)
+gave a rule, a file and a snippet. In 0.5.1, `empty-catch` reported this:
+
+```ts
+try {
+  return JSON.parse(text);
+} catch {
+  // Malformed input means no settings, which the caller already handles.
+}
+```
+
+**2. Decide whether it is a false positive.** `rqx explain empty-catch` and
+`docs/rules/empty-catch.md` say what the rule claims. Its fix hint asks the author to
+write down why the error is ignored, and the snippet does that. A rule that asks for a
+comment and then reports the comment contradicts itself, so the finding is wrong and
+the collector is what changes. If the rule were right and the code wrong, the answer
+would be a reply on the issue, with no code change.
+
+**3. Find where the decision is made.** Rules read facts that a collector produced, so
+the cause is in the collector and not in `rules.rs`. `empty-catch` is collected by the
+walker in `crates/rqx-lang/src/hygiene.rs`. It treated a comment as one of the child
+nodes of the catch body, and the table of node kinds that count as empty
+(`empty_body_kinds` in the `LanguageProfile`) includes comments.
+
+**4. Write the failing test first.** Add the cases to
+`crates/rqx-lang/tests/error_lookalikes.rs`, in `an_empty_catch_is_reported_until_it_says_why`.
+The table pairs code that must still be reported (`catch (e) {}`, `catch (e) { ; }`, a
+bare `pass`) with code that must not (a catch holding a comment), for each language the
+rule covers. Run it and see it fail:
+
+```sh
+cargo test -p rqx-lang --test error_lookalikes
+```
+
+The cases that must still be reported matter as much as the new ones. They stop the fix
+from silencing the rule.
+
+**5. Change the collector.** The commit moves the test into a function,
+`swallows_silently` in the hygiene walker. It returns true when the body does nothing
+and no node anywhere in the clause is a comment. It searches the whole clause because
+Python writes the comment on the `except` line, outside the body block. The change
+stays inside the shared walker, so one edit covers JavaScript, TypeScript, Python, Java
+and C++. A per-language branch would have been the signal to look for a missing
+`LanguageProfile` entry first.
+
+**6. Add a fixture that stays silent.** A false positive is fixed for good when a
+fixture holds the code that was wrongly reported. The commit adds one commented catch
+per language to that language's `lookalikes` file, for example `parsedOrNothing` in
+`fixtures/typescript/lookalikes.ts`. Lookalike files exist for this: code that
+resembles a finding and is not one.
+
+**7. Update the expectations.** Run the fixture tests:
+
+```sh
+cargo test -p rqx --test fixtures every_fixture_finding_is_expected
+```
+
+The new function reports nothing, so the test passes and `RQX_BLESS=1` adds no line,
+because `rule=` entries are written only for findings. The commit predates the `.expect`
+files, which count findings per rule. With them, pin the silence by hand so that a
+regression names the line. `fixtures/typescript/.expect` now ends with this entry:
+
+```text
+lookalikes.ts none=empty-catch | } catch {
+```
+
+`none=empty-catch` fails if the rule fires on that line again. The line text has to be
+unique in the file, or the entry selects the occurrence with `#N`. The other tests that
+read fixtures move as well. Adding lines changes `summary.code_lines` in the
+golden files under `crates/rqx-cli/tests/contract/`, which the commit updates (1881 to
+1890 and 1882 to 1891) and notes in its message. Regenerate them with
+`RQX_BLESS=1 cargo test -p rqx --test contract` and read the diff: only the line count
+should move, and no finding should disappear. Then run `cargo run --quiet -- docs`. The
+generated pages did not change for this fix. They do when a rule's wording or default
+changes.
+
+**8. Measure on real code.** Build the binary from `main` and the one with the fix, and
+compare them on a project that is not this repository:
+
+```sh
+tools/measure.sh /tmp/rqx-main target/release/rqx ~/code/some-project
+```
+
+The expected result is that only `empty-catch` changes, and that its count falls.
+Read the findings that disappeared and confirm each one has a comment. A count that
+falls by more than the number of commented catches, or another rule that moves, means
+the change is wider than intended.
+
+**9. Record it.** Add an entry under `## Unreleased` in `CHANGELOG.md` that says what
+no longer happens, in the language the user saw. The commit's entry names the old and
+new behaviour and the cases that are still reported.
+
+**10. Commit and open the pull request.** Branch from `main`. The commit message gives
+the reason, which fixtures were added, and which goldens moved and why. The pull
+request description links the issue, shows the before and after counts from step 8, and
+ticks the checklist in the template. `tools/dev.sh check` has to pass first.
+
 ## Guide: add a precision corpus case
 
 `fixtures/complexity` holds the functions the cost analysis is scored on, and
