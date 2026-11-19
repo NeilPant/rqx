@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::config::RqxConfig;
 use crate::facts::{ClassMetrics, CostSite, FunctionMetrics, SuspiciousName, UnusedParameter};
-use crate::finding::{Confidence, Evidence, Finding, SourceRange};
+use crate::finding::{Confidence, Evidence, Finding, Severity, SourceRange};
 use crate::line_index::LineIndex;
 use crate::rule::RuleId;
 use crate::span::Span;
@@ -511,6 +511,11 @@ pub fn check_hygiene(
         finding.focus = hygiene
             .focus_of(finding.rule, within)
             .map(|focus| builder.range(focus));
+        if hygiene.is_softened(finding.rule, within) {
+            finding.severity = Severity::Warning;
+            // A severity the project configured for the rule still decides.
+            builder.config.rules.adjust(finding);
+        }
     }
 }
 

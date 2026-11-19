@@ -713,6 +713,11 @@ impl<'a> Walker<'a> {
                 detail: "catch clause".to_owned(),
                 count: 1,
             });
+            // Naming the failure it expects is a decision about that one failure;
+            // only a handler that takes everything can hide one nobody foresaw.
+            if !self.takes_any_failure(node) {
+                self.out.soften(RuleId::EmptyCatch, span_of(node));
+            }
         }
         if kind == profile.if_kind || profile.else_clause_kinds.contains(&kind) {
             self.note_condition(node);

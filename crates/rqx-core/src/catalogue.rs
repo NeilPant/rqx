@@ -371,7 +371,8 @@ catalogue! {
         slug: "empty-catch",
         category: Waste,
         analysis: Semantics,
-        metric: "catch clause with an empty body",
+        metric: "catch clause with an empty body, a warning when it names a type narrower \
+                 than the root of the error hierarchy",
         fixes: [HandleTheFailure],
         confidence: Verified,
         severity: Error,

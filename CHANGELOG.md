@@ -101,6 +101,16 @@ them. `tools/release.sh` turns that section into the release notes.
   reads it, and `fix --write` deleted it and broke `go build`. The finding is still
   reported; only the deletion is withheld.
 ### Fixed
+### Changed
+
+- **`empty-catch` is a warning when the handler names a narrower type than the root
+  of the error hierarchy.** `except KeyError: pass` and `catch
+  (NumberFormatException e) {}` drop one failure the author expected, which is a
+  smaller risk than a handler that swallows everything. A bare `except:`, `except
+  Exception:`, `catch (Throwable t)`, `catch (...)` and any JavaScript or TypeScript
+  handler stay errors. A severity set for the rule in `rqx.yaml` still applies to
+  both. On the CPython standard library and the other Python sources measured, 1,277
+  of 1,390 findings become warnings.
 
 - **`shadowed-handler` reports a handler only when one above it already takes every
   type it names.** It reported any handler that followed one naming `Exception`,

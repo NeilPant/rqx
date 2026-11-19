@@ -445,9 +445,12 @@ impl<'a> Walker<'a> {
         let named = match kind_of(named) {
             "as_pattern" => named.named_child(0)?,
             "parameter_list" => return self.parameter_type(named).map(|name| vec![name]),
+            "catch_formal_parameter" => named
+                .named_children(&mut named.walk())
+                .find(|child| kind_of(*child) == "catch_type")?,
             _ => named,
         };
-        let listed = if kind_of(named) == "tuple" {
+        let listed = if matches!(kind_of(named), "tuple" | "catch_type") {
             named.named_children(&mut named.walk()).collect()
         } else {
             vec![named]
@@ -474,10 +477,25 @@ impl<'a> Walker<'a> {
 
     /// A type name as the error tables spell it, whichever prefix the code wrote.
     fn error_type_name(&self, node: Node<'a>) -> String {
-        let text = self.text(node).trim();
-        let text = text.strip_prefix("::").unwrap_or(text);
-        let text = text.strip_prefix("std::").unwrap_or(text);
-        text.strip_prefix("builtins.").unwrap_or(text).to_owned()
+        error_type_spelling(self.text(node))
+    }
+
+    /// Whether a handler takes every failure or the root of the error hierarchy:
+    /// a bare `except:`, `catch (...)`, `catch (Exception e)`, and any JavaScript
+    /// handler, which cannot name a type at all.
+    pub(super) fn takes_any_failure(&self, catch: Node<'a>) -> bool {
+        let profile = self.profile;
+        if !profile.catch_names_a_type {
+            return true;
+        }
+        self.handled_types(catch).is_none_or(|types| {
+            types.iter().any(|taken| {
+                profile
+                    .catch_all_types
+                    .iter()
+                    .any(|root| error_type_spelling(root) == *taken)
+            })
+        })
     }
 
     /// Whether every type in `narrow` is one of `wide`, or derives from one of them.
@@ -633,4 +651,12 @@ impl<'a> Walker<'a> {
                     })
             })
     }
+}
+
+fn error_type_spelling(text: &str) -> String {
+    let text = text.trim();
+    let text = text.strip_prefix("::").unwrap_or(text);
+    let text = text.strip_prefix("std::").unwrap_or(text);
+    let text = text.strip_prefix("java.lang.").unwrap_or(text);
+    text.strip_prefix("builtins.").unwrap_or(text).to_owned()
 }

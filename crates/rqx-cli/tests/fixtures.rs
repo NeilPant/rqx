@@ -781,6 +781,26 @@ fn summary_of(report: &str) -> String {
     format!("{head}{tail}")
 }
 
+fn severities_of(language: &str, rule: &str) -> Vec<String> {
+    let report = scan_language(language, &["--config", &config_path()]);
+    findings_for(&report, rule)
+        .iter()
+        .filter_map(|line| line.split("\"severity\":\"").nth(1))
+        .filter_map(|rest| rest.split('"').next())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// An empty handler that names the failure it expects drops that one failure on
+/// purpose, so it is a warning; one that takes everything stays an error.
+#[test]
+fn an_empty_handler_is_an_error_only_when_it_takes_everything() {
+    // `except ValueError:`
+    assert_eq!(severities_of("python", "empty-catch"), ["warning"]);
+    // `catch (error)`, which can only take everything.
+    assert_eq!(severities_of("typescript", "empty-catch"), ["error"]);
+}
+
 /// The catalogue is a promise: every rule in it claims a smell, a metric and a fix.
 /// This is what stops that promise being aspirational — a rule nothing can trigger is
 /// a documentation entry pretending to be a check. It is asked once per language,

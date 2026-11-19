@@ -267,7 +267,7 @@ the failure is swallowed silently, so it first appears as wrong data elsewhere, 
 
 | | |
 |---|---|
-| Measures | catch clause with an empty body |
+| Measures | catch clause with an empty body, a warning when it names a type narrower than the root of the error hierarchy |
 | Reported as | error, verified |
 | Reads | resolved scopes and symbols |
 | Fix | Handle the Failure |

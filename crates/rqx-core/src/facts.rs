@@ -99,10 +99,21 @@ pub struct Focus {
     pub span: Span,
 }
 
+/// A spot its rule reports as a warning rather than at the rule's default severity,
+/// because it is the milder case of what the rule describes. Kept beside the spots the
+/// way `Focus` is, and joined to them by rule and span in `rules::check_hygiene`.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct Softened {
+    pub rule: crate::rule::RuleId,
+    pub within: Span,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Hygiene {
     #[serde(default)]
     pub focuses: Vec<Focus>,
+    #[serde(default)]
+    pub softened: Vec<Softened>,
     /// Waivers a developer wrote next to the code. Not a `Spot`: a waiver carries a
     /// reason and a date, and nothing else here does.
     pub waivers: Vec<crate::suppress::Suppression>,
@@ -259,6 +270,16 @@ impl Hygiene {
             .iter()
             .find(|focus| focus.rule == rule && focus.within == within)
             .map(|focus| focus.span)
+    }
+
+    pub fn soften(&mut self, rule: crate::rule::RuleId, within: Span) {
+        self.softened.push(Softened { rule, within });
+    }
+
+    pub fn is_softened(&self, rule: crate::rule::RuleId, within: Span) -> bool {
+        self.softened
+            .iter()
+            .any(|softened| softened.rule == rule && softened.within == within)
     }
 }
 
