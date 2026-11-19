@@ -27,9 +27,13 @@ struct Grader<'a> {
     owner: Vec<SignatureOwner>,
     enclosing: Vec<Option<String>>,
     exported_depth: u32,
-    /// Names the file mentions without calling them, for Python, where a function
-    /// handed to someone else as a callback is told apart only by that.
+    /// Names the file mentions without calling them, where a function handed to
+    /// someone else as a callback is told apart only by that. Java's are the names it
+    /// passes as method references.
     handed_out: HashSet<&'a str>,
+    /// Go: the file carries a build constraint, so it is one of several platform
+    /// variants that share their signatures.
+    platform_specific: bool,
     /// Who outside this file can call each function.
     visibility: Visibility<'a>,
     out: Vec<UnusedParameter>,
@@ -57,7 +61,14 @@ impl<'a> Grader<'a> {
         }
         // C++ wraps the name in what it is a reference or pointer to: `const T& lhs`
         // declares `lhs` inside a reference declarator. One that holds no name,
-        // `const T&`, declares nothing, and `T` is its type.
+        // `const T&`, declares nothing, and `T` is its type. Java's varargs parameter
+        // `LinkOption... options` holds its name in a declarator child of its own.
+        let declared = declared.or_else(|| {
+            let mut cursor = parameter.walk();
+            parameter
+                .named_children(&mut cursor)
+                .find(|child| kind_of(*child) == "variable_declarator")
+        });
         if let Some(declared) = declared.filter(|node| kind_of(*node).ends_with("declarator")) {
             return self
                 .declared_name(declared)
@@ -179,7 +190,7 @@ impl<'a> Grader<'a> {
         }
         match rest.as_slice() {
             [] => true,
-            [only] if kind_of(**only) == "raise_statement" => true,
+            [only] => self.profile.throw_kinds.contains(&kind_of(**only)),
             _ => false,
         }
     }
@@ -208,6 +219,68 @@ impl<'a> Grader<'a> {
                     && child.named_children(&mut child.walk()).any(&decorated))
         });
         marked || function.prev_named_sibling().is_some_and(decorated)
+    }
+
+    /// A signature some other declaration dictates, which the language does not make
+    /// the file say. Go satisfies interfaces without naming them, so any method may be
+    /// one an interface fixes; a function literal has the type of the field, variable
+    /// or parameter it is given to; a function named without being called is handed
+    /// to someone; and a file built for one platform keeps the signatures its siblings
+    /// for the others declare. Java calls the methods of an interface, an abstract
+    /// class or an anonymous class through a type the method does not name, and
+    /// elsewhere a function handed out by name is called with what its caller passes.
+    /// In any
+    /// language a body that does nothing or only refuses is a default for others to
+    /// replace.
+    fn signature_is_fixed_elsewhere(&self, function: Node<'a>, name: Option<&str>) -> bool {
+        if self.is_stub(function) {
+            return true;
+        }
+        match self.profile.language {
+            Language::Go => {
+                function.child_by_field_name("receiver").is_some()
+                    || kind_of(function) == "func_literal"
+                    || self.platform_specific
+                    || name.is_some_and(|name| self.handed_out.contains(name))
+            }
+            Language::Java => self.is_overridable_java_member(function),
+            Language::Python | Language::Cpp => false,
+            Language::TypeScript | Language::JavaScript => {
+                name.is_some_and(|name| self.handed_out.contains(name))
+            }
+        }
+    }
+
+    /// A method of an interface, an abstract class or an anonymous class, a
+    /// `protected` method a subclass may replace, or one handed out as `this::name`.
+    fn is_overridable_java_member(&self, function: Node<'a>) -> bool {
+        let words: Vec<&str> = header_words(function, self.source).collect();
+        if words.contains(&"protected") && !words.contains(&"final") {
+            return true;
+        }
+        if self
+            .names_of(function)
+            .is_some_and(|name| self.handed_out.contains(name))
+        {
+            return true;
+        }
+        let Some(body) = function.parent() else {
+            return false;
+        };
+        let Some(owner) = body.parent() else {
+            return false;
+        };
+        match kind_of(owner) {
+            "interface_declaration" | "object_creation_expression" => true,
+            "class_declaration" => header_words(owner, self.source).any(|word| word == "abstract"),
+            _ => false,
+        }
+    }
+
+    fn names_of(&self, function: Node<'a>) -> Option<&'a str> {
+        function
+            .child_by_field_name("name")
+            .map(|name| text_of(name, self.source))
     }
 
     fn is_used(&self, name: &str, node: Node<'a>) -> bool {
@@ -285,12 +358,15 @@ impl<'a> Grader<'a> {
         // hierarchy the two cannot be told apart (about 5 in 14 right on the standard
         // library when methods were included).
         if self.profile.language == Language::Python
-            && (self.is_stub(function)
-                || self.is_method(function)
+            && (self.is_method(function)
                 || name
                     .as_deref()
                     .is_some_and(|name| self.handed_out.contains(name)))
         {
+            return;
+        }
+
+        if self.signature_is_fixed_elsewhere(function, name.as_deref()) {
             return;
         }
 
@@ -306,8 +382,15 @@ impl<'a> Grader<'a> {
             // A leading underscore is the ecosystem's way of saying "required by the
             // signature, deliberately ignored"; reporting it would be reporting the
             // author's own annotation back at them.
+            // A name that says so, and Java's `Void` marker that only tells two
+            // constructors apart, are kept on purpose too.
+            let declared_unused = matches!(identifier, "ignore" | "ignored" | "unused" | "dummy")
+                || parameter
+                    .child_by_field_name("type")
+                    .is_some_and(|written| text_of(written, self.source) == "Void");
             if self.profile.is_ignored_name(identifier)
                 || self.profile.self_names.contains(&identifier)
+                || declared_unused
             {
                 continue;
             }
@@ -455,10 +538,12 @@ fn names_used_without_a_call<'s>(
 /// chooses. `__init__` and `__new__` take what the caller constructing the object
 /// passes, so an unused one there is the author's to delete.
 fn is_protocol_method(name: &str) -> bool {
-    name.len() > 4
-        && name.starts_with("__")
-        && name.ends_with("__")
-        && !matches!(name, "__init__" | "__new__")
+    // `load_tests(loader, tests, pattern)` is the hook unittest calls by name.
+    name == "load_tests"
+        || (name.len() > 4
+            && name.starts_with("__")
+            && name.ends_with("__")
+            && !matches!(name, "__init__" | "__new__"))
 }
 
 /// The parameter list a function's callers fill. A Go signature can hold three lists,
@@ -513,6 +598,72 @@ pub fn unused(
     root: Node<'_>,
     scopes: &Scopes,
 ) -> Vec<UnusedParameter> {
+    unused_in_file(profile, "", source, root, scopes)
+}
+
+/// Go's operating systems and architectures, which a file name ends with to build
+/// only there: `cpu_freebsd.go`, `asm_arm64.go`.
+const GO_PLATFORMS: [&str; 30] = [
+    "aix",
+    "android",
+    "darwin",
+    "dragonfly",
+    "freebsd",
+    "illumos",
+    "ios",
+    "js",
+    "linux",
+    "netbsd",
+    "openbsd",
+    "plan9",
+    "solaris",
+    "wasip1",
+    "windows",
+    "zos",
+    "386",
+    "amd64",
+    "arm",
+    "arm64",
+    "loong64",
+    "mips",
+    "mips64",
+    "mips64le",
+    "mipsle",
+    "ppc64",
+    "ppc64le",
+    "riscv64",
+    "s390x",
+    "wasm",
+];
+
+/// Whether a Go file builds for some platforms only, by a constraint comment or by
+/// the platform its name ends with.
+fn builds_for_some_platforms(display: &str, source: &str) -> bool {
+    let stem = std::path::Path::new(display)
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let stem = stem.strip_suffix("_test").unwrap_or(&stem);
+    let named = stem
+        .rsplit('_')
+        .next()
+        .is_some_and(|last| stem.contains('_') && GO_PLATFORMS.contains(&last));
+    named
+        || source
+            .lines()
+            .map(str::trim_start)
+            .any(|line| line.starts_with("//go:build") || line.starts_with("// +build"))
+}
+
+/// The same answer as [`unused`], for a file whose name is known: Go spells a file's
+/// platform in its name as well as in a comment.
+pub fn unused_in_file(
+    profile: &'static LanguageProfile,
+    display: &str,
+    source: &str,
+    root: Node<'_>,
+    scopes: &Scopes,
+) -> Vec<UnusedParameter> {
     let mut grader = Grader {
         profile,
         source,
@@ -520,14 +671,32 @@ pub fn unused(
         owner: Vec::new(),
         enclosing: Vec::new(),
         exported_depth: 0,
-        handed_out: if profile.language == Language::Python {
-            names_used_without_a_call(profile, source, root)
-        } else {
-            HashSet::new()
+        handed_out: match profile.language {
+            Language::Java => method_references(source),
+            // A C++ prototype names its function without calling it too.
+            Language::Cpp => HashSet::new(),
+            _ => names_used_without_a_call(profile, source, root),
         },
+        platform_specific: profile.language == Language::Go
+            && builds_for_some_platforms(display, source),
         visibility: Visibility::new(profile, source, root),
         out: Vec::new(),
     };
     grader.walk(root);
     grader.out
+}
+
+/// The names a Java file passes as method references, `this::ignoreBody` or
+/// `Parser::parse`, whose parameter lists the functional interface fixes.
+fn method_references(source: &str) -> HashSet<&str> {
+    source
+        .split("::")
+        .skip(1)
+        .filter_map(|after| {
+            let name = after
+                .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+                .next()?;
+            (!name.is_empty()).then_some(name)
+        })
+        .collect()
 }

@@ -592,7 +592,8 @@ fn analyze_tree(
     let (mut module, hygiene) = match &scopes {
         Some(scopes) => {
             let mut module = (support.surface)(source, root);
-            module.unused_parameters = parameters::unused(profile, source, root, scopes);
+            module.unused_parameters =
+                parameters::unused_in_file(profile, display, source, root, scopes);
             let hygiene = hygiene::collect_over(
                 profile,
                 source,

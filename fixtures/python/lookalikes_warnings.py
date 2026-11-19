@@ -85,3 +85,9 @@ def two_plots(plot, sample):
     first = plot(sample, size=1)
     second = plot(sample, size=2)
     return first, second
+
+
+# unused-parameter: unittest calls `load_tests(loader, tests, pattern)` by name, with
+# all three arguments, whichever the module reads.
+def load_tests(loader, tests, pattern):
+    return tests

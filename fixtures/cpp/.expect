@@ -45,15 +45,11 @@ include/intimacy.hpp rule=inappropriate-intimacy | return Checkout::rate * stati
 include/intimacy.hpp rule=unused-export | class Checkout {
 include/intimacy.hpp rule=never-reassigned | Cart cart;
 include/intimacy.hpp rule=empty-method | void open(const std::string& path) {}
-include/intimacy.hpp rule=unused-parameter | void open(const std::string& path) {}
 include/intimacy.hpp rule=empty-method | void write(const std::string& row) {}
-include/intimacy.hpp rule=unused-parameter | void write(const std::string& row) {}
 include/intimacy.hpp rule=empty-method | void close() {}
 include/intimacy.hpp rule=unused-export | class JsonEmitter {
 include/intimacy.hpp rule=empty-method | void begin(const std::string& path) {}
-include/intimacy.hpp rule=unused-parameter | void begin(const std::string& path) {}
 include/intimacy.hpp rule=empty-method | void emit(const std::string& row) {}
-include/intimacy.hpp rule=unused-parameter | void emit(const std::string& row) {}
 include/intimacy.hpp rule=empty-method | void finish() {}
 include/lifecycle.hpp rule=unused-export | class Session {
 include/lifecycle.hpp rule=temporal-coupling | bool opened = false;

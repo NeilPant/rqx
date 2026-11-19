@@ -49,7 +49,6 @@ src/main/java/rqx/Conventions.java rule=single-method-field | private String lab
 src/main/java/rqx/Conventions.java rule=over-logging | int narrates(int rows) {
 src/main/java/rqx/Conventions.java rule=never-reassigned | int total = rows;
 src/main/java/rqx/Conventions.java rule=empty-method | void info(String message) {
-src/main/java/rqx/Conventions.java rule=unused-parameter | void info(String message) {
 src/main/java/rqx/CostAccumulateByCopy.java rule=duplicate-code | String text = "";
 src/main/java/rqx/CostAccumulateByCopy.java rule=never-reassigned | for (String part : parts) {
 src/main/java/rqx/CostAccumulateByCopy.java rule=accumulate-by-copy | text += part;
@@ -124,7 +123,6 @@ src/main/java/rqx/CostUnboundedCache.java rule=split-cohesion | public class Cos
 src/main/java/rqx/CostUnboundedCache.java rule=single-method-field | private static final Map<String, Integer> PAGE_SIZES = new HashMap<>();
 src/main/java/rqx/CostUnboundedCache.java rule=single-method-field | private static final Map<String, Integer> RECENT_SIZES = new HashMap<>();
 src/main/java/rqx/CostUnboundedCache.java rule=unbounded-cache | PAGE_SIZES.put(key, size);
-src/main/java/rqx/CostUnboundedCache.java rule=unused-parameter | public int rememberRecentPage(String key, int size) {
 src/main/java/rqx/CostUnboundedConcurrency.java rule=many-collaborators | public class CostUnboundedConcurrency {
 src/main/java/rqx/CostUnboundedConcurrency.java rule=speculative-generality | public interface Fetcher {
 src/main/java/rqx/CostUnboundedConcurrency.java rule=unused-export | public interface Fetcher {
@@ -261,14 +259,10 @@ src/main/java/rqx/Intimacy.java rule=lazy-class | public class Intimacy {
 src/main/java/rqx/Intimacy.java rule=inappropriate-intimacy | return Checkout.rate * this.items.size();
 src/main/java/rqx/Intimacy.java rule=never-reassigned | Cart cart = new Cart();
 src/main/java/rqx/Intimacy.java rule=empty-method | public void open(String path) { }
-src/main/java/rqx/Intimacy.java rule=unused-parameter | public void open(String path) { }
 src/main/java/rqx/Intimacy.java rule=empty-method | public void write(String row) { }
-src/main/java/rqx/Intimacy.java rule=unused-parameter | public void write(String row) { }
 src/main/java/rqx/Intimacy.java rule=empty-method | public void close() { }
 src/main/java/rqx/Intimacy.java rule=empty-method | public void begin(String path) { }
-src/main/java/rqx/Intimacy.java rule=unused-parameter | public void begin(String path) { }
 src/main/java/rqx/Intimacy.java rule=empty-method | public void emit(String row) { }
-src/main/java/rqx/Intimacy.java rule=unused-parameter | public void emit(String row) { }
 src/main/java/rqx/Intimacy.java rule=empty-method | public void finish() { }
 src/main/java/rqx/Intimacy.java rule=single-method-field | private CsvWriter writer;
 src/main/java/rqx/Intimacy.java rule=working-constructor | Ledger() {
@@ -282,10 +276,13 @@ src/main/java/rqx/Long.java rule=shadows-builtin | public class Long {
 src/main/java/rqx/Long.java rule=long-function | public int manySteps() {
 src/main/java/rqx/LookalikesWarnings.java none=working-constructor | public LookalikesWarnings() {
 src/main/java/rqx/LookalikesWarnings.java none=self-built-collaborators | this.seen = new HashSet<>();
+src/main/java/rqx/LookalikesWarnings.java none=unused-parameter | public int visits(String... pages) {
+src/main/java/rqx/LookalikesWarnings.java none=unused-parameter | protected int capacity(int requested) {
 src/main/java/rqx/LookalikesWarnings.java none=unused-private-member | private static final long serialVersionUID = 1L;
 src/main/java/rqx/LookalikesWarnings.java none=unused-private-member | private int codeOf(char letter) {
 src/main/java/rqx/LookalikesWarnings.java none=assertionless-test | public boolean test(int value) {
 src/main/java/rqx/LookalikesWarnings.java known-fp=boolean-not-a-question IntPredicate fixes the name test, so the override cannot be renamed | public boolean test(int value) {
+src/main/java/rqx/LookalikesWarnings.java none=unused-parameter | public void accept(int value) {
 src/main/java/rqx/Main.java rule=wide-fan-out | package rqx;
 src/main/java/rqx/Main.java rule=many-collaborators | public class Main {
 src/main/java/rqx/Main.java rule=feature-envy | public static void main(String[] args) {
@@ -444,7 +441,6 @@ src/main/java/rqx/Sweep.java rule=magic-number | if (row > 7331) {
 src/main/java/rqx/Vocabulary.java rule=unused-export | public String fetchAccount(String id) {
 src/main/java/rqx/Vocabulary.java rule=empty-method | public void saveAccount(String id) {
 src/main/java/rqx/Vocabulary.java rule=unused-export | public void saveAccount(String id) {
-src/main/java/rqx/Vocabulary.java rule=unused-parameter | public void saveAccount(String id) {
 src/main/java/rqx/Wrapping.java rule=middle-man | class LoggingNotifier implements Notifier {
 src/main/java/rqx/Wrapping.java rule=passthrough-function | public void send(String message) {
 src/main/java/rqx/Wrapping.java rule=middle-man | class GuardedNotifier implements Notifier {
@@ -482,7 +478,6 @@ src/test/java/rqx/SuiteTest.java rule=negated-name | public void testIsNotWritte
 src/test/java/rqx/SuiteTest.java rule=never-reassigned | int one = new Clean().add(1, 1);
 src/test/java/rqx/SuiteTest.java rule=string-shape-assertion | assertSame("{\"two\":4,\"spare\":\"padding here\"}", "x");
 src/test/java/rqx/SuiteTest.java rule=empty-method | static void assertSame(String expected, String actual) {
-src/test/java/rqx/SuiteTest.java rule=unused-parameter x2 | static void assertSame(String expected, String actual) {
 src/test/java/rqx/SuiteTest.java rule=never-reassigned | int a = new Clean().add(1, 1);
 src/test/java/rqx/SuiteTest.java rule=never-reassigned | int b = new Hygiene().narrated(1);
 src/test/java/rqx/SuiteTest.java rule=never-reassigned | int c = new Hygiene().scoreOf(1);
@@ -496,4 +491,3 @@ src/test/java/rqx/SuiteTest.java rule=unused-parameter | static Object mock(Stri
 src/test/java/rqx/SuiteTest.java rule=single-method-field | int spare;
 src/test/java/rqx/SuiteTest.java rule=unused-fixture | spare = 1;
 src/test/java/rqx/SuiteTest.java rule=empty-method | static void assertEquals(int expected, int actual) {
-src/test/java/rqx/SuiteTest.java rule=unused-parameter x2 | static void assertEquals(int expected, int actual) {

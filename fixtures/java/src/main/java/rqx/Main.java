@@ -142,5 +142,8 @@ public class Main {
         new MoreLookalikes().drained(new java.util.ArrayDeque<>());
         new LookalikesWarnings().isFirstVisit("a");
         new Codes().distance(new Codes(), 'a', 'b');
+        new LongEnough().quiet().accept(1);
+        new LookalikesWarnings().visits("a");
+        new Lookalikes().label("en");
     }
 }

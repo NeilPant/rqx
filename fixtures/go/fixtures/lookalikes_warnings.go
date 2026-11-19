@@ -59,3 +59,28 @@ func Joined(left string, right string) string {
 	joined = left + "," + right
 	return joined
 }
+
+// unused-parameter: Go satisfies interfaces without naming them, so a method's
+// signature may be one an interface fixes; a function literal has the type of the
+// variable it is stored in; and a function passed by name is called by its receiver.
+type Discard struct{}
+
+func (Discard) Write(p []byte) (int, error) {
+	return 0, nil
+}
+
+var offlineDial = func(address string) error {
+	return nil
+}
+
+func Offline() func(address string) error {
+	return offlineDial
+}
+
+func ignoreLabel(label string) int {
+	return 0
+}
+
+func Labeller() func(string) int {
+	return ignoreLabel
+}

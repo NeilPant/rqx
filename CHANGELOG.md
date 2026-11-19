@@ -465,6 +465,23 @@ them. `tools/release.sh` turns that section into the release notes.
   `package.json` above a scanned source folder now names its entry points. As a
   consequence, `unused-file` no longer reports a library's published files.
 
+- **`unused-parameter` leaves signatures the file does not decide.** Most remaining
+  findings in a sample of public code had a parameter list some other declaration
+  fixes. In Go these are now skipped: a method, which may satisfy an interface
+  without naming it, a function literal, which has the type of what it is given to,
+  a function the file names without calling, and a function in a file built for some
+  platforms only, by a `//go:build` line or a name such as `cpu_freebsd.go`. In Java
+  these are a method of an interface, an abstract class or an anonymous class, a
+  `protected` method that is not `final`, and a method passed as `this::name`. In
+  every language a body that is empty or only throws is a default for others to
+  replace. Python's `load_tests(loader, tests, pattern)` is called by unittest by
+  name, and JavaScript and TypeScript skip a function the file names without
+  calling. A Java varargs parameter, `LinkOption... options`, is named by its
+  declarator rather than reported as `LinkOption`, and a parameter that shares its
+  name with a method called in the body, as in `writer.index(index)`, is seen as
+  read. A parameter named `ignore`, `ignored`, `unused` or `dummy`, or of Java's
+  `Void` type, is kept on purpose and not reported.
+
 - **`unused-parameter` names the parameter in C++ and sees Go's `:=` reuse a
   parameter.** For `ArrayEq(const T& lhs, const U& rhs)` it reported the type `T` as
   an unused parameter, although `lhs` was used, because a name inside a reference or

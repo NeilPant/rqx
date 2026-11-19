@@ -2,6 +2,7 @@ package rqx;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.IntConsumer;
 import java.util.function.IntPredicate;
 
 // Code that resembles a warning and is not one. Every rule should stay silent here.
@@ -19,6 +20,18 @@ public class LookalikesWarnings {
         final boolean first = !seen.contains(page);
         seen.add(page);
         return first;
+    }
+
+    // unused-parameter: a varargs parameter is named by its declarator, not by its
+    // type.
+    public int visits(String... pages) {
+        return seen.size() + pages.length;
+    }
+
+    // unused-parameter: a protected method is a hook a subclass may replace, and its
+    // parameter list is the hook's.
+    protected int capacity(int requested) {
+        return seen.size();
     }
 }
 
@@ -42,5 +55,15 @@ class LongEnough implements IntPredicate {
     @Override
     public boolean test(int value) {
         return value > 3;
+    }
+
+    // unused-parameter: an anonymous class's method answers for the interface it
+    // implements, which owns its parameter list.
+    public IntConsumer quiet() {
+        return new IntConsumer() {
+            public void accept(int value) {
+                System.out.println("quiet");
+            }
+        };
     }
 }

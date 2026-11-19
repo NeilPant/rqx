@@ -180,5 +180,8 @@ func main() {
 	_ = fixtures.Priority
 	_ = fixtures.Normalised
 	_ = fixtures.Joined
+	_ = fixtures.Discard{}
+	_ = fixtures.Offline
+	_ = fixtures.Labeller
 	_ = cyclea.Orbit
 }

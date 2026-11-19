@@ -110,14 +110,10 @@ fixtures/intimacy.go rule=inappropriate-intimacy | return Checkout{}.Rate() * le
 fixtures/intimacy.go rule=global-accessor | func (Checkout) Rate() int { return CheckoutRate }
 fixtures/intimacy.go rule=plural-mismatch | cart := Cart{}
 fixtures/intimacy.go rule=empty-method | func (CsvWriter) Open(path string)  {}
-fixtures/intimacy.go rule=unused-parameter | func (CsvWriter) Open(path string)  {}
 fixtures/intimacy.go rule=empty-method | func (CsvWriter) Write(row string)  {}
-fixtures/intimacy.go rule=unused-parameter | func (CsvWriter) Write(row string)  {}
 fixtures/intimacy.go rule=empty-method | func (CsvWriter) Close()            {}
 fixtures/intimacy.go rule=empty-method | func (JsonEmitter) Begin(path string) {}
-fixtures/intimacy.go rule=unused-parameter | func (JsonEmitter) Begin(path string) {}
 fixtures/intimacy.go rule=empty-method | func (JsonEmitter) Emit(row string)   {}
-fixtures/intimacy.go rule=unused-parameter | func (JsonEmitter) Emit(row string)   {}
 fixtures/intimacy.go rule=empty-method | func (JsonEmitter) Finish()           {}
 fixtures/intimacy.go rule=ambient-dependency | return time.Now().Unix()
 fixtures/lifecycle.go rule=temporal-coupling | opened bool
@@ -128,6 +124,9 @@ fixtures/lookalikes_warnings.go none=mutable-module-state | var priorities = map
 fixtures/lookalikes_warnings.go none=unused-parameter | func Normalised(name string) (string, error) {
 fixtures/lookalikes_warnings.go may=output-parameter | name, err := normalise(name)
 fixtures/lookalikes_warnings.go none=dead-store | var joined string
+fixtures/lookalikes_warnings.go none=unused-parameter | func (Discard) Write(p []byte) (int, error) {
+fixtures/lookalikes_warnings.go none=unused-parameter | var offlineDial = func(address string) error {
+fixtures/lookalikes_warnings.go none=unused-parameter | func ignoreLabel(label string) int {
 fixtures/lookalikes_warnings_test.go none=assertionless-test | func TestMain(m *testing.M) {
 fixtures/names.go rule=wildcard-import | import . "strings"
 fixtures/names.go rule=vague-function-name | func Process(rows []int) int {
@@ -187,7 +186,6 @@ fixtures/reconcile.go rule=deep-nesting | func (r *Reconciler) ReconcileBatch(ba
 fixtures/reconcile.go rule=feature-envy | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
 fixtures/reconcile.go rule=flag-argument x2 | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
 fixtures/reconcile.go rule=long-parameter-list | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
-fixtures/reconcile.go rule=unused-parameter | func (r *Reconciler) ReconcileBatch(batch []Row, tolerance int, dryRun bool, retries int, verbose bool) int {
 fixtures/reconcile.go rule=duplicate-code | total := totalOf(rows)
 fixtures/shapes.go rule=data-class | type Marker struct {
 fixtures/shapes.go rule=data-class | type Shipment struct {
@@ -222,20 +220,11 @@ fixtures/shapes.go rule=unused-export | func Settled(balance float64) bool {
 fixtures/shapes.go rule=float-equality | return balance == 0.1
 fixtures/shapes.go rule=duplicate-code | total := len(rows)
 fixtures/shapes.go rule=duplicate-function | func SecondWay(rows []int) int {
-fixtures/structures.go rule=unused-parameter | func (b *ReportBuilder) WithRows(rows int) *ReportBuilder {
-fixtures/structures.go rule=unused-parameter | func (b *ReportBuilder) WithFooter(footer string) *ReportBuilder {
 fixtures/structures.go rule=temporary-field | clauses int
-fixtures/structures.go rule=unused-parameter | func (q *QueryBuilder) Where(field string) *QueryBuilder {
-fixtures/structures.go rule=unused-parameter | func (q *QueryBuilder) Order(field string) *QueryBuilder {
-fixtures/structures.go rule=unused-parameter | func (q *QueryBuilder) Take(count int) *QueryBuilder {
 fixtures/structures.go rule=temporary-field | Colours int
-fixtures/structures.go rule=unused-parameter | func (f *Feed) RemoveListener(handler func(int)) {
 fixtures/structures.go rule=lazy-class | type Literal struct{ Value int }
 fixtures/structures.go rule=lazy-class | type Sum struct{ Left int }
 fixtures/structures.go rule=lazy-class | type Product struct{ Right int }
-fixtures/structures.go rule=unused-parameter | func (p Printer) VisitLiteral(node Literal) string {
-fixtures/structures.go rule=unused-parameter | func (p Printer) VisitSum(node Sum) string {
-fixtures/structures.go rule=unused-parameter | func (p Printer) VisitProduct(node Product) string {
 fixtures/suite_test.go rule=skipped-test | t.Skip("pricing is being rewritten")
 fixtures/suite_test.go rule=magic-number | if Add(1, 2) != 3 {
 fixtures/suite_test.go rule=slow-test | time.Sleep(500)
@@ -254,7 +243,6 @@ fixtures/suite_test.go rule=mutable-module-state | var spare int
 fixtures/suite_test.go rule=unused-fixture | spare = 1
 fixtures/suite_test.go rule=self-asserting-test | require.Equal(t, total, total)
 fixtures/vocabulary.go rule=empty-method | func SaveOrder(identifier string) {}
-fixtures/vocabulary.go rule=unused-parameter | func SaveOrder(identifier string) {}
 flow.go rule=boolean-not-a-question | func Restated(ready bool) bool {
 flow.go rule=flag-argument | func Restated(ready bool) bool {
 flow.go rule=boolean-from-branch | if ready {

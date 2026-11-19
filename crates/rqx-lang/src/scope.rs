@@ -235,6 +235,12 @@ impl<'a> Builder<'a> {
         {
             return None;
         }
+        // Java's `writer.index(index)` names the method it calls in a `name` field,
+        // which declares nothing: taken for a declaration, it hid the parameter
+        // `index` from every later read in the block.
+        if self.names_the_method_called(parent, node) {
+            return None;
+        }
         if self.profile.declarator_kinds.contains(&kind_of(parent)) {
             return Some(BindingKind::Local);
         }
@@ -266,7 +272,18 @@ impl<'a> Builder<'a> {
         }
         let names_a_property = self.profile.is_member_access(parent)
             && field_name_under(parent, node).is_some_and(|field| field == "property");
-        !names_a_property
+        !names_a_property && !self.names_the_method_called(parent, node)
+    }
+
+    /// The method name of a call written on a receiver, where one node is both the
+    /// call and the member reach, as Java's `method_invocation` is.
+    fn names_the_method_called(&self, parent: Node<'a>, node: Node<'a>) -> bool {
+        self.profile.is_call(parent)
+            && self.profile.is_member_access(parent)
+            && parent
+                .child_by_field_name(self.profile.object_field)
+                .is_some()
+            && field_name_under(parent, node) == Some(self.profile.callee_field)
     }
 
     /// A parameter belongs to the scope its function opens; the function's own name

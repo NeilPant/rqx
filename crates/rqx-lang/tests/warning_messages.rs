@@ -91,6 +91,20 @@ fn a_go_parameter_reassigned_by_a_short_declaration_is_used() {
     assert!(unused_parameter_names(Language::Go, "p.go", source).is_empty());
 }
 
+/// A file built for one platform keeps the signature its siblings for the others
+/// declare, whether a comment or its name says which platform it is.
+#[test]
+fn a_go_platform_file_keeps_its_signatures() {
+    let source = "package cpu\n\nfunc counts(logical bool) int {\n\treturn 1\n}\n";
+    assert!(unused_parameter_names(Language::Go, "cpu_freebsd.go", source).is_empty());
+    let constrained = format!("//go:build linux\n\n{source}");
+    assert!(unused_parameter_names(Language::Go, "cpu.go", &constrained).is_empty());
+    assert_eq!(
+        unused_parameter_names(Language::Go, "cpu.go", source),
+        ["logical"]
+    );
+}
+
 #[test]
 fn a_dead_store_points_at_the_name_written() {
     let source =
