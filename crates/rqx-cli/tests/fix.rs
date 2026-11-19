@@ -294,7 +294,7 @@ fn a_go_test_keeps_the_parameter_its_runner_requires() {
     let source = "package thing\n\nimport \"testing\"\n\n\
          func TestAdd(t *testing.T) {\n\tif Add(1, 2) != 3 {\n\t\tpanic(\"no\")\n\t}\n}\n\n\
          func BenchmarkAdd(b *testing.B) {\n\tAdd(1, 2)\n}\n\n\
-         func helper(unused int) int {\n\treturn 1\n}\n";
+         func helper(spare int) int {\n\treturn 1\n}\n";
     std::fs::write(&test_file, source).expect("thing_test.go");
 
     let reported = String::from_utf8_lossy(
@@ -320,7 +320,7 @@ fn a_go_test_keeps_the_parameter_its_runner_requires() {
     );
     // The rule still works in the same file: only the framework's own signature is
     // exempt, not every parameter that happens to sit beside one.
-    assert!(named("unused"), "the rule stopped working:\n{reported}");
+    assert!(named("spare"), "the rule stopped working:\n{reported}");
 
     std::process::Command::new(env!("CARGO_BIN_EXE_rqx"))
         .args(["fix"])
