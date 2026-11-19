@@ -18,6 +18,7 @@ use crate::{
 
 use super::args::{
     CacheAction, Cli, Command, ConfigAction, Motion, SetupTarget, Standard, View, display_all,
+    ensure_exists,
 };
 use super::emit::{
     companion_stream, comparison_for, emit, sinks, update_notice, warn_of_deprecated,
@@ -717,6 +718,7 @@ pub(crate) fn run() -> Result<Exit> {
         Command::Cache { action } => {
             match action {
                 CacheAction::Status { path, config } => {
+                    ensure_exists(&path)?;
                     let settings = config::resolve(&path, config.as_deref(), None)?;
                     match cache::stored(&path, &settings) {
                         Some(stored) => {
@@ -735,6 +737,7 @@ pub(crate) fn run() -> Result<Exit> {
                     }
                 }
                 CacheAction::Clear { path } => {
+                    ensure_exists(&path)?;
                     if cache::clear(&path)? {
                         println!("  cleared");
                     } else {
@@ -751,6 +754,7 @@ pub(crate) fn run() -> Result<Exit> {
             captures,
             config,
         } => {
+            ensure_exists(&path)?;
             let settings = config::resolve(&path, config.as_deref(), None)?;
             let language = query::language_named(&language)?;
             let mut out = anstream::stdout().lock();

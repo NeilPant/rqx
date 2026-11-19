@@ -844,7 +844,10 @@ impl DisplayCap {
 }
 
 impl Run {
+    /// The settings for a run over `path`, which has to exist: a run over a mistyped
+    /// path would read no files and report a perfect score.
     pub(super) fn resolve(&self, path: &Path) -> Result<config::Resolved> {
+        ensure_exists(path)?;
         let mut settings = config::resolve(path, self.config.as_deref(), self.standard.chosen()?)?;
         if let Some(count) = self.threads {
             settings.set_by_flag(
@@ -855,6 +858,18 @@ impl Run {
         }
         Ok(settings)
     }
+}
+
+/// Exit 2 on a path that is not there, rather than a run that reads nothing and
+/// reports a clean project.
+pub(super) fn ensure_exists(path: &Path) -> Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "`{}` does not exist. rqx reads a directory or a single file; try `.`",
+        path.display()
+    )
 }
 
 #[derive(Copy, Clone, Default, ValueEnum)]

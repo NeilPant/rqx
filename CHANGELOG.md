@@ -146,6 +146,12 @@ them. `tools/release.sh` turns that section into the release notes.
   `unparseable` (`not parseable` in the terminal). A file with a few syntax errors is
   analysed as before.
 
+- **Every command that reads a path exits 2 when the path does not exist.** `health`,
+  `badge`, `graph`, `complexity`, `hotspots`, `perf`, `slop`, `recommend`, `owners`,
+  `baseline`, `suppressions`, `query` and `cache` read no files and reported success.
+  `health` printed 100/100, and `badge` wrote an SVG that read `health 100`. They now
+  stop with `` `PATH` does not exist ``, as `scan` and `fix` already did.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
