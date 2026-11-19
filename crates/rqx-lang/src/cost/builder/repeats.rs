@@ -24,7 +24,12 @@ impl<'a> Visitor<'a, '_> {
         dotted: &str,
         arguments: &[Node<'a>],
     ) {
-        if self.loop_leaves_unchanged(call, arguments) {
+        // A method given nothing answers from its object, and the call may be what
+        // changes the object: `scanner.Next()`, `listener.Accept()`. Nothing here says
+        // the project's method leaves its receiver alone.
+        let asks_its_object =
+            arguments.is_empty() && self.bounds().receiver_expression(call).is_some();
+        if !asks_its_object && self.loop_leaves_unchanged(call, arguments) {
             self.repeats.push(RepeatedCall {
                 line: super::line_of(call),
                 subject: dotted.to_owned(),
@@ -75,6 +80,9 @@ impl<'a> Visitor<'a, '_> {
         if self.names.profile.is_call(innermost) || !self.value_is_used(call) {
             return false;
         }
+        if within(call, iterable_of(innermost)) || self.leaves_the_loop(call, innermost) {
+            return false;
+        }
         let mut read: Vec<&'a str> = arguments
             .iter()
             .flat_map(|argument| read_in(&self.names, *argument))
@@ -93,6 +101,27 @@ impl<'a> Visitor<'a, '_> {
         read.iter().all(|name| !written.contains(name))
     }
 
+    /// Whether the call is in a statement that leaves the loop, so it runs at most once
+    /// however many passes come before it.
+    fn leaves_the_loop(&self, call: Node<'a>, innermost: Node<'a>) -> bool {
+        let exits = self.names.profile.exit_kinds;
+        let mut node = call;
+        while let Some(parent) = node.parent() {
+            if parent.id() == innermost.id() {
+                return false;
+            }
+            let kind = kind_of(parent);
+            if exits
+                .iter()
+                .any(|(exit, _)| *exit == kind && *exit != "continue_statement")
+            {
+                return true;
+            }
+            node = parent;
+        }
+        false
+    }
+
     fn value_is_used(&self, call: Node<'a>) -> bool {
         let mut node = call;
         while let Some(parent) = node.parent() {
@@ -105,4 +134,25 @@ impl<'a> Visitor<'a, '_> {
         }
         true
     }
+}
+
+/// What a for-each loop walks: it is evaluated once, before the first pass, so a call
+/// written there is not repeated by that loop.
+fn iterable_of(loop_node: Node<'_>) -> Option<Node<'_>> {
+    ["right", "value"]
+        .iter()
+        .find_map(|field| loop_node.child_by_field_name(field))
+        .or_else(|| {
+            let mut cursor = loop_node.walk();
+            loop_node
+                .named_children(&mut cursor)
+                .find(|child| kind_of(*child) == "range_clause")
+                .and_then(|clause| clause.child_by_field_name("right"))
+        })
+}
+
+fn within(node: Node<'_>, outer: Option<Node<'_>>) -> bool {
+    outer.is_some_and(|outer| {
+        outer.start_byte() <= node.start_byte() && node.end_byte() <= outer.end_byte()
+    })
 }

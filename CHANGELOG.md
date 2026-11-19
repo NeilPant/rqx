@@ -417,6 +417,14 @@ them. `tools/release.sh` turns that section into the release notes.
   said "returns". `imprecise-type` no longer reports C++ `auto`, which is deduced to
   one exact type, or a `(void)` cast, which marks a value as unused.
 
+- **`repeated-computation-in-loop` no longer reports loop headers, exits and methods
+  that take nothing.** What a for-each loop walks, such as `Object.keys(o)` in
+  `for (const key of Object.keys(o))`, is computed once before the first pass, and a
+  call in a `return`, `throw` or `break` runs at most once. A project method called
+  with no arguments, such as `scanner.Next()` or `listener.Accept()`, answers from its
+  object and may change it, so hoisting it out of the loop would break the loop; it
+  is no longer reported.
+
 - **`unused-private-member` no longer tells users to delete members that are used.**
   In a sample of public code none of 10 sampled findings was right, and more than
   half of all findings were Python protocol methods such as `__repr__` and

@@ -61,3 +61,20 @@ class Visits:
     def visited_hosts(self):
         """The hosts of the pages seen, such as example.com for https://example.com/a."""
         return {page.split("/")[2] for page in self.seen}
+
+
+# repeated-computation-in-loop: what a for loop walks is computed once, before the
+# first pass, and a call in a return runs at most once however many passes come first.
+def _sizes_of(parts):
+    return [len(part) for part in parts]
+
+
+def _total_size(parts):
+    return sum(len(part) for part in parts)
+
+
+def first_oversized(parts, limit):
+    for size in _sizes_of(parts):
+        if size > limit:
+            return _total_size(parts)
+    return 0

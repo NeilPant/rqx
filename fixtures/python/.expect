@@ -176,6 +176,8 @@ lookalikes_warnings.py none=shadows-builtin | def filter(self, wanted):
 lookalikes_warnings.py none=unused-private-member | def __len__(self):
 lookalikes_warnings.py none=unused-private-member | def _most_seen(self):
 lookalikes_warnings.py none=example-value | """The hosts of the pages seen, such as example.com for https://example.com/a."""
+lookalikes_warnings.py none=repeated-computation-in-loop | for size in _sizes_of(parts):
+lookalikes_warnings.py none=repeated-computation-in-loop | return _total_size(parts)
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)
