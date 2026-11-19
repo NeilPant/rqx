@@ -4,13 +4,16 @@
 .SH NAME
 rqx\-explain \- Print the catalogue entry for a rule or a pattern: what it maps to, what decides it and what fixes it. A performance rule the precision corpus scores also says how often it was right there
 .SH SYNOPSIS
-\fBrqx explain\fR [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fINAME\fR> 
+\fBrqx explain\fR [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fINAME\fR> 
 .SH DESCRIPTION
 Print the catalogue entry for a rule or a pattern: what it maps to, what decides it and what fixes it. A performance rule the precision corpus scores also says how often it was right there
 .SH OPTIONS
 .TP
 \fB\-\-no\-tui\fR
 Do not open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal

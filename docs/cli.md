@@ -9,6 +9,7 @@ Reports dead code, duplication, complexity and architectural drift in TypeScript
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -30,6 +31,7 @@ Write the health score as a small SVG badge
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -51,6 +53,7 @@ Record the findings this project already has, so the gate evaluates only what a 
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -67,6 +70,7 @@ Show what the analysis cache holds, or delete it
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -126,6 +130,7 @@ Analyze changed files against a base revision and fail if the gate is not met
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -158,6 +163,7 @@ Post the review as a comment on its merge request, and grade the commit
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -175,6 +181,7 @@ Print a shell completion script
 | --- | --- |
 | `<shell>` | bash, zsh, fish, elvish or powershell |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -200,6 +207,7 @@ Report the complexity distribution, with the highest values
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -220,6 +228,7 @@ Print the settings a run will use, and the file each one came from
 | `--json` | One JSON object per setting, then a summary, instead of the table |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -236,6 +245,7 @@ Print the catalogue entry for a rule or a pattern: what it maps to, what decides
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -262,6 +272,7 @@ Apply the fixes that have a single correct result, proving each one before it is
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -286,6 +297,7 @@ Print the import graph as text, Graphviz, Mermaid or JSON
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -307,6 +319,7 @@ Break the health score down by component and report what removing each would gai
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -334,6 +347,7 @@ Rank files by how often they change and how much is wrong with them
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -351,6 +365,7 @@ Write a commented rqx.yaml with every setting at its default
 | --- | --- |
 | `--force` | Replace an rqx.yaml that is already there |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -367,6 +382,7 @@ Print what each cleanliness level sets, as the equivalent configuration settings
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -384,6 +400,7 @@ Run as a Language Server over stdio, for editor integration
 | --- | --- |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -402,6 +419,7 @@ Run as an MCP server, so an AI agent can query a project's findings
 | `--http` | Serve Streamable HTTP on this address instead of stdio |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -423,6 +441,7 @@ Rank the owners named in CODEOWNERS by the health of the files they own
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -445,6 +464,7 @@ Report which design patterns a project uses, which are half applied, and where o
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -471,6 +491,7 @@ Report code whose work grows faster than its input, ranked by reach
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -495,6 +516,7 @@ Rank the work by value against effort, and report the health score after it
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -515,6 +537,7 @@ Run a tree-sitter query over a project, to test it before adding it to a `rule` 
 | `--captures` | Show every capture of every match, not just where it starts |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -536,6 +559,7 @@ Recommend actions for the project: configuration thresholds, refactorings, files
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -555,6 +579,7 @@ List every rule rqx can report, grouped by family
 | `--language` | Show only the rules that apply to one language |
 | `--slugs` | Print one slug per line and nothing else, for scripts and shell completion |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -611,6 +636,7 @@ Analyze a project and report every finding
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -629,6 +655,7 @@ Print the configuration an editor or a coding agent needs to use rqx, or list th
 | `<editor>` | Editor name. Omit to list the supported editors |
 | `--write` | Append the configuration to the editor's configuration file, after showing what will be added |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -650,6 +677,7 @@ Score files that show signs of not having been reviewed after they were written
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -672,6 +700,7 @@ List every finding waived by a comment in the source, with its reason
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -688,6 +717,7 @@ List every refactoring rqx prescribes and the rules that prescribe it
 | Flag | What it does |
 | --- | --- |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -709,6 +739,7 @@ Show how health, findings and the rules or owners that moved most have changed a
 | `--json` | Emit one JSON object per series |
 | `--reporter` | Where the output goes: `<name>` for stdout, `<name>=<path>` for a file; repeatable. The names are `terminal` and `json` |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -729,6 +760,7 @@ Install the newest release, or report what it would change
 | `--version` | Install this release, such as 1.2.3, instead of the newest |
 | `--dry-run` | Print the method, the URLs and the file that would be replaced, and change nothing |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -752,6 +784,7 @@ Compare the working tree against a base revision and classify each finding as re
 | `--threads` | Worker threads. Defaults to the machine's parallelism |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |
@@ -775,6 +808,7 @@ Waive one finding with a comment in the source that states a reason
 | `--dry-run` | Print the diff the waiver would make, and change no file |
 | `--config` | Read settings from this file, layered over any `rqx.yaml` found |
 | `--no-tui` | Do not open the interactive interface; bare `rqx` prints the report instead |
+| `--no-mouse` | Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open |
 | `--color` | When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal |
 | `--motion` | Animation in the interactive interface |
 | `--no-progress` | Do not draw the progress bar on stderr; `--quiet` implies it |

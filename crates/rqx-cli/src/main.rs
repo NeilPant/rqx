@@ -102,7 +102,7 @@ pub struct Cli {
     /// Keeps the session from capturing the mouse wheel for its command menu, so the
     /// terminal keeps the mouse throughout. Without it the session captures the wheel
     /// only while the menu is open.
-    #[arg(long, global = true, hide = true)]
+    #[arg(long, global = true)]
     no_mouse: bool,
     /// When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal
     #[arg(long, value_enum, default_value_t = Color::Auto, global = true)]
