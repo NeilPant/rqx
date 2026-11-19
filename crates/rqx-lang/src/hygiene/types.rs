@@ -140,6 +140,12 @@ impl<'a> Walker<'a> {
             .named_children(&mut body.walk())
             .find(|child| profile.is_block(*child))
             .unwrap_or(body);
+        // Handing the arguments to the parent's constructor is recording them too, so
+        // `super(...)` and Python's `super().__init__(...)` are not work.
+        let is_own_or_parent = |name: &str| {
+            let receiver = name.split('.').next().unwrap_or(name);
+            profile.self_names.contains(&name) || profile.super_names.contains(&receiver)
+        };
         let working = holder
             .named_children(&mut holder.walk())
             .filter(|statement| !profile.is_comment(*statement))
@@ -148,7 +154,7 @@ impl<'a> Walker<'a> {
                     profile.is_call(node)
                         && !self
                             .callee_name(node)
-                            .is_some_and(|name| profile.self_names.contains(&name.as_str()))
+                            .is_some_and(|name| is_own_or_parent(&name))
                 })
             })
             .count() as u32;

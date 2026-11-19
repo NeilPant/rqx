@@ -361,6 +361,11 @@ them. `tools/release.sh` turns that section into the release notes.
   longest line is code and not one long string, so an icon component with a long SVG
   path is still scanned.
 
+- **`working-constructor` no longer counts a call to the parent constructor as
+  work.** `constructor() { super("x"); }` and Python's `super().__init__(...)` pass
+  the arguments on to the parent, the same as recording them in a field. A subclass
+  constructor that does nothing else is no longer reported.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

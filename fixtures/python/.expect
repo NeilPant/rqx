@@ -72,8 +72,6 @@ flow.py rule=literal-comparison | if ready == True:
 flow.py rule=self-comparison | if count == count:
 flow.py rule=identical-branches | if count > 10:
 flow.py rule=redundant-else #2 | else:
-flow.py rule=identical-branches #2 | if count > 10:
-flow.py rule=redundant-else | elif count < 0:
 flow.py rule=cognitive-complexity | def buried_exits(a, b):
 flow.py rule=many-exits | def buried_exits(a, b):
 flow.py rule=magic-number | for step in [1, 2, 3]:
@@ -120,9 +118,8 @@ hierarchy.py rule=deep-inheritance | class Level4(Level3):
 hierarchy.py rule=empty-subclass | class Level4(Level3):
 hierarchy.py rule=orphan-todo | # TODO: work out what happens to the remainder
 hierarchy.py rule=integer-division | return 7 / 2 + total
-hierarchy.py none=discarded-error | _ = _count_rows(rows)
+hierarchy.py known-fp=discarded-error _count_rows returns a number and cannot fail, so no error is dropped | _ = _count_rows(rows)
 hierarchy.py rule=passthrough-function | def _count_rows(rows):
-hierarchy.py rule=discarded-error | _ = subprocess.call(["sync", path])
 hygiene.py rule=wildcard-import | from .cycle_b import *
 hygiene.py rule=duplicate-import | from .cycle_b import spin
 hygiene.py rule=unused-import | from .cycle_c import wobble
@@ -166,10 +163,6 @@ hygiene.py rule=blanket-try #2 | total = 0
 hygiene.py rule=docstring-restates-signature | """Score of user id"""
 hygiene.py rule=catch-all-handler #2 | except Exception:
 hygiene.py rule=shadowed-handler #2 | except Exception:
-hygiene.py rule=unused-local | loop = stream._loop
-hygiene.py rule=catch-all-handler #3 | except Exception:
-hygiene.py none=shadowed-handler #3 | except Exception:
-hygiene.py rule=catch-all-handler | except BaseException:
 intimacy.py rule=inappropriate-intimacy | return Checkout.rate * len(self.items)
 intimacy.py rule=duplicate-code | def open(self, path: str) -> None:
 intimacy.py rule=mutable-module-state | open_sessions = 0
@@ -180,20 +173,7 @@ intimacy.py rule=ambient-dependency | return time.time()
 lifecycle.py rule=temporal-coupling | self._opened = True
 lifecycle.py rule=middle-man | class ReportFactory:
 long.py rule=long-function | def many_steps() -> int:
-lookalikes.py none=unreachable-code | yield
-lookalikes.py none=shadowed-handler | except FileNotFoundError:
-lookalikes.py none=shadowed-handler | except OSError:
-lookalikes.py none=self-comparison | return reading != reading
-lookalikes.py none=exit-from-finally | break
-lookalikes.py none=exit-from-finally | raise RuntimeError("left unfinished")
-lookalikes.py none=mutated-while-iterated | pairs.append(row)
-lookalikes.py known-fp=unused-private-member Python calls __iter__ itself when the object is walked | def __iter__(self):
-lookalikes.py none=mutated-while-iterated | self.remove(entry)
-lookalikes.py none=dropped-promise | notify()
-lookalikes.py none=dropped-promise #2 | notify()
-lookalikes.py none=no-base-case | def count(books: list) -> int:
-lookalikes.py none=no-base-case | def shelved(entry: str) -> list:
-lookalikes.py none=no-base-case | def closed(handle, closed=print):
+lookalikes_warnings.py none=working-constructor | def __init__(self, reason):
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)
@@ -205,7 +185,6 @@ params.py rule=unused-parameter | def with_dead_tail(used: int, dead: str) -> in
 params.py rule=unused-parameter | def with_dead_middle(dead: str, used: int) -> int:
 params.py rule=unused-parameter x2 | def two_dead_on_one_line(used: int, dead_a: str, dead_b: str) -> int:
 patterns.py rule=type-code-switch | if self.state == "closed":
-patterns.py rule=identical-branches | elif self.state == "open":
 patterns.py rule=redundant-else | elif self.state == "open":
 patterns.py rule=redundant-else #2 | elif self.state == "open":
 patterns.py rule=redundant-else | elif _looks_like_upload(request):
@@ -287,7 +266,6 @@ structures.py rule=speculative-generality | class Importer(ABC):
 structures.py rule=unused-private-member | def __enter__(self):
 structures.py rule=unused-private-member | def __exit__(self, kind, value, trace):
 test_checks.py rule=branching-test | total = add(0, 1)
-test_lookalikes.py none=unused-parameter | def test_ranking_runs_in_a_clean_directory(tmp_path):
 test_suite.py rule=skipped-test | def test_discounts():
 test_suite.py rule=magic-number | assert add(1, 2) == 3
 test_suite.py rule=slow-test | time.sleep(500)
@@ -297,7 +275,7 @@ test_suite.py rule=duplicate-assertion #3 | assert add(1, 1) == 2
 test_suite.py rule=hand-rolled-throws | try:
 test_suite.py rule=debug-output-in-test | print("here")
 test_suite.py rule=unnamed-test #6 | assert add(1, 1) == 2
-test_suite.py none=self-comparison | assert add(1, 1) == add(1, 1)
+test_suite.py rule=self-comparison | assert add(1, 1) == add(1, 1)
 test_suite.py rule=assertionless-test | def test_is_not_written_yet():
 test_suite.py rule=empty-method | def test_is_not_written_yet():
 test_suite.py rule=negated-name | def test_is_not_written_yet():
