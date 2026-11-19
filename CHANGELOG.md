@@ -48,6 +48,14 @@ them. `tools/release.sh` turns that section into the release notes.
   `crates/rqx-lang/src/vocabulary.rs`. `//go:build ignore` is no longer reported as a
   `suppressed-diagnostic`.
 
+- **The `unused-parameter` fix updates every call or none.** A private method called
+  through `this` (TypeScript, JavaScript, Java, C++) or by its bare name (Java, C++)
+  now loses the argument at each call along with the parameter. In 0.5.2 only the
+  declaration changed, and `tsc` and `javac` rejected the calls. The fix is withheld
+  when the name is mentioned anywhere else outside a comment, such as a call through
+  another receiver, an overload, a callback or a string, or when a call passes a
+  keyword or spread argument.
+
 - **`unused-parameter` no longer reports parameters whose list is fixed elsewhere.**
   Java and C++ `main`, a Java method with an annotation, a TypeScript method with a
   decorator or `override`, a C++ method declared `virtual`, `override` or `final`, and a

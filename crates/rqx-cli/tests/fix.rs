@@ -685,6 +685,48 @@ fn a_suppression_is_left_to_a_person() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// A private method called through `this` loses the argument at every call when it
+/// loses the parameter. 0.5.2 rewrote the declaration alone, and `tsc` and `javac`
+/// then refused the calls.
+#[test]
+fn a_private_method_loses_the_argument_wherever_it_is_called() {
+    let typescript = "class K {\n  private go(a: number, b: number) {\n    return a;\n  }\n  public use() {\n    return this.go(1, 2);\n  }\n}\nexport const k = new K();\n";
+    let java = "public class Svc {\n    private int handle(int a, int unusedFlag) {\n        return a;\n    }\n\n    public int run() {\n        return this.handle(1, 2) + handle(3, 4);\n    }\n}\n";
+    let root = project("member-calls", &[("a.ts", typescript), ("Svc.java", java)]);
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("a.ts")).unwrap();
+    assert!(after.contains("private go(a: number)"), "{after}");
+    assert!(after.contains("this.go(1)"), "{after}");
+    let after = std::fs::read_to_string(root.join("Svc.java")).unwrap();
+    assert!(after.contains("private int handle(int a)"), "{after}");
+    assert!(after.contains("this.handle(1) + handle(3)"), "{after}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A call through a receiver the fixer cannot resolve, or a method anyone may call,
+/// keeps the signature as it is.
+#[test]
+fn a_method_called_through_another_receiver_keeps_its_signature() {
+    let typescript = "class K {\n  private go(a: number, b: number) {\n    return a;\n  }\n  public use(other: K) {\n    return other.go(1, 2);\n  }\n}\nexport const k = new K();\n";
+    let java = "public class Svc {\n    public int handle(int a, int unusedFlag) {\n        return a;\n    }\n\n    public int run() {\n        return handle(1, 2);\n    }\n}\n";
+    let root = project(
+        "unresolved-calls",
+        &[("a.ts", typescript), ("Svc.java", java), EVERY_CONFIDENCE],
+    );
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("a.ts")).unwrap(),
+        typescript
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("Svc.java")).unwrap(),
+        java
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// The entry point's signature is fixed by the runtime, and an override's by what it
 /// overrides: `java App` refused to start once `main` lost `String[] args`.
 #[test]
@@ -704,6 +746,24 @@ fn entry_points_and_overrides_keep_their_parameters() {
         java
     );
     assert_eq!(std::fs::read_to_string(root.join("main.cpp")).unwrap(), cpp);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// googletest's `ThreadWithScopedTrace(CheckPoints* check_points)`: the rule names the
+/// parameter by its type, which the body never mentions, while the body reads the
+/// parameter itself. The fix leaves a parameter the body reads.
+#[test]
+fn a_parameter_the_body_reads_is_kept_whatever_the_rule_named() {
+    let cpp = "struct Row {\n  int n;\n};\n\nstatic int twice(Row* row) {\n  return row->n * 2;\n}\n\nint run(Row* row) {\n  return twice(row);\n}\n";
+    let root = project(
+        "named-by-type",
+        &[("native/row.cpp", cpp), EVERY_CONFIDENCE],
+    );
+    fix(&root, &["--write"]);
+    assert_eq!(
+        std::fs::read_to_string(root.join("native/row.cpp")).unwrap(),
+        cpp
+    );
     let _ = std::fs::remove_dir_all(&root);
 }
 
