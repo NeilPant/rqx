@@ -431,3 +431,19 @@ fn an_unimplemented_method_is_refused_rather_than_answered_with_nothing() {
 
     session.shutdown();
 }
+
+/// One bad frame from a client used to end the connection with `disconnected channel`.
+/// It is answered with a JSON-RPC error now, and the session carries on.
+#[test]
+fn a_malformed_message_is_answered_and_the_session_carries_on() {
+    let root = workspace_with_a_space("a_malformed_message_is_answered_and_the_session_carries_on");
+    let mut session = Session::start(&root);
+    write!(session.input, "Content-Length: 5\r\n\r\n{{{{{{{{{{").expect("write");
+    session.input.flush().expect("flush");
+    let refusal = session.wait_for(|message| message.get("error").is_some());
+    assert_eq!(refusal["error"]["code"], -32700, "{refusal}");
+
+    let answer = session.initialize(&root);
+    assert!(answer["result"]["capabilities"].is_object(), "{answer}");
+    session.shutdown();
+}

@@ -1,3 +1,4 @@
+mod lines;
 pub(crate) mod root;
 mod tools;
 
@@ -9,7 +10,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use anyhow::{Context, Result, bail};
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
-use rmcp::transport::io::stdio;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool_handler};
@@ -155,12 +155,14 @@ pub fn serve(path: &Path, settings: Resolved, http: Option<SocketAddr>) -> Resul
 }
 
 async fn over_stdio(server: Rqx) -> Result<()> {
+    let filtered = lines::stdio();
     server
-        .serve(stdio())
+        .serve(filtered.service)
         .await
         .context("the MCP handshake failed")?
         .waiting()
         .await?;
+    let _ = filtered.flushed.await;
     Ok(())
 }
 

@@ -196,6 +196,13 @@ them. `tools/release.sh` turns that section into the release notes.
   `RQX_MCP_ALLOWED_HOSTS` narrows it to a comma-separated list. The `listening` line
   now gives the bound port, and the next line states the host rule.
 
+- **`rqx lsp` and `rqx mcp` answer a malformed message instead of exiting.** A frame
+  with a bad `Content-Length` or a body that is not JSON ended the language server
+  with `disconnected channel`. A first line that was not JSON ended `rqx mcp` with
+  `the MCP handshake failed`. Both now reply with a JSON-RPC parse error (`-32700`), or
+  `-32600` for JSON that is not a message, and keep reading. They exit when stdin
+  closes.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

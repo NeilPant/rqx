@@ -611,6 +611,49 @@ fn a_scan_over_mcp_matches_the_json_reporter() {
     session.shutdown();
 }
 
+/// A first line that is not JSON used to fail the handshake and end the process. It is
+/// answered with a parse error now, and the client can go on to initialize.
+#[test]
+fn a_line_that_is_not_json_is_answered_and_the_server_stays_up() {
+    let root = workspace("not json");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        .args(["mcp"])
+        .current_dir(&root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("the server starts");
+    let _watchdog = Watchdog::arm(child.id(), Duration::from_secs(120));
+    let mut input = child.stdin.take().expect("stdin");
+    let mut output = BufReader::new(child.stdout.take().expect("stdout"));
+    let mut next = || {
+        let mut line = String::new();
+        output.read_line(&mut line).expect("a line");
+        serde_json::from_str::<Value>(&line).expect("json")
+    };
+
+    writeln!(input, "not json").expect("write");
+    let refusal = next();
+    assert_eq!(refusal["error"]["code"], -32700, "{refusal}");
+
+    let initialize = json!({
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": { "name": "rqx tests", "version": "0" }
+        }
+    });
+    writeln!(input, "{initialize}").expect("write");
+    let answer = next();
+    assert_eq!(answer["id"], 1, "{answer}");
+    assert!(answer["result"]["serverInfo"].is_object(), "{answer}");
+
+    drop(input);
+    let _ = child.wait();
+}
+
 fn git(root: &Path, args: &[&str]) {
     let status = Command::new("git")
         .arg("-C")
