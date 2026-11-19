@@ -133,10 +133,7 @@ Before anything is written, `rqx fix` compares what each edited file declares be
 
 ## The scan cache
 
-`scan.cache: false` in `rqx.yaml` turns the cache (`.rqx/cache.bin`) off for the
-project. Setting the environment variable `RQX_NO_CACHE` to any value turns it off for
-one run without editing a file, which is what a cold timing or a cache bug report
-needs. A debug build of rqx never uses the cache.
+`scan.cache: false` in `rqx.yaml` turns the cache (`.rqx/cache.bin`) off for the project. Setting the environment variable `RQX_NO_CACHE` to any value turns it off for one run without editing a file, which is what a cold timing or a cache bug report needs. A debug build of rqx never uses the cache.
 
 ## Performance cost settings
 

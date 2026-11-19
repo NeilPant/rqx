@@ -781,6 +781,11 @@ fn configuration_page() -> String {
          before and fails after, every edit in it is withheld. When it already fails before, \
          its edits are withheld as well, because the check cannot judge them. The flag needs \
          `go` on `PATH` and is off by default.\n\n\
+         ## The scan cache\n\n\
+         `scan.cache: false` in `rqx.yaml` turns the cache (`.rqx/cache.bin`) off for the \
+         project. Setting the environment variable `RQX_NO_CACHE` to any value turns it off \
+         for one run without editing a file, which is what a cold timing or a cache bug \
+         report needs. A debug build of rqx never uses the cache.\n\n\
          ## Performance cost settings\n\n\
          `performance.receivers` and `performance.methods` add names to the vocabulary of the \
          I/O rules. Two further keys belong to the complexity analysis. They are validated when \
