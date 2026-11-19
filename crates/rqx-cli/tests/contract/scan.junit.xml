@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="310" failures="163" time="0">
+<testsuites name="rqx" tests="311" failures="163" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -767,10 +767,10 @@ Fix: delete it; version control already preserves it</failure>
   </testsuite>
   <testsuite name="typescript/index.ts" tests="2" failures="0">
     <testcase classname="typescript/index.ts" name="barrel-module at 1:1">
-      <skipped message="All 37 imports are re-exported unchanged, so the file only forwards names." />
+      <skipped message="All 38 imports are re-exported unchanged, so the file only forwards names." />
     </testcase>
     <testcase classname="typescript/index.ts" name="wide-fan-out at 1:1">
-      <skipped message="This file imports 28 modules (limit 20)." />
+      <skipped message="This file imports 29 modules (limit 20)." />
     </testcase>
   </testsuite>
   <testsuite name="typescript/intimacy.ts" tests="8" failures="5">
@@ -835,6 +835,9 @@ Fix: set `opened` in the constructor, or split the stages into objects that cann
 Why: a long body usually does several things, and a reader has to hold all of them in mind to change any one
 Fix: split `manySteps` into named steps, each one nameable without the word &quot;and&quot;</failure>
     </testcase>
+  </testsuite>
+  <testsuite name="typescript/lookalikes-warnings.ts" tests="1" failures="0">
+    <testcase classname="typescript/lookalikes-warnings.ts" name="rqx" />
   </testsuite>
   <testsuite name="typescript/lookalikes.test.ts" tests="1" failures="0">
     <testcase classname="typescript/lookalikes.test.ts" name="rqx" />

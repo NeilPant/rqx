@@ -169,6 +169,8 @@ lifecycle.ts rule=middle-man | export class ReportFactory {
 lifecycle.ts rule=passthrough-function | add(row: string): void {
 long.ts rule=long-function | export function manySteps() {
 lookalikes-warnings.ts none=working-constructor | constructor(reason: string) {
+lookalikes-warnings.ts none=working-constructor | constructor() {
+lookalikes-warnings.ts none=self-built-collaborators | this.seen = new Set();
 names.ts rule=vague-function-name | export function process(rows: number[]) {
 names.ts rule=return-of-fresh-local | const temp2 = data.length;
 names.ts rule=negated-name | const notReady = rows.length === 0;

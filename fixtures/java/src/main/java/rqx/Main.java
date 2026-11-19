@@ -139,5 +139,6 @@ public class Main {
         new Lookalikes().isMissing(0.0);
         new Lookalikes().width(1L);
         new MoreLookalikes().drained(new java.util.ArrayDeque<>());
+        new LookalikesWarnings().isFirstVisit("a");
     }
 }

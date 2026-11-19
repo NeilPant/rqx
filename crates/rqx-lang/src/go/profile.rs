@@ -104,6 +104,7 @@ pub static GO: LanguageProfile = LanguageProfile {
         "len", "cap", "new", "make", "copy", "append", "delete", "close", "panic", "recover",
         "print", "println", "error", "string", "byte", "rune", "complex", "real", "imag",
     ],
+    data_types: &[],
 
     scope_kinds: &[
         "function_declaration",

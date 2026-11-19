@@ -11,3 +11,19 @@ export class Refusal extends Error {
     return "refused: " + this.message;
   }
 }
+
+// self-built-collaborators, working-constructor: a set is where the object keeps its
+// data, not a collaborator a test would replace, and making an empty one is not work.
+export class Visits {
+  private readonly seen: Set<string>;
+
+  constructor() {
+    this.seen = new Set();
+  }
+
+  isFirstVisit(page: string): boolean {
+    const first = !this.seen.has(page);
+    this.seen.add(page);
+    return first;
+  }
+}

@@ -4811,7 +4811,7 @@
             }
           ],
           "message": {
-            "text": "All 37 imports are re-exported unchanged, so the file only forwards names. it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
+            "text": "All 38 imports are re-exported unchanged, so the file only forwards names. it adds a name to every path through the project and answers no question of its own, while hiding from tools which file a name comes from Fix: let callers import from the file that defines the name"
           },
           "properties": {
             "confidence": "verified"
@@ -5611,7 +5611,7 @@
             }
           ],
           "message": {
-            "text": "This file imports 28 modules (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
+            "text": "This file imports 29 modules (limit 20). a file that reaches into this many places cannot be read, moved or tested without most of the project coming with it Fix: give it one collaborator that knows the rest, or move what it is orchestrating to the things being orchestrated"
           },
           "properties": {
             "confidence": "heuristic"

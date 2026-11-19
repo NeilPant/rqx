@@ -142,20 +142,23 @@ impl<'a> Walker<'a> {
             .unwrap_or(body);
         // Handing the arguments to the parent's constructor is recording them too, so
         // `super(...)` and Python's `super().__init__(...)` are not work.
+        // So is making an empty collection or a lock to keep them in.
         let is_own_or_parent = |name: &str| {
             let receiver = name.split('.').next().unwrap_or(name);
             profile.self_names.contains(&name) || profile.super_names.contains(&receiver)
+        };
+        let records = |call: Node<'a>| {
+            self.callee_name(call)
+                .is_some_and(|name| is_own_or_parent(&name))
+                || self.builds_data_type(call)
         };
         let working = holder
             .named_children(&mut holder.walk())
             .filter(|statement| !profile.is_comment(*statement))
             .filter(|statement| {
-                descendants(*statement).into_iter().any(|node| {
-                    profile.is_call(node)
-                        && !self
-                            .callee_name(node)
-                            .is_some_and(|name| is_own_or_parent(&name))
-                })
+                descendants(*statement)
+                    .into_iter()
+                    .any(|node| profile.is_call(node) && !records(node))
             })
             .count() as u32;
         if working == 0 {
@@ -192,11 +195,20 @@ impl<'a> Walker<'a> {
         let Some(built) = self.constructed_type(value) else {
             return;
         };
+        if profile.data_types.contains(&unqualified_type(&built)) {
+            return;
+        }
         self.out.self_built_collaborators.push(Spot {
             span: span_of(assignment),
             detail: built,
             count: 1,
         });
+    }
+
+    /// Whether `node` makes one of the standard types that only hold data.
+    fn builds_data_type(&self, node: Node<'a>) -> bool {
+        self.constructed_type(node)
+            .is_some_and(|built| self.profile.data_types.contains(&unqualified_type(&built)))
     }
 
     /// What a `new` builds, whichever field the grammar keeps it in — or, in a
@@ -656,5 +668,26 @@ impl<'a> Walker<'a> {
                 });
             }
         }
+    }
+}
+
+/// A constructed type without its type arguments or its namespace: `std::vector<int>`,
+/// `java.util.HashMap<>` and `collections.OrderedDict` name `vector`, `HashMap` and
+/// `OrderedDict`.
+fn unqualified_type(written: &str) -> &str {
+    let bare = written.split('<').next().unwrap_or(written).trim();
+    bare.rsplit(['.', ':']).next().unwrap_or(bare)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::unqualified_type;
+
+    #[test]
+    fn a_type_is_named_without_its_arguments_or_namespace() {
+        assert_eq!(unqualified_type("std::vector<int>"), "vector");
+        assert_eq!(unqualified_type("java.util.HashMap<>"), "HashMap");
+        assert_eq!(unqualified_type("collections.OrderedDict"), "OrderedDict");
+        assert_eq!(unqualified_type("Set"), "Set");
     }
 }

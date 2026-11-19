@@ -366,6 +366,14 @@ them. `tools/release.sh` turns that section into the release notes.
   the arguments on to the parent, the same as recording them in a field. A subclass
   constructor that does nothing else is no longer reported.
 
+- **`self-built-collaborators` no longer reports standard containers and value
+  types.** `this.items = new Set()`, `new WeakMap()`, `new Uint32Array(0)`,
+  `new ArrayList<>()` and `collections.Counter()` hold the object's data and are not
+  collaborators a test would replace. Each language now lists the standard
+  collections, typed arrays, locks, builders and value types that do not count.
+  `working-constructor` uses the same list, so making an empty collection in a
+  constructor is no longer counted as work.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

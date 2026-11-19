@@ -143,6 +143,10 @@ pub struct LanguageProfile {
     /// Names the language or its standard library already owns, which a local of the
     /// same name hides for the rest of its scope.
     pub builtin_names: &'static [&'static str],
+    /// Standard types that hold data rather than doing work: collections, typed
+    /// arrays, locks, builders and value types. An object that makes one for itself is
+    /// not hiding a collaborator a test would want to replace.
+    pub data_types: &'static [&'static str],
 
     /// Nodes that open a scope: a name declared inside one is invisible outside it.
     pub scope_kinds: &'static [&'static str],
