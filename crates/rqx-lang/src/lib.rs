@@ -147,7 +147,7 @@ impl std::fmt::Display for AnalysisError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsupportedFile => f.write_str("not a source file Rqx reads"),
-            Self::Parse(message) if self.too_deep() => f.write_str(message),
+            Self::Parse(message) if self.too_deep() || self.unparseable() => f.write_str(message),
             Self::Parse(message) => write!(f, "parse failed: {message}"),
         }
     }
@@ -171,6 +171,63 @@ impl AnalysisError {
 
 /// How a parse refused for its depth begins its message.
 const NESTED: &str = "nested";
+
+/// How a file refused for its syntax errors begins its message.
+const NOT_PARSEABLE: &str = "not parseable:";
+
+impl AnalysisError {
+    /// Whether the file is mostly text the grammar could not read, and so was left
+    /// unanalysed rather than graded on the little that parsed.
+    pub fn unparseable(&self) -> bool {
+        matches!(self, Self::Parse(message) if message.starts_with(NOT_PARSEABLE))
+    }
+}
+
+/// Why a parsed file is not worth analysing, if it is not: most of its text sits in
+/// syntax errors, or it holds the markers of a merge conflict nobody resolved. A file
+/// like that has next to nothing for the rules to read, and grading what little
+/// parsed would call it pristine.
+fn unreadable_syntax(tree: &tree_sitter::Tree, source: &str) -> Option<String> {
+    let root = tree.root_node();
+    if !root.has_error() {
+        return None;
+    }
+    if holds_conflict_markers(source) {
+        return Some(format!(
+            "{NOT_PARSEABLE} it holds unresolved merge conflict markers"
+        ));
+    }
+    let visible = |text: &str| text.chars().filter(|c| !c.is_whitespace()).count();
+    let mut in_errors = 0;
+    let mut pending = vec![root];
+    while let Some(node) = pending.pop() {
+        if node.is_error() {
+            in_errors += visible(tree::text_of(node, source));
+            continue;
+        }
+        if node.has_error() {
+            let mut cursor = node.walk();
+            pending.extend(node.children(&mut cursor));
+        }
+    }
+    let total = visible(source).max(1);
+    let percent = in_errors * 100 / total;
+    (percent >= UNPARSEABLE_PERCENT).then(|| {
+        format!("{NOT_PARSEABLE} {percent}% of its text is syntax the grammar could not read")
+    })
+}
+
+/// The share of a file's text, in percent, that has to sit in syntax errors before the
+/// file is skipped. Below it, the rules read what did parse, as they always have.
+const UNPARSEABLE_PERCENT: usize = 50;
+
+/// A `<<<<<<<` line, a `=======` line and a `>>>>>>>` line, in that order.
+fn holds_conflict_markers(source: &str) -> bool {
+    let mut lines = source.lines();
+    lines.any(|line| line.starts_with("<<<<<<< "))
+        && lines.any(|line| line.trim_end() == "=======")
+        && lines.any(|line| line.starts_with(">>>>>>> "))
+}
 
 /// The deepest syntax tree Rqx analyses, in levels. Code a person writes stays under a
 /// hundred; a generated `else if` chain of thousands of branches or a concatenation
@@ -478,6 +535,9 @@ pub fn analyze_as_planned(
     );
     let profile = support(language).profile;
     let (tree, depth) = parse_measured(language, profile, holds_markup(display), source)?;
+    if let Some(why) = unreadable_syntax(&tree, source) {
+        return Err(AnalysisError::Parse(why));
+    }
     on_stack_for(depth, || {
         analyze_tree(language, display, source, config, tables, plan, &tree)
     })

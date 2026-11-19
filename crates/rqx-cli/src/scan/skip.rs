@@ -21,6 +21,8 @@ pub enum SkipReason {
     ParseTimeout,
     /// A syntax tree nested deeper than the analysis goes.
     TooDeep,
+    /// Mostly syntax errors, or unresolved merge conflict markers.
+    Unparseable,
     Unsupported,
     /// The walk itself failed on an entry, so there may be no file to name.
     Walk,
@@ -38,6 +40,7 @@ impl SkipReason {
             Self::Unreadable => "unreadable",
             Self::ParseTimeout => "parse-timeout",
             Self::TooDeep => "too-deep",
+            Self::Unparseable => "unparseable",
             Self::Unsupported => "unsupported",
             Self::Walk => "walk",
         }
@@ -55,6 +58,7 @@ impl SkipReason {
             Self::Unreadable => "unreadable",
             Self::ParseTimeout => "too slow to parse",
             Self::TooDeep => "nested too deeply",
+            Self::Unparseable => "not parseable",
             Self::Unsupported => "unsupported",
             Self::Walk => "unreachable",
         }
@@ -71,6 +75,7 @@ impl SkipReason {
             Self::Unreadable
             | Self::ParseTimeout
             | Self::TooDeep
+            | Self::Unparseable
             | Self::Unsupported
             | Self::Walk => None,
         }

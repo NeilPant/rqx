@@ -136,6 +136,8 @@ pub(crate) fn analyze_file(
                         SkipReason::ParseTimeout
                     } else if error.too_deep() {
                         SkipReason::TooDeep
+                    } else if error.unparseable() {
+                        SkipReason::Unparseable
                     } else {
                         SkipReason::Unsupported
                     };

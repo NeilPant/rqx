@@ -138,6 +138,14 @@ them. `tools/release.sh` turns that section into the release notes.
   now holds a lock while it is in use, and the next run in the same repository removes
   every rqx checkout whose lock nobody holds.
 
+- **A file the grammar cannot read is skipped, not graded pristine.** A file that was
+  mostly syntax errors, such as a stray fragment or a file in another language with a
+  source extension, parsed to almost nothing. It counted as scanned and raised the
+  health score. A file where at least half of the text sits in syntax errors, or that
+  holds unresolved merge conflict markers, is now skipped with the reason
+  `unparseable` (`not parseable` in the terminal). A file with a few syntax errors is
+  analysed as before.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
