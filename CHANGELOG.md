@@ -173,6 +173,13 @@ them. `tools/release.sh` turns that section into the release notes.
   for character, so `" "` and a string holding a newline are no longer the same
   condition.
 
+- **`mutated-while-iterated` no longer reports three safe patterns.** Adding to a
+  JavaScript `Set` while a `for...of` walks it is defined to visit the new entry,
+  which is how a worklist is written. A loop that points the walked name at a new
+  collection, as in `items = []` followed by `items.append(x)`, changes that new
+  collection rather than the one being walked. A loop over `self` or `this` walks
+  whatever the object's own iteration method returns, which may be a copy.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

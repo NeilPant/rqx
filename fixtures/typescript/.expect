@@ -180,6 +180,7 @@ lookalikes.ts none=unreachable-code | var total: number;
 lookalikes.ts none=self-comparison | return reading !== reading;
 lookalikes.ts none=exit-from-finally | continue;
 lookalikes.ts none=exit-from-finally | break;
+lookalikes.ts none=mutated-while-iterated | seen.add(node * 2);
 names.ts rule=vague-function-name | export function process(rows: number[]) {
 names.ts rule=return-of-fresh-local | const temp2 = data.length;
 names.ts rule=negated-name | const notReady = rows.length === 0;

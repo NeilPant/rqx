@@ -209,3 +209,15 @@ export function drained(pending: number[]): number {
     }
   }
 }
+
+export function reachable(start: number, limit: number): number {
+  // mutated-while-iterated: a Set visits what is added during the walk, which is
+  // how a worklist is written.
+  const seen = new Set([start]);
+  for (const node of seen) {
+    if (node < limit) {
+      seen.add(node * 2);
+    }
+  }
+  return seen.size;
+}

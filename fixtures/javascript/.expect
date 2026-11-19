@@ -174,6 +174,7 @@ lookalikes.js none=unreachable-code | var total;
 lookalikes.js none=self-comparison | return reading !== reading;
 lookalikes.js none=exit-from-finally | continue;
 lookalikes.js none=exit-from-finally | break;
+lookalikes.js none=mutated-while-iterated | seen.add(node * 2);
 names.js rule=vague-function-name | export function process(rows) {
 names.js rule=return-of-fresh-local | const temp2 = data.length;
 names.js rule=negated-name | const notReady = rows.length === 0;

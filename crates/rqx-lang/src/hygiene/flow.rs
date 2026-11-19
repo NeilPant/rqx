@@ -923,13 +923,25 @@ impl<'a> Walker<'a> {
         let Some(walked) = self.iterated_name(loop_node) else {
             return;
         };
+        // An object walking itself goes through its own iteration method, which may
+        // hand the loop a copy.
+        if matches!(walked.as_str(), "self" | "this") {
+            return;
+        }
         let Some(body) = self.loop_statements(loop_node) else {
             return;
         };
-        let Some(changed) = descendants(body).into_iter().find(|node| {
-            self.calls_a_changer(*node, &walked)
-                || self.rewrites_walked(*node, &walked)
-                || self.deletes_from(*node, &walked)
+        let inside = descendants(body);
+        // Once the name holds a new collection, changing it leaves the walked one alone.
+        let rebound_at = inside
+            .iter()
+            .find(|node| self.rebinds_walked(**node, &walked))
+            .map_or(usize::MAX, |node| node.start_byte());
+        let Some(changed) = inside.into_iter().find(|node| {
+            node.start_byte() < rebound_at
+                && (self.calls_a_changer(*node, &walked)
+                    || self.rewrites_walked(*node, &walked)
+                    || self.deletes_from(*node, &walked))
         }) else {
             return;
         };
@@ -960,10 +972,11 @@ impl<'a> Walker<'a> {
             "clear",
             "removeIf",
         ];
-        // A JavaScript Map or Set defines removal during a walk: an entry removed
-        // before the walk reaches it is skipped and the rest are visited once. An
-        // array has neither method.
-        const SAFE_IN_JAVASCRIPT: [&str; 2] = ["delete", "clear"];
+        // A JavaScript Map or Set defines change during a walk: an entry removed
+        // before the walk reaches it is skipped, one added is visited, and the rest
+        // are visited once, which is how a worklist is written. An array has none of
+        // these methods.
+        const SAFE_IN_JAVASCRIPT: [&str; 3] = ["delete", "clear", "add"];
         let profile = self.profile;
         let javascript = matches!(
             profile.language,
@@ -1006,6 +1019,19 @@ impl<'a> Walker<'a> {
                 .is_some_and(|value| self.shifts_elements_of(value, walked)),
             _ => false,
         }
+    }
+
+    /// A plain assignment that points the walked name at another collection, as
+    /// opposed to one that changes the collection it already holds.
+    fn rebinds_walked(&self, node: Node<'a>, walked: &str) -> bool {
+        let profile = self.profile;
+        let kind = kind_of(node);
+        (profile.assignment_kinds.contains(&kind) || profile.local_declaring_kinds.contains(&kind))
+            && !profile.compound_assignment_kinds.contains(&kind)
+            && node
+                .child_by_field_name("left")
+                .is_some_and(|target| self.text(target) == walked)
+            && !self.rewrites_walked(node, walked)
     }
 
     /// `append(s[:i], …)`: writing into the array behind `s` from inside it.

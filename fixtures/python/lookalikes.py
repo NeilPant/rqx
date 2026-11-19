@@ -208,3 +208,31 @@ def drained(pending: list) -> int:
             pending.pop()
         if pending:
             raise RuntimeError("left unfinished")
+
+
+# mutated-while-iterated: the name is pointed at a new list before anything is added
+# to it, so the list the loop walks never changes.
+def last_pair(rows: list) -> list:
+    pairs = list(rows)
+    for row in pairs:
+        pairs = [row]
+        pairs.append(row)
+    return pairs
+
+
+# mutated-while-iterated: an object walking itself goes through its own __iter__,
+# which hands the loop a copy here.
+class Registry:
+    def __init__(self) -> None:
+        self.entries: list = []
+
+    def __iter__(self):
+        return iter(list(self.entries))
+
+    def remove(self, entry) -> None:
+        self.entries.remove(entry)
+
+    def prune(self) -> None:
+        for entry in self:
+            if entry is None:
+                self.remove(entry)

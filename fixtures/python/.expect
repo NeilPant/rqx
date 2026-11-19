@@ -185,6 +185,9 @@ lookalikes.py none=shadowed-handler | except OSError:
 lookalikes.py none=self-comparison | return reading != reading
 lookalikes.py none=exit-from-finally | break
 lookalikes.py none=exit-from-finally | raise RuntimeError("left unfinished")
+lookalikes.py none=mutated-while-iterated | pairs.append(row)
+lookalikes.py known-fp=unused-private-member Python calls __iter__ itself when the object is walked | def __iter__(self):
+lookalikes.py none=mutated-while-iterated | self.remove(entry)
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)
