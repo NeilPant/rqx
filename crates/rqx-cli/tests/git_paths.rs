@@ -14,10 +14,10 @@ const SWALLOWS: &str = "export function f() {\n  try {\n    run();\n  } catch (e
 /// Names git quotes in its line-per-path output: a non-ASCII letter, a tab, a double
 /// quote and a newline.
 fn awkward_names() -> Vec<&'static str> {
-    let mut names = vec!["café.ts", "ünï/日本語.ts", "q\"uote.ts"];
-    // Windows allows neither a tab nor a newline in a file name.
+    let mut names = vec!["café.ts", "ünï/日本語.ts"];
+    // Windows allows no tab, double quote or newline in a file name.
     if cfg!(unix) {
-        names.extend(["ta\tb.ts", "new\nline.ts"]);
+        names.extend(["q\"uote.ts", "ta\tb.ts", "new\nline.ts"]);
     }
     names
 }
