@@ -9,6 +9,19 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Fixed
+
+- **`unreachable-code` no longer reports, and `rqx fix` no longer deletes, code after an
+  exit that still runs or still changes the program.** This covers a label that a
+  `goto`, `break` or `continue` names (Go, C++, JavaScript, TypeScript, Java); a Python
+  `yield` that makes its function a generator; a Python `global` or `nonlocal`
+  statement, or the only binding of a name the rest of the function reads; a
+  JavaScript or TypeScript `var` or function declaration, which is hoisted; a C++ call
+  spelled as a macro or a preprocessor line; and a block that does not parse cleanly,
+  such as `ASSERT_DEATH(f(); return, "")`. On klauspost/compress 1.17.9, `fix --write`
+  removed the `emitDict:` and `emitMatch:` labels from `s2/encode_all.go` and the
+  package stopped compiling.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

@@ -301,3 +301,4 @@ main.go rule=long-function | func main() {
 orphan/orphan.go rule=unused-file | package orphan
 orphan/orphan.go rule=negated-name | func NoOneImportsThisFile() string {
 orphan/orphan.go rule=mutable-module-state | var NorThis = 1
+fixtures/lookalikes.go none=unreachable-code | cleanup:

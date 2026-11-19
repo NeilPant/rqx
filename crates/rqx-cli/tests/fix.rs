@@ -505,3 +505,69 @@ fn verify_build_keeps_a_fix_that_builds() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// `go vet ./...` in `root`, when the toolchain is installed; without it there is
+/// nothing more to check.
+fn assert_vets(root: &Path) {
+    let Ok(output) = Command::new("go")
+        .args(["vet", "./..."])
+        .current_dir(root)
+        .env("GOWORK", "off")
+        .output()
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "go vet failed after the fix:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn scan_json(root: &Path) -> String {
+    rqx(&[
+        "scan",
+        root.to_str().expect("a utf-8 path"),
+        "--format",
+        "json",
+        "--max-findings",
+        "0",
+    ])
+}
+
+/// klauspost/compress and go-runewidth: a label after a `return` that a `goto` jumps
+/// to is live, and so is a `yield` that makes a Python function a generator and a
+/// call spelled as a C++ macro. 0.5.2 deleted all three as unreachable code.
+#[test]
+fn fix_keeps_code_that_is_reached_without_falling_through() {
+    let go_source = "package flow\n\nfunc Clamp(n int) int {\n\tif n > 3 {\n\t\tgoto done\n\t}\n\treturn 0\ndone:\n\tn = 3\n\treturn n\n}\n";
+    let python = "def events(log):\n    log(\"start\")\n    return\n    yield\n";
+    let cpp = "int release(int* handle, int status) {\n    if (status != 0) goto cleanup;\n    return 0;\ncleanup:\n    delete handle;\n    return status;\n}\n\nint squared(int value) {\n    return value * value;\n    NOT_REACHED();\n}\n";
+    let root = project(
+        "reached",
+        &[
+            ("go.mod", "module example.com/flow\n\ngo 1.22\n"),
+            ("flow.go", go_source),
+            ("events.py", python),
+            ("native/release.cpp", cpp),
+            EVERY_CONFIDENCE,
+        ],
+    );
+    assert!(!scan_json(&root).contains("\"unreachable-code\""));
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("flow.go")).unwrap(),
+        go_source
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("events.py")).unwrap(),
+        python
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("native/release.cpp")).unwrap(),
+        cpp
+    );
+    assert_vets(&root);
+    let _ = std::fs::remove_dir_all(&root);
+}

@@ -179,3 +179,11 @@ export function parsedOrNothing(text: string): unknown {
   }
   return undefined;
 }
+
+// unreachable-code: a `var` is hoisted to the top of its function, so the one after
+// the return is the `total` the first line assigns.
+export function hoistedTotal(): number {
+  total = 1;
+  return total;
+  var total: number;
+}

@@ -44,6 +44,7 @@ impl<'a> Walker<'a> {
             };
             if let Some(next) = statements.get(index + 1)
                 && !self.profile.hoisted_kinds.contains(&kind_of(next))
+                && !crate::removal::still_matters(self.profile, self.source, *next)
             {
                 self.out.unreachable.push(Spot {
                     span: span_of(*next),

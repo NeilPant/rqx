@@ -290,6 +290,15 @@ impl<'src> Rewriter<'src> {
             return Vec::new();
         };
         match finding.rule {
+            RuleId::UnreachableCode
+                if crate::removal::still_matters(
+                    self.profile,
+                    self.source,
+                    spanning(node, span),
+                ) =>
+            {
+                Vec::new()
+            }
             // The span is already the extent to remove.
             RuleId::UnreachableCode
             | RuleId::JournalComment
@@ -525,6 +534,19 @@ fn climb<'tree>(from: Node<'tree>, accept: impl Fn(Node<'tree>) -> bool) -> Opti
         }
         node = node.parent()?;
     }
+}
+
+/// The widest node that starts where `node` does and stays inside `span`: the
+/// statement a finding names rather than the first token of it.
+fn spanning(node: Node<'_>, span: Span) -> Node<'_> {
+    let mut widest = node;
+    while let Some(parent) = widest.parent() {
+        if parent.start_byte() != widest.start_byte() || parent.end_byte() as u32 > span.end {
+            break;
+        }
+        widest = parent;
+    }
+    widest
 }
 
 fn span_of(node: Node<'_>) -> Span {

@@ -21,6 +21,7 @@ pub mod parameters;
 pub mod patterns;
 pub mod profile;
 pub mod python;
+pub mod removal;
 pub mod rewrite;
 pub mod scope;
 pub mod tree;

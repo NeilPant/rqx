@@ -174,3 +174,14 @@ func Bounds(values []int) (low int, high int, sum int, count int, spread int, fo
 	}
 	return low, high, sum, count, high - low, count > 0
 }
+
+// unreachable-code: the label after the return is where the goto lands, so the code
+// under it runs.
+func closeOnFailure(file io.Closer, status error) error {
+	if status != nil {
+		goto cleanup
+	}
+	return nil
+cleanup:
+	return file.Close()
+}
