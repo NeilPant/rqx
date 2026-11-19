@@ -187,3 +187,8 @@ export function hoistedTotal(): number {
   return total;
   var total: number;
 }
+
+// self-comparison: only NaN differs from itself, so this is how NaN is detected.
+export function isMissing(reading: number): boolean {
+  return reading !== reading;
+}

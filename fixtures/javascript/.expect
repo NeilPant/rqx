@@ -164,6 +164,7 @@ lifecycle.js rule=middle-man | export class ReportFactory {
 lifecycle.js rule=passthrough-function | add(row) {
 long.js rule=long-function | export function manySteps() {
 lookalikes.js none=unreachable-code | var total;
+lookalikes.js none=self-comparison | return reading !== reading;
 names.js rule=vague-function-name | export function process(rows) {
 names.js rule=return-of-fresh-local | const temp2 = data.length;
 names.js rule=negated-name | const notReady = rows.length === 0;

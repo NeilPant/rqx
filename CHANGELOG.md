@@ -113,6 +113,12 @@ them. `tools/release.sh` turns that section into the release notes.
   longer checked, because javac rejects a handler that an earlier one covers; every
   Java finding was on correct code.
 
+- **`self-comparison` no longer reports NaN checks or tests of equality.** `x != x` is
+  the usual way to detect NaN, and a test that compares a value with itself checks the
+  `==` that the type defines, which `self-asserting-test` already judges. The rule now
+  reports `==` (and `===`, and Java's `equals`) only outside tests and assertions, and
+  only when neither side calls anything.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

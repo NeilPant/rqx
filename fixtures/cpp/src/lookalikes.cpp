@@ -111,8 +111,8 @@ int squared(int value) {
     NOT_REACHED();
 }
 
-// shadowed-handler: a handler for a thrown string takes nothing the one below it takes.
 int parsed_or_zero(const std::string& text) {
+    // shadowed-handler: a handler for a thrown string takes nothing the one below it takes.
     try {
         return std::stoi(text);
     } catch (const std::string& message) {
@@ -120,4 +120,9 @@ int parsed_or_zero(const std::string& text) {
     } catch (const std::out_of_range& error) {
         return static_cast<int>(text.size());
     }
+}
+
+bool is_missing(double reading) {
+    // self-comparison: only NaN differs from itself, so this is how NaN is detected.
+    return reading != reading;
 }

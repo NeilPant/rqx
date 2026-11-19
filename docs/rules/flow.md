@@ -102,7 +102,7 @@ the result is decided before the comparison runs, so either it does nothing or o
 
 | | |
 |---|---|
-| Measures | an equality comparison whose operands are written identically |
+| Measures | an equality test whose operands are written identically and call nothing |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |

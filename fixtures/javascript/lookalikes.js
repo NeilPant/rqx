@@ -155,3 +155,8 @@ export function spelled(word) {
   ];
   return codeWords.indexOf(word);
 }
+
+export function isMissing(reading) {
+  // self-comparison: only NaN differs from itself, so this is how NaN is detected.
+  return reading !== reading;
+}

@@ -185,3 +185,8 @@ func closeOnFailure(file io.Closer, status error) error {
 cleanup:
 	return file.Close()
 }
+
+// self-comparison: only NaN differs from itself, so this is how NaN is detected.
+func IsMissing(reading float64) bool {
+	return reading != reading
+}

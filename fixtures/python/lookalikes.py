@@ -189,3 +189,8 @@ def first_line(path):
         return None
     except UnicodeDecodeError:
         return "?"
+
+
+# self-comparison: only NaN differs from itself, so this is how NaN is detected.
+def is_missing(reading: float) -> bool:
+    return reading != reading

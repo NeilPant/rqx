@@ -98,4 +98,9 @@ public class Lookalikes {
     public String label(String locale) {
         return "lookalike";
     }
+
+    // self-comparison: only NaN differs from itself, so this is how NaN is detected.
+    public boolean isMissing(double reading) {
+        return reading != reading;
+    }
 }

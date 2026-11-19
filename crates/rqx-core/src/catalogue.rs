@@ -794,7 +794,7 @@ catalogue! {
         slug: "self-comparison",
         category: Flow,
         analysis: Syntax,
-        metric: "an equality comparison whose operands are written identically",
+        metric: "an equality test whose operands are written identically and call nothing",
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Error,

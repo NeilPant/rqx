@@ -180,6 +180,7 @@ long.py rule=long-function | def many_steps() -> int:
 lookalikes.py none=unreachable-code | yield
 lookalikes.py none=shadowed-handler | except FileNotFoundError:
 lookalikes.py none=shadowed-handler | except OSError:
+lookalikes.py none=self-comparison | return reading != reading
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)
@@ -282,7 +283,7 @@ test_suite.py rule=duplicate-assertion #3 | assert add(1, 1) == 2
 test_suite.py rule=hand-rolled-throws | try:
 test_suite.py rule=debug-output-in-test | print("here")
 test_suite.py rule=unnamed-test #6 | assert add(1, 1) == 2
-test_suite.py rule=self-comparison | assert add(1, 1) == add(1, 1)
+test_suite.py none=self-comparison | assert add(1, 1) == add(1, 1)
 test_suite.py rule=assertionless-test | def test_is_not_written_yet():
 test_suite.py rule=empty-method | def test_is_not_written_yet():
 test_suite.py rule=negated-name | def test_is_not_written_yet():

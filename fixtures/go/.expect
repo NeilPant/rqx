@@ -134,6 +134,7 @@ fixtures/lifecycle.go rule=temporal-coupling | opened bool
 fixtures/long.go rule=long-function | func ManySteps() int {
 fixtures/long.go rule=dead-store | total := 0
 fixtures/lookalikes.go none=unreachable-code | cleanup:
+fixtures/lookalikes.go none=self-comparison | return reading != reading
 fixtures/names.go rule=wildcard-import | import . "strings"
 fixtures/names.go rule=vague-function-name | func Process(rows []int) int {
 fixtures/names.go rule=plural-mismatch | data := []int{}

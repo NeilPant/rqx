@@ -218,11 +218,13 @@ impl<'a> Walker<'a> {
         };
         let (left_text, right_text) = (self.text(left).trim(), self.text(right).trim());
         if left_text == right_text && !left_text.is_empty() {
-            self.out.self_comparisons.push(Spot {
-                span: span_of(node),
-                detail: left_text.to_owned(),
-                count: 1,
-            });
+            if self.compares_one_value(node, self.text(operator), left) {
+                self.out.self_comparisons.push(Spot {
+                    span: span_of(node),
+                    detail: left_text.to_owned(),
+                    count: 1,
+                });
+            }
             return;
         }
         // A literal with a fractional part: `0.1`, `1.5e3`. An integer literal
@@ -248,6 +250,41 @@ impl<'a> Walker<'a> {
                 return;
             }
         }
+    }
+
+    /// Whether a comparison of an expression with itself can only have one answer.
+    /// `x != x` is how a NaN is detected, a side with a call may answer differently on
+    /// each call, and a test comparing a value with itself is checking the equality
+    /// it defines, which `self-asserting-test` judges.
+    fn compares_one_value(&self, comparison: Node<'a>, operator: &str, side: Node<'a>) -> bool {
+        if operator.starts_with('!') || self.test_depth > 0 {
+            return false;
+        }
+        if descendants(side)
+            .into_iter()
+            .any(|node| self.profile.is_call(node))
+        {
+            return false;
+        }
+        let mut current = comparison.parent();
+        while let Some(node) = current {
+            if self.profile.is_function(node) {
+                break;
+            }
+            let checks = self
+                .profile
+                .assertion_statement_kinds
+                .contains(&kind_of(node))
+                || (self.profile.is_call(node)
+                    && self
+                        .called_name(node)
+                        .is_some_and(|name| self.profile.test.checks(&name)));
+            if checks {
+                return false;
+            }
+            current = node.parent();
+        }
+        true
     }
 
     /// A `continue` or `break` that control was reaching anyway. The keyword makes a
