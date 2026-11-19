@@ -55,6 +55,14 @@ impl<'a> Grader<'a> {
         if let Some(declared) = declared.filter(|node| self.profile.is_identifier(*node)) {
             return Some((text_of(declared, self.source), declared));
         }
+        // C++ wraps the name in what it is a reference or pointer to: `const T& lhs`
+        // declares `lhs` inside a reference declarator. One that holds no name,
+        // `const T&`, declares nothing, and `T` is its type.
+        if let Some(declared) = declared.filter(|node| kind_of(*node).ends_with("declarator")) {
+            return self
+                .declared_name(declared)
+                .map(|name| (text_of(name, self.source), name));
+        }
         // A parameter written as a bare type, Go's `func(int)` or C++'s `f(Row*)`, has
         // no name at all, and the identifier inside its type is not one.
         let type_span = declared
@@ -72,6 +80,24 @@ impl<'a> Grader<'a> {
             })
             .find(|child| self.profile.is_identifier(*child))
             .map(|child| (text_of(child, self.source), child))
+    }
+
+    /// The identifier a declarator binds, looking through the reference, pointer and
+    /// parenthesised declarators around it.
+    fn declared_name(&self, declarator: Node<'a>) -> Option<Node<'a>> {
+        let mut current = declarator;
+        loop {
+            if self.profile.is_identifier(current) {
+                return Some(current);
+            }
+            current = current.child_by_field_name("declarator").or_else(|| {
+                let mut cursor = current.walk();
+                current
+                    .named_children(&mut cursor)
+                    .filter(|child| !self.profile.is_comment(*child))
+                    .last()
+            })?;
+        }
     }
 
     /// A parameter that also declares a field — TypeScript's

@@ -38,3 +38,17 @@ var priorities = map[string]int{"high": 2, "low": 1}
 func Priority(level string) int {
 	return priorities[level]
 }
+
+// unused-parameter: `:=` at the top of the body assigns `name` again after reading
+// it, so the parameter is used.
+func Normalised(name string) (string, error) {
+	name, err := normalise(name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+func normalise(name string) (string, error) {
+	return name + "!", nil
+}

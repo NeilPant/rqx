@@ -5,7 +5,7 @@
 include/bloat.hpp rule=large-class | class Overgrown {
 include/bloat.hpp rule=split-cohesion | class Overgrown {
 include/bloat.hpp rule=wide-surface | class Overgrown {
-include/conventions.hpp rule=mixed-conventions | extern int retry_limit;
+include/conventions.hpp rule=mixed-conventions | extern int retryBackoff;
 include/cost_large_by_value.hpp rule=unused-private-member | std::vector<std::string> lines_;
 include/cost_pair_scan_could_hash.hpp rule=data-class | struct Order {
 include/cost_pair_scan_could_hash.hpp rule=split-cohesion | struct Order {
@@ -46,11 +46,15 @@ include/intimacy.hpp rule=inappropriate-intimacy | return Checkout::rate * stati
 include/intimacy.hpp rule=unused-export | class Checkout {
 include/intimacy.hpp rule=never-reassigned | Cart cart;
 include/intimacy.hpp rule=empty-method | void open(const std::string& path) {}
+include/intimacy.hpp rule=unused-parameter | void open(const std::string& path) {}
 include/intimacy.hpp rule=empty-method | void write(const std::string& row) {}
+include/intimacy.hpp rule=unused-parameter | void write(const std::string& row) {}
 include/intimacy.hpp rule=empty-method | void close() {}
 include/intimacy.hpp rule=unused-export | class JsonEmitter {
 include/intimacy.hpp rule=empty-method | void begin(const std::string& path) {}
+include/intimacy.hpp rule=unused-parameter | void begin(const std::string& path) {}
 include/intimacy.hpp rule=empty-method | void emit(const std::string& row) {}
+include/intimacy.hpp rule=unused-parameter | void emit(const std::string& row) {}
 include/intimacy.hpp rule=empty-method | void finish() {}
 include/lifecycle.hpp rule=unused-export | class Session {
 include/lifecycle.hpp rule=temporal-coupling | bool opened = false;
@@ -59,6 +63,7 @@ include/lifecycle.hpp rule=unused-export | class ReportFactory {
 include/lifecycle.hpp rule=temporary-field | std::vector<std::string> rows;
 include/orphan.hpp rule=unused-file | #pragma once
 include/orphan.hpp rule=negated-name | int no_one_includes_this_file();
+include/params.hpp rule=mixed-conventions | int two_dead_on_one_line(int used, const std::string& deadA, const std::string& deadB);
 include/patterns.hpp rule=boolean-not-a-question | bool open() {
 include/patterns.hpp rule=type-code-switch | if (this->state == "closed") {
 include/patterns.hpp rule=redundant-else | } else if (this->state == "open") {
@@ -126,9 +131,12 @@ include/structures.hpp rule=middle-man | class LoggingNotifier : public Notifier
 include/structures.hpp rule=middle-man | class GuardedNotifier : public Notifier {
 include/structures.hpp rule=middle-man | class SmsNotifier : public Notifier {
 include/structures.hpp rule=middle-man | class RetryingGateway {
-include/structures.hpp rule=unused-parameter | void attach(const Menu& child) { this->items.push_back(child); }
+include/structures.hpp rule=unused-parameter | ReportBuilder* with_title(const std::string& title) { return this; }
 include/structures.hpp rule=unused-parameter | ReportBuilder* with_rows(int rows) { return this; }
+include/structures.hpp rule=unused-parameter | ReportBuilder* with_footer(const std::string& footer) { return this; }
 include/structures.hpp rule=temporary-field | std::string title;
+include/structures.hpp rule=unused-parameter | QueryBuilder* where(const std::string& field) { return this; }
+include/structures.hpp rule=unused-parameter | QueryBuilder* order(const std::string& field) { return this; }
 include/structures.hpp rule=unused-parameter | QueryBuilder* take(int count) { return this; }
 include/structures.hpp rule=unused-private-member | int clauses;
 include/structures.hpp rule=unused-export | class Settings {
@@ -143,10 +151,8 @@ include/structures.hpp rule=unused-private-member | static std::vector<Glyph*> p
 include/structures.hpp rule=speculative-generality | class Listener {
 include/structures.hpp rule=unused-export | class Listener {
 include/structures.hpp rule=middle-man | class Feed {
-include/structures.hpp rule=unused-parameter | void add_listener(Listener* handler) { this->listeners.push_back(handler); }
 include/structures.hpp rule=unused-parameter | void remove_listener(Listener* handler) { this->listeners.pop_back(); }
 include/structures.hpp rule=passthrough-function | void publish(int value) { this->listeners.at(0)->changed(value); }
-include/structures.hpp rule=unused-parameter | void on_tick(Listener* handler) { this->handlers.push_back(handler); }
 include/structures.hpp rule=speculative-generality | class Importer {
 include/structures.hpp rule=unused-export | class Importer {
 include/structures.hpp rule=never-reassigned | std::string row = this->read();
@@ -238,9 +244,7 @@ src/cost_sort_in_loop.cpp rule=sort-in-loop | std::partial_sort(base.begin(), ba
 src/cost_sort_in_loop.cpp rule=dead-store #2 | std::vector<int> ranked;
 src/cost_sort_in_loop.cpp rule=never-reassigned #2 | std::vector<int> ranked;
 src/cost_unbounded_cache.cpp rule=unbounded-cache | page_sizes[key] = size;
-src/cost_unbounded_concurrency.cpp rule=unused-parameter | std::vector<std::future<std::string>> load_every_page(const PageClient& client, const std::vector<std::string>& ids) {
 src/cost_unbounded_concurrency.cpp rule=unbounded-concurrency | pending.push_back(std::async(std::launch::async, [&client, id] { return client.get(id); }));
-src/cost_unbounded_concurrency.cpp rule=unused-parameter | std::vector<std::future<std::string>> load_few_pages(const PageClient& client, const std::vector<std::string>& ids) {
 src/flow.cpp rule=boolean-not-a-question | bool restated(bool ready) {
 src/flow.cpp rule=flag-argument | bool restated(bool ready) {
 src/flow.cpp rule=boolean-from-branch | if (ready) {
@@ -297,7 +301,6 @@ src/hygiene.cpp rule=output-parameter | value = 1;
 src/hygiene.cpp rule=unreachable-code | value = 1;
 src/hygiene.cpp rule=suppressed-diagnostic | int mutates_parameter(int value) {  // NOLINT
 src/hygiene.cpp rule=output-parameter #2 | value = 1;
-src/hygiene.cpp rule=unused-parameter | std::string ship(const Order& order) {
 src/hygiene.cpp rule=message-chain | return order.customer().address().city().label();
 src/hygiene.cpp rule=banner-comment | // ---------------- helpers ----------------
 src/hygiene.cpp rule=chat-residue | // Here's the helper you asked for! 🎉
@@ -326,6 +329,7 @@ src/lookalikes_warnings.cpp none=catch-all-handler | } catch (const char*) {
 src/lookalikes_warnings.cpp none=imprecise-type | for (const auto& word : words) {
 src/lookalikes_warnings.cpp none=imprecise-type | const auto count = words.size();
 src/lookalikes_warnings.cpp none=imprecise-type | (void)count;
+src/lookalikes_warnings.cpp none=unused-parameter | int locked_sum(std::mutex& guard, const std::vector<int>& rows) {
 src/main.cpp rule=wide-fan-out | #include "bloat.hpp"
 src/main.cpp rule=long-function | int main() {
 src/main.cpp rule=boolean-literal-argument | pricing({}, true);
@@ -336,7 +340,6 @@ src/main.cpp rule=never-reassigned | std::vector<int> prepended; prepend_each(pr
 src/main.cpp rule=never-reassigned | std::deque<int> fronted; front_each(fronted, {});
 src/main.cpp rule=never-reassigned | std::vector<int> baseline; rank_each({}, baseline);
 src/main.cpp rule=never-reassigned | std::vector<std::vector<int>> groups; rank_own(groups);
-src/main.cpp rule=never-reassigned | std::mutex guard; tally_under_one_lock(guard, {});
 src/main.cpp rule=never-reassigned | std::vector<std::mutex> guards(1); tally_under_each_lock(guards, {});
 src/main.cpp rule=never-reassigned | PageClient pages; load_every_page(pages, {});
 src/names.cpp rule=vague-function-name | int process(const std::vector<int>& rows) {
@@ -347,6 +350,10 @@ src/names.cpp rule=return-of-fresh-local | int temp2 = static_cast<int>(data.siz
 src/names.cpp rule=never-reassigned | int abs = rows;
 src/names.cpp rule=return-of-fresh-local | int abs = rows;
 src/names.cpp rule=shadows-builtin | int abs = rows;
+src/params.cpp rule=unused-parameter | int with_dead_tail(int used, const std::string& dead) {
+src/params.cpp rule=unused-parameter | int with_dead_middle(const std::string& dead, int used) {
+src/params.cpp rule=mixed-conventions | int two_dead_on_one_line(int used, const std::string& deadA, const std::string& deadB) {
+src/params.cpp rule=unused-parameter x2 | int two_dead_on_one_line(int used, const std::string& deadA, const std::string& deadB) {
 src/performance.cpp rule=never-reassigned | std::vector<int> kept;
 src/performance.cpp rule=never-reassigned | for (int row : rows) {
 src/performance.cpp rule=scan-in-loop | if (std::find(wanted.begin(), wanted.end(), row) != wanted.end()) {
@@ -390,6 +397,9 @@ src/shapes.cpp rule=type-code-switch | if (kind == "email") {
 src/shapes.cpp rule=redundant-else | } else if (kind == "sms") {
 src/shapes.cpp rule=redundant-else | } else if (kind == "push") {
 src/shapes.cpp rule=data-clump | std::string notify_of(const std::string& user_id, const std::string& channel, const std::string& locale) {
+src/shapes.cpp rule=unused-parameter x2 | std::string notify_of(const std::string& user_id, const std::string& channel, const std::string& locale) {
+src/shapes.cpp rule=unused-parameter x2 | std::string enqueue(const std::string& user_id, const std::string& channel, const std::string& locale) {
+src/shapes.cpp rule=unused-parameter x2 | std::string record_of(const std::string& user_id, const std::string& channel, const std::string& locale) {
 src/shapes.cpp rule=flag-argument | int gate(bool ready, int retries) {
 src/shapes.cpp rule=redundant-else | } else {
 src/shapes.cpp rule=long-function | int sweep(const std::vector<int>& rows) {

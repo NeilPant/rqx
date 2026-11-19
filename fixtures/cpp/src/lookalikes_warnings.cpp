@@ -29,3 +29,15 @@ std::size_t total_length(const std::vector<std::string>& words) {
     (void)count;
     return total;
 }
+
+// unused-parameter: both parameters are read. Each is named inside a reference
+// declarator, and `hold(guard)` reads `guard` although the grammar takes it for a
+// type.
+int locked_sum(std::mutex& guard, const std::vector<int>& rows) {
+    std::lock_guard<std::mutex> hold(guard);
+    int sum = 0;
+    for (const int row : rows) {
+        sum += row;
+    }
+    return sum;
+}

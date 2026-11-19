@@ -879,7 +879,7 @@ impl<'a> Walker<'a> {
     /// branches all exit, a `try` whose body and handlers all exit, or a nested switch
     /// with a default whose last arm exits and that nothing breaks out of.
     fn ends_every_path(&self, arm: Node<'a>, last: Node<'a>) -> bool {
-        if self.always_exits(arm) {
+        if self.always_exits(arm).is_some() {
             return true;
         }
         let profile = self.profile;
@@ -890,7 +890,7 @@ impl<'a> Walker<'a> {
             });
             return parts.all(|part| {
                 let body = part.child_by_field_name("body").unwrap_or(part);
-                self.always_exits(body)
+                self.always_exits(body).is_some()
             });
         }
         if profile.switch_kinds.contains(&kind_of(last)) {

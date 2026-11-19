@@ -417,6 +417,17 @@ them. `tools/release.sh` turns that section into the release notes.
   said "returns". `imprecise-type` no longer reports C++ `auto`, which is deduced to
   one exact type, or a `(void)` cast, which marks a value as unused.
 
+- **`unused-parameter` names the parameter in C++ and sees Go's `:=` reuse a
+  parameter.** For `ArrayEq(const T& lhs, const U& rhs)` it reported the type `T` as
+  an unused parameter, although `lhs` was used, because a name inside a reference or
+  pointer declarator was not found. It now reads the name inside the declarator,
+  treats `const T&` with no name as unnamed, and counts `hold(guard)`, which the
+  grammar reads as a parameter type, as a use of `guard`. Unused C++ reference and
+  pointer parameters that used to go unreported are now reported. In Go,
+  `s, err := s.prepare(in)` at the top of a function body assigns the parameter `s`
+  again, as Go does, rather than declaring a new `s` and leaving the parameter
+  unread.
+
 - **One expression is reported once per rule.** `message-chain` reported
   `a.b().c().d().e().f().g()` once for every depth past the limit, so one line could
   hold four findings. It now reports the outermost call of a chain. A file's findings

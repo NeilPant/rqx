@@ -35,6 +35,10 @@ struct Scope {
     /// Opened by a function or inside one. A name declared anywhere else is visible
     /// to the rest of the module, package or class, which other files can read.
     local: bool,
+    /// Where the parameter list of the function that opened this scope sits, when a
+    /// function opened it. Its parameters are the ones declared inside that span; a
+    /// function type written among them names parameters of its own.
+    inputs: Option<Span>,
     /// Name to index into `bindings`. A name declared twice in one scope keeps the
     /// first, which is what a reader resolves to before the second line is reached.
     names: HashMap<String, usize>,
@@ -83,6 +87,7 @@ impl Scopes {
 struct Builder<'a> {
     profile: &'static LanguageProfile,
     source: &'a str,
+    root: Node<'a>,
     bindings: Vec<Binding>,
     scopes: Vec<Scope>,
     /// Deferred so that a reference textually above its declaration still resolves —
@@ -91,12 +96,19 @@ struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    fn open(&mut self, parent: Option<usize>, holds_members: bool, local: bool) -> usize {
+    fn open(
+        &mut self,
+        parent: Option<usize>,
+        holds_members: bool,
+        local: bool,
+        inputs: Option<Span>,
+    ) -> usize {
         self.scopes.push(Scope {
             parent,
             names: HashMap::new(),
             holds_members,
             local,
+            inputs,
         });
         self.scopes.len() - 1
     }
@@ -110,7 +122,7 @@ impl<'a> Builder<'a> {
         // binding — otherwise every reassignment reports itself as unused.
         if !self.profile.local_declaring_kinds.is_empty()
             && kind == BindingKind::Local
-            && let Some(existing) = self.scopes[scope].names.get(name).copied()
+            && let Some(existing) = self.declared_here(name, scope)
         {
             self.bindings[existing].references.push(span_of(node));
             return;
@@ -129,6 +141,57 @@ impl<'a> Builder<'a> {
             .or_insert(index);
     }
 
+    /// The binding `name` already has in `scope`. A function's body shares a scope with
+    /// its parameters, so Go's `s, err := s.prepare(in)` at the top of a body assigns
+    /// the parameter `s` rather than declaring a second one.
+    fn declared_here(&self, name: &str, scope: usize) -> Option<usize> {
+        if let Some(existing) = self.scopes[scope].names.get(name) {
+            return Some(*existing);
+        }
+        let parent = self.scopes[scope].parent?;
+        let inputs = self.scopes[parent].inputs?;
+        self.scopes[parent]
+            .names
+            .get(name)
+            .copied()
+            .filter(|index| {
+                let binding = &self.bindings[*index];
+                binding.kind == BindingKind::Parameter && self.listed_in(binding.span, inputs)
+            })
+    }
+
+    /// Whether the parameter named at `name` belongs to the list at `list` itself,
+    /// rather than to a function type written inside it: Go's `format func(label
+    /// string)` names a `label` that is not a parameter of the function around it.
+    fn listed_in(&self, name: Span, list: Span) -> bool {
+        let mut current = self
+            .root
+            .descendant_for_byte_range(name.start as usize, name.end as usize);
+        while let Some(node) = current {
+            if self.profile.parameter_list_kinds.contains(&kind_of(node)) {
+                return span_of(node) == list;
+            }
+            current = node.parent();
+        }
+        false
+    }
+
+    /// Whether a chain of declarators ends in a parameter, so the name at its bottom
+    /// is the parameter's.
+    fn declares_a_parameter(&self, declarator: Node<'a>) -> bool {
+        let mut current = declarator;
+        while let Some(parent) = current.parent() {
+            if self.profile.parameter_kinds.contains(&kind_of(parent)) {
+                return field_name_under(parent, current) == Some("declarator");
+            }
+            if !kind_of(parent).ends_with("declarator") {
+                return false;
+            }
+            current = parent;
+        }
+        false
+    }
+
     fn binding_kind(&self, node: Node<'a>, above: Option<Node<'a>>) -> Option<BindingKind> {
         if !self.profile.is_identifier(node) {
             return None;
@@ -137,10 +200,18 @@ impl<'a> Builder<'a> {
         if names_a_keyword(parent, node) {
             return None;
         }
-        // A parameter's default value is an expression, not a name it declares.
+        // A parameter's default value is an expression, not a name it declares, and
+        // neither is its type. C++ also reads `std::lock_guard<std::mutex> hold(guard);`
+        // as a function declaration whose parameter has the type `guard`, which is a
+        // use of the name `guard`.
         if self.profile.parameter_kinds.contains(&kind_of(parent))
-            && field_name_under(parent, node) != Some("value")
+            && !matches!(field_name_under(parent, node), Some("value" | "type"))
         {
+            return Some(BindingKind::Parameter);
+        }
+        // C++ wraps a parameter's name in what it is a reference or pointer to:
+        // `const T& lhs`, `int* spare`.
+        if kind_of(parent).ends_with("declarator") && self.declares_a_parameter(parent) {
             return Some(BindingKind::Parameter);
         }
         // Python's `def f(x)` and Java's `(a, b) -> …` put a bare name straight into the
@@ -241,8 +312,13 @@ impl<'a> Builder<'a> {
         let holds_members = self.profile.is_class(node)
             || above.is_some_and(|parent| self.profile.is_class(parent));
         let inner = if opens {
-            let local = self.scopes[scope].local || self.profile.is_function(node);
-            self.open(Some(scope), holds_members, local)
+            let function = self.profile.is_function(node);
+            let local = self.scopes[scope].local || function;
+            let inputs = function
+                .then(|| crate::parameters::input_list(self.profile, node))
+                .flatten()
+                .map(span_of);
+            self.open(Some(scope), holds_members, local, inputs)
         } else {
             scope
         };
@@ -292,11 +368,12 @@ pub fn resolve(profile: &'static LanguageProfile, source: &str, root: Node<'_>) 
     let mut builder = Builder {
         profile,
         source,
+        root,
         bindings: Vec::new(),
         scopes: Vec::new(),
         references: Vec::new(),
     };
-    let file = builder.open(None, false, false);
+    let file = builder.open(None, false, false, None);
     builder.walk(root, file);
     builder.resolve()
 }

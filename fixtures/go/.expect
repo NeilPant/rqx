@@ -130,6 +130,8 @@ fixtures/long.go rule=dead-store | total := 0
 fixtures/lookalikes_warnings.go none=shadows-builtin | func (q *Queue) len() int {
 fixtures/lookalikes_warnings.go none=assertionless-test | func (q *Queue) Test(item string) int {
 fixtures/lookalikes_warnings.go none=mutable-module-state | var priorities = map[string]int{"high": 2, "low": 1}
+fixtures/lookalikes_warnings.go none=unused-parameter | func Normalised(name string) (string, error) {
+fixtures/lookalikes_warnings.go may=output-parameter | name, err := normalise(name)
 fixtures/lookalikes_warnings_test.go none=assertionless-test | func TestMain(m *testing.M) {
 fixtures/names.go rule=wildcard-import | import . "strings"
 fixtures/names.go rule=vague-function-name | func Process(rows []int) int {

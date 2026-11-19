@@ -64,6 +64,33 @@ fn a_discarded_last_result_is_not_called_an_error() {
     }
 }
 
+fn unused_parameter_names(language: Language, display: &str, source: &str) -> Vec<String> {
+    findings(language, display, source, RuleId::UnusedParameter)
+        .iter()
+        .filter_map(|finding| match &finding.evidence {
+            Evidence::UnusedParameter { name, .. } => Some(name.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn an_unused_cpp_reference_parameter_is_named_and_a_used_one_is_not_reported() {
+    let source = "template <typename T, typename U>\nbool equal(const T& lhs, const U& rhs, int* spare) {\n    return lhs == rhs;\n}\n";
+    assert_eq!(
+        unused_parameter_names(Language::Cpp, "a.cpp", source),
+        ["spare"]
+    );
+    let unnamed = "bool always(const std::string&) {\n    return true;\n}\n";
+    assert!(unused_parameter_names(Language::Cpp, "a.cpp", unnamed).is_empty());
+}
+
+#[test]
+fn a_go_parameter_reassigned_by_a_short_declaration_is_used() {
+    let source = "package p\n\nfunc compress(in []byte, s *Scratch) ([]byte, error) {\n\ts, err := s.prepare(in)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn s.out, nil\n}\n";
+    assert!(unused_parameter_names(Language::Go, "p.go", source).is_empty());
+}
+
 #[test]
 fn a_cpp_handler_that_names_a_type_and_no_binding_takes_only_that_type() {
     let typed = "int f() {\n    try {\n        return g();\n    } catch (int) {\n        return -1;\n    }\n}\n";

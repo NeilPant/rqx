@@ -178,5 +178,6 @@ func main() {
 	_ = fixtures.Queue
 	_ = fixtures.Backoff
 	_ = fixtures.Priority
+	_ = fixtures.Normalised
 	_ = cyclea.Orbit
 }

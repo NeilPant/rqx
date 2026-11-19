@@ -133,6 +133,8 @@ int main() {
     parsed_or_zero("1");
     parsed_code("1");
     total_length({});
+    std::mutex guard;
+    locked_sum(guard, {});
     adder(1)(2);
     return 0;
 }
