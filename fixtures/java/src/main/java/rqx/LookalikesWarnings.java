@@ -2,7 +2,7 @@ package rqx;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.function.IntPredicate;
 
 // Code that resembles a warning and is not one. Every rule should stay silent here.
 public class LookalikesWarnings {
@@ -36,11 +36,11 @@ class Codes implements java.io.Serializable {
     }
 }
 
-// assertionless-test: `test` is the method a Predicate answers with, not a test case;
+// assertionless-test: `test` is the method an IntPredicate answers with, not a test case;
 // no annotation marks it as one.
-class LongEnough implements Predicate<String> {
+class LongEnough implements IntPredicate {
     @Override
-    public boolean test(String value) {
-        return value.length() > 3;
+    public boolean test(int value) {
+        return value > 3;
     }
 }

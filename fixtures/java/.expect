@@ -284,8 +284,8 @@ src/main/java/rqx/LookalikesWarnings.java none=working-constructor | public Look
 src/main/java/rqx/LookalikesWarnings.java none=self-built-collaborators | this.seen = new HashSet<>();
 src/main/java/rqx/LookalikesWarnings.java none=unused-private-member | private static final long serialVersionUID = 1L;
 src/main/java/rqx/LookalikesWarnings.java none=unused-private-member | private int codeOf(char letter) {
-src/main/java/rqx/LookalikesWarnings.java none=assertionless-test | public boolean test(String value) {
-src/main/java/rqx/LookalikesWarnings.java known-fp=boolean-not-a-question Predicate fixes the name test, so the override cannot be renamed | public boolean test(String value) {
+src/main/java/rqx/LookalikesWarnings.java none=assertionless-test | public boolean test(int value) {
+src/main/java/rqx/LookalikesWarnings.java known-fp=boolean-not-a-question IntPredicate fixes the name test, so the override cannot be renamed | public boolean test(int value) {
 src/main/java/rqx/Main.java rule=wide-fan-out | package rqx;
 src/main/java/rqx/Main.java rule=many-collaborators | public class Main {
 src/main/java/rqx/Main.java rule=feature-envy | public static void main(String[] args) {
