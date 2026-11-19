@@ -77,10 +77,20 @@ impl Viewport {
         if height == self.height {
             return Ok(());
         }
-        self.vacate()?;
-        self.screen = screen(height)?;
         self.height = height;
-        Ok(())
+        self.refit()
+    }
+
+    /// Takes the viewport's rows again after the window changed size. A terminal that
+    /// shrinks below the rows reflows them, so the rows on screen are no longer the
+    /// ones the last frame drew, and drawing only what changed since that frame left
+    /// pieces of it behind. The rows are cleared and the next frame draws every one.
+    pub fn refit(&mut self) -> io::Result<()> {
+        self.vacate()?;
+        self.screen = screen(self.height)?;
+        // The new rows are cleared as well: a frame is drawn against a blank one, so a
+        // cell the frame leaves blank would otherwise keep what the reflow put there.
+        self.vacate()
     }
 
     /// Has the terminal report the mouse wheel to the session while `wanted`, and go back

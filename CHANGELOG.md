@@ -224,6 +224,12 @@ them. `tools/release.sh` turns that section into the release notes.
   points at, through a temporary file named for the process and the write, which is
   synced before the rename and removed if the write fails.
 
+- **The session redraws its rows whole after the window is resized.** Shrinking the
+  window to a few columns with the `/` menu open and restoring it left pieces of the
+  narrow layout in the menu rows, such as banner fragments after `> /`, until the next
+  key press. A resize now clears the session's rows and draws every one, and so does
+  a change in how many rows the session takes.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

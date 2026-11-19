@@ -227,6 +227,7 @@ impl App {
                 match event::read()? {
                     Event::Key(key) if key.kind == KeyEventKind::Press => self.handle(key)?,
                     Event::Mouse(mouse) => self.scroll(mouse),
+                    Event::Resize(..) => self.viewport.refit()?,
                     _ => {}
                 }
             }
