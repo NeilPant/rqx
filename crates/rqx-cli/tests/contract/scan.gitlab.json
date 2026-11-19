@@ -228,18 +228,6 @@
     "severity": "minor"
   },
   {
-    "check_name": "output-parameter",
-    "description": "Parameter `value` is assigned a new value inside the function. — the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
-    "fingerprint": "c583c0e9e6173144",
-    "location": {
-      "lines": {
-        "begin": 30
-      },
-      "path": "typescript/hygiene.ts"
-    },
-    "severity": "minor"
-  },
-  {
     "check_name": "suppressed-diagnostic",
     "description": "`@ts-ignore` turns off a check that covers this code. — a check that would have caught the next mistake here has been turned off, and the comment that turns it off outlives the reason for it",
     "fingerprint": "2bdb8d98ff9f611b",
@@ -2002,6 +1990,18 @@
       "path": "typescript/shapes.ts"
     },
     "severity": "minor"
+  },
+  {
+    "check_name": "output-parameter",
+    "description": "Parameter `value` is assigned a new value inside the function. — past the assignment the parameter no longer holds what the caller passed, so a reader of the rest of the function has to find the line that changed it",
+    "fingerprint": "c583c0e9e6173144",
+    "location": {
+      "lines": {
+        "begin": 30
+      },
+      "path": "typescript/hygiene.ts"
+    },
+    "severity": "info"
   },
   {
     "check_name": "duplicate-import",

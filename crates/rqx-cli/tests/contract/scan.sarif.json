@@ -500,31 +500,6 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 30,
-                  "startColumn": 3,
-                  "startLine": 30
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Parameter `value` is assigned a new value inside the function. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong Fix: assign to a local instead of `value`, and return the result"
-          },
-          "properties": {
-            "confidence": "verified"
-          },
-          "ruleId": "output-parameter"
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/hygiene.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "endLine": 33,
                   "startColumn": 1,
                   "startLine": 33
@@ -4367,6 +4342,31 @@
             "confidence": "heuristic"
           },
           "ruleId": "long-function"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/hygiene.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 30,
+                  "startColumn": 3,
+                  "startLine": 30
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Parameter `value` is assigned a new value inside the function. past the assignment the parameter no longer holds what the caller passed, so a reader of the rest of the function has to find the line that changed it Fix: assign to a local instead of `value`, and return the result"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "output-parameter"
         },
         {
           "level": "note",
@@ -10472,18 +10472,18 @@
             },
             {
               "defaultConfiguration": {
-                "level": "warning"
+                "level": "note"
               },
               "fullDescription": {
-                "text": "the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong"
+                "text": "past the assignment the parameter no longer holds what the caller passed, so a reader of the rest of the function has to find the line that changed it"
               },
               "help": {
-                "text": "the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong\n\nFix: Remove Assignments to Parameters / Separate Query from Modifier\nMetric: parameter reassigned or mutated inside the function body"
+                "text": "past the assignment the parameter no longer holds what the caller passed, so a reader of the rest of the function has to find the line that changed it\n\nFix: Remove Assignments to Parameters / Separate Query from Modifier\nMetric: parameter assigned a new value inside the function body"
               },
               "id": "output-parameter",
               "name": "output-parameter",
               "properties": {
-                "problem.severity": "warning",
+                "problem.severity": "note",
                 "tags": [
                   "rqx",
                   "maintainability",
@@ -10491,7 +10491,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "parameter reassigned or mutated inside the function body"
+                "text": "parameter assigned a new value inside the function body"
               }
             },
             {

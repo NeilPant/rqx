@@ -2143,12 +2143,12 @@ catalogue! {
         slug: "output-parameter",
         category: Safety,
         analysis: Semantics,
-        metric: "parameter reassigned or mutated inside the function body",
+        metric: "parameter assigned a new value inside the function body",
         fixes: [RemoveAssignmentsToParameters, SeparateQueryFromModifier],
         confidence: Verified,
-        severity: Warning,
-        why: "the caller's value changes without the call site saying so, which is hard to find \
-              when it turns out to be wrong",
+        severity: Info,
+        why: "past the assignment the parameter no longer holds what the caller passed, so a \
+              reader of the rest of the function has to find the line that changed it",
     },
     ComplexCondition {
         slug: "complex-condition",

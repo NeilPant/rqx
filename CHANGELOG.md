@@ -334,6 +334,15 @@ them. `tools/release.sh` turns that section into the release notes.
   so `var err error` was reported as unused although an earlier `case` assigns and
   reads it, and `fix --write` deleted it and broke `go build`. The finding is still
   reported; only the deletion is withheld.
+### Changed
+
+- **`output-parameter` is info and no longer says the caller's value changes.** It
+  reports a parameter that is assigned a new value inside the function. In Go,
+  Python, JavaScript, TypeScript and Java that assignment never reaches the caller,
+  so the old explanation was false for nearly every finding. The rule keeps its name
+  and now explains that, past the assignment, the parameter no longer holds what the
+  caller passed. Its severity moves from warning to info.
+
 ### Fixed
 
 - **A rule no longer reports in a language its catalogue entry excludes.** `rqx rules

@@ -562,12 +562,12 @@ Suggested fix: split into two functions named for what each does, so no call sit
 
 ## `output-parameter`
 
-the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong
+past the assignment the parameter no longer holds what the caller passed, so a reader of the rest of the function has to find the line that changed it
 
 | | |
 |---|---|
-| Measures | parameter reassigned or mutated inside the function body |
-| Reported as | warning, verified |
+| Measures | parameter assigned a new value inside the function body |
+| Reported as | info, verified |
 | Reads | resolved scopes and symbols |
 | Fix | Remove Assignments to Parameters / Separate Query from Modifier |
 

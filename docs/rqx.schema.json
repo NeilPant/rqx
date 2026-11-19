@@ -6779,7 +6779,7 @@
         },
         "output-parameter": {
           "additionalProperties": false,
-          "description": "Settings for `output-parameter`. the caller's value changes without the call site saying so, which is hard to find when it turns out to be wrong",
+          "description": "Settings for `output-parameter`. past the assignment the parameter no longer holds what the caller passed, so a reader of the rest of the function has to find the line that changed it",
           "properties": {
             "confidence": {
               "anyOf": [
