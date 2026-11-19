@@ -424,8 +424,11 @@ them. `tools/release.sh` turns that section into the release notes.
   declaration with no value, such as `var err error`, `K ek;` or `let next`, stores
   nothing for a later write to overwrite. Go's `t += 1` now counts as a read. Each
   arm of a `switch` and each branch of an `if`, braces or not, is its own block, so
-  writes in two arms do not overwrite each other. The finding now points at the
-  name written rather than at the end of its statement.
+  writes in two arms do not overwrite each other, and the same holds for preprocessor
+  branches. A value is reported as dead only when it was stored by a statement of
+  its own, so a write inside a loop header, a condition or another assignment is
+  not. The finding now points at the name written rather than at the end of its
+  statement.
 
 - **`repeated-computation-in-loop` no longer reports loop headers, exits and methods
   that take nothing.** What a for-each loop walks, such as `Object.keys(o)` in

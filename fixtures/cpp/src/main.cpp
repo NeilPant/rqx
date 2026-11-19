@@ -136,6 +136,7 @@ int main() {
     std::mutex guard;
     locked_sum(guard, {});
     Role(1).line();
+    platform_code();
     adder(1)(2);
     return 0;
 }

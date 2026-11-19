@@ -498,8 +498,9 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         let mut seen: HashMap<&'a str, Vec<Touch>> = HashMap::new();
         // Each arm of a branch or a switch runs on its own, so two writes in two arms
-        // never follow each other, braces or not. Filled as the walk meets each arm,
-        // which is before anything inside it.
+        // never follow each other, braces or not, and a preprocessor branch is compiled
+        // or not, so its writes are an arm too. Filled as the walk meets each arm, which
+        // is before anything inside it.
         let mut arms: HashSet<usize> = HashSet::new();
         let mut pending = vec![Lineage {
             node: body,
@@ -514,7 +515,8 @@ impl<'a> Walker<'a> {
             block,
         }) = pending.pop()
         {
-            if profile.case_kinds.contains(&kind_of(node)) {
+            if profile.case_kinds.contains(&kind_of(node)) || kind_of(node).starts_with("preproc_")
+            {
                 arms.insert(node.id());
             }
             if kind_of(node) == profile.if_kind {
@@ -608,11 +610,27 @@ impl<'a> Walker<'a> {
             } else {
                 node.start_byte()
             };
-            let stores = wrote && !(declares && above.is_some_and(declares_without_value));
+            // Only a write that is a statement of its own always happens where it is
+            // written: one inside a condition, a loop header or another assignment
+            // runs when the expression around it says so.
+            let written_by = if assigns || updates { statement } else { above };
+            let in_block = |holder: Node<'a>| {
+                holder.id() == body.id() || profile.is_block(holder) || arms.contains(&holder.id())
+            };
+            let fills = wrote && !(declares && above.is_some_and(declares_without_value));
+            let stores = fills && written_by.is_some_and(|written| stands_alone(written, in_block));
+            // A write in an `if` condition happens whenever the `if` is reached, so it
+            // overwrites what came before as surely as a statement would.
+            let overwrites = stores
+                || (fills
+                    && written_by.is_some_and(|written| {
+                        in_a_condition(written, profile.if_kind, self.source, in_block)
+                    }));
             seen.entry(self.text(node)).or_default().push(Touch {
                 at,
                 start: node.start_byte(),
                 stores,
+                overwrites,
                 block,
                 wrote,
                 read: !wrote || updates,
@@ -1554,8 +1572,12 @@ struct Touch {
     /// `at` orders the mentions and lands after the right-hand side of a write.
     start: usize,
     /// A write that puts a value there. `var err error` and `let next` declare a
-    /// name without storing anything a later write could overwrite.
+    /// name without storing anything a later write could overwrite. Only a write that
+    /// is a statement of its own counts: one inside an expression may not happen.
     stores: bool,
+    /// A write that always replaces the value when it is reached: a store, or an
+    /// assignment in an `if` condition.
+    overwrites: bool,
     /// The run of statements the mention sits in. Two writes only overwrite each
     /// other when both always happen, and a write inside a branch does not.
     block: usize,
@@ -1570,6 +1592,9 @@ fn names_no_local(parent: Node<'_>, node: Node<'_>) -> bool {
     let field = crate::tree::field_name_under(parent, node);
     match kind_of(parent) {
         "keyword_argument" => field == Some("name"),
+        "annotation" | "marker_annotation" | "template_function" | "template_method" => true,
+        kind if kind.starts_with("preproc_") => true,
+        kind if kind.ends_with("_signature") => true,
         "pair" => field == Some("key"),
         // Go's `Point{X: 1}` keeps the key in a literal element of its own.
         "literal_element" => parent.parent().is_some_and(|keyed| {
@@ -1581,6 +1606,77 @@ fn names_no_local(parent: Node<'_>, node: Node<'_>) -> bool {
             .is_some_and(|owner| kind_of(owner).ends_with("function_type")),
         _ => kind_of(node).ends_with("type_identifier") || kind_of(parent).ends_with("_type"),
     }
+}
+
+/// Whether a write is a statement of its own in a block, seeing through the wrappers a
+/// grammar puts around one: `x = 1;` and `let x = 1;` are, `if ((x = f()))`,
+/// `for (int i = 0; …)` and `a = b = 1` are not, for the inner write.
+fn stands_alone<'tree>(written: Node<'tree>, is_block: impl Fn(Node<'tree>) -> bool) -> bool {
+    const WRAPPERS: [&str; 9] = [
+        "expression_statement",
+        "lexical_declaration",
+        "variable_declaration",
+        "local_variable_declaration",
+        "declaration",
+        "var_declaration",
+        "var_spec_list",
+        "statement_list",
+        "expression_list",
+    ];
+    let mut current = written;
+    for _ in 0..4 {
+        let Some(holder) = current.parent() else {
+            return false;
+        };
+        if is_block(holder) {
+            return true;
+        }
+        if !WRAPPERS.contains(&kind_of(holder)) {
+            return false;
+        }
+        current = holder;
+    }
+    false
+}
+
+/// Whether a write sits in the condition of an `if`, outside any `&&`, `||`, `?:` or
+/// loop that could skip it.
+fn in_a_condition<'tree>(
+    written: Node<'tree>,
+    if_kind: &str,
+    source: &str,
+    is_block: impl Fn(Node<'tree>) -> bool,
+) -> bool {
+    let mut current = written;
+    for _ in 0..6 {
+        let Some(holder) = current.parent() else {
+            return false;
+        };
+        if is_block(holder) {
+            return false;
+        }
+        let kind = kind_of(holder);
+        if kind == if_kind {
+            return holder.child_by_field_name("condition") == Some(current)
+                || holder
+                    .child_by_field_name("condition")
+                    .is_some_and(|condition| {
+                        condition.start_byte() <= current.start_byte()
+                            && current.end_byte() <= condition.end_byte()
+                    });
+        }
+        let skips = kind.contains("ternary")
+            || kind.contains("conditional")
+            || kind.contains("for")
+            || kind.contains("while")
+            || operator_of(holder, source)
+                .is_some_and(|operator| matches!(operator, "&&" | "||" | "and" | "or" | "?"));
+        if skips {
+            return false;
+        }
+        current = holder;
+    }
+    false
 }
 
 /// A declaration that names something and stores nothing in it.

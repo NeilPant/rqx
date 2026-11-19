@@ -41,3 +41,14 @@ int locked_sum(std::mutex& guard, const std::vector<int>& rows) {
     }
     return sum;
 }
+
+// dead-store: each write sits in its own preprocessor branch, and only one of them
+// is compiled.
+int platform_code() {
+#ifdef _WIN32
+    const int code = 1;
+#else
+    const int code = 2;
+#endif
+    return code;
+}

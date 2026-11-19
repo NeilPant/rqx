@@ -321,6 +321,8 @@ src/lookalikes_warnings.cpp none=imprecise-type | for (const auto& word : words)
 src/lookalikes_warnings.cpp none=imprecise-type | const auto count = words.size();
 src/lookalikes_warnings.cpp none=imprecise-type | (void)count;
 src/lookalikes_warnings.cpp none=unused-parameter | int locked_sum(std::mutex& guard, const std::vector<int>& rows) {
+src/lookalikes_warnings.cpp none=dead-store | const int code = 1;
+src/lookalikes_warnings.cpp known-fp=unused-local only one preprocessor branch is compiled, and the return reads whichever it is | const int code = 2;
 src/main.cpp rule=wide-fan-out | #include "bloat.hpp"
 src/main.cpp rule=long-function | int main() {
 src/main.cpp rule=boolean-literal-argument | pricing({}, true);

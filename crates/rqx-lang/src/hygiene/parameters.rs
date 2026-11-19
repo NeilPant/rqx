@@ -283,7 +283,7 @@ impl<'a> Walker<'a> {
                 && let Some(window) = mentions.windows(2).find(|pair| {
                     pair[0].stores
                         && !pair[0].read
-                        && pair[1].stores
+                        && pair[1].overwrites
                         && !pair[1].read
                         && pair[0].block == pair[1].block
                 })
