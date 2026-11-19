@@ -658,3 +658,51 @@ fn a_suppression_is_left_to_a_person() {
     assert!(plan.contains("\"suppressed-diagnostic\""), "{plan}");
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// The entry point's signature is fixed by the runtime, and an override's by what it
+/// overrides: `java App` refused to start once `main` lost `String[] args`.
+#[test]
+fn entry_points_and_overrides_keep_their_parameters() {
+    let java = "public class App {\n    public static void main(String[] args) {\n        System.out.println(\"hi\");\n    }\n\n    @Override\n    public boolean equals(Object other) {\n        return true;\n    }\n}\n";
+    let cpp = "struct Sink {\n  virtual int weight(int level) const = 0;\n};\n\nstruct Quiet : Sink {\n  int weight(int level) const override { return 0; }\n};\n\nint main(int argc, char** argv) {\n  return 0;\n}\n";
+    let root = project(
+        "entry-points",
+        &[("App.java", java), ("main.cpp", cpp), EVERY_CONFIDENCE],
+    );
+    let reported = scan_json(&root);
+    assert!(!reported.contains("\"unused-parameter\""), "{reported}");
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("App.java")).unwrap(),
+        java
+    );
+    assert_eq!(std::fs::read_to_string(root.join("main.cpp")).unwrap(), cpp);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Every name a Python module does not mark private is its API, `__all__` makes one
+/// explicit, and pytest hands a test the fixtures it names. Only the private helper
+/// is the author's to shorten.
+#[test]
+fn python_public_functions_and_tests_keep_their_parameters() {
+    let library = "__all__ = ['handler']\n\n\ndef handler(event, context):\n    return 'ok'\n\n\ndef other(value, unused):\n    return _helper(value, 2) + handler(1, 2)\n\n\ndef _helper(value, scale):\n    return value\n";
+    let test = "def test_runs(monkeypatch, tmp_path):\n    assert True\n";
+    let root = project(
+        "python-api",
+        &[("lib.py", library), ("test_lib.py", test), EVERY_CONFIDENCE],
+    );
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("lib.py")).unwrap();
+    assert!(after.contains("def handler(event, context):"), "{after}");
+    assert!(after.contains("def other(value, unused):"), "{after}");
+    assert!(after.contains("handler(1, 2)"), "{after}");
+    assert!(after.contains("def _helper(value):"), "{after}");
+    assert!(after.contains("_helper(value)"), "{after}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("test_lib.py")).unwrap(),
+        test
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

@@ -190,8 +190,8 @@ pub struct TestVocabulary {
     pub case_prefixes: &'static [&'static str],
     /// Whether the framework also fixes the parameter list of a case it finds by
     /// name. Go's runner will not call `func TestX()` at all, so its `*testing.T` is
-    /// required whether the body reads it or not; a pytest case takes the fixtures it
-    /// asks for, so an unused one there is still the author's to delete.
+    /// required whether the body reads it or not. pytest sets up every fixture a case
+    /// names, so a fixture the body never reads may still be there for its setup.
     pub case_signature_is_fixed: bool,
     /// Calls made from inside a test that skip or focus the run, matched on their
     /// last segment because the receiver is named by whoever wrote the test.

@@ -26,6 +26,7 @@ pub mod rewrite;
 pub mod scope;
 pub mod tree;
 pub mod typescript;
+pub mod visibility;
 pub mod vocabulary;
 
 use std::path::Path;

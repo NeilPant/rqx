@@ -132,5 +132,6 @@ public class Main {
         new Lookalikes().spelled("a");
         new Lookalikes().longest(new String[0]);
         new Lookalikes().parsedOrZero("a");
+        new Lookalikes().label("en");
     }
 }

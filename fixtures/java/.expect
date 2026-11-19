@@ -293,7 +293,6 @@ src/main/java/rqx/Main.java rule=many-collaborators | public class Main {
 src/main/java/rqx/Main.java rule=feature-envy | public static void main(String[] args) {
 src/main/java/rqx/Main.java rule=long-function | public static void main(String[] args) {
 src/main/java/rqx/Main.java rule=many-locals | public static void main(String[] args) {
-src/main/java/rqx/Main.java rule=unused-parameter | public static void main(String[] args) {
 src/main/java/rqx/Main.java rule=boolean-literal-argument | new Hygiene().pricing(java.util.List.of(), true);
 src/main/java/rqx/Main.java rule=boolean-literal-argument | new Config().endpoint("", true, 1);
 src/main/java/rqx/Main.java rule=imprecise-type | new CostLockInLoop().tallyUnderOneLock(java.util.List.of(), new Object());
@@ -504,3 +503,5 @@ src/test/java/rqx/SuiteTest.java rule=single-method-field | int spare;
 src/test/java/rqx/SuiteTest.java rule=unused-fixture | spare = 1;
 src/test/java/rqx/SuiteTest.java rule=empty-method | static void assertEquals(int expected, int actual) {
 src/test/java/rqx/SuiteTest.java rule=unused-parameter x2 | static void assertEquals(int expected, int actual) {
+src/main/java/rqx/Main.java none=unused-parameter | public static void main(String[] args) {
+src/main/java/rqx/Lookalikes.java none=unused-parameter | public String label(String locale) {

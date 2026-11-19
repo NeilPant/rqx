@@ -17,6 +17,14 @@ them. `tools/release.sh` turns that section into the release notes.
   the comment, and `rqx fix --plan` lists it as a decision. The rule's documentation no
   longer marks it as auto-fixable.
 
+- **`unused-parameter` reports a parameter of a public function at `heuristic`
+  confidence.** Public means: a Python function at module level whose name has no
+  leading underscore, or one listed in `__all__`; an exported TypeScript or JavaScript
+  function, or a method that is not `private` or `#private`; a Java method that is not
+  `private`; a C++ function other than a `static` free function, one in an unnamed
+  namespace, or a lambda; a Go function with a capitalised name. Code outside the
+  project can call these, so `rqx fix` does not change their signatures.
+
 ### Fixed
 
 - **`unreachable-code` no longer reports, and `rqx fix` no longer deletes, code after an
@@ -39,6 +47,11 @@ them. `tools/release.sh` turns that section into the release notes.
   comment above a Go file's `package` clause. The list is `TOOL_DIRECTIVES` in
   `crates/rqx-lang/src/vocabulary.rs`. `//go:build ignore` is no longer reported as a
   `suppressed-diagnostic`.
+
+- **`unused-parameter` no longer reports parameters whose list is fixed elsewhere.**
+  Java and C++ `main`, a Java method with an annotation, a TypeScript method with a
+  decorator or `override`, a C++ method declared `virtual`, `override` or `final`, and a
+  pytest test function, whose parameters name the fixtures pytest sets up.
 
 ## 0.5.2 — 2026-11-18
 

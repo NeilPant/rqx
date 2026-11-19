@@ -91,4 +91,11 @@ public class Lookalikes {
         }
         return 0;
     }
+
+    // unused-parameter: an annotated method is called by whatever reads the
+    // annotation, with the parameters that reader passes.
+    @Deprecated
+    public String label(String locale) {
+        return "lookalike";
+    }
 }
