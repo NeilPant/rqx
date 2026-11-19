@@ -1598,8 +1598,13 @@ fn hygiene_findings(
             spot,
             Evidence::Name {
                 identifier: spot.detail.clone(),
+                // Which of several results is the error is the callee's to say, and
+                // the callee may be declared in a file this one cannot see.
                 reason: if spot.count > 1 {
-                    "returns its error last, and the line throws that result away".to_owned()
+                    format!(
+                        "returns {} results, and the line throws the last one away",
+                        spot.count
+                    )
                 } else {
                     "answers something the line throws away".to_owned()
                 },

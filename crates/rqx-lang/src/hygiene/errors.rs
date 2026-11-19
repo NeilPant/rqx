@@ -580,7 +580,14 @@ impl<'a> Walker<'a> {
         let Some(last) = targets.last() else {
             return;
         };
-        if !profile.is_ignored_name(self.text(*last)) || self.text(*last).len() > 2 {
+        let discard = self.text(*last);
+        // Python spells a type variable `_T`, and only `_` throws a value away there.
+        let throws_away = if profile.language == rqx_core::Language::Python {
+            discard == "_"
+        } else {
+            profile.is_ignored_name(discard) && discard.len() <= 2
+        };
+        if !throws_away {
             return;
         }
         // `var _ Handler = (*server)(nil)` asks the compiler whether a type satisfies

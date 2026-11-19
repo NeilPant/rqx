@@ -167,6 +167,7 @@ intimacy.py rule=ambient-dependency | return time.time()
 lifecycle.py rule=temporal-coupling | self._opened = True
 lifecycle.py rule=middle-man | class ReportFactory:
 long.py rule=long-function | def many_steps() -> int:
+lookalikes_warnings.py none=discarded-error | _T = TypeVar("_T")
 lookalikes_warnings.py none=mutable-module-state | priorities = {"high": 2, "low": 1}
 lookalikes_warnings.py none=working-constructor | def __init__(self, reason):
 lookalikes_warnings.py none=working-constructor | def __init__(self):

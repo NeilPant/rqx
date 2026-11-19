@@ -395,6 +395,13 @@ them. `tools/release.sh` turns that section into the release notes.
   call such as `append`, `push`, `put` or `delete` on the binding, somewhere other
   than its declaration. The fix hint no longer suggests declaring a constant.
 
+- **`discarded-error` no longer claims a Go call returns its error last, and no
+  longer reads `_T` as a discard.** For `sv, _ := measurement.Scale(...)` the message
+  said the call "returns its error last", although the second result was a unit
+  string. With more targets than values it now says how many results the call
+  returns and that the line throws the last one away. In Python only `_` counts as
+  throwing a value away, so `_T = TypeVar("_T")` is no longer reported.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

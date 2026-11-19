@@ -1,6 +1,18 @@
 """Code that resembles a warning and is not one. Every rule should stay silent here."""
 
 import collections
+from typing import Generic, TypeVar
+
+# discarded-error: `_T` names a type variable; only `_` throws a value away.
+_T = TypeVar("_T")
+
+
+class Box(Generic[_T]):
+    def __init__(self, item: _T):
+        self.item = item
+
+    def unwrap(self) -> _T:
+        return self.item
 
 # mutable-module-state: nothing writes the table after it is built, so every reader
 # sees the same one.
