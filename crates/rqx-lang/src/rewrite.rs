@@ -14,6 +14,7 @@ use rqx_core::span::Span;
 use rqx_core::{Identity, Language, RqxConfig};
 use tree_sitter::{Node, Tree};
 
+use crate::invariants::Invariants;
 use crate::profile::LanguageProfile;
 use crate::scope::{BindingKind, Scopes};
 use crate::tree::kind_of;
@@ -35,6 +36,8 @@ pub struct Rewriter<'src> {
     /// Licence notices, comments holding a URL and tool directives, which no edit may
     /// remove.
     protected: OnceCell<Vec<Span>>,
+    /// What the file's edits have to leave in place, read on the first edit.
+    invariants: OnceCell<Invariants>,
 }
 
 /// Why a file's edits were not written. Every variant is a reason the reader gets
@@ -59,6 +62,9 @@ pub enum Withheld {
     ChangesSignature(Vec<String>),
     /// The build check (`--verify-build`) failed after the edit, or could not run.
     Build(String),
+    /// The edit takes away something the program, its build or its tools depend on,
+    /// in the words of `Invariants::broken_by`.
+    Breaks(String),
 }
 
 impl fmt::Display for Withheld {
@@ -102,6 +108,7 @@ impl fmt::Display for Withheld {
                     .join(", ")
             ),
             Self::Build(reason) => write!(f, "the build check failed: {reason}"),
+            Self::Breaks(reason) => f.write_str(reason),
         }
     }
 }
@@ -172,6 +179,7 @@ impl<'src> Rewriter<'src> {
             tree,
             scopes: OnceCell::new(),
             protected: OnceCell::new(),
+            invariants: OnceCell::new(),
         })
     }
 
@@ -270,6 +278,7 @@ impl<'src> Rewriter<'src> {
         if edits
             .iter()
             .any(|edit| crate::notices::touches_protected(self.protected(), edit.span))
+            || !self.keeps_invariants(&edits)
         {
             return Vec::new();
         }
@@ -280,6 +289,24 @@ impl<'src> Rewriter<'src> {
         self.protected.get_or_init(|| {
             crate::notices::protected_in(self.profile, self.source, self.tree.root_node())
         })
+    }
+
+    /// Whether one finding's edits, applied alone, leave in place everything
+    /// `Invariants` names. Checked per finding so one edit that would break the build
+    /// does not cost the file every other fix; `rqx fix` checks the combined result
+    /// again before writing.
+    fn keeps_invariants(&self, edits: &[Edit]) -> bool {
+        if edits.is_empty() {
+            return true;
+        }
+        let Some(after) = apply(self.source, &resolve(edits.to_vec())) else {
+            return false;
+        };
+        let before = self
+            .invariants
+            .get_or_init(|| Invariants::of_tree(self.profile, self.source, self.tree.root_node()));
+        Invariants::of(self.language, self.markup, &after)
+            .is_ok_and(|after| before.broken_by(&after).is_none())
     }
 
     fn edits_for(&self, finding: &Finding) -> Vec<Edit> {
@@ -419,8 +446,15 @@ impl<'src> Rewriter<'src> {
 
     /// The finding points at the name; the edit has to remove what declares it. A
     /// declaration whose value calls something is left alone — the binding is unused,
-    /// but the call may be why the line is there.
+    /// but the call may be why the line is there. So is a Python name a nested
+    /// function declares `nonlocal` or `global`: that statement needs the binding,
+    /// and Python refuses to compile it without one.
     fn unused_local(&self, finding: &Finding, name: Node<'_>) -> Option<Edit> {
+        if crate::invariants::declared_nonlocal(self.source, self.tree.root_node())
+            .contains(text_of(name, self.source))
+        {
+            return None;
+        }
         let declarator = climb(name, |node| {
             self.profile.declarator_kinds.contains(&kind_of(node))
                 || self.profile.local_declaring_kinds.contains(&kind_of(node))
@@ -474,7 +508,10 @@ impl<'src> Rewriter<'src> {
     }
 
     /// Whether removing this declaration would also remove work. The name being
-    /// declared is skipped, so `const handler = () => {}` does not read as a call.
+    /// declared is skipped, so `const handler = () => {}` does not read as a call. An
+    /// index can raise or run a lookup method, and in CPython a binding that is never
+    /// read still keeps its value alive until the function returns, which
+    /// `functools.lru_cache` relies on to hold off `__del__` mid-update.
     fn has_effect(&self, declarator: Node<'_>, name: Node<'_>) -> bool {
         let mut cursor = declarator.walk();
         let mut stack: Vec<Node<'_>> = declarator.children(&mut cursor).collect();
@@ -482,7 +519,10 @@ impl<'src> Rewriter<'src> {
             if node.id() == name.id() {
                 continue;
             }
-            if self.profile.is_call(node) || self.profile.is_function(node) {
+            if self.profile.is_call(node)
+                || self.profile.is_function(node)
+                || INDEXING.contains(&kind_of(node))
+            {
                 return true;
             }
             let mut inner = node.walk();
@@ -519,6 +559,14 @@ impl<'src> Rewriter<'src> {
         )
     }
 }
+
+/// An element read by index or key, in each grammar's spelling.
+const INDEXING: &[&str] = &[
+    "subscript",
+    "subscript_expression",
+    "index_expression",
+    "array_access",
+];
 
 /// The nearest ancestor the test accepts, starting with the node itself.
 fn climb<'tree>(from: Node<'tree>, accept: impl Fn(Node<'tree>) -> bool) -> Option<Node<'tree>> {

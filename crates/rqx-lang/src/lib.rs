@@ -10,6 +10,7 @@ pub mod go;
 pub mod hierarchy;
 pub mod highlight;
 pub mod hygiene;
+pub mod invariants;
 pub mod java;
 pub mod javascript;
 pub mod metrics;

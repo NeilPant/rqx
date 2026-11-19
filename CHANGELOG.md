@@ -53,6 +53,20 @@ them. `tools/release.sh` turns that section into the release notes.
   decorator or `override`, a C++ method declared `virtual`, `override` or `final`, and a
   pytest test function, whose parameters name the fixtures pytest sets up.
 
+- **`rqx fix` checks each edited file before writing it.** An edit is withheld, with the
+  reason, when it removes a protected comment, a label or the last jump to one, the
+  `yield` that makes a Python function a generator, a Python `global` or `nonlocal`
+  statement or a use of a name one declares, or a C++ macro call; when it leaves a Go
+  import or local unused; or when it changes the signature of a public function. Each
+  finding's edit is checked on its own first, so one refused edit does not hold back
+  the rest of the file.
+
+- **The `unused-local` fix leaves a declaration whose value is read by index.** An
+  index can raise, and in CPython the unread binding keeps the value alive until the
+  function returns, which `functools.lru_cache` relies on. In 0.5.2, `fix --write`
+  also removed `full = False` from `functools._lru_cache_wrapper`, which a nested
+  function declares `nonlocal`, and `functools.py` stopped compiling.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

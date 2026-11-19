@@ -572,6 +572,32 @@ fn fix_keeps_code_that_is_reached_without_falling_through() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// Dead code is still deleted when nothing jumps into it, and the edit is withheld
+/// when it would leave a Go import or local unused, which Go refuses to compile.
+#[test]
+fn fix_deletes_dead_go_code_only_when_the_package_still_builds() {
+    let source = "package flow\n\nimport \"fmt\"\n\nfunc Once() int {\n\tfmt.Println(\"once\")\n\treturn 1\n\tprintln(\"dead\")\n}\n\nfunc Show() int {\n\tlabel := \"shown\"\n\treturn 1\n\tfmt.Println(label)\n}\n";
+    let imports = "package flow\n\nimport \"strings\"\n\nfunc Upper() string {\n\treturn \"\"\n\treturn strings.ToUpper(\"x\")\n}\n";
+    let root = project(
+        "dead-go",
+        &[
+            ("go.mod", "module example.com/flow\n\ngo 1.22\n"),
+            ("flow.go", source),
+            ("upper.go", imports),
+        ],
+    );
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("flow.go")).unwrap();
+    assert!(!after.contains("println(\"dead\")"), "{after}");
+    assert!(after.contains("fmt.Println(label)"), "{after}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("upper.go")).unwrap(),
+        imports
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// A `//go:build ignore` generator beside a package: deleting the constraint put
 /// `package main` into the package and broke the build. The same goes for every
 /// comment another tool reads.

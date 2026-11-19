@@ -2,11 +2,14 @@
 //! the signature of, something another file uses. Every file the scan read is
 //! searched, and so is every file of the same language beside the edited one, which
 //! covers a Go file a build tag or a `_windows.go` suffix keeps out of this build.
+//! Before that, each file is held to its `Invariants`: what the program, its build and
+//! its tools need from it whoever the readers are.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use rqx_core::Language;
+use rqx_lang::invariants::Invariants;
 use rqx_lang::outline::Outline;
 use rqx_lang::rewrite::Withheld;
 
@@ -92,6 +95,13 @@ impl Surface {
             Outline::of(language, markup, source)
                 .map_err(|error| Withheld::Unanalysable(error.to_string()))
         };
+        let invariants = |source: &str| {
+            Invariants::of(language, markup, source)
+                .map_err(|error| Withheld::Unanalysable(error.to_string()))
+        };
+        if let Some(reason) = invariants(&fix.before)?.broken_by(&invariants(&fix.after)?) {
+            return Err(Withheld::Breaks(reason));
+        }
         let before = outline(&fix.before)?;
         let after = outline(&fix.after)?;
         Ok(Self {
