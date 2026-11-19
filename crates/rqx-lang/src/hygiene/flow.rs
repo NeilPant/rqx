@@ -1,5 +1,7 @@
 //! Rules about control flow: branches, conditions, jumps and loops.
 
+use std::collections::HashMap;
+
 use rqx_core::facts::Spot;
 use rqx_core::rule::RuleId;
 use rqx_core::span::Span;
@@ -8,7 +10,7 @@ use tree_sitter::Node;
 use crate::profile::LanguageProfile;
 use crate::tree::{descendants, kind_of, operands_of, operator_of, span_of};
 
-use super::{Walker, squashed};
+use super::{ChainArm, Walker, squashed, written_as};
 
 /// One arm of an `if` chain: where it is written, what decides it (nothing for the
 /// final `else`), and what it runs.
@@ -709,23 +711,26 @@ impl<'a> Walker<'a> {
 
     /// Two arms of one chain asking the same question. The second can never be
     /// reached, and a reader has to compare them to find that out.
+    ///
+    /// The chain is read once, from its head, and what each later arm finds is kept
+    /// for when the walk reaches that arm: reading the rest of the chain again at
+    /// every arm made a long `else if` chain cost the square of its length.
     pub(super) fn note_duplicate_condition(&mut self, branch: Node<'a>) {
-        let profile = self.profile;
-        // Only from the head of a chain, so a chain of four is read once.
-        let is_tail = branch.parent().is_some_and(|parent| {
-            kind_of(parent) == profile.if_kind
-                && parent
-                    .child_by_field_name(profile.else_field)
-                    .is_some_and(|alternative| alternative.id() == branch.id())
-        });
-        if is_tail {
-            return;
+        match self.chain_arms.remove(&branch.id()) {
+            // Only from the head of a chain, so a chain of four is read once.
+            Some(ChainArm::Tail) => return,
+            Some(ChainArm::Reads(found)) => {
+                self.out.duplicate_conditions.extend(found);
+                return;
+            }
+            None => {}
         }
+        let profile = self.profile;
+        let source = self.source;
         let mut asked: Vec<(String, Node<'a>)> = Vec::new();
         // Go's initialiser is part of what is asked: the same test of a name bound
-        // to a different value asks something new.
-        // A condition that assigns changes what the next one reads, so its text says
-        // nothing about whether it repeats.
+        // to a different value asks something new. A condition that assigns changes
+        // what the next one reads, so its text says nothing about whether it repeats.
         let ask = |node: Node<'a>, asked: &mut Vec<(String, Node<'a>)>| {
             if let Some(condition) = node.child_by_field_name(profile.condition_field)
                 && !descendants(condition)
@@ -734,14 +739,17 @@ impl<'a> Walker<'a> {
             {
                 let initialiser = node
                     .child_by_field_name("initializer")
-                    .map_or_else(String::new, |init| self.written_as(init));
+                    .map_or_else(String::new, |init| written_as(profile, source, init));
                 asked.push((
-                    format!("{initialiser};{}", self.written_as(condition)),
+                    format!("{initialiser};{}", written_as(profile, source, condition)),
                     condition,
                 ));
             }
         };
         ask(branch, &mut asked);
+        // The later arms reached through an `else` clause, which read the chain again
+        // from where they stand, with where in `asked` they start reading.
+        let mut rereading: Vec<(usize, usize)> = Vec::new();
         if profile.else_is_sibling_list {
             // The clauses hang off the `if` as a list rather than nesting inside one
             // another, so the whole chain is one node's children.
@@ -759,16 +767,21 @@ impl<'a> Walker<'a> {
                 // Some grammars hang the next `if` straight off the field; others put
                 // an `else` clause in between and nest the `if` inside that.
                 let arm = if kind_of(node) == profile.if_kind {
+                    self.chain_arms.insert(node.id(), ChainArm::Tail);
                     node
                 } else if profile.else_clause_kinds.contains(&kind_of(node)) {
                     // Only an `if` that is all the else holds continues the chain; one
-                    // after other statements asks after they have run.
+                    // after other statements asks after they have run, and is read as
+                    // the head of a chain of its own.
                     let inside: Vec<Node<'a>> = node
                         .named_children(&mut node.walk())
                         .filter(|child| !profile.is_comment(*child))
                         .collect();
                     match inside.as_slice() {
-                        [nested] if kind_of(*nested) == profile.if_kind => *nested,
+                        [nested] if kind_of(*nested) == profile.if_kind => {
+                            rereading.push((nested.id(), asked.len()));
+                            *nested
+                        }
                         _ => break,
                     }
                 } else {
@@ -778,16 +791,32 @@ impl<'a> Walker<'a> {
                 current = arm.child_by_field_name(profile.else_field);
             }
         }
-        for (at, (text, node)) in asked.iter().enumerate() {
-            if asked[..at].iter().any(|(earlier, _)| earlier == text) {
-                self.out.duplicate_conditions.push(Spot {
-                    span: span_of(*node),
-                    detail: squashed(self.text(*node)),
-                    count: 1,
-                });
-                return;
-            }
+        // For each arm, the next arm asking the same question; then, for each place
+        // to start reading, the first arm that repeats one asked since that place.
+        let mut next_same = vec![None; asked.len()];
+        let mut last_seen: HashMap<&str, usize> = HashMap::new();
+        for (at, (text, _)) in asked.iter().enumerate().rev() {
+            next_same[at] = last_seen.insert(text.as_str(), at);
         }
+        let mut first_repeat = vec![None; asked.len() + 1];
+        for at in (0..asked.len()).rev() {
+            first_repeat[at] = match (next_same[at], first_repeat[at + 1]) {
+                (Some(here), Some(later)) => Some(usize::min(here, later)),
+                (here, later) => here.or(later),
+            };
+        }
+        let spot = |from: usize| -> Option<Spot> {
+            let (_, node) = &asked[first_repeat[from]?];
+            Some(Spot {
+                span: span_of(*node),
+                detail: squashed(crate::tree::text_of(*node, source)),
+                count: 1,
+            })
+        };
+        for (arm, from) in rereading {
+            self.chain_arms.insert(arm, ChainArm::Reads(spot(from)));
+        }
+        self.out.duplicate_conditions.extend(spot(0));
     }
 
     /// A switch arm that does work and then runs into the next one.

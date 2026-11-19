@@ -8,7 +8,8 @@ use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
 use crate::tree::{
-    field_name_under, find_within, is_binding_position, kind_of, operator_of, span_of, text_of,
+    field_name_under, find_within, is_binding_position_under, kind_of, operator_of, span_of,
+    text_of,
 };
 use crate::vocabulary::MEMO_HINTS;
 
@@ -122,10 +123,11 @@ impl<'a> MetricsWalker<'a> {
         }
     }
 
-    fn nested(&mut self, node: Node<'a>, field: Option<&'static str>) {
-        self.push_nesting();
-        self.walk(node, field);
-        self.pop_nesting();
+    /// A branch body, walked one level deeper than the branch.
+    fn nested(plan: &mut Vec<Step<'a>>, place: Place<'a>) {
+        plan.push(Step::PushNesting);
+        plan.push(Step::Visit(place));
+        plan.push(Step::PopNesting);
     }
 
     fn name_next_function(&mut self, owner: Node<'a>, name: Node<'a>) {
@@ -660,18 +662,62 @@ impl<'a> MetricsWalker<'a> {
         }
     }
 
-    fn is_binding(&self, node: Node<'a>) -> bool {
-        self.profile.is_identifier(node)
-            && is_binding_position(
-                node,
-                self.profile.parameter_kinds,
-                self.profile.borrowed_name_kinds,
-                self.profile.local_declaring_kinds,
-                self.profile.expression_list_kinds,
-            )
+    fn is_binding(&self, place: Place<'a>) -> bool {
+        self.profile.is_identifier(place.node)
+            && place.parent.is_some_and(|parent| {
+                is_binding_position_under(
+                    parent,
+                    place.node,
+                    self.profile.parameter_kinds,
+                    self.profile.borrowed_name_kinds,
+                    self.profile.local_declaring_kinds,
+                    self.profile.expression_list_kinds,
+                )
+            })
     }
 
-    fn walk_children(&mut self, node: Node<'a>) {
+    /// Walks the tree from `root`. The walk keeps its own stack of steps, so a file
+    /// nested thousands of levels deep cannot exhaust the thread's: what used to run
+    /// after a recursive call returned is a step queued behind the visits standing in
+    /// for that call.
+    fn walk(&mut self, root: Node<'a>) {
+        let mut steps = vec![Step::Visit(Place {
+            node: root,
+            field: None,
+            parent: None,
+            grandparent: None,
+        })];
+        let mut plan = Vec::new();
+        while let Some(step) = steps.pop() {
+            self.run(step, &mut plan);
+            steps.extend(plan.drain(..).rev());
+        }
+    }
+
+    /// Carries out one step, appending the steps that follow from it to `plan` in the
+    /// order they run.
+    fn run(&mut self, step: Step<'a>, plan: &mut Vec<Step<'a>>) {
+        match step {
+            Step::Visit(place) => self.visit(place, plan),
+            Step::Children(node, parent) => Self::children(node, parent, plan),
+            Step::PushNesting => self.push_nesting(),
+            Step::PopNesting => self.pop_nesting(),
+            Step::Increment => self.increment(),
+            Step::CountBranch(span) => self.count_statement(span, false),
+            Step::RestoreChain(chain) => self.logical_chain = chain,
+            Step::ForgetPendingName => self.pending_name = None,
+            Step::PopFunction => self.pop_function(),
+            Step::PopClass => self.pop_class(),
+            Step::PopBlock => self.pop_block(),
+            Step::PopLoops(count) => {
+                for _ in 0..count {
+                    self.pop_loop();
+                }
+            }
+        }
+    }
+
+    fn children(node: Node<'a>, parent: Option<Node<'a>>, plan: &mut Vec<Step<'a>>) {
         let mut cursor = node.walk();
         if !cursor.goto_first_child() {
             return;
@@ -679,8 +725,12 @@ impl<'a> MetricsWalker<'a> {
         loop {
             let child = cursor.node();
             if child.is_named() {
-                let field = cursor.field_name();
-                self.walk(child, field);
+                plan.push(Step::Visit(Place {
+                    node: child,
+                    field: cursor.field_name(),
+                    parent: Some(node),
+                    grandparent: parent,
+                }));
             }
             if !cursor.goto_next_sibling() {
                 return;
@@ -691,61 +741,94 @@ impl<'a> MetricsWalker<'a> {
     /// `else` and `else if` are counted without a nesting increment, and an
     /// `else if` chain is flattened rather than treated as a nested `if`, per the
     /// SonarSource cognitive-complexity specification this metric cites.
-    fn walk_if(&mut self, node: Node<'a>) {
+    fn visit_if(&mut self, node: Node<'a>, parent: Option<Node<'a>>, plan: &mut Vec<Step<'a>>) {
+        let profile = self.profile;
+        let condition_field = profile.condition_field;
+        let under = |child: Node<'a>, field, owner: Node<'a>, above: Option<Node<'a>>| Place {
+            node: child,
+            field,
+            parent: Some(owner),
+            grandparent: above,
+        };
         self.increment_with_nesting();
-        if let Some(condition) = node.child_by_field_name(self.profile.condition_field) {
-            self.walk(condition, Some(self.profile.condition_field));
+        if let Some(condition) = node.child_by_field_name(condition_field) {
+            plan.push(Step::Visit(under(
+                condition,
+                Some(condition_field),
+                node,
+                parent,
+            )));
         }
         if let Some(consequence) = node.child_by_field_name("consequence") {
-            self.nested(consequence, Some("consequence"));
+            Self::nested(plan, under(consequence, Some("consequence"), node, parent));
         }
 
-        if self.profile.else_is_sibling_list {
+        if profile.else_is_sibling_list {
             let mut cursor = node.walk();
             let clauses: Vec<Node<'a>> = node
                 .named_children(&mut cursor)
-                .filter(|child| self.profile.else_clause_kinds.contains(&kind_of(child)))
+                .filter(|child| profile.else_clause_kinds.contains(&kind_of(child)))
                 .collect();
             for clause in clauses {
-                self.increment();
-                if let Some(condition) = clause.child_by_field_name(self.profile.condition_field) {
-                    self.walk(condition, Some(self.profile.condition_field));
+                plan.push(Step::Increment);
+                if let Some(condition) = clause.child_by_field_name(condition_field) {
+                    plan.push(Step::Visit(under(
+                        condition,
+                        Some(condition_field),
+                        clause,
+                        Some(node),
+                    )));
                 }
                 let mut inner = clause.walk();
                 let bodies: Vec<Node<'a>> = clause
                     .named_children(&mut inner)
-                    .filter(|child| self.profile.is_block(*child))
+                    .filter(|child| profile.is_block(*child))
                     .collect();
                 for body in bodies {
-                    self.nested(body, None);
+                    Self::nested(plan, under(body, None, clause, Some(node)));
                 }
             }
             return;
         }
 
-        let mut alternative = node.child_by_field_name(self.profile.else_field);
-        while let Some(branch) = alternative {
+        let mut alternative = node
+            .child_by_field_name(profile.else_field)
+            .map(|branch| (branch, node, parent));
+        while let Some((branch, owner, above)) = alternative {
             // Some grammars wrap the tail in an `else_clause`; the branch itself is
             // the single child that matters.
-            let branch =
-                if kind_of(branch) == self.profile.if_kind || branch.named_child_count() == 0 {
-                    branch
+            let (branch, owner, above) =
+                if kind_of(branch) == profile.if_kind || branch.named_child_count() == 0 {
+                    (branch, owner, above)
                 } else {
-                    branch.named_child(0).unwrap_or(branch)
+                    match branch.named_child(0) {
+                        Some(inner) => (inner, branch, Some(owner)),
+                        None => (branch, owner, above),
+                    }
                 };
-            if kind_of(branch) == self.profile.if_kind {
-                self.count_statement(span_of(branch), false);
-                self.increment();
-                if let Some(condition) = branch.child_by_field_name(self.profile.condition_field) {
-                    self.walk(condition, Some(self.profile.condition_field));
+            if kind_of(branch) == profile.if_kind {
+                plan.push(Step::CountBranch(span_of(branch)));
+                plan.push(Step::Increment);
+                if let Some(condition) = branch.child_by_field_name(condition_field) {
+                    plan.push(Step::Visit(under(
+                        condition,
+                        Some(condition_field),
+                        branch,
+                        Some(owner),
+                    )));
                 }
                 if let Some(consequence) = branch.child_by_field_name("consequence") {
-                    self.nested(consequence, Some("consequence"));
+                    Self::nested(
+                        plan,
+                        under(consequence, Some("consequence"), branch, Some(owner)),
+                    );
                 }
-                alternative = branch.child_by_field_name(self.profile.else_field);
+                alternative = branch
+                    .child_by_field_name(profile.else_field)
+                    .map(|next| (next, branch, Some(owner)));
             } else {
-                self.increment();
-                self.nested(branch, None);
+                plan.push(Step::Increment);
+                Self::nested(plan, under(branch, None, owner, above));
                 alternative = None;
             }
         }
@@ -753,8 +836,8 @@ impl<'a> MetricsWalker<'a> {
 
     /// A run of the same logical operator is one decision for a reader, so it
     /// scores once; a change of operator starts a new run.
-    fn walk_binary(&mut self, node: Node<'a>) -> bool {
-        let Some(operator) = operator_of(node, self.source) else {
+    fn visit_binary(&mut self, place: Place<'a>, plan: &mut Vec<Step<'a>>) -> bool {
+        let Some(operator) = operator_of(place.node, self.source) else {
             return false;
         };
         if !self.profile.logical_operators.contains(&operator) {
@@ -764,20 +847,20 @@ impl<'a> MetricsWalker<'a> {
             self.increment();
         }
         let outer = self.logical_chain.replace(operator.to_owned());
-        self.walk_children(node);
-        self.logical_chain = outer;
+        plan.push(Step::Children(place.node, place.parent));
+        plan.push(Step::RestoreChain(outer));
         true
     }
 
     /// A function's own body is not a statement inside the function; a bare block
     /// written inside one is. Grammars give both the same node kind, so the parent
     /// is what separates them.
-    fn counts_as_statement(&self, node: Node<'a>) -> bool {
-        if self.profile.is_statement(node) {
+    fn counts_as_statement(&self, place: Place<'a>) -> bool {
+        if self.profile.is_statement(place.node) {
             return true;
         }
-        self.profile.is_block(node)
-            && node.parent().is_some_and(|parent| {
+        self.profile.is_block(place.node)
+            && place.parent.is_some_and(|parent| {
                 !self.profile.is_function(parent)
                     && !self.profile.is_class(parent)
                     && !self
@@ -787,43 +870,46 @@ impl<'a> MetricsWalker<'a> {
             })
     }
 
-    fn walk(&mut self, node: Node<'a>, field: Option<&'static str>) {
-        self.feed_hash(node, field);
+    fn visit(&mut self, place: Place<'a>, plan: &mut Vec<Step<'a>>) {
+        let node = place.node;
+        self.feed_hash(node, place.field);
         let kind = kind_of(node);
         let profile = self.profile;
 
-        if self.counts_as_statement(node) {
+        if self.counts_as_statement(place) {
             self.count_statement(span_of(node), self.is_field_assignment(node));
             let outer = self.logical_chain.take();
-            self.walk_inner(node);
-            self.logical_chain = outer;
+            self.visit_inner(place, plan);
+            plan.push(Step::RestoreChain(outer));
             return;
         }
         if profile.is_call(node) {
             self.note_self_call(node);
             let outer = self.logical_chain.take();
-            self.walk_inner(node);
-            self.logical_chain = outer;
+            self.visit_inner(place, plan);
+            plan.push(Step::RestoreChain(outer));
             return;
         }
         if kind == profile.if_kind {
-            self.walk_if(node);
+            self.visit_if(node, place.parent, plan);
             return;
         }
-        self.walk_inner(node);
+        self.visit_inner(place, plan);
     }
 
-    /// The half of `walk` that runs after statement and call bookkeeping, so those
+    /// The half of `visit` that runs after statement and call bookkeeping, so those
     /// two can wrap it without repeating everything below.
-    fn walk_inner(&mut self, node: Node<'a>) {
+    fn visit_inner(&mut self, place: Place<'a>, plan: &mut Vec<Step<'a>>) {
+        let node = place.node;
         let kind = kind_of(node);
         let profile = self.profile;
+        let children = Step::Children(node, place.parent);
 
         if kind == profile.if_kind {
-            self.walk_if(node);
+            self.visit_if(node, place.parent, plan);
             return;
         }
-        if profile.binary_kinds.contains(&kind) && self.walk_binary(node) {
+        if profile.binary_kinds.contains(&kind) && self.visit_binary(place, plan) {
             return;
         }
         if profile.declarator_kinds.contains(&kind) {
@@ -832,8 +918,8 @@ impl<'a> MetricsWalker<'a> {
             {
                 self.name_next_function(node, name);
             }
-            self.walk_children(node);
-            self.pending_name = None;
+            plan.push(children);
+            plan.push(Step::ForgetPendingName);
             return;
         }
         if profile.method_kinds.contains(&kind) {
@@ -845,11 +931,9 @@ impl<'a> MetricsWalker<'a> {
             }
         }
         let assigned_field = profile.assigned_field_kinds.contains(&kind)
-            && node.parent().is_some_and(|parent| {
-                parent
-                    .parent()
-                    .is_some_and(|grandparent| profile.is_class(grandparent))
-            });
+            && place
+                .grandparent
+                .is_some_and(|grandparent| profile.is_class(grandparent));
         if profile.field_kinds.contains(&kind) || assigned_field {
             if let Some(frame) = self.classes.last_mut() {
                 frame.fields += 1;
@@ -863,8 +947,8 @@ impl<'a> MetricsWalker<'a> {
                 self.name_next_function(node, name);
             }
             self.push_function(node);
-            self.walk_children(node);
-            self.pop_function();
+            plan.push(children);
+            plan.push(Step::PopFunction);
             return;
         }
         if profile.is_class(node) {
@@ -876,22 +960,14 @@ impl<'a> MetricsWalker<'a> {
                 methods: 0,
                 statements: 0,
             });
-            self.walk_children(node);
-            if let Some(frame) = self.classes.pop() {
-                self.out.classes.push(ClassMetrics {
-                    name: frame.name,
-                    report: frame.report,
-                    fields: frame.fields,
-                    methods: frame.methods,
-                    statements: frame.statements,
-                });
-            }
+            plan.push(children);
+            plan.push(Step::PopClass);
             return;
         }
         if profile.is_block(node) {
             self.push_block(span_of(node));
-            self.walk_children(node);
-            self.pop_block();
+            plan.push(children);
+            plan.push(Step::PopBlock);
             return;
         }
         if profile.comprehension_kinds.contains(&kind) {
@@ -899,10 +975,8 @@ impl<'a> MetricsWalker<'a> {
             for _ in 0..clauses {
                 self.push_loop();
             }
-            self.walk_children(node);
-            for _ in 0..clauses {
-                self.pop_loop();
-            }
+            plan.push(children);
+            plan.push(Step::PopLoops(clauses));
             return;
         }
         if profile.branch_kinds.contains(&kind) {
@@ -912,17 +986,15 @@ impl<'a> MetricsWalker<'a> {
             if repeats {
                 self.push_loop();
             }
-            self.walk_children(node);
-            if repeats {
-                self.pop_loop();
-            }
-            self.pop_nesting();
+            plan.push(children);
+            plan.push(Step::PopLoops(u32::from(repeats)));
+            plan.push(Step::PopNesting);
             return;
         }
         if profile.flat_branch_kinds.contains(&kind) {
             self.increment();
         }
-        if self.is_binding(node) {
+        if self.is_binding(place) {
             self.note_name(node);
         }
         if profile.is_identifier(node)
@@ -933,8 +1005,49 @@ impl<'a> MetricsWalker<'a> {
         {
             frame.memo_guard = true;
         }
-        self.walk_children(node);
+        plan.push(children);
     }
+
+    fn pop_class(&mut self) {
+        if let Some(frame) = self.classes.pop() {
+            self.out.classes.push(ClassMetrics {
+                name: frame.name,
+                report: frame.report,
+                fields: frame.fields,
+                methods: frame.methods,
+                statements: frame.statements,
+            });
+        }
+    }
+}
+
+/// A node about to be visited, with where it sits: the field its parent holds it in,
+/// and the two nodes above it, which `Node::parent` would find again by walking down
+/// from the root.
+#[derive(Clone, Copy)]
+struct Place<'a> {
+    node: Node<'a>,
+    field: Option<&'static str>,
+    parent: Option<Node<'a>>,
+    grandparent: Option<Node<'a>>,
+}
+
+/// One unit of the metrics walk's work.
+enum Step<'a> {
+    Visit(Place<'a>),
+    /// Visit the named children of a node, given with its own parent.
+    Children(Node<'a>, Option<Node<'a>>),
+    PushNesting,
+    PopNesting,
+    Increment,
+    /// An `else if` branch counted as a statement of its own.
+    CountBranch(Span),
+    RestoreChain(Option<String>),
+    ForgetPendingName,
+    PopFunction,
+    PopClass,
+    PopBlock,
+    PopLoops(u32),
 }
 
 /// A comprehension loops once per `for` clause it holds, so `[a for x in xs for y in ys]`
@@ -969,6 +1082,6 @@ pub fn measure(profile: &'static LanguageProfile, source: &str, root: Node<'_>) 
         logical_chain: None,
         out: FileMetrics::default(),
     };
-    walker.walk(root, None);
+    walker.walk(root);
     walker.out
 }

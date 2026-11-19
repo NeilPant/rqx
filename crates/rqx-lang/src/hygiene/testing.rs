@@ -24,18 +24,19 @@ enum Ending {
 
 impl<'a> Walker<'a> {
     fn chain_depth(&self, node: Node<'a>) -> u32 {
-        let node = self.see_through(node);
-        if self.profile.is_member_access(node) {
-            return 1 + node
-                .child_by_field_name(self.profile.object_field)
-                .map_or(0, |n| self.chain_depth(n));
+        let mut depth = 0;
+        let mut next = Some(node);
+        while let Some(node) = next.map(|node| self.see_through(node)) {
+            next = if self.profile.is_member_access(node) {
+                depth += 1;
+                node.child_by_field_name(self.profile.object_field)
+            } else if self.profile.is_call(node) {
+                node.child_by_field_name(self.profile.callee_field)
+            } else {
+                None
+            };
         }
-        if self.profile.is_call(node) {
-            return node
-                .child_by_field_name(self.profile.callee_field)
-                .map_or(0, |n| self.chain_depth(n));
-        }
-        0
+        depth
     }
 
     /// One node that checks something, whether the language spells a check as a call

@@ -208,7 +208,8 @@ Examples:
 
 Exit codes:
   0   completed; no gate failed
-  1   completed; the gate failed
+  1   completed; the gate failed (`rqx scan` gates only when given a gate flag,
+      such as --fail-on; `rqx check` always does)
   2   rqx could not run: bad path, invalid configuration, unresolvable revision
   101 internal error; please report it
 ";

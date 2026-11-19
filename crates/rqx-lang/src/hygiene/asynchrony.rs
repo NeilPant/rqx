@@ -366,16 +366,13 @@ impl<'a> Walker<'a> {
 
     /// How deep a function literal sits inside other function literals. Reported on
     /// the innermost one, which is where a reader ends up.
+    ///
+    /// Called on entering `node`, when the walk holds one frame for the file, one for
+    /// each function around `node` and one for `node` itself. Counting the frames
+    /// rather than climbing with `Node::parent`, which walks down from the root, keeps
+    /// a file of deeply nested callbacks from costing the cube of its depth.
     pub(super) fn note_callback_depth(&mut self, node: Node<'a>) {
-        let profile = self.profile;
-        let mut depth = 0;
-        let mut parent = node.parent();
-        while let Some(current) = parent {
-            if profile.is_function(current) {
-                depth += 1;
-            }
-            parent = current.parent();
-        }
+        let depth = self.frames.len().saturating_sub(2) as u32;
         if depth > self.limits.callback_depth {
             self.out.callback_nesting.push(Spot {
                 span: self.name_span(node),

@@ -330,22 +330,26 @@ fn assemble(
 
 /// Paths relative to the scan root, as findings name them.
 fn changed_since(root: &Path, base: &str) -> Result<BTreeSet<String>> {
-    let Some(mut changed) = history::changed_since(root, base) else {
-        // The commonest cause by far in CI, and the one nothing in the message used
-        // to point at: `base...HEAD` needs the commit the two share, and a clone one
-        // commit deep has none.
-        let shallow = if history::is_shallow(root) {
-            " This clone is shallow, so it may hold no commit in common with `{base}` \
-             \u{2014} fetch more history (`fetch-depth: 0`, `GIT_DEPTH: 0`)."
-        } else {
-            ""
-        };
-        bail!(
-            "cannot diff against `{base}`. A review needs a git repository and a revision \
-             that exists; try `--base HEAD~1`, `--files-from` to name the files, or \
-             `rqx scan` to look at every file instead.{}",
-            shallow.replace("{base}", base)
-        );
+    let base = history::revision(base).map_err(|refused| anyhow::anyhow!("{refused}"))?;
+    let mut changed = match history::changed_files(root, base) {
+        Ok(changed) => changed,
+        Err(git_said) => {
+            // The commonest cause by far in CI, and the one nothing in the message used
+            // to point at: `base...HEAD` needs the commit the two share, and a clone one
+            // commit deep has none.
+            let shallow = if history::is_shallow(root) {
+                " This clone is shallow, so it may hold no commit in common with `{base}` \
+                 \u{2014} fetch more history (`fetch-depth: 0`, `GIT_DEPTH: 0`)."
+            } else {
+                ""
+            };
+            bail!(
+                "cannot diff against `{base}`: {git_said}\nA review needs a git repository \
+                 and a revision that exists; try `--base HEAD~1`, `--files-from` to name the \
+                 files, or `rqx scan` to look at every file instead.{}",
+                shallow.replace("{base}", base)
+            );
+        }
     };
     changed.extend(history::uncommitted(root));
 

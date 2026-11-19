@@ -52,6 +52,7 @@ mod term;
 mod trend;
 mod unified_diff;
 mod update;
+mod uri;
 mod verify;
 mod waive;
 mod watch;

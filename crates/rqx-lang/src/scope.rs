@@ -215,8 +215,26 @@ impl<'a> Builder<'a> {
 
     /// The parent travels down with the walk rather than being asked for at each
     /// node: `Node::parent` walks down from the root to find it, and between this
-    /// function and the three it calls the same answer was wanted six times.
-    fn walk(&mut self, node: Node<'a>, above: Option<Node<'a>>, scope: usize) {
+    /// function and the three it calls the same answer was wanted six times. The walk
+    /// keeps its own stack, so a file nested thousands of levels deep cannot exhaust
+    /// the thread's.
+    fn walk(&mut self, root: Node<'a>, scope: usize) {
+        let mut pending = vec![(root, None, scope)];
+        while let Some((node, above, scope)) = pending.pop() {
+            let inner = self.visit(node, above, scope);
+            let mut cursor = node.walk();
+            let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
+            pending.extend(
+                children
+                    .into_iter()
+                    .rev()
+                    .map(|child| (child, Some(node), inner)),
+            );
+        }
+    }
+
+    /// Declares or records one node, and returns the scope its children belong to.
+    fn visit(&mut self, node: Node<'a>, above: Option<Node<'a>>, scope: usize) -> usize {
         let opens = self.profile.scope_kinds.contains(&kind_of(node));
         // A class body opens the scope its members live in, and the body is a node of
         // its own in most grammars, so the class is the parent rather than the opener.
@@ -241,11 +259,7 @@ impl<'a> Builder<'a> {
             self.references
                 .push((text_of(node, self.source).to_owned(), span_of(node), inner));
         }
-
-        let mut cursor = node.walk();
-        for child in node.named_children(&mut cursor) {
-            self.walk(child, Some(node), inner);
-        }
+        inner
     }
 
     fn resolve(mut self) -> Scopes {
@@ -283,6 +297,6 @@ pub fn resolve(profile: &'static LanguageProfile, source: &str, root: Node<'_>) 
         references: Vec::new(),
     };
     let file = builder.open(None, false, false);
-    builder.walk(root, None, file);
+    builder.walk(root, file);
     builder.resolve()
 }

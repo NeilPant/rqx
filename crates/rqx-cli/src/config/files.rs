@@ -154,8 +154,18 @@ impl std::error::Error for Located {}
 /// layers are merged that information is gone.
 pub fn read(path: &Path) -> Result<Value> {
     refuse_retired(path)?;
-    let text =
-        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let text = String::from_utf8(bytes).map_err(|refused| {
+        anyhow::anyhow!(
+            "{} is not UTF-8 text{}; save it as UTF-8",
+            path.display(),
+            if is_utf16(refused.as_bytes()) {
+                " (it looks like UTF-16)"
+            } else {
+                ""
+            }
+        )
+    })?;
     deserialize::<RqxConfig>(&text, path)?;
     parse(&text).with_context(|| format!("reading {}", path.display()))
 }
@@ -176,14 +186,44 @@ pub fn parse(text: &str) -> Result<Value> {
     }
 }
 
+/// A byte order mark, or the zero bytes that ASCII text in UTF-16 is full of.
+fn is_utf16(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0xFF, 0xFE])
+        || bytes.starts_with(&[0xFE, 0xFF])
+        || bytes.iter().take(64).filter(|byte| **byte == 0).count() > 8
+}
+
+/// The parser's wording, made into something a reader of `rqx.yaml` can act on. The
+/// parser's own leading `error: ` is dropped too, because `Error: ` already precedes
+/// it, and its advice to set an option names one of its own that nobody here can set.
+fn readable(text: &str) -> String {
+    let text = text.strip_prefix("error: ").unwrap_or(text);
+    text.split_inclusive('\n').map(readable_line).collect()
+}
+
+fn readable_line(line: &str) -> String {
+    let line = line.replace(
+        ", set DuplicateKeyPolicy in Options if acceptable",
+        " (a setting may appear once in a mapping; keep one of them)",
+    );
+    ["u8", "u16", "u32", "u64", "usize"]
+        .iter()
+        .fold(line, |line, integer| {
+            line.replace(
+                &format!("invalid {integer}"),
+                "expected a whole number of 0 or more",
+            )
+        })
+}
+
 /// Deserialises with the file's name in the error, so a type mismatch reads
 /// `rqx.yaml:12:3` rather than `<input>:12:3`.
 pub fn deserialize<T: serde::de::DeserializeOwned>(text: &str, path: &Path) -> Result<T> {
     serde_saphyr::from_str(text).map_err(|error| {
         let name = path.display().to_string();
-        let shown = error.render_with_options(serde_saphyr::render_options! {
+        let shown = readable(&error.render_with_options(serde_saphyr::render_options! {
             source_name: Some(name.as_str()),
-        });
+        }));
         let position = error.location().map(|at| Position {
             line: at.line(),
             column: at.column(),
@@ -202,11 +242,49 @@ pub fn deserialize<T: serde::de::DeserializeOwned>(text: &str, path: &Path) -> R
 fn plain_message(error: &serde_saphyr::Error, position: Option<Position>) -> String {
     let plain = error.without_snippet().to_string();
     let prefix = position.map(|at| format!("error: line {} column {}: ", at.line, at.column));
-    match prefix
+    let message = match prefix
         .as_deref()
         .and_then(|prefix| plain.strip_prefix(prefix))
     {
         Some(rest) => rest.to_owned(),
         None => plain,
+    };
+    readable(&message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn refusal(text: &str) -> String {
+        deserialize::<RqxConfig>(text, Path::new("rqx.yaml"))
+            .expect_err("refused")
+            .to_string()
+    }
+
+    #[test]
+    fn a_config_error_says_what_to_do_in_the_reader_s_terms() {
+        let twice = refusal("level: strict\nlevel: relaxed\n");
+        assert!(twice.starts_with("line 2 column 1: "), "{twice}");
+        assert!(twice.contains("keep one of them"), "{twice}");
+        assert!(!twice.contains("DuplicateKeyPolicy"), "{twice}");
+
+        let negative = refusal("thresholds:\n  max_params: -5\n");
+        assert!(
+            negative.contains("expected a whole number of 0 or more"),
+            "{negative}"
+        );
+        assert!(!negative.contains("u32"), "{negative}");
+    }
+
+    #[test]
+    fn a_config_saved_as_utf16_says_so() {
+        let path = std::env::temp_dir().join(format!("rqx-utf16-{}.yaml", std::process::id()));
+        let mut bytes = vec![0xFF, 0xFE];
+        bytes.extend("level: strict\n".encode_utf16().flat_map(u16::to_le_bytes));
+        std::fs::write(&path, bytes).expect("a file");
+        let error = read(&path).expect_err("refused").to_string();
+        let _ = std::fs::remove_file(&path);
+        assert!(error.contains("looks like UTF-16"), "{error}");
     }
 }

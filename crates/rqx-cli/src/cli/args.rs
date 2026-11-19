@@ -714,7 +714,7 @@ impl Standard {
 pub(crate) struct Run {
     #[command(flatten)]
     pub(crate) standard: Standard,
-    /// Worker threads. Defaults to the machine's parallelism
+    /// Worker threads, at most 256. Defaults to the machine's parallelism
     #[arg(long, value_name = "N", env = "RQX_THREADS")]
     threads: Option<usize>,
     /// Read settings from this file, layered over any `rqx.yaml` found
@@ -823,7 +823,7 @@ impl Complexity {
 /// finding whatever this says.
 #[derive(Args, Default)]
 pub(crate) struct DisplayCap {
-    /// Maximum number of findings listed; 0 lists every finding. Does not affect the health score.
+    /// Maximum number of findings listed; 0 lists every finding. Without it, the terminal, markdown and html reports list 500 (`scan.max_findings`) and the json, sarif, junit, gitlab and github reports list every finding. Does not affect the gate or the health score.
     #[arg(long)]
     max_findings: Option<usize>,
 }
@@ -844,9 +844,26 @@ impl DisplayCap {
 }
 
 impl Run {
+    /// The settings for a run over `path`, which has to exist: a run over a mistyped
+    /// path would read no files and report a perfect score.
     pub(super) fn resolve(&self, path: &Path) -> Result<config::Resolved> {
-        let mut settings = config::resolve(path, self.config.as_deref(), self.standard.chosen()?)?;
+        ensure_exists(path)?;
+        let settings = config::resolve(path, self.config.as_deref(), self.standard.chosen()?)?;
+        self.with_threads(settings)
+    }
+
+    /// As [`RunOptions::resolve`], for `rqx baseline`, which writes the file
+    /// `gate.baseline` names and so does not need it to exist yet.
+    pub(super) fn resolve_to_record(&self, path: &Path) -> Result<config::Resolved> {
+        ensure_exists(path)?;
+        let settings =
+            config::resolve_to_record(path, self.config.as_deref(), self.standard.chosen()?)?;
+        self.with_threads(settings)
+    }
+
+    fn with_threads(&self, mut settings: config::Resolved) -> Result<config::Resolved> {
         if let Some(count) = self.threads {
+            config::check_threads(count, "`--threads` (or RQX_THREADS)")?;
             settings.set_by_flag(
                 "scan.threads",
                 &given_by("--threads", Some("RQX_THREADS")),
@@ -855,6 +872,18 @@ impl Run {
         }
         Ok(settings)
     }
+}
+
+/// Exit 2 on a path that is not there, rather than a run that reads nothing and
+/// reports a clean project.
+pub(super) fn ensure_exists(path: &Path) -> Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "`{}` does not exist. rqx reads a directory or a single file; try `.`",
+        path.display()
+    )
 }
 
 #[derive(Copy, Clone, Default, ValueEnum)]

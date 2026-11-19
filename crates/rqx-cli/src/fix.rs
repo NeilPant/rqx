@@ -341,17 +341,110 @@ pub(crate) fn write_atomically(path: &Path, contents: &str) -> Result<()> {
 
 /// A crash between the two steps leaves the original in place, and the rename is
 /// atomic on every filesystem that matters.
+///
+/// A symlink is written through, to the file it points at: renaming over the link
+/// would turn a shared `rqx.yaml` or source file into a private copy. The temporary
+/// file is new and named for this process and this write, so two runs saving into
+/// one directory never share one, and it is removed when the write fails.
 pub(crate) fn write_bytes_atomically(path: &Path, contents: &[u8]) -> Result<()> {
-    let directory = path.parent().unwrap_or_else(|| Path::new("."));
-    let name = path
+    static WRITES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+    let target = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let directory = target.parent().unwrap_or_else(|| Path::new("."));
+    let name = target
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("file");
-    let temporary = directory.join(format!(".{name}.rqx-tmp"));
-    std::fs::write(&temporary, contents)
-        .with_context(|| format!("writing {}", temporary.display()))?;
-    if let Ok(metadata) = std::fs::metadata(path) {
-        let _ = std::fs::set_permissions(&temporary, metadata.permissions());
+    let temporary = directory.join(format!(
+        ".{name}.{}-{}.rqx-tmp",
+        std::process::id(),
+        WRITES.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let written = write_new(&temporary, contents, &target).and_then(|()| {
+        std::fs::rename(&temporary, &target)
+            .with_context(|| format!("replacing {}", target.display()))
+    });
+    if written.is_err() {
+        let _ = std::fs::remove_file(&temporary);
     }
-    std::fs::rename(&temporary, path).with_context(|| format!("replacing {}", path.display()))
+    written
+}
+
+/// The contents in a file that did not exist before, synced, with the permissions of
+/// the file it is about to replace.
+fn write_new(temporary: &Path, contents: &[u8], replacing: &Path) -> Result<()> {
+    use std::io::Write as _;
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(temporary)
+        .with_context(|| format!("writing {}", temporary.display()))?;
+    file.write_all(contents)
+        .and_then(|()| file.sync_all())
+        .with_context(|| format!("writing {}", temporary.display()))?;
+    if let Ok(metadata) = std::fs::metadata(replacing) {
+        let _ = std::fs::set_permissions(temporary, metadata.permissions());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let directory =
+            std::env::temp_dir().join(format!("rqx-atomic-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("a directory");
+        directory
+    }
+
+    fn leftovers(directory: &Path) -> Vec<String> {
+        std::fs::read_dir(directory)
+            .expect("listed")
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".rqx-tmp"))
+            .collect()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_is_written_through_to_the_file_it_points_at() {
+        let directory = scratch("symlink");
+        let shared = directory.join("shared.ts");
+        let linked = directory.join("linked.ts");
+        std::fs::write(&shared, "before\n").expect("a file");
+        std::os::unix::fs::symlink(&shared, &linked).expect("a link");
+
+        write_atomically(&linked, "after\n").expect("written");
+
+        assert!(
+            std::fs::symlink_metadata(&linked)
+                .expect("still there")
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read_to_string(&shared).expect("read"), "after\n");
+        assert!(leftovers(&directory).is_empty());
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_failed_write_leaves_no_temporary_file() {
+        let directory = scratch("failed");
+        // A directory cannot be replaced by a file, so the rename fails.
+        let target = directory.join("occupied");
+        std::fs::create_dir_all(target.join("inside")).expect("a directory");
+
+        assert!(write_atomically(&target, "text").is_err());
+        assert!(
+            leftovers(&directory).is_empty(),
+            "{:?}",
+            leftovers(&directory)
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
 }

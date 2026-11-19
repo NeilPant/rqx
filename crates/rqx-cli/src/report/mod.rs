@@ -189,6 +189,16 @@ impl Reporter {
     pub const fn is_document(self) -> bool {
         !matches!(self, Self::Terminal | Self::Github)
     }
+
+    /// A report a program reads: CI uploads it, code scanning files it, a script
+    /// counts it. It lists every finding unless `--max-findings` says otherwise, where
+    /// a report a person reads keeps the display cap.
+    pub const fn is_machine(self) -> bool {
+        matches!(
+            self,
+            Self::Json | Self::Sarif | Self::Junit | Self::Gitlab | Self::Github
+        )
+    }
 }
 
 /// What a scan or a review looks like to a reporter. `check` differs from `scan`
@@ -209,11 +219,14 @@ pub struct Report<'a> {
     /// The functions that cost more than they did at the base. Present only on a review
     /// that was asked to look, so every other report keeps the shape it has.
     pub regressions: Option<&'a crate::regressions::Regressions>,
+    /// The display cap for a report a person reads, when the scan kept every finding
+    /// for the reports a program reads.
+    pub people_see: Option<usize>,
 }
 
 /// What is in scope before any display filter, so the summary can say how much the
 /// screen is not showing.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Totals {
     pub findings: u32,
     pub by_severity: BTreeMap<Severity, u32>,
@@ -240,6 +253,7 @@ impl<'a> Report<'a> {
             },
             trend: None,
             regressions: None,
+            people_see: None,
         }
     }
 
@@ -255,6 +269,37 @@ impl<'a> Report<'a> {
     pub fn judged(mut self, verdict: &'a Verdict) -> Self {
         self.verdict = Some(verdict);
         self
+    }
+
+    /// Caps what a report for a person lists at `cap` findings, the first in report
+    /// order, while the reports for programs list every one. 0 caps nothing.
+    pub fn people_see(mut self, cap: usize) -> Self {
+        self.people_see = (cap > 0).then_some(cap);
+        self
+    }
+
+    /// The report a person reads: the findings among the first `people_see` the scan
+    /// ranked, or every finding when there is no cap.
+    fn for_people(&self) -> Option<Self> {
+        let cap = self.people_see?;
+        let kept: std::collections::HashSet<*const Finding> = self
+            .outcome
+            .findings
+            .iter()
+            .take(cap)
+            .map(std::ptr::from_ref)
+            .collect();
+        Some(Self {
+            findings: self
+                .findings
+                .iter()
+                .copied()
+                .filter(|finding| kept.contains(&std::ptr::from_ref(*finding)))
+                .collect(),
+            totals: self.totals.clone(),
+            people_see: None,
+            ..*self
+        })
     }
 
     /// Attaches the history a chart is drawn from.
@@ -279,6 +324,7 @@ impl<'a> Report<'a> {
             totals: totals_of(review.findings()),
             trend: None,
             regressions: review.regressions.as_ref(),
+            people_see: None,
         }
     }
 
@@ -401,6 +447,10 @@ pub fn emit(
     layout: &Layout,
     out: &mut dyn Write,
 ) -> Result<()> {
+    let for_people = (!reporter.is_machine())
+        .then(|| report.for_people())
+        .flatten();
+    let report = for_people.as_ref().unwrap_or(report);
     match reporter {
         Reporter::Terminal => terminal::render(report, layout, out),
         Reporter::Json => json::render(report, out),

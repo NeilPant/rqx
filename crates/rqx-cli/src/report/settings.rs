@@ -531,6 +531,15 @@ pub fn render(settings: &Resolved, palette: Palette, out: &mut dyn Write) -> Res
             paint(dim, entry.source(settings))
         )?;
     }
+    writeln!(
+        out,
+        "  {}",
+        paint(
+            dim,
+            "the gate applies to `rqx check`, and to `rqx scan` only when a gate flag such \
+             as --fail-on is passed"
+        )
+    )?;
     writeln!(out)?;
     Ok(())
 }

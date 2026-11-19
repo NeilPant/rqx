@@ -134,6 +134,10 @@ pub(crate) fn analyze_file(
                 Err(error) => {
                     let reason = if error.timed_out() {
                         SkipReason::ParseTimeout
+                    } else if error.too_deep() {
+                        SkipReason::TooDeep
+                    } else if error.unparseable() {
+                        SkipReason::Unparseable
                     } else {
                         SkipReason::Unsupported
                     };

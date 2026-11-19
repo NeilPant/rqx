@@ -18,6 +18,7 @@ use crate::{
 
 use super::args::{
     CacheAction, Cli, Command, ConfigAction, Motion, SetupTarget, Standard, View, display_all,
+    ensure_exists,
 };
 use super::emit::{
     companion_stream, comparison_for, emit, sinks, update_notice, warn_of_deprecated,
@@ -63,8 +64,9 @@ pub(crate) fn filter_of(
     .with_text(view.search.as_deref().unwrap_or_default());
     let mut touched: Option<Vec<String>> = None;
     if let Some(base) = &view.since {
-        touched = Some(history::changed_since(root, base).ok_or_else(|| {
-            anyhow::anyhow!("`{base}` is not a revision this repository knows about")
+        let base = history::revision(base).map_err(|refused| anyhow::anyhow!("{refused}"))?;
+        touched = Some(history::changed_files(root, base).map_err(|git_said| {
+            anyhow::anyhow!("`{base}` is not a revision this repository knows about: {git_said}")
         })?);
     }
     if view.changed {
@@ -211,6 +213,13 @@ pub(crate) fn run() -> Result<Exit> {
                 .paged(pager::for_run(no_pager || watch));
             let sinks = sinks(&view)?;
             warn_of_deprecated(&sinks);
+            // A report a program reads lists every finding unless `--max-findings`
+            // was given: the scan keeps them all, and the reports a person reads keep
+            // the display cap the settings ask for.
+            let people_see = settings.config.scan.max_findings;
+            if !cap.is_set() && sinks.iter().any(|sink| sink.reporter.is_machine()) {
+                settings.config.scan.max_findings = 0;
+            }
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
@@ -223,7 +232,9 @@ pub(crate) fn run() -> Result<Exit> {
                 let verdict = gate
                     .is_set()
                     .then(|| judge(&outcome, Scope::Project, &settings.config, &[]));
-                let report = Report::scan(&outcome, &filter).trended(history.as_deref());
+                let report = Report::scan(&outcome, &filter)
+                    .trended(history.as_deref())
+                    .people_see(people_see);
                 let report = match &verdict {
                     Some(verdict) => report.judged(verdict),
                     None => report,
@@ -416,7 +427,7 @@ pub(crate) fn run() -> Result<Exit> {
             force,
             run,
         } => {
-            let settings = run.resolve(&path)?;
+            let settings = run.resolve_to_record(&path)?;
             let taken = baseline::take_drawn(&path, &settings, update, force, progress)?;
             println!(
                 "  recorded {} findings in {}{}",
@@ -716,6 +727,7 @@ pub(crate) fn run() -> Result<Exit> {
         Command::Cache { action } => {
             match action {
                 CacheAction::Status { path, config } => {
+                    ensure_exists(&path)?;
                     let settings = config::resolve(&path, config.as_deref(), None)?;
                     match cache::stored(&path, &settings) {
                         Some(stored) => {
@@ -734,6 +746,7 @@ pub(crate) fn run() -> Result<Exit> {
                     }
                 }
                 CacheAction::Clear { path } => {
+                    ensure_exists(&path)?;
                     if cache::clear(&path)? {
                         println!("  cleared");
                     } else {
@@ -750,6 +763,7 @@ pub(crate) fn run() -> Result<Exit> {
             captures,
             config,
         } => {
+            ensure_exists(&path)?;
             let settings = config::resolve(&path, config.as_deref(), None)?;
             let language = query::language_named(&language)?;
             let mut out = anstream::stdout().lock();

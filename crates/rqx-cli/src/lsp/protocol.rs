@@ -82,22 +82,6 @@ pub fn range_at(index: &LineIndex<'_>, encoding: Encoding, range: &SourceRange) 
     Range { start, end }
 }
 
-/// A path is not a URI: a space, a `#` or a `%` all mean something else once it is one.
-/// Percent-encoding everything outside RFC 3986's unreserved set is over-strict and
-/// decodes back identically, whereas under-encoding produces a URI the client rejects.
-fn percent_encode(path: &str) -> String {
-    let mut out = String::with_capacity(path.len());
-    for byte in path.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => {
-                out.push(byte as char);
-            }
-            _ => out.push_str(&format!("%{byte:02X}")),
-        }
-    }
-    out
-}
-
 pub fn uri_for(root: &Path, relative: &str) -> Option<Uri> {
     uri_of(&root.join(relative))
 }
@@ -114,12 +98,14 @@ pub fn uri_of(path: &Path) -> Option<Uri> {
     } else {
         format!("/{text}")
     };
-    format!("file://{}", percent_encode(&absolute)).parse().ok()
+    format!("file://{}", crate::uri::encode_path(&absolute))
+        .parse()
+        .ok()
 }
 
 pub fn path_from_uri(uri: &Uri) -> Option<PathBuf> {
     let rest = uri.as_str().strip_prefix("file://")?;
-    let decoded = percent_decode(rest);
+    let decoded = crate::uri::decode(rest);
     if cfg!(windows)
         && let Some(drive) = decoded.strip_prefix('/')
         && drive.as_bytes().get(1) == Some(&b':')
@@ -127,27 +113,6 @@ pub fn path_from_uri(uri: &Uri) -> Option<PathBuf> {
         return Some(PathBuf::from(drive));
     }
     Some(PathBuf::from(decoded))
-}
-
-/// URIs arrive percent-encoded and a path with a space is common enough that ignoring
-/// it would silently break diagnostics for those files.
-fn percent_decode(text: &str) -> String {
-    let bytes = text.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'%' && index + 2 < bytes.len() {
-            let hex = std::str::from_utf8(&bytes[index + 1..index + 3]).ok();
-            if let Some(byte) = hex.and_then(|hex| u8::from_str_radix(hex, 16).ok()) {
-                out.push(byte);
-                index += 3;
-                continue;
-            }
-        }
-        out.push(bytes[index]);
-        index += 1;
-    }
-    String::from_utf8_lossy(&out).into_owned()
 }
 
 pub fn capabilities(encoding: Encoding, commands: Vec<String>) -> ServerCapabilities {

@@ -425,6 +425,9 @@ impl Lapse {
 struct Tolerance {
     notes: bool,
     lapses: Vec<Lapse>,
+    /// Whether a `gate.baseline` that names no file is let through, for the command
+    /// that is about to write it.
+    absent_baseline: bool,
 }
 
 impl Tolerance {
@@ -432,6 +435,7 @@ impl Tolerance {
         Self {
             notes: false,
             lapses: Vec::new(),
+            absent_baseline: false,
         }
     }
 
@@ -444,10 +448,41 @@ impl Tolerance {
     }
 }
 
+/// The most worker threads a run starts. Far past any machine's cores; a count that
+/// reaches the operating system's thread limit fails to spawn a worker partway
+/// through the walk, which panicked and could leave the process hanging.
+pub const MAX_THREADS: usize = 256;
+
+/// Refuses a thread count over [`MAX_THREADS`], naming where it was set.
+pub fn check_threads(count: usize, set_by: &str) -> Result<()> {
+    if count > MAX_THREADS {
+        bail!(
+            "{set_by} asks for {count} worker threads; rqx runs at most {MAX_THREADS}. \
+             0 picks one per core."
+        );
+    }
+    Ok(())
+}
+
 /// The files that make up a run, lowest precedence first. An explicit path is the
 /// user saying which file they mean, so it is the only one whose absence is an error.
 pub fn resolve(root: &Path, explicit: Option<&Path>, level: Option<Level>) -> Result<Resolved> {
     resolve_with(root, explicit, level, &mut Tolerance::refusing())
+}
+
+/// Resolved for `rqx baseline`, which writes the file `gate.baseline` names and so
+/// cannot require it to exist already: refusing would tell the user to run the very
+/// command that was refused.
+pub fn resolve_to_record(
+    root: &Path,
+    explicit: Option<&Path>,
+    level: Option<Level>,
+) -> Result<Resolved> {
+    let mut tolerance = Tolerance {
+        absent_baseline: true,
+        ..Tolerance::refusing()
+    };
+    resolve_with(root, explicit, level, &mut tolerance)
 }
 
 /// Resolved the way a run would, except that the mistakes a run refuses without
@@ -597,19 +632,24 @@ fn resolve_with(
     // error naming the rule rather than a rule that silently never fires.
     rqx_lang::custom::validate(&config.custom).map_err(|error| anyhow::anyhow!("{error}"))?;
 
+    check_threads(config.scan.threads, "`scan.threads`")?;
+
     // Read once here rather than at each of the commands that scan, so no command can
     // forget it and quietly gate on the whole backlog.
     let recorded = match &config.gate.baseline {
         Some(named) => {
             let file = crate::baseline::path_of(&anchor, Some(named));
-            if !file.exists() {
+            if !file.exists() && tolerance.absent_baseline {
+                None
+            } else if !file.exists() {
                 bail!(
                     "`gate.baseline` names {}, which does not exist. \
                      Run `rqx baseline` to record what this project already has.",
                     file.display()
                 );
+            } else {
+                Some(crate::baseline::Baseline::read(&file)?)
             }
-            Some(crate::baseline::Baseline::read(&file)?)
         }
         None => None,
     };

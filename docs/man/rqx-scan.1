@@ -22,7 +22,7 @@ A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go 
 A SARIF 2.1.0 file another tool wrote (ruff, ESLint, Semgrep), read as findings in the `external` family. They count for the gate and the reports and not for the health score
 .TP
 \fB\-\-max\-findings\fR \fI<MAX_FINDINGS>\fR
-Maximum number of findings listed; 0 lists every finding. Does not affect the health score
+Maximum number of findings listed; 0 lists every finding. Without it, the terminal, markdown and html reports list 500 (`scan.max_findings`) and the json, sarif, junit, gitlab and github reports list every finding. Does not affect the gate or the health score
 .TP
 \fB\-\-no\-tui\fR
 Do not open the interactive interface; bare `rqx` prints the report instead
@@ -85,7 +85,7 @@ none: Nothing
 .RE
 .TP
 \fB\-\-threads\fR \fI<N>\fR
-Worker threads. Defaults to the machine\*(Aqs parallelism
+Worker threads, at most 256. Defaults to the machine\*(Aqs parallelism
 .TP
 \fB\-\-config\fR \fI<FILE>\fR
 Read settings from this file, layered over any `rqx.yaml` found

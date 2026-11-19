@@ -1,6 +1,7 @@
 mod commands;
 mod diagnostics;
 mod protocol;
+mod transport;
 mod worker;
 
 use std::collections::HashMap;
@@ -263,7 +264,7 @@ impl Server {
 }
 
 pub fn serve(root: &Path, config: Resolved) -> Result<(), Box<dyn Error + Sync + Send>> {
-    let (connection, io_threads) = Connection::stdio();
+    let (connection, io_threads) = transport::stdio();
 
     // The encoding has to be chosen from what the client offers before capabilities are
     // sent, and `Connection::initialize` sends them for us — so the handshake is driven

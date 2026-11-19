@@ -214,6 +214,31 @@ pub fn find_within<'tree>(
     found
 }
 
+/// Answers already worked out for a node, kept by the node's id for the life of one
+/// file's analysis. A chain of `else if` branches or of calls asks the same question
+/// of each link once for every link above it, and remembering the answer is what
+/// keeps such a chain from costing the square of its length.
+pub(crate) struct Remembered<T>(std::cell::RefCell<std::collections::HashMap<usize, T>>);
+
+impl<T> Default for Remembered<T> {
+    fn default() -> Self {
+        Self(std::cell::RefCell::default())
+    }
+}
+
+impl<T: Clone> Remembered<T> {
+    /// The answer for `node`, from `work` the first time it is asked for. `work` may
+    /// ask for other nodes' answers.
+    pub(crate) fn get_or(&self, node: Node<'_>, work: impl FnOnce() -> T) -> T {
+        if let Some(known) = self.0.borrow().get(&node.id()) {
+            return known.clone();
+        }
+        let answer = work();
+        self.0.borrow_mut().insert(node.id(), answer.clone());
+        answer
+    }
+}
+
 /// Every named descendant in source order, without entering what a barrier owns.
 /// The barrier is yielded and its contents are not: a callback is a node the caller
 /// can see, but what it holds belongs to whatever the callback stands in for rather
@@ -368,6 +393,32 @@ pub fn comment_leads<'tree>(
             return leads;
         }
         recursing = false;
+    }
+}
+
+/// How many levels the tree under `node` holds, `node` itself being the first. Walked
+/// with a cursor rather than by recursion, because the trees this is asked about are
+/// the ones too deep to recurse through.
+pub fn depth(node: Node<'_>) -> usize {
+    let mut cursor = node.walk();
+    let mut level = 1;
+    let mut deepest = 1;
+    loop {
+        if cursor.goto_first_child() {
+            level += 1;
+            deepest = deepest.max(level);
+            continue;
+        }
+        loop {
+            if level == 1 {
+                return deepest;
+            }
+            if cursor.goto_next_sibling() {
+                break;
+            }
+            cursor.goto_parent();
+            level -= 1;
+        }
     }
 }
 

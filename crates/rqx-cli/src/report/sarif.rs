@@ -21,6 +21,10 @@ const REGRESSION_RULE: &str = "complexity-regression";
 pub struct Options {
     pub fingerprints: bool,
     pub category: Option<String>,
+    /// Findings `--max-findings` left out of the document. A consumer that sees only
+    /// the results cannot tell a capped run from a clean one, so the count is written
+    /// into the run and announced as a notification.
+    pub omitted: u32,
 }
 
 impl Options {
@@ -30,7 +34,29 @@ impl Options {
             category: std::env::var("RQX_SARIF_CATEGORY")
                 .ok()
                 .filter(|category| !category.is_empty()),
+            omitted: 0,
         }
+    }
+}
+
+/// Says in the run that `omitted` findings were left out: `run.properties.rqx.omitted`
+/// for a reader of the properties, and a warning notification for a viewer that shows
+/// the invocation.
+fn note_omitted(run: &mut Value, omitted: u32) {
+    if omitted == 0 {
+        return;
+    }
+    run["properties"]["rqx"]["omitted"] = json!(omitted);
+    let notice = json!({
+        "level": "warning",
+        "message": { "text": format!(
+            "{omitted} findings are not listed because --max-findings capped the report; \
+             omit it, or pass --max-findings 0, to list every finding"
+        ) }
+    });
+    if let Some(notifications) = run["invocations"][0]["toolExecutionNotifications"].as_array_mut()
+    {
+        notifications.push(notice);
     }
 }
 
@@ -96,7 +122,7 @@ fn place(file: &str, lines: (u32, u32, u32), prefix: &str) -> Value {
     json!({
         "physicalLocation": {
             "artifactLocation": {
-                "uri": format!("{prefix}{file}"),
+                "uri": crate::uri::encode_relative(&format!("{prefix}{file}")),
                 "uriBaseId": "%SRCROOT%"
             },
             "region": {
@@ -304,6 +330,7 @@ fn document(
     if let Some(category) = &options.category {
         run["automationDetails"] = json!({ "id": category });
     }
+    note_omitted(&mut run, options.omitted);
     let document = json!({ "$schema": SCHEMA, "version": "2.1.0", "runs": [run] });
     Ok(serde_json::to_string_pretty(&document)?)
 }
@@ -318,7 +345,10 @@ pub fn render(report: &crate::report::Report<'_>, out: &mut dyn std::io::Write) 
             &report.path_prefix(),
             report.verdict,
             report.regressions,
-            &Options::from_env(),
+            &Options {
+                omitted: report.outcome.omitted,
+                ..Options::from_env()
+            },
         )?
     )?;
     Ok(())
@@ -468,6 +498,34 @@ mod tests {
         let run = &with(None, &Options::default())["runs"][0];
         assert_eq!(run["invocations"][0]["exitCode"], 0);
         assert!(run["properties"]["rqx"].get("gate").is_none());
+        assert!(run["properties"]["rqx"].get("omitted").is_none());
+        assert_eq!(
+            run["invocations"][0]["toolExecutionNotifications"],
+            json!([])
+        );
+    }
+
+    #[test]
+    fn a_path_a_uri_cannot_hold_as_it_is_is_percent_encoded() {
+        let value = place("app/(auth)/my dir/a b#c%d.ts", (1, 1, 1), "web/");
+        assert_eq!(
+            value["physicalLocation"]["artifactLocation"]["uri"],
+            "web/app/%28auth%29/my%20dir/a%20b%23c%25d.ts"
+        );
+    }
+
+    #[test]
+    fn a_capped_run_says_how_many_findings_it_left_out() {
+        let capped = Options {
+            omitted: 2772,
+            ..Options::default()
+        };
+        let run = &with(None, &capped)["runs"][0];
+        assert_eq!(run["properties"]["rqx"]["omitted"], 2772);
+        let notice = &run["invocations"][0]["toolExecutionNotifications"][0];
+        assert_eq!(notice["level"], "warning");
+        let text = notice["message"]["text"].as_str().expect("a message");
+        assert!(text.starts_with("2772 findings are not listed"), "{text}");
     }
 
     fn regression() -> Regression {
@@ -560,6 +618,7 @@ mod tests {
         let asked = Options {
             fingerprints: true,
             category: Some("rqx/backend".to_owned()),
+            omitted: 0,
         };
         let run = &with(None, &asked)["runs"][0];
         let first = &run["results"][0]["partialFingerprints"]["rqxIdentity/v1"];

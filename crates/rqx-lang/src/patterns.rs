@@ -6,8 +6,8 @@ use tree_sitter::Node;
 
 use crate::profile::LanguageProfile;
 use crate::tree::{
-    descendants, find_within, is_binding_position, kind_of, operands_of, operator_of, span_of,
-    text_of,
+    Remembered, descendants, find_within, is_binding_position, kind_of, operands_of, operator_of,
+    span_of, text_of,
 };
 
 /// `strName`, `bEnabled`, `IOrder`: a type spelled into a name the compiler already
@@ -99,6 +99,14 @@ struct Collector<'a> {
     subclasses: HashMap<String, String>,
     references: Vec<(String, String, Span)>,
     out: Patterns,
+    /// Each branch of an `else if` chain is read once for every `if` above it, so what
+    /// a branch's condition compares, what its body calls and what it tests are kept.
+    subjects: Remembered<Option<String>>,
+    topics: Remembered<Option<String>>,
+    arities: Remembered<Option<u32>>,
+    /// Where the file assigns to each subject, in source order, read on first need.
+    assignments: std::cell::OnceCell<HashMap<String, Vec<Span>>>,
+    root: Node<'a>,
 }
 
 impl<'a> Collector<'a> {
@@ -151,13 +159,18 @@ impl<'a> Collector<'a> {
             .and_then(|inner| self.condition_topic(inner))
     }
 
+    fn branch_topic(&self, condition: Node<'a>) -> Option<String> {
+        self.topics
+            .get_or(condition, || self.condition_topic(condition))
+    }
+
     /// Every branch's topic, in order, or nothing when a branch cannot be read: a
     /// chain with a hole in it is not one this can make a claim about.
     fn chain_topics(&self, statement: Node<'a>) -> Vec<String> {
         let Some(condition) = statement.child_by_field_name(self.profile.condition_field) else {
             return Vec::new();
         };
-        let Some(head) = self.condition_topic(condition) else {
+        let Some(head) = self.branch_topic(condition) else {
             return Vec::new();
         };
         let mut topics = vec![head];
@@ -172,7 +185,7 @@ impl<'a> Collector<'a> {
                 else {
                     continue;
                 };
-                match self.condition_topic(condition) {
+                match self.branch_topic(condition) {
                     Some(topic) => topics.push(topic),
                     None => return Vec::new(),
                 }
@@ -193,7 +206,7 @@ impl<'a> Collector<'a> {
             let Some(condition) = branch.child_by_field_name(self.profile.condition_field) else {
                 break;
             };
-            match self.condition_topic(condition) {
+            match self.branch_topic(condition) {
                 Some(topic) => topics.push(topic),
                 None => return Vec::new(),
             }
@@ -232,6 +245,10 @@ impl<'a> Collector<'a> {
     }
 
     fn body_arity(&self, branch: Node<'a>) -> Option<u32> {
+        self.arities.get_or(branch, || self.read_body_arity(branch))
+    }
+
+    fn read_body_arity(&self, branch: Node<'a>) -> Option<u32> {
         // Every one of the five grammars calls an `if`'s body its consequence.
         let body = branch.child_by_field_name("consequence")?;
         if self.profile.is_block(body) {
@@ -262,6 +279,11 @@ impl<'a> Collector<'a> {
     /// The subject of an `if (x === "a") … else if (x === "b")` chain, which is a
     /// switch wearing a different syntax.
     fn comparison_subject(&self, condition: Node<'a>) -> Option<String> {
+        self.subjects
+            .get_or(condition, || self.read_comparison_subject(condition))
+    }
+
+    fn read_comparison_subject(&self, condition: Node<'a>) -> Option<String> {
         let node = self.see_through(condition);
         if !self.profile.binary_kinds.contains(&kind_of(node)) {
             return None;
@@ -280,12 +302,31 @@ impl<'a> Collector<'a> {
     /// Whether any branch writes back to the value being switched on. A `Strategy`
     /// chooses behaviour from a value it leaves alone; a `State` is the same shape
     /// where the branches are also the transitions.
+    ///
+    /// Answered from one list of the file's assignments rather than by walking the
+    /// statement: every `if` of an `else if` chain asks it of the rest of the chain.
     fn assigns_subject(&self, statement: Node<'a>, subject: &str) -> bool {
-        descendants(statement)
-            .into_iter()
-            .filter(|node| self.profile.assignment_kinds.contains(&kind_of(node)))
-            .filter_map(|assignment| assignment.child_by_field_name("left"))
-            .any(|target| {
+        let Some(written) = self.assignments().get(subject) else {
+            return false;
+        };
+        let inside = span_of(statement);
+        let first = written.partition_point(|span| span.start < inside.start);
+        written
+            .get(first)
+            .is_some_and(|span| span.start < inside.end && span.end <= inside.end)
+    }
+
+    /// Every assignment in the file, by the subject it writes to.
+    fn assignments(&self) -> &HashMap<String, Vec<Span>> {
+        self.assignments.get_or_init(|| {
+            let mut written: HashMap<String, Vec<Span>> = HashMap::new();
+            for assignment in descendants(self.root)
+                .into_iter()
+                .filter(|node| self.profile.assignment_kinds.contains(&kind_of(node)))
+            {
+                let Some(target) = assignment.child_by_field_name("left") else {
+                    continue;
+                };
                 let target = if self
                     .profile
                     .expression_list_kinds
@@ -295,9 +336,15 @@ impl<'a> Collector<'a> {
                 } else {
                     target
                 };
-                self.subject_text(target)
-                    .is_some_and(|written| written == subject)
-            })
+                if let Some(subject) = self.subject_text(target) {
+                    written
+                        .entry(subject)
+                        .or_default()
+                        .push(span_of(assignment));
+                }
+            }
+            written
+        })
     }
 
     fn note_chain(&mut self, statement: Node<'a>) {
@@ -615,6 +662,11 @@ pub fn collect(
         subclasses: HashMap::new(),
         references: Vec::new(),
         out: Patterns::default(),
+        subjects: Remembered::default(),
+        topics: Remembered::default(),
+        arities: Remembered::default(),
+        assignments: std::cell::OnceCell::new(),
+        root,
     };
     collector.walk(root);
 

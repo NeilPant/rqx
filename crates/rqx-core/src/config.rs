@@ -1428,7 +1428,9 @@ pub struct Scan {
     pub respect_gitattributes: bool,
     /// Bytes. A larger file is reported as skipped.
     pub max_filesize: u64,
-    /// How many findings the report shows. 0 shows every one. Never moves the score.
+    /// How many findings a report for a person shows (terminal, markdown, html). 0 shows
+    /// every one. The json, sarif, junit, gitlab and github reports list every finding
+    /// unless `--max-findings` is passed. Never moves the score.
     pub max_findings: usize,
     /// Directory names never descended into.
     pub prune_dirs: Vec<String>,

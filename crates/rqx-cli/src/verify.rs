@@ -412,10 +412,12 @@ fn consistency(finding: &Finding, shape: &Shape) -> Consistency {
 }
 
 pub fn ensure_repository(root: &Path, base: &str) -> Result<()> {
-    if history::changed_since(root, base).is_none() {
+    let base = history::revision(base).map_err(|refused| anyhow::anyhow!("{refused}"))?;
+    if let Err(git_said) = history::changed_files(root, base) {
         bail!(
-            "`{base}` is not a revision in this repository. rqx verify compares the working \
-             tree against a base, so it needs a git repository and a ref that resolves."
+            "`{base}` is not a revision in this repository: {git_said}\nrqx verify compares \
+             the working tree against a base, so it needs a git repository and a ref that \
+             resolves."
         );
     }
     Ok(())
