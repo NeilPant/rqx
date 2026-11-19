@@ -163,6 +163,7 @@ hygiene.py rule=blanket-try #2 | total = 0
 hygiene.py rule=docstring-restates-signature | """Score of user id"""
 hygiene.py rule=catch-all-handler #2 | except Exception:
 hygiene.py rule=shadowed-handler #2 | except Exception:
+hygiene.py rule=unused-local | loop = stream._loop
 intimacy.py rule=inappropriate-intimacy | return Checkout.rate * len(self.items)
 intimacy.py rule=duplicate-code | def open(self, path: str) -> None:
 intimacy.py rule=mutable-module-state | open_sessions = 0
@@ -173,6 +174,7 @@ intimacy.py rule=ambient-dependency | return time.time()
 lifecycle.py rule=temporal-coupling | self._opened = True
 lifecycle.py rule=middle-man | class ReportFactory:
 long.py rule=long-function | def many_steps() -> int:
+lookalikes.py none=unreachable-code | yield
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)
@@ -265,6 +267,7 @@ structures.py rule=speculative-generality | class Importer(ABC):
 structures.py rule=unused-private-member | def __enter__(self):
 structures.py rule=unused-private-member | def __exit__(self, kind, value, trace):
 test_checks.py rule=branching-test | total = add(0, 1)
+test_lookalikes.py none=unused-parameter | def test_ranking_runs_in_a_clean_directory(tmp_path):
 test_suite.py rule=skipped-test | def test_discounts():
 test_suite.py rule=magic-number | assert add(1, 2) == 3
 test_suite.py rule=slow-test | time.sleep(500)
@@ -287,5 +290,3 @@ test_suite.py rule=unused-local | client = Mock()
 test_suite.py rule=self-asserting-test | assert totals == [*totals]
 vocabulary.py rule=mixed-conventions | def getOrder(identifier: str) -> str:
 vocabulary.py rule=unused-parameter | def save_order(identifier: str) -> None:
-lookalikes.py none=unreachable-code | yield
-test_lookalikes.py none=unused-parameter | def test_ranking_runs_in_a_clean_directory(tmp_path):

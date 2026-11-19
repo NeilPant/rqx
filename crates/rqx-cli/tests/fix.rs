@@ -776,3 +776,28 @@ fn python_public_functions_and_tests_keep_their_parameters() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// asyncio's `loop = self._loop`: the binding is never read, but the read of the
+/// attribute can run a property getter, so the finding stays and the line stays.
+/// A local with a plain value next to it is still deleted.
+#[test]
+fn a_local_that_reads_an_attribute_is_reported_and_kept() {
+    let python = "class Stream:\n    def replace(self, transport):\n        loop = self._loop\n        spare = 2\n        self._transport = transport\n";
+    let typescript = "export function size(cart: number[]): number {\n  const neverRead = cart.length;\n  const spare = 2;\n  return 1;\n}\n";
+    let root = project(
+        "attribute-read",
+        &[("stream.py", python), ("size.ts", typescript)],
+    );
+    let before = scan_json(&root);
+    assert!(before.contains("\"unused-local\""), "{before}");
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("stream.py")).unwrap();
+    assert!(after.contains("loop = self._loop"), "{after}");
+    assert!(!after.contains("spare = 2"), "{after}");
+    let after = std::fs::read_to_string(root.join("size.ts")).unwrap();
+    assert!(after.contains("const neverRead = cart.length;"), "{after}");
+    assert!(!after.contains("const spare = 2;"), "{after}");
+    assert!(scan_json(&root).contains("\"unused-local\""));
+    let _ = std::fs::remove_dir_all(&root);
+}

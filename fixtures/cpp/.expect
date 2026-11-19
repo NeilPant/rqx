@@ -335,6 +335,8 @@ src/hygiene.cpp rule=dead-store #3 | int total = 0;
 src/intimacy.cpp rule=self-built-collaborators | Ledger() { this->writer = new CsvWriter(); }
 src/intimacy.cpp rule=ambient-dependency | int stamped_at() { return static_cast<int>(time(nullptr)); }
 src/long.cpp rule=long-function | int many_steps() {
+src/lookalikes.cpp none=unreachable-code | cleanup:
+src/lookalikes.cpp none=unreachable-code | NOT_REACHED();
 src/main.cpp rule=wide-fan-out | #include "bloat.hpp"
 src/main.cpp rule=long-function | int main() {
 src/main.cpp rule=boolean-literal-argument | pricing({}, true);
@@ -451,5 +453,3 @@ src/suite_test.cpp rule=unchecked-stub | auto client = NiceMock();
 src/suite_test.cpp rule=unused-local | auto client = NiceMock();
 src/suite_test.cpp rule=mutable-module-state | int spare = 0;
 src/suite_test.cpp rule=unused-fixture | spare = 1;
-src/lookalikes.cpp none=unreachable-code | cleanup:
-src/lookalikes.cpp none=unreachable-code | NOT_REACHED();

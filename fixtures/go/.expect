@@ -133,6 +133,7 @@ fixtures/intimacy.go rule=ambient-dependency | return time.Now().Unix()
 fixtures/lifecycle.go rule=temporal-coupling | opened bool
 fixtures/long.go rule=long-function | func ManySteps() int {
 fixtures/long.go rule=dead-store | total := 0
+fixtures/lookalikes.go none=unreachable-code | cleanup:
 fixtures/names.go rule=wildcard-import | import . "strings"
 fixtures/names.go rule=vague-function-name | func Process(rows []int) int {
 fixtures/names.go rule=plural-mismatch | data := []int{}
@@ -301,4 +302,3 @@ main.go rule=long-function | func main() {
 orphan/orphan.go rule=unused-file | package orphan
 orphan/orphan.go rule=negated-name | func NoOneImportsThisFile() string {
 orphan/orphan.go rule=mutable-module-state | var NorThis = 1
-fixtures/lookalikes.go none=unreachable-code | cleanup:

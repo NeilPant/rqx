@@ -168,6 +168,8 @@ lifecycle.ts rule=temporal-coupling | export class Connection {
 lifecycle.ts rule=middle-man | export class ReportFactory {
 lifecycle.ts rule=passthrough-function | add(row: string): void {
 long.ts rule=long-function | export function manySteps() {
+lookalikes.ts none=empty-catch | } catch {
+lookalikes.ts none=unreachable-code | var total: number;
 names.ts rule=vague-function-name | export function process(rows: number[]) {
 names.ts rule=return-of-fresh-local | const temp2 = data.length;
 names.ts rule=negated-name | const notReady = rows.length === 0;
@@ -295,5 +297,3 @@ suite.test.ts rule=unused-fixture | spare = 1;
 suite.test.ts rule=unchecked-stub | const client = jest.fn();
 suite.test.ts rule=unused-local | const client = jest.fn();
 suite.test.ts rule=self-asserting-test | expect(sums).toEqual([...sums]);
-lookalikes.ts none=empty-catch | } catch {
-lookalikes.ts none=unreachable-code | var total: number;

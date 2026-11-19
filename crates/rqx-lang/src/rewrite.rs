@@ -616,7 +616,8 @@ impl<'src> Rewriter<'src> {
     /// declared is skipped, so `const handler = () => {}` does not read as a call. An
     /// index can raise or run a lookup method, and in CPython a binding that is never
     /// read still keeps its value alive until the function returns, which
-    /// `functools.lru_cache` relies on to hold off `__del__` mid-update.
+    /// `functools.lru_cache` relies on to hold off `__del__` mid-update. A read of an
+    /// attribute or property can run a getter, so `loop = self._loop` stays too.
     fn has_effect(&self, declarator: Node<'_>, name: Node<'_>) -> bool {
         let mut cursor = declarator.walk();
         let mut stack: Vec<Node<'_>> = declarator.children(&mut cursor).collect();
@@ -626,6 +627,7 @@ impl<'src> Rewriter<'src> {
             }
             if self.profile.is_call(node)
                 || self.profile.is_function(node)
+                || self.profile.is_member_access(node)
                 || INDEXING.contains(&kind_of(node))
             {
                 return true;
@@ -1190,6 +1192,49 @@ func use(c *Command, args []string, last string) {
     fn a_declaration_that_calls_something_is_left_alone() {
         let source = "export function f(): number {\n  const spare = compute()\n  return 1\n}\n";
         assert_eq!(fixed(Language::TypeScript, source), source);
+    }
+
+    /// A property getter can do work, so a declaration that reads an attribute stays
+    /// in every language even though nothing reads the binding.
+    #[test]
+    fn a_declaration_that_reads_an_attribute_is_left_alone() {
+        for (language, source) in [
+            (
+                Language::Python,
+                "def f(self):\n    loop = self._loop\n    return 1\n",
+            ),
+            (
+                Language::TypeScript,
+                "export function f(obj: { field: number }): number {\n  const spare = obj.field\n  return 1\n}\n",
+            ),
+            (
+                Language::JavaScript,
+                "export function f(a) {\n  const spare = a.b.c\n  return 1\n}\n",
+            ),
+            (
+                Language::Go,
+                "package p\n\ntype T struct{ field int }\n\nfunc f(t T) int {\n\tspare := t.field\n\treturn 1\n}\n",
+            ),
+            (
+                Language::Java,
+                "class A {\n  int field;\n  int f(A other) {\n    int spare = other.field;\n    return 1;\n  }\n}\n",
+            ),
+            (
+                Language::Cpp,
+                "struct A { int field; };\nint f(A* a) {\n  int spare = a->field;\n  return 1;\n}\n",
+            ),
+        ] {
+            let analysis =
+                crate::analyze_as(language, "fixture", source, &every_confidence()).unwrap();
+            assert!(
+                analysis
+                    .findings
+                    .iter()
+                    .any(|finding| finding.rule == RuleId::UnusedLocal),
+                "{language:?}: the finding is still reported"
+            );
+            assert_eq!(fixed(language, source), source, "{language:?}");
+        }
     }
 
     #[test]

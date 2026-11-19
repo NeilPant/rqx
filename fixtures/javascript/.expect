@@ -163,6 +163,7 @@ lifecycle.js rule=temporal-coupling | export class Connection {
 lifecycle.js rule=middle-man | export class ReportFactory {
 lifecycle.js rule=passthrough-function | add(row) {
 long.js rule=long-function | export function manySteps() {
+lookalikes.js none=unreachable-code | var total;
 names.js rule=vague-function-name | export function process(rows) {
 names.js rule=return-of-fresh-local | const temp2 = data.length;
 names.js rule=negated-name | const notReady = rows.length === 0;
@@ -285,4 +286,3 @@ suite.test.js rule=unused-fixture | spare = 1;
 suite.test.js rule=unchecked-stub | const client = jest.fn();
 suite.test.js rule=unused-local | const client = jest.fn();
 suite.test.js rule=self-asserting-test | expect(total).toBe(total);
-lookalikes.js none=unreachable-code | var total;

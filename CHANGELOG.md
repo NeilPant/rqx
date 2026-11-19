@@ -15,17 +15,6 @@ them. `tools/release.sh` turns that section into the release notes.
   The flag has worked since 0.5.2, and `docs/interface.md` described it, but it was
   hidden from the generated reference.
 
-### Fixed
-
-- **The JSON `skipped` entries are relative to the scanned directory.** They were
-  relative to the directory rqx was started from, so `rqx scan .` printed
-  `./app/big.js: ...` and `rqx scan project` printed `project/app/big.js: ...`, which
-  matched neither the paths of the findings nor the `skipped_by` paths. The MCP
-  server's summary and the language server's scan answer name them the same way.
-
-- **`rqx config` and the configuration schema say that all six languages are enabled by
-  default.** They said five.
-
 - **`rqx fix` no longer deletes `suppressed-diagnostic` comments.** Whether an
   `eslint-disable`, `# noqa` or `# type: ignore` is still needed depends on what the
   suppressed tool reports for that line, which rqx cannot check. The rule still reports
@@ -39,6 +28,17 @@ them. `tools/release.sh` turns that section into the release notes.
   `private`; a C++ function other than a `static` free function, one in an unnamed
   namespace, or a lambda; a Go function with a capitalised name. Code outside the
   project can call these, so `rqx fix` does not change their signatures.
+
+### Fixed
+
+- **The JSON `skipped` entries are relative to the scanned directory.** They were
+  relative to the directory rqx was started from, so `rqx scan .` printed
+  `./app/big.js: ...` and `rqx scan project` printed `project/app/big.js: ...`, which
+  matched neither the paths of the findings nor the `skipped_by` paths. The MCP
+  server's summary and the language server's scan answer name them the same way.
+
+- **`rqx config` and the configuration schema say that all six languages are enabled by
+  default.** They said five.
 
 - **`unreachable-code` no longer reports, and `rqx fix` no longer deletes, code after an
   exit that still runs or still changes the program.** This covers a label that a
@@ -87,6 +87,11 @@ them. `tools/release.sh` turns that section into the release notes.
   function returns, which `functools.lru_cache` relies on. In 0.5.2, `fix --write`
   also removed `full = False` from `functools._lru_cache_wrapper`, which a nested
   function declares `nonlocal`, and `functools.py` stopped compiling.
+
+- **The `unused-local` fix leaves a declaration whose value is read from an attribute
+  or property.** `loop = self._loop`, `x = obj.field` and `v = a.b.c` stay in every
+  language, because reading a property can run a getter with side effects. The
+  finding is still reported; only the deletion is withheld.
 
 ## 0.5.2 — 2026-11-18
 

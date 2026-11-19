@@ -157,3 +157,10 @@ def shadowed(rows):
         return 0
     except ValueError:
         return 1
+
+
+# unused-local: reported, and `rqx fix` keeps it, because reading an attribute can run a
+# property getter.
+def transport_of(stream):
+    loop = stream._loop
+    return stream.transport
