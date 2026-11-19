@@ -141,5 +141,6 @@ public class Main {
         new Lookalikes().width(1L);
         new MoreLookalikes().drained(new java.util.ArrayDeque<>());
         new LookalikesWarnings().isFirstVisit("a");
+        new Codes().distance(new Codes(), 'a', 'b');
     }
 }

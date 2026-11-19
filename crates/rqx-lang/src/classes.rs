@@ -69,9 +69,45 @@ struct Reach {
     read_only: HashSet<String>,
 }
 
+/// A member the class marks as its own, and how: by a keyword or section, or only by
+/// the spelling of its name.
+struct PrivateMember {
+    name: String,
+    span: Span,
+    by_keyword: bool,
+    /// An annotation or decorator above it, through which a framework may reach it.
+    annotated: bool,
+}
+
+/// Members the Java runtime calls by name through serialization, from outside the
+/// class and without any reference in the source.
+const SERIALIZATION_MEMBERS: [&str; 7] = [
+    "serialVersionUID",
+    "serialPersistentFields",
+    "readObject",
+    "writeObject",
+    "readObjectNoData",
+    "readResolve",
+    "writeReplace",
+];
+
+/// How many times each word is written in a file, comments and strings included.
+/// A member whose name is written only where it is declared is reached from nowhere.
+fn word_counts(source: &str) -> HashMap<&str, u32> {
+    let mut counts = HashMap::new();
+    for word in source
+        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+        .filter(|word| !word.is_empty())
+    {
+        *counts.entry(word).or_insert(0) += 1;
+    }
+    counts
+}
+
 struct Collector<'a> {
     profile: &'static LanguageProfile,
     source: &'a str,
+    words: HashMap<&'a str, u32>,
     envy_ratio: u32,
     /// The name the method currently being read calls its own object.
     receiver: Option<String>,
@@ -497,6 +533,69 @@ impl<'a> Collector<'a> {
             .any(|holder| holder.child_by_field_name("value").is_some())
     }
 
+    /// Whether nothing can reach a private member the class never reads. A name
+    /// written anywhere else in the file may be read through another instance, an
+    /// out-of-line definition or a closure the class body holds, so only a name
+    /// written once, where it is declared, is unreachable.
+    fn is_unreachable(&self, member: &PrivateMember) -> bool {
+        let name = member.name.trim_start_matches('#');
+        let written_once = self.words.get(name).copied().unwrap_or(0) <= 1;
+        written_once
+            && !member.annotated
+            && self.is_private_to_its_class(&member.name, member.by_keyword)
+            && !(self.profile.language == rqx_core::Language::Java
+                && SERIALIZATION_MEMBERS.contains(&name))
+    }
+
+    /// A name marks a member private only where the language enforces it. Python's
+    /// `__name` is mangled, but `_name` is a convention that subclasses and other
+    /// modules read, and `__name__` is a protocol method the runtime calls.
+    /// TypeScript's `_name` is a convention too; only `#name` and `private` are
+    /// enforced.
+    fn is_private_to_its_class(&self, name: &str, by_keyword: bool) -> bool {
+        if by_keyword {
+            return true;
+        }
+        match self.profile.language {
+            rqx_core::Language::Python => name.starts_with("__") && !name.ends_with("__"),
+            rqx_core::Language::TypeScript | rqx_core::Language::JavaScript => {
+                name.starts_with('#')
+            }
+            _ => true,
+        }
+    }
+
+    /// A C++ member another file defines or calls for this one: a virtual or
+    /// overriding method is called through its base, and a static field is defined
+    /// outside the class.
+    fn is_defined_elsewhere(&self, member: Node<'a>) -> bool {
+        if self.profile.language != rqx_core::Language::Cpp {
+            return false;
+        }
+        let words = self
+            .text(member)
+            .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .collect::<HashSet<&str>>();
+        ["virtual", "override", "final", "static"]
+            .iter()
+            .any(|word| words.contains(word))
+    }
+
+    fn has_private_marker(&self, member: Node<'a>) -> bool {
+        let mut cursor = member.walk();
+        member.children(&mut cursor).any(|child| {
+            self.profile.private_markers.contains(&kind_of(child))
+                || self.profile.private_markers.contains(&self.text(child))
+        })
+    }
+
+    fn is_annotated(&self, member: Node<'a>) -> bool {
+        let decorated = member
+            .parent()
+            .is_some_and(|parent| self.profile.decorated_kinds.contains(&kind_of(parent)));
+        decorated || self.text(member).trim_start().starts_with('@')
+    }
+
     fn is_private_name(&self, name: &str) -> bool {
         self.profile
             .private_name_prefixes
@@ -533,7 +632,10 @@ impl<'a> Collector<'a> {
             supertypes: unit.supertypes.clone(),
         };
 
-        let mut private_members: Vec<(String, Span)> = Vec::new();
+        let mut private_members: Vec<PrivateMember> = Vec::new();
+        // A C++ class that declares a method here and defines it in another file, or
+        // names a friend, uses its private members where this file cannot see.
+        let mut reached_elsewhere = false;
         let mut read_anywhere: HashSet<String> = HashSet::new();
         let mut field_users: HashMap<String, Vec<String>> = HashMap::new();
         let mut constructor_writes: HashSet<String> = HashSet::new();
@@ -581,7 +683,12 @@ impl<'a> Collector<'a> {
                     if is_public {
                         report.public_members += 1;
                     } else {
-                        private_members.push((field, span));
+                        private_members.push(PrivateMember {
+                            name: field,
+                            span,
+                            by_keyword: false,
+                            annotated: self.is_annotated(member),
+                        });
                     }
                 }
                 continue;
@@ -605,8 +712,15 @@ impl<'a> Collector<'a> {
                 if !self.has_initialiser(member) {
                     declared_fields.insert(field.clone(), span_of(member));
                 }
-                if section_private || self.is_private(member) {
-                    private_members.push((field, span_of(member)));
+                if (section_private || self.is_private(member))
+                    && !self.is_defined_elsewhere(member)
+                {
+                    private_members.push(PrivateMember {
+                        name: field,
+                        span: span_of(member),
+                        by_keyword: section_private || self.has_private_marker(member),
+                        annotated: self.is_annotated(member),
+                    });
                 } else {
                     report.public_members += 1;
                 }
@@ -638,8 +752,13 @@ impl<'a> Collector<'a> {
             let accessor = self.has_modifier(member, self.profile.accessor_markers);
 
             if section_private || self.is_private(member) {
-                if !is_constructor {
-                    private_members.push((method.clone(), key));
+                if !is_constructor && !self.is_defined_elsewhere(member) {
+                    private_members.push(PrivateMember {
+                        name: method.clone(),
+                        span: key,
+                        by_keyword: section_private || self.has_private_marker(member),
+                        annotated: self.is_annotated(member),
+                    });
                 }
             } else {
                 report.public_members += 1;
@@ -647,6 +766,9 @@ impl<'a> Collector<'a> {
 
             self.receiver = self.receiver_name(member);
             let body = self.body_of(member);
+            if self.profile.language == rqx_core::Language::Cpp && body.is_none() {
+                reached_elsewhere = true;
+            }
             if accessor || self.delegates(body) {
                 report.trivial += 1;
             }
@@ -745,7 +867,12 @@ impl<'a> Collector<'a> {
                     if declared_fields.insert(field.clone(), *span).is_none() {
                         report.fields += 1;
                         if self.is_private_name(field) {
-                            private_members.push((field.clone(), *span));
+                            private_members.push(PrivateMember {
+                                name: field.clone(),
+                                span: *span,
+                                by_keyword: false,
+                                annotated: false,
+                            });
                         } else {
                             report.public_members += 1;
                         }
@@ -773,9 +900,20 @@ impl<'a> Collector<'a> {
             }
         }
 
-        for (member, span) in private_members {
-            if !read_anywhere.contains(&member) {
-                report.dead_private.push(Named { name: member, span });
+        // `friend class Test;` and GoogleTest's `FRIEND_TEST(...)` both let code
+        // outside the class read what it keeps private.
+        reached_elsewhere |= unit.members.iter().any(|member| {
+            let text = self.text(*member).trim_start();
+            text.starts_with("friend") || text.starts_with("FRIEND_TEST")
+        });
+        if !reached_elsewhere {
+            for member in private_members {
+                if !read_anywhere.contains(&member.name) && self.is_unreachable(&member) {
+                    report.dead_private.push(Named {
+                        name: member.name,
+                        span: member.span,
+                    });
+                }
             }
         }
 
@@ -890,6 +1028,7 @@ pub fn collect(
     let mut collector = Collector {
         profile,
         source,
+        words: word_counts(source),
         envy_ratio: envy_ratio.max(1),
         receiver: None,
         reports: Vec::new(),

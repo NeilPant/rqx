@@ -135,6 +135,7 @@ int main() {
     total_length({});
     std::mutex guard;
     locked_sum(guard, {});
+    Role(1).line();
     adder(1)(2);
     return 0;
 }

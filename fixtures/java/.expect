@@ -2,7 +2,6 @@
 # rule= fires on the line (xN: N times), none= must not, may= either way,
 # known-fp= fires and is wrong. #N: the Nth line of the file with this text.
 # Rewrite the rule= entries: RQX_BLESS=1 cargo test -p rqx --test fixtures every_fixture_finding_is_expected
-src/main/java/rqx/Address.java rule=unused-private-member | private String city = "";
 src/main/java/rqx/Address.java rule=unused-export | public String getCity() {
 src/main/java/rqx/Bloat.java rule=long-parameter-list | public int tooManyParameters(int a, int b, int c, int d, int e) {
 src/main/java/rqx/Bloat.java rule=unused-export | public int tooManyParameters(int a, int b, int c, int d, int e) {
@@ -101,7 +100,6 @@ src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | for (User u
 src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | for (Order left : orders) {
 src/main/java/rqx/CostPairScanCouldHash.java rule=never-reassigned | for (Order right : orders) {
 src/main/java/rqx/CostQuadraticViaCall.java rule=unused-file | package rqx;
-src/main/java/rqx/CostQuadraticViaCall.java rule=unused-private-member | private int indexOfItem(List<String> list, String wanted) {
 src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | for (int i = 0; i < list.size(); i++) {
 src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | List<String> firsts = new ArrayList<>();
 src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | for (int at = 0; at < items.size(); at++) {
@@ -109,7 +107,6 @@ src/main/java/rqx/CostQuadraticViaCall.java rule=quadratic-via-call | if (indexO
 src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | List<String> out = new ArrayList<>();
 src/main/java/rqx/CostQuadraticViaCall.java rule=never-reassigned | for (String item : items) {
 src/main/java/rqx/CostRepeatedComputationInLoop.java rule=unused-file | package rqx;
-src/main/java/rqx/CostRepeatedComputationInLoop.java rule=unused-private-member | private int totalLength(List<String> parts) {
 src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | for (String part : parts) {
 src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | List<Double> out = new ArrayList<>();
 src/main/java/rqx/CostRepeatedComputationInLoop.java rule=never-reassigned | for (Double weight : weights) {
@@ -132,7 +129,6 @@ src/main/java/rqx/CostUnboundedConcurrency.java rule=many-collaborators | public
 src/main/java/rqx/CostUnboundedConcurrency.java rule=speculative-generality | public interface Fetcher {
 src/main/java/rqx/CostUnboundedConcurrency.java rule=unused-export | public interface Fetcher {
 src/main/java/rqx/CostUnboundedConcurrency.java rule=unbounded-concurrency | pending.add(CompletableFuture.supplyAsync(() -> client.get(target)));
-src/main/java/rqx/Customer.java rule=unused-private-member | private Address address = new Address();
 src/main/java/rqx/Customer.java rule=unused-export | public Address getAddress() {
 src/main/java/rqx/CycleA.java rule=circular-dependency | package rqx;
 src/main/java/rqx/Dispatch.java rule=no-default-branch | switch (kind) {
@@ -286,6 +282,8 @@ src/main/java/rqx/Long.java rule=shadows-builtin | public class Long {
 src/main/java/rqx/Long.java rule=long-function | public int manySteps() {
 src/main/java/rqx/LookalikesWarnings.java none=working-constructor | public LookalikesWarnings() {
 src/main/java/rqx/LookalikesWarnings.java none=self-built-collaborators | this.seen = new HashSet<>();
+src/main/java/rqx/LookalikesWarnings.java none=unused-private-member | private static final long serialVersionUID = 1L;
+src/main/java/rqx/LookalikesWarnings.java none=unused-private-member | private int codeOf(char letter) {
 src/main/java/rqx/LookalikesWarnings.java none=assertionless-test | public boolean test(String value) {
 src/main/java/rqx/LookalikesWarnings.java known-fp=boolean-not-a-question Predicate fixes the name test, so the override cannot be renamed | public boolean test(String value) {
 src/main/java/rqx/Main.java rule=wide-fan-out | package rqx;
@@ -311,7 +309,6 @@ src/main/java/rqx/Names.java rule=never-reassigned | boolean notReady = rows == 
 src/main/java/rqx/Names.java rule=never-reassigned | int Integer = rows;
 src/main/java/rqx/Names.java rule=shadows-builtin | int Integer = rows;
 src/main/java/rqx/NeverImported.java rule=unused-file | package rqx;
-src/main/java/rqx/Order.java rule=unused-private-member | private Customer customer = new Customer();
 src/main/java/rqx/Orphan.java rule=unused-file | package rqx;
 src/main/java/rqx/Orphan.java rule=negated-name | public String noOneImportsThisFile() {
 src/main/java/rqx/Overgrown.java rule=large-class | public class Overgrown {

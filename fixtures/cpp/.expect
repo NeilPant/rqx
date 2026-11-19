@@ -6,7 +6,6 @@ include/bloat.hpp rule=large-class | class Overgrown {
 include/bloat.hpp rule=split-cohesion | class Overgrown {
 include/bloat.hpp rule=wide-surface | class Overgrown {
 include/conventions.hpp rule=mixed-conventions | extern int retryBackoff;
-include/cost_large_by_value.hpp rule=unused-private-member | std::vector<std::string> lines_;
 include/cost_pair_scan_could_hash.hpp rule=data-class | struct Order {
 include/cost_pair_scan_could_hash.hpp rule=split-cohesion | struct Order {
 include/cost_pair_scan_could_hash.hpp rule=data-class | struct User {
@@ -61,6 +60,7 @@ include/lifecycle.hpp rule=temporal-coupling | bool opened = false;
 include/lifecycle.hpp rule=middle-man | class ReportFactory {
 include/lifecycle.hpp rule=unused-export | class ReportFactory {
 include/lifecycle.hpp rule=temporary-field | std::vector<std::string> rows;
+include/lookalikes_warnings.hpp none=unused-private-member | int line_;
 include/orphan.hpp rule=unused-file | #pragma once
 include/orphan.hpp rule=negated-name | int no_one_includes_this_file();
 include/params.hpp rule=mixed-conventions | int two_dead_on_one_line(int used, const std::string& deadA, const std::string& deadB);
@@ -77,9 +77,6 @@ include/patterns.hpp rule=type-code-switch | if (kind == "add") {
 include/patterns.hpp rule=redundant-else | } else if (kind == "remove") {
 include/patterns.hpp rule=redundant-else | } else if (kind == "clear") {
 include/patterns.hpp rule=redundant-else #2 | } else if (kind == "remove") {
-include/patterns.hpp rule=unused-private-member | int add_item(int payload) { return payload; }
-include/patterns.hpp rule=unused-private-member | int remove_item(int payload) { return -payload; }
-include/patterns.hpp rule=unused-private-member | int clear_cart(int payload) { return payload / 2; }
 include/performance.hpp rule=boolean-not-a-question | bool ready() const { return !value.empty(); }
 include/precision.hpp rule=journal-comment | // @author someone
 include/precision.hpp rule=journal-comment | // Created on 2019-04-02
@@ -95,7 +92,6 @@ include/reconcile.hpp rule=split-cohesion | struct Row {
 include/reconcile.hpp rule=speculative-generality | class Reconciler {
 include/reconcile.hpp rule=split-cohesion | class Reconciler {
 include/reconcile.hpp rule=unused-export | class Reconciler {
-include/reconcile.hpp rule=unused-private-member | int ledger = 0;
 include/shapes.hpp rule=speculative-generality | class Coordinate {
 include/shapes.hpp rule=unused-export | class Coordinate {
 include/shapes.hpp rule=lazy-class | class Marker {
@@ -141,13 +137,10 @@ include/structures.hpp rule=unused-parameter | QueryBuilder* take(int count) { r
 include/structures.hpp rule=unused-private-member | int clauses;
 include/structures.hpp rule=unused-export | class Settings {
 include/structures.hpp rule=empty-method | Settings() {}
-include/structures.hpp rule=unused-private-member | static Settings* instance;
 include/structures.hpp rule=unused-export | class Clock {
 include/structures.hpp rule=empty-method | Clock() {}
-include/structures.hpp rule=unused-private-member | static Clock* current;
 include/structures.hpp rule=static-only-class | class Glyph {
 include/structures.hpp rule=unused-export | class Glyph {
-include/structures.hpp rule=unused-private-member | static std::vector<Glyph*> pool;
 include/structures.hpp rule=speculative-generality | class Listener {
 include/structures.hpp rule=unused-export | class Listener {
 include/structures.hpp rule=middle-man | class Feed {

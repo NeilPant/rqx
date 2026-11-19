@@ -12,6 +12,16 @@ export class Refusal extends Error {
   }
 }
 
+// unused-private-member: a leading underscore is a convention, not `private`, so a
+// subclass or another module may read `_retries`.
+export class Attempt {
+  protected _retries = 0;
+
+  describe(): string {
+    return "attempt";
+  }
+}
+
 // self-built-collaborators, working-constructor: a set is where the object keeps its
 // data, not a collaborator a test would replace, and making an empty one is not work.
 export class Visits {

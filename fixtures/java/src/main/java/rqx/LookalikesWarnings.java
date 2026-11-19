@@ -22,6 +22,20 @@ public class LookalikesWarnings {
     }
 }
 
+// unused-private-member: `codeOf` is called through another instance of the class,
+// and `serialVersionUID` is read by serialization, not by the source.
+class Codes implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
+    private int codeOf(char letter) {
+        return letter - 'a';
+    }
+
+    int distance(Codes other, char from, char to) {
+        return other.codeOf(to) - other.codeOf(from);
+    }
+}
+
 // assertionless-test: `test` is the method a Predicate answers with, not a test case;
 // no annotation marks it as one.
 class LongEnough implements Predicate<String> {

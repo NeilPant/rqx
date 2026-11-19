@@ -49,6 +49,14 @@ class Visits:
     def filter(self, wanted):
         return list(filter(wanted, self.seen))
 
+    # unused-private-member: Python calls `__len__` for `len(visits)`, and a single
+    # underscore is a convention that a subclass or another module may read.
+    def __len__(self):
+        return len(self.seen)
+
+    def _most_seen(self):
+        return self.seen.most_common(1)
+
     # example-value: documentation shows an example; it is never a value that ships.
     def visited_hosts(self):
         """The hosts of the pages seen, such as example.com for https://example.com/a."""

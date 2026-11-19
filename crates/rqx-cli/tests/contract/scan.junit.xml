@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="310" failures="163" time="0">
+<testsuites name="rqx" tests="307" failures="160" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -896,7 +896,7 @@ Why: every caller passes a value that is never read, so the parameter list misde
 Fix: drop `deadB` from `twoDeadOnOneLine` and from its call sites</failure>
     </testcase>
   </testsuite>
-  <testsuite name="typescript/patterns.ts" tests="35" failures="16">
+  <testsuite name="typescript/patterns.ts" tests="32" failures="13">
     <testcase classname="typescript/patterns.ts" name="redundant-else at 21:7">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
@@ -920,24 +920,6 @@ Fix: drop the `else` and outdent its body; the branch above never falls through 
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
 Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="unused-private-member at 195:3">
-      <failure type="unused-private-member" message="The private member `instance` is declared and never read.">The private member `instance` is declared and never read.
-
-Why: a private member can be used only from inside its class, so one that nothing in the class references cannot be reached
-Fix: delete `instance`; nothing inside `Settings` can reach it</failure>
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="unused-private-member at 203:3">
-      <failure type="unused-private-member" message="The private member `current` is declared and never read.">The private member `current` is declared and never read.
-
-Why: a private member can be used only from inside its class, so one that nothing in the class references cannot be reached
-Fix: delete `current`; nothing inside `Clock` can reach it</failure>
-    </testcase>
-    <testcase classname="typescript/patterns.ts" name="unused-private-member at 211:3">
-      <failure type="unused-private-member" message="The private member `pool` is declared and never read.">The private member `pool` is declared and never read.
-
-Why: a private member can be used only from inside its class, so one that nothing in the class references cannot be reached
-Fix: delete `pool`; nothing inside `Glyph` can reach it</failure>
     </testcase>
     <testcase classname="typescript/patterns.ts" name="no-default-branch at 78:3">
       <failure type="no-default-branch" message="The `switch` has 3 cases and no default (limit 3).">The `switch` has 3 cases and no default (limit 3).

@@ -173,6 +173,8 @@ lookalikes_warnings.py none=working-constructor | def __init__(self, reason):
 lookalikes_warnings.py none=working-constructor | def __init__(self):
 lookalikes_warnings.py none=self-built-collaborators | self.seen = collections.Counter()
 lookalikes_warnings.py none=shadows-builtin | def filter(self, wanted):
+lookalikes_warnings.py none=unused-private-member | def __len__(self):
+lookalikes_warnings.py none=unused-private-member | def _most_seen(self):
 lookalikes_warnings.py none=example-value | """The hosts of the pages seen, such as example.com for https://example.com/a."""
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
@@ -214,13 +216,11 @@ precision.py rule=imprecise-type | text: Any = raw
 precision.py rule=redundant-comment | # user name
 precision.py rule=data-class | class Loose:
 precision.py rule=imprecise-type | def __init__(self, payload: Any):
-queries.py rule=unused-private-member | self._reads = 0
 queries.py rule=mixed-conventions | def getTotal(self) -> int:
 queries.py rule=query-with-side-effect | def getTotal(self) -> int:
 queries.py rule=vague-function-name | def handle(value: str) -> str:
 queries.py rule=many-exits | def find_order(rows: list) -> str:
 reconcile.py rule=passthrough-function | def total_of(rows):
-reconcile.py rule=unused-private-member | self._ledger = {}
 reconcile.py rule=cognitive-complexity | def reconcile_batch(self, batch, tolerance, dry_run, retries, verbose):
 reconcile.py rule=deep-nesting | def reconcile_batch(self, batch, tolerance, dry_run, retries, verbose):
 reconcile.py rule=long-parameter-list | def reconcile_batch(self, batch, tolerance, dry_run, retries, verbose):
@@ -230,7 +230,7 @@ shapes.py rule=data-class | class Coordinate:
 shapes.py rule=lazy-class | class Marker:
 shapes.py rule=middle-man | class Facade:
 shapes.py rule=speculative-generality | class Vehicle(ABC):
-shapes.py rule=unused-private-member | self._unused_secret = 1
+shapes.py rule=unused-private-member | self.__unused_secret = 1
 shapes.py rule=temporary-field | self.scratch = "on"
 shapes.py rule=inappropriate-static | def build(other: "Engine"):
 shapes.py rule=placeholder-body #2 | def run(self):
@@ -257,12 +257,8 @@ structures.py rule=middle-man | class SmsNotifier(Notifier):
 structures.py rule=temporary-field | self.clauses += 1
 structures.py rule=temporary-field | colours: int
 structures.py rule=temporary-field | pages: list[str]
-structures.py rule=unused-private-member | def __iter__(self) -> "Pages":
-structures.py rule=unused-private-member | def __next__(self) -> str:
 structures.py rule=middle-man | class Feed:
 structures.py rule=speculative-generality | class Importer(ABC):
-structures.py rule=unused-private-member | def __enter__(self):
-structures.py rule=unused-private-member | def __exit__(self, kind, value, trace):
 test_checks.py rule=branching-test | total = add(0, 1)
 test_suite.py rule=skipped-test | def test_discounts():
 test_suite.py rule=magic-number | assert add(1, 2) == 3

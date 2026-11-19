@@ -805,42 +805,6 @@
   },
   {
     "check_name": "unused-private-member",
-    "description": "The private member `instance` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
-    "fingerprint": "fe9812d8440fc6cc",
-    "location": {
-      "lines": {
-        "begin": 195
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "minor"
-  },
-  {
-    "check_name": "unused-private-member",
-    "description": "The private member `current` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
-    "fingerprint": "9648d96118a7e052",
-    "location": {
-      "lines": {
-        "begin": 203
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "minor"
-  },
-  {
-    "check_name": "unused-private-member",
-    "description": "The private member `pool` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
-    "fingerprint": "87a5e87df16bbc93",
-    "location": {
-      "lines": {
-        "begin": 211
-      },
-      "path": "typescript/patterns.ts"
-    },
-    "severity": "minor"
-  },
-  {
-    "check_name": "unused-private-member",
     "description": "The private member `ledger` is declared and never read. — a private member can be used only from inside its class, so one that nothing in the class references cannot be reached",
     "fingerprint": "ffda1bdbedf378d5",
     "location": {

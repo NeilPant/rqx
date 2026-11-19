@@ -35,4 +35,4 @@ export { restated, compared, sameEitherWay, decidedNothing, buriedExits, assigns
 export { keepWanted, sumCube, queryEach, readEach, countDigits, flattenByCopy, fibonacci, settingsOf, schedules, prunes, bothWaits, guards, tabsOpen, paced, openTabs, fires, prunesStale, Poller, openTab } from "./performance";
 export { scaled, counted, delay, updateFailure, zoneLabel, timeoutBudget, events, adder, Page, suffixed, laterEach, hasOdd, spelled, Stamp, parsedOrNothing, fitted, listenOnce, hoistedTotal, isMissing, drained, reachable, refreshed, refreshEach } from "./lookalikes";
 export { accountById } from "./accounts.repository";
-export { Refusal, Visits } from "./lookalikes-warnings";
+export { Attempt, Refusal, Visits } from "./lookalikes-warnings";

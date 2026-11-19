@@ -417,6 +417,19 @@ them. `tools/release.sh` turns that section into the release notes.
   said "returns". `imprecise-type` no longer reports C++ `auto`, which is deduced to
   one exact type, or a `(void)` cast, which marks a value as unused.
 
+- **`unused-private-member` no longer tells users to delete members that are used.**
+  In a sample of public code none of 10 sampled findings was right, and more than
+  half of all findings were Python protocol methods such as `__repr__` and
+  `__iter__`. A member is now reported only when its name is written nowhere else in
+  the file, so a Java method called on another instance, a C++ field read by its bare
+  name and a JavaScript `#method` called from a class-field arrow function count as
+  used. Python's `__name__` methods and single-underscore names, and TypeScript's
+  single-underscore names, are conventions rather than enforced privacy and are not
+  reported; Python's `__name` and TypeScript's `private` and `#name` still are. A C++
+  class that declares a method defined elsewhere, names a friend, or uses
+  `FRIEND_TEST` is skipped, as are C++ virtual, overriding and static members, Java's
+  serialization members and any member with an annotation or decorator.
+
 - **`unused-parameter` names the parameter in C++ and sees Go's `:=` reuse a
   parameter.** For `ArrayEq(const T& lhs, const U& rhs)` it reported the type `T` as
   an unused parameter, although `lhs` was used, because a name inside a reference or

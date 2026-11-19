@@ -41,7 +41,7 @@ class Vehicle(ABC):
 
 class Engine:
     def __init__(self):
-        self._unused_secret = 1
+        self.__unused_secret = 1
 
     def run(self):
         self.scratch = "on"

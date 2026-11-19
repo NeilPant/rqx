@@ -141,15 +141,15 @@ a private member can be used only from inside its class, so one that nothing in 
 | Fix | Remove Dead Code |
 | Not in Go | Go scopes visibility to the package, not the type, so a field unused in one file may be read by another beside it |
 
-From `fixtures/typescript/patterns.ts`, line 195:
+From `fixtures/typescript/reconcile.ts`, line 5:
 
 ```ts
-export class Settings {
-  private static instance: Settings;
-  private constructor() {}
+export class Reconciler {
+  private ledger = new Map<string, number>();
+
 ```
 
-Suggested fix: delete `instance`; nothing inside `Settings` can reach it
+Suggested fix: delete `ledger`; nothing inside `Reconciler` can reach it
 
 ## `unreachable-code`
 

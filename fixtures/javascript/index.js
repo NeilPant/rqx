@@ -33,3 +33,4 @@ export { Expression, Literal, Sum, Product, Printer } from "./families";
 export { restated, compared, sameEitherWay, decidedNothing, buriedExits, assigns, assignsOnPurpose, wideSwitch, deeplyNestedCallbacks, trailingJump, twoArmed, settled, dropped, tierOf, admits, changed, labelOf, firstOf, freshTotal, asksTwice, joined, fallsThrough, fallsThroughOnPurpose, Settled } from "./flow";
 export { keepWanted, sumCube, queryEach, readEach, countDigits, flattenByCopy, fibonacci, settingsOf, schedules, prunes, bothWaits, guards, tabsOpen, paced, openTabs, fires, prunesStale, Poller, openTab } from "./performance";
 export { scaled, counted, delay, updateFailure, zoneLabel, timeoutBudget, events, Page, suffixed, laterEach, spelled, parsedOrNothing, fitted, listenOnce, hoistedTotal, isMissing, drained, reachable, refreshed, refreshEach } from "./lookalikes";
+export { Job } from "./lookalikes-warnings";

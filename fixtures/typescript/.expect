@@ -169,6 +169,7 @@ lifecycle.ts rule=middle-man | export class ReportFactory {
 lifecycle.ts rule=passthrough-function | add(row: string): void {
 long.ts rule=long-function | export function manySteps() {
 lookalikes-warnings.ts none=working-constructor | constructor(reason: string) {
+lookalikes-warnings.ts none=unused-private-member | protected _retries = 0;
 lookalikes-warnings.ts none=working-constructor | constructor() {
 lookalikes-warnings.ts none=self-built-collaborators | this.seen = new Set();
 lookalikes-warnings.ts none=example-value | // `page` is a full address, e.g. https://example.com/path.
@@ -202,11 +203,8 @@ patterns.ts rule=unused-parameter | withFooter(footer: string): ReportBuilder {
 patterns.ts rule=unused-parameter | where(field: string): QueryBuilder {
 patterns.ts rule=unused-parameter | order(field: string): QueryBuilder {
 patterns.ts rule=unused-parameter | take(count: number): QueryBuilder {
-patterns.ts rule=unused-private-member | private static instance: Settings;
 patterns.ts rule=empty-method | private constructor() {}
-patterns.ts rule=unused-private-member | private static current: Clock;
 patterns.ts rule=empty-method | constructor() {}
-patterns.ts rule=unused-private-member | private static pool: Glyph[] = [];
 patterns.ts rule=middle-man | export class Pages {
 patterns.ts rule=middle-man | export class Feed {
 patterns.ts rule=passthrough-function | addListener(handler: (value: number) => void) {
