@@ -152,6 +152,17 @@ them. `tools/release.sh` turns that section into the release notes.
   `health` printed 100/100, and `badge` wrote an SVG that read `health 100`. They now
   stop with `` `PATH` does not exist ``, as `scan` and `fix` already did.
 
+- **`waive` writes a reason that spans several lines as one line.** A newline in
+  `--reason` left the rest of the reason in the file as code, which broke the build,
+  and a trailing backslash carried a C++ comment onto the waived line. Line breaks and
+  other control characters now become spaces, and trailing backslashes are dropped.
+  The editor's waive command does the same.
+
+- **`waive --until` refuses a date the calendar does not have or one that has
+  passed.** `--until 2020-13-45` and `--until 2020-01-01` printed `waived`, and the
+  next scan reported the finding again plus an `unjustified-suppression`. Both now
+  exit 2 and say which problem the date has.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

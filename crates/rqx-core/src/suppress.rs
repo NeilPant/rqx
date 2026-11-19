@@ -165,11 +165,11 @@ pub fn waiver(
     until: Option<&str>,
     whole_file: bool,
 ) -> Option<Waiver> {
-    let reason = reason.trim();
+    let reason = one_line(reason);
     if reason.is_empty() || rule.trim().is_empty() {
         return None;
     }
-    if until.is_some_and(|date| !is_date(date)) {
+    if until.is_some_and(|date| !is_calendar_date(date)) {
         return None;
     }
     let leader = match language {
@@ -198,6 +198,36 @@ pub fn waiver(
         line,
         text: format!("{indent}{leader} {marker} {rule}{until}: {reason}\n"),
     })
+}
+
+/// A reason as one line of a comment. A line comment ends at the line's end, so a
+/// newline in the reason would leave the rest of it in the file as code, and a
+/// backslash at the end of a C++ line comment carries the comment on to the next line,
+/// which is the line being waived.
+pub fn one_line(reason: &str) -> String {
+    let spaced: String = reason
+        .chars()
+        .map(|character| {
+            if character.is_control() {
+                ' '
+            } else {
+                character
+            }
+        })
+        .collect();
+    spaced
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim_end_matches('\\')
+        .trim_end()
+        .to_owned()
+}
+
+/// Whether `text` is a day the calendar has, written `YYYY-MM-DD`: `2026-02-30` has
+/// the shape and names no day.
+pub fn is_calendar_date(text: &str) -> bool {
+    days_since_epoch(text).is_some_and(|days| civil_date(days) == text)
 }
 
 /// Today as `YYYY-MM-DD`, so an `until` date can be compared as text. Written out

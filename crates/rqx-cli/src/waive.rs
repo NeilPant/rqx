@@ -99,6 +99,21 @@ pub fn require_reason(reason: &str) -> Result<&str> {
     Ok(reason)
 }
 
+/// A waiver dated before `today` is reported as expired on the next scan, and one on
+/// a day the calendar does not have is never honoured, so neither is written.
+fn require_until(until: &str, today: &str) -> Result<()> {
+    if !suppress::is_calendar_date(until) {
+        bail!("`{until}` is not a date; --until takes a day as YYYY-MM-DD");
+    }
+    if until < today {
+        bail!(
+            "`{until}` has passed, and a waiver whose date has passed is not honoured; \
+             give a date from today ({today}) on"
+        );
+    }
+    Ok(())
+}
+
 /// The slug has to be one the scan can report, or the comment would sit in the source
 /// naming a rule that never fires.
 pub fn require_rule(rule: &str, config: &RqxConfig) -> Result<()> {
@@ -119,6 +134,9 @@ pub fn require_rule(rule: &str, config: &RqxConfig) -> Result<()> {
 /// written, so the editor and the command line answer the same way.
 pub fn plan(source: &str, language: Language, request: &Request<'_>) -> Result<Waiver> {
     let reason = require_reason(request.reason)?;
+    if let Some(until) = request.until {
+        require_until(until, &suppress::today())?;
+    }
     suppress::waiver(
         source,
         language,
@@ -249,6 +267,32 @@ mod tests {
             ..request(1, "kept")
         };
         assert!(plan("a\n", Language::Go, &late).is_err());
+    }
+
+    #[test]
+    fn a_date_the_calendar_does_not_have_or_one_that_has_passed_is_refused() {
+        for date in ["2020-13-45", "2027-02-30", "2027-1-01", "tomorrow"] {
+            let error = require_until(date, "2026-11-19").expect_err(date);
+            assert!(error.to_string().contains("is not a date"), "{error}");
+        }
+        let error = require_until("2020-01-01", "2026-11-19").expect_err("past");
+        assert!(error.to_string().contains("has passed"), "{error}");
+        assert!(require_until("2026-11-19", "2026-11-19").is_ok());
+        assert!(require_until("2028-02-29", "2026-11-19").is_ok());
+    }
+
+    #[test]
+    fn a_reason_over_several_lines_is_written_as_one() {
+        let waiver = plan(
+            "    pass\n",
+            Language::Python,
+            &request(1, "multi\nline \r\n reason \\"),
+        )
+        .expect("a waiver");
+        assert_eq!(
+            waiver.text,
+            "    # rqx-ignore unused-export: multi line reason\n"
+        );
     }
 
     #[test]
