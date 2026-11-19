@@ -10,7 +10,7 @@ use tree_sitter::Node;
 use crate::names::Names;
 use crate::profile::LanguageProfile;
 use crate::scope::{BindingKind, Scopes};
-use crate::tree::{Nodes, descendants, kind_of, operator_of, span_of, text_of};
+use crate::tree::{Nodes, Remembered, descendants, kind_of, operator_of, span_of, text_of};
 use crate::vocabulary::{
     configuration_literal, foreign_language, query_prefix, same_family, vague_verb, verb_and_object,
 };
@@ -101,6 +101,20 @@ struct Walker<'a> {
     /// Where a name such as `fit` or `xit` means something this file declared, so a
     /// call on it is that, not the test runner's.
     local_marker_names: HashSet<(u32, u32)>,
+    /// Each node's dotted name, by node id, once [`Walker::callee_name`] has read it.
+    callee_names: Remembered<Option<String>>,
+    /// The later arms of the `else if` chains read so far, by node id, with what each
+    /// one is to report when the walk reaches it.
+    chain_arms: HashMap<usize, ChainArm>,
+}
+
+/// A later arm of an `else if` chain whose head has been read.
+enum ChainArm {
+    /// Hung straight off the arm above it: the chain is the head's to report.
+    Tail,
+    /// Reached through an `else` clause: reads the rest of the chain as a chain of its
+    /// own, and finds this.
+    Reads(Option<Spot>),
 }
 
 impl<'a> Walker<'a> {
@@ -116,16 +130,29 @@ impl<'a> Walker<'a> {
         self.names().see_through(node)
     }
 
+    /// Remembered by node: a chain of calls asks for the name of every call along it,
+    /// and each of those names holds the one before it, so working each out afresh
+    /// made a long chain cost the square of its length.
     fn callee_name(&self, node: Node<'a>) -> Option<String> {
-        self.names().callee_name(node)
+        self.callee_names.get_or(node, || {
+            self.names()
+                .callee_name_with(node, &mut |inner| self.callee_name(inner))
+        })
     }
 
     fn member_property(&self, node: Node<'a>) -> Option<Node<'a>> {
         self.names().member_property(node)
     }
 
+    /// [`Names::called_name`], reading names through [`Walker::callee_name`].
     fn called_name(&self, call: Node<'a>) -> Option<String> {
-        self.names().called_name(call)
+        let callee = call.child_by_field_name(self.profile.callee_field)?;
+        if self.profile.is_member_access(call)
+            && let Some(dotted) = self.callee_name(call)
+        {
+            return Some(dotted);
+        }
+        self.callee_name(callee)
     }
 
     /// What a call is named by, receiver included and arguments left out: the part of
@@ -455,18 +482,52 @@ impl<'a> Walker<'a> {
     /// Every mention of a name inside one body, in order, and whether the mention
     /// wrote to it. Three rules ask the same question of this and get different
     /// answers out of it.
+    ///
+    /// The walk carries each node's parent, grandparent and nearest block down with
+    /// it: `Node::parent` walks down from the root of the tree to find the answer, and
+    /// climbing to the block that way made a long `else if` chain cost the cube of its
+    /// length.
     fn touches(&self, body: Node<'a>) -> HashMap<&'a str, Vec<Touch>> {
         let profile = self.profile;
         let mut seen: HashMap<&'a str, Vec<Touch>> = HashMap::new();
-        for node in descendants(body) {
+        let mut pending = vec![Lineage {
+            node: body,
+            above: None,
+            above_that: None,
+            block: body.id(),
+        }];
+        while let Some(Lineage {
+            node,
+            above,
+            above_that,
+            block,
+        }) = pending.pop()
+        {
+            let inner_block = if node.id() != body.id() && profile.is_block(node) {
+                node.id()
+            } else {
+                block
+            };
+            let mut cursor = node.walk();
+            let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
+            pending.extend(children.into_iter().rev().map(|child| Lineage {
+                node: child,
+                above: Some(node),
+                above_that: above,
+                block: inner_block,
+            }));
             let names_something =
                 profile.is_identifier(node) || profile.property_kinds.contains(&kind_of(node));
             if !names_something {
                 continue;
             }
-            // Asked once and passed along: `Node::parent` walks down from the root
-            // of the tree to find it, and this loop wanted it five times per node.
-            let above = node.parent();
+            // The body's own parent lies outside the walk, so only it is asked for.
+            let (above, above_that) = if node.id() == body.id() {
+                let above = node.parent();
+                (above, above.and_then(|parent| parent.parent()))
+            } else {
+                (above, above_that)
+            };
             let declares = above.is_some_and(|parent| {
                 crate::tree::is_binding_position_under(
                     parent,
@@ -486,7 +547,7 @@ impl<'a> Walker<'a> {
                 profile.expression_list_kinds.contains(&kind_of(parent))
                     && parent.named_child_count() == 1
             });
-            let statement = holder.and_then(|list| list.parent()).or(above);
+            let statement = holder.and(above_that).or(above);
             let target = |kinds: &[&str]| {
                 statement.is_some_and(|parent| {
                     kinds.contains(&kind_of(parent))
@@ -514,18 +575,6 @@ impl<'a> Walker<'a> {
             } else {
                 node.start_byte()
             };
-            let mut block = body.id();
-            let mut parent = above;
-            while let Some(current) = parent {
-                if current.id() == body.id() {
-                    break;
-                }
-                if profile.is_block(current) {
-                    block = current.id();
-                    break;
-                }
-                parent = current.parent();
-            }
             seen.entry(self.text(node)).or_default().push(Touch {
                 at,
                 block,
@@ -644,17 +693,44 @@ impl<'a> Walker<'a> {
             .or_insert_with(|| format!("{declared} {head}").trim().to_owned());
     }
 
-    fn walk(&mut self, node: Node<'a>) {
+    /// Every node in source order, entered before its children and left after them.
+    /// The walk keeps its own stack, so a file nested thousands of levels deep cannot
+    /// exhaust the thread's, and it hands each node its parent, which `Node::parent`
+    /// would find again by walking down from the root.
+    fn walk(&mut self, root: Node<'a>) {
+        enum Step<'a> {
+            Enter(Node<'a>, Option<Node<'a>>),
+            Leave(Entered),
+        }
+        let mut steps = vec![Step::Enter(root, None)];
+        while let Some(step) = steps.pop() {
+            match step {
+                Step::Enter(node, parent) => {
+                    let entered = self.enter(node, parent);
+                    steps.push(Step::Leave(entered));
+                    let mut cursor = node.walk();
+                    let children: Vec<Node<'a>> = node.named_children(&mut cursor).collect();
+                    steps.extend(
+                        children
+                            .into_iter()
+                            .rev()
+                            .map(|child| Step::Enter(child, Some(node))),
+                    );
+                }
+                Step::Leave(entered) => self.leave(entered),
+            }
+        }
+    }
+
+    fn enter(&mut self, node: Node<'a>, parent: Option<Node<'a>>) -> Entered {
         let kind = kind_of(node);
         let profile = self.profile;
         let mut entered_test = false;
 
         // A function's own braces are not a level of nesting a reader chose; the
         // blocks written inside them are.
-        let nests = profile.is_block(node)
-            && node
-                .parent()
-                .is_some_and(|parent| !profile.is_function(parent));
+        let nests =
+            profile.is_block(node) && parent.is_some_and(|parent| !profile.is_function(parent));
         if profile.is_block(node) {
             self.note_unreachable(node);
         }
@@ -942,7 +1018,7 @@ impl<'a> Walker<'a> {
             };
             // `value as unknown as Row` and `(Row) (Object) value` are one decision
             // written as two casts, so a chain is reported once, at the outermost cast.
-            let chained = node.parent().is_some_and(|outer| {
+            let chained = parent.is_some_and(|outer| {
                 let cast_value = outer
                     .child_by_field_name("value")
                     .or_else(|| outer.named_child(0));
@@ -982,28 +1058,51 @@ impl<'a> Walker<'a> {
                 });
             }
         }
-
-        let mut cursor = node.walk();
-        for child in node.named_children(&mut cursor) {
-            self.walk(child);
+        Entered {
+            clauses,
+            repeats,
+            frame: entered_frame,
+            test: entered_test,
+            nests,
         }
+    }
 
-        for _ in 0..clauses {
+    /// Undoes what entering the node pushed, once its children have been walked.
+    fn leave(&mut self, entered: Entered) {
+        for _ in 0..entered.clauses {
             self.pop_loop(true);
         }
-        if repeats {
+        if entered.repeats {
             self.pop_loop(true);
         }
-        if entered_frame {
+        if entered.frame {
             self.frames.pop();
         }
-        if entered_test {
+        if entered.test {
             self.test_depth -= 1;
         }
-        if nests {
+        if entered.nests {
             self.block_depth -= 1;
         }
     }
+}
+
+/// A node of a body being walked, with what lies above it.
+struct Lineage<'a> {
+    node: Node<'a>,
+    above: Option<Node<'a>>,
+    above_that: Option<Node<'a>>,
+    /// The id of the nearest block above the node, or of the body when there is none.
+    block: usize,
+}
+
+/// What entering a node pushed onto the walker's state, for leaving it to take off.
+struct Entered {
+    clauses: u32,
+    repeats: bool,
+    frame: bool,
+    test: bool,
+    nests: bool,
 }
 
 /// A name an import binds and the file never mentions again. Read from the module
@@ -1164,6 +1263,8 @@ pub fn collect_over(
         block_depth: 0,
         asserting_helpers: Helpers::default(),
         local_marker_names: local_marker_names(profile, scopes),
+        callee_names: Remembered::default(),
+        chain_arms: HashMap::new(),
     };
     walker.asserting_helpers = walker.find_asserting_helpers();
     walker.walk(root);

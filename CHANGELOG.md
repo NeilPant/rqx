@@ -100,6 +100,21 @@ them. `tools/release.sh` turns that section into the release notes.
   so `var err error` was reported as unused although an earlier `case` assigns and
   reads it, and `fix --write` deleted it and broke `go build`. The finding is still
   reported; only the deletion is withheld.
+### Fixed
+
+- **A deeply nested file no longer aborts the run.** A long `else if` chain, a long
+  concatenation or method chain, or deeply nested blocks overflowed a worker thread's
+  stack. The process exited with 134, printed no report and did not name the file;
+  `rqx mcp` and `rqx lsp` exited the same way on such a buffer. The tree walks that
+  recursed once per level now keep their own stack. A file more than 256 levels deep
+  is analysed on a thread with a 512 MB stack, and a file more than 1,500 levels deep
+  is skipped with the reason `too-deep` (`skipped_by` in the JSON summary, `nested too
+  deeply` in the terminal).
+
+- **A long `else if` chain is analysed in about linear time.** A 300-branch chain took
+  2 seconds, and 500 branches took 10. Several checks read the rest of the chain again
+  at every `if`, or climbed towards the root with a parent lookup that is itself
+  linear in depth. 400 branches now take about 0.1 seconds. The findings are the same.
 
 ## 0.5.2 — 2026-11-18
 

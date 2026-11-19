@@ -19,6 +19,8 @@ pub enum SkipReason {
     TooLarge,
     Unreadable,
     ParseTimeout,
+    /// A syntax tree nested deeper than the analysis goes.
+    TooDeep,
     Unsupported,
     /// The walk itself failed on an entry, so there may be no file to name.
     Walk,
@@ -35,6 +37,7 @@ impl SkipReason {
             Self::TooLarge => "too-large",
             Self::Unreadable => "unreadable",
             Self::ParseTimeout => "parse-timeout",
+            Self::TooDeep => "too-deep",
             Self::Unsupported => "unsupported",
             Self::Walk => "walk",
         }
@@ -51,6 +54,7 @@ impl SkipReason {
             Self::TooLarge => "too large",
             Self::Unreadable => "unreadable",
             Self::ParseTimeout => "too slow to parse",
+            Self::TooDeep => "nested too deeply",
             Self::Unsupported => "unsupported",
             Self::Walk => "unreachable",
         }
@@ -64,7 +68,11 @@ impl SkipReason {
             Self::Generated => Some("scan.skip_generated: false"),
             Self::Gitattributes => Some("scan.respect_gitattributes: false"),
             Self::TooLarge => Some("a larger scan.max_filesize"),
-            Self::Unreadable | Self::ParseTimeout | Self::Unsupported | Self::Walk => None,
+            Self::Unreadable
+            | Self::ParseTimeout
+            | Self::TooDeep
+            | Self::Unsupported
+            | Self::Walk => None,
         }
     }
 }

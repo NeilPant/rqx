@@ -35,6 +35,17 @@ impl<'a> Names<'a> {
     /// The dotted name a call is written with, so `describe.skip` and `t.Skip` are
     /// one string a vocabulary can match.
     pub fn callee_name(&self, node: Node<'a>) -> Option<String> {
+        self.callee_name_with(node, &mut |inner| self.callee_name(inner))
+    }
+
+    /// As [`Names::callee_name`], asking `inner_name` for the name of the receiver or
+    /// callee a node is written on, so a caller can remember the names it has already
+    /// worked out: along a chain of calls, every call's name holds the one before it.
+    pub fn callee_name_with(
+        &self,
+        node: Node<'a>,
+        inner_name: &mut dyn FnMut(Node<'a>) -> Option<String>,
+    ) -> Option<String> {
         let node = self.see_through(node);
         if self.profile.is_identifier(node) {
             return Some(self.text(node).to_owned());
@@ -48,7 +59,7 @@ impl<'a> Names<'a> {
         if self.profile.is_member_access(node)
             && let Some(object) = node
                 .child_by_field_name(self.profile.object_field)
-                .and_then(|object| self.callee_name(object))
+                .and_then(&mut *inner_name)
             && let Some(property) = self.member_property(node)
         {
             return Some(format!("{object}.{}", self.text(property)));
@@ -63,7 +74,7 @@ impl<'a> Names<'a> {
             && let Some(callee) = node.child_by_field_name(self.profile.callee_field)
             && callee.id() != node.id()
         {
-            return self.callee_name(callee);
+            return inner_name(callee);
         }
         None
     }

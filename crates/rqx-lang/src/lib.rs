@@ -147,6 +147,7 @@ impl std::fmt::Display for AnalysisError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsupportedFile => f.write_str("not a source file Rqx reads"),
+            Self::Parse(message) if self.too_deep() => f.write_str(message),
             Self::Parse(message) => write!(f, "parse failed: {message}"),
         }
     }
@@ -161,6 +162,55 @@ impl AnalysisError {
     pub fn timed_out(&self) -> bool {
         matches!(self, Self::Parse(message) if message.starts_with(GAVE_UP))
     }
+
+    /// Whether the file nests deeper than [`MAX_NESTING`], and so was left unanalysed.
+    pub fn too_deep(&self) -> bool {
+        matches!(self, Self::Parse(message) if message.starts_with(NESTED))
+    }
+}
+
+/// How a parse refused for its depth begins its message.
+const NESTED: &str = "nested";
+
+/// The deepest syntax tree Rqx analyses, in levels. Code a person writes stays under a
+/// hundred; a generated `else if` chain of thousands of branches or a concatenation
+/// of thousands of terms does not, and a deeper tree is skipped with that reason
+/// rather than analysed. The analysis of every tree this deep fits [`DEEP_STACK`].
+pub const MAX_NESTING: usize = 1_500;
+
+/// Deeper than this, a tree is analysed on a thread of its own with [`DEEP_STACK`],
+/// because some of the analysis recurses once per level and a worker thread's
+/// default stack holds a few thousand levels at most.
+const SHALLOW_NESTING: usize = 256;
+
+/// The stack a deep tree is analysed on. Reserved, not committed: the memory is only
+/// used as deep as the analysis goes.
+const DEEP_STACK: usize = 512 << 20;
+
+/// Runs `work` where a tree `depth` levels deep cannot exhaust the stack: on the
+/// calling thread when the tree is of ordinary depth, and otherwise on a thread with
+/// [`DEEP_STACK`].
+fn on_stack_for<T: Send>(
+    depth: usize,
+    work: impl FnOnce() -> Result<T, AnalysisError> + Send,
+) -> Result<T, AnalysisError> {
+    if depth <= SHALLOW_NESTING {
+        return work();
+    }
+    std::thread::scope(|scope| {
+        let spawned = std::thread::Builder::new()
+            .name("rqx-deep-file".into())
+            .stack_size(DEEP_STACK)
+            .spawn_scoped(scope, work);
+        match spawned {
+            Ok(thread) => thread
+                .join()
+                .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+            Err(error) => Err(AnalysisError::Parse(format!(
+                "{NESTED} {depth} levels deep, and no thread could be started to analyse it: {error}"
+            ))),
+        }
+    })
 }
 
 /// What a table of node kinds cannot say: which names a file offers, how a written
@@ -274,7 +324,34 @@ fn is_data_access_file(display: &str) -> bool {
 /// pathological file costs a scan seconds rather than the whole run.
 const PARSE_BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
 
+/// The file's syntax tree, refused when it nests deeper than [`MAX_NESTING`] levels.
 pub(crate) fn parse(
+    language: Language,
+    profile: &'static LanguageProfile,
+    markup: bool,
+    source: &str,
+) -> Result<tree_sitter::Tree, AnalysisError> {
+    parse_measured(language, profile, markup, source).map(|(tree, _)| tree)
+}
+
+/// As [`parse`], with how many levels deep the tree goes.
+fn parse_measured(
+    language: Language,
+    profile: &'static LanguageProfile,
+    markup: bool,
+    source: &str,
+) -> Result<(tree_sitter::Tree, usize), AnalysisError> {
+    let tree = parse_unchecked(language, profile, markup, source)?;
+    let depth = tree::depth(tree.root_node());
+    if depth > MAX_NESTING {
+        return Err(AnalysisError::Parse(format!(
+            "{NESTED} {depth} levels deep, past the {MAX_NESTING} Rqx analyses"
+        )));
+    }
+    Ok((tree, depth))
+}
+
+fn parse_unchecked(
     language: Language,
     profile: &'static LanguageProfile,
     markup: bool,
@@ -399,9 +476,24 @@ pub fn analyze_as_planned(
         plan,
         "a plan that builds less than the enabled rules read"
     );
+    let profile = support(language).profile;
+    let (tree, depth) = parse_measured(language, profile, holds_markup(display), source)?;
+    on_stack_for(depth, || {
+        analyze_tree(language, display, source, config, tables, plan, &tree)
+    })
+}
+
+fn analyze_tree(
+    language: Language,
+    display: &str,
+    source: &str,
+    config: &RqxConfig,
+    tables: &CostTables,
+    plan: FactPlan,
+    tree: &tree_sitter::Tree,
+) -> Result<FileAnalysis, AnalysisError> {
     let support = support(language);
     let profile = support.profile;
-    let tree = parse(language, profile, holds_markup(display), source)?;
     let root = tree.root_node();
 
     let index = LineIndex::new(source);

@@ -77,6 +77,48 @@ fn a_generated_file_is_skipped_and_says_so() {
     );
 }
 
+/// A file nested deeper than the analysis goes used to overflow a worker thread's
+/// stack and abort the whole scan, with no report and no file named. It is skipped
+/// with its reason now, and the files beside it are reported as usual; a long `else
+/// if` chain under the limit is analysed in bounded time.
+#[test]
+fn a_file_nested_too_deeply_is_skipped_and_the_scan_goes_on() {
+    let dir = scratch("too-deep");
+    let mut chain = String::from("export function f(x: number) {\n  if (x === 0) { return 0; }\n");
+    for branch in 1..600 {
+        chain.push_str(&format!(
+            "  else if (x === {branch}) {{ return {branch}; }}\n"
+        ));
+    }
+    chain.push_str("  return -1;\n}\n");
+    write(&dir, "chain.ts", &chain);
+    write(
+        &dir,
+        "deep.ts",
+        &format!(
+            "export const deep = {}1{};\n",
+            "g(\n".repeat(3_000),
+            ")".repeat(3_000)
+        ),
+    );
+    write(
+        &dir,
+        "plain.ts",
+        "export function g(x: number) { try { return x; } catch (e) {} }\n",
+    );
+
+    let (elapsed, report) = scan(&dir);
+    let summary: serde_json::Value =
+        serde_json::from_str(report.lines().last().expect("a summary line")).expect("json");
+    assert_eq!(summary["skipped_by"]["too-deep"]["files"], 1, "{summary}");
+    assert_eq!(summary["files_scanned"], 2, "{summary}");
+    assert!(
+        report.contains("\"file\":\"plain.ts\""),
+        "the file beside the deep one was not reported: {report}"
+    );
+    assert!(elapsed < BUDGET, "the scan took {elapsed:?}");
+}
+
 fn summary_of(dir: &std::path::Path) -> serde_json::Value {
     let (_, report) = scan(dir);
     serde_json::from_str(report.lines().last().expect("a summary line")).expect("json")
