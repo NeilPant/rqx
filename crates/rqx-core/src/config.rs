@@ -526,7 +526,7 @@ pub const SCOPED_TABLES: [&str; 3] = ["thresholds", "rules", "patterns"];
 #[derive(Clone, Debug, Default, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Languages {
-    /// Language names. Empty means all five.
+    /// Language names. Empty means all six.
     pub enabled: Vec<Language>,
 }
 

@@ -437,7 +437,7 @@
       "properties": {
         "enabled": {
           "default": [],
-          "description": "Language names. Empty means all five.",
+          "description": "Language names. Empty means all six.",
           "items": {
             "$ref": "#/$defs/Language"
           },
