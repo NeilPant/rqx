@@ -190,8 +190,8 @@ pub struct TestVocabulary {
     pub case_prefixes: &'static [&'static str],
     /// Whether the framework also fixes the parameter list of a case it finds by
     /// name. Go's runner will not call `func TestX()` at all, so its `*testing.T` is
-    /// required whether the body reads it or not; a pytest case takes the fixtures it
-    /// asks for, so an unused one there is still the author's to delete.
+    /// required whether the body reads it or not. pytest sets up every fixture a case
+    /// names, so a fixture the body never reads may still be there for its setup.
     pub case_signature_is_fixed: bool,
     /// Calls made from inside a test that skip or focus the run, matched on their
     /// last segment because the receiver is named by whoever wrote the test.
@@ -577,6 +577,100 @@ pub fn licence_notice(text: &str) -> bool {
 /// never decoration.
 pub fn carries_url(text: &str) -> bool {
     text.contains("://") || text.contains("www.")
+}
+
+/// Comment text that a compiler, interpreter, linter, type checker, formatter, bundler
+/// or coverage tool reads. Removing one changes the build or the checks run on it, so
+/// no fix removes a comment that holds any of these. Matched without regard to case.
+const TOOL_DIRECTIVES: &[&str] = &[
+    // Interpreters and encodings.
+    "#!",
+    "-*- coding",
+    "coding:",
+    "coding=",
+    "vim:",
+    // Go build constraints, compiler directives and generated-code markers.
+    "//go:",
+    "// +build",
+    "//line ",
+    "//export ",
+    "//extern ",
+    "nolint",
+    "lint:ignore",
+    "lint:file-ignore",
+    "code generated",
+    "do not edit",
+    "@generated",
+    // JavaScript and TypeScript.
+    "eslint",
+    "@ts-",
+    "/// <reference",
+    "/// <amd-",
+    "/* global ",
+    "/* globals ",
+    "prettier-ignore",
+    "istanbul ignore",
+    "c8 ignore",
+    "v8 ignore",
+    "biome-ignore",
+    "deno-lint-ignore",
+    "deno-fmt-ignore",
+    "tslint:",
+    "jshint",
+    "@jsx",
+    "@flow",
+    "@noflow",
+    "__pure__",
+    "__no_side_effects__",
+    "webpack",
+    "@vite-ignore",
+    "@preserve",
+    "@license",
+    "sourcemappingurl",
+    "sourceurl",
+    // Python.
+    "noqa",
+    "type:",
+    "pylint:",
+    "pyright:",
+    "mypy:",
+    "ruff:",
+    "pragma:",
+    "fmt: off",
+    "fmt: on",
+    "fmt: skip",
+    "isort:",
+    "nosec",
+    "pyre-",
+    // Java.
+    "suppresswarnings",
+    "nosonar",
+    "checkstyle",
+    "noinspection",
+    "@formatter:",
+    "nopmd",
+    "spotless:",
+    // C and C++.
+    "clang-format off",
+    "clang-format on",
+    "clang-tidy",
+    "cppcheck-suppress",
+    "lcov_excl",
+    "gcovr_excl",
+    "coverity",
+    "fallthrough",
+    "fall through",
+    "fall-through",
+    "fallthru",
+];
+
+/// The directive a comment carries, if any. See `TOOL_DIRECTIVES`.
+pub fn tool_directive(text: &str) -> Option<&'static str> {
+    let lower = text.to_lowercase();
+    TOOL_DIRECTIVES
+        .iter()
+        .copied()
+        .find(|directive| lower.contains(directive))
 }
 
 /// A placeholder that reads as real. Harmless in a test and a bug report waiting to

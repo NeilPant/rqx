@@ -93,3 +93,20 @@ std::size_t longest(const std::vector<std::string>& words) {
     }
     return longest;
 }
+
+// unreachable-code: the label after the return is where the goto lands, so the code
+// under it runs.
+int release_on_failure(int* handle, int status) {
+    if (status != 0) goto cleanup;
+    return 0;
+cleanup:
+    delete handle;
+    return status;
+}
+
+// unreachable-code: a macro can expand to anything, so a call spelled as one after a
+// return is not known to be dead.
+int squared(int value) {
+    return value * value;
+    NOT_REACHED();
+}

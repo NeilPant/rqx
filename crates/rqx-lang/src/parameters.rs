@@ -7,6 +7,7 @@ use tree_sitter::Node;
 use crate::profile::LanguageProfile;
 use crate::scope::{BindingKind, Scopes};
 use crate::tree::{find_within, kind_of, span_of, text_of};
+use crate::visibility::{Visibility, header_words};
 
 /// Who decides the shape of a parameter list. Only a signature the author owns can
 /// be shortened: a callback's arity is fixed by whatever calls it, and an override's
@@ -29,6 +30,8 @@ struct Grader<'a> {
     /// Names the file mentions without calling them, for Python, where a function
     /// handed to someone else as a callback is told apart only by that.
     handed_out: HashSet<&'a str>,
+    /// Who outside this file can call each function.
+    visibility: Visibility<'a>,
     out: Vec<UnusedParameter>,
 }
 
@@ -155,6 +158,32 @@ impl<'a> Grader<'a> {
         }
     }
 
+    /// A signature the runtime, a supertype or a framework calls with whatever it
+    /// passes: Java's and C++'s `main`, an override, and a method carrying an
+    /// annotation or a decorator.
+    fn is_called_by_contract(&self, function: Node<'a>, name: Option<&str>) -> bool {
+        let language = self.profile.language;
+        if matches!(language, Language::Java | Language::Cpp) && name == Some("main") {
+            return true;
+        }
+        if language == Language::Cpp {
+            return header_words(function, self.source)
+                .any(|word| matches!(word, "virtual" | "override" | "final"));
+        }
+        let decorated = |node: Node<'a>| self.profile.decorator_kinds.contains(&kind_of(node));
+        let mut cursor = function.walk();
+        let marked = function.named_children(&mut cursor).any(|child| {
+            kind_of(child) == "override_modifier"
+                || decorated(child)
+                || (self
+                    .profile
+                    .modifier_container_kinds
+                    .contains(&kind_of(child))
+                    && child.named_children(&mut child.walk()).any(&decorated))
+        });
+        marked || function.prev_named_sibling().is_some_and(decorated)
+    }
+
     fn is_used(&self, name: &str, node: Node<'a>) -> bool {
         let span = span_of(node);
         self.scopes
@@ -216,7 +245,10 @@ impl<'a> Grader<'a> {
         }
         // `__exit__(self, kind, value, trace)` has the shape its protocol calls it with,
         // and a decorated function is called by whatever the decorator handed it to.
-        if name.as_deref().is_some_and(is_protocol_method) || self.is_registered(function) {
+        if name.as_deref().is_some_and(is_protocol_method)
+            || self.is_registered(function)
+            || self.is_called_by_contract(function, name.as_deref())
+        {
             return;
         }
         // Python declares no interfaces, so a base class spells one as methods whose
@@ -263,6 +295,8 @@ impl<'a> Grader<'a> {
             .iter()
             .enumerate()
             .rposition(|(index, _)| !unused.iter().any(|(dead, ..)| *dead == index as u32));
+        let exported =
+            self.exported_depth > 0 || self.visibility.is_public(function, name.as_deref());
         for (index, parameter_name, span) in unused {
             let trailing = last_used.is_none_or(|last| index as usize > last);
             self.out.push(UnusedParameter {
@@ -271,7 +305,7 @@ impl<'a> Grader<'a> {
                 function: name.clone(),
                 position: index + 1,
                 total,
-                exported: self.exported_depth > 0,
+                exported,
                 trailing,
             });
         }
@@ -465,6 +499,7 @@ pub fn unused(
         } else {
             HashSet::new()
         },
+        visibility: Visibility::new(profile, source, root),
         out: Vec::new(),
     };
     grader.walk(root);

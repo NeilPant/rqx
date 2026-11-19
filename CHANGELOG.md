@@ -26,6 +26,68 @@ them. `tools/release.sh` turns that section into the release notes.
 - **`rqx config` and the configuration schema say that all six languages are enabled by
   default.** They said five.
 
+- **`rqx fix` no longer deletes `suppressed-diagnostic` comments.** Whether an
+  `eslint-disable`, `# noqa` or `# type: ignore` is still needed depends on what the
+  suppressed tool reports for that line, which rqx cannot check. The rule still reports
+  the comment, and `rqx fix --plan` lists it as a decision. The rule's documentation no
+  longer marks it as auto-fixable.
+
+- **`unused-parameter` reports a parameter of a public function at `heuristic`
+  confidence.** Public means: a Python function at module level whose name has no
+  leading underscore, or one listed in `__all__`; an exported TypeScript or JavaScript
+  function, or a method that is not `private` or `#private`; a Java method that is not
+  `private`; a C++ function other than a `static` free function, one in an unnamed
+  namespace, or a lambda; a Go function with a capitalised name. Code outside the
+  project can call these, so `rqx fix` does not change their signatures.
+
+- **`unreachable-code` no longer reports, and `rqx fix` no longer deletes, code after an
+  exit that still runs or still changes the program.** This covers a label that a
+  `goto`, `break` or `continue` names (Go, C++, JavaScript, TypeScript, Java); a Python
+  `yield` that makes its function a generator; a Python `global` or `nonlocal`
+  statement, or the only binding of a name the rest of the function reads; a
+  JavaScript or TypeScript `var` or function declaration, which is hoisted; a C++ call
+  spelled as a macro or a preprocessor line; and a block that does not parse cleanly,
+  such as `ASSERT_DEATH(f(); return, "")`. On klauspost/compress 1.17.9, `fix --write`
+  removed the `emitDict:` and `emitMatch:` labels from `s2/encode_all.go` and the
+  package stopped compiling.
+
+- **`rqx fix` keeps build constraints, interpreter lines and tool directives.** No fix
+  removes a comment that holds `//go:build`, `// +build`, `//go:generate`,
+  `//go:embed` or another `//go:` directive, a shebang, an encoding declaration,
+  `eslint-*`, `@ts-*`, `/// <reference`, `prettier-ignore`, `istanbul ignore`,
+  `c8 ignore`, `noqa`, `type:`, `pylint:`, `pragma:`, `NOLINT`, `nolint`,
+  `SuppressWarnings`, `clang-format off` or `on`, or a fall-through marker, or any
+  comment above a Go file's `package` clause. The list is `TOOL_DIRECTIVES` in
+  `crates/rqx-lang/src/vocabulary.rs`. `//go:build ignore` is no longer reported as a
+  `suppressed-diagnostic`.
+
+- **The `unused-parameter` fix updates every call or none.** A private method called
+  through `this` (TypeScript, JavaScript, Java, C++) or by its bare name (Java, C++)
+  now loses the argument at each call along with the parameter. In 0.5.2 only the
+  declaration changed, and `tsc` and `javac` rejected the calls. The fix is withheld
+  when the name is mentioned anywhere else outside a comment, such as a call through
+  another receiver, an overload, a callback or a string, or when a call passes a
+  keyword or spread argument.
+
+- **`unused-parameter` no longer reports parameters whose list is fixed elsewhere.**
+  Java and C++ `main`, a Java method with an annotation, a TypeScript method with a
+  decorator or `override`, a C++ method declared `virtual`, `override` or `final`, and a
+  pytest test function, whose parameters name the fixtures pytest sets up.
+
+- **`rqx fix` checks each edited file before writing it.** An edit is withheld, with the
+  reason, when it removes a protected comment, a label or the last jump to one, the
+  `yield` that makes a Python function a generator, a Python `global` or `nonlocal`
+  statement or a use of a name one declares, or a C++ macro call; when it leaves a Go
+  import or local unused; or when it changes the signature of a public function. Each
+  finding's edit is checked on its own first, so one refused edit does not hold back
+  the rest of the file.
+
+- **The `unused-local` fix leaves a declaration whose value is read by index.** An
+  index can raise, and in CPython the unread binding keeps the value alive until the
+  function returns, which `functools.lru_cache` relies on. In 0.5.2, `fix --write`
+  also removed `full = False` from `functools._lru_cache_wrapper`, which a nested
+  function declares `nonlocal`, and `functools.py` stopped compiling.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

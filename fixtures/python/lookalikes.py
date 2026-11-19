@@ -169,3 +169,10 @@ def parsed_or_nothing(text):
         # Malformed input means no setting, which the caller already handles.
         pass
     return None
+
+
+# unreachable-code: the `yield` after the return makes this a generator that yields
+# nothing, which is how such a generator is written.
+def quiet_events():
+    return
+    yield

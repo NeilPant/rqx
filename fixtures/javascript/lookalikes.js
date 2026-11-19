@@ -32,6 +32,14 @@ export function zoneLabel() {
   return "zone " + tz;
 }
 
+// unreachable-code: a `var` is hoisted to the top of its function, so the one after
+// the return is the `total` the first line assigns.
+export function hoistedTotal() {
+  total = 1;
+  return total;
+  var total;
+}
+
 // magic-number: each 30 below is the value of a declaration, which names it.
 // hungarian-notation: IDLE_… is a constant in capitals, not an interface prefix.
 const CONNECT_TIMEOUT_SECONDS = 30;

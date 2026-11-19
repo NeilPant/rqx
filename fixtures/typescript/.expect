@@ -296,3 +296,4 @@ suite.test.ts rule=unchecked-stub | const client = jest.fn();
 suite.test.ts rule=unused-local | const client = jest.fn();
 suite.test.ts rule=self-asserting-test | expect(sums).toEqual([...sums]);
 lookalikes.ts none=empty-catch | } catch {
+lookalikes.ts none=unreachable-code | var total: number;

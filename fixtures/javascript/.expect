@@ -285,3 +285,4 @@ suite.test.js rule=unused-fixture | spare = 1;
 suite.test.js rule=unchecked-stub | const client = jest.fn();
 suite.test.js rule=unused-local | const client = jest.fn();
 suite.test.js rule=self-asserting-test | expect(total).toBe(total);
+lookalikes.js none=unreachable-code | var total;

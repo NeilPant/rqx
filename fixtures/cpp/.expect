@@ -451,3 +451,5 @@ src/suite_test.cpp rule=unchecked-stub | auto client = NiceMock();
 src/suite_test.cpp rule=unused-local | auto client = NiceMock();
 src/suite_test.cpp rule=mutable-module-state | int spare = 0;
 src/suite_test.cpp rule=unused-fixture | spare = 1;
+src/lookalikes.cpp none=unreachable-code | cleanup:
+src/lookalikes.cpp none=unreachable-code | NOT_REACHED();

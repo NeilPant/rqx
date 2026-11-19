@@ -287,3 +287,5 @@ test_suite.py rule=unused-local | client = Mock()
 test_suite.py rule=self-asserting-test | assert totals == [*totals]
 vocabulary.py rule=mixed-conventions | def getOrder(identifier: str) -> str:
 vocabulary.py rule=unused-parameter | def save_order(identifier: str) -> None:
+lookalikes.py none=unreachable-code | yield
+test_lookalikes.py none=unused-parameter | def test_ranking_runs_in_a_clean_directory(tmp_path):

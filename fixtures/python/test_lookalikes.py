@@ -8,3 +8,9 @@ from .lookalikes import ranked
 # alike on every call.
 def test_ranking_is_stable():
     assert ranked([1]) == copy.copy(ranked([1]))
+
+
+# unused-parameter: pytest sets up every fixture a test names, so one the body never
+# reads is still there for its setup.
+def test_ranking_runs_in_a_clean_directory(tmp_path):
+    assert ranked([]) == []

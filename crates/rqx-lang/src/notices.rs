@@ -1,11 +1,12 @@
 //! Comments no fix may remove: every comment in a block that carries licence or
-//! copyright text, and every comment that holds a URL.
+//! copyright text, every comment that holds a URL, every comment a tool reads as a
+//! directive, and a Go file's comments above its `package` clause.
 
 use rqx_core::span::Span;
 use tree_sitter::Node;
 
-use crate::tree::span_of;
-use crate::vocabulary::{carries_url, licence_notice};
+use crate::tree::{kind_of, span_of};
+use crate::vocabulary::{carries_url, licence_notice, tool_directive};
 
 /// The spans of the protected comments among `comments`, in source order. A block is
 /// a run of comments with nothing but whitespace between them, so a licence header
@@ -26,7 +27,7 @@ pub fn protected_comments<'tree>(
         protected.extend(
             block
                 .drain(..)
-                .filter(|span| notice || carries_url(span.text(source))),
+                .filter(|span| notice || is_kept_alone(span.text(source))),
         );
     };
     for span in spans {
@@ -44,16 +45,41 @@ pub fn protected_comments<'tree>(
     protected
 }
 
+/// A comment protected on its own, whatever the comments around it say.
+fn is_kept_alone(text: &str) -> bool {
+    carries_url(text) || tool_directive(text).is_some()
+}
+
 /// The protected comments of a parsed file.
 pub fn protected_in(
     profile: &crate::profile::LanguageProfile,
     source: &str,
     root: Node<'_>,
 ) -> Vec<Span> {
-    let comments = crate::tree::descendants(root)
+    let comments: Vec<Node<'_>> = crate::tree::descendants(root)
         .into_iter()
-        .filter(|node| profile.is_comment(*node));
-    protected_comments(source, comments)
+        .filter(|node| profile.is_comment(*node))
+        .collect();
+    let mut protected = protected_comments(source, comments.iter().copied());
+    // Above `package` sit the build constraints and the package documentation, which
+    // `go build` and `go doc` read.
+    let mut cursor = root.walk();
+    let package = root
+        .named_children(&mut cursor)
+        .find(|node| kind_of(*node) == "package_clause");
+    if profile.language == rqx_core::Language::Go
+        && let Some(package) = package
+    {
+        protected.extend(
+            comments
+                .iter()
+                .filter(|comment| comment.end_byte() <= package.start_byte())
+                .map(|comment| span_of(*comment)),
+        );
+        protected.sort();
+        protected.dedup();
+    }
+    protected
 }
 
 /// Whether removing `span` would remove any part of a protected comment.
@@ -111,6 +137,58 @@ func f() {}
         let kept = protected(rqx_core::Language::Go, source);
         // The five header lines, and not the divider after `package`.
         assert_eq!(kept.len(), 5, "{kept:?}");
+    }
+
+    #[test]
+    fn tool_directives_are_protected_and_a_plain_comment_is_not() {
+        let go = "\
+//go:build linux
+
+// Package p does things.
+package p
+
+//go:generate stringer -type=Kind
+func f() {
+\t// nolint:errcheck
+\t// ----------
+}
+";
+        assert_eq!(
+            protected(rqx_core::Language::Go, go),
+            [
+                "//go:build linux",
+                "// Package p does things.",
+                "//go:generate stringer -type=Kind",
+                "// nolint:errcheck",
+            ]
+        );
+        let python = "#!/usr/bin/env python\n# -*- coding: utf-8 -*-\nimport os  # noqa: F401\nx = []  # type: list\n# a note\n";
+        assert_eq!(
+            protected(rqx_core::Language::Python, python),
+            [
+                "#!/usr/bin/env python",
+                "# -*- coding: utf-8 -*-",
+                "# noqa: F401",
+                "# type: list",
+            ]
+        );
+        let script = "/* eslint-disable no-console */\n// @ts-expect-error\n/// <reference types=\"node\" />\n// prettier-ignore\n// a note\nconst a = 1;\n";
+        assert_eq!(
+            protected(rqx_core::Language::TypeScript, script),
+            [
+                "/* eslint-disable no-console */",
+                "// @ts-expect-error",
+                "/// <reference types=\"node\" />",
+                "// prettier-ignore",
+            ]
+        );
+        let cpp = "int f(int x) {\n  switch (x) {\n  case 1:\n    x++;\n    // fallthrough\n  case 2:\n    return x;  // NOLINT\n  }\n  // clang-format off\n  return 0;\n}\n";
+        assert_eq!(
+            protected(rqx_core::Language::Cpp, cpp),
+            ["// fallthrough", "// NOLINT", "// clang-format off"]
+        );
+        let java = "class A {\n  //noinspection unchecked\n  // @SuppressWarnings(\"x\")\n  // a note\n}\n";
+        assert_eq!(protected(rqx_core::Language::Java, java).len(), 2);
     }
 
     #[test]

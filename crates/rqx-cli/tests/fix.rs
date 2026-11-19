@@ -489,3 +489,290 @@ fn verify_build_keeps_a_fix_that_builds() {
         "package keep\n\nfunc Keep() int {\n\treturn 1\n}\n"
     );
 }
+
+/// `go vet ./...` in `root`, when the toolchain is installed; without it there is
+/// nothing more to check.
+fn assert_vets(root: &Path) {
+    let Ok(output) = Command::new("go")
+        .args(["vet", "./..."])
+        .current_dir(root)
+        .env("GOWORK", "off")
+        .output()
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "go vet failed after the fix:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn scan_json(root: &Path) -> String {
+    rqx(&[
+        "scan",
+        root.to_str().expect("a utf-8 path"),
+        "--format",
+        "json",
+        "--max-findings",
+        "0",
+    ])
+}
+
+/// klauspost/compress and go-runewidth: a label after a `return` that a `goto` jumps
+/// to is live, and so is a `yield` that makes a Python function a generator and a
+/// call spelled as a C++ macro. 0.5.2 deleted all three as unreachable code.
+#[test]
+fn fix_keeps_code_that_is_reached_without_falling_through() {
+    let go_source = "package flow\n\nfunc Clamp(n int) int {\n\tif n > 3 {\n\t\tgoto done\n\t}\n\treturn 0\ndone:\n\tn = 3\n\treturn n\n}\n";
+    let python = "def events(log):\n    log(\"start\")\n    return\n    yield\n";
+    let cpp = "int release(int* handle, int status) {\n    if (status != 0) goto cleanup;\n    return 0;\ncleanup:\n    delete handle;\n    return status;\n}\n\nint squared(int value) {\n    return value * value;\n    NOT_REACHED();\n}\n";
+    let root = project(
+        "reached",
+        &[
+            ("go.mod", "module example.com/flow\n\ngo 1.22\n"),
+            ("flow.go", go_source),
+            ("events.py", python),
+            ("native/release.cpp", cpp),
+            EVERY_CONFIDENCE,
+        ],
+    );
+    assert!(!scan_json(&root).contains("\"unreachable-code\""));
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("flow.go")).unwrap(),
+        go_source
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("events.py")).unwrap(),
+        python
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("native/release.cpp")).unwrap(),
+        cpp
+    );
+    assert_vets(&root);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Dead code is still deleted when nothing jumps into it, and the edit is withheld
+/// when it would leave a Go import or local unused, which Go refuses to compile.
+#[test]
+fn fix_deletes_dead_go_code_only_when_the_package_still_builds() {
+    let source = "package flow\n\nimport \"fmt\"\n\nfunc Once() int {\n\tfmt.Println(\"once\")\n\treturn 1\n\tprintln(\"dead\")\n}\n\nfunc Show() int {\n\tlabel := \"shown\"\n\treturn 1\n\tfmt.Println(label)\n}\n";
+    let imports = "package flow\n\nimport \"strings\"\n\nfunc Upper() string {\n\treturn \"\"\n\treturn strings.ToUpper(\"x\")\n}\n";
+    let root = project(
+        "dead-go",
+        &[
+            ("go.mod", "module example.com/flow\n\ngo 1.22\n"),
+            ("flow.go", source),
+            ("upper.go", imports),
+        ],
+    );
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("flow.go")).unwrap();
+    assert!(!after.contains("println(\"dead\")"), "{after}");
+    assert!(after.contains("fmt.Println(label)"), "{after}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("upper.go")).unwrap(),
+        imports
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A `//go:build ignore` generator beside a package: deleting the constraint put
+/// `package main` into the package and broke the build. The same goes for every
+/// comment another tool reads.
+#[test]
+fn fix_keeps_build_constraints_and_tool_directives() {
+    let generator =
+        "//go:build ignore\n\npackage main\n\n//go:generate echo generated\nfunc main() {}\n";
+    let script = "#!/usr/bin/env node\n/* eslint-disable no-console */\n// eslint-disable-next-line no-new\nnew Date();\n// @ts-expect-error\nconsole.log(missing);\n// prettier-ignore\nconst grid = [1,0,\n  0,1];\nconsole.log(grid);\n";
+    let python = "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\nimport os  # noqa: F401\nimport sys  # type: ignore[import]\n\n\ndef covered():  # pragma: no cover\n    return sys.argv  # pylint: disable=no-member\n";
+    let cpp = "int f(int x) {\n  switch (x) {\n  case 1:\n    x++;\n    // fallthrough\n  case 2:\n    return x;  // NOLINT\n  }\n  // clang-format off\n  return 0;\n}\n";
+    let root = project(
+        "directives",
+        &[
+            ("go.mod", "module example.com/ur\n\ngo 1.22\n"),
+            ("lib.go", "package ur\n\nfunc Lib() int { return 1 }\n"),
+            ("gen.go", generator),
+            ("tool.js", script),
+            ("tool.py", python),
+            ("native/tool.cpp", cpp),
+            EVERY_CONFIDENCE,
+        ],
+    );
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("gen.go")).unwrap(),
+        generator
+    );
+    let kept = [
+        (
+            "tool.js",
+            &[
+                "#!/usr/bin/env node",
+                "/* eslint-disable no-console */",
+                "// eslint-disable-next-line no-new",
+                "// @ts-expect-error",
+                "// prettier-ignore",
+            ][..],
+        ),
+        (
+            "tool.py",
+            &[
+                "#!/usr/bin/env python3",
+                "# -*- coding: utf-8 -*-",
+                "# noqa: F401",
+                "# type: ignore[import]",
+                "# pragma: no cover",
+                "# pylint: disable=no-member",
+            ][..],
+        ),
+        (
+            "native/tool.cpp",
+            &["// fallthrough", "// NOLINT", "// clang-format off"][..],
+        ),
+    ];
+    for (file, directives) in kept {
+        let after = std::fs::read_to_string(root.join(file)).unwrap();
+        for directive in directives {
+            assert!(
+                after.contains(directive),
+                "{directive} was removed:\n{after}"
+            );
+        }
+    }
+    assert_vets(&root);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A suppression is a decision about the line it covers, and rqx cannot tell whether
+/// the suppressed check still reports that line. It stays reported, and `fix --plan`
+/// hands it to a person.
+#[test]
+fn a_suppression_is_left_to_a_person() {
+    let source = "// eslint-disable-next-line no-console\nconsole.log(1);\n";
+    let root = project("suppression", &[("log.js", source), EVERY_CONFIDENCE]);
+    fix(&root, &["--write"]);
+    assert_eq!(
+        std::fs::read_to_string(root.join("log.js")).unwrap(),
+        source
+    );
+    assert!(scan_json(&root).contains("\"suppressed-diagnostic\""));
+
+    let plan = fix(&root, &["--plan"]);
+    assert!(plan.contains("\"suppressed-diagnostic\""), "{plan}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A private method called through `this` loses the argument at every call when it
+/// loses the parameter. 0.5.2 rewrote the declaration alone, and `tsc` and `javac`
+/// then refused the calls.
+#[test]
+fn a_private_method_loses_the_argument_wherever_it_is_called() {
+    let typescript = "class K {\n  private go(a: number, b: number) {\n    return a;\n  }\n  public use() {\n    return this.go(1, 2);\n  }\n}\nexport const k = new K();\n";
+    let java = "public class Svc {\n    private int handle(int a, int unusedFlag) {\n        return a;\n    }\n\n    public int run() {\n        return this.handle(1, 2) + handle(3, 4);\n    }\n}\n";
+    let root = project("member-calls", &[("a.ts", typescript), ("Svc.java", java)]);
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("a.ts")).unwrap();
+    assert!(after.contains("private go(a: number)"), "{after}");
+    assert!(after.contains("this.go(1)"), "{after}");
+    let after = std::fs::read_to_string(root.join("Svc.java")).unwrap();
+    assert!(after.contains("private int handle(int a)"), "{after}");
+    assert!(after.contains("this.handle(1) + handle(3)"), "{after}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A call through a receiver the fixer cannot resolve, or a method anyone may call,
+/// keeps the signature as it is.
+#[test]
+fn a_method_called_through_another_receiver_keeps_its_signature() {
+    let typescript = "class K {\n  private go(a: number, b: number) {\n    return a;\n  }\n  public use(other: K) {\n    return other.go(1, 2);\n  }\n}\nexport const k = new K();\n";
+    let java = "public class Svc {\n    public int handle(int a, int unusedFlag) {\n        return a;\n    }\n\n    public int run() {\n        return handle(1, 2);\n    }\n}\n";
+    let root = project(
+        "unresolved-calls",
+        &[("a.ts", typescript), ("Svc.java", java), EVERY_CONFIDENCE],
+    );
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("a.ts")).unwrap(),
+        typescript
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("Svc.java")).unwrap(),
+        java
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The entry point's signature is fixed by the runtime, and an override's by what it
+/// overrides: `java App` refused to start once `main` lost `String[] args`.
+#[test]
+fn entry_points_and_overrides_keep_their_parameters() {
+    let java = "public class App {\n    public static void main(String[] args) {\n        System.out.println(\"hi\");\n    }\n\n    @Override\n    public boolean equals(Object other) {\n        return true;\n    }\n}\n";
+    let cpp = "struct Sink {\n  virtual int weight(int level) const = 0;\n};\n\nstruct Quiet : Sink {\n  int weight(int level) const override { return 0; }\n};\n\nint main(int argc, char** argv) {\n  return 0;\n}\n";
+    let root = project(
+        "entry-points",
+        &[("App.java", java), ("main.cpp", cpp), EVERY_CONFIDENCE],
+    );
+    let reported = scan_json(&root);
+    assert!(!reported.contains("\"unused-parameter\""), "{reported}");
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("App.java")).unwrap(),
+        java
+    );
+    assert_eq!(std::fs::read_to_string(root.join("main.cpp")).unwrap(), cpp);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// googletest's `ThreadWithScopedTrace(CheckPoints* check_points)`: the rule names the
+/// parameter by its type, which the body never mentions, while the body reads the
+/// parameter itself. The fix leaves a parameter the body reads.
+#[test]
+fn a_parameter_the_body_reads_is_kept_whatever_the_rule_named() {
+    let cpp = "struct Row {\n  int n;\n};\n\nstatic int twice(Row* row) {\n  return row->n * 2;\n}\n\nint run(Row* row) {\n  return twice(row);\n}\n";
+    let root = project(
+        "named-by-type",
+        &[("native/row.cpp", cpp), EVERY_CONFIDENCE],
+    );
+    fix(&root, &["--write"]);
+    assert_eq!(
+        std::fs::read_to_string(root.join("native/row.cpp")).unwrap(),
+        cpp
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Every name a Python module does not mark private is its API, `__all__` makes one
+/// explicit, and pytest hands a test the fixtures it names. Only the private helper
+/// is the author's to shorten.
+#[test]
+fn python_public_functions_and_tests_keep_their_parameters() {
+    let library = "__all__ = ['handler']\n\n\ndef handler(event, context):\n    return 'ok'\n\n\ndef other(value, unused):\n    return _helper(value, 2) + handler(1, 2)\n\n\ndef _helper(value, scale):\n    return value\n";
+    let test = "def test_runs(monkeypatch, tmp_path):\n    assert True\n";
+    let root = project(
+        "python-api",
+        &[("lib.py", library), ("test_lib.py", test), EVERY_CONFIDENCE],
+    );
+    fix(&root, &["--write"]);
+
+    let after = std::fs::read_to_string(root.join("lib.py")).unwrap();
+    assert!(after.contains("def handler(event, context):"), "{after}");
+    assert!(after.contains("def other(value, unused):"), "{after}");
+    assert!(after.contains("handler(1, 2)"), "{after}");
+    assert!(after.contains("def _helper(value):"), "{after}");
+    assert!(after.contains("_helper(value)"), "{after}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("test_lib.py")).unwrap(),
+        test
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

@@ -366,7 +366,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
             ("unittest.skipIf", "skipped"),
         ],
         case_prefixes: &["test_"],
-        case_signature_is_fixed: false,
+        case_signature_is_fixed: true,
         control_calls: &[],
         // The `wait_until_*` pair belongs to `ThreadingMock`, which raises when the
         // call never comes.
