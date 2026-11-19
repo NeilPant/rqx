@@ -65,7 +65,7 @@
     "fingerprint": "5cd0c5442b9a8d34",
     "location": {
       "lines": {
-        "begin": 193
+        "begin": 206
       },
       "path": "typescript/flow.ts"
     },
@@ -77,7 +77,7 @@
     "fingerprint": "736ab31eab4b28ae",
     "location": {
       "lines": {
-        "begin": 177
+        "begin": 190
       },
       "path": "typescript/flow.ts"
     },
@@ -113,7 +113,7 @@
     "fingerprint": "a9b3b3c442b5b041",
     "location": {
       "lines": {
-        "begin": 58
+        "begin": 71
       },
       "path": "typescript/flow.ts"
     },
@@ -353,7 +353,7 @@
     "fingerprint": "0db4ed3773f311d3",
     "location": {
       "lines": {
-        "begin": 128
+        "begin": 141
       },
       "path": "typescript/flow.ts"
     },
@@ -365,7 +365,7 @@
     "fingerprint": "d682df4353955d85",
     "location": {
       "lines": {
-        "begin": 132
+        "begin": 145
       },
       "path": "typescript/flow.ts"
     },
@@ -373,11 +373,11 @@
   },
   {
     "check_name": "discarded-error",
-    "description": "`countRows` returns a result that is assigned to an ignored name and never read. — the code receives the result and ignores it, and nothing records what happens when the call fails",
-    "fingerprint": "a89dda66bea0e7b4",
+    "description": "`storeRows` returns a result that is assigned to an ignored name and never read. — the code receives the result and ignores it, and nothing records what happens when the call fails",
+    "fingerprint": "1c2dce361bc39622",
     "location": {
       "lines": {
-        "begin": 48
+        "begin": 57
       },
       "path": "typescript/hierarchy.ts"
     },
@@ -425,7 +425,19 @@
     "fingerprint": "db34701aa4ba9684",
     "location": {
       "lines": {
-        "begin": 57
+        "begin": 59
+      },
+      "path": "typescript/flow.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "dead-store",
+    "description": "The value assigned to `found` is overwritten before anything reads it. — the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary",
+    "fingerprint": "db34701aa4ba96840001",
+    "location": {
+      "lines": {
+        "begin": 70
       },
       "path": "typescript/flow.ts"
     },
@@ -473,7 +485,7 @@
     "fingerprint": "d75bbe7a709114cf",
     "location": {
       "lines": {
-        "begin": 162
+        "begin": 175
       },
       "path": "typescript/flow.ts"
     },
@@ -485,7 +497,7 @@
     "fingerprint": "adb5560990c66e09",
     "location": {
       "lines": {
-        "begin": 141
+        "begin": 154
       },
       "path": "typescript/flow.ts"
     },
@@ -497,7 +509,7 @@
     "fingerprint": "630b11f0cef95f36",
     "location": {
       "lines": {
-        "begin": 137
+        "begin": 150
       },
       "path": "typescript/flow.ts"
     },
@@ -512,6 +524,18 @@
         "begin": 28
       },
       "path": "typescript/flow.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "identical-branches",
+    "description": "The arms at lines 19 and 21 do the same thing. — the decision changes nothing, so either it is not a decision or one branch was meant to differ",
+    "fingerprint": "4da44633989762b9",
+    "location": {
+      "lines": {
+        "begin": 19
+      },
+      "path": "typescript/patterns.ts"
     },
     "severity": "minor"
   },
@@ -581,7 +605,7 @@
     "fingerprint": "4e50f68e0077e0de0002",
     "location": {
       "lines": {
-        "begin": 175
+        "begin": 188
       },
       "path": "typescript/flow.ts"
     },
@@ -593,7 +617,19 @@
     "fingerprint": "4e50f68e0077e0de0003",
     "location": {
       "lines": {
-        "begin": 177
+        "begin": 190
+      },
+      "path": "typescript/flow.ts"
+    },
+    "severity": "minor"
+  },
+  {
+    "check_name": "redundant-else",
+    "description": "The branch above always returns, so this `else` is not a decision. — the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires",
+    "fingerprint": "4e50f68e0077e0de0004",
+    "location": {
+      "lines": {
+        "begin": 225
       },
       "path": "typescript/flow.ts"
     },
@@ -917,7 +953,7 @@
     "fingerprint": "dd9fa2ee91ffc4f3",
     "location": {
       "lines": {
-        "begin": 173
+        "begin": 186
       },
       "path": "typescript/flow.ts"
     },
@@ -1085,7 +1121,7 @@
     "fingerprint": "a4b29acb24027269",
     "location": {
       "lines": {
-        "begin": 186
+        "begin": 199
       },
       "path": "typescript/flow.ts"
     },
@@ -1409,7 +1445,7 @@
     "fingerprint": "bd9265eea1cb6e70",
     "location": {
       "lines": {
-        "begin": 149
+        "begin": 162
       },
       "path": "typescript/flow.ts"
     },
@@ -1433,7 +1469,7 @@
     "fingerprint": "fe1954aa8b5402cf",
     "location": {
       "lines": {
-        "begin": 186
+        "begin": 199
       },
       "path": "typescript/flow.ts"
     },
@@ -1445,7 +1481,7 @@
     "fingerprint": "3d6bdbb4b3b07876",
     "location": {
       "lines": {
-        "begin": 101
+        "begin": 114
       },
       "path": "typescript/flow.ts"
     },
@@ -1457,7 +1493,7 @@
     "fingerprint": "6f9601e15d90f8ef",
     "location": {
       "lines": {
-        "begin": 65
+        "begin": 78
       },
       "path": "typescript/flow.ts"
     },
@@ -1481,7 +1517,7 @@
     "fingerprint": "8cca9a9b6378a07a",
     "location": {
       "lines": {
-        "begin": 64
+        "begin": 77
       },
       "path": "typescript/flow.ts"
     },
@@ -1801,11 +1837,11 @@
   },
   {
     "check_name": "type-code-switch",
-    "description": "Branches on `kind` in 5 places, 14 cases at the widest. — the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one",
-    "fingerprint": "0b90499afc41c5e4",
+    "description": "Branches on `kind` in 6 places, 14 cases at the widest. — the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one",
+    "fingerprint": "0c2556a18a5d9db9",
     "location": {
       "lines": {
-        "begin": 65
+        "begin": 78
       },
       "path": "typescript/flow.ts"
     },
@@ -2297,7 +2333,7 @@
     "fingerprint": "387911f591c89445",
     "location": {
       "lines": {
-        "begin": 113
+        "begin": 126
       },
       "path": "typescript/flow.ts"
     },
@@ -2309,7 +2345,7 @@
     "fingerprint": "28ef8da0c5202469",
     "location": {
       "lines": {
-        "begin": 145
+        "begin": 158
       },
       "path": "typescript/flow.ts"
     },
@@ -2321,7 +2357,7 @@
     "fingerprint": "c782d1d0be831eb8",
     "location": {
       "lines": {
-        "begin": 202
+        "begin": 233
       },
       "path": "typescript/flow.ts"
     },
@@ -2333,7 +2369,7 @@
     "fingerprint": "a3b10cf7bec5f012",
     "location": {
       "lines": {
-        "begin": 168
+        "begin": 181
       },
       "path": "typescript/flow.ts"
     },
@@ -2381,7 +2417,7 @@
     "fingerprint": "e9499dcdedb1da92",
     "location": {
       "lines": {
-        "begin": 202
+        "begin": 233
       },
       "path": "typescript/flow.ts"
     },
@@ -2765,7 +2801,7 @@
     "fingerprint": "613b859aaa4d5dc2",
     "location": {
       "lines": {
-        "begin": 102
+        "begin": 115
       },
       "path": "typescript/flow.ts"
     },
@@ -2777,7 +2813,19 @@
     "fingerprint": "613b859aaa4d5dc20001",
     "location": {
       "lines": {
-        "begin": 194
+        "begin": 207
+      },
+      "path": "typescript/flow.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "ambient-dependency",
+    "description": "`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value. — the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine",
+    "fingerprint": "613b859aaa4d5dc20002",
+    "location": {
+      "lines": {
+        "begin": 220
       },
       "path": "typescript/flow.ts"
     },
@@ -2981,7 +3029,7 @@
     "fingerprint": "d7f112f6320a9758",
     "location": {
       "lines": {
-        "begin": 127
+        "begin": 140
       },
       "path": "typescript/flow.ts"
     },
@@ -2993,7 +3041,7 @@
     "fingerprint": "560b30a3880ba335",
     "location": {
       "lines": {
-        "begin": 140
+        "begin": 153
       },
       "path": "typescript/flow.ts"
     },
@@ -3005,7 +3053,7 @@
     "fingerprint": "6cbca3036b161ad9",
     "location": {
       "lines": {
-        "begin": 144
+        "begin": 157
       },
       "path": "typescript/flow.ts"
     },

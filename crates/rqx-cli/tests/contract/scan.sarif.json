@@ -150,9 +150,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 194,
+                  "endLine": 207,
                   "startColumn": 5,
-                  "startLine": 193
+                  "startLine": 206
                 }
               }
             }
@@ -175,9 +175,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 177,
+                  "endLine": 190,
                   "startColumn": 13,
-                  "startLine": 177
+                  "startLine": 190
                 }
               }
             }
@@ -250,9 +250,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 58,
-                  "startColumn": 8,
-                  "startLine": 58
+                  "endLine": 71,
+                  "startColumn": 7,
+                  "startLine": 71
                 }
               }
             }
@@ -757,9 +757,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 128,
+                  "endLine": 141,
                   "startColumn": 10,
-                  "startLine": 128
+                  "startLine": 141
                 }
               }
             }
@@ -782,9 +782,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 132,
+                  "endLine": 145,
                   "startColumn": 3,
-                  "startLine": 132
+                  "startLine": 145
                 }
               }
             }
@@ -808,21 +808,21 @@
                 },
                 "properties": {
                   "focus": {
-                    "endLine": 48,
+                    "endLine": 57,
                     "startColumn": 9,
-                    "startLine": 48
+                    "startLine": 57
                   }
                 },
                 "region": {
-                  "endLine": 48,
+                  "endLine": 57,
                   "startColumn": 9,
-                  "startLine": 48
+                  "startLine": 57
                 }
               }
             }
           ],
           "message": {
-            "text": "`countRows` returns a result that is assigned to an ignored name and never read. the code receives the result and ignores it, and nothing records what happens when the call fails Fix: handle the result, or state in the code why nothing needs to be done"
+            "text": "`storeRows` returns a result that is assigned to an ignored name and never read. the code receives the result and ignores it, and nothing records what happens when the call fails Fix: handle the result, or state in the code why nothing needs to be done"
           },
           "properties": {
             "confidence": "verified"
@@ -914,9 +914,34 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 57,
+                  "endLine": 59,
                   "startColumn": 7,
-                  "startLine": 57
+                  "startLine": 59
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The value assigned to `found` is overwritten before anything reads it. the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary Fix: delete the unread assignment, or read it"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "dead-store"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/flow.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 70,
+                  "startColumn": 7,
+                  "startLine": 70
                 }
               }
             }
@@ -1014,9 +1039,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 162,
+                  "endLine": 175,
                   "startColumn": 5,
-                  "startLine": 162
+                  "startLine": 175
                 }
               }
             }
@@ -1039,9 +1064,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 141,
+                  "endLine": 154,
                   "startColumn": 10,
-                  "startLine": 141
+                  "startLine": 154
                 }
               }
             }
@@ -1064,9 +1089,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 137,
+                  "endLine": 150,
                   "startColumn": 32,
-                  "startLine": 137
+                  "startLine": 150
                 }
               }
             }
@@ -1103,6 +1128,31 @@
             "confidence": "verified"
           },
           "ruleId": "empty-block"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/patterns.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 23,
+                  "startColumn": 5,
+                  "startLine": 19
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The arms at lines 19 and 21 do the same thing. the decision changes nothing, so either it is not a decision or one branch was meant to differ Fix: join the two conditions as `this.state === \"open\" || this.state === \"locked\"` and keep one arm"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "identical-branches"
         },
         {
           "level": "warning",
@@ -1254,15 +1304,15 @@
                 },
                 "properties": {
                   "focus": {
-                    "endLine": 175,
+                    "endLine": 188,
                     "startColumn": 5,
-                    "startLine": 175
+                    "startLine": 188
                   }
                 },
                 "region": {
-                  "endLine": 179,
+                  "endLine": 192,
                   "startColumn": 5,
-                  "startLine": 175
+                  "startLine": 188
                 }
               }
             }
@@ -1286,15 +1336,47 @@
                 },
                 "properties": {
                   "focus": {
-                    "endLine": 177,
+                    "endLine": 190,
                     "startColumn": 5,
-                    "startLine": 177
+                    "startLine": 190
                   }
                 },
                 "region": {
-                  "endLine": 179,
+                  "endLine": 192,
                   "startColumn": 5,
-                  "startLine": 177
+                  "startLine": 190
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "The branch above always returns, so this `else` is not a decision. the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires Fix: drop the `else` and outdent its body; the branch above already returned"
+          },
+          "properties": {
+            "confidence": "verified"
+          },
+          "ruleId": "redundant-else"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/flow.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "properties": {
+                  "focus": {
+                    "endLine": 225,
+                    "startColumn": 9,
+                    "startLine": 225
+                  }
+                },
+                "region": {
+                  "endLine": 227,
+                  "startColumn": 9,
+                  "startLine": 225
                 }
               }
             }
@@ -2051,9 +2133,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 180,
+                  "endLine": 193,
                   "startColumn": 3,
-                  "startLine": 173
+                  "startLine": 186
                 }
               }
             }
@@ -2446,9 +2528,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 186,
+                  "endLine": 199,
                   "startColumn": 5,
-                  "startLine": 186
+                  "startLine": 199
                 }
               }
             }
@@ -3121,9 +3203,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 156,
+                  "endLine": 169,
                   "startColumn": 3,
-                  "startLine": 149
+                  "startLine": 162
                 }
               }
             }
@@ -3171,9 +3253,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 186,
+                  "endLine": 199,
                   "startColumn": 5,
-                  "startLine": 186
+                  "startLine": 199
                 }
               }
             }
@@ -3196,9 +3278,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 103,
+                  "endLine": 116,
                   "startColumn": 20,
-                  "startLine": 101
+                  "startLine": 114
                 }
               }
             }
@@ -3221,9 +3303,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 94,
+                  "endLine": 107,
                   "startColumn": 3,
-                  "startLine": 65
+                  "startLine": 78
                 }
               }
             }
@@ -3271,9 +3353,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 64,
+                  "endLine": 77,
                   "startColumn": 17,
-                  "startLine": 64
+                  "startLine": 77
                 }
               }
             }
@@ -3946,15 +4028,15 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 94,
+                  "endLine": 107,
                   "startColumn": 3,
-                  "startLine": 65
+                  "startLine": 78
                 }
               }
             }
           ],
           "message": {
-            "text": "Branches on `kind` in 5 places, 14 cases at the widest. the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one Fix: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 5 edits"
+            "text": "Branches on `kind` in 6 places, 14 cases at the widest. the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one Fix: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 6 edits"
           },
           "properties": {
             "confidence": "heuristic"
@@ -4971,9 +5053,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 113,
+                  "endLine": 126,
                   "startColumn": 5,
-                  "startLine": 113
+                  "startLine": 126
                 }
               }
             }
@@ -4996,9 +5078,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 145,
+                  "endLine": 158,
                   "startColumn": 10,
-                  "startLine": 145
+                  "startLine": 158
                 }
               }
             }
@@ -5021,9 +5103,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 206,
+                  "endLine": 237,
                   "startColumn": 8,
-                  "startLine": 202
+                  "startLine": 233
                 }
               }
             }
@@ -5046,9 +5128,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 168,
+                  "endLine": 181,
                   "startColumn": 3,
-                  "startLine": 168
+                  "startLine": 181
                 }
               }
             }
@@ -5146,9 +5228,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 202,
+                  "endLine": 233,
                   "startColumn": 23,
-                  "startLine": 202
+                  "startLine": 233
                 }
               }
             }
@@ -6058,9 +6140,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 102,
+                  "endLine": 115,
                   "startColumn": 11,
-                  "startLine": 102
+                  "startLine": 115
                 }
               }
             }
@@ -6083,9 +6165,34 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 194,
+                  "endLine": 207,
                   "startColumn": 7,
-                  "startLine": 194
+                  "startLine": 207
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value. the result depends on something no caller can set, so the only way to test the branch that reads it is to change the machine Fix: take it as an argument, so a test can hand it whatever it needs"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "ambient-dependency"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/flow.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 220,
+                  "startColumn": 7,
+                  "startLine": 220
                 }
               }
             }
@@ -6522,9 +6629,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 127,
+                  "endLine": 140,
                   "startColumn": 17,
-                  "startLine": 127
+                  "startLine": 140
                 }
               }
             }
@@ -6547,9 +6654,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 140,
+                  "endLine": 153,
                   "startColumn": 17,
-                  "startLine": 140
+                  "startLine": 153
                 }
               }
             }
@@ -6572,9 +6679,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 144,
+                  "endLine": 157,
                   "startColumn": 17,
-                  "startLine": 144
+                  "startLine": 157
                 }
               }
             }
@@ -7995,7 +8102,7 @@
                 "text": "it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review"
               },
               "help": {
-                "text": "it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review\n\nFix: Extract Variable\nMetric: an assignment written where a condition is expected"
+                "text": "it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review\n\nFix: Extract Variable\nMetric: an assignment written as the whole condition of an `if`"
               },
               "id": "assignment-in-condition",
               "name": "assignment-in-condition",
@@ -8008,7 +8115,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "an assignment written where a condition is expected"
+                "text": "an assignment written as the whole condition of an `if`"
               }
             },
             {
@@ -9075,7 +9182,7 @@
                 "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two"
               },
               "help": {
-                "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two\n\nFix: Handle the Failure\nMetric: catch clause with an empty body"
+                "text": "the failure is swallowed silently, so it first appears as wrong data elsewhere, with nothing in the logs to connect the two\n\nFix: Handle the Failure\nMetric: catch clause with an empty body, a warning when it names a type narrower than the root of the error hierarchy"
               },
               "id": "empty-catch",
               "name": "empty-catch",
@@ -9088,7 +9195,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "catch clause with an empty body"
+                "text": "catch clause with an empty body, a warning when it names a type narrower than the root of the error hierarchy"
               }
             },
             {
@@ -9195,7 +9302,7 @@
                 "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened"
               },
               "help": {
-                "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened\n\nFix: Handle the Failure\nMetric: a return, break, continue or raise inside the clause that runs on the way out"
+                "text": "it replaces whatever the block was leaving with, so a failure raised in the body disappears and nothing records that it happened\n\nFix: Handle the Failure\nMetric: a return, or a break or continue leaving the clause that runs on the way out, or a throw from it outside Python"
               },
               "id": "exit-from-finally",
               "name": "exit-from-finally",
@@ -9208,7 +9315,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "a return, break, continue or raise inside the clause that runs on the way out"
+                "text": "a return, or a break or continue leaving the clause that runs on the way out, or a throw from it outside Python"
               }
             },
             {
@@ -9435,7 +9542,7 @@
                 "text": "the decision changes nothing, so either it is not a decision or one branch was meant to differ"
               },
               "help": {
-                "text": "the decision changes nothing, so either it is not a decision or one branch was meant to differ\n\nFix: Consolidate Conditional\nMetric: two arms of a branch whose bodies are written identically"
+                "text": "the decision changes nothing, so either it is not a decision or one branch was meant to differ\n\nFix: Consolidate Conditional\nMetric: two neighbouring arms of a branch whose bodies are written identically, a warning unless one is the final `else`"
               },
               "id": "identical-branches",
               "name": "identical-branches",
@@ -9448,7 +9555,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "two arms of a branch whose bodies are written identically"
+                "text": "two neighbouring arms of a branch whose bodies are written identically, a warning unless one is the final `else`"
               }
             },
             {
@@ -10851,7 +10958,7 @@
                 "text": "the result is decided before the comparison runs, so either it does nothing or one side was meant to be a different expression"
               },
               "help": {
-                "text": "the result is decided before the comparison runs, so either it does nothing or one side was meant to be a different expression\n\nFix: Consolidate Conditional\nMetric: an equality comparison whose operands are written identically"
+                "text": "the result is decided before the comparison runs, so either it does nothing or one side was meant to be a different expression\n\nFix: Consolidate Conditional\nMetric: an equality test whose operands are written identically and call nothing"
               },
               "id": "self-comparison",
               "name": "self-comparison",
@@ -10864,7 +10971,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "an equality comparison whose operands are written identically"
+                "text": "an equality test whose operands are written identically and call nothing"
               }
             },
             {
