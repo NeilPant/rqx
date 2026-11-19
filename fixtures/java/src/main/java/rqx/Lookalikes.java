@@ -112,7 +112,11 @@ public class Lookalikes {
     public int width(String value) {
         return value.length();
     }
+}
 
+// More code that resembles a finding, in a class of its own so that Lookalikes keeps
+// few enough collaborators to stay silent itself.
+class MoreLookalikes {
     // exit-from-finally: the break and continue stay in a loop inside the clause.
     public int drained(java.util.Deque<Integer> pending) {
         try {

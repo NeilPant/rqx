@@ -138,6 +138,6 @@ public class Main {
         new Lookalikes().label("en");
         new Lookalikes().isMissing(0.0);
         new Lookalikes().width(1L);
-        new Lookalikes().drained(new java.util.ArrayDeque<>());
+        new MoreLookalikes().drained(new java.util.ArrayDeque<>());
     }
 }
