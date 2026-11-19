@@ -343,6 +343,15 @@ them. `tools/release.sh` turns that section into the release notes.
   Go, and `abstract-nothing` in Python. Every finding is now checked against its
   rule's entry before it is kept.
 
+- **A bundle with multi-line strings is skipped as minified.** A file used to be
+  skipped only when at least half its lines were over 300 characters, so a Vite chunk
+  whose embedded stylesheet or template text adds many short lines was scanned. Three
+  such files in `playwright-core` produced 11,696 of the project's 11,772 findings. A
+  file whose longest line passes 4,000 characters and whose long lines hold at least
+  80% of its characters is now skipped however many short lines it has, as long as the
+  longest line is code and not one long string, so an icon component with a long SVG
+  path is still scanned.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

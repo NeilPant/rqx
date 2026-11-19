@@ -273,9 +273,9 @@ fn comment_lines(head: &str) -> impl Iterator<Item = &str> {
     })
 }
 
-/// A line longer than this is wide. A file is judged minified only when at least half
-/// of its lines are wide: a hand-written file that embeds a long SVG path or data URL
-/// has one or two wide lines among many ordinary ones.
+/// A line longer than this is wide. A file is judged by the average of its lines only
+/// when at least half of them are wide: a hand-written file that embeds a long SVG
+/// path or data URL has one or two wide lines among many ordinary ones.
 const WIDE_LINE: usize = 300;
 /// A line at least this long counts towards the share of a file held in long lines.
 const LONG_LINE: usize = 1_000;
@@ -295,21 +295,30 @@ const SHORT_FILE_AVERAGE: usize = 1_000;
 /// Why `source` reads as minified, or `None` when it reads as written by hand. Blank
 /// lines are not counted, so spacing cannot move a file either way.
 pub fn minified(source: &str) -> Option<String> {
-    let lengths: Vec<usize> = source
+    let texts: Vec<&str> = source
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .map(|line| line.chars().count())
         .collect();
+    let lengths: Vec<usize> = texts.iter().map(|line| line.chars().count()).collect();
     let lines = lengths.len();
-    let wide = lengths.iter().filter(|length| **length > WIDE_LINE).count();
-    if lines == 0 || wide * 2 < lines {
+    if lines == 0 {
         return None;
     }
+    let wide = lengths.iter().filter(|length| **length > WIDE_LINE).count();
+    let mostly_wide = wide * 2 >= lines;
     let characters: usize = lengths.iter().sum();
     let longest = lengths.iter().copied().max().unwrap_or_default();
     let long: usize = lengths.iter().filter(|length| **length >= LONG_LINE).sum();
-    if longest > LONGEST_LINE && long * 100 >= characters * LONG_SHARE {
+    // The share of characters decides before the share of lines: a bundle that embeds
+    // a stylesheet or template text as multi-line strings has many short lines and
+    // still holds nearly all of itself in a few long ones. The long lines must also be
+    // code: an icon's single path is one long string among ordinary lines.
+    let held_in_long_lines = longest > LONGEST_LINE && long * 100 >= characters * LONG_SHARE;
+    if held_in_long_lines && (mostly_wide || longest_code_line(&texts) > LONGEST_LINE) {
         return Some(format!("a line of {longest} characters"));
+    }
+    if !mostly_wide {
+        return None;
     }
     let average = characters / lines;
     let wide_on_average = if lines >= AVERAGE_OVER {
@@ -318,6 +327,43 @@ pub fn minified(source: &str) -> Option<String> {
         average > SHORT_FILE_AVERAGE
     };
     wide_on_average.then(|| format!("its {lines} lines average {average} characters"))
+}
+
+/// The most characters a line over `LONGEST_LINE` holds outside its longest quoted
+/// run, which is how a line of code is told from one long literal.
+fn longest_code_line(texts: &[&str]) -> usize {
+    texts
+        .iter()
+        .map(|line| (line, line.chars().count()))
+        .filter(|(_, length)| *length > LONGEST_LINE)
+        .map(|(line, length)| length - longest_quoted(line))
+        .max()
+        .unwrap_or_default()
+}
+
+/// The length in characters of the longest run between a pair of matching quotes on
+/// one line, quotes and escapes included. Approximate by design: it only has to see
+/// that a line is mostly one literal.
+fn longest_quoted(line: &str) -> usize {
+    let mut longest = 0;
+    let mut chars = line.chars();
+    while let Some(quote) = chars.next() {
+        if !matches!(quote, '"' | '\'' | '`') {
+            continue;
+        }
+        let mut length = 1;
+        while let Some(inner) = chars.next() {
+            length += 1;
+            if inner == quote {
+                break;
+            }
+            if inner == '\\' && chars.next().is_some() {
+                length += 1;
+            }
+        }
+        longest = longest.max(length);
+    }
+    longest
 }
 
 #[cfg(test)]
@@ -493,6 +539,33 @@ mod tests {
              {path}\n{path}\n  </Svg>\n);\n\nexport default Icon;\n"
         );
         assert_eq!(minified(&source), None);
+    }
+
+    /// The shape of a Vite chunk: a few lines of code over a hundred thousand
+    /// characters, around many short lines of stylesheet text carried in a template
+    /// string. Fewer than half its lines are wide, and nearly all of it is in the long
+    /// ones.
+    #[test]
+    fn a_bundle_whose_strings_add_many_short_lines_is_minified() {
+        let mut source = format!("const a=()=>{{{}}};\n", "b(c,d);".repeat(20_000));
+        source.push_str("const css=`\n");
+        source.push_str(&".rule { color: red; }\n".repeat(150));
+        source.push_str("`;\n");
+        source.push_str(&format!("const e=()=>{{{}}};\n", "f(g);".repeat(5_000)));
+        let lines = source.lines().count();
+        let wide = source.lines().filter(|line| line.len() > WIDE_LINE).count();
+        assert!(wide * 2 < lines, "{wide} of {lines}");
+        assert_eq!(
+            minified(&source).as_deref(),
+            Some("a line of 140015 characters")
+        );
+    }
+
+    #[test]
+    fn a_quoted_run_is_measured_between_its_own_quotes() {
+        assert_eq!(longest_quoted(r#"f("ab", 'c\'d')"#), 6);
+        assert_eq!(longest_quoted("no quotes"), 0);
+        assert_eq!(longest_quoted("`open"), 5);
     }
 
     fn entry(path: &str, reason: SkipReason) -> Skipped {
