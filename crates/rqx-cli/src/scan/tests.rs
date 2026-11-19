@@ -519,6 +519,27 @@ fn a_stage_finding_obeys_the_override_of_its_own_file() {
     );
 }
 
+/// A project stage answers for a file of one language, and a rule whose catalogue
+/// entry excludes that language is not kept, whichever stage built the finding.
+#[test]
+fn a_stage_finding_in_a_language_its_rule_excludes_is_not_kept() {
+    for rule in RuleId::ALL {
+        for language in rqx_core::Language::ALL {
+            let file = format!("a.{}", language.extensions()[0]);
+            let mut finding = ranked(&file, 1).0;
+            finding.rule = *rule;
+            let mut staged = Staged::default();
+            staged.propose(finding);
+            assert_eq!(
+                staged.findings.len(),
+                usize::from(rule.applies_to(language)),
+                "{} in {file}",
+                rule.slug()
+            );
+        }
+    }
+}
+
 #[test]
 fn a_stage_finding_of_a_rule_that_is_off_is_not_kept() {
     let mut config = rqx_core::config::RqxConfig::default();

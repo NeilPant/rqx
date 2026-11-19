@@ -69,6 +69,14 @@ impl FindingBuilder<'_> {
     }
 }
 
+/// Whether a finding may be reported in a file of `language`. A rule's catalogue entry
+/// can say it has nothing to measure in a language, and `rqx rules` and `rqx explain`
+/// repeat that, so a file's own analysis and the project stages both ask this before
+/// keeping a finding. A file of no known language is not filtered.
+pub fn applies_in(finding: &Finding, language: Option<crate::Language>) -> bool {
+    language.is_none_or(|language| finding.rule.applies_to(language))
+}
+
 /// The one sentence each flow rule says about what it found. Written here rather than
 /// in the collector so the facts stay a shape and the prose stays a report.
 fn describe(rule: RuleId, detail: &str) -> String {
@@ -2547,7 +2555,52 @@ pub fn check_patterns(
 
 #[cfg(test)]
 mod tests {
-    use super::{climb, is_entry_point};
+    use super::{applies_in, climb, is_entry_point};
+    use crate::finding::{Confidence, Evidence, Finding, Severity, SourceRange};
+    use crate::{Language, RuleId};
+
+    fn finding_of(rule: RuleId) -> Finding {
+        Finding {
+            rule,
+            location: SourceRange {
+                file: std::sync::Arc::from("a"),
+                start: 0,
+                end: 1,
+                line: 1,
+                column: 1,
+                end_line: 1,
+            },
+            severity: Severity::Warning,
+            confidence: Confidence::Verified,
+            evidence: Evidence::StatementCount {
+                count: 1,
+                threshold: 1,
+            },
+            fix_hint: String::new(),
+            related: Vec::new(),
+            known: false,
+            focus: None,
+        }
+    }
+
+    /// Every exemption the catalogue states is one the report keeps: no rule passes in
+    /// a language its entry excludes, and none is held back anywhere else.
+    #[test]
+    fn a_finding_passes_only_in_a_language_its_rule_applies_to() {
+        for rule in RuleId::ALL {
+            let finding = finding_of(*rule);
+            for language in Language::ALL {
+                assert_eq!(
+                    applies_in(&finding, Some(language)),
+                    rule.exemption(language).is_none(),
+                    "{} in {}",
+                    rule.slug(),
+                    language.slug()
+                );
+            }
+            assert!(applies_in(&finding, None), "{}", rule.slug());
+        }
+    }
 
     /// Two spellings of the same thing. A path climbs with `..` segments, and Python
     /// climbs with dots where the first one only means "this package".

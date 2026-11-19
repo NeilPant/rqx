@@ -215,7 +215,10 @@ impl Staged {
     /// A stage does not decide whether its finding is reported: a stage sees the whole
     /// project, and the answer belongs to the configuration of one file.
     fn propose(&mut self, finding: Finding) {
-        self.findings.push(finding);
+        let language = Language::of_path(Path::new(&*finding.location.file));
+        if rqx_core::rules::applies_in(&finding, language) {
+            self.findings.push(finding);
+        }
     }
 
     fn suggest(&mut self, advice: rqx_core::Advice) {

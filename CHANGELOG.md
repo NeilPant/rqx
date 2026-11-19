@@ -334,6 +334,14 @@ them. `tools/release.sh` turns that section into the release notes.
   so `var err error` was reported as unused although an earlier `case` assigns and
   reads it, and `fix --write` deleted it and broke `go build`. The finding is still
   reported; only the deletion is withheld.
+### Fixed
+
+- **A rule no longer reports in a language its catalogue entry excludes.** `rqx rules
+  --language go` and `rqx explain mixed-return` said `mixed-return` does not apply to
+  Go, while a scan still reported it there. The same held for `import-time-work` in
+  C++, `discarded-expression` in Java, `many-collaborators` and `production-assert` in
+  Go, and `abstract-nothing` in Python. Every finding is now checked against its
+  rule's entry before it is kept.
 
 ## 0.5.2 — 2026-11-18
 
