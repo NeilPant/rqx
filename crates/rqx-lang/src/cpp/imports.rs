@@ -77,6 +77,8 @@ impl Resolver for CppResolver {
                 entries.insert(path.clone());
             }
         }
+        // A library's installed headers are included by its users, outside the project.
+        entries.extend(crate::library::cpp_public(root, known));
         for entry in configured {
             if let Ok(canonical) = rqx_core::paths::canonicalize(&root.join(entry))
                 && known.contains(&canonical)

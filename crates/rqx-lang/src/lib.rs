@@ -13,6 +13,7 @@ pub mod hygiene;
 pub mod invariants;
 pub mod java;
 pub mod javascript;
+pub mod library;
 pub mod metrics;
 pub mod module_graph;
 pub mod names;

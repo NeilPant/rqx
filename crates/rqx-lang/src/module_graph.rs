@@ -343,10 +343,36 @@ fn resolve_edges(
                     .entry(target.clone())
                     .or_default()
                     .extend(request.names.iter().cloned());
+                // `from test.support import socket_helper` names a module, not a value
+                // of the package, and the importer reads it through attributes.
+                for submodule in submodules_named(target, &request.names, known) {
+                    edges.imported_at_all.insert(submodule.clone());
+                    edges.opaque.insert(submodule);
+                }
             }
         },
     );
     edges
+}
+
+/// The modules of a Python package that an import names from it.
+fn submodules_named(package: &Path, names: &[String], known: &HashSet<PathBuf>) -> Vec<PathBuf> {
+    if package.file_name().is_none_or(|name| name != "__init__.py") {
+        return Vec::new();
+    }
+    let Some(directory) = package.parent() else {
+        return Vec::new();
+    };
+    names
+        .iter()
+        .flat_map(|name| {
+            [
+                directory.join(format!("{name}.py")),
+                directory.join(name).join("__init__.py"),
+            ]
+        })
+        .filter(|candidate| known.contains(candidate))
+        .collect()
 }
 
 /// The project files each import request names, by importing file and the request's
@@ -576,10 +602,28 @@ pub fn analyze_borrowed(
         .map(|module| (&module.path, &module.facts))
         .collect();
 
+    // A Go package is a directory: its files read each other's names without an
+    // import, so a name one of them reads is in use in all of them.
+    let mut read_in_package: HashMap<&Path, HashSet<&str>> = HashMap::new();
+    for module in modules
+        .iter()
+        .filter(|module| module.language == rqx_core::Language::Go)
+    {
+        if let Some(directory) = module.path.parent() {
+            read_in_package
+                .entry(directory)
+                .or_default()
+                .extend(module.facts.used_locally.iter().map(String::as_str));
+        }
+    }
+
     for (path, facts) in &by_path {
         if entries.contains(*path) || facts.exports.is_empty() {
             continue;
         }
+        let read_beside = path
+            .parent()
+            .and_then(|directory| read_in_package.get(directory));
         let used = edges.used_names.get(*path);
         let opaque = edges.opaque.contains(*path);
         let dead: Vec<&ExportedSymbol> = facts
@@ -597,7 +641,10 @@ pub fn analyze_borrowed(
             });
             continue;
         }
-        for export in dead {
+        for export in dead.into_iter().filter(|export| {
+            !facts.used_locally.contains(&export.name)
+                && !read_beside.is_some_and(|names| names.contains(export.name.as_str()))
+        }) {
             report.dead_exports.push(DeadExport {
                 path: (*path).clone(),
                 name: export.name.clone(),
@@ -674,6 +721,24 @@ pub fn analyze_borrowed(
         .sort_by(|a, b| a.path.cmp(&b.path).then(a.span.start.cmp(&b.span.start)));
     report.dead_files.sort_by(|a, b| a.path.cmp(&b.path));
     report
+}
+
+/// The exported names a file writes again after declaring them, comments and strings
+/// included. An export its own file reads is in use even when nothing imports it, so
+/// deleting it is never the fix.
+pub fn read_where_declared(exports: &[ExportedSymbol], source: &str) -> Vec<String> {
+    let mut counts: HashMap<&str, u32> = HashMap::new();
+    for word in source
+        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+        .filter(|word| !word.is_empty())
+    {
+        *counts.entry(word).or_insert(0) += 1;
+    }
+    exports
+        .iter()
+        .filter(|export| counts.get(export.name.as_str()).copied().unwrap_or(0) > 1)
+        .map(|export| export.name.clone())
+        .collect()
 }
 
 #[cfg(test)]

@@ -26,9 +26,8 @@ config.py rule=collapsible-if | if retries > 0:
 config.py rule=buried-configuration | return "https://api.example.com/v2/orders"
 config.py rule=example-value | return "https://api.example.com/v2/orders"
 config.py rule=obscured-expression | return (a + b) * (c - d) + max(a, b) + min(c, d) - (a * d)
-conventions.py rule=unused-export | retry_limit = 3
+conventions.py none=unused-export | retry_limit = 3
 conventions.py rule=mixed-conventions | retryBackoff = 250
-conventions.py rule=unused-export | retryBackoff = 250
 conventions.py rule=mixed-language-file | return f"SELECT id, name FROM users WHERE id = '{user_id}'"
 conventions.py rule=boundary-arithmetic | head = items[cursor + 1]
 conventions.py rule=name-repeats-type | item_list = [1, 2, 3]
@@ -59,8 +58,6 @@ dead_export.py rule=unused-export | def never_imported(value: int) -> int:
 dead_export.py rule=lazy-class | class AlsoNeverImported:
 dead_export.py rule=unused-export | class AlsoNeverImported:
 families.py rule=duplicate-code | @abstractmethod
-families.py rule=unused-export | class Road(Transport):
-families.py rule=unused-export | class Rail(Transport):
 families.py rule=duplicate-code | def button(self) -> Button:
 flow.py rule=boolean-from-branch | if ready:
 flow.py rule=redundant-else | else:
@@ -104,12 +101,9 @@ gateway_c.py rule=passthrough-function | def collect_c(amount):
 hierarchy.py rule=passthrough-override | def feed(self):
 hierarchy.py rule=duplicate-code | total = len(rows)
 hierarchy.py rule=duplicate-function | def second_way(rows):
-hierarchy.py rule=unused-export | class Level1(Feeder):
 hierarchy.py rule=empty-subclass | class Level2(Level1):
-hierarchy.py rule=unused-export | class Level2(Level1):
 hierarchy.py rule=deep-inheritance | class Level3(Level2):
 hierarchy.py rule=empty-subclass | class Level3(Level2):
-hierarchy.py rule=unused-export | class Level3(Level2):
 hierarchy.py rule=deep-inheritance | class Level4(Level3):
 hierarchy.py rule=empty-subclass | class Level4(Level3):
 hierarchy.py rule=orphan-todo | # TODO: work out what happens to the remainder

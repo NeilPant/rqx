@@ -244,5 +244,6 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
             _ => {}
         }
     }
+    facts.used_locally = crate::module_graph::read_where_declared(&facts.exports, source);
     facts
 }

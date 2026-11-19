@@ -285,7 +285,13 @@ impl Resolver for TypeScriptResolver {
         configured: &[String],
         known: &HashSet<PathBuf>,
     ) -> HashSet<PathBuf> {
-        let manifests = package_manifests(root, known);
+        let mut manifests = package_manifests(root, known);
+        // A package's source folder scanned on its own is still that package.
+        if manifests.is_empty()
+            && let Some(manifest) = crate::library::package_manifest(root)
+        {
+            manifests.push(manifest);
+        }
 
         let mut declared: Vec<(PathBuf, String)> = Vec::new();
         for manifest in &manifests {
@@ -327,12 +333,16 @@ impl Resolver for TypeScriptResolver {
                 .replacen("dist/", "src/", 1)
                 .replacen("build/", "src/", 1)
                 .replacen("lib/", "src/", 1);
-            for extension in SOURCE_EXTENSIONS {
-                let source = base.join(&rewritten).with_extension(extension);
-                if let Ok(canonical) = rqx_core::paths::canonicalize(&source)
-                    && known.contains(&canonical)
-                {
-                    entries.insert(canonical);
+            // A package that builds into its own root keeps the source under `src/`.
+            let under_source = format!("src/{trimmed}");
+            for candidate in [rewritten.as_str(), under_source.as_str()] {
+                for extension in SOURCE_EXTENSIONS {
+                    let source = base.join(candidate).with_extension(extension);
+                    if let Ok(canonical) = rqx_core::paths::canonicalize(&source)
+                        && known.contains(&canonical)
+                    {
+                        entries.insert(canonical);
+                    }
                 }
             }
         }

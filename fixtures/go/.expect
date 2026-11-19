@@ -51,17 +51,14 @@ fixtures/cost-linear-op-in-loop.go rule=linear-op-in-loop | results = slices.Ins
 fixtures/cost-linear-op-in-loop.go rule=duplicate-code #2 | results := []int{}
 fixtures/cost-lock-in-loop.go rule=lock-in-loop | guard.Lock()
 fixtures/cost-pair-scan-could-hash.go rule=data-class | type Order struct {
-fixtures/cost-pair-scan-could-hash.go rule=unused-export | type Order struct {
 fixtures/cost-pair-scan-could-hash.go rule=data-class | type User struct {
-fixtures/cost-pair-scan-could-hash.go rule=unused-export | type User struct {
 fixtures/cost-pair-scan-could-hash.go rule=unused-export | func OwnersOf(orders []Order, users []User) []string {
 fixtures/cost-pair-scan-could-hash.go rule=unused-export | func SameOrder(orders []Order) int {
-fixtures/cost-quadratic-via-call.go rule=unused-export | func IndexOfItem(list []string, wanted string) int {
 fixtures/cost-quadratic-via-call.go rule=unused-export | func FirstOccurrences(items []string) []string {
 fixtures/cost-quadratic-via-call.go rule=quadratic-via-call | if IndexOfItem(items, items[at]) == at {
 fixtures/cost-quadratic-via-call.go rule=unused-export | func DescribeEach(items []string) []string {
 fixtures/cost-quadratic-via-call.go rule=plural-mismatch | out := []string{}
-fixtures/cost-repeated-computation-in-loop.go rule=unused-export | func TotalLength(parts []string) int {
+fixtures/cost-repeated-computation-in-loop.go none=unused-export | func TotalLength(parts []string) int {
 fixtures/cost-repeated-computation-in-loop.go rule=unused-export | func Shares(parts []string, weights []float64) []float64 {
 fixtures/cost-repeated-computation-in-loop.go rule=plural-mismatch | out := []float64{}
 fixtures/cost-repeated-computation-in-loop.go rule=repeated-computation-in-loop | whole := TotalLength(parts)
@@ -75,7 +72,6 @@ fixtures/cost-unbounded-cache.go rule=unbounded-cache | pageSizes[key] = size
 fixtures/cost-unbounded-concurrency.go rule=unbounded-concurrency | go func(target string) {
 fixtures/deadexport.go rule=unused-export | func NeverImported(value int) int {
 fixtures/deadexport.go rule=data-class | type AlsoNeverImported struct {
-fixtures/deadexport.go rule=unused-export | type AlsoNeverImported struct {
 fixtures/deadexport.go rule=unused-export | func NewAlsoNeverImported(identifier string) AlsoNeverImported {
 fixtures/gatewaya.go rule=duplicate-import | import stripeAgain "github.com/stripe/stripe-go"
 fixtures/gatewaya.go rule=passthrough-function | func CollectA(amount int) int {

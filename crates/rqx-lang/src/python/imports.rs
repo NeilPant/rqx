@@ -124,6 +124,7 @@ impl Resolver for PythonResolver {
                 entries.insert(canonical);
             }
         }
+        entries.extend(crate::library::python_public(root, known));
         for script in project_scripts(&root.join("pyproject.toml")) {
             // `package.module:function` — only the module half names a file.
             let module = script.split(':').next().unwrap_or(&script);

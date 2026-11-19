@@ -575,4 +575,10 @@ pub struct ModuleFacts {
     /// away, which answers "is anything a subclass" but never "a subclass of what".
     pub heritage: Vec<Heritage>,
     pub types: Vec<TypeFacts>,
+    /// Exported names the file itself reads. In a language with no export keyword
+    /// every module-level name is exported, so one only its own file reads is a
+    /// module-level helper, not an export nothing imports. Go also lists the
+    /// capitalised names it reads, which the other files of its package declare.
+    #[serde(default)]
+    pub used_locally: Vec<String>,
 }

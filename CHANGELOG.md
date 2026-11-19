@@ -451,6 +451,20 @@ them. `tools/release.sh` turns that section into the release notes.
   `FRIEND_TEST` is skipped, as are C++ virtual, overriding and static members, Java's
   serialization members and any member with an annotation or decorator.
 
+- **`unused-export` no longer tells library authors to delete their public API.** A
+  scan of a library reported its interface, such as viper's `SetDefault` and cobra's
+  `CompDebug`, because the users that import it are outside the project. A Go module
+  whose root package is not `main`, a packaged Python tree or one made of packages
+  with no application entry at its root, and C++ headers under `include/<library>/`
+  are now read as libraries, and their published files are treated like entry points.
+  Go's `internal/` packages, Python modules and packages whose name starts with an
+  underscore, and test and example directories are still judged. An export its own
+  file reads, or in Go one that another file of its package reads, is in use and is
+  no longer reported. A Python module imported whole from its package, as in `from
+  test.support import socket_helper`, counts as used. A TypeScript package's
+  `package.json` above a scanned source folder now names its entry points. As a
+  consequence, `unused-file` no longer reports a library's published files.
+
 - **`unused-parameter` names the parameter in C++ and sees Go's `:=` reuse a
   parameter.** For `ArrayEq(const T& lhs, const U& rhs)` it reported the type `T` as
   an unused parameter, although `lhs` was used, because a name inside a reference or

@@ -204,6 +204,94 @@ fn typescript_and_javascript_in_one_project_share_a_module_graph() {
     assert!(dead[0].contains("\"symbol\":\"neverCalled\""), "{dead:?}");
 }
 
+/// Writes a small project into a fresh temporary directory, scans it, and returns the
+/// symbols `unused-export` reports.
+fn unused_exports_in(name: &str, files: &[(&str, &str)]) -> Vec<String> {
+    let dir = std::env::temp_dir().join(format!("rqx-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for (path, text) in files {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().expect("a parent")).expect("temp dir");
+        std::fs::write(file, text).expect("a file");
+    }
+    let report = scan_dir(dir.to_str().expect("utf-8"), &[]);
+    let _ = std::fs::remove_dir_all(&dir);
+    findings_for(&report, "unused-export")
+        .iter()
+        .filter_map(|line| {
+            let start = line.find("\"symbol\":\"")? + "\"symbol\":\"".len();
+            Some(line[start..].split('"').next()?.to_owned())
+        })
+        .collect()
+}
+
+/// A library's exported names are called by its users, outside the project, so only
+/// what its users cannot import is judged: Go's `internal/` packages.
+#[test]
+fn a_go_library_reports_only_its_internal_exports() {
+    let dead = unused_exports_in(
+        "golib",
+        &[
+            ("go.mod", "module example.com/lib\n\ngo 1.22\n"),
+            (
+                "lib.go",
+                "package lib\n\nimport \"example.com/lib/internal/helper\"\n\nfunc Parse() int {\n\treturn helper.Read()\n}\n",
+            ),
+            (
+                "internal/helper/helper.go",
+                "package helper\n\nfunc Unused() int {\n\treturn 2\n}\n\nfunc used() int {\n\treturn Read()\n}\n",
+            ),
+            (
+                "internal/helper/read.go",
+                "package helper\n\nfunc Read() int {\n\treturn 3\n}\n",
+            ),
+        ],
+    );
+    assert_eq!(dead, ["Unused"]);
+}
+
+/// A packaged Python library publishes every module no underscore marks private; a
+/// helper its own module reads is in use either way.
+#[test]
+fn a_python_library_reports_only_what_nothing_reads() {
+    let dead = unused_exports_in(
+        "pylib",
+        &[
+            ("pyproject.toml", "[project]\nname = \"lib\"\n"),
+            (
+                "lib/__init__.py",
+                "from .api import parse\nfrom ._impl import used_here\n",
+            ),
+            (
+                "lib/api.py",
+                "def parse(text):\n    return text\n\n\ndef unparse(value):\n    return value\n",
+            ),
+            (
+                "lib/_impl.py",
+                "def helper():\n    return 1\n\n\ndef used_here():\n    return helper()\n\n\nresult = used_here()\n",
+            ),
+        ],
+    );
+    assert_eq!(dead, ["result"]);
+}
+
+/// A header under `include/<library>/` is installed for other projects; a flat
+/// `include/` is not.
+#[test]
+fn a_cpp_library_header_is_its_interface() {
+    let dead = unused_exports_in(
+        "cpplib",
+        &[
+            ("include/lib/api.h", "#pragma once\nint parse(int value);\n"),
+            (
+                "src/api.cpp",
+                "#include \"lib/api.h\"\nint parse(int value) { return value; }\n",
+            ),
+        ],
+    );
+    assert!(dead.is_empty(), "{dead:?}");
+}
+
 /// The whole value of the module graph is knowing the difference between an export
 /// nobody wants and one the project is entered through.
 #[test]

@@ -143,7 +143,30 @@ pub fn module_facts(source: &str, root: Node<'_>) -> ModuleFacts {
             facts.implemented.push(owner);
         }
     }
+    facts.used_locally = read_names(&facts.exports, source);
     facts
+}
+
+/// The capitalised names the file reads: every mention beyond the file's own
+/// declaration of the name. A sibling file in the package may declare what this one
+/// reads, and the graph reads the two together.
+fn read_names(exports: &[ExportedSymbol], source: &str) -> Vec<String> {
+    let mut counts: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+    for word in source
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .filter(|word| exported(word))
+    {
+        *counts.entry(word).or_insert(0) += 1;
+    }
+    let declared: std::collections::HashSet<&str> =
+        exports.iter().map(|export| export.name.as_str()).collect();
+    let mut read: Vec<String> = counts
+        .into_iter()
+        .filter(|(word, count)| *count > u32::from(declared.contains(word)))
+        .map(|(word, _)| word.to_owned())
+        .collect();
+    read.sort_unstable();
+    read
 }
 
 /// `func (e *Engine) Run()` — the receiver's type, with any pointer stripped, is the

@@ -128,6 +128,8 @@ impl Resolver for GoResolver {
                 entries.insert(path.clone());
             }
         }
+        // A library's exported names are called by its users, outside the project.
+        entries.extend(crate::library::go_public(root, known));
         for entry in configured {
             if let Ok(canonical) = rqx_core::paths::canonicalize(&root.join(entry))
                 && known.contains(&canonical)
