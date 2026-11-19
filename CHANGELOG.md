@@ -554,12 +554,13 @@ them. `tools/release.sh` turns that section into the release notes.
   that take nothing.** What a for-each loop walks, such as `Object.keys(o)` in
   `for (const key of Object.keys(o))`, is computed once before the first pass, and a
   call in a `return`, `throw` or `break` runs at most once. The same holds for the
-  iterable of a comprehension. A project method, such as `scanner.Next()` or
-  `pubsub.Receive(ctx)`, answers from its object and may change it, so hoisting it
-  out of the loop would break the loop; only plain functions are judged now. A library
-  call is not reported when the loop calls something else on the same receiver, as
-  `b.WriteString(x)` changes what `b.String()` returns, and a call whose result a
-  `with` statement enters is not reported either.
+  iterable of a comprehension. A project method called on an object the function
+  holds, such as `scanner.Next()` or `pubsub.Receive(ctx)`, answers from that object
+  and may change it, so hoisting it out of the loop would break the loop; it is no
+  longer reported, while a call on a type, a package or `this` still is. A library
+  call is not reported when the loop also calls something on the same receiver for its
+  effect, as `b.WriteString(x)` changes what `b.String()` returns, and a call whose
+  result a `with` statement enters is not reported either.
 
 - **`unused-private-member` no longer tells users to delete members that are used.**
   In a sample of public code none of 10 sampled findings was right, and more than

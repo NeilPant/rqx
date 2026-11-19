@@ -33,9 +33,12 @@ impl<'a> Visitor<'a, '_> {
     ) {
         // A method answers from its object, and the call may be what changes the
         // object: `scanner.Next()`, `pubsub.Receive(ctx)`. Nothing here says the
-        // project's method leaves its receiver alone, so only a plain function is
-        // judged.
-        let asks_its_object = self.bounds().receiver_expression(call).is_some();
+        // project's method leaves its receiver alone, so a call on an object the
+        // function holds is not judged; one on a type, a package or `this` is.
+        let asks_its_object = self
+            .bounds()
+            .receiver_expression(call)
+            .is_some_and(|receiver| self.holds_an_object(receiver));
         if !asks_its_object && self.loop_leaves_unchanged(call, arguments) {
             self.repeats.push(RepeatedCall {
                 line: super::line_of(call),
@@ -134,12 +137,31 @@ impl<'a> Visitor<'a, '_> {
         false
     }
 
-    /// Whether the loop calls anything else on the same receiver, which may change it.
+    /// Whether a receiver is an object the function holds: anything but a plain name
+    /// of a type, a package or the object itself, which the function never declares.
+    fn holds_an_object(&self, receiver: Node<'a>) -> bool {
+        let profile = self.names.profile;
+        if !profile.is_identifier(receiver) {
+            return !profile.self_names.contains(&self.names.text(receiver));
+        }
+        let name = self.names.text(receiver);
+        if profile.self_names.contains(&name) {
+            return false;
+        }
+        self.params.iter().any(|param| param.name == name)
+            || written_in(&self.names, self.function).contains(name)
+    }
+
+    /// Whether the loop calls anything else on the same receiver for its effect, which
+    /// may change what this call answers.
     fn another_call_on(&mut self, innermost: Node<'a>, call: Node<'a>, receiver: Node<'a>) -> bool {
         let source = self.names.source;
         let written = crate::tree::text_of(receiver, source);
         for other in crate::tree::descendants(innermost) {
-            if other.id() == call.id() || !self.names.profile.is_call(other) {
+            if other.id() == call.id()
+                || !self.names.profile.is_call(other)
+                || self.value_is_used(other)
+            {
                 continue;
             }
             if self

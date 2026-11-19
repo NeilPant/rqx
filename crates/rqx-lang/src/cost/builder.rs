@@ -91,6 +91,8 @@ struct Visitor<'a, 'f> {
     loop_bounds: Vec<Bound>,
     /// The loops the visit is inside, outermost first, to read what they leave alone.
     loop_nodes: Vec<Node<'a>>,
+    /// The function being read, to tell an object it holds from a type or package.
+    function: Node<'a>,
     /// What each loop assigns to, worked out the first time a call in it asks.
     written_in_loop: HashMap<usize, HashSet<&'a str>>,
     repeats: Vec<RepeatedCall>,
@@ -135,6 +137,7 @@ pub fn build<'a>(names: Names<'a>, shared: &Shared<'_>, site: &Site<'a>) -> Buil
         frames: Vec::new(),
         loop_bounds: Vec::new(),
         loop_nodes: Vec::new(),
+        function,
         written_in_loop: HashMap::new(),
         repeats: Vec::new(),
         pair_scans: Vec::new(),
