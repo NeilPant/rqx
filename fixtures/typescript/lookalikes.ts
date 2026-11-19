@@ -221,3 +221,13 @@ export function reachable(start: number, limit: number): number {
   }
   return seen.size;
 }
+
+export async function refreshed(): Promise<number> {
+  return 1;
+}
+
+export function refreshEach(refreshed: () => number): number {
+  // dropped-promise: the parameter shares the async function's name and is not it.
+  refreshed();
+  return 0;
+}

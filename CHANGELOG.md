@@ -180,6 +180,13 @@ them. `tools/release.sh` turns that section into the release notes.
   collection rather than the one being walked. A loop over `self` or `this` walks
   whatever the object's own iteration method returns, which may be a copy.
 
+- **`dropped-promise` reports a plain call only when the name reaches the file's
+  async function.** It matched calls by name alone, so a call to a synchronous local
+  function, a parameter or a loop variable that shared a name with an async function
+  elsewhere in the file was reported, as in `for f in cleanups: f()`. A plain call now
+  has to resolve to the async function's own declaration. Calls through `this`,
+  `self` or a type name are matched as before.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

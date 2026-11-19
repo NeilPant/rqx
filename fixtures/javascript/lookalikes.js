@@ -189,3 +189,13 @@ export function reachable(start, limit) {
   }
   return seen.size;
 }
+
+export async function refreshed() {
+  return 1;
+}
+
+export function refreshEach(refreshed) {
+  // dropped-promise: the parameter shares the async function's name and is not it.
+  refreshed();
+  return 0;
+}

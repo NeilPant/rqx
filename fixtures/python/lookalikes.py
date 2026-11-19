@@ -236,3 +236,21 @@ class Registry:
         for entry in self:
             if entry is None:
                 self.remove(entry)
+
+
+# dropped-promise: the calls below reach a loop variable and a local function, not
+# the coroutine that shares their name.
+async def notify(message: str) -> str:
+    return message
+
+
+def notify_each(listeners: list) -> None:
+    for notify in listeners:
+        notify()
+
+
+def notify_locally() -> None:
+    def notify():
+        return None
+
+    notify()

@@ -3,6 +3,7 @@
 use rqx_core::facts::Spot;
 use tree_sitter::Node;
 
+use crate::scope::Scopes;
 use crate::tree::{descendants, kind_of, span_of};
 
 use super::{AsyncFunction, Walker};
@@ -282,7 +283,12 @@ impl<'a> Walker<'a> {
     /// for a function, `this.f()` for a method of the class it is written in, and
     /// `Type.f()` for a static one. `this.loop.stop()` reaches whatever `loop` holds,
     /// which this file cannot see, however many async `stop` methods it declares.
-    pub(super) fn note_dropped_promise(&mut self, statement: Node<'a>, awaited: &[AsyncFunction]) {
+    pub(super) fn note_dropped_promise(
+        &mut self,
+        statement: Node<'a>,
+        awaited: &[AsyncFunction],
+        scopes: &Scopes,
+    ) {
         let profile = self.profile;
         let Some(call) = self.only_call(statement) else {
             return;
@@ -310,9 +316,25 @@ impl<'a> Walker<'a> {
             }
             Some(receiver) => Some(receiver.to_owned()),
         };
-        if !awaited
-            .iter()
-            .any(|function| function.name == name && function.class == class)
+        // A plain name reaches whatever its nearest binding is, which may be a local
+        // function, a parameter or a loop variable that shares the async one's name.
+        let binding = receiver
+            .is_none()
+            .then(|| call.child_by_field_name(profile.callee_field))
+            .flatten()
+            .map(|callee| {
+                let used = span_of(callee);
+                scopes
+                    .bindings
+                    .iter()
+                    .find(|binding| binding.references.contains(&used))
+                    .map(|binding| binding.span)
+            });
+        if !awaited.iter().any(|function| {
+            function.name == name
+                && function.class == class
+                && binding.is_none_or(|bound| bound == Some(function.declared_at))
+        }) || (receiver.is_none() && self.loop_binds(statement, name))
         {
             return;
         }
@@ -321,6 +343,25 @@ impl<'a> Walker<'a> {
             detail: dotted,
             count: 1,
         });
+    }
+
+    /// Whether a loop in the function around `node` takes `name` as its variable:
+    /// `for handler in handlers: handler()` calls each element, not the file's
+    /// function of that name. The scope tables do not record loop variables.
+    fn loop_binds(&self, node: Node<'a>, name: &str) -> bool {
+        let profile = self.profile;
+        let Some(function) = self.enclosing_function(node) else {
+            return false;
+        };
+        descendants(function).into_iter().any(|inner| {
+            (profile.loop_kinds.contains(&kind_of(inner)) || kind_of(inner) == "for_in_clause")
+                && inner.child_by_field_name("left").is_some_and(|target| {
+                    descendants(target)
+                        .into_iter()
+                        .chain(std::iter::once(target))
+                        .any(|bound| profile.is_identifier(bound) && self.text(bound) == name)
+                })
+        })
     }
 
     /// How deep a function literal sits inside other function literals. Reported on

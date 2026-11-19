@@ -71,6 +71,9 @@ impl Helpers {
 struct AsyncFunction {
     name: String,
     class: Option<String>,
+    /// Where the name is declared, which a plain call must resolve to: a local
+    /// function, parameter or loop variable of the same name is something else.
+    declared_at: Span,
 }
 
 struct Walker<'a> {
@@ -1210,6 +1213,7 @@ pub fn collect_over(
             Some(AsyncFunction {
                 name: text_of(named, source).to_owned(),
                 class: walker.owning_class(node)?,
+                declared_at: span_of(named),
             })
         })
         .collect();
@@ -1219,7 +1223,7 @@ pub fn collect_over(
             .filter(|node| kind_of(node) == "expression_statement")
             .collect();
         for statement in statements {
-            walker.note_dropped_promise(statement, &awaited);
+            walker.note_dropped_promise(statement, &awaited, scopes);
         }
     }
     let shared: Vec<String> = walker
