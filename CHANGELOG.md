@@ -427,7 +427,7 @@ them. `tools/release.sh` turns that section into the release notes.
   writes in two arms do not overwrite each other, and the same holds for preprocessor
   branches. A value is reported as dead only when it was stored by a statement of
   its own, so a write inside a loop header, a condition or another assignment is
-  not. The finding now points at the name written rather than at the end of its
+  not. The finding now points at the written name instead of the end of its
   statement.
 
 - **`repeated-computation-in-loop` no longer reports loop headers, exits and methods
@@ -453,7 +453,7 @@ them. `tools/release.sh` turns that section into the release notes.
 
 - **`unused-export` no longer tells library authors to delete their public API.** A
   scan of a library reported its interface, such as viper's `SetDefault` and cobra's
-  `CompDebug`, because the users that import it are outside the project. A Go module
+  `CompDebug`, because its users import it from outside the project. A Go module
   whose root package is not `main`, a packaged Python tree or one made of packages
   with no application entry at its root, and C++ headers under `include/<library>/`
   are now read as libraries, and their published files are treated like entry points.
@@ -467,19 +467,19 @@ them. `tools/release.sh` turns that section into the release notes.
 
 - **`unused-parameter` leaves signatures the file does not decide.** Most remaining
   findings in a sample of public code had a parameter list some other declaration
-  fixes. In Go these are now skipped: a method, which may satisfy an interface
+  fixes. Go now skips a method, which may satisfy an interface
   without naming it, a function literal, which has the type of what it is given to,
   a function the file names without calling, and a function in a file built for some
-  platforms only, by a `//go:build` line or a name such as `cpu_freebsd.go`. In Java
-  these are a method of an interface, an abstract class or an anonymous class, a
+  platforms only, by a `//go:build` line or a name such as `cpu_freebsd.go`. Java
+  skips a method of an interface, an abstract class or an anonymous class, a
   `protected` method that is not `final`, and a method passed as `this::name`. In
   every language a body that is empty or only throws is a default for others to
   replace. Python's `load_tests(loader, tests, pattern)` is called by unittest by
   name, and JavaScript and TypeScript skip a function the file names without
-  calling. A Java varargs parameter, `LinkOption... options`, is named by its
-  declarator rather than reported as `LinkOption`, and a parameter that shares its
-  name with a method called in the body, as in `writer.index(index)`, is seen as
-  read. A parameter named `ignore`, `ignored`, `unused` or `dummy`, or of Java's
+  calling. A Java varargs parameter, `LinkOption... options`, is reported as
+  `options`, where it used to be reported as `LinkOption`, and a parameter that
+  shares its name with a method called in the body, as in `writer.index(index)`, is
+  seen as read. A parameter named `ignore`, `ignored`, `unused` or `dummy`, or of Java's
   `Void` type, is kept on purpose and not reported.
 
 - **`unused-parameter` names the parameter in C++ and sees Go's `:=` reuse a
@@ -489,9 +489,8 @@ them. `tools/release.sh` turns that section into the release notes.
   treats `const T&` with no name as unnamed, and counts `hold(guard)`, which the
   grammar reads as a parameter type, as a use of `guard`. Unused C++ reference and
   pointer parameters that used to go unreported are now reported. In Go,
-  `s, err := s.prepare(in)` at the top of a function body assigns the parameter `s`
-  again, as Go does, rather than declaring a new `s` and leaving the parameter
-  unread.
+  `s, err := s.prepare(in)` at the top of a function body now assigns the parameter
+  `s` again, as Go does. It used to declare a new `s` and leave the parameter unread.
 
 - **One expression is reported once per rule.** `message-chain` reported
   `a.b().c().d().e().f().g()` once for every depth past the limit, so one line could
