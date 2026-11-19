@@ -9,6 +9,23 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Changed
+
+- **`--no-mouse` is listed in `--help`, the manual pages and the shell completions.**
+  The flag has worked since 0.5.2, and `docs/interface.md` described it, but it was
+  hidden from the generated reference.
+
+### Fixed
+
+- **The JSON `skipped` entries are relative to the scanned directory.** They were
+  relative to the directory rqx was started from, so `rqx scan .` printed
+  `./app/big.js: ...` and `rqx scan project` printed `project/app/big.js: ...`, which
+  matched neither the paths of the findings nor the `skipped_by` paths. The MCP
+  server's summary and the language server's scan answer name them the same way.
+
+- **`rqx config` and the configuration schema say that all six languages are enabled by
+  default.** They said five.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
