@@ -220,7 +220,8 @@ pub static CPP: LanguageProfile = LanguageProfile {
     decorated_kinds: &[],
     decorator_kinds: &["attribute_declaration"],
     imprecise_type_kinds: &[("cast_expression", "cast")],
-    imprecise_type_names: &["void*", "auto"],
+    // `auto` is deduced from the initialiser, so it names one exact type.
+    imprecise_type_names: &["void*"],
     imprecise_type_exceptions: &[],
     boolean_type_names: &["bool"],
     suppression_directives: &[

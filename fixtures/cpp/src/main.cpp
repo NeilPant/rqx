@@ -34,6 +34,7 @@
 #include "cost_linear_op_in_loop.hpp"
 #include "vocabulary.hpp"
 #include "lookalikes.hpp"
+#include "lookalikes_warnings.hpp"
 
 int main() {
     keep_wanted({}, {});
@@ -130,6 +131,8 @@ int main() {
     Meter(2).scaled(1);
     longest({});
     parsed_or_zero("1");
+    parsed_code("1");
+    total_length({});
     adder(1)(2);
     return 0;
 }

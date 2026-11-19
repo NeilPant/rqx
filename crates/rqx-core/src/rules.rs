@@ -81,8 +81,14 @@ pub fn applies_in(finding: &Finding, language: Option<crate::Language>) -> bool 
 /// in the collector so the facts stay a shape and the prose stays a report.
 fn describe(rule: RuleId, detail: &str) -> String {
     match rule {
+        // The detail is how the branch leaves: `returns`, `breaks`, `continues`.
         RuleId::RedundantElse => {
-            "The branch above always returns, so this `else` is not a decision.".to_owned()
+            let exit = if detail.is_empty() || detail == "else" {
+                "leaves"
+            } else {
+                detail
+            };
+            format!("The branch above always {exit}, so this `else` is not a decision.")
         }
         RuleId::CollapsibleIf => "This `if` is the only statement inside another one.".to_owned(),
         RuleId::BooleanFromBranch => {
@@ -746,7 +752,7 @@ fn hygiene_findings(
         (
             &hygiene.redundant_else,
             RuleId::RedundantElse,
-            "drop the `else` and outdent its body; the branch above already returned",
+            "drop the `else` and outdent its body; the branch above never falls through to it",
         ),
         (
             &hygiene.collapsible_ifs,

@@ -1027,11 +1027,15 @@ impl<'a> Walker<'a> {
             .iter()
             .find(|(candidate, _)| *candidate == kind)
         {
+            // `(void)value` converts to nothing at all: it says a result is unused.
             let excepted = |cast: Node<'a>| {
                 profile
                     .imprecise_type_exceptions
                     .iter()
                     .any(|exception| self.text(cast).trim_end().ends_with(exception))
+                    || cast
+                        .child_by_field_name("type")
+                        .is_some_and(|written| self.text(written).trim() == "void")
             };
             // `value as unknown as Row` and `(Row) (Object) value` are one decision
             // written as two casts, so a chain is reported once, at the outermost cast.

@@ -239,7 +239,15 @@ impl<'a> Walker<'a> {
                 })
                 .filter(|_| profile.catch_names_a_type)
         });
-        let caught = named.map(|node| self.text(node));
+        // C++ may name a type and no binding, `catch (int)`, and only `catch (...)`
+        // declares nothing at all.
+        let unnamed_type = || {
+            catch
+                .child_by_field_name("parameters")
+                .and_then(|list| list.named_child(0))
+                .and_then(|declaration| declaration.child_by_field_name("type"))
+        };
+        let caught = named.or_else(unnamed_type).map(|node| self.text(node));
         let takes_everything = match caught {
             Some(name) => profile.catch_all_types.contains(&name),
             // Naming nothing is a catch-all only where the language offered a name.

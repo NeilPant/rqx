@@ -392,25 +392,25 @@ Fix: return the condition itself</failure>
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="redundant-else at 22:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="redundant-else at 175:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="redundant-else at 177:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="duplicate-code at 173:3">
       <failure type="duplicate-code" message="10-statement block (27 AST nodes) repeated at 2 sites.">10-statement block (27 AST nodes) repeated at 2 sites.
@@ -654,7 +654,7 @@ Fix: return the same shape on every path, or split the two cases into two functi
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="imprecise-type at 89:19">
       <failure type="imprecise-type" message="`any` accepts every value, so the checker cannot tell what this one is.">`any` accepts every value, so the checker cannot tell what this one is.
@@ -904,25 +904,25 @@ Fix: drop `deadB` from `twoDeadOnOneLine` and from its call sites</failure>
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/patterns.ts" name="redundant-else at 23:7">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/patterns.ts" name="redundant-else at 52:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/patterns.ts" name="redundant-else at 54:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/patterns.ts" name="unused-private-member at 195:3">
       <failure type="unused-private-member" message="The private member `instance` is declared and never read.">The private member `instance` is declared and never read.
@@ -1271,19 +1271,19 @@ Fix: lift the conditions in `reconcileBatch` into named predicates, then extract
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/shapes.ts" name="redundant-else at 36:3">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/shapes.ts" name="redundant-else at 53:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
-Fix: drop the `else` and outdent its body; the branch above already returned</failure>
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
     <testcase classname="typescript/shapes.ts" name="unused-private-member at 12:3">
       <failure type="unused-private-member" message="The private member `unusedSecret` is declared and never read.">The private member `unusedSecret` is declared and never read.

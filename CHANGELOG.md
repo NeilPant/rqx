@@ -410,6 +410,13 @@ them. `tools/release.sh` turns that section into the release notes.
   reported. A Go test is named after its function, where the message used to name
   `func (app *App) Test(...) (*http.Response, error)` as a test called `error`.
 
+- **Three messages describe what they found more exactly.** `catch-all-handler` no
+  longer says a C++ `catch (int)` or `catch (const char*)` catches everything: a
+  handler that names a type and no binding takes only that type. `redundant-else`
+  says whether the branch above returns, throws, breaks or continues, where it always
+  said "returns". `imprecise-type` no longer reports C++ `auto`, which is deduced to
+  one exact type, or a `(void)` cast, which marks a value as unused.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

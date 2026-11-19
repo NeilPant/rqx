@@ -110,10 +110,10 @@ impl<'a> Walker<'a> {
         let alternative = node.child_by_field_name(profile.else_field);
 
         if let Some(alternative) = alternative {
-            if self.always_exits(consequence) {
+            if let Some(exit) = self.always_exits(consequence) {
                 self.out.redundant_else.push(Spot {
                     span: span_of(alternative),
-                    detail: "else".to_owned(),
+                    detail: exit.to_owned(),
                     count: 1,
                 });
                 if self.text(alternative).starts_with("else") {
@@ -1227,29 +1227,34 @@ impl<'a> Walker<'a> {
 
     /// Whether every path out of a block leaves the function or the loop, which is
     /// what makes a following `else` a level of indentation nobody needs.
-    fn always_exits(&self, block: Node<'a>) -> bool {
+    /// How a block always leaves, in the words the profile gives each exit (`returns`,
+    /// `breaks`), or `None` when some path falls out of the end. Two arms that leave
+    /// differently both still leave.
+    fn always_exits(&self, block: Node<'a>) -> Option<&'static str> {
         let profile = self.profile;
-        let exits = |node: Node<'a>| {
+        let exit = |node: Node<'a>| {
             profile
                 .exit_kinds
                 .iter()
-                .any(|(kind, _)| *kind == kind_of(node))
+                .find(|(kind, _)| *kind == kind_of(node))
+                .map(|(_, word)| *word)
         };
         let last = (0..block.named_child_count())
             .filter_map(|index| block.named_child(index))
             .rfind(|child| !profile.is_comment(*child));
         match last {
-            Some(node) if exits(node) => true,
+            Some(node) if exit(node).is_some() => exit(node),
             Some(node) if kind_of(node) == profile.if_kind => {
                 let consequence = node.child_by_field_name("consequence");
                 let alternative = node.child_by_field_name(profile.else_field);
-                match (consequence, alternative) {
-                    (Some(one), Some(other)) => self.always_exits(one) && self.always_exits(other),
-                    _ => false,
-                }
+                let (one, other) = (
+                    self.always_exits(consequence?)?,
+                    self.always_exits(alternative?)?,
+                );
+                Some(if one == other { one } else { "leaves" })
             }
             Some(node) if profile.is_block(node) => self.always_exits(node),
-            _ => exits(block),
+            _ => exit(block),
         }
     }
 

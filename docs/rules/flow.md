@@ -23,7 +23,7 @@ From `fixtures/typescript/flow.ts`, line 4:
 }
 ```
 
-Suggested fix: drop the `else` and outdent its body; the branch above already returned
+Suggested fix: drop the `else` and outdent its body; the branch above never falls through to it
 
 ## `collapsible-if`
 
