@@ -287,6 +287,8 @@ flow.go rule=return-of-fresh-local | total := len(rows) * 2
 flow.go rule=redundant-else | } else if kind == "b" {
 flow.go rule=duplicate-condition | } else if kind == "a" {
 flow.go rule=redundant-else | } else if kind == "a" {
+flow.go none=duplicate-condition | } else if found, ok := fallback[key]; ok {
+flow.go rule=redundant-else | } else if found, ok := fallback[key]; ok {
 flow.go rule=accumulate-by-copy | out += row
 flow.go rule=loop-concatenation | out += row
 flow.go rule=dead-store | total := value

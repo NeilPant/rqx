@@ -42,6 +42,7 @@ public class Main {
         new Flow().fallsThrough(1);
         new Flow().fallsThroughOnPurpose(1);
         new Conditions().assignsOnPurpose(1, 2);
+        new Conditions().fieldStart("a=b");
         new Hygiene().maybeCount(java.util.List.of());
         new Hygiene().closesOut(java.util.List.of());
         new Hygiene().catchesEverything(java.util.List.of());

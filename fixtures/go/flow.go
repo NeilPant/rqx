@@ -121,6 +121,16 @@ func AsksTwice(kind string) int {
 	return 0
 }
 
+// duplicate-condition must not fire: each arm binds its own value before testing it.
+func FirstFound(primary, fallback map[string]int, key string) int {
+	if found, ok := primary[key]; ok {
+		return found
+	} else if found, ok := fallback[key]; ok {
+		return found * 2
+	}
+	return 0
+}
+
 func Joined(rows []string) string {
 	out := ""
 	for _, row := range rows {

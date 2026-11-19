@@ -275,6 +275,20 @@ impl<'a> Walker<'a> {
         )
     }
 
+    /// A node's text with layout ignored, so two pieces of code compare equal when
+    /// they are written the same way however they are spaced. Text literals keep
+    /// every character: `" "` and `"\n"` are different values.
+    fn written_as(&self, node: Node<'a>) -> String {
+        if node.child_count() == 0 || self.profile.string_kinds.contains(&kind_of(node)) {
+            return self.text(node).to_owned();
+        }
+        let mut cursor = node.walk();
+        node.children(&mut cursor)
+            .map(|child| self.written_as(child))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
     /// One line of a node's text, short enough to read inside a finding.
     fn snippet(&self, node: Node<'a>) -> String {
         let line = self.text(node).lines().next().unwrap_or("").trim();

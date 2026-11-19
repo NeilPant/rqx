@@ -187,6 +187,21 @@ class Flow {
 // assignment-in-condition must not fire: comparing the result of an assignment, or
 // adding to a flag, cannot be a mistyped comparison.
 final class Conditions {
+    // duplicate-condition must not fire: the second test reads the index the else
+    // block found, not the one the first test read.
+    int fieldStart(String text) {
+        int index = text.indexOf('=');
+        if (index < 0) {
+            return 0;
+        } else {
+            index = text.indexOf(':');
+            if (index < 0) {
+                return 1;
+            }
+        }
+        return index;
+    }
+
     int assignsOnPurpose(int a, int b) {
         int found = 0;
         if ((found = a + b) > 0) {

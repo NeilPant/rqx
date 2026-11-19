@@ -161,6 +161,16 @@ them. `tools/release.sh` turns that section into the release notes.
   `__context__` and prints both, so a Python `raise` there loses nothing; a `throw` in
   Java, JavaScript and TypeScript is still reported.
 
+- **`duplicate-condition` no longer reports conditions that read different values.**
+  Go chains such as `if m := a(); m != nil {} else if m := b(); m != nil {}` were
+  reported though each arm binds its own `m`; the initialiser is now part of what is
+  compared. An `if` nested in an `else` block after other statements was treated as
+  the next arm of the chain, so a test of a variable the block had just reassigned
+  was reported; only an `else` that holds nothing but the `if` continues the chain
+  now. Conditions that assign are skipped, and text literals are compared character
+  for character, so `" "` and a string holding a newline are no longer the same
+  condition.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

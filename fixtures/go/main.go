@@ -22,6 +22,7 @@ func main() {
 	_ = Halved
 	_ = Ignored
 	_ = AsksTwice
+	_ = FirstFound
 	_ = Joined
 	_ = fixtures.ForwardOrbit
 	_ = fixtures.Narrated

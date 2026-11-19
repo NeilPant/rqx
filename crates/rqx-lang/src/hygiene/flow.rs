@@ -722,9 +722,23 @@ impl<'a> Walker<'a> {
             return;
         }
         let mut asked: Vec<(String, Node<'a>)> = Vec::new();
+        // Go's initialiser is part of what is asked: the same test of a name bound
+        // to a different value asks something new.
+        // A condition that assigns changes what the next one reads, so its text says
+        // nothing about whether it repeats.
         let ask = |node: Node<'a>, asked: &mut Vec<(String, Node<'a>)>| {
-            if let Some(condition) = node.child_by_field_name(profile.condition_field) {
-                asked.push((squashed(self.text(condition)), condition));
+            if let Some(condition) = node.child_by_field_name(profile.condition_field)
+                && !descendants(condition)
+                    .into_iter()
+                    .any(|inner| profile.assignment_kinds.contains(&kind_of(inner)))
+            {
+                let initialiser = node
+                    .child_by_field_name("initializer")
+                    .map_or_else(String::new, |init| self.written_as(init));
+                asked.push((
+                    format!("{initialiser};{}", self.written_as(condition)),
+                    condition,
+                ));
             }
         };
         ask(branch, &mut asked);
@@ -747,12 +761,15 @@ impl<'a> Walker<'a> {
                 let arm = if kind_of(node) == profile.if_kind {
                     node
                 } else if profile.else_clause_kinds.contains(&kind_of(node)) {
-                    match node
+                    // Only an `if` that is all the else holds continues the chain; one
+                    // after other statements asks after they have run.
+                    let inside: Vec<Node<'a>> = node
                         .named_children(&mut node.walk())
-                        .find(|child| kind_of(child) == profile.if_kind)
-                    {
-                        Some(nested) => nested,
-                        None => break,
+                        .filter(|child| !profile.is_comment(*child))
+                        .collect();
+                    match inside.as_slice() {
+                        [nested] if kind_of(*nested) == profile.if_kind => *nested,
+                        _ => break,
                     }
                 } else {
                     break;
@@ -765,7 +782,7 @@ impl<'a> Walker<'a> {
             if asked[..at].iter().any(|(earlier, _)| earlier == text) {
                 self.out.duplicate_conditions.push(Spot {
                     span: span_of(*node),
-                    detail: text.clone(),
+                    detail: squashed(self.text(*node)),
                     count: 1,
                 });
                 return;
