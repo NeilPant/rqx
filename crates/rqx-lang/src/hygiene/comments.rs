@@ -70,13 +70,6 @@ pub(super) fn scan_comments(
                 count: 1,
             });
         }
-        if let Some(standin) = crate::vocabulary::placeholder_value(text) {
-            out.example_values.push(Spot {
-                span,
-                detail: standin.to_owned(),
-                count: 1,
-            });
-        }
         // Recorded outside the chain below: how old a note is has nothing to do with
         // which of the comment rules claims it.
         if let Some(marker) = crate::vocabulary::todo_marker(text) {

@@ -21,6 +21,8 @@ export class Visits {
     this.seen = new Set();
   }
 
+  // example-value: a comment shows an example; it is never a value that ships.
+  // `page` is a full address, e.g. https://example.com/path.
   isFirstVisit(page: string): boolean {
     const first = !this.seen.has(page);
     this.seen.add(page);

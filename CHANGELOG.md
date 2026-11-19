@@ -381,6 +381,12 @@ them. `tools/release.sh` turns that section into the release notes.
   `java.lang` names, which every file sees without an import, so `java.util`'s own
   `Map` is no longer reported.
 
+- **`example-value` no longer reports comments and docstrings.** Outside test files,
+  82 of 84 sampled findings were documentation such as `// e.g.
+  https://example.com/path`, which cannot ship as a value. Comments are no longer
+  read by the rule, and a string that is a statement on its own (a docstring or a
+  directive) is skipped.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

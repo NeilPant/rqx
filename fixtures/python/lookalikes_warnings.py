@@ -28,3 +28,8 @@ class Visits:
     # hides nothing; the builtin is still what the body calls.
     def filter(self, wanted):
         return list(filter(wanted, self.seen))
+
+    # example-value: documentation shows an example; it is never a value that ships.
+    def visited_hosts(self):
+        """The hosts of the pages seen, such as example.com for https://example.com/a."""
+        return {page.split("/")[2] for page in self.seen}

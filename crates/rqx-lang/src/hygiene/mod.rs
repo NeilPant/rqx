@@ -985,7 +985,12 @@ impl<'a> Walker<'a> {
                     count: 1,
                 });
             }
-            if let Some(standin) = crate::vocabulary::placeholder_value(text) {
+            // A string that is a statement on its own is a docstring or a directive,
+            // which documents the code and is never handed to anything.
+            let documents = node.parent().is_some_and(|parent| {
+                kind_of(parent) == "expression_statement" && parent.named_child_count() == 1
+            });
+            if !documents && let Some(standin) = crate::vocabulary::placeholder_value(text) {
                 self.out.example_values.push(Spot {
                     span: span_of(node),
                     detail: standin.to_owned(),
