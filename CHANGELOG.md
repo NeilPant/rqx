@@ -182,6 +182,12 @@ them. `tools/release.sh` turns that section into the release notes.
   5000 failed to start a worker after 30 seconds and panicked, and 20000 hung after
   the panic. A larger count now exits 2 with a message that names where it was set.
 
+- **SARIF file locations are percent-encoded URI references.** `artifactLocation.uri`
+  was the raw path, so a path with a space, `#`, `%`, brackets or parentheses (such as
+  a Next.js route `app/(auth)/[id]/page.tsx`) gave a URI that code scanning could
+  reject or resolve to another file. Each path is now encoded, and `--sarif-in` decodes
+  it with the same rules.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

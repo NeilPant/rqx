@@ -122,7 +122,7 @@ fn place(file: &str, lines: (u32, u32, u32), prefix: &str) -> Value {
     json!({
         "physicalLocation": {
             "artifactLocation": {
-                "uri": format!("{prefix}{file}"),
+                "uri": crate::uri::encode_relative(&format!("{prefix}{file}")),
                 "uriBaseId": "%SRCROOT%"
             },
             "region": {
@@ -502,6 +502,15 @@ mod tests {
         assert_eq!(
             run["invocations"][0]["toolExecutionNotifications"],
             json!([])
+        );
+    }
+
+    #[test]
+    fn a_path_a_uri_cannot_hold_as_it_is_is_percent_encoded() {
+        let value = place("app/(auth)/my dir/a b#c%d.ts", (1, 1, 1), "web/");
+        assert_eq!(
+            value["physicalLocation"]["artifactLocation"]["uri"],
+            "web/app/%28auth%29/my%20dir/a%20b%23c%25d.ts"
         );
     }
 

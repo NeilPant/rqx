@@ -39,7 +39,7 @@ impl Links {
         if !slashed.starts_with('/') {
             slashed.insert(0, '/');
         }
-        let encoded = percent_encoded(&slashed);
+        let encoded = crate::uri::encode_path(&slashed);
         match &self.template {
             Some(template) => template
                 .replace("{path}", &encoded)
@@ -48,20 +48,6 @@ impl Links {
             None => format!("file://{encoded}"),
         }
     }
-}
-
-/// A path is not a URL until what a URL reserves is escaped: a space or a `#` in a
-/// directory name would otherwise end the link early.
-fn percent_encoded(path: &str) -> String {
-    let mut encoded = String::with_capacity(path.len());
-    for byte in path.bytes() {
-        if byte.is_ascii_alphanumeric() || b"-._~/:".contains(&byte) {
-            encoded.push(char::from(byte));
-        } else {
-            encoded.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    encoded
 }
 
 #[cfg(test)]

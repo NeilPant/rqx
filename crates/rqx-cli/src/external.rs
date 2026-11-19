@@ -379,14 +379,14 @@ fn reference_path(uri: &str, base: Option<&str>) -> String {
 /// machine makes a network path: `file://server/share/a` is `//server/share/a`.
 fn uri_path(uri: &str) -> String {
     let Some(rest) = uri.strip_prefix("file://") else {
-        return percent_decode(uri);
+        return crate::uri::decode(uri);
     };
     let (authority, path) = rest.split_at(rest.find('/').unwrap_or(rest.len()));
     if starts_with_drive(authority) && authority.len() == 2 {
         // `file://C:/work` is not valid, but some tools write it, and it means `C:/work`.
-        return percent_decode(rest);
+        return crate::uri::decode(rest);
     }
-    let decoded = percent_decode(path);
+    let decoded = crate::uri::decode(path);
     if !authority.is_empty() && !authority.eq_ignore_ascii_case("localhost") {
         return format!("//{authority}{decoded}");
     }
@@ -394,29 +394,6 @@ fn uri_path(uri: &str) -> String {
         Some(drive) if starts_with_drive(drive) => drive.to_owned(),
         _ => decoded,
     }
-}
-
-fn percent_decode(text: &str) -> String {
-    let bytes = text.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut at = 0;
-    while at < bytes.len() {
-        let escaped = (bytes[at] == b'%')
-            .then(|| text.get(at + 1..at + 3))
-            .flatten()
-            .and_then(|digits| u8::from_str_radix(digits, 16).ok());
-        match escaped {
-            Some(byte) => {
-                decoded.push(byte);
-                at += 3;
-            }
-            None => {
-                decoded.push(bytes[at]);
-                at += 1;
-            }
-        }
-    }
-    String::from_utf8_lossy(&decoded).into_owned()
 }
 
 /// A relative path with `.` and `..` resolved, or `None` when it climbs out of the root.
