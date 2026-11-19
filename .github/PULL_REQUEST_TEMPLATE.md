@@ -5,9 +5,9 @@
 ## Checks
 
 - [ ] `cargo test --workspace`
-- [ ] `cargo clippy --workspace --all-targets`
+- [ ] `cargo clippy --workspace --all-targets -- -D warnings`
 - [ ] `cargo fmt --all -- --check`
+- [ ] `cargo run --quiet -- docs`, then `git add docs/ README.md` if it changed anything
 
-<!-- Adding a rule: run `rqx docs` to regenerate the reference. A test fails if the
-     reference is out of date. Include the rule's precision on a real repository in
-     this description. -->
+<!-- Adding a rule: include the rule's precision on a real repository in this
+     description. CONTRIBUTING.md explains how to measure it. -->
