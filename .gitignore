@@ -11,9 +11,7 @@
 
 .DS_Store
 
-# Packaged extension
-
-# The server binary the platform builds carry
+# Browser automation output
 .playwright-mcp/
 
 # A project-level `npm login` writes an auth token here
