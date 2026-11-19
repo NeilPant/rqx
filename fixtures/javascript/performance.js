@@ -89,6 +89,9 @@ async function loadTwo() {
   return 2;
 }
 let openTabs = 0;
+export function openTab() {
+  openTabs += 1;
+}
 export function tabsOpen() {
   return openTabs;
 }

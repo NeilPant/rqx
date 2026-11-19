@@ -32,14 +32,10 @@ fixtures/config.go rule=buried-configuration | return "https://api.example.com/v
 fixtures/config.go rule=example-value | return "https://api.example.com/v2/orders"
 fixtures/config.go rule=obscured-expression | return (a+b)*(c-d) + max(a, b) + min(c, d) - (a * d)
 fixtures/conventions.go rule=mixed-conventions | var retry_limit = 3
-fixtures/conventions.go rule=mutable-module-state | var retry_limit = 3
 fixtures/conventions.go rule=mutable-module-state | var retryBackoff = 250
 fixtures/conventions.go rule=mixed-language-file | return "SELECT id, name FROM users WHERE id = '" + userID + "'"
 fixtures/conventions.go rule=boundary-arithmetic | head := items[cursor+1]
-fixtures/conventions.go rule=mutable-module-state | var Limits = map[string]int{"retry_limit": retry_limit, "retryBackoff": retryBackoff}
-fixtures/conventions.go rule=mutable-module-state | var ItemList = []int{1, 2, 3}
 fixtures/conventions.go rule=plural-mismatch | var ItemList = []int{1, 2, 3}
-fixtures/conventions.go rule=mutable-module-state | var entryList = []int{1, 2, 3}
 fixtures/conventions.go rule=name-repeats-type | var entryList = []int{1, 2, 3}
 fixtures/conventions.go rule=plural-mismatch | var entryList = []int{1, 2, 3}
 fixtures/conventions.go rule=over-logging | func Narrates(rows []int) int {
@@ -95,7 +91,6 @@ fixtures/hygiene.go rule=unjustified-suppression | // rqx-ignore magic-number
 fixtures/hygiene.go rule=output-parameter | value = 1
 fixtures/hygiene.go rule=unreachable-code | value = 1
 fixtures/hygiene.go rule=suppressed-diagnostic | //nolint
-fixtures/hygiene.go rule=mutable-module-state | var Suppressed = 1
 fixtures/hygiene.go rule=temporary-field | type city struct{ Name string }
 fixtures/hygiene.go rule=lazy-class | type address struct{ City city }
 fixtures/hygiene.go rule=lazy-class | type customer struct{ Address address }
@@ -115,7 +110,6 @@ fixtures/hygiene.go rule=comment-per-line | // set the total
 fixtures/hygiene.go rule=explanation-longer-than-code | // Works out the score for the given user id, and gives back the score it
 fixtures/hygiene.go rule=guard-cascade | func GuardedAdd(a int, b int, c int) int {
 fixtures/hygiene.go rule=docstring-restates-signature | // ScoreOfUser returns the score of the user id.
-fixtures/intimacy.go rule=mutable-module-state | var CheckoutRate = 3
 fixtures/intimacy.go rule=inappropriate-intimacy | return Checkout{}.Rate() * len(c.Items)
 fixtures/intimacy.go rule=global-accessor | func (Checkout) Rate() int { return CheckoutRate }
 fixtures/intimacy.go rule=plural-mismatch | cart := Cart{}
@@ -134,6 +128,7 @@ fixtures/lifecycle.go rule=temporal-coupling | opened bool
 fixtures/long.go rule=long-function | func ManySteps() int {
 fixtures/long.go rule=dead-store | total := 0
 fixtures/lookalikes_warnings.go none=shadows-builtin | func (q *Queue) len() int {
+fixtures/lookalikes_warnings.go none=mutable-module-state | var priorities = map[string]int{"high": 2, "low": 1}
 fixtures/names.go rule=wildcard-import | import . "strings"
 fixtures/names.go rule=vague-function-name | func Process(rows []int) int {
 fixtures/names.go rule=plural-mismatch | data := []int{}
@@ -177,7 +172,6 @@ fixtures/precision.go rule=journal-comment | // Created on 2019-04-02
 fixtures/precision.go rule=imprecise-type | func Widen(input any) string {
 fixtures/precision.go rule=return-of-fresh-local | raw := input.(string)
 fixtures/precision.go rule=redundant-comment | // user name
-fixtures/precision.go rule=mutable-module-state | var UserName = "ada"
 fixtures/precision.go rule=data-class | type Loose struct {
 fixtures/precision.go rule=imprecise-type | Payload any
 fixtures/precision.go rule=imprecise-type | func NewLoose(payload any) Loose { return Loose{Payload: payload} }
@@ -301,4 +295,3 @@ main.go rule=example-value | "example.com/rqxfixtures/fixtures"
 main.go rule=long-function | func main() {
 orphan/orphan.go rule=unused-file | package orphan
 orphan/orphan.go rule=negated-name | func NoOneImportsThisFile() string {
-orphan/orphan.go rule=mutable-module-state | var NorThis = 1

@@ -92,6 +92,10 @@ public class Performance {
 
     static int openTabs = 0;
 
+    public void openTab() {
+        openTabs++;
+    }
+
     public int tabsOpen() {
         return openTabs;
     }

@@ -38,8 +38,6 @@ src/main/java/rqx/Config.java rule=example-value | return "https://api.example.c
 src/main/java/rqx/Config.java rule=unused-export | public int score(int a, int b, int c, int d) {
 src/main/java/rqx/Config.java rule=obscured-expression | return (a + b) * (c - d) + Math.max(a, b) + Math.min(c, d) - (a * d);
 src/main/java/rqx/Conventions.java rule=mixed-conventions | static int retry_limit = 3;
-src/main/java/rqx/Conventions.java rule=mutable-module-state | static int retry_limit = 3;
-src/main/java/rqx/Conventions.java rule=mutable-module-state | static int retryBackoff = 250;
 src/main/java/rqx/Conventions.java rule=mixed-language-file | return "SELECT id, name FROM users WHERE id = '" + userId + "'";
 src/main/java/rqx/Conventions.java rule=unused-export | public List<String> window(List<String> items, int cursor) {
 src/main/java/rqx/Conventions.java rule=never-reassigned | List<String> out = new ArrayList<>();
@@ -51,7 +49,6 @@ src/main/java/rqx/Conventions.java rule=single-method-field | private int[] entr
 src/main/java/rqx/Conventions.java rule=single-method-field | private String label = "ledger";
 src/main/java/rqx/Conventions.java rule=over-logging | int narrates(int rows) {
 src/main/java/rqx/Conventions.java rule=never-reassigned | int total = rows;
-src/main/java/rqx/Conventions.java rule=mutable-module-state | static Logger log = new Logger();
 src/main/java/rqx/Conventions.java rule=empty-method | void info(String message) {
 src/main/java/rqx/Conventions.java rule=unused-parameter | void info(String message) {
 src/main/java/rqx/CostAccumulateByCopy.java rule=duplicate-code | String text = "";
@@ -266,7 +263,6 @@ src/main/java/rqx/Hygiene.java rule=chat-residue | // Here's the helper you aske
 src/main/java/rqx/Hygiene.java rule=apology-comment | // Sorry, this one is ugly.
 src/main/java/rqx/Intimacy.java rule=lazy-class | public class Intimacy {
 src/main/java/rqx/Intimacy.java rule=inappropriate-intimacy | return Checkout.rate * this.items.size();
-src/main/java/rqx/Intimacy.java rule=mutable-module-state | static int rate = 3;
 src/main/java/rqx/Intimacy.java rule=never-reassigned | Cart cart = new Cart();
 src/main/java/rqx/Intimacy.java rule=empty-method | public void open(String path) { }
 src/main/java/rqx/Intimacy.java rule=unused-parameter | public void open(String path) { }
@@ -428,11 +424,8 @@ src/main/java/rqx/Structures.java rule=unused-parameter | public QueryBuilder wh
 src/main/java/rqx/Structures.java rule=unused-parameter | public QueryBuilder order(String field) {
 src/main/java/rqx/Structures.java rule=unused-parameter | public QueryBuilder take(int count) {
 src/main/java/rqx/Structures.java rule=never-reassigned | Palette copy = new Palette();
-src/main/java/rqx/Structures.java rule=mutable-module-state | private static Settings instance;
 src/main/java/rqx/Structures.java rule=single-method-field | private static Settings instance;
-src/main/java/rqx/Structures.java rule=mutable-module-state | private static Clock current;
 src/main/java/rqx/Structures.java rule=single-method-field | private static Clock current;
-src/main/java/rqx/Structures.java rule=mutable-module-state | private static List<Glyph> pool = new ArrayList<>();
 src/main/java/rqx/Structures.java rule=passthrough-function | public static Glyph of(int index) {
 src/main/java/rqx/Structures.java rule=middle-man | class Feed {
 src/main/java/rqx/Structures.java rule=passthrough-function | public void addListener(Runnable handler) {
@@ -479,7 +472,6 @@ src/test/java/rqx/SuiteTest.java rule=self-asserting-test | assertEquals(1, 1);
 src/test/java/rqx/SuiteTest.java rule=debug-output-in-test | System.out.println("here");
 src/test/java/rqx/SuiteTest.java rule=imprecise-type | Object rows = db.query("rows");
 src/test/java/rqx/SuiteTest.java rule=never-reassigned | Object rows = db.query("rows");
-src/test/java/rqx/SuiteTest.java rule=mutable-module-state | static Db db = new Db();
 src/test/java/rqx/SuiteTest.java rule=single-method-field | static Db db = new Db();
 src/test/java/rqx/SuiteTest.java rule=imprecise-type | Object query(String sql) {
 src/test/java/rqx/SuiteTest.java rule=unused-parameter | Object query(String sql) {

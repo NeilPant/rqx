@@ -387,6 +387,14 @@ them. `tools/release.sh` turns that section into the release notes.
   read by the rule, and a string that is a statement on its own (a docstring or a
   directive) is skipped.
 
+- **`mutable-module-state` reports only a binding the file writes after declaring
+  it.** About 2,600 of 3,200 findings in a sample of public code were never written
+  again, such as a lookup table built once, so the stated risk that two calls can
+  return different results did not apply. A finding now needs an assignment, an
+  increment, a Python `global` statement, a write through an index or field, or a
+  call such as `append`, `push`, `put` or `delete` on the binding, somewhere other
+  than its declaration. The fix hint no longer suggests declaring a constant.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

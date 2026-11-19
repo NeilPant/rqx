@@ -168,7 +168,7 @@ it waits for a fixed length of time instead of for the condition it needs, so th
 | Reads | the syntax tree alone |
 | Fix | Replace Blocking Call |
 
-From `fixtures/typescript/performance.ts`, line 117:
+From `fixtures/typescript/performance.ts`, line 121:
 
 ```ts
 export async function paced(): Promise<number> {
@@ -218,7 +218,7 @@ nothing waits for it and nothing observes its failure, so a failure surfaces els
 | Not in Java | a future is a value, and dropping it is dropping a value |
 | Not in C++ | a future is a value, and dropping it is dropping a value |
 
-From `fixtures/typescript/performance.ts`, line 126:
+From `fixtures/typescript/performance.ts`, line 130:
 
 ```ts
 export async function fires(rows: number[]): Promise<number> {

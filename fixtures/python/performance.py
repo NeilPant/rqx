@@ -98,6 +98,11 @@ async def _load_two():
 open_tabs = 0
 
 
+def open_tab():
+    global open_tabs
+    open_tabs += 1
+
+
 def tabs_open():
     return open_tabs
 

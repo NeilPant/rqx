@@ -2,6 +2,14 @@
 
 import collections
 
+# mutable-module-state: nothing writes the table after it is built, so every reader
+# sees the same one.
+priorities = {"high": 2, "low": 1}
+
+
+def priority(level):
+    return priorities[level]
+
 
 # working-constructor: handing the message to the parent records it and does no work.
 class Refusal(Exception):

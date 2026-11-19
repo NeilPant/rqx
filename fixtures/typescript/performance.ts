@@ -109,6 +109,10 @@ async function loadTwo(): Promise<number> {
 
 let openTabs = 0;
 
+export function openTab(): void {
+  openTabs += 1;
+}
+
 export function tabsOpen(): number {
   return openTabs;
 }

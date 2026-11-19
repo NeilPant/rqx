@@ -325,9 +325,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 126,
+                  "endLine": 130,
                   "startColumn": 3,
-                  "startLine": 126
+                  "startLine": 130
                 }
               }
             }
@@ -350,9 +350,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 162,
+                  "endLine": 166,
                   "startColumn": 5,
-                  "startLine": 162
+                  "startLine": 166
                 }
               }
             }
@@ -2786,7 +2786,7 @@
             }
           ],
           "message": {
-            "text": "`openSessions` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
+            "text": "`openSessions` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: give it an owner that controls who writes it, and pass readers what they need"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2811,7 +2811,7 @@
             }
           ],
           "message": {
-            "text": "`openTabs` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
+            "text": "`openTabs` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: give it an owner that controls who writes it, and pass readers what they need"
           },
           "properties": {
             "confidence": "heuristic"
@@ -2836,7 +2836,7 @@
             }
           ],
           "message": {
-            "text": "`spare` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: declare it constant, or give it an owner that controls who writes it"
+            "text": "`spare` is module-level state that any function in the file can change. every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why Fix: give it an owner that controls who writes it, and pass readers what they need"
           },
           "properties": {
             "confidence": "heuristic"
@@ -3078,9 +3078,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 117,
+                  "endLine": 121,
                   "startColumn": 9,
-                  "startLine": 117
+                  "startLine": 121
                 }
               }
             }
@@ -4828,9 +4828,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 112,
+                  "endLine": 116,
                   "startColumn": 17,
-                  "startLine": 112
+                  "startLine": 116
                 }
               }
             }
@@ -6272,9 +6272,9 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "endLine": 122,
+                  "endLine": 126,
                   "startColumn": 35,
-                  "startLine": 122
+                  "startLine": 126
                 }
               }
             }
@@ -10190,7 +10190,7 @@
                 "text": "every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why"
               },
               "help": {
-                "text": "every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why\n\nFix: Encapsulate Field / Extract Class\nMetric: a binding at file level that anything in the file can write to"
+                "text": "every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why\n\nFix: Encapsulate Field / Extract Class\nMetric: a binding at file level that the file writes again after declaring it"
               },
               "id": "mutable-module-state",
               "name": "mutable-module-state",
@@ -10203,7 +10203,7 @@
                 ]
               },
               "shortDescription": {
-                "text": "a binding at file level that anything in the file can write to"
+                "text": "a binding at file level that the file writes again after declaring it"
               }
             },
             {

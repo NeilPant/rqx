@@ -149,7 +149,7 @@
     "fingerprint": "980af3f52c117f0a",
     "location": {
       "lines": {
-        "begin": 126
+        "begin": 130
       },
       "path": "typescript/performance.ts"
     },
@@ -161,7 +161,7 @@
     "fingerprint": "b35f77193e07a8d9",
     "location": {
       "lines": {
-        "begin": 162
+        "begin": 166
       },
       "path": "typescript/performance.ts"
     },
@@ -1238,7 +1238,7 @@
   {
     "check_name": "mutable-module-state",
     "description": "`openSessions` is module-level state that any function in the file can change. — every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why",
-    "fingerprint": "f3c45cef8aef6103",
+    "fingerprint": "114a9d7983c32a2f",
     "location": {
       "lines": {
         "begin": 30
@@ -1250,7 +1250,7 @@
   {
     "check_name": "mutable-module-state",
     "description": "`openTabs` is module-level state that any function in the file can change. — every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why",
-    "fingerprint": "ccebc19e372f6cb4",
+    "fingerprint": "93682bf85a83498a",
     "location": {
       "lines": {
         "begin": 110
@@ -1262,7 +1262,7 @@
   {
     "check_name": "mutable-module-state",
     "description": "`spare` is module-level state that any function in the file can change. — every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why",
-    "fingerprint": "76d472649c28ea1f",
+    "fingerprint": "07f9055ecc53fca3",
     "location": {
       "lines": {
         "begin": 81
@@ -1385,7 +1385,7 @@
     "fingerprint": "dde78e0ec86cf300",
     "location": {
       "lines": {
-        "begin": 117
+        "begin": 121
       },
       "path": "typescript/performance.ts"
     },
@@ -2225,7 +2225,7 @@
     "fingerprint": "5f330f38ff45b895",
     "location": {
       "lines": {
-        "begin": 112
+        "begin": 116
       },
       "path": "typescript/performance.ts"
     },
@@ -2861,7 +2861,7 @@
     "fingerprint": "f32d61ae0cc3e68c0001",
     "location": {
       "lines": {
-        "begin": 122
+        "begin": 126
       },
       "path": "typescript/performance.ts"
     },

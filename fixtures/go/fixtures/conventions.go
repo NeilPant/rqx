@@ -3,6 +3,10 @@ package fixtures
 var retry_limit = 3
 var retryBackoff = 250
 
+func Backoff() {
+	retryBackoff *= 2
+}
+
 func Query(userID string) string {
 	return "SELECT id, name FROM users WHERE id = '" + userID + "'"
 }

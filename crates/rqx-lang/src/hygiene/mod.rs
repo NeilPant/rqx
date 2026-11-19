@@ -1346,6 +1346,7 @@ pub fn collect_over(
         for function in nodes.iter().filter(|node| profile.is_function(*node)) {
             walker.note_global_accessor(function, &shared);
         }
+        walker.keep_written_module_state();
     }
 
     let mut out = std::mem::take(&mut walker.out);

@@ -1888,7 +1888,7 @@ catalogue! {
         slug: "mutable-module-state",
         category: Coupling,
         analysis: Syntax,
-        metric: "a binding at file level that anything in the file can write to",
+        metric: "a binding at file level that the file writes again after declaring it",
         fixes: [EncapsulateField, ExtractClass],
         confidence: Heuristic,
         severity: Warning,

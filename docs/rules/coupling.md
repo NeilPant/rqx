@@ -141,7 +141,7 @@ it is a shared value behind a function call, and every caller still reads the sa
 | Reads | the syntax tree alone |
 | Fix | Encapsulate Field / Invert Dependency |
 
-From `fixtures/typescript/performance.ts`, line 112:
+From `fixtures/typescript/performance.ts`, line 116:
 
 ```ts
 
@@ -211,7 +211,7 @@ every function that reads it takes an argument that no caller passed, so two cal
 
 | | |
 |---|---|
-| Measures | a binding at file level that anything in the file can write to |
+| Measures | a binding at file level that the file writes again after declaring it |
 | Reported as | warning, measured threshold |
 | Reads | the syntax tree alone |
 | Fix | Encapsulate Field / Extract Class |
@@ -224,7 +224,7 @@ export let openSessions = 0;
 
 ```
 
-Suggested fix: declare it constant, or give it an owner that controls who writes it
+Suggested fix: give it an owner that controls who writes it, and pass readers what they need
 
 ## `ambient-dependency`
 

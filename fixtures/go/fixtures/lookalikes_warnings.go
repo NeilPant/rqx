@@ -18,3 +18,11 @@ func (q *Queue) len() int {
 func (q *Queue) IsEmpty() bool {
 	return q.len() == 0
 }
+
+// mutable-module-state: nothing writes the table after it is built, so every reader
+// sees the same one.
+var priorities = map[string]int{"high": 2, "low": 1}
+
+func Priority(level string) int {
+	return priorities[level]
+}

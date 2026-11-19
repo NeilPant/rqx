@@ -790,7 +790,7 @@ Fix: accept it as an argument, so a caller can decide what it is</failure>
       <failure type="mutable-module-state" message="`openSessions` is module-level state that any function in the file can change.">`openSessions` is module-level state that any function in the file can change.
 
 Why: every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why
-Fix: declare it constant, or give it an owner that controls who writes it</failure>
+Fix: give it an owner that controls who writes it, and pass readers what they need</failure>
     </testcase>
     <testcase classname="typescript/intimacy.ts" name="working-constructor at 36:3">
       <failure type="working-constructor" message="The constructor runs 1 statement of real work (limit 0).">The constructor runs 1 statement of real work (limit 0).
@@ -1061,13 +1061,13 @@ Fix: give `action.kind` a type per case and let each one carry its own behaviour
 Why: the iteration and the mutation disagree about what remains, so elements are skipped or visited twice depending on where the change lands
 Fix: collect what to change, and change it after the walk</failure>
     </testcase>
-    <testcase classname="typescript/performance.ts" name="dropped-promise at 126:3">
+    <testcase classname="typescript/performance.ts" name="dropped-promise at 130:3">
       <failure type="dropped-promise" message="`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.">`loadOne` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.
 
 Why: nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
 Fix: await it, or state in the code what handles its result</failure>
     </testcase>
-    <testcase classname="typescript/performance.ts" name="dropped-promise at 162:5">
+    <testcase classname="typescript/performance.ts" name="dropped-promise at 166:5">
       <failure type="dropped-promise" message="`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.">`this.refresh` returns an asynchronous result that nothing awaits or handles, so a failure goes unseen.
 
 Why: nothing waits for it and nothing observes its failure, so a failure surfaces elsewhere with no link to what started it
@@ -1131,9 +1131,9 @@ Fix: build a set or a map of what the scan looks for once, above the loop</failu
       <failure type="mutable-module-state" message="`openTabs` is module-level state that any function in the file can change.">`openTabs` is module-level state that any function in the file can change.
 
 Why: every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why
-Fix: declare it constant, or give it an owner that controls who writes it</failure>
+Fix: give it an owner that controls who writes it, and pass readers what they need</failure>
     </testcase>
-    <testcase classname="typescript/performance.ts" name="sleep-in-production at 117:9">
+    <testcase classname="typescript/performance.ts" name="sleep-in-production at 121:9">
       <failure type="sleep-in-production" message="`sleep` pauses the thread for a fixed time outside a test.">`sleep` pauses the thread for a fixed time outside a test.
 
 Why: it waits for a fixed length of time instead of for the condition it needs, so the delay is either too short to work or longer than necessary
@@ -1157,13 +1157,13 @@ Fix: start both and wait for both together</failure>
 Why: the closure reads whichever value the loop variable holds when it runs, so every closure sees the last element instead of its own
 Fix: pass the value in, so each function keeps the one it was made with</failure>
     </testcase>
-    <testcase classname="typescript/performance.ts" name="global-accessor at 112:17">
+    <testcase classname="typescript/performance.ts" name="global-accessor at 116:17">
       <skipped message="`openTabs` hands every caller the same shared value, so a caller cannot choose its own." />
     </testcase>
     <testcase classname="typescript/performance.ts" name="ambient-dependency at 98:3">
       <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
-    <testcase classname="typescript/performance.ts" name="ambient-dependency at 122:35">
+    <testcase classname="typescript/performance.ts" name="ambient-dependency at 126:35">
       <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
   </testsuite>
@@ -1461,7 +1461,7 @@ Fix: assert the behaviour it names, or delete it so the suite does not report co
       <failure type="mutable-module-state" message="`spare` is module-level state that any function in the file can change.">`spare` is module-level state that any function in the file can change.
 
 Why: every function that reads it takes an argument that no caller passed, so two calls with the same arguments can return different results and no signature says why
-Fix: declare it constant, or give it an owner that controls who writes it</failure>
+Fix: give it an owner that controls who writes it, and pass readers what they need</failure>
     </testcase>
     <testcase classname="typescript/suite.test.ts" name="hand-rolled-throws at 28:3">
       <failure type="hand-rolled-throws" message="`catches the failure itself` catches the failure with its own `try`, instead of the framework&apos;s expected-failure assertion.">`catches the failure itself` catches the failure with its own `try`, instead of the framework&apos;s expected-failure assertion.

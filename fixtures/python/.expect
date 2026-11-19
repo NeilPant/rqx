@@ -26,15 +26,11 @@ config.py rule=collapsible-if | if retries > 0:
 config.py rule=buried-configuration | return "https://api.example.com/v2/orders"
 config.py rule=example-value | return "https://api.example.com/v2/orders"
 config.py rule=obscured-expression | return (a + b) * (c - d) + max(a, b) + min(c, d) - (a * d)
-conventions.py rule=mutable-module-state | retry_limit = 3
 conventions.py rule=unused-export | retry_limit = 3
 conventions.py rule=mixed-conventions | retryBackoff = 250
-conventions.py rule=mutable-module-state | retryBackoff = 250
 conventions.py rule=unused-export | retryBackoff = 250
 conventions.py rule=mixed-language-file | return f"SELECT id, name FROM users WHERE id = '{user_id}'"
 conventions.py rule=boundary-arithmetic | head = items[cursor + 1]
-conventions.py rule=mutable-module-state | limits = {"retry_limit": retry_limit, "retryBackoff": retryBackoff}
-conventions.py rule=mutable-module-state | item_list = [1, 2, 3]
 conventions.py rule=name-repeats-type | item_list = [1, 2, 3]
 conventions.py rule=plural-mismatch | item_list = [1, 2, 3]
 conventions.py rule=over-logging | def narrates(rows):
@@ -138,7 +134,6 @@ hygiene.py rule=unjustified-suppression | # rqx-ignore magic-number
 hygiene.py rule=output-parameter | value = 1
 hygiene.py rule=unreachable-code | value = 1
 hygiene.py rule=suppressed-diagnostic | # type: ignore
-hygiene.py rule=mutable-module-state | suppressed = 1
 hygiene.py rule=message-chain x2 | return order.customer.address.city.strip().upper()
 hygiene.py rule=banner-comment | # ---------------- helpers ----------------
 hygiene.py rule=explanation-longer-than-code | # ---------------- helpers ----------------
@@ -165,7 +160,6 @@ hygiene.py rule=catch-all-handler #2 | except Exception:
 hygiene.py rule=shadowed-handler #2 | except Exception:
 intimacy.py rule=inappropriate-intimacy | return Checkout.rate * len(self.items)
 intimacy.py rule=duplicate-code | def open(self, path: str) -> None:
-intimacy.py rule=mutable-module-state | open_sessions = 0
 intimacy.py rule=import-time-work | warm_the_cache()
 intimacy.py rule=working-constructor #2 | def __init__(self):
 intimacy.py rule=self-built-collaborators | self.writer = CsvWriter()
@@ -173,6 +167,7 @@ intimacy.py rule=ambient-dependency | return time.time()
 lifecycle.py rule=temporal-coupling | self._opened = True
 lifecycle.py rule=middle-man | class ReportFactory:
 long.py rule=long-function | def many_steps() -> int:
+lookalikes_warnings.py none=mutable-module-state | priorities = {"high": 2, "low": 1}
 lookalikes_warnings.py none=working-constructor | def __init__(self, reason):
 lookalikes_warnings.py none=working-constructor | def __init__(self):
 lookalikes_warnings.py none=self-built-collaborators | self.seen = collections.Counter()
@@ -184,7 +179,6 @@ names.py rule=return-of-fresh-local | temp2 = len(data)
 names.py rule=shadows-builtin | list = len(rows)
 orphan.py rule=negated-name | def no_one_imports_this_file():
 orphan.py rule=unused-file | def no_one_imports_this_file():
-orphan.py rule=mutable-module-state | nor_this = 1
 params.py rule=unused-parameter | def with_dead_tail(used: int, dead: str) -> int:
 params.py rule=unused-parameter | def with_dead_middle(dead: str, used: int) -> int:
 params.py rule=unused-parameter x2 | def two_dead_on_one_line(used: int, dead_a: str, dead_b: str) -> int:
@@ -217,7 +211,6 @@ precision.py rule=journal-comment | # Created on 2019-04-02
 precision.py rule=imprecise-type | def widen(raw: Any) -> str:
 precision.py rule=imprecise-type | text: Any = raw
 precision.py rule=redundant-comment | # user name
-precision.py rule=mutable-module-state | user_name = "ada"
 precision.py rule=data-class | class Loose:
 precision.py rule=imprecise-type | def __init__(self, payload: Any):
 queries.py rule=unused-private-member | self._reads = 0

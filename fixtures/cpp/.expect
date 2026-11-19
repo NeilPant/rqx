@@ -6,8 +6,6 @@ include/bloat.hpp rule=large-class | class Overgrown {
 include/bloat.hpp rule=split-cohesion | class Overgrown {
 include/bloat.hpp rule=wide-surface | class Overgrown {
 include/conventions.hpp rule=mixed-conventions | extern int retry_limit;
-include/conventions.hpp rule=mutable-module-state | extern int retry_limit;
-include/conventions.hpp rule=mutable-module-state | extern int retryBackoff;
 include/cost_large_by_value.hpp rule=unused-private-member | std::vector<std::string> lines_;
 include/cost_pair_scan_could_hash.hpp rule=data-class | struct Order {
 include/cost_pair_scan_could_hash.hpp rule=split-cohesion | struct Order {
@@ -46,7 +44,6 @@ include/intimacy.hpp rule=unused-export | class Cart {
 include/intimacy.hpp rule=temporary-field | std::vector<std::string> items;
 include/intimacy.hpp rule=inappropriate-intimacy | return Checkout::rate * static_cast<int>(this->items.size());
 include/intimacy.hpp rule=unused-export | class Checkout {
-include/intimacy.hpp rule=mutable-module-state | static int rate;
 include/intimacy.hpp rule=never-reassigned | Cart cart;
 include/intimacy.hpp rule=empty-method | void open(const std::string& path) {}
 include/intimacy.hpp rule=empty-method | void write(const std::string& row) {}
@@ -84,7 +81,6 @@ include/performance.hpp rule=boolean-not-a-question | bool ready() const { retur
 include/precision.hpp rule=journal-comment | // @author someone
 include/precision.hpp rule=journal-comment | // Created on 2019-04-02
 include/precision.hpp rule=redundant-comment | // user name
-include/precision.hpp rule=mutable-module-state | extern std::string user_name;
 include/queries.hpp rule=speculative-generality | class Ledger {
 include/queries.hpp rule=unused-export | class Ledger {
 include/queries.hpp rule=temporary-field | int total = 0;
@@ -145,7 +141,6 @@ include/structures.hpp rule=empty-method | Clock() {}
 include/structures.hpp rule=unused-private-member | static Clock* current;
 include/structures.hpp rule=static-only-class | class Glyph {
 include/structures.hpp rule=unused-export | class Glyph {
-include/structures.hpp rule=mutable-module-state | static std::vector<Glyph*> pool;
 include/structures.hpp rule=unused-private-member | static std::vector<Glyph*> pool;
 include/structures.hpp rule=speculative-generality | class Listener {
 include/structures.hpp rule=unused-export | class Listener {
@@ -194,13 +189,10 @@ src/config.cpp rule=collapsible-if | if (retries > 0) {
 src/config.cpp rule=buried-configuration | return "https://api.example.com/v2/orders";
 src/config.cpp rule=example-value | return "https://api.example.com/v2/orders";
 src/config.cpp rule=obscured-expression | return (a + b) * (c - d) + std::max(a, b) + std::min(c, d) - (a * d);
-src/conventions.cpp rule=mutable-module-state | int retry_limit = 3;
 src/conventions.cpp rule=mixed-conventions | int retryBackoff = 250;
-src/conventions.cpp rule=mutable-module-state | int retryBackoff = 250;
 src/conventions.cpp rule=mixed-language-file | return "SELECT id, name FROM users WHERE id = '" + user_id + "'";
 src/conventions.cpp rule=never-reassigned | std::vector<std::string> out;
 src/conventions.cpp rule=boundary-arithmetic | out.push_back(items[cursor + 1]);
-src/conventions.cpp rule=mutable-module-state | int item_list[] = {1, 2, 3};
 src/conventions.cpp rule=name-repeats-type | int item_list[] = {1, 2, 3};
 src/conventions.cpp rule=plural-mismatch | int item_list[] = {1, 2, 3};
 src/conventions.cpp rule=over-logging | int narrates(int rows) {
@@ -247,8 +239,6 @@ src/cost_sort_in_loop.cpp rule=never-reassigned | std::vector<int> ranked;
 src/cost_sort_in_loop.cpp rule=sort-in-loop | std::partial_sort(base.begin(), base.begin(), base.end());
 src/cost_sort_in_loop.cpp rule=dead-store #2 | std::vector<int> ranked;
 src/cost_sort_in_loop.cpp rule=never-reassigned #2 | std::vector<int> ranked;
-src/cost_unbounded_cache.cpp rule=mutable-module-state | static std::unordered_map<std::string, int> page_sizes;
-src/cost_unbounded_cache.cpp rule=mutable-module-state | static std::unordered_map<std::string, int> recent_sizes;
 src/cost_unbounded_cache.cpp rule=unbounded-cache | page_sizes[key] = size;
 src/cost_unbounded_concurrency.cpp rule=unused-parameter | std::vector<std::future<std::string>> load_every_page(const PageClient& client, const std::vector<std::string>& ids) {
 src/cost_unbounded_concurrency.cpp rule=unbounded-concurrency | pending.push_back(std::async(std::launch::async, [&client, id] { return client.get(id); }));
@@ -395,7 +385,6 @@ src/performance.cpp rule=sleep-in-production | sleep(500);
 src/precision.cpp rule=imprecise-type | std::string raw = *((std::string*) input);
 src/precision.cpp rule=never-reassigned | std::string raw = *((std::string*) input);
 src/precision.cpp rule=return-of-fresh-local | std::string raw = *((std::string*) input);
-src/precision.cpp rule=mutable-module-state | std::string user_name = "ada";
 src/queries.cpp rule=vague-function-name | std::string handle(const std::string& value) {
 src/queries.cpp rule=many-exits | std::string find_order(const std::vector<std::string>& rows) {
 src/queries.cpp rule=distant-declaration | std::string separator = " | ";

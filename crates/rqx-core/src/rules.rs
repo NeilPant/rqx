@@ -1757,9 +1757,10 @@ fn hygiene_findings(
             spot,
             Evidence::Name {
                 identifier: spot.detail.clone(),
-                reason: "is writable from anywhere in the file".to_owned(),
+                reason: "is written again after its declaration".to_owned(),
             },
-            "declare it constant, or give it an owner that controls who writes it".to_owned(),
+            "give it an owner that controls who writes it, and pass readers what they need"
+                .to_owned(),
         );
     }
     for spot in &hygiene.ambient_dependencies {

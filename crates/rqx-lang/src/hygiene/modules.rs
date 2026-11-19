@@ -11,6 +11,15 @@ use crate::tree::{Nodes, descendants, kind_of, span_of, text_of};
 
 use super::{Walker, squashed};
 
+/// Nodes that index into a value, across the grammars. The value indexed is the first
+/// named child of each.
+const INDEXING: [&str; 4] = [
+    "subscript",
+    "subscript_expression",
+    "index_expression",
+    "array_access",
+];
+
 impl<'a> Walker<'a> {
     pub(super) fn note_wildcard_import(&mut self, node: Node<'a>) {
         let Some((_, required)) = self
@@ -122,6 +131,177 @@ impl<'a> Walker<'a> {
                 count: 1,
             });
         }
+    }
+
+    /// Keeps the file-level bindings this file writes again after declaring them. One
+    /// that only its declaration fills gives the same answer to every reader, which is
+    /// what the rule warns is not the case.
+    pub(super) fn keep_written_module_state(&mut self) {
+        let declared: HashMap<&str, Vec<rqx_core::span::Span>> =
+            self.out
+                .module_state
+                .iter()
+                .fold(HashMap::new(), |mut declared, spot| {
+                    declared
+                        .entry(spot.detail.as_str())
+                        .or_default()
+                        .push(spot.span);
+                    declared
+                });
+        let profile = self.profile;
+        let written: HashSet<String> = self
+            .nodes
+            .iter()
+            .filter(|node| {
+                profile.is_identifier(*node) || profile.property_kinds.contains(&kind_of(node))
+            })
+            .filter(|node| {
+                let at = span_of(*node);
+                declared.get(self.text(*node)).is_some_and(|spans| {
+                    !spans
+                        .iter()
+                        .any(|span| span.start <= at.start && at.end <= span.end)
+                })
+            })
+            .filter(|node| self.writes_to(*node))
+            .map(|node| self.text(node).to_owned())
+            .collect();
+        self.out
+            .module_state
+            .retain(|spot| written.contains(&spot.detail));
+    }
+
+    /// Whether this mention of a name assigns it, steps it, or changes what it holds.
+    /// Passing it to a function is not counted: the callee may only read it.
+    fn writes_to(&self, mention: Node<'a>) -> bool {
+        const CHANGERS: [&str; 33] = [
+            "push",
+            "pop",
+            "shift",
+            "unshift",
+            "splice",
+            "sort",
+            "reverse",
+            "fill",
+            "append",
+            "appendleft",
+            "extend",
+            "insert",
+            "remove",
+            "add",
+            "update",
+            "clear",
+            "discard",
+            "setdefault",
+            "popitem",
+            "popleft",
+            "set",
+            "delete",
+            "put",
+            "putAll",
+            "putIfAbsent",
+            "computeIfAbsent",
+            "register",
+            "push_back",
+            "emplace_back",
+            "erase",
+            "Store",
+            "Delete",
+            "Set",
+        ];
+        let profile = self.profile;
+        let Some(parent) = mention.parent() else {
+            return false;
+        };
+        if matches!(kind_of(parent), "global_statement" | "nonlocal_statement") {
+            return true;
+        }
+        // A static field is written through its type: `Holder.count = 1`.
+        let target = if profile.is_member_access(parent)
+            && parent.child_by_field_name(profile.object_field) != Some(mention)
+        {
+            parent
+        } else {
+            mention
+        };
+        // Python binds a new local when a function assigns a name it did not declare
+        // `global`, and the `global` statement is counted above.
+        let binds_a_local = profile.language == rqx_core::Language::Python
+            && target == mention
+            && self.enclosing_function(mention).is_some();
+        if self.is_written(target) && !binds_a_local {
+            return true;
+        }
+        let reaches_into = (profile.is_member_access(parent)
+            && parent.child_by_field_name(profile.object_field) == Some(mention))
+            || (INDEXING.contains(&kind_of(parent)) && parent.named_child(0) == Some(mention));
+        if reaches_into {
+            let mut access = parent;
+            while let Some(outer) = access.parent()
+                && (profile.is_member_access(outer) || INDEXING.contains(&kind_of(outer)))
+                && outer.named_child(0) == Some(access)
+            {
+                access = outer;
+            }
+            let deleted = access.parent().is_some_and(|outer| {
+                kind_of(outer) == "delete_statement"
+                    || (kind_of(outer) == "unary_expression"
+                        && self.text(outer).trim_start().starts_with("delete"))
+            });
+            if self.is_written(access) || deleted {
+                return true;
+            }
+            let call = if profile.is_call(parent) {
+                Some(parent)
+            } else {
+                parent.parent().filter(|outer| profile.is_call(*outer))
+            };
+            let changes = call.is_some_and(|call| {
+                self.member_property(parent)
+                    .is_some_and(|method| CHANGERS.contains(&self.text(method)))
+                    && (call == parent
+                        || call.child_by_field_name(profile.callee_field) == Some(parent))
+            });
+            if changes {
+                return true;
+            }
+        }
+        // Go removes a key with a builtin: `delete(cache, key)`.
+        parent.named_child(0) == Some(mention)
+            && parent
+                .parent()
+                .filter(|call| profile.is_call(*call))
+                .and_then(|call| self.callee_name(call))
+                .is_some_and(|callee| callee == "delete")
+    }
+
+    /// Whether `target` is what an assignment writes or what an increment steps.
+    fn is_written(&self, target: Node<'a>) -> bool {
+        const STEPPING: [&str; 3] = ["update_expression", "inc_statement", "dec_statement"];
+        let profile = self.profile;
+        let Some(parent) = target.parent() else {
+            return false;
+        };
+        if STEPPING.contains(&kind_of(parent)) {
+            return true;
+        }
+        // `a, b = 1, 2` puts the targets in a list.
+        let statement = if profile.expression_list_kinds.contains(&kind_of(parent)) {
+            parent.parent().unwrap_or(parent)
+        } else {
+            parent
+        };
+        let assigns = profile.assignment_kinds.contains(&kind_of(statement))
+            || profile
+                .compound_assignment_kinds
+                .contains(&kind_of(statement));
+        // Go's `:=` declares a new name even when it shares one with the file.
+        let declares = profile.local_declaring_kinds.contains(&kind_of(statement));
+        assigns
+            && !declares
+            && statement
+                .child_by_field_name("left")
+                .is_some_and(|left| left == target || left == parent)
     }
 
     /// A statement that runs work the moment the file is loaded, before any caller

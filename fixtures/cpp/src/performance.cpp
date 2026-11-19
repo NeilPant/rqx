@@ -93,6 +93,10 @@ int guards(int value) {
 
 int open_tabs = 0;
 
+void open_tab() {
+    open_tabs += 1;
+}
+
 int tabs_open() {
     return open_tabs;
 }
