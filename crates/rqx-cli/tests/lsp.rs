@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use serde_json::{Value, json};
 
 mod common;
+use common::Scratch;
 use common::{Watchdog, file_uri};
 
 /// The server speaks JSON-RPC over a pipe, so the only test that proves it works is one
@@ -145,9 +146,8 @@ fn codes(diagnostics: &[Value]) -> Vec<String> {
 /// a URI from a path used to produce an unparseable one and every publish for the whole
 /// project silently did nothing. One directory per test, because cargo runs them in
 /// parallel and a shared tree would have them deleting each other's fixtures mid-scan.
-fn workspace_with_a_space(test: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx lsp {test} {}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+fn workspace_with_a_space(test: &str) -> Scratch {
+    let root = Scratch::new(&format!("lsp {test}"));
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/typescript");
     copy(&source, &root);
     root

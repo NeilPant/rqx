@@ -1,17 +1,18 @@
 //! `--files-from`: the files a pipeline names, in place of the ones git says changed.
 //! The projects here are not repositories, which is the point of the flag.
 
+mod common;
+use common::Scratch;
+
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
 const CLEAN: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
 const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-files-from-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str, files: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("files-from-{name}"));
     for (path, text) in files {
         let file = root.join(path);
         std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
@@ -81,7 +82,6 @@ fn scan_reports_only_the_listed_files() {
     );
     assert_eq!(code(&listed), 0, "{listed:?}");
     assert_eq!(files_with_findings(&listed), ["a.ts"]);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -101,7 +101,6 @@ fn scan_reads_the_list_from_a_file_too() {
         b"",
     );
     assert_eq!(files_with_findings(&listed), ["b.ts"]);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// The scan still reads the whole project, so a file another one imports is not
@@ -130,7 +129,6 @@ fn scan_still_analyses_the_whole_project() {
     );
     let everything = rqx_with(&root, &["scan", ".", "--reporter", "json"], b"");
     assert_eq!(files_with_findings(&everything), ["index.ts"]);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -146,7 +144,6 @@ fn paths_that_do_not_exist_are_said_once_and_ignored() {
     let said = stderr(&listed);
     assert_eq!(said.matches("--files-from: ignored 2").count(), 1, "{said}");
     assert!(said.contains("gone.ts, also-gone.ts"), "{said}");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -159,7 +156,6 @@ fn absolute_paths_are_read_against_the_scan_root() {
         absolute.display().to_string().as_bytes(),
     );
     assert_eq!(files_with_findings(&listed), ["b.ts"]);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -191,7 +187,6 @@ fn check_without_git_history_reviews_the_listed_files_and_gates_on_them() {
         "dirty.ts was not listed, so it is not under review: {}",
         stdout(&passing)
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -223,7 +218,6 @@ fn a_display_cap_on_check_hides_findings_without_loosening_the_gate() {
     assert_eq!(code(&capped), 1, "{}", stdout(&capped));
     assert_eq!(code(&uncapped), 1, "{}", stdout(&uncapped));
     assert!(files_with_findings(&capped).len() < files_with_findings(&uncapped).len());
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -235,7 +229,6 @@ fn check_reads_a_nul_separated_list() {
         b"clean.ts\0dirty.ts\0",
     );
     assert_eq!(code(&gated), 1, "{}", stdout(&gated));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// What imports a listed file is reviewed as well, as it is for a diff: deleting an
@@ -259,7 +252,6 @@ fn check_still_reviews_the_files_that_import_the_listed_ones() {
     );
     assert_eq!(code(&gated), 1, "{}", stdout(&gated));
     assert!(stdout(&gated).contains("dirty.ts"));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -276,5 +268,4 @@ fn a_base_revision_and_a_list_are_two_answers_to_one_question() {
         "{}",
         stderr(&both)
     );
-    let _ = std::fs::remove_dir_all(root);
 }

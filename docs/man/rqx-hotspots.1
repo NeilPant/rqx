@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-hotspots \- Rank files by how often they change and how much is wrong with them
 .SH SYNOPSIS
-\fBrqx hotspots\fR [\fB\-\-top\fR] [\fB\-\-since\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx hotspots\fR [\fB\-\-top\fR] [\fB\-\-since\fR] [\fB\-\-json\fR] [\fB\-\-reporter\fR] [\fB\-\-level\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-color\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-progress\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Rank files by how often they change and how much is wrong with them
 .SH OPTIONS
@@ -32,6 +32,9 @@ Read settings from this file, layered over any `rqx.yaml` found
 .TP
 \fB\-\-no\-tui\fR
 Do not open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open
 .TP
 \fB\-\-color\fR \fI<COLOR>\fR [default: auto]
 When to colour output; `auto` follows NO_COLOR and whether stdout is a terminal

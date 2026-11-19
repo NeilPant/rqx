@@ -64,6 +64,10 @@ pub(crate) use cli::run::{filter_of, listed_files};
 use sink::Sink;
 
 #[cfg(feature = "mimalloc")]
+#[cfg(test)]
+#[path = "../tests/common/scratch.rs"]
+mod scratch;
+
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 

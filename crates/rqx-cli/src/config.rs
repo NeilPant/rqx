@@ -1054,14 +1054,8 @@ mod tests {
 
     /// A directory of its own per test, so two running at once cannot read each
     /// other's policy.
-    fn workspace(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
-            "rqx-policy-{name}-{}-{:?}",
-            std::process::id(),
-            std::thread::current().id()
-        ));
-        let _ = std::fs::remove_dir_all(&root);
-        root
+    fn workspace(name: &str) -> crate::scratch::Scratch {
+        crate::scratch::Scratch::new(&format!("policy-{name}"))
     }
 
     fn write(at: &Path, body: &str) {

@@ -26,6 +26,9 @@ use std::process::Command;
 
 use serde_json::Value;
 
+mod common;
+use common::{isolate_git, run_git};
+
 const VERSION_PLACEHOLDER: &str = "<version>";
 const ROOT_PLACEHOLDER: &str = "<root>";
 
@@ -64,7 +67,9 @@ impl Workspace {
     }
 
     fn rqx(&self, directory: &Path, args: &[&str]) -> String {
-        let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+        isolate_git(&mut command);
+        let output = command
             .current_dir(directory)
             .env("RQX_NO_UPDATE_CHECK", "1")
             .args(args)
@@ -81,15 +86,7 @@ impl Workspace {
     }
 
     fn git(&self, directory: &Path, args: &[&str]) {
-        let status = Command::new("git")
-            .arg("-C")
-            .arg(directory)
-            .args(["-c", "user.email=t@t", "-c", "user.name=t"])
-            .args(args)
-            .output()
-            .expect("git")
-            .status;
-        assert!(status.success(), "git {args:?} failed");
+        run_git(directory, args);
     }
 
     fn scrub(&self, text: &str) -> String {

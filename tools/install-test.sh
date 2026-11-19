@@ -7,9 +7,8 @@
 # platform, a download that fails must leave the install directory empty, and --help
 # must exit 0. When shellcheck is installed, it also lints install.sh and this file.
 #
-# The dry run asks GitHub for the latest release. While no release is published, the
-# installer stops with a message saying so, and that counts as a pass; the output shows
-# which message it was.
+# The dry run asks GitHub for the latest release, so it needs the network. Without it,
+# the installer says it could not reach GitHub and the check is skipped, not failed.
 #
 # Each check prints PASS, FAIL or SKIP. Any failure makes the script exit 1.
 
@@ -76,8 +75,8 @@ check_dry_run() {
   fi
 
   case "$output" in
-    *"has no published release"* | *"could not reach"*"/releases/latest"*)
-      pass "$name: no release is published yet, and the installer said so"
+    *"could not reach"*"/releases/latest"*)
+      echo "SKIP  $name: GitHub is not reachable from here"
       ;;
     *)
       fail "$name"

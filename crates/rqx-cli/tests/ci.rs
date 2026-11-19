@@ -3,19 +3,17 @@
 //! a gate that stops failing, or a report a viewer quietly ignores because one field
 //! changed name.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
 mod common;
-use common::{file_uri, run_with_a_reader_that_walks_away};
+use common::{Scratch, file_uri, git, isolate_git, run_git, run_with_a_reader_that_walks_away};
 
 const CLEAN: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
 const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-ci-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str, files: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("ci-{name}"));
     for (path, text) in files {
         let file = root.join(path);
         std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
@@ -25,7 +23,9 @@ fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
 }
 
 fn rqx(root: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_rqx"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+    isolate_git(&mut command);
+    command
         .arg(args[0])
         .arg(root)
         .args(&args[1..])
@@ -64,9 +64,6 @@ fn a_clean_project_exits_zero_and_a_gated_dirty_one_exits_one() {
         1,
         "a gate that stops failing is a pipeline that stops working"
     );
-    for root in [clean, dirty] {
-        let _ = std::fs::remove_dir_all(root);
-    }
 }
 
 /// The distinction a pipeline needs most: "your code is bad" and "rqx could not run"
@@ -82,7 +79,6 @@ fn being_unable_to_run_is_a_different_exit_from_failing() {
         &[("rqx.yaml", "rules:\n  categories: [nope]\n")],
     );
     assert_eq!(code(&rqx(&broken, &["scan"])), 2);
-    let _ = std::fs::remove_dir_all(broken);
 }
 
 /// A TOML file that was skipped would be a gate nobody knows has changed, so it stops
@@ -123,7 +119,6 @@ fn a_toml_config_stops_the_run_until_it_is_migrated() {
 
     assert_eq!(code(&rqx(&root, &["scan"])), 0, "a bare scan never gates");
     assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// The schema is derived from the config types, so it can be printed without a config
@@ -144,7 +139,7 @@ fn the_config_schema_prints_without_a_config_and_matches_the_checked_in_one() {
 
 /// `unreachable-code` is an error by default and fires on `DIRTY`; these show what a
 /// project can say about one rule without touching the rest of the catalogue.
-fn one_rule(name: &str, config: &str) -> PathBuf {
+fn one_rule(name: &str, config: &str) -> Scratch {
     project(
         name,
         &[
@@ -163,7 +158,6 @@ fn a_rules_severity_can_be_set_in_the_config() {
     );
     assert_eq!(code(&rqx(&lowered, &["scan", "--fail-on", "error"])), 0);
     assert_eq!(code(&rqx(&lowered, &["scan", "--fail-on", "info"])), 1);
-    let _ = std::fs::remove_dir_all(lowered);
 }
 
 #[test]
@@ -179,9 +173,6 @@ fn a_rule_restricted_to_paths_stays_quiet_elsewhere() {
         "rules:\n  unreachable-code:\n    paths: [\"*.ts\"]\n",
     );
     assert_eq!(code(&rqx(&here, &["scan", "--fail-on", "info"])), 1);
-    for root in [elsewhere, here] {
-        let _ = std::fs::remove_dir_all(root);
-    }
 }
 
 #[test]
@@ -213,9 +204,6 @@ fn a_rule_can_be_switched_off_and_a_threshold_set_where_it_is_read() {
         ],
     );
     assert_eq!(code(&rqx(&untuned, &["scan", "--fail-on", "info"])), 0);
-    for root in [off, tuned, untuned] {
-        let _ = std::fs::remove_dir_all(root);
-    }
 }
 
 #[test]
@@ -235,10 +223,9 @@ fn an_override_can_hold_a_subtree_to_its_own_rule_settings() {
     assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 0);
     std::fs::write(root.join("fresh.ts"), DIRTY).expect("a file outside the subtree");
     assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
-    let _ = std::fs::remove_dir_all(root);
 }
 
-fn project_with_a_legacy_override(name: &str) -> PathBuf {
+fn project_with_a_legacy_override(name: &str) -> Scratch {
     project(
         name,
         &[
@@ -270,7 +257,6 @@ fn an_override_holds_when_only_its_subtree_is_scanned() {
         let output = rqx_from(&root, &["scan", target, "--fail-on", "info"]);
         assert_eq!(code(&output), 0, "scan {target}");
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -282,24 +268,21 @@ fn an_override_holds_when_rqx_runs_from_inside_the_subtree() {
         let output = rqx_from(&inside, &["scan", target, "--fail-on", "info"]);
         assert_eq!(code(&output), 0, "scan {target}");
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[cfg(unix)]
 #[test]
 fn an_override_holds_when_the_project_is_reached_through_a_symlink() {
     let root = project_with_a_legacy_override("override-symlink");
-    let link = std::env::temp_dir().join(format!("rqx-ci-link-{}", std::process::id()));
-    let _ = std::fs::remove_file(&link);
-    std::os::unix::fs::symlink(&root, &link).expect("a symlink to the project");
+    let links = Scratch::new("ci-link");
+    let link = links.join("project");
+    std::os::unix::fs::symlink(&*root, &link).expect("a symlink to the project");
 
     assert_eq!(code(&rqx(&link, &["scan", "--fail-on", "info"])), 0);
     assert_eq!(
         code(&rqx(&link.join("legacy"), &["scan", "--fail-on", "info"])),
         0
     );
-    let _ = std::fs::remove_file(link);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -325,9 +308,6 @@ fn an_unknown_rule_or_option_is_refused_with_what_it_could_have_been() {
         said.contains("rqx.yaml:"),
         "the file and line are named: {said}"
     );
-    for root in [rule, option] {
-        let _ = std::fs::remove_dir_all(root);
-    }
 }
 
 #[test]
@@ -359,7 +339,6 @@ fn explain_says_what_a_setting_is_and_which_preset_or_file_set_it() {
     assert!(file.contains("default  4"), "{file}");
     assert!(file.contains("current  6  rqx.yaml"), "{file}");
     assert_eq!(said("gate.fial_on").0, 2);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// A bare scan reports; it gates only when asked. A pipeline that added a config file
@@ -376,7 +355,6 @@ fn a_bare_scan_never_gates() {
     );
     assert_eq!(code(&rqx(&root, &["scan"])), 0);
     assert_eq!(code(&rqx(&root, &["scan", "--fail-on", "info"])), 1);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// Every field GitLab reads before it will draw a Code Quality annotation. A report
@@ -409,7 +387,6 @@ fn the_gitlab_report_carries_what_gitlab_reads() {
             "GitLab rejects an unknown severity: {item}"
         );
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// GitLab shows one annotation per fingerprint. A file holding the same finding three
@@ -441,7 +418,6 @@ fn every_entry_in_the_gitlab_report_has_its_own_fingerprint() {
         items.len() - prints.len(),
         items.len()
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// A fingerprint that moved with the line would re-report every finding below an edit
@@ -465,7 +441,6 @@ fn a_finding_that_only_moved_keeps_its_fingerprint() {
             .map(|item| item["fingerprint"].as_str().unwrap_or_default().to_owned())
             .collect();
         prints.sort();
-        let _ = std::fs::remove_dir_all(root);
         prints
     };
 
@@ -515,7 +490,6 @@ fn the_junit_report_is_parseable_and_counts_its_failures() {
         body.matches("<failure ").count(),
         "the header counts failures the file does not have:\n{body}"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -546,7 +520,6 @@ fn the_sarif_report_names_a_run_and_a_rule_for_every_result() {
         let id = result["ruleId"].as_str().expect("a ruleId");
         assert!(rules.contains(&id), "{id} has no rule descriptor");
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -660,7 +633,6 @@ fn one_run_writes_every_report_it_was_asked_for() {
             path.display()
         );
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -691,7 +663,6 @@ fn the_html_report_is_one_file_that_shows_the_gate() {
         "not highlighted"
     );
     assert!(!body.contains('\u{1b}'), "an escape sequence in a page");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -700,7 +671,6 @@ fn html_is_a_document_and_cannot_share_stdout() {
     let output = rqx(&root, &["scan", "--reporter", "html", "--reporter", "json"]);
     assert_ne!(code(&output), 0);
     assert!(String::from_utf8_lossy(&output.stderr).contains("`html` is a document"));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// `rqx scan . | head` closes the pipe, and a tool that called that a failure would
@@ -723,7 +693,6 @@ fn a_closed_pipe_is_not_a_failure() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// rqx decides dead code from the import graph, which cannot see a dynamic import or
@@ -791,7 +760,6 @@ fn a_test_run_contradicts_a_dead_code_finding_without_hiding_it() {
         "verified",
         "a file no test reached is still dead"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// The interface takes over the terminal. A pipeline's stdout is not a terminal, so
@@ -810,7 +778,6 @@ fn a_pipeline_never_gets_the_interface() {
     );
     assert!(text.contains("Findings"), "no report was printed:\n{text}");
     assert_eq!(code(&output), 0, "a bare scan never gates");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Runs rqx the way a shell does: no path argument, inside the project.
@@ -846,7 +813,6 @@ fn bare_rqx_without_a_terminal_is_the_scan() {
     );
     assert_eq!(report, without_duration(&scan));
     assert_eq!(code(&bare), code(&scan));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -856,7 +822,6 @@ fn bare_rqx_that_cannot_run_exits_two() {
         &[("rqx.yaml", "rules:\n  categories: [nope]\n")],
     );
     assert_eq!(code(&rqx_in(&root, &[])), 2);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The flags that used to steer between the interface and the report stay accepted,
@@ -870,7 +835,6 @@ fn the_interface_flags_are_still_accepted_by_scan() {
     );
     assert_eq!(code(&output), 0);
     assert!(String::from_utf8_lossy(&output.stdout).contains("Findings"));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// `--rule` used to choose which findings the interface opened on, and the report
@@ -889,7 +853,6 @@ fn scan_rule_narrows_the_report() {
         !narrowed.contains("\u{25cf} unused-file"),
         "the filter did not apply:\n{narrowed}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// `CI` set is the other half: a build machine can have a terminal attached and must
@@ -908,7 +871,6 @@ fn ci_gets_the_report_and_the_exit_code() {
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(!text.contains("[?1049h"), "the interface opened under CI");
     assert_eq!(code(&output), 1, "the gate did not fail the build");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A watch whose stdout is a file would otherwise fill it with clear-screen escapes
@@ -952,7 +914,6 @@ fn a_watch_without_a_terminal_separates_runs_instead_of_clearing_the_screen() {
         !seen.contains('\u{1b}'),
         "an escape sequence reached a pipe"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A pipeline pointed at the wrong directory would otherwise pass, silently, with a
@@ -967,7 +928,6 @@ fn a_directory_with_nothing_to_analyse_says_so() {
         text.contains("No files to analyse"),
         "an empty scan read as a clean one:\n{text}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The root help lists the commands in groups, so a twenty-eighth command must be
@@ -1053,16 +1013,7 @@ fn a_first_run_is_told_what_it_has_no_way_to_know() {
     assert!(said.contains("Not a git repository"), "{said}");
 
     let settled = project("settled", &[("a.ts", CLEAN), ("rqx.yaml", "gate: {}\n")]);
-    assert!(
-        Command::new("git")
-            .arg("-C")
-            .arg(&settled)
-            .arg("init")
-            .output()
-            .expect("git")
-            .status
-            .success()
-    );
+    run_git(&settled, &["init", "-q"]);
     let said = String::from_utf8_lossy(&rqx(&settled, &["scan", "--no-tui"]).stdout).into_owned();
     assert!(!said.contains("No rqx.yaml"), "{said}");
     assert!(!said.contains("Not a git repository"), "{said}");
@@ -1074,55 +1025,24 @@ fn a_first_run_is_told_what_it_has_no_way_to_know() {
 #[test]
 fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
     let origin = project("origin", &[("a.ts", CLEAN)]);
-    let git = |root: &Path, args: &[&str]| {
-        Command::new("git")
-            .arg("-C")
-            .arg(root)
-            .args(args)
-            .output()
-            .expect("git")
-    };
-    git(&origin, &["init", "-q"]);
-    git(&origin, &["config", "core.autocrlf", "false"]);
-    git(&origin, &["add", "-A"]);
-    git(
-        &origin,
-        &[
-            "-c",
-            "user.email=t@t",
-            "-c",
-            "user.name=t",
-            "commit",
-            "-qm",
-            "one",
-        ],
-    );
+    run_git(&origin, &["init", "-q"]);
+    run_git(&origin, &["add", "-A"]);
+    run_git(&origin, &["commit", "-qm", "one"]);
     std::fs::write(origin.join("b.ts"), DIRTY).expect("a file");
-    git(&origin, &["add", "-A"]);
-    git(
-        &origin,
-        &[
-            "-c",
-            "user.email=t@t",
-            "-c",
-            "user.name=t",
-            "commit",
-            "-qm",
-            "two",
-        ],
-    );
+    run_git(&origin, &["add", "-A"]);
+    run_git(&origin, &["commit", "-qm", "two"]);
 
-    let shallow = origin.with_extension("clone");
-    let _ = std::fs::remove_dir_all(&shallow);
+    let shallow = Scratch::new("ci-shallow-clone");
+    let clone = git()
+        .args(["clone", "-q", "--depth", "1"])
+        .arg(file_uri(&origin))
+        .arg(&*shallow)
+        .output()
+        .expect("git clone");
     assert!(
-        Command::new("git")
-            .args(["-c", "core.autocrlf=false", "clone", "-q", "--depth", "1"])
-            .arg(file_uri(&origin))
-            .arg(&shallow)
-            .output()
-            .expect("git clone")
-            .status
-            .success()
+        clone.status.success(),
+        "{}",
+        String::from_utf8_lossy(&clone.stderr)
     );
 
     let output = rqx(&shallow, &["check", "--base", "HEAD~1"]);
@@ -1130,9 +1050,6 @@ fn a_shallow_clone_is_named_as_the_reason_a_review_cannot_run() {
     assert_eq!(code(&output), 2, "{said}");
     assert!(said.contains("shallow"), "{said}");
     assert!(said.contains("fetch-depth: 0"), "{said}");
-
-    let _ = std::fs::remove_dir_all(&origin);
-    let _ = std::fs::remove_dir_all(&shallow);
 }
 
 fn parses_as_json_lines(text: &str) {
@@ -1165,23 +1082,12 @@ fn timings_and_advice_leave_a_json_stream_whole() {
 #[test]
 fn the_fix_report_leaves_a_sarif_document_whole() {
     let root = project("sarif-fix", &[("seed.ts", CLEAN)]);
-    let git = |args: &[&str]| {
-        let status = Command::new("git")
-            .arg("-C")
-            .arg(&root)
-            .args(["-c", "user.email=t@t", "-c", "user.name=t"])
-            .args(args)
-            .output()
-            .expect("git")
-            .status;
-        assert!(status.success(), "git {args:?} failed");
-    };
-    git(&["init", "-q"]);
-    git(&["add", "-A"]);
-    git(&["commit", "-qm", "base"]);
+    run_git(&root, &["init", "-q"]);
+    run_git(&root, &["add", "-A"]);
+    run_git(&root, &["commit", "-qm", "base"]);
     std::fs::write(root.join("b.ts"), DIRTY).expect("a file");
-    git(&["add", "-A"]);
-    git(&["commit", "-qm", "branch"]);
+    run_git(&root, &["add", "-A"]);
+    run_git(&root, &["commit", "-qm", "branch"]);
 
     let output = rqx(
         &root,
@@ -1369,8 +1275,7 @@ fn the_slug_listing_writes_through_a_handle_rather_than_println() {
 /// contract was written down.
 #[test]
 fn a_pipeline_never_sees_the_update_notice() {
-    let cache = std::env::temp_dir().join(format!("rqx-notice-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&cache);
+    let cache = Scratch::new("notice");
     std::fs::create_dir_all(cache.join("rqx")).expect("a cache directory");
     std::fs::write(
         cache.join("rqx").join("update.json"),
@@ -1428,9 +1333,6 @@ fn a_pipeline_never_sees_the_update_notice() {
         "a redirected stderr got a notice: {said}"
     );
     assert!(!said.contains('\u{1b}'), "escape sequences reached a pipe");
-
-    let _ = std::fs::remove_dir_all(&cache);
-    let _ = std::fs::remove_dir_all(&project);
 }
 
 fn scan_with_env(root: &Path, variables: &[(&str, &str)], flags: &[&str]) -> Output {
@@ -1487,7 +1389,6 @@ fn the_gate_can_be_set_from_the_environment() {
         code(&scan_with_env(&root, &[("RQX_MIN_GRADE", "pristine")], &[])),
         1
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -1497,7 +1398,6 @@ fn a_false_incomplete_variable_does_not_gate() {
         let output = scan_with_env(&root, &[("RQX_FAIL_ON_INCOMPLETE", value)], &[]);
         assert_eq!(code(&output), 0, "RQX_FAIL_ON_INCOMPLETE={value}");
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 fn stdout_of(output: &Output) -> String {
@@ -1542,7 +1442,6 @@ fn reporter_json_prints_what_json_prints() {
             "{command}: --reporter json differs from --json"
         );
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -1571,7 +1470,6 @@ fn a_reporter_can_write_the_json_to_a_file_and_leave_the_console_alone() {
         !stdout_of(&shown).contains("\"bucket\""),
         "the console still gets the readable report"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -1584,7 +1482,6 @@ fn a_document_and_the_console_cannot_share_stdout_on_any_command() {
         "{}",
         String::from_utf8_lossy(&refused.stderr)
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -1606,7 +1503,6 @@ fn graph_takes_its_formats_as_reporters_and_keeps_format() {
         stdout_of(&rqx(&root, &["graph"])),
         "`terminal` is the default text form"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// A workflow that sets a variable from an input it was not given passes an empty
@@ -1627,5 +1523,4 @@ fn a_blank_gate_variable_is_not_set() {
         let output = scan_with_env(&root, &[(variable, "")], &[]);
         assert_eq!(code(&output), 0, "{variable} set to nothing");
     }
-    let _ = std::fs::remove_dir_all(root);
 }

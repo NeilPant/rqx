@@ -131,6 +131,10 @@ Before anything is written, `rqx fix` compares what each edited file declares be
 
 `rqx fix --verify-build` also runs `go vet ./...` on a temporary copy of each Go module that has an edit, before and after the edits are applied. When the module passes before and fails after, every edit in it is withheld. When it already fails before, its edits are withheld as well, because the check cannot judge them. The flag needs `go` on `PATH` and is off by default.
 
+## The scan cache
+
+`scan.cache: false` in `rqx.yaml` turns the cache (`.rqx/cache.bin`) off for the project. Setting the environment variable `RQX_NO_CACHE` to any value turns it off for one run without editing a file, which is what a cold timing or a cache bug report needs. A debug build of rqx never uses the cache.
+
 ## Performance cost settings
 
 `performance.receivers` and `performance.methods` add names to the vocabulary of the I/O rules. Two further keys belong to the complexity analysis. They are validated when the config loads.

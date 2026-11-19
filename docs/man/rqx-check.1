@@ -4,7 +4,7 @@
 .SH NAME
 rqx\-check \- Analyze changed files against a base revision and fail if the gate is not met
 .SH SYNOPSIS
-\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-staged\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-tui\fR] [\fB\-\-profile\fR] [\fB\-\-color\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-record\fR] [\fB\-\-progress\fR] [\fB\-\-trend\fR] [\fB\-\-regressions\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-level\fR] [\fB\-\-no\-pager\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
+\fBrqx check\fR [\fB\-\-base\fR] [\fB\-\-staged\fR] [\fB\-\-fix\fR] [\fB\-w\fR|\fB\-\-write\fR] [\fB\-\-severity\fR] [\fB\-\-rule\fR] [\fB\-\-category\fR] [\fB\-\-path\fR] [\fB\-\-not\-rule\fR] [\fB\-\-not\-category\fR] [\fB\-\-not\-path\fR] [\fB\-\-confidence\fR] [\fB\-\-fixable\fR] [\fB\-\-search\fR] [\fB\-\-since\fR] [\fB\-\-changed\fR] [\fB\-\-files\-from\fR] [\fB\-\-show\-passed\fR] [\fB\-q\fR|\fB\-\-quiet\fR] [\fB\-\-timings\fR] [\fB\-\-stats\fR] [\fB\-\-group\-by\fR] [\fB\-\-sort\fR] [\fB\-\-top\fR] [\fB\-\-show\-suppressed\fR] [\fB\-\-context\fR] [\fB\-\-detail\fR] [\fB\-\-reporter\fR] [\fB\-\-fail\-on\fR] [\fB\-\-allow\-findings\fR] [\fB\-\-min\-health\fR] [\fB\-\-min\-grade\fR] [\fB\-\-fail\-on\-incomplete\fR] [\fB\-\-coverage\fR] [\fB\-\-no\-tui\fR] [\fB\-\-no\-mouse\fR] [\fB\-\-profile\fR] [\fB\-\-color\fR] [\fB\-\-sarif\-in\fR] [\fB\-\-max\-findings\fR] [\fB\-\-motion\fR] [\fB\-\-no\-progress\fR] [\fB\-\-record\fR] [\fB\-\-progress\fR] [\fB\-\-trend\fR] [\fB\-\-regressions\fR] [\fB\-v\fR|\fB\-\-verbose\fR]... [\fB\-\-hyperlinks\fR] [\fB\-\-level\fR] [\fB\-\-no\-pager\fR] [\fB\-\-threads\fR] [\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPATH\fR] 
 .SH DESCRIPTION
 Analyze changed files against a base revision and fail if the gate is not met
 .SH OPTIONS
@@ -26,6 +26,9 @@ A coverage file that can contradict a dead\-code finding. lcov, a Go cover profi
 .TP
 \fB\-\-no\-tui\fR
 Do not open the interactive interface; bare `rqx` prints the report instead
+.TP
+\fB\-\-no\-mouse\fR
+Keeps the session from capturing the mouse wheel for its command menu, so the terminal keeps the mouse throughout. Without it the session captures the wheel only while the menu is open
 .TP
 \fB\-\-profile\fR \fI<FILE>\fR
 A CPU profile that can contradict a performance finding. A V8 .cpuprofile, a Go pprof, speedscope JSON, JFR text and collapsed stacks are detected by content

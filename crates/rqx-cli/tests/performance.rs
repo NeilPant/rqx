@@ -1,6 +1,9 @@
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+mod common;
+use common::Scratch;
+
 /// Generated files carry string literals with thousands of escape sequences, which
 /// tree-sitter reports as thousands of children of one node. A walker that answers a
 /// question about a node by rescanning its siblings is quadratic in that count: one
@@ -11,11 +14,8 @@ use std::time::{Duration, Instant};
 /// loaded CI machine could miss.
 const BUDGET: Duration = Duration::from_secs(20);
 
-fn scratch(name: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("rqx-perf-{name}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("a scratch directory");
-    dir
+fn scratch(name: &str) -> Scratch {
+    Scratch::new(&format!("perf-{name}"))
 }
 
 fn scan(dir: &std::path::Path) -> (Duration, String) {
@@ -90,7 +90,7 @@ fn write(dir: &std::path::Path, path: &str, text: &str) {
 
 /// A project whose `origin` is under `acme`, with one submodule from another
 /// organisation and one beside it under the same organisation.
-fn project_with_submodules(name: &str) -> std::path::PathBuf {
+fn project_with_submodules(name: &str) -> Scratch {
     let dir = scratch(name);
     write(
         &dir,

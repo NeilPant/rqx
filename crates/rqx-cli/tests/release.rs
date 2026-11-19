@@ -58,6 +58,33 @@ fn every_manifest_carries_the_same_version() {
     }
 }
 
+/// A reader copies the action and hook examples as written, so they have to name the
+/// release the page ships with. `tools/release.sh` rewrites them.
+#[test]
+fn the_documented_pins_name_this_release() {
+    let expected = env!("CARGO_PKG_VERSION");
+    for (file, prefix) in [
+        ("README.md", "jadhamwi21/rqx@v"),
+        ("docs/ci.md", "jadhamwi21/rqx@v"),
+        ("docs/ci.md", "rev: v"),
+        ("docs/ci.md", "prefix: rqx-"),
+    ] {
+        let text = read(file);
+        let start = text
+            .find(prefix)
+            .unwrap_or_else(|| panic!("{file} has no `{prefix}`"))
+            + prefix.len();
+        let pinned: String = text[start..]
+            .chars()
+            .take_while(|character| character.is_ascii_digit() || *character == '.')
+            .collect();
+        assert_eq!(
+            pinned, expected,
+            "{file} pins `{prefix}{pinned}`; `tools/release.sh` moves it with the version"
+        );
+    }
+}
+
 /// The release pipeline posts the changelog section for the tag it is building. A
 /// version with no section ships a release whose notes are empty.
 #[test]

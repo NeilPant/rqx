@@ -1,16 +1,16 @@
 //! `--sarif-in`: another tool's SARIF results, read as findings in the `external` family.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
 mod common;
+use common::Scratch;
 
 const CLEAN: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
 const ESLINT: &str = include_str!("sarif/eslint.sarif");
 
-fn project(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-sarif-in-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+fn project(name: &str) -> Scratch {
+    let root = Scratch::new(&format!("sarif-in-{name}"));
     std::fs::create_dir_all(root.join("src")).expect("a temp project");
     std::fs::write(root.join("src/a.js"), "var unused = 1;\nconsole.log(2)\n").expect("a file");
     std::fs::write(root.join("src/clean.ts"), CLEAN).expect("a file");

@@ -92,9 +92,12 @@ The installer downloads the prebuilt binary for your platform from the latest Gi
 release, checks it against the release's `SHA256SUMS`, and installs it into
 `~/.local/bin` (`%LOCALAPPDATA%\rqx\bin` on Windows). It never uses sudo and never
 edits your shell files or PATH; when the directory is not on your PATH it prints the
-line to add. `--version X.Y.Z` pins a release, `--dir` picks the directory, and
-`--dry-run` prints every step without changing anything. To inspect the script
-before running it, read [install.sh](install.sh).
+line to add. In `install.sh`, `--version X.Y.Z` pins a release, `--dir` picks the
+directory, and `--dry-run` prints every step without changing anything. The PowerShell
+script takes `-Version`, `-InstallDir`, `-DryRun` and `-AddToPath`; piped through
+`iex` it cannot take parameters, so it reads the `RQX_VERSION` and `RQX_INSTALL_DIR`
+environment variables instead. To inspect a script before running it, read
+[install.sh](install.sh) or [install.ps1](install.ps1).
 
 Each release archive also holds the manual pages under `man/`; copy that directory to
 somewhere on your `MANPATH` and `man rqx` works.
@@ -120,9 +123,11 @@ the release's `SHA256SUMS`; any mismatch installs nothing and exits 2. A copy un
 package manager owns marks itself with `RQX_MANAGED`, and `rqx update` then reads the
 notes and points at that manager rather than replacing a file it does not own.
 
-A release is one tag. It builds six binaries, one per platform, and publishes them
-beside the crates from the same commit, so one version number identifies the same
-code in every channel. Every asset is checksummed in `SHA256SUMS` on the release.
+A release is one tag. It builds six binaries, one per platform, and publishes them as a
+GitHub release, and the install scripts download those same binaries, so one version
+number identifies the same code in every channel. rqx is not published on crates.io,
+where the name `rqx` belongs to another project; build from source with `--git` as
+shown above. Every asset is checksummed in `SHA256SUMS` on the release.
 
 Editors talk to `rqx lsp` over the Language Server Protocol; `rqx setup <editor>`
 prints the configuration each one needs. See [Editors](#editors).
@@ -434,6 +439,7 @@ $ rqx fix ./src
 
   Files     3 to fix · 42 scanned
   Fixes     11 ready · 2 withheld · 46 need a decision
+  Floor     3 fixes below fix.min_confidence, not applied
   Health    73 → 81  (+8)
   Verified  every fix re-parsed and re-analysed clean
 
@@ -447,8 +453,11 @@ new finding may appear. A file that fails is named with the reason. Writes are
 atomic. The pass repeats, because one fix can enable the next: deleting the branch
 that held a binding's only reference makes that binding unused.
 
-Thirteen rules qualify. `fix.disabled: [commented-out-code]` in `rqx.yaml` opts one
-out, and `rqx explain <rule>` says whether a rule is fixable. For the other 172,
+Thirteen rules qualify. A fix is applied only when its finding is at or above
+`fix.min_confidence`, which defaults to `verified`; the preview counts the ones held
+back on the `Floor` row. [Configuration](docs/configuration.md#fixes) describes the
+setting. `fix.disabled: [commented-out-code]` in `rqx.yaml` opts one rule out, and
+`rqx explain <rule>` says whether a rule is fixable. For the rest,
 `rqx fix --plan` emits each finding with its span, the source text, the metric, the
 reasoning and the named refactoring, as a brief for a person or an agent. `rqx check
 --base main --fix` does the same for a branch and judges
@@ -731,7 +740,7 @@ overrides:
 
 No other table may be scoped. The file walker is built once and the gate reaches one
 verdict, so an override naming `scan` or `gate` is a configuration error.
-[docs/configuration.md](docs/configuration.md) has the whole schema, all 44 thresholds
+[docs/configuration.md](docs/configuration.md) has the whole schema, every threshold
 and the rules each one tunes.
 
 ## Enabling and disabling rules
@@ -992,7 +1001,7 @@ The reporters are `terminal`, `json`, `sarif`, `junit`, `gitlab`, `github`,
 `markdown` and `html` (deprecated, removed in 0.6.0). JUnit XML and GitLab Code Quality together cover GitHub,
 GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket and Buildkite natively.
 Snippets for each are in [docs/ci.md](docs/ci.md). `action.yml` is the GitHub
-Action: `uses: jadhamwi21/rqx@v0.2.1`. A moving major tag such as `@v1` is planned
+Action: `uses: jadhamwi21/rqx@v0.5.2`. A moving major tag such as `@v1` is planned
 and is not published yet.
 
 `rqx comment` posts the review onto the merge request it is reviewing, on GitLab and

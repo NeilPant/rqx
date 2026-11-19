@@ -58,6 +58,23 @@ bump() {
 bump Cargo.toml                        '^version = "'
 bump Cargo.toml                        '^rqx-(core|lang) = \{ version = "'
 
+# The documented action and hook pins name the release they ship with, so a reader who
+# copies an example runs the binary the page was written for.
+pin() {
+  local file="$1" prefix="$2"
+  grep -qE "${prefix}${current//./\\.}" "$file" || die "$file does not pin $current after \`$prefix\`"
+  if [ -z "$dry_run" ]; then
+    PREFIX="$prefix" CURRENT="$current" VERSION="$version" \
+      perl -pi -e 's|(\Q$ENV{PREFIX}\E)\Q$ENV{CURRENT}\E|$1$ENV{VERSION}|g' "$file"
+  fi
+  step "$file"
+}
+
+pin README.md  'jadhamwi21/rqx@v'
+pin docs/ci.md 'jadhamwi21/rqx@v'
+pin docs/ci.md 'rev: v'
+pin docs/ci.md 'prefix: rqx-'
+
 if [ -z "$dry_run" ]; then
   today="$(date -u +%Y-%m-%d)"
   # `## Unreleased` stays, empty, above the new section: the next change to land has

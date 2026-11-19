@@ -54,13 +54,13 @@ fn every_rule_on(root: &Path) -> Resolved {
     settings
 }
 
-fn only(rule: RuleId, every: &Resolved) -> Resolved {
+fn only(rules: &[RuleId], every: &Resolved) -> Resolved {
     let mut settings = every.clone();
     let config: &mut RqxConfig = &mut settings.config;
-    config.rules.enabled = [rule.slug().to_owned()].into();
+    config.rules.enabled = rules.iter().map(|rule| rule.slug().to_owned()).collect();
     config.rules.disabled = RuleId::ALL
         .iter()
-        .filter(|other| **other != rule)
+        .filter(|other| !rules.contains(other))
         .map(|other| other.slug().to_owned())
         .collect();
     config.patterns.enabled.clear();
@@ -82,51 +82,127 @@ fn by_rule(outcome: &ScanOutcome) -> BTreeMap<RuleId, Vec<String>> {
     found
 }
 
-#[test]
-fn each_rule_alone_reports_what_it_reports_with_every_rule_on() {
+type Reported = BTreeMap<RuleId, Vec<String>>;
+
+/// One scan of `root` for each set of rules in `enabled`, spread over the machine's
+/// cores, with only that set switched on. The results come back in the same order.
+fn scan_each(root: &Path, every: &Resolved, enabled: &[Vec<RuleId>]) -> Vec<Reported> {
     let workers = std::thread::available_parallelism().map_or(4, usize::from);
-    let mut differences = Vec::new();
+    let next = AtomicUsize::new(0);
+    let mut scanned: Vec<(usize, Reported)> = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut done = Vec::new();
+                    loop {
+                        let index = next.fetch_add(1, Relaxed);
+                        let Some(rules) = enabled.get(index) else {
+                            break done;
+                        };
+                        let outcome =
+                            scan_with(root, &only(rules, every), None, CachePolicy::Off).unwrap();
+                        done.push((index, by_rule(&outcome)));
+                    }
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|handle| handle.join().unwrap())
+            .collect()
+    });
+    scanned.sort_by_key(|(index, _)| *index);
+    scanned.into_iter().map(|(_, found)| found).collect()
+}
+
+fn differences(
+    name: &str,
+    rules: &[RuleId],
+    scanned: &Reported,
+    with_every_rule_on: &Reported,
+    scanned_with: &str,
+) -> Vec<String> {
+    rules
+        .iter()
+        .filter(|rule| !READS_OTHER_RULES.contains(rule))
+        .filter(|rule| scanned.get(rule) != with_every_rule_on.get(rule))
+        .map(|rule| {
+            format!(
+                "{name}: {} reports {} {scanned_with} and {} with every rule on",
+                rule.slug(),
+                scanned.get(rule).map_or(0, Vec::len),
+                with_every_rule_on.get(rule).map_or(0, Vec::len)
+            )
+        })
+        .collect()
+}
+
+/// A scan reaches its rules only through the facts it builds for them, so rules that
+/// read the same facts can be switched on together: if none of them reads a fact its
+/// declaration leaves out, each reports what it reports with every rule on. Four scans
+/// per root stand in for one per rule, and every root is covered.
+#[test]
+fn the_rules_of_each_fact_plan_report_what_they_report_with_every_rule_on() {
+    let mut by_plan: BTreeMap<Vec<rqx_core::Fact>, Vec<RuleId>> = BTreeMap::new();
+    for rule in RuleId::ALL {
+        by_plan
+            .entry(rule.facts().to_vec())
+            .or_default()
+            .push(*rule);
+    }
+    let plans: Vec<Vec<RuleId>> = by_plan.into_values().collect();
+
+    let mut found = Vec::new();
     for name in ROOTS {
         let root = fixtures().join(name);
         let every = every_rule_on(&root);
         let all_on = by_rule(&scan_with(&root, &every, None, CachePolicy::Off).unwrap());
-        let next = AtomicUsize::new(0);
-        let found: Vec<(RuleId, Vec<String>)> = std::thread::scope(|scope| {
-            let handles: Vec<_> = (0..workers)
-                .map(|_| {
-                    scope.spawn(|| {
-                        let mut alone = Vec::new();
-                        while let Some(rule) = RuleId::ALL.get(next.fetch_add(1, Relaxed)) {
-                            let settings = only(*rule, &every);
-                            let outcome =
-                                scan_with(&root, &settings, None, CachePolicy::Off).unwrap();
-                            alone.push((*rule, by_rule(&outcome).remove(rule).unwrap_or_default()));
-                        }
-                        alone
-                    })
-                })
-                .collect();
-            handles
-                .into_iter()
-                .flat_map(|handle| handle.join().unwrap())
-                .collect()
-        });
-        for (rule, alone) in found {
-            if READS_OTHER_RULES.contains(&rule) {
-                continue;
-            }
-            let with_every = all_on.get(&rule).cloned().unwrap_or_default();
-            if alone != with_every {
-                differences.push(format!(
-                    "{name}: {} reports {} alone and {} with every rule on",
-                    rule.slug(),
-                    alone.len(),
-                    with_every.len()
-                ));
-            }
+        for (rules, scanned) in plans.iter().zip(scan_each(&root, &every, &plans)) {
+            found.extend(differences(name, rules, &scanned, &all_on, "with its plan"));
         }
     }
-    assert!(differences.is_empty(), "{}", differences.join("\n"));
+    assert!(found.is_empty(), "{}", found.join("\n"));
+}
+
+/// A rule is not only the facts it reads: one can also depend on another rule being on,
+/// which the fact-plan test cannot see. Each rule is therefore also scanned by itself,
+/// on the root where it reports most. A rule that reports nowhere is left out; with
+/// nothing to lose it can only differ by reporting something, and the fact-plan test
+/// would show that.
+#[test]
+fn each_rule_alone_reports_what_it_reports_with_every_rule_on() {
+    let roots: Vec<(&str, PathBuf, Resolved, Reported)> = ROOTS
+        .iter()
+        .map(|name| {
+            let root = fixtures().join(name);
+            let every = every_rule_on(&root);
+            let all_on = by_rule(&scan_with(&root, &every, None, CachePolicy::Off).unwrap());
+            (*name, root, every, all_on)
+        })
+        .collect();
+
+    let busiest_root = |rule: &RuleId| {
+        let reported =
+            |root: &(&str, PathBuf, Resolved, Reported)| root.3.get(rule).map_or(0, Vec::len);
+        let most = roots.iter().map(reported).max().unwrap_or(0);
+        if most == 0 {
+            return None;
+        }
+        roots.iter().position(|root| reported(root) == most)
+    };
+
+    let mut found = Vec::new();
+    for (index, (name, root, every, all_on)) in roots.iter().enumerate() {
+        let alone: Vec<Vec<RuleId>> = RuleId::ALL
+            .iter()
+            .filter(|rule| busiest_root(rule) == Some(index))
+            .map(|rule| vec![*rule])
+            .collect();
+        for (rules, scanned) in alone.iter().zip(scan_each(root, every, &alone)) {
+            found.extend(differences(name, rules, &scanned, all_on, "alone"));
+        }
+    }
+    assert!(found.is_empty(), "{}", found.join("\n"));
 }
 
 /// The import graph reads every file's imports. A subtree whose own rules read only

@@ -63,23 +63,24 @@ fn malformed(text: &str) -> String {
 mod tests {
     use super::*;
 
-    fn sandbox(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("rqx mcp {name}"));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(root.join("src")).expect("a sandbox");
-        rqx_core::paths::canonicalize(&root).expect("a real path")
+    /// The directory, held so it is removed when the test ends, and its real path.
+    fn sandbox(name: &str) -> (crate::scratch::Scratch, PathBuf) {
+        let directory = crate::scratch::Scratch::new(&format!("mcp {name}"));
+        std::fs::create_dir_all(directory.join("src")).expect("a sandbox");
+        let root = rqx_core::paths::canonicalize(&directory).expect("a real path");
+        (directory, root)
     }
 
     #[test]
     fn no_path_is_the_root_itself() {
-        let root = sandbox("no-path");
+        let (_directory, root) = sandbox("no-path");
         assert_eq!(within(&root, None).expect("the root"), root);
         assert_eq!(within(&root, Some("  ")).expect("the root"), root);
     }
 
     #[test]
     fn a_subdirectory_is_allowed() {
-        let root = sandbox("subdirectory");
+        let (_directory, root) = sandbox("subdirectory");
         assert_eq!(
             within(&root, Some("src")).expect("the subdirectory"),
             root.join("src")
@@ -88,7 +89,7 @@ mod tests {
 
     #[test]
     fn climbing_out_is_refused() {
-        let root = sandbox("climbing");
+        let (_directory, root) = sandbox("climbing");
         assert!(within(&root, Some("..")).is_err());
         assert!(within(&root, Some("../..")).is_err());
         assert!(within(&root, Some("src/../..")).is_err());
@@ -96,7 +97,7 @@ mod tests {
 
     #[test]
     fn an_absolute_path_elsewhere_is_refused() {
-        let root = sandbox("absolute");
+        let (_directory, root) = sandbox("absolute");
         assert!(within(&root, Some("/etc")).is_err());
     }
 
@@ -105,7 +106,7 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn a_symlink_out_of_the_root_is_refused() {
-        let root = sandbox("symlink");
+        let (_directory, root) = sandbox("symlink");
         std::os::unix::fs::symlink("/etc", root.join("escape")).expect("a link");
         assert!(within(&root, Some("escape")).is_err());
     }

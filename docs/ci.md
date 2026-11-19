@@ -216,11 +216,42 @@ GitLab CI, alongside the other reports:
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0          # `check` diffs against a base
-- uses: jadhamwi21/rqx@v0.2.1
+- uses: jadhamwi21/rqx@v0.5.2
   with:
     base: ${{ github.base_ref }}
     fail-on: error
 ```
+
+The job needs `security-events: write` for the SARIF upload to code scanning:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+```
+
+A repository whose default token is read-only, a private repository without code
+scanning, and a pull request from a fork all lack that permission. Set
+`upload-sarif: "false"` for them; the scan, the annotations and the summary still run.
+
+| Input | Default | Does |
+|---|---|---|
+| `path` | `.` | Directory to analyse |
+| `base` | empty | Revision to compare against; empty scans the whole project |
+| `config` | empty | Path to a configuration file such as `rqx.yaml` |
+| `fail-on` | empty | Lowest severity that fails the job: `error`, `warning`, `info` or `never`; empty uses `rqx.yaml` |
+| `sarif-file` | `rqx.sarif` | Where the SARIF report is written |
+| `upload-sarif` | `"true"` | Upload the SARIF report to GitHub code scanning |
+| `cache` | `"true"` | Carry `.rqx/cache.bin` from one run to the next |
+
+| Output | Holds |
+|---|---|
+| `findings` | The number of findings reported |
+| `passed` | Whether the gate passed |
+
+The tag in `uses:` and the `rev:` of the pre-commit hook below name a release. Pin the
+one you want; `tools/release.sh` keeps the examples in this repository on the current
+release.
 
 The action runs the analysis once and produces the log, inline annotations, the SARIF
 upload and a job summary from that pass. It installs rqx by downloading the binary
@@ -306,7 +337,7 @@ rqx:
 ```
 
 When the job installs a specific rqx version, include it in the prefix
-(`prefix: rqx-0.2.1`). The cache only affects speed. A missing, outdated or damaged
+(`prefix: rqx-0.5.2`). The cache only affects speed. A missing, outdated or damaged
 file is rebuilt on the next scan, and no report depends on it.
 
 ## GitLab CI
@@ -315,7 +346,8 @@ file is rebuilt on the next scan, and no report depends on it.
 rqx:
   image: rust:latest
   script:
-    - cargo install --locked --git https://github.com/jadhamwi21/rqx rqx
+    - curl -fsSL https://raw.githubusercontent.com/jadhamwi21/rqx/main/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - rqx check . --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
         --reporter terminal
         --reporter gitlab=gl-code-quality-report.json
@@ -352,7 +384,9 @@ commands, their order and the exit code.
 ## CircleCI
 
 ```yaml
-- run: cargo install --locked --git https://github.com/jadhamwi21/rqx rqx
+- run: |
+    curl -fsSL https://raw.githubusercontent.com/jadhamwi21/rqx/main/install.sh | sh
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
 - run:
     command: rqx scan . --reporter terminal --reporter junit=/tmp/rqx/results.xml --fail-on error
     when: always
@@ -571,7 +605,7 @@ It needs pre-commit 3.2.0 or later.
 ```yaml
 repos:
   - repo: https://github.com/jadhamwi21/rqx
-    rev: v0.4.0
+    rev: v0.5.2
     hooks:
       - id: rqx-check
 ```

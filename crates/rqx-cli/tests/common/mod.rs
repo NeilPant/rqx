@@ -5,6 +5,9 @@
 // leaves the helpers it does not need unused.
 #![allow(dead_code)]
 
+mod scratch;
+pub use scratch::Scratch;
+
 use std::io::Read;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
@@ -98,42 +101,82 @@ pub fn sarif_for(fixture: &str, root: &Path) -> String {
     document.to_string()
 }
 
+/// Where a configuration file that does not exist lives, so git finds none.
+const NO_CONFIGURATION: &str = if cfg!(windows) { "NUL" } else { "/dev/null" };
+
+/// Cuts a git process off from the machine it runs on: no global or system
+/// configuration, a fixed author and committer, and none of the variables a git hook
+/// exports. A contributor's `commit.gpgsign`, `core.hooksPath`, `init.defaultBranch`,
+/// commit template or `safe.directory` then cannot change what a test sees. Apply it to
+/// every process a test starts that runs git, `rqx` included.
+pub fn isolate_git(command: &mut Command) -> &mut Command {
+    command
+        .env("GIT_CONFIG_GLOBAL", NO_CONFIGURATION)
+        .env("GIT_CONFIG_SYSTEM", NO_CONFIGURATION)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_AUTHOR_NAME", "test")
+        .env("GIT_AUTHOR_EMAIL", "test@example.com")
+        .env("GIT_COMMITTER_NAME", "test")
+        .env("GIT_COMMITTER_EMAIL", "test@example.com")
+        .env_remove("GIT_INDEX_FILE")
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+}
+
+/// `git`, isolated from the machine's configuration, with signing and hooks off.
+pub fn git() -> Command {
+    let mut command = Command::new("git");
+    isolate_git(&mut command).args([
+        "-c",
+        "commit.gpgsign=false",
+        "-c",
+        "tag.gpgsign=false",
+        "-c",
+        "core.autocrlf=false",
+        "-c",
+        &format!("core.hooksPath={NO_CONFIGURATION}"),
+    ]);
+    command
+}
+
+/// `git -C directory`, isolated as `git()` is.
+pub fn git_in(directory: &Path) -> Command {
+    let mut command = git();
+    command.arg("-C").arg(directory);
+    command
+}
+
+/// Runs git in `directory`, fails the test with git's message when it exits non-zero,
+/// and returns what it printed.
+pub fn run_git(directory: &Path, args: &[&str]) -> String {
+    let output = git_in(directory).args(args).output().expect("git runs");
+    assert!(
+        output.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
 /// A throwaway git repository that commits the files it is given, so a test can build
-/// the history a review compares against instead of mocking git.
+/// the history a review compares against instead of mocking git. The directory is
+/// removed when the repository is dropped.
 pub struct Repository {
+    directory: Scratch,
     pub root: std::path::PathBuf,
 }
 
 impl Repository {
     pub fn new(name: &str) -> Self {
-        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-        let root = std::env::temp_dir().join(format!(
-            "rqx-{name}-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        ));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("a temp repository");
-        let repository = Self { root };
+        let directory = Scratch::new(name);
+        let root = directory.to_path_buf();
+        let repository = Self { directory, root };
         repository.git(&["init", "-q"]);
-        repository.git(&["config", "core.autocrlf", "false"]);
-        repository.git(&["config", "user.email", "test@example.com"]);
-        repository.git(&["config", "user.name", "test"]);
         repository
     }
 
     pub fn git(&self, args: &[&str]) {
-        let output = Command::new("git")
-            .arg("-C")
-            .arg(&self.root)
-            .args(args)
-            .output()
-            .expect("git runs");
-        assert!(
-            output.status.success(),
-            "git {args:?}: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        run_git(&self.root, args);
     }
 
     /// Writes the files, removes the ones named with no text, and commits everything.
@@ -156,7 +199,9 @@ impl Repository {
 
     /// Runs rqx in the repository and returns what it printed and how it exited.
     pub fn rqx_output(&self, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_rqx"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+        isolate_git(&mut command);
+        command
             .args(args)
             .current_dir(&self.root)
             .env("HOME", &self.root)

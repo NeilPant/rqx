@@ -10,6 +10,19 @@ git show v0.2.0                     # inspect the release commit and tag
 git push origin main --follow-tags  # publishes
 ```
 
+## Where rqx is published
+
+| Channel | Source |
+|---|---|
+| GitHub release | the six tarballs and `SHA256SUMS`, built by `release.yml` |
+| Install scripts | `install.sh` and `install.ps1` download the release tarball for the platform |
+| npm | `@rqx/cli` and six `@rqx/<platform>` packages, once `PUBLISH_NPM` is set |
+| Source | `cargo install --git https://github.com/jadhamwi21/rqx --locked rqx` |
+
+rqx is not on crates.io. The name `rqx` there belongs to another project, so
+`cargo install rqx` installs different software. The workspace crates keep their names
+and are not published.
+
 ## What the script does
 
 1. Sets the version in `Cargo.toml`. The version appears in two places: on the
@@ -32,20 +45,19 @@ and tag, and both can be removed (see "If it goes wrong").
 
 ## What the tag triggers
 
-The tag starts `.github/workflows/release.yml`, which runs five stages:
+The tag starts `.github/workflows/release.yml`, which runs four stages:
 
 | Stage | Does |
 |---|---|
-| `check` | tag matches `Cargo.toml`, the changelog has that section, fmt, clippy, tests, and `cargo package --workspace` |
+| `check` | tag matches `Cargo.toml`, the changelog has that section, fmt, clippy, tests and the npm launcher tests |
 | `build` | six binaries, one per platform that has an npm platform package, each built and run on its own native runner |
 | `publish` | a GitHub release whose body is the changelog section, carrying the six tarballs and `SHA256SUMS` |
-| `crates` | crates.io, the three crates in dependency order |
 | `npm` | the six `@rqx/<platform>` packages, then `@rqx/cli` |
 
 Ordering constraints:
 
-- `check` runs before anything is built, because a tag with a release and a
-  crates.io version attached is hard to withdraw.
+- `check` runs before anything is built, because a tag with a release and npm
+  versions attached is hard to withdraw.
 - `publish` waits for `build`. A release created before its assets exist has download
   links that return 404.
 - `npm` publishes the platform packages first and `@rqx/cli` last. `@rqx/cli`
@@ -54,12 +66,6 @@ Ordering constraints:
 
 Packaging behavior:
 
-- `check` and `crates` both use `--workspace`. This resolves the three crates against
-  each other instead of against the registry. Packaging `rqx-lang` alone looks for an
-  `rqx-core` version that crates.io does not have yet, and the check would fail on
-  every release.
-- A version that is already on crates.io is treated as a re-run, so a job that fails
-  partway can be retried.
 - The npm packages carry no version in the repository. The publish job writes the
   version from `Cargo.toml` into each generated manifest, so the check that the tag
   matches `Cargo.toml` also covers npm.
@@ -75,17 +81,16 @@ are assembled, and the npm packages go through `npm publish --dry-run`.
 
 | Secret | For | Missing |
 |---|---|---|
-| `CARGO_REGISTRY_TOKEN` | crates.io | the publish is skipped with a notice |
 | `NPM_TOKEN` | npm | the publish is skipped with a notice |
 
 - npm also requires the repository variable `PUBLISH_NPM` set to `true` before a tag
   publishes there. Without it, the `npm` job runs on rehearsals only.
 - `GITHUB_TOKEN` is provided by the runner. The binaries and the GitHub release
   need no configuration.
-- Missing registry tokens skip the publish instead of failing it, so a fork that
-  pushes a tag gets the binaries and a passing pipeline.
-- The `crates` and `npm` jobs each name a GitHub environment. Adding a required
-  reviewer to an environment makes that publish wait for manual approval.
+- A missing npm token skips the publish instead of failing it, so a fork that pushes
+  a tag gets the binaries and a passing pipeline.
+- The `npm` job names a GitHub environment. Adding a required reviewer to the
+  environment makes that publish wait for manual approval.
 - npm publishes with `--provenance`. This needs no key: `id-token: write` and a
   public repository are enough for npm to attest that the tarball was built by this
   workflow at this commit.
@@ -100,19 +105,18 @@ Before the push:
 git tag -d v0.2.0 && git reset --hard HEAD~1
 ```
 
-After the push, before the registries: delete the tag and the GitHub release, fix the
-problem, and tag again. Nothing outside GitHub has received the release.
+After the push, before npm: delete the tag and the GitHub release, fix the problem,
+and tag again. Nothing outside GitHub has received the release.
 
-After crates.io or npm: a published version cannot be replaced. Run:
+After npm: a published version cannot be replaced. Run:
 
 ```sh
-cargo yank --version 0.2.0 rqx
 npm deprecate @rqx/cli@0.2.0 "<reason>"
 ```
 
-Both commands stop new projects from resolving to the version and leave existing lock
-files unchanged. Then release the fix as `0.2.1`. Neither command deletes the
-version, so the code stays readable and installable for projects pinned to it.
+The command stops new projects from resolving to the version and leaves existing lock
+files unchanged. Then release the fix as `0.2.1`. It does not delete the version, so
+the code stays readable and installable for projects pinned to it.
 
 ## Version numbers
 
@@ -127,3 +131,15 @@ build depends on rqx:
 
 Before 1.0, breaking changes are released in minor versions, and the changelog marks
 them.
+
+## Repository labels
+
+The issue forms assign `bug`, `false-positive` and `rule`, and GitHub drops a label
+that does not exist. `tools/labels.sh` creates every label the forms and the
+maintainers use, and is safe to run again. It needs an authenticated `gh` and writes to
+the repository `gh` resolves, so run it once on a new repository and again after adding
+a rule family or a language:
+
+```sh
+tools/labels.sh
+```

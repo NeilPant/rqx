@@ -2,6 +2,9 @@
 //! claim about how work grows; a run is the only thing that can say whether anything
 //! reached it, and the two have to disagree visibly rather than silently.
 
+mod common;
+use common::Scratch;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -41,10 +44,8 @@ const PROFILE: &str = r#"{
   "timeDeltas": [1000, 1000, 1000, 1000]
 }"#;
 
-fn project(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-perf-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str) -> Scratch {
+    let root = Scratch::new(&format!("perf-{name}"));
     std::fs::write(root.join("hot.ts"), SOURCE).expect("the source");
     std::fs::write(root.join("run.cpuprofile"), PROFILE).expect("the profile");
     root
@@ -84,7 +85,6 @@ fn a_profile_ranks_what_ran_above_what_did_not() {
         serde_json::Value::Null,
         "a function the run never entered has no share to report"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The same contract coverage has with dead code: the finding stays visible and
@@ -122,7 +122,6 @@ fn a_finding_the_profile_never_reached_drops_to_low() {
         "the profile put this one on the stack"
     );
     assert_eq!(nested["evidence"]["sampled"], 1000);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A speedscope file names a frame by file and line, and a file that stops halfway is
@@ -169,7 +168,6 @@ fn a_speedscope_profile_is_read_and_a_truncated_one_is_skipped() {
     );
     assert_eq!(with[0]["name"], "sumCube");
     assert_eq!(with[0]["sampled"]["inclusive"], 1000);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 fn profile_fixture(name: &str) -> PathBuf {
@@ -210,7 +208,6 @@ fn a_binary_jfr_recording_is_skipped_with_the_conversion_that_reads_it() {
         output.status.success(),
         "the profile that did read is still used"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Three loops over constants nest as deep as three over the input, and cost nothing
@@ -239,10 +236,8 @@ export function keepWanted(rows: number[], wanted: number[]): number[] {
 }
 ";
 
-fn shapes(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-perf-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn shapes(name: &str) -> Scratch {
+    let root = Scratch::new(&format!("perf-{name}"));
     std::fs::write(root.join("shapes.ts"), SHAPES).expect("the source");
     root
 }
@@ -259,7 +254,6 @@ fn row_named<'a>(rows: &'a [serde_json::Value], name: &str) -> &'a serde_json::V
 fn a_row_keeps_its_syntactic_order_and_gains_the_composed_cost() {
     let root = shapes("composed");
     let all = rows(&root, &[]);
-    let _ = std::fs::remove_dir_all(&root);
 
     let cubes = row_named(&all, "tableOfCubes");
     assert_eq!(cubes["order"], "O(n\u{b3}+)");
@@ -295,7 +289,6 @@ fn sorting_by_order_time_or_space_ranks_by_the_composed_cost() {
     let by_order = rows(&root, &["--sort", "order"]);
     let by_time = rows(&root, &["--sort", "time"]);
     let by_space = rows(&root, &["--sort", "space"]);
-    let _ = std::fs::remove_dir_all(&root);
 
     assert_eq!(by_order[0]["name"], "keepWanted");
     assert_eq!(by_time[0]["name"], "keepWanted");
@@ -317,7 +310,6 @@ fn html_report(root: &Path) -> String {
 fn the_html_report_ranks_the_slow_functions_with_their_derivations_and_no_script() {
     let root = shapes("html");
     let page = html_report(&root);
-    let _ = std::fs::remove_dir_all(&root);
 
     assert!(page.contains("<section id=\"performance\""), "a section");
     assert!(page.contains("<a href=\"#performance\">Performance</a>"));
@@ -340,16 +332,13 @@ fn the_html_report_ranks_the_slow_functions_with_their_derivations_and_no_script
 
 #[test]
 fn a_project_with_nothing_slow_has_no_performance_section() {
-    let root = std::env::temp_dir().join(format!("rqx-perf-quiet-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+    let root = Scratch::new("perf-quiet");
     std::fs::write(
         root.join("quiet.ts"),
         "export const one = (): number => 1;\n",
     )
     .expect("source");
     let page = html_report(&root);
-    let _ = std::fs::remove_dir_all(&root);
 
     assert!(page.contains("<section id=\"summary\""));
     assert!(!page.contains("id=\"performance\""));
@@ -363,7 +352,6 @@ fn the_terminal_table_shows_the_syntactic_order_beside_the_composed_columns() {
         .arg(&root)
         .output()
         .expect("failed to run rqx");
-    let _ = std::fs::remove_dir_all(&root);
     let text = String::from_utf8(output.stdout).expect("utf-8");
     let header = text
         .lines()

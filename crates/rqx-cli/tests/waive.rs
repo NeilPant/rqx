@@ -1,20 +1,21 @@
 //! `rqx waive` writes the comment the scan honours, and refuses what the scan would
 //! ignore.
 
-use std::path::PathBuf;
+mod common;
+use common::Scratch;
+
+use std::path::Path;
 use std::process::{Command, Output};
 
 const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
-fn project(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-waive-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str) -> Scratch {
+    let root = Scratch::new(&format!("waive-{name}"));
     std::fs::write(root.join("a.ts"), DIRTY).expect("a file");
     root
 }
 
-fn rqx(root: &PathBuf, args: &[&str]) -> Output {
+fn rqx(root: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_rqx"))
         .current_dir(root)
         .args(args)
@@ -54,7 +55,6 @@ fn a_waiver_it_wrote_is_one_the_scan_lists() {
     let listed = said(&rqx(&root, &["suppressions", "."]));
     assert!(listed.contains("unreachable-code"), "{listed}");
     assert!(listed.contains("kept for the demo"), "{listed}");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -71,7 +71,6 @@ fn an_unknown_rule_is_refused_with_the_one_it_was_close_to() {
         std::fs::read_to_string(root.join("a.ts")).expect("file"),
         DIRTY
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -88,7 +87,6 @@ fn a_waiver_without_a_reason_is_refused() {
         std::fs::read_to_string(root.join("a.ts")).expect("file"),
         DIRTY
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -115,7 +113,6 @@ fn a_dry_run_prints_the_diff_and_changes_nothing() {
         std::fs::read_to_string(root.join("a.ts")).expect("file"),
         DIRTY
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -138,11 +135,10 @@ fn a_whole_file_waiver_needs_no_line() {
         text.starts_with("// rqx-ignore-file unreachable-code: generated\n"),
         "{text}"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// The scan's findings by rule, from its JSON output.
-fn scanned_rules(root: &PathBuf) -> Vec<String> {
+fn scanned_rules(root: &Path) -> Vec<String> {
     let scanned = Command::new(env!("CARGO_BIN_EXE_rqx"))
         .current_dir(root)
         .env("RQX_NO_CACHE", "1")
@@ -178,7 +174,6 @@ fn a_waiver_below_a_finding_does_not_waive_it() {
             .any(|rule| rule.starts_with("unreachable-code:")),
         "{rules:?}"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -207,5 +202,4 @@ fn a_waiver_that_names_no_rule_is_reported() {
             .any(|rule| rule.starts_with("unreachable-code:")),
         "a misnamed waiver waives nothing: {rules:?}"
     );
-    let _ = std::fs::remove_dir_all(root);
 }

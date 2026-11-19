@@ -75,7 +75,7 @@ pub fn rows(settings: &Resolved) -> Vec<Row> {
     let defaults = Thresholds::default();
 
     let languages = if config.languages.enabled.is_empty() {
-        "all five".to_owned()
+        "all six".to_owned()
     } else {
         config
             .languages

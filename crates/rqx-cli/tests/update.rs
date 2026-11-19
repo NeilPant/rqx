@@ -11,16 +11,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use common::file_uri;
+use common::{Scratch, file_uri};
 use sha2::{Digest, Sha256};
 
 const VERSION: &str = "9.9.9";
 
-fn workspace(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-update-{name}-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(&root).expect("a temp directory");
-    root
+fn workspace(name: &str) -> Scratch {
+    Scratch::new(&format!("update-{name}"))
 }
 
 /// What the release calls this machine, spelled out here rather than imported so a

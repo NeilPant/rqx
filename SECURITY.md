@@ -17,6 +17,10 @@ file is opened.
 ## Reporting
 
 Report vulnerabilities through a
-[security advisory](https://github.com/jadhamwi21/rqx/security/advisories/new)
+[private security advisory](https://github.com/jadhamwi21/rqx/security/advisories/new)
 instead of a public issue. The first message should describe the class of problem.
 It should not include a working exploit.
+
+If the advisory page is not available to you, email the maintainer at
+<jadhamwi4@gmail.com> with the same information. Do not open a public issue for
+either route.

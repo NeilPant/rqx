@@ -6,11 +6,10 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "The tree-sitter collectors behind rqx: one rule set across six languages."
-documentation = "https://docs.rs/rqx-lang"
+documentation = "https://github.com/jadhamwi21/rqx/tree/main/docs"
 
 [dependencies]
 rqx-core.workspace = true

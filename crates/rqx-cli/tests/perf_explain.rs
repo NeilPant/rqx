@@ -4,6 +4,9 @@
 //!
 //! `RQX_BLESS=1 cargo test -p rqx --test perf_explain` rewrites the golden file.
 
+mod common;
+use common::Scratch;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -35,10 +38,8 @@ export function fibonacci(n: number): number {
 const FIRST_FINDER: &str = "export function find(items: string[], wanted: string) {\n  for (const item of items) {\n    if (item === wanted) return item;\n  }\n}\n";
 const SECOND_FINDER: &str = "export function find(rows: number[]) {\n  return rows.length;\n}\n";
 
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-explain-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str, files: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("explain-{name}"));
     for (file, text) in files {
         std::fs::write(root.join(file), text).expect("the source");
     }
@@ -80,7 +81,6 @@ fn the_derivation_runs_from_the_loop_through_the_callee_to_the_library_entry() {
         &[("prices.ts", PRICES), ("reconcile.ts", RECONCILE)],
     );
     let output = explain(&root, "reconcile", &[]);
-    let _ = std::fs::remove_dir_all(&root);
     assert!(output.status.success(), "{output:?}");
     check_golden(
         "reconcile.golden",
@@ -92,7 +92,6 @@ fn the_derivation_runs_from_the_loop_through_the_callee_to_the_library_entry() {
 fn a_recursion_is_described_rather_than_listed_as_a_call_to_itself() {
     let root = project("recursion", &[("reconcile.ts", RECONCILE)]);
     let output = explain(&root, "fibonacci", &[]);
-    let _ = std::fs::remove_dir_all(&root);
     check_golden(
         "fibonacci.golden",
         &String::from_utf8(output.stdout).expect("utf-8"),
@@ -107,7 +106,6 @@ fn a_name_that_two_functions_share_lists_them_and_fails() {
     );
     let output = explain(&root, "find", &[]);
     let by_place = explain(&root, "b.ts:1", &[]);
-    let _ = std::fs::remove_dir_all(&root);
 
     assert_eq!(output.status.code(), Some(2));
     let stderr = String::from_utf8(output.stderr).expect("utf-8");
@@ -127,7 +125,6 @@ fn a_name_that_two_functions_share_lists_them_and_fails() {
 fn a_name_that_matches_nothing_fails_and_says_how_to_name_one() {
     let root = project("missing", &[("prices.ts", PRICES)]);
     let output = explain(&root, "nowhere", &[]);
-    let _ = std::fs::remove_dir_all(&root);
     assert_eq!(output.status.code(), Some(2));
     let stderr = String::from_utf8(output.stderr).expect("utf-8");
     assert!(stderr.contains("`file:line`"), "{stderr}");
@@ -150,7 +147,6 @@ export function drain(source: Source, wanted: string[]) {
 fn a_bound_it_could_not_read_lowers_the_confidence_and_names_the_loop() {
     let root = project("unread", &[("stream.ts", STREAM)]);
     let output = explain(&root, "drain", &["--json"]);
-    let _ = std::fs::remove_dir_all(&root);
     let explained: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("one JSON object");
 
@@ -171,7 +167,6 @@ fn json_carries_the_same_derivation() {
         &[("prices.ts", PRICES), ("reconcile.ts", RECONCILE)],
     );
     let output = explain(&root, "reconcile", &["--json"]);
-    let _ = std::fs::remove_dir_all(&root);
     let explained: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("one JSON object");
 

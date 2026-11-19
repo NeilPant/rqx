@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
+mod common;
+use common::Scratch;
+
 use std::process::Command;
 
 /// The layering rules are silent until a project declares one, so unlike every other
@@ -74,11 +77,8 @@ const CASES: &[Case] = &[
     },
 ];
 
-fn project(case: &Case) -> PathBuf {
-    let root =
-        std::env::temp_dir().join(format!("rqx-arch-{}-{}", case.language, std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(case: &Case) -> Scratch {
+    let root = Scratch::new(&format!("arch-{}", case.language));
     std::fs::write(root.join("rqx.yaml"), PLAN).expect("the plan");
     for (path, text) in case.files {
         let file = root.join(path);
@@ -137,7 +137,6 @@ fn an_inner_layer_reaching_outward_is_reported_in_every_language() {
             "{}: the script reached past what it may import: {fired:?}",
             case.language
         );
-        let _ = std::fs::remove_dir_all(&root);
     }
 }
 
@@ -145,8 +144,7 @@ fn an_inner_layer_reaching_outward_is_reported_in_every_language() {
 /// what the layering is for, not a violation of it.
 #[test]
 fn an_outer_layer_depending_inward_is_allowed() {
-    let root = std::env::temp_dir().join(format!("rqx-arch-inward-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    let root = Scratch::new("arch-inward");
     std::fs::create_dir_all(root.join("domain")).expect("a directory");
     std::fs::create_dir_all(root.join("adapters")).expect("a directory");
     std::fs::write(root.join("rqx.yaml"), PLAN).expect("the plan");
@@ -166,16 +164,13 @@ fn an_outer_layer_depending_inward_is_allowed() {
         !fired.iter().any(|(rule, _)| rule == "layer-violation"),
         "an adapter depending on the domain is the arrangement, not a violation: {fired:?}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A layer named where files live but never declared in `layers` would govern nothing,
 /// which is the silent misconfiguration the whole table exists to prevent.
 #[test]
 fn a_layer_that_was_never_declared_is_refused() {
-    let root = std::env::temp_dir().join(format!("rqx-arch-typo-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a directory");
+    let root = Scratch::new("arch-typo");
     std::fs::write(
         root.join("rqx.yaml"),
         "architecture:\n  layers: [domain]\n  paths:\n    \"src/**\": { layer: adaptors }\n",
@@ -193,7 +188,6 @@ fn a_layer_that_was_never_declared_is_refused() {
         "a typo'd layer must not be ignored"
     );
     assert!(message.contains("adaptors"), "{message}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Clone detection is per-language by design: the hash reads node ids a grammar
@@ -201,9 +195,7 @@ fn a_layer_that_was_never_declared_is_refused() {
 /// vocabulary none of them owns.
 #[test]
 fn the_same_rule_written_in_two_languages_is_found() {
-    let root = std::env::temp_dir().join(format!("rqx-ported-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a directory");
+    let root = Scratch::new("ported");
     std::fs::write(
         root.join("rqx.yaml"),
         "rules:\n  enabled: [cross-language-duplicate]\n",
@@ -237,16 +229,13 @@ fn the_same_rule_written_in_two_languages_is_found() {
             .any(|(rule, _)| rule == "cross-language-duplicate"),
         "the same validation in two languages went unreported: {fired:?}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Two blocks that merely branch and return in the same order are not the same rule.
 /// The shared constants are what separate a port from a coincidence.
 #[test]
 fn two_unrelated_blocks_that_merely_branch_alike_are_not_reported() {
-    let root = std::env::temp_dir().join(format!("rqx-unported-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a directory");
+    let root = Scratch::new("unported");
     std::fs::write(
         root.join("rqx.yaml"),
         "rules:\n  enabled: [cross-language-duplicate]\n",
@@ -270,5 +259,4 @@ fn two_unrelated_blocks_that_merely_branch_alike_are_not_reported() {
             .any(|(rule, _)| rule == "cross-language-duplicate"),
         "two short unrelated bodies were called a port: {fired:?}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }

@@ -1,15 +1,17 @@
 //! Ownership from a CODEOWNERS file, end to end: the owners on findings, the table of
 //! owners and the per-owner gate, on a project that is not a repository.
 
-use std::path::{Path, PathBuf};
+mod common;
+use common::Scratch;
+
+use std::path::Path;
 use std::process::{Command, Output};
 
 const CLEAN: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
 const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-ownership-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+fn project(name: &str, files: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("ownership-{name}"));
     for (path, text) in files {
         let file = root.join(path);
         std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
@@ -18,7 +20,7 @@ fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
     root
 }
 
-fn owned_project(name: &str) -> PathBuf {
+fn owned_project(name: &str) -> Scratch {
     project(
         name,
         &[
@@ -63,7 +65,6 @@ fn json_findings_and_the_summary_carry_owners() {
     let summary = scan.last().expect("a summary");
     assert_eq!(summary["owners"]["@api"]["files"], 1);
     assert!(summary["owners"]["@web"]["findings"].as_u64() > Some(0));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -71,7 +72,6 @@ fn without_a_codeowners_file_the_json_has_no_owners() {
     let root = project("none", &[("web/a.ts", DIRTY)]);
     let scan = lines(&rqx(&root, &["scan", ".", "--reporter", "json"]));
     assert!(scan.iter().all(|line| line.get("owners").is_none()));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -86,7 +86,6 @@ fn the_owners_command_ranks_the_owners_worst_first() {
 
     let text = stdout(&rqx(&root, &["owners", "."]));
     assert!(text.contains("@web") && text.contains("@api"), "{text}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -94,7 +93,6 @@ fn grouping_by_owner_lists_the_findings_under_their_owner() {
     let root = owned_project("group");
     let text = stdout(&rqx(&root, &["scan", ".", "--group-by", "owner"]));
     assert!(text.contains("@web"), "{text}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -120,5 +118,4 @@ fn an_owner_gate_fails_the_run_and_names_the_owner() {
     );
     assert!(text.contains("`@web` health score"), "{text}");
     assert!(!text.contains("`@api` health score"), "{text}");
-    let _ = std::fs::remove_dir_all(&root);
 }

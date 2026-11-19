@@ -439,15 +439,8 @@ fn clean(path: &Path) -> Option<String> {
 mod tests {
     use super::*;
 
-    fn project(files: &[(&str, &str)]) -> PathBuf {
-        use std::sync::atomic::{AtomicU32, Ordering};
-        static NEXT: AtomicU32 = AtomicU32::new(0);
-        let root = std::env::temp_dir().join(format!(
-            "rqx-external-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        let _ = std::fs::remove_dir_all(&root);
+    fn project(files: &[(&str, &str)]) -> crate::scratch::Scratch {
+        let root = crate::scratch::Scratch::new("external");
         for (name, text) in files {
             let file = root.join(name);
             std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");

@@ -199,7 +199,7 @@ pub fn render(report: &Report<'_>, out: &mut dyn Write) -> Result<()> {
         skipped: outcome
             .skipped
             .iter()
-            .map(crate::scan::Skipped::listed)
+            .map(|skipped| skipped.listed(&outcome.root))
             .collect(),
         skipped_by: crate::scan::skip::tally(&outcome.skipped, &outcome.root),
         grades: report

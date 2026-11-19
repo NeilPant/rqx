@@ -261,15 +261,8 @@ fn repointed(from: &Path, text: &str, everything: &[PathBuf]) -> Result<String> 
 mod tests {
     use super::*;
 
-    fn workspace(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
-            "rqx-migrate-{name}-{}-{:?}",
-            std::process::id(),
-            std::thread::current().id()
-        ));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("mkdir");
-        root
+    fn workspace(name: &str) -> crate::scratch::Scratch {
+        crate::scratch::Scratch::new(&format!("migrate-{name}"))
     }
 
     fn migrate(root: &Path, dry_run: bool) -> Result<String> {

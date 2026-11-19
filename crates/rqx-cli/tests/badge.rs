@@ -1,17 +1,18 @@
 //! `rqx badge`: the health score as a self-contained SVG.
 
-use std::path::PathBuf;
+mod common;
+use common::Scratch;
+
+use std::path::Path;
 use std::process::Command;
 
-fn project(name: &str, source: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-badge-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str, source: &str) -> Scratch {
+    let root = Scratch::new(&format!("badge-{name}"));
     std::fs::write(root.join("a.ts"), source).expect("a file");
     root
 }
 
-fn rqx(root: &PathBuf, args: &[&str]) -> std::process::Output {
+fn rqx(root: &Path, args: &[&str]) -> std::process::Output {
     Command::new(env!("CARGO_BIN_EXE_rqx"))
         .args(args)
         .current_dir(root)

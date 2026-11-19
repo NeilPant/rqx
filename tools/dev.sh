@@ -2,14 +2,14 @@
 # Developer commands for rqx: the gates CI runs, the release binary exercised against
 # fixtures/, and the cache and benchmark checks, from one entry point.
 #
-#   tools/dev.sh check             the CI gates: fmt, clippy, tests, generated docs
-#   tools/dev.sh smoke             build release, run every command against fixtures/
+#   tools/dev.sh check             the fmt, clippy, test and generated-docs gates of CI
+#   tools/dev.sh smoke             build release, run the scan, report and read-only commands on fixtures/
 #   tools/dev.sh ci                smoke as CI runs it: CI=1, NO_COLOR=1, no terminal
 #   tools/dev.sh session [PATH]    open the interface on PATH (default fixtures/typescript)
 #   tools/dev.sh cache             time a cold scan, a warm one, and one after an edit
 #   tools/dev.sh bench [ARGS]      run tools/bench/run.sh ARGS, with the release build last
 #   tools/dev.sh try PATH [ARGS]   run rqx ARGS (default: scan --no-tui) inside PATH
-#   tools/dev.sh install-test      run the installer tests, when this branch has them
+#   tools/dev.sh install-test      run the installer tests (the dry run needs the network)
 #   tools/dev.sh help              this list
 #
 # Exit codes match ./rqx and tools/ci-local.sh: 0 passed, 1 a check failed, 2 a usage
@@ -26,14 +26,14 @@ usage() {
     cat <<'EOF'
 usage: tools/dev.sh <command> [args]
 
-  check             the CI gates: fmt, clippy, tests, generated docs
-  smoke             build release, run every command against fixtures/
+  check             the fmt, clippy, test and generated-docs gates of CI
+  smoke             build release, run the scan, report and read-only commands on fixtures/
   ci                smoke as CI runs it: CI=1, NO_COLOR=1, no terminal
   session [PATH]    open the interface on PATH (default fixtures/typescript)
   cache             time a cold scan, a warm one, and one after an edit
   bench [ARGS]      run tools/bench/run.sh ARGS, with the release build last
   try PATH [ARGS]   run rqx ARGS (default: scan --no-tui) inside PATH
-  install-test      run the installer tests, when this branch has them
+  install-test      run the installer tests (the dry run needs the network)
   help              this list
 EOF
 }
@@ -61,6 +61,27 @@ build_release() {
     cargo build --quiet --release --manifest-path "$root/Cargo.toml" --bin rqx
 }
 
+# A fingerprint of every file `rqx docs` writes: the reference pages and the catalogue
+# block in the README. Compared before and after the generator, so a contributor who
+# already regenerated the pages passes without staging them, as CI does on a clean
+# checkout.
+generated_files_fingerprint() {
+    find docs README.md -type f -exec cksum {} + | sort
+}
+
+generated_docs_are_current() {
+    before=$(generated_files_fingerprint)
+    cargo run --quiet --release -- docs
+    after=$(generated_files_fingerprint)
+    [ "$before" = "$after" ] && return 0
+    {
+        echo "dev.sh: the generated documentation was out of date; rqx docs has rewritten it."
+        echo "Review the change with git diff docs/ README.md, stage it with git add docs/ README.md,"
+        echo "and run tools/dev.sh check again."
+    } >&2
+    exit 1
+}
+
 check() {
     no_args check "$@"
     cd "$root"
@@ -71,8 +92,7 @@ check() {
     echo "== test"
     cargo test --workspace
     echo "== generated docs"
-    cargo run --quiet --release -- docs
-    git diff --exit-code docs/
+    generated_docs_are_current
     echo "== bench summary"
     need python3 "the bench summary test"
     python3 -I tools/bench/test_summary.py
@@ -272,11 +292,7 @@ try() {
 }
 
 install_test() {
-    script="$root/tools/install-test.sh"
-    if [ -f "$script" ]; then
-        exec sh "$script" "$@"
-    fi
-    echo "installer tests not present on this branch"
+    exec sh "$root/tools/install-test.sh" "$@"
 }
 
 command_name=${1:-help}

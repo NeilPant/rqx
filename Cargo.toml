@@ -9,7 +9,6 @@ rust-version = "1.96"
 license = "MIT"
 authors = ["Jad Alhamwi"]
 repository = "https://github.com/jadhamwi21/rqx"
-homepage = "https://github.com/jadhamwi21/rqx"
 keywords = ["static-analysis", "linter", "code-quality", "refactoring", "dead-code"]
 categories = ["development-tools", "command-line-utilities"]
 
