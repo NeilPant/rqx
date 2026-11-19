@@ -14,7 +14,7 @@ const NOT_PUBLISHED: [&str; 6] = [
 const GO_INTERNAL: &str = "internal";
 
 /// The directories between `root` and `path`, as written.
-fn directories<'a>(root: &Path, path: &'a Path) -> Vec<String> {
+fn directories(root: &Path, path: &Path) -> Vec<String> {
     let relative = path.strip_prefix(root).unwrap_or(path);
     let mut parts: Vec<String> = relative
         .components()
