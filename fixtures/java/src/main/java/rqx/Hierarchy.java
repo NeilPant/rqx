@@ -79,4 +79,9 @@ class Remainders {
     private int countRows(int rows) {
         return rows;
     }
+
+    boolean isRemoved(String path) {
+        boolean _ = new java.io.File(path).delete();
+        return path.isEmpty();
+    }
 }

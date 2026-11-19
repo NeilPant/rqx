@@ -222,7 +222,8 @@ src/main/java/rqx/Hierarchy.java rule=deep-inheritance | class Level4 extends Le
 src/main/java/rqx/Hierarchy.java rule=empty-subclass | class Level4 extends Level3 {}
 src/main/java/rqx/Hierarchy.java rule=orphan-todo | // TODO: work out what happens to the remainder
 src/main/java/rqx/Hierarchy.java rule=integer-division | return 7 / 2 + total;
-src/main/java/rqx/Hierarchy.java known-fp=discarded-error countRows returns a number and cannot fail, so no error is dropped | int _ = this.countRows(rows);
+src/main/java/rqx/Hierarchy.java none=discarded-error | int _ = this.countRows(rows);
+src/main/java/rqx/Hierarchy.java rule=discarded-error | boolean _ = new java.io.File(path).delete();
 src/main/java/rqx/HierarchyFood.java rule=lazy-class | public class HierarchyFood {
 src/main/java/rqx/Hygiene.java rule=duplicate-import #2 | import java.util.List;
 src/main/java/rqx/Hygiene.java rule=unused-import | import java.util.Map;

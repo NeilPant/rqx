@@ -330,11 +330,11 @@ the code receives the result and ignores it, and nothing records what happens wh
 | Reads | the syntax tree alone |
 | Fix | Handle the Failure |
 
-From `fixtures/typescript/hierarchy.ts`, line 48:
+From `fixtures/typescript/hierarchy.ts`, line 57:
 
 ```ts
-export function ignored(rows: number[]): number {
-  const _ = countRows(rows);
+export function saved(rows: number[]): number {
+  const _ = storeRows(rows);
   return rows.length;
 ```
 

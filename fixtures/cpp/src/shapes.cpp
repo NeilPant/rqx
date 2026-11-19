@@ -1,5 +1,7 @@
 #include "shapes.hpp"
 
+#include <cstdio>
+
 int route_of(const std::string& kind) {
     switch (kind.size()) {
         case 1: return 1;
@@ -141,4 +143,9 @@ int count_rows(int rows) {
 int ignored(int rows) {
     int _ = count_rows(rows);
     return rows;
+}
+
+int removed(const std::string& path) {
+    int _ = std::remove(path.c_str());
+    return static_cast<int>(path.size());
 }

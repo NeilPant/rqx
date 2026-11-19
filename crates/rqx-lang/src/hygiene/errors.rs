@@ -619,11 +619,14 @@ impl<'a> Walker<'a> {
             .focus(RuleId::DiscardedError, span_of(node), span_of(target));
     }
 
-    /// A Go call to a function this file declares, whose results do not include an
-    /// error: discarding one of them drops a value, not a failure.
+    /// A call to a function this file declares, whose answer cannot carry a failure:
+    /// in Go, results that include no `error`; elsewhere a plain number, which a
+    /// failure would have had to be thrown past rather than returned in.
     fn answers_without_an_error(&self, call: Node<'a>) -> bool {
         if self.profile.language != rqx_core::Language::Go {
-            return false;
+            return self
+                .declared_callee(call)
+                .is_some_and(|function| self.answers_a_plain_number(function));
         }
         let Some(callee) = call
             .child_by_field_name(self.profile.callee_field)
@@ -650,6 +653,124 @@ impl<'a> Walker<'a> {
                             .any(|node| self.text(node) == "error")
                     })
             })
+    }
+}
+
+/// Return types that hold a number and nothing else.
+const NUMBER_TYPES: [&str; 22] = [
+    "int",
+    "long",
+    "short",
+    "byte",
+    "float",
+    "double",
+    "unsigned",
+    "unsigned int",
+    "unsigned long",
+    "long long",
+    "size_t",
+    "std::size_t",
+    "int32_t",
+    "int64_t",
+    "uint32_t",
+    "uint64_t",
+    "Integer",
+    "Long",
+    "Double",
+    "number",
+    "bigint",
+    "Number",
+];
+
+/// Calls whose answer is a count or a measure, whatever they are given.
+const NUMBER_CALLS: [&str; 6] = ["len", "abs", "round", "min", "max", "sum"];
+
+impl<'a> Walker<'a> {
+    /// The one function this file declares that a call reaches: `f()`, or
+    /// `this.f()` / `self.f()` for a method. Two declarations of the name are two
+    /// candidates, and neither is chosen.
+    fn declared_callee(&self, call: Node<'a>) -> Option<Node<'a>> {
+        let profile = self.profile;
+        let callee = call.child_by_field_name(profile.callee_field)?;
+        let name = if profile.is_identifier(callee) {
+            self.text(callee)
+        } else {
+            let object = callee.child_by_field_name(profile.object_field)?;
+            if !profile.self_names.contains(&self.text(object)) {
+                return None;
+            }
+            self.text(self.member_property(callee)?)
+        };
+        let mut declared = self.nodes.iter().filter(|node| {
+            profile.is_function(*node)
+                && self
+                    .function_name(*node)
+                    .is_some_and(|named| self.text(named) == name)
+        });
+        let only = declared.next()?;
+        declared.next().is_none().then_some(only)
+    }
+
+    /// Whether a function answers with a number and has no way to answer with a
+    /// failure: not async, declared to return a number or returning only numbers,
+    /// and never a negative literal, which is how a failure is spelled as a number.
+    fn answers_a_plain_number(&self, function: Node<'a>) -> bool {
+        let profile = self.profile;
+        if profile.is_async(function) {
+            return false;
+        }
+        let declared = function
+            .child_by_field_name("return_type")
+            .or_else(|| function.child_by_field_name("type"))
+            .map(|written| {
+                self.text(written)
+                    .trim_start_matches([':', ' '])
+                    .trim()
+                    .to_owned()
+            });
+        let returned: Vec<Node<'a>> = self
+            .function_body(function)
+            .map(|body| {
+                crate::tree::descendants_outside(body, |node| profile.is_function(node))
+                    .into_iter()
+                    .filter(|node| kind_of(*node) == "return_statement")
+                    .filter_map(|statement| statement.named_child(0))
+                    .collect()
+            })
+            .unwrap_or_default();
+        if returned
+            .iter()
+            .any(|value| self.text(*value).trim_start().starts_with('-'))
+        {
+            return false;
+        }
+        match declared {
+            Some(written) => NUMBER_TYPES.contains(&written.as_str()),
+            None => !returned.is_empty() && returned.iter().all(|value| self.is_a_number(*value)),
+        }
+    }
+
+    /// An expression that can only be a number: a literal, a length, a count, or
+    /// arithmetic over them.
+    fn is_a_number(&self, value: Node<'a>) -> bool {
+        let profile = self.profile;
+        let value = self.see_through(value);
+        if profile.number_kinds.contains(&kind_of(value)) {
+            return true;
+        }
+        if profile.is_call(value) {
+            return self
+                .called_name(value)
+                .is_some_and(|name| NUMBER_CALLS.contains(&name.as_str()));
+        }
+        if profile.is_member_access(value) {
+            return self
+                .member_property(value)
+                .is_some_and(|property| matches!(self.text(property), "length" | "size"));
+        }
+        profile.binary_kinds.contains(&kind_of(value))
+            && crate::tree::operands_of(value)
+                .is_some_and(|(left, right)| self.is_a_number(left) && self.is_a_number(right))
     }
 }
 

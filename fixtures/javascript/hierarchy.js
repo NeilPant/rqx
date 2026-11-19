@@ -46,3 +46,12 @@ export function ignored(rows) {
 function countRows(rows) {
   return rows.length;
 }
+
+export function saved(rows) {
+  const _ = storeRows(rows);
+  return rows.length;
+}
+
+async function storeRows(rows) {
+  return rows.length;
+}

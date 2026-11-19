@@ -199,6 +199,14 @@ them. `tools/release.sh` turns that section into the release notes.
   function or an assignment in the body gives the name another meaning. The same
   receiver, qualifier and shadowing checks apply to `branching-recursion`.
 
+- **`discarded-error` no longer reports a discarded plain number from a function in
+  the same file.** Outside Go, `_ = count_rows(rows)` was reported when the called
+  function, declared in the same file, returns a count and has no way to return a
+  failure. A call to such a function, one that is not async, is declared to return
+  a number or only returns numbers, and never returns a negative literal, is no
+  longer reported. Go already treated its own functions without an `error` result
+  this way.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

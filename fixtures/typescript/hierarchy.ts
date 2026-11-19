@@ -52,3 +52,12 @@ export function ignored(rows: number[]): number {
 function countRows(rows: number[]): number {
   return rows.length;
 }
+
+export function saved(rows: number[]): number {
+  const _ = storeRows(rows);
+  return rows.length;
+}
+
+async function storeRows(rows: number[]): Promise<number> {
+  return rows.length;
+}

@@ -1,3 +1,4 @@
+import subprocess
 from abc import ABC, abstractmethod
 
 
@@ -63,3 +64,8 @@ def ignored(rows):
 
 def _count_rows(rows):
     return len(rows)
+
+
+def synced(path):
+    _ = subprocess.call(["sync", path])
+    return path
