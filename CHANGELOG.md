@@ -100,6 +100,16 @@ them. `tools/release.sh` turns that section into the release notes.
   so `var err error` was reported as unused although an earlier `case` assigns and
   reads it, and `fix --write` deleted it and broke `go build`. The finding is still
   reported; only the deletion is withheld.
+### Changed
+
+- **The `json`, `sarif`, `junit`, `gitlab` and `github` reports list every finding
+  unless `--max-findings` is passed.** They were cut at `scan.max_findings` (500 by
+  default) like the terminal, and SARIF gave no sign of it. Code scanning showed 500
+  of the alerts, and the GitHub Action's `findings` output, which is counted from the
+  SARIF, never went past 500. The terminal, `markdown` and `html` reports keep the
+  display cap. When `--max-findings` leaves findings out of a SARIF report, the run
+  carries the count as `properties.rqx.omitted` and a `warning` notification.
+
 ### Fixed
 
 - **A deeply nested file no longer aborts the run.** A long `else if` chain, a long

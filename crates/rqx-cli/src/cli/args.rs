@@ -823,7 +823,7 @@ impl Complexity {
 /// finding whatever this says.
 #[derive(Args, Default)]
 pub(crate) struct DisplayCap {
-    /// Maximum number of findings listed; 0 lists every finding. Does not affect the health score.
+    /// Maximum number of findings listed; 0 lists every finding. Without it, the terminal, markdown and html reports list 500 (`scan.max_findings`) and the json, sarif, junit, gitlab and github reports list every finding. Does not affect the gate or the health score.
     #[arg(long)]
     max_findings: Option<usize>,
 }

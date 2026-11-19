@@ -85,6 +85,15 @@ rqx scan . \
 `terminal` and `github` can share stdout. Every other reporter writes a document and
 needs stdout, or a file, to itself.
 
+The `json`, `sarif`, `junit`, `gitlab` and `github` reports list every finding. The
+`terminal`, `markdown` and `html` reports list the first 500 in report order
+(`scan.max_findings`) and say how many they left out. `--max-findings N` caps every
+report at `N`, and `--max-findings 0` lists every finding everywhere. When a cap leaves
+findings out of a SARIF report, the run carries the count as
+`runs[0].properties.rqx.omitted` and a `warning` in
+`runs[0].invocations[0].toolExecutionNotifications`; the JSON summary carries it as
+`omitted`. The gate and the health score count every finding whatever the cap.
+
 The commands that print their own view instead of the findings (`fix`, `verify`,
 `plan`, `suppressions`, `complexity`, `perf`, `recommend`, `slop`, `hotspots`, `health`,
 `patterns`, `graph` and `config`) also take `--reporter`, with two names: `terminal`

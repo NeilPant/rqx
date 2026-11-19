@@ -213,6 +213,13 @@ pub(crate) fn run() -> Result<Exit> {
                 .paged(pager::for_run(no_pager || watch));
             let sinks = sinks(&view)?;
             warn_of_deprecated(&sinks);
+            // A report a program reads lists every finding unless `--max-findings`
+            // was given: the scan keeps them all, and the reports a person reads keep
+            // the display cap the settings ask for.
+            let people_see = settings.config.scan.max_findings;
+            if !cap.is_set() && sinks.iter().any(|sink| sink.reporter.is_machine()) {
+                settings.config.scan.max_findings = 0;
+            }
             let listed = listed_files(&view, &path)?;
             let filter = filter_of(&view, &path, listed.as_ref())?;
             let run = |settings: &config::Resolved| -> Result<Exit> {
@@ -225,7 +232,9 @@ pub(crate) fn run() -> Result<Exit> {
                 let verdict = gate
                     .is_set()
                     .then(|| judge(&outcome, Scope::Project, &settings.config, &[]));
-                let report = Report::scan(&outcome, &filter).trended(history.as_deref());
+                let report = Report::scan(&outcome, &filter)
+                    .trended(history.as_deref())
+                    .people_see(people_see);
                 let report = match &verdict {
                     Some(verdict) => report.judged(verdict),
                     None => report,
