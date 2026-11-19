@@ -417,6 +417,16 @@ them. `tools/release.sh` turns that section into the release notes.
   said "returns". `imprecise-type` no longer reports C++ `auto`, which is deduced to
   one exact type, or a `(void)` cast, which marks a value as unused.
 
+- **`dead-store` no longer reports writes that are not dead.** In a sample of public
+  code 2 of 28 findings were right. A keyword argument's name (`plot(v, shape=[1])`
+  twice), a key in a literal, a type name such as `Buffer` in `new(bytes.Buffer)` and
+  a parameter of a function type are no longer read as writes to a local. A
+  declaration with no value, such as `var err error`, `K ek;` or `let next`, stores
+  nothing for a later write to overwrite. Go's `t += 1` now counts as a read. Each
+  arm of a `switch` and each branch of an `if`, braces or not, is its own block, so
+  writes in two arms do not overwrite each other. The finding now points at the
+  name written rather than at the end of its statement.
+
 - **`repeated-computation-in-loop` no longer reports loop headers, exits and methods
   that take nothing.** What a for-each loop walks, such as `Object.keys(o)` in
   `for (const key of Object.keys(o))`, is computed once before the first pass, and a

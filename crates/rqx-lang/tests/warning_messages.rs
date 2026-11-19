@@ -92,6 +92,17 @@ fn a_go_parameter_reassigned_by_a_short_declaration_is_used() {
 }
 
 #[test]
+fn a_dead_store_points_at_the_name_written() {
+    let source =
+        "package p\n\nfunc f() {\n\tlocal := compute()\n\tlocal = 2\n\tprintln(local)\n}\n";
+    let found = findings(Language::Go, "p.go", source, RuleId::DeadStore);
+    let finding = found.first().expect("the first write is dead");
+    let at = &finding.location;
+    assert_eq!(&source[at.start as usize..at.end as usize], "local");
+    assert_eq!(at.line, 4);
+}
+
+#[test]
 fn a_cpp_handler_that_names_a_type_and_no_binding_takes_only_that_type() {
     let typed = "int f() {\n    try {\n        return g();\n    } catch (int) {\n        return -1;\n    }\n}\n";
     assert!(findings(Language::Cpp, "a.cpp", typed, RuleId::CatchAllHandler).is_empty());

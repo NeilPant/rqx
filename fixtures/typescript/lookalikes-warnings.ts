@@ -39,3 +39,17 @@ export class Visits {
     return first;
   }
 }
+
+// dead-store: each switch arm runs on its own, so its write never follows another.
+export function labelFor(code: number): string {
+  let label = "unknown";
+  switch (code) {
+    case 1:
+      label = "one";
+      break;
+    case 2:
+      label = "two";
+      break;
+  }
+  return label;
+}

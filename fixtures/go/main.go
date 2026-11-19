@@ -179,5 +179,6 @@ func main() {
 	_ = fixtures.Backoff
 	_ = fixtures.Priority
 	_ = fixtures.Normalised
+	_ = fixtures.Joined
 	_ = cyclea.Orbit
 }

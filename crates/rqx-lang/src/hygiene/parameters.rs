@@ -281,15 +281,18 @@ impl<'a> Walker<'a> {
             let local = parameters.contains(name) || mentions.iter().any(|touch| touch.declared);
             if local
                 && let Some(window) = mentions.windows(2).find(|pair| {
-                    pair[0].wrote
+                    pair[0].stores
                         && !pair[0].read
-                        && pair[1].wrote
+                        && pair[1].stores
                         && !pair[1].read
                         && pair[0].block == pair[1].block
                 })
             {
                 self.out.dead_stores.push(Spot {
-                    span: Span::new(window[0].at as u32, window[0].at as u32 + name.len() as u32),
+                    span: Span::new(
+                        window[0].start as u32,
+                        window[0].start as u32 + name.len() as u32,
+                    ),
                     detail: name.to_owned(),
                     count: reassigned as u32,
                 });

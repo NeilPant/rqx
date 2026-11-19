@@ -78,3 +78,10 @@ def first_oversized(parts, limit):
         if size > limit:
             return _total_size(parts)
     return 0
+
+
+# dead-store: `size` names the callee's parameter in each call; nothing is stored.
+def two_plots(plot, sample):
+    first = plot(sample, size=1)
+    second = plot(sample, size=2)
+    return first, second

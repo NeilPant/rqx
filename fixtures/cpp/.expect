@@ -231,10 +231,8 @@ src/cost_repeated_computation_in_loop.cpp rule=never-reassigned #2 | std::vector
 src/cost_repeated_computation_in_loop.cpp rule=never-reassigned #2 | for (double weight : weights) {
 src/cost_repeated_computation_in_loop.cpp rule=never-reassigned | std::vector<std::string> own = {"x"};
 src/cost_repeated_computation_in_loop.cpp rule=plural-mismatch | std::vector<std::string> own = {"x"};
-src/cost_sort_in_loop.cpp rule=dead-store | std::vector<int> ranked;
 src/cost_sort_in_loop.cpp rule=never-reassigned | std::vector<int> ranked;
 src/cost_sort_in_loop.cpp rule=sort-in-loop | std::partial_sort(base.begin(), base.begin(), base.end());
-src/cost_sort_in_loop.cpp rule=dead-store #2 | std::vector<int> ranked;
 src/cost_sort_in_loop.cpp rule=never-reassigned #2 | std::vector<int> ranked;
 src/cost_unbounded_cache.cpp rule=unbounded-cache | page_sizes[key] = size;
 src/cost_unbounded_concurrency.cpp rule=unbounded-concurrency | pending.push_back(std::async(std::launch::async, [&client, id] { return client.get(id); }));
@@ -328,7 +326,6 @@ src/main.cpp rule=long-function | int main() {
 src/main.cpp rule=boolean-literal-argument | pricing({}, true);
 src/main.cpp rule=boolean-literal-argument | endpoint("", true, 1);
 src/main.cpp rule=never-reassigned | Door door;
-src/main.cpp rule=dead-store | std::vector<int> prepended; prepend_each(prepended, {});
 src/main.cpp rule=never-reassigned | std::vector<int> prepended; prepend_each(prepended, {});
 src/main.cpp rule=never-reassigned | std::deque<int> fronted; front_each(fronted, {});
 src/main.cpp rule=never-reassigned | std::vector<int> baseline; rank_each({}, baseline);
@@ -351,7 +348,6 @@ src/performance.cpp rule=never-reassigned | std::vector<int> kept;
 src/performance.cpp rule=never-reassigned | for (int row : rows) {
 src/performance.cpp rule=scan-in-loop | if (std::find(wanted.begin(), wanted.end(), row) != wanted.end()) {
 src/performance.cpp rule=deep-loop-nesting | int sum_cube(const std::vector<std::vector<std::vector<int>>>& grid) {
-src/performance.cpp rule=dead-store | for (const std::vector<std::vector<int>>& plane : grid) {
 src/performance.cpp rule=never-reassigned | for (int cell : line) {
 src/performance.cpp rule=await-in-loop | task = co_await task.wait(path);
 src/performance.cpp rule=never-reassigned | std::vector<std::string> found;

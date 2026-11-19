@@ -52,3 +52,10 @@ func Normalised(name string) (string, error) {
 func normalise(name string) (string, error) {
 	return name + "!", nil
 }
+
+// dead-store: `var joined string` declares the name without storing anything in it.
+func Joined(left string, right string) string {
+	var joined string
+	joined = left + "," + right
+	return joined
+}

@@ -173,6 +173,7 @@ lookalikes-warnings.ts none=unused-private-member | protected _retries = 0;
 lookalikes-warnings.ts none=working-constructor | constructor() {
 lookalikes-warnings.ts none=self-built-collaborators | this.seen = new Set();
 lookalikes-warnings.ts none=example-value | // `page` is a full address, e.g. https://example.com/path.
+lookalikes-warnings.ts none=dead-store | label = "one";
 names.ts rule=vague-function-name | export function process(rows: number[]) {
 names.ts rule=return-of-fresh-local | const temp2 = data.length;
 names.ts rule=negated-name | const notReady = rows.length === 0;

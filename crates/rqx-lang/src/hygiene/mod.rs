@@ -497,6 +497,10 @@ impl<'a> Walker<'a> {
     fn touches(&self, body: Node<'a>) -> HashMap<&'a str, Vec<Touch>> {
         let profile = self.profile;
         let mut seen: HashMap<&'a str, Vec<Touch>> = HashMap::new();
+        // Each arm of a branch or a switch runs on its own, so two writes in two arms
+        // never follow each other, braces or not. Filled as the walk meets each arm,
+        // which is before anything inside it.
+        let mut arms: HashSet<usize> = HashSet::new();
         let mut pending = vec![Lineage {
             node: body,
             above: None,
@@ -510,7 +514,20 @@ impl<'a> Walker<'a> {
             block,
         }) = pending.pop()
         {
-            let inner_block = if node.id() != body.id() && profile.is_block(node) {
+            if profile.case_kinds.contains(&kind_of(node)) {
+                arms.insert(node.id());
+            }
+            if kind_of(node) == profile.if_kind {
+                arms.extend(
+                    ["consequence", profile.else_field]
+                        .iter()
+                        .filter_map(|field| node.child_by_field_name(field))
+                        .map(|arm| arm.id()),
+                );
+            }
+            let inner_block = if node.id() != body.id()
+                && (profile.is_block(node) || arms.contains(&node.id()))
+            {
                 node.id()
             } else {
                 block
@@ -521,7 +538,11 @@ impl<'a> Walker<'a> {
                 node: child,
                 above: Some(node),
                 above_that: above,
-                block: inner_block,
+                block: if arms.contains(&child.id()) {
+                    child.id()
+                } else {
+                    inner_block
+                },
             }));
             let names_something =
                 profile.is_identifier(node) || profile.property_kinds.contains(&kind_of(node));
@@ -535,6 +556,9 @@ impl<'a> Walker<'a> {
             } else {
                 (above, above_that)
             };
+            if above.is_some_and(|parent| names_no_local(parent, node)) {
+                continue;
+            }
             let declares = above.is_some_and(|parent| {
                 crate::tree::is_binding_position_under(
                     parent,
@@ -571,8 +595,10 @@ impl<'a> Walker<'a> {
                     || profile.markup_kinds.contains(&kind_of(parent))
             });
             let assigns = target(profile.assignment_kinds);
+            // Go keeps `+=` in the same statement as `=`, behind the list its targets
+            // sit in, so the operator is read from the statement.
             let updates = target(profile.compound_assignment_kinds)
-                && operator_of(above.unwrap_or(node), self.source)
+                && operator_of(statement.unwrap_or(node), self.source)
                     .is_some_and(|operator| operator.len() > 1 && operator.ends_with('='));
             let wrote = (declares || assigns || updates) && !reaching;
             // A write lands after everything the right-hand side read, even though
@@ -582,8 +608,11 @@ impl<'a> Walker<'a> {
             } else {
                 node.start_byte()
             };
+            let stores = wrote && !(declares && above.is_some_and(declares_without_value));
             seen.entry(self.text(node)).or_default().push(Touch {
                 at,
+                start: node.start_byte(),
+                stores,
                 block,
                 wrote,
                 read: !wrote || updates,
@@ -1521,10 +1550,44 @@ fn split_words(text: &str) -> Vec<String> {
 #[derive(Clone, Copy)]
 struct Touch {
     at: usize,
+    /// Where the name itself starts, which is what a finding about it points at.
+    /// `at` orders the mentions and lands after the right-hand side of a write.
+    start: usize,
+    /// A write that puts a value there. `var err error` and `let next` declare a
+    /// name without storing anything a later write could overwrite.
+    stores: bool,
     /// The run of statements the mention sits in. Two writes only overwrite each
     /// other when both always happen, and a write inside a branch does not.
     block: usize,
     wrote: bool,
     read: bool,
     declared: bool,
+}
+
+/// A name that is not a local's even where it sits like one: a keyword argument's
+/// name, a key in a literal, a type, or a parameter of a function type.
+fn names_no_local(parent: Node<'_>, node: Node<'_>) -> bool {
+    let field = crate::tree::field_name_under(parent, node);
+    match kind_of(parent) {
+        "keyword_argument" => field == Some("name"),
+        "pair" => field == Some("key"),
+        // Go's `Point{X: 1}` keeps the key in a literal element of its own.
+        "literal_element" => parent.parent().is_some_and(|keyed| {
+            kind_of(keyed) == "keyed_element" && keyed.named_child(0) == Some(parent)
+        }),
+        kind if kind.ends_with("parameter_declaration") || kind.ends_with("parameter") => parent
+            .parent()
+            .and_then(|list| list.parent())
+            .is_some_and(|owner| kind_of(owner).ends_with("function_type")),
+        _ => kind_of(node).ends_with("type_identifier") || kind_of(parent).ends_with("_type"),
+    }
+}
+
+/// A declaration that names something and stores nothing in it.
+fn declares_without_value(declaration: Node<'_>) -> bool {
+    matches!(
+        kind_of(declaration),
+        "var_spec" | "variable_declarator" | "declaration" | "field_declaration" | "assignment"
+    ) && declaration.child_by_field_name("value").is_none()
+        && declaration.child_by_field_name("right").is_none()
 }
