@@ -104,9 +104,10 @@ impl Skipped {
         }
     }
 
-    /// `path: detail`, the form of the JSON `skipped` strings.
-    pub fn listed(&self) -> String {
-        format!("{}: {}", self.path.display(), self.detail)
+    /// `path: detail`, the form of the JSON `skipped` strings, with the path relative to
+    /// the scanned directory as finding paths are.
+    pub fn listed(&self, root: &Path) -> String {
+        format!("{}: {}", super::relative_to(root, &self.path), self.detail)
     }
 }
 
@@ -562,12 +563,12 @@ mod tests {
     #[test]
     fn a_listed_entry_keeps_the_path_colon_reason_shape() {
         let skipped = Skipped::file(
-            Path::new("src/big.ts"),
+            Path::new("project/src/big.ts"),
             SkipReason::TooLarge,
             "2048 KB exceeds the 1024 KB limit".to_owned(),
         );
         assert_eq!(
-            skipped.listed(),
+            skipped.listed(Path::new("project")),
             "src/big.ts: 2048 KB exceeds the 1024 KB limit"
         );
     }

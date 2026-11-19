@@ -168,7 +168,7 @@ impl Rqx {
             "skipped": outcome
                 .skipped
                 .iter()
-                .map(crate::scan::Skipped::listed)
+                .map(|skipped| skipped.listed(&outcome.root))
                 .collect::<Vec<_>>(),
             "skipped_by": crate::scan::skip::tally(&outcome.skipped, &outcome.root),
             "next": "`findings` pages the findings themselves; `explain` says what a rule measures.",
