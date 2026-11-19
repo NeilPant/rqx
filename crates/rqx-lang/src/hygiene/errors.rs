@@ -153,10 +153,14 @@ impl<'a> Walker<'a> {
         let profile = self.profile;
         // A `return` inside a callback leaves the callback, not the clause.
         for node in crate::tree::descendants_outside(clause, |node| profile.is_function(node)) {
-            let leaves = matches!(
-                kind_of(node),
-                "return_statement" | "break_statement" | "continue_statement"
-            ) || profile.throw_kinds.contains(&kind_of(node));
+            // Python chains a failure raised here to the one in flight, which stays
+            // in `__context__` and in the traceback, so only a jump discards it.
+            let chains = profile.language == rqx_core::Language::Python;
+            let leaves = match kind_of(node) {
+                "return_statement" => true,
+                "break_statement" | "continue_statement" => !self.jumps_within(node, clause),
+                kind => !chains && profile.throw_kinds.contains(&kind),
+            };
             if !leaves {
                 continue;
             }
@@ -167,6 +171,40 @@ impl<'a> Walker<'a> {
             });
             return;
         }
+    }
+
+    /// Whether a `break` or `continue` lands on a loop, switch or label that is itself
+    /// inside the clause, so control stays in the clause.
+    fn jumps_within(&self, jump: Node<'a>, clause: Node<'a>) -> bool {
+        let profile = self.profile;
+        let label = jump.named_child(0).map(|label| self.text(label));
+        let mut current = jump.parent();
+        while let Some(node) = current {
+            if node.id() == clause.id() {
+                return false;
+            }
+            let kind = kind_of(node);
+            let lands = match label {
+                Some(label) => {
+                    kind == "labeled_statement"
+                        && node
+                            .named_child(0)
+                            .is_some_and(|named| self.text(named) == label)
+                }
+                // Python's `match` takes no `break`; one inside it leaves the loop.
+                None => {
+                    profile.loop_kinds.contains(&kind)
+                        || (kind_of(jump) == "break_statement"
+                            && profile.switch_kinds.contains(&kind)
+                            && kind != "match_statement")
+                }
+            };
+            if lands {
+                return true;
+            }
+            current = node.parent();
+        }
+        false
     }
 
     /// A handler that names the root of the error hierarchy, or names nothing, takes

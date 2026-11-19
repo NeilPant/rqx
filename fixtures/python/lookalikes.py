@@ -194,3 +194,17 @@ def first_line(path):
 # self-comparison: only NaN differs from itself, so this is how NaN is detected.
 def is_missing(reading: float) -> bool:
     return reading != reading
+
+
+# exit-from-finally: the break leaves a loop inside the clause, and Python keeps the
+# failure in flight as the context of the one raised here.
+def drained(pending: list) -> int:
+    try:
+        return len(pending)
+    finally:
+        while pending:
+            if pending[-1] is None:
+                break
+            pending.pop()
+        if pending:
+            raise RuntimeError("left unfinished")

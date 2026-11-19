@@ -1804,8 +1804,8 @@ catalogue! {
         slug: "exit-from-finally",
         category: Safety,
         analysis: Syntax,
-        metric: "a return, break, continue or raise inside the clause that runs on the \
-                 way out",
+        metric: "a return, or a break or continue leaving the clause that runs on the way \
+                 out, or a throw from it outside Python",
         fixes: [HandleTheFailure],
         confidence: Verified,
         severity: Error,

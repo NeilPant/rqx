@@ -160,3 +160,20 @@ export function isMissing(reading) {
   // self-comparison: only NaN differs from itself, so this is how NaN is detected.
   return reading !== reading;
 }
+
+export function drained(pending) {
+  // exit-from-finally: the break and continue stay in a loop inside the clause.
+  try {
+    return pending.length;
+  } finally {
+    while (pending.length > 0) {
+      const last = pending.pop();
+      if (last === undefined) {
+        continue;
+      }
+      if (last < 0) {
+        break;
+      }
+    }
+  }
+}

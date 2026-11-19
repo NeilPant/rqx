@@ -134,6 +134,14 @@ them. `tools/release.sh` turns that section into the release notes.
   reported. This matches ESLint's `no-cond-assign` in its default `except-parens`
   mode.
 
+- **`exit-from-finally` no longer reports a `break` or `continue` that stays inside
+  the `finally` block, or a Python `raise` there.** A loop written inside the clause,
+  such as a cleanup loop in asyncio, was reported as discarding the failure in
+  flight. A `break` or `continue` is now reported only when it leaves the clause.
+  Python attaches the failure in flight to one raised in `finally` as its
+  `__context__` and prints both, so a Python `raise` there loses nothing; a `throw` in
+  Java, JavaScript and TypeScript is still reported.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

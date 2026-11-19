@@ -103,4 +103,21 @@ public class Lookalikes {
     public boolean isMissing(double reading) {
         return reading != reading;
     }
+
+    // exit-from-finally: the break and continue stay in a loop inside the clause.
+    public int drained(java.util.Deque<Integer> pending) {
+        try {
+            return pending.size();
+        } finally {
+            while (!pending.isEmpty()) {
+                final int last = pending.pop();
+                if (last == 0) {
+                    continue;
+                }
+                if (last < 0) {
+                    break;
+                }
+            }
+        }
+    }
 }

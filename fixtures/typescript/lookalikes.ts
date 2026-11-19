@@ -192,3 +192,20 @@ export function hoistedTotal(): number {
 export function isMissing(reading: number): boolean {
   return reading !== reading;
 }
+
+export function drained(pending: number[]): number {
+  // exit-from-finally: the break and continue stay in a loop inside the clause.
+  try {
+    return pending.length;
+  } finally {
+    while (pending.length > 0) {
+      const last = pending.pop();
+      if (last === undefined) {
+        continue;
+      }
+      if (last < 0) {
+        break;
+      }
+    }
+  }
+}

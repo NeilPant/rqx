@@ -391,7 +391,7 @@ it replaces whatever the block was leaving with, so a failure raised in the body
 
 | | |
 |---|---|
-| Measures | a return, break, continue or raise inside the clause that runs on the way out |
+| Measures | a return, or a break or continue leaving the clause that runs on the way out, or a throw from it outside Python |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
 | Fix | Handle the Failure |

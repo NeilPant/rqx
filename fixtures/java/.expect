@@ -297,6 +297,8 @@ src/main/java/rqx/Long.java rule=shadows-builtin | public class Long {
 src/main/java/rqx/Long.java rule=long-function | public int manySteps() {
 src/main/java/rqx/Lookalikes.java none=unused-parameter | public String label(String locale) {
 src/main/java/rqx/Lookalikes.java none=self-comparison | return reading != reading;
+src/main/java/rqx/Lookalikes.java none=exit-from-finally | continue;
+src/main/java/rqx/Lookalikes.java none=exit-from-finally | break;
 src/main/java/rqx/Main.java rule=wide-fan-out | package rqx;
 src/main/java/rqx/Main.java rule=many-collaborators | public class Main {
 src/main/java/rqx/Main.java rule=feature-envy | public static void main(String[] args) {

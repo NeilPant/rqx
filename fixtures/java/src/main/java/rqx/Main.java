@@ -136,5 +136,6 @@ public class Main {
         new Lookalikes().parsedOrZero("a");
         new Lookalikes().label("en");
         new Lookalikes().isMissing(0.0);
+        new Lookalikes().drained(new java.util.ArrayDeque<>());
     }
 }
