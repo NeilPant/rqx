@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="311" failures="163" time="0">
+<testsuites name="rqx" tests="310" failures="163" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -589,7 +589,7 @@ Fix: state what happens to the remainder, by rounding explicitly or dividing as 
       <skipped message="`feed` overrides the parent&apos;s method and does nothing but call it." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/hygiene.ts" tests="41" failures="17">
+  <testsuite name="typescript/hygiene.ts" tests="40" failures="17">
     <testcase classname="typescript/hygiene.ts" name="exit-from-finally at 78:5">
       <failure type="exit-from-finally" message="`return` sits in the block that runs on the way out, and overrides whatever was in flight.">`return` sits in the block that runs on the way out, and overrides whatever was in flight.
 
@@ -754,9 +754,6 @@ Fix: delete it; version control already preserves it</failure>
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="redundant-comment at 128:1">
       <skipped message="This comment says no more than the name `scoreOfUser` below it." />
-    </testcase>
-    <testcase classname="typescript/hygiene.ts" name="message-chain at 37:10">
-      <skipped message="Reaches 4 objects deep in one expression (limit 3)." />
     </testcase>
     <testcase classname="typescript/hygiene.ts" name="message-chain at 37:10">
       <skipped message="Reaches 5 objects deep in one expression (limit 3)." />

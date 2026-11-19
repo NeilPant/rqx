@@ -134,7 +134,7 @@ hygiene.py rule=unjustified-suppression | # rqx-ignore magic-number
 hygiene.py rule=output-parameter | value = 1
 hygiene.py rule=unreachable-code | value = 1
 hygiene.py rule=suppressed-diagnostic | # type: ignore
-hygiene.py rule=message-chain x2 | return order.customer.address.city.strip().upper()
+hygiene.py rule=message-chain | return order.customer.address.city.strip().upper()
 hygiene.py rule=banner-comment | # ---------------- helpers ----------------
 hygiene.py rule=explanation-longer-than-code | # ---------------- helpers ----------------
 hygiene.py rule=chat-residue | # Here's the helper you asked for! 🎉

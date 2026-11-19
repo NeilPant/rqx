@@ -706,7 +706,13 @@ impl<'a> Walker<'a> {
         } else {
             call.child_by_field_name(self.profile.callee_field)
         };
-        if let Some(callee) = measured {
+        // A chain is one finding, at its outermost call: each call inside it is the
+        // start of the next link, and the chain is longest where it ends.
+        let continues = call.parent().is_some_and(|outer| {
+            self.profile.is_member_access(outer)
+                && outer.child_by_field_name(self.profile.object_field) == Some(call)
+        });
+        if let Some(callee) = measured.filter(|_| !continues) {
             let depth = self.chain_depth(callee);
             if depth > self.limits.message_chain_depth {
                 self.out.message_chains.push(Spot {

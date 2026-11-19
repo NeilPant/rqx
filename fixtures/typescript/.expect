@@ -130,7 +130,7 @@ hygiene.ts rule=unjustified-suppression | // rqx-ignore magic-number
 hygiene.ts rule=output-parameter | value = 1;
 hygiene.ts rule=unreachable-code | value = 1;
 hygiene.ts rule=suppressed-diagnostic | // @ts-ignore
-hygiene.ts rule=message-chain x2 | return order.customer.address.city.trim().toUpperCase();
+hygiene.ts rule=message-chain | return order.customer.address.city.trim().toUpperCase();
 hygiene.ts rule=banner-comment | // ---------------- helpers ----------------
 hygiene.ts rule=chat-residue | // Here's the helper you asked for! 🎉
 hygiene.ts rule=apology-comment | // Sorry, this one is ugly.

@@ -136,7 +136,7 @@ hygiene.js rule=unjustified-suppression | // rqx-ignore magic-number
 hygiene.js rule=output-parameter | value = 1;
 hygiene.js rule=unreachable-code | value = 1;
 hygiene.js rule=suppressed-diagnostic | // @ts-ignore
-hygiene.js rule=message-chain x2 | return order.customer.address.city.trim().toUpperCase();
+hygiene.js rule=message-chain | return order.customer.address.city.trim().toUpperCase();
 hygiene.js rule=banner-comment | // ---------------- helpers ----------------
 hygiene.js rule=chat-residue | // Here's the helper you asked for! 🎉
 hygiene.js rule=apology-comment | // Sorry, this one is ugly.

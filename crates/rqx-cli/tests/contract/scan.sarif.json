@@ -7462,31 +7462,6 @@
             }
           ],
           "message": {
-            "text": "Reaches 4 objects deep in one expression (limit 3). the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it Fix: ask the nearest object for what is needed, and let it do the reaching"
-          },
-          "properties": {
-            "confidence": "heuristic"
-          },
-          "ruleId": "message-chain"
-        },
-        {
-          "level": "note",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "typescript/hygiene.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 37,
-                  "startColumn": 10,
-                  "startLine": 37
-                }
-              }
-            }
-          ],
-          "message": {
             "text": "Reaches 5 objects deep in one expression (limit 3). the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it Fix: ask the nearest object for what is needed, and let it do the reaching"
           },
           "properties": {

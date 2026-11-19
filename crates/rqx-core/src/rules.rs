@@ -77,6 +77,21 @@ pub fn applies_in(finding: &Finding, language: Option<crate::Language>) -> bool 
     language.is_none_or(|language| finding.rule.applies_to(language))
 }
 
+/// Drops a finding that repeats an earlier one: the same rule, span and evidence. A
+/// collector that meets one construct twice, a class body read once per pass, would
+/// otherwise count it twice in the totals and the health score.
+pub fn without_repeats(findings: &mut Vec<Finding>) {
+    let mut seen = std::collections::HashSet::new();
+    findings.retain(|finding| {
+        seen.insert((
+            finding.rule,
+            finding.location.start,
+            finding.location.end,
+            format!("{:?}", finding.evidence),
+        ))
+    });
+}
+
 /// The one sentence each flow rule says about what it found. Written here rather than
 /// in the collector so the facts stay a shape and the prose stays a report.
 fn describe(rule: RuleId, detail: &str) -> String {
@@ -2567,7 +2582,7 @@ pub fn check_patterns(
 
 #[cfg(test)]
 mod tests {
-    use super::{applies_in, climb, is_entry_point};
+    use super::{applies_in, climb, is_entry_point, without_repeats};
     use crate::finding::{Confidence, Evidence, Finding, Severity, SourceRange};
     use crate::{Language, RuleId};
 
@@ -2612,6 +2627,29 @@ mod tests {
             }
             assert!(applies_in(&finding, None), "{}", rule.slug());
         }
+    }
+
+    #[test]
+    fn a_finding_repeated_exactly_is_kept_once() {
+        let first = finding_of(RuleId::UnusedPrivateMember);
+        let mut elsewhere = finding_of(RuleId::UnusedPrivateMember);
+        elsewhere.location.start = 5;
+        let mut other_rule = finding_of(RuleId::DeadStore);
+        other_rule.location = first.location.clone();
+        let mut findings = vec![first.clone(), elsewhere, first, other_rule];
+        without_repeats(&mut findings);
+        let kept: Vec<(RuleId, u32)> = findings
+            .iter()
+            .map(|finding| (finding.rule, finding.location.start))
+            .collect();
+        assert_eq!(
+            kept,
+            [
+                (RuleId::UnusedPrivateMember, 0),
+                (RuleId::UnusedPrivateMember, 5),
+                (RuleId::DeadStore, 0)
+            ]
+        );
     }
 
     /// Two spellings of the same thing. A path climbs with `..` segments, and Python

@@ -724,6 +724,7 @@ fn analyze_tree(
     rules::check_class_pairs(&classes, &builder, &mut findings);
     rules::check_patterns(&patterns, &builder, &mut findings);
     findings.retain(|finding| rules::applies_in(finding, Some(language)));
+    rules::without_repeats(&mut findings);
 
     let advisor = rqx_core::signature::AdviceBuilder {
         file,

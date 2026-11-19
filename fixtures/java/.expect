@@ -201,9 +201,9 @@ src/main/java/rqx/Hierarchy.java rule=never-reassigned #2 | int doubled = total 
 src/main/java/rqx/Hierarchy.java rule=catch-all-handler | } catch (Exception wide) {
 src/main/java/rqx/Hierarchy.java rule=shadowed-handler | } catch (Exception wide) {
 src/main/java/rqx/Hierarchy.java rule=catch-all-handler | } catch (RuntimeException narrow) {
-src/main/java/rqx/Hierarchy.java rule=message-chain x2 | return java.util.concurrent.CompletableFuture.completedFuture(1)
+src/main/java/rqx/Hierarchy.java rule=message-chain | return java.util.concurrent.CompletableFuture.completedFuture(1)
 src/main/java/rqx/Hierarchy.java rule=nested-then | return java.util.concurrent.CompletableFuture.completedFuture(1)
-src/main/java/rqx/Hierarchy.java rule=message-chain x2 | .thenApply(one -> java.util.concurrent.CompletableFuture.completedFuture(one).thenApply(two -> two + 1));
+src/main/java/rqx/Hierarchy.java rule=message-chain | .thenApply(one -> java.util.concurrent.CompletableFuture.completedFuture(one).thenApply(two -> two + 1));
 src/main/java/rqx/Hierarchy.java rule=empty-subclass | class Level2 extends Level1 {}
 src/main/java/rqx/Hierarchy.java rule=empty-subclass | class Level3 extends Level2 {}
 src/main/java/rqx/Hierarchy.java rule=deep-inheritance | class Level4 extends Level3 {}

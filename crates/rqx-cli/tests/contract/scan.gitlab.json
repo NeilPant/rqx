@@ -3421,18 +3421,6 @@
   },
   {
     "check_name": "message-chain",
-    "description": "Reaches 4 objects deep in one expression (limit 3). — the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it",
-    "fingerprint": "32c329b3b4ebcdd1",
-    "location": {
-      "lines": {
-        "begin": 37
-      },
-      "path": "typescript/hygiene.ts"
-    },
-    "severity": "info"
-  },
-  {
-    "check_name": "message-chain",
     "description": "Reaches 5 objects deep in one expression (limit 3). — the line depends on the shape of every object along the chain, so a change to any of them breaks a caller that does not mention it",
     "fingerprint": "634fa37cd67d22d2",
     "location": {

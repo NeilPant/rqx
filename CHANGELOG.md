@@ -417,6 +417,13 @@ them. `tools/release.sh` turns that section into the release notes.
   said "returns". `imprecise-type` no longer reports C++ `auto`, which is deduced to
   one exact type, or a `(void)` cast, which marks a value as unused.
 
+- **One expression is reported once per rule.** `message-chain` reported
+  `a.b().c().d().e().f().g()` once for every depth past the limit, so one line could
+  hold four findings. It now reports the outermost call of a chain. A file's findings
+  that repeat the same rule, span and evidence are also kept once, which removes
+  repeated `unused-private-member` and `repeated-computation-in-loop` findings from
+  the totals and the health score.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
