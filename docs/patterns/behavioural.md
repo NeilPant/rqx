@@ -333,7 +333,7 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-Suggested fix: give `kind` a type per case behind one interface, so adding a case is one new class rather than 5 edits
+Suggested fix: give `kind` a type per case behind one interface, so adding a case is one new class rather than 6 edits
 
 ## Template Method
 

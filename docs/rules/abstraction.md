@@ -29,7 +29,7 @@ export function wideSwitch(kind: string): number {
 }
 ```
 
-Suggested fix: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 5 edits
+Suggested fix: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 6 edits
 
 ## `temporary-field`
 
@@ -198,7 +198,7 @@ the `abstract` keyword implies that subclasses have work to do, but there is non
 | Not in Python | abstractness is a base class it inherits, not a word on the type |
 | Not in JavaScript | JavaScript has no abstract keyword to leave a member for a subclass |
 
-From `fixtures/typescript/flow.ts`, line 202:
+From `fixtures/typescript/flow.ts`, line 220:
 
 ```ts
 

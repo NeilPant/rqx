@@ -158,3 +158,24 @@ int falls_through(int kind) {
             return 0;
     }
 }
+
+// silent-fallthrough must not fire: the first two arms say they fall through, and
+// the third returns on both sides of its if/else.
+int falls_through_on_purpose(int kind) {
+    switch (kind) {
+        case 1:
+            fresh_total(1);
+            [[fallthrough]];
+        case 2:
+            fresh_total(2);
+            // falls through
+        case 3:
+            if (kind == 3) {
+                return 3;
+            } else {
+                return 2;
+            }
+        default:
+            return 0;
+    }
+}

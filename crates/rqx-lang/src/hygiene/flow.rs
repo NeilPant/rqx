@@ -630,6 +630,34 @@ impl<'a> Walker<'a> {
 
     /// A switch arm that does work and then runs into the next one.
     pub(super) fn note_silent_fallthrough(&mut self, switch: Node<'a>) {
+        let arms = self.switch_arms(switch);
+        for pair in arms.windows(2) {
+            let [arm, next] = [pair[0], pair[1]];
+            // Java's `case X ->` arm ends where it is written.
+            if kind_of(arm) == "switch_rule" {
+                continue;
+            }
+            let Some(last) = self.arm_statements(arm).last().copied() else {
+                continue;
+            };
+            if self.leaves_the_arm(last)
+                || self.ends_every_path(arm, last)
+                || self.falls_through_on_purpose(arm, next)
+            {
+                continue;
+            }
+            self.out.silent_fallthroughs.push(Spot {
+                span: span_of(arm),
+                detail: self.snippet(arm),
+                count: 1,
+            });
+            return;
+        }
+    }
+
+    /// A switch's own arms in source order, leaving out the arms of switches nested
+    /// inside it.
+    fn switch_arms(&self, switch: Node<'a>) -> Vec<Node<'a>> {
         let profile = self.profile;
         let mut cursor = switch.walk();
         let mut stack: Vec<Node<'a>> = switch.named_children(&mut cursor).collect();
@@ -646,28 +674,77 @@ impl<'a> Walker<'a> {
             stack.extend(current.named_children(&mut inner));
         }
         arms.sort_by_key(|arm| arm.start_byte());
-        let Some((_, earlier)) = arms.split_last() else {
-            return;
-        };
-        for arm in earlier {
-            let mut inside = arm.walk();
-            let statements: Vec<Node<'a>> = arm
-                .named_children(&mut inside)
-                .filter(|child| profile.is_statement(*child) || self.leaves_the_arm(*child))
-                .collect();
-            let Some(last) = statements.last() else {
-                continue;
-            };
-            if statements.is_empty() || self.leaves_the_arm(*last) {
-                continue;
-            }
-            self.out.silent_fallthroughs.push(Spot {
-                span: span_of(*arm),
-                detail: self.snippet(*arm),
-                count: 1,
-            });
-            return;
+        arms
+    }
+
+    fn arm_statements(&self, arm: Node<'a>) -> Vec<Node<'a>> {
+        let mut inside = arm.walk();
+        arm.named_children(&mut inside)
+            .filter(|child| self.profile.is_statement(*child) || self.leaves_the_arm(*child))
+            .collect()
+    }
+
+    /// Whether control cannot leave an arm's last statement downwards: an `if` whose
+    /// branches all exit, a `try` whose body and handlers all exit, or a nested switch
+    /// with a default whose last arm exits and that nothing breaks out of.
+    fn ends_every_path(&self, arm: Node<'a>, last: Node<'a>) -> bool {
+        if self.always_exits(arm) {
+            return true;
         }
+        let profile = self.profile;
+        if kind_of(last) == "try_statement" {
+            let mut cursor = last.walk();
+            let mut parts = last.named_children(&mut cursor).filter(|part| {
+                profile.is_block(*part) || profile.catch_kinds.contains(&kind_of(part))
+            });
+            return parts.all(|part| {
+                let body = part.child_by_field_name("body").unwrap_or(part);
+                self.always_exits(body)
+            });
+        }
+        if profile.switch_kinds.contains(&kind_of(last)) {
+            let arms = self.switch_arms(last);
+            let has_default = arms
+                .iter()
+                .any(|inner| self.text(*inner).trim_start().starts_with("default"));
+            let breaks = descendants(last)
+                .into_iter()
+                .any(|node| kind_of(node) == "break_statement");
+            return has_default
+                && !breaks
+                && arms.last().is_some_and(|inner| {
+                    self.arm_statements(*inner)
+                        .last()
+                        .is_some_and(|end| self.ends_every_path(*inner, *end))
+                });
+        }
+        false
+    }
+
+    /// Whether the code says that running into the next arm is meant: a comment such
+    /// as `// falls through` in the arm or before the next arm's first statement, or
+    /// C++'s `[[fallthrough]];`.
+    fn falls_through_on_purpose(&self, arm: Node<'a>, next: Node<'a>) -> bool {
+        let said = |text: &str| {
+            let squashed: String = text
+                .chars()
+                .filter(char::is_ascii_alphabetic)
+                .collect::<String>()
+                .to_ascii_lowercase();
+            ["fallthr", "fallsthr", "falltr", "fallstr"]
+                .iter()
+                .any(|spelling| squashed.contains(spelling))
+        };
+        let until = self
+            .arm_statements(next)
+            .first()
+            .map_or(next.end_byte(), |first| first.start_byte());
+        self.nodes.iter().any(|node| {
+            node.start_byte() >= arm.start_byte()
+                && node.end_byte() <= until
+                && (self.profile.is_comment(node) || kind_of(node) == "attribute_declaration")
+                && said(self.text(node))
+        })
     }
 
     fn leaves_the_arm(&self, node: Node<'a>) -> bool {

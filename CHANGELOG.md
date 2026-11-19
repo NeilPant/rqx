@@ -119,6 +119,12 @@ them. `tools/release.sh` turns that section into the release notes.
   reports `==` (and `===`, and Java's `equals`) only outside tests and assertions, and
   only when neither side calls anything.
 
+- **`silent-fallthrough` no longer reports arms that cannot fall through or say that
+  they do.** Java's arrow arms (`case X ->`) were reported, though they never run into
+  the next arm. So were arms followed by a comment such as `// falls through` or by
+  C++'s `[[fallthrough]];`, which is what the fix hint asks for, and arms ending in an
+  `if`/`else`, a `try`, or a nested switch that leaves on every path.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

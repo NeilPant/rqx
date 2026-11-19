@@ -199,6 +199,24 @@ export function fallsThrough(kind: number): number {
   }
 }
 
+// silent-fallthrough must not fire: the first arm says it falls through, and the
+// second returns on both sides of its if/else.
+export function fallsThroughOnPurpose(kind: number): number {
+  switch (kind) {
+    case 1:
+      globalThis.console.warn("one");
+    // falls through
+    case 2:
+      if (kind === 2) {
+        return 2;
+      } else {
+        return 1;
+      }
+    default:
+      return 0;
+  }
+}
+
 export abstract class Settled {
   run(): number {
     return 1;

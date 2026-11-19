@@ -96,6 +96,10 @@ flow.js rule=accumulate-by-copy | out += row;
 flow.js rule=loop-concatenation | out += row;
 flow.js rule=silent-fallthrough #2 | case 1:
 flow.js rule=ambient-dependency | globalThis.console.warn("one");
+flow.js none=silent-fallthrough #3 | case 1:
+flow.js rule=ambient-dependency #2 | globalThis.console.warn("one");
+flow.js none=silent-fallthrough #3 | case 2:
+flow.js rule=redundant-else | } else {
 gateway-a.js rule=passthrough-function | export function collectA(amount) {
 gateway-b.js rule=passthrough-function | export function collectB(amount) {
 gateway-c.js rule=passthrough-function | export function collectC(amount) {

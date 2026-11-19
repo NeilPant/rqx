@@ -98,6 +98,10 @@ flow.ts rule=accumulate-by-copy | out += row;
 flow.ts rule=loop-concatenation | out += row;
 flow.ts rule=silent-fallthrough #2 | case 1:
 flow.ts rule=ambient-dependency | globalThis.console.warn("one");
+flow.ts none=silent-fallthrough #3 | case 1:
+flow.ts rule=ambient-dependency #2 | globalThis.console.warn("one");
+flow.ts none=silent-fallthrough #3 | case 2:
+flow.ts rule=redundant-else #3 | } else {
 flow.ts rule=abstract-nothing | export abstract class Settled {
 flow.ts rule=speculative-generality | export abstract class Settled {
 gateway-a.ts rule=passthrough-function | export function collectA(amount: number) {

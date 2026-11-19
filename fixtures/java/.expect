@@ -188,6 +188,10 @@ src/main/java/rqx/Flow.java rule=never-reassigned | for (String row : rows) {
 src/main/java/rqx/Flow.java rule=accumulate-by-copy | out += row;
 src/main/java/rqx/Flow.java rule=loop-concatenation | out += row;
 src/main/java/rqx/Flow.java rule=silent-fallthrough #2 | case 1:
+src/main/java/rqx/Flow.java none=silent-fallthrough | case 1 -> this.freshTotal(1);
+src/main/java/rqx/Flow.java none=silent-fallthrough #3 | case 1:
+src/main/java/rqx/Flow.java none=silent-fallthrough #3 | case 2:
+src/main/java/rqx/Flow.java rule=redundant-else #3 | } else {
 src/main/java/rqx/Flow.java rule=abstract-nothing | abstract class Settled {
 src/main/java/rqx/Flow.java rule=speculative-generality | abstract class Settled {
 src/main/java/rqx/GatewayA.java rule=passthrough-function | public int collect(int amount) {

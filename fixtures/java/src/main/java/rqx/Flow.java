@@ -159,6 +159,29 @@ class Flow {
                 return 0;
         }
     }
+
+    // silent-fallthrough must not fire: an arrow arm ends where it is written, the
+    // first labelled arm says it falls through, and the second returns on both sides
+    // of its if/else.
+    public int fallsThroughOnPurpose(int kind) {
+        switch (kind) {
+            case 1 -> this.freshTotal(1);
+            default -> this.freshTotal(0);
+        }
+        switch (kind) {
+            case 1:
+                this.freshTotal(kind);
+                // falls through
+            case 2:
+                if (kind == 2) {
+                    return 2;
+                } else {
+                    return 1;
+                }
+            default:
+                return 0;
+        }
+    }
 }
 
 abstract class Settled {

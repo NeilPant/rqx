@@ -292,6 +292,10 @@ src/flow.cpp rule=imprecise-type | for (const auto& row : rows) {
 src/flow.cpp rule=accumulate-by-copy | out += row;
 src/flow.cpp rule=loop-concatenation | out += row;
 src/flow.cpp rule=silent-fallthrough #3 | case 1:
+src/flow.cpp none=silent-fallthrough #4 | case 1:
+src/flow.cpp none=silent-fallthrough #3 | case 2:
+src/flow.cpp none=silent-fallthrough | case 3:
+src/flow.cpp rule=redundant-else #3 | } else {
 src/hygiene.cpp rule=wildcard-import | #include "hygiene.hpp"
 src/hygiene.cpp rule=deep-relative-import | #include "../../../shared/far.hpp"
 src/hygiene.cpp rule=duplicate-import #2 | #include "hygiene.hpp"

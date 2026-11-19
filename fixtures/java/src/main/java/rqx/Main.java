@@ -40,6 +40,7 @@ public class Main {
         new Flow().asksTwice("a");
         new Flow().joined(java.util.List.of());
         new Flow().fallsThrough(1);
+        new Flow().fallsThroughOnPurpose(1);
         new Hygiene().maybeCount(java.util.List.of());
         new Hygiene().closesOut(java.util.List.of());
         new Hygiene().catchesEverything(java.util.List.of());
