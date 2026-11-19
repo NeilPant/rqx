@@ -203,6 +203,12 @@ them. `tools/release.sh` turns that section into the release notes.
   `-32600` for JSON that is not a message, and keep reading. They exit when stdin
   closes.
 
+- **`rqx config` and `rqx --help` say when the gate applies.** `rqx config` listed
+  `gate: fail on error`, and the help's exit codes listed `1 completed; the gate
+  failed`, so a CI job running a bare `rqx scan .` looked gated and never failed.
+  Both now say that `rqx check` always gates and `rqx scan` gates only when given a
+  gate flag such as `--fail-on`.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
