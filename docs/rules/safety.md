@@ -526,7 +526,6 @@ a check that would have caught the next mistake here has been turned off, and th
 | Measures | ts-ignore, ts-nocheck, eslint-disable, or a cast through any |
 | Reported as | warning, verified |
 | Reads | resolved scopes and symbols |
-| Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
 From `fixtures/typescript/hygiene.ts`, line 33:

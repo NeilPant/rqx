@@ -2123,7 +2123,6 @@ catalogue! {
         severity: Warning,
         why: "a check that would have caught the next mistake here has been turned off, and the \
               comment that turns it off outlives the reason for it",
-        autofix: Deletion,
     },
     FlagArgument {
         slug: "flag-argument",

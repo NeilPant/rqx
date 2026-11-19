@@ -639,3 +639,22 @@ fn fix_keeps_build_constraints_and_tool_directives() {
     assert_vets(&root);
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// A suppression is a decision about the line it covers, and rqx cannot tell whether
+/// the suppressed check still reports that line. It stays reported, and `fix --plan`
+/// hands it to a person.
+#[test]
+fn a_suppression_is_left_to_a_person() {
+    let source = "// eslint-disable-next-line no-console\nconsole.log(1);\n";
+    let root = project("suppression", &[("log.js", source), EVERY_CONFIDENCE]);
+    fix(&root, &["--write"]);
+    assert_eq!(
+        std::fs::read_to_string(root.join("log.js")).unwrap(),
+        source
+    );
+    assert!(scan_json(&root).contains("\"suppressed-diagnostic\""));
+
+    let plan = fix(&root, &["--plan"]);
+    assert!(plan.contains("\"suppressed-diagnostic\""), "{plan}");
+    let _ = std::fs::remove_dir_all(&root);
+}

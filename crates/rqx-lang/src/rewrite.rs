@@ -310,12 +310,6 @@ impl<'src> Rewriter<'src> {
             | RuleId::CommentedOutCode => {
                 vec![self.deletion(finding, whole_lines(self.source, span))]
             }
-            // The comment form only: a suppression written as a cast changes what the
-            // checker sees, and deleting it would change the types rather than the
-            // silence.
-            RuleId::SuppressedDiagnostic if self.profile.is_comment(node) => {
-                vec![self.deletion(finding, whole_lines(self.source, span))]
-            }
             RuleId::SkippedTest | RuleId::FocusedTest => {
                 self.unfocus(finding, node).into_iter().collect()
             }
@@ -1104,7 +1098,6 @@ export const deferred = [work]
             RuleId::UnusedPrivateMember,
             RuleId::FocusedTest,
             RuleId::SkippedTest,
-            RuleId::SuppressedDiagnostic,
             RuleId::UnusedParameter,
         ];
         let claimed: Vec<&str> = RuleId::ALL

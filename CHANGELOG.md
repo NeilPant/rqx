@@ -9,6 +9,14 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Changed
+
+- **`rqx fix` no longer deletes `suppressed-diagnostic` comments.** Whether an
+  `eslint-disable`, `# noqa` or `# type: ignore` is still needed depends on what the
+  suppressed tool reports for that line, which rqx cannot check. The rule still reports
+  the comment, and `rqx fix --plan` lists it as a decision. The rule's documentation no
+  longer marks it as auto-fixable.
+
 ### Fixed
 
 - **`unreachable-code` no longer reports, and `rqx fix` no longer deletes, code after an
