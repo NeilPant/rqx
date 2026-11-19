@@ -374,6 +374,13 @@ them. `tools/release.sh` turns that section into the release notes.
   `working-constructor` uses the same list, so making an empty collection in a
   constructor is no longer counted as work.
 
+- **`shadows-builtin` no longer reports methods, fields and interface members.** A
+  member is reached through its object or type, so `func (q *Queue) len() int`,
+  Python's `def dict(self)` and an interface method `close()` hide nothing. A type
+  whose own name matches a builtin is still reported. Java's list now holds only
+  `java.lang` names, which every file sees without an import, so `java.util`'s own
+  `Map` is no longer reported.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

@@ -126,6 +126,8 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     super_names: &["super"],
     continuation_calls: &["thenApply", "thenCompose", "thenAccept"],
     ignored_prefixes: &["_"],
+    // Only `java.lang`, which every file sees without an import. `java.util.Map` is
+    // in scope only where a file imports it, and the JDK declares it.
     builtin_names: &[
         "String",
         "Integer",
@@ -133,9 +135,6 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         "Double",
         "Boolean",
         "Object",
-        "List",
-        "Map",
-        "Set",
         "System",
         "Math",
         "Thread",

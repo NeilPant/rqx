@@ -176,6 +176,7 @@ long.py rule=long-function | def many_steps() -> int:
 lookalikes_warnings.py none=working-constructor | def __init__(self, reason):
 lookalikes_warnings.py none=working-constructor | def __init__(self):
 lookalikes_warnings.py none=self-built-collaborators | self.seen = collections.Counter()
+lookalikes_warnings.py none=shadows-builtin | def filter(self, wanted):
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)

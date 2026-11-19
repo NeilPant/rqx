@@ -30,7 +30,7 @@ impl<'a> Walker<'a> {
             return;
         }
         let name = self.text(node);
-        if profile.builtin_names.contains(&name) {
+        if profile.builtin_names.contains(&name) && !self.names_a_member(node) {
             self.out.shadowed_builtins.push(Spot {
                 span: span_of(node),
                 detail: name.to_owned(),
@@ -44,6 +44,35 @@ impl<'a> Walker<'a> {
                 count: 1,
             });
         }
+    }
+
+    /// Whether a declared name belongs to a type rather than to a scope: a method, a
+    /// field or an interface member. It is reached through a value or the type, so it
+    /// hides nothing the language owns. A function's parameters and locals are inside
+    /// the function, which is met first on the way up. The type's own name is not a
+    /// member: a class called `Long` does hide `java.lang.Long` in its package.
+    fn names_a_member(&self, name: Node<'a>) -> bool {
+        let profile = self.profile;
+        let mut current = name.parent();
+        while let Some(holder) = current {
+            if profile.class_kinds.contains(&kind_of(holder)) {
+                return holder.child_by_field_name("name") != Some(name);
+            }
+            if profile.is_function(holder) {
+                let is_own_name = self
+                    .function_name(holder)
+                    .is_some_and(|own| own.id() == name.id());
+                if !is_own_name {
+                    return false;
+                }
+                // Go writes a method outside its type, with a receiver to say whose it is.
+                if holder.child_by_field_name("receiver").is_some() {
+                    return true;
+                }
+            }
+            current = holder.parent();
+        }
+        false
     }
 
     /// A name introduced on one line and returned on the next. The name is read

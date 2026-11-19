@@ -23,3 +23,8 @@ class Visits:
     def is_first_visit(self, page):
         self.seen[page] += 1
         return self.seen[page] == 1
+
+    # shadows-builtin: a method is reached through the object, so `filter` here
+    # hides nothing; the builtin is still what the body calls.
+    def filter(self, wanted):
+        return list(filter(wanted, self.seen))

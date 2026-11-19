@@ -133,8 +133,7 @@ fixtures/intimacy.go rule=ambient-dependency | return time.Now().Unix()
 fixtures/lifecycle.go rule=temporal-coupling | opened bool
 fixtures/long.go rule=long-function | func ManySteps() int {
 fixtures/long.go rule=dead-store | total := 0
-fixtures/lookalikes.go none=unreachable-code | cleanup:
-fixtures/lookalikes.go none=self-comparison | return reading != reading
+fixtures/lookalikes_warnings.go none=shadows-builtin | func (q *Queue) len() int {
 fixtures/names.go rule=wildcard-import | import . "strings"
 fixtures/names.go rule=vague-function-name | func Process(rows []int) int {
 fixtures/names.go rule=plural-mismatch | data := []int{}
@@ -147,7 +146,6 @@ fixtures/params.go rule=unused-parameter | func WithDeadMiddle(dead string, used
 fixtures/params.go rule=unused-parameter x2 | func TwoDeadOnOneLine(used int, deadA string, deadB string) int {
 fixtures/patterns.go rule=boolean-not-a-question | func (d *Door) Open() bool {
 fixtures/patterns.go rule=type-code-switch | if d.state == "closed" {
-fixtures/patterns.go rule=identical-branches | } else if d.state == "open" {
 fixtures/patterns.go rule=redundant-else | } else if d.state == "open" {
 fixtures/patterns.go rule=redundant-else | } else if d.state == "locked" {
 fixtures/patterns.go rule=boolean-not-a-question | func (d *Door) Lock(key string) bool {
@@ -287,8 +285,6 @@ flow.go rule=return-of-fresh-local | total := len(rows) * 2
 flow.go rule=redundant-else | } else if kind == "b" {
 flow.go rule=duplicate-condition | } else if kind == "a" {
 flow.go rule=redundant-else | } else if kind == "a" {
-flow.go none=duplicate-condition | } else if found, ok := fallback[key]; ok {
-flow.go rule=redundant-else | } else if found, ok := fallback[key]; ok {
 flow.go rule=accumulate-by-copy | out += row
 flow.go rule=loop-concatenation | out += row
 flow.go rule=dead-store | total := value

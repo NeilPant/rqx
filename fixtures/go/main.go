@@ -175,5 +175,6 @@ func main() {
 	_ = fixtures.Spelled
 	_ = fixtures.Bounds
 	_ = fixtures.IsMissing
+	_ = fixtures.Queue
 	_ = cyclea.Orbit
 }
