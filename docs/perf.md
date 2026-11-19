@@ -97,7 +97,7 @@ there is no type, a cost can be read from the method name alone if one table ent
 applies, and then the confidence is `heuristic`.
 
 `performance.costs` in `rqx.yaml` adds entries for the calls a project makes on its own
-types. See [configuration](configuration.md#performance).
+types. See [configuration](configuration.md#performance-cost-settings).
 
 **Calls.** A call to a function the scan has read costs what that function costs, with
 the callee's parameters replaced by the sizes of the arguments. A call with a constant
