@@ -33,7 +33,7 @@
     },
     "repeated-computation-in-loop": {
       "tp": 20,
-      "fp": 4,
+      "fp": 1,
       "fn": 8
     },
     "scan-in-loop": {

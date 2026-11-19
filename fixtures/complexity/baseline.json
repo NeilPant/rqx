@@ -472,7 +472,7 @@
     },
     "repeated-computation-in-loop": {
       "tp": 20,
-      "fp": 3,
+      "fp": 0,
       "fn": 8
     },
     "scan-in-loop": {

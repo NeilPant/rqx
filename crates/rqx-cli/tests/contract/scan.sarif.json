@@ -1325,7 +1325,7 @@
             }
           ],
           "message": {
-            "text": "The branch above always returns, so this `else` is not a decision. the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires Fix: drop the `else` and outdent its body; the branch above already returned"
+            "text": "The branch above always returns, so this `else` is not a decision. the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires Fix: drop the `else` and outdent its body; the branch above never falls through to it"
           },
           "properties": {
             "confidence": "verified"

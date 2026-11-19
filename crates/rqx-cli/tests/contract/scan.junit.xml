@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="307" failures="160" time="0">
+<testsuites name="rqx" tests="311" failures="163" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -309,14 +309,14 @@ Why: every caller passes a value that is never read, so the parameter list misde
 Fix: drop `node` from `visitProduct` and from its call sites</failure>
     </testcase>
   </testsuite>
-  <testsuite name="typescript/flow.ts" tests="42" failures="27">
-    <testcase classname="typescript/flow.ts" name="silent-fallthrough at 193:5">
+  <testsuite name="typescript/flow.ts" tests="45" failures="29">
+    <testcase classname="typescript/flow.ts" name="silent-fallthrough at 206:5">
       <failure type="silent-fallthrough" message="`case 1:` has a body and no `break`, so it continues into the next case.">`case 1:` has a body and no `break`, so it continues into the next case.
 
 Why: the arm below also runs, and nothing here says whether that was intended
 Fix: end the arm, or say in the code that falling through is the point</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="duplicate-condition at 177:13">
+    <testcase classname="typescript/flow.ts" name="duplicate-condition at 190:13">
       <failure type="duplicate-condition" message="`(kind === &quot;a&quot;)` is tested twice in the same if/else chain, so the second branch cannot run.">`(kind === &quot;a&quot;)` is tested twice in the same if/else chain, so the second branch cannot run.
 
 Why: the second branch cannot be reached, so whatever it was written to do has never run
@@ -334,43 +334,49 @@ Fix: keep one body and delete the branch, or make the arms differ</failure>
 Why: the result is decided before the comparison runs, so either it does nothing or one side was meant to be a different expression
 Fix: one side was meant to be something else; decide which</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="assignment-in-condition at 58:8">
+    <testcase classname="typescript/flow.ts" name="assignment-in-condition at 71:7">
       <failure type="assignment-in-condition" message="`found = a + b` assigns where a condition is expected.">`found = a + b` assigns where a condition is expected.
 
 Why: it reads as a comparison and behaves as an assignment, so an accidental assignment is easy to miss in review
 Fix: assign above the branch, or compare if that is what was meant</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="float-equality at 128:10">
+    <testcase classname="typescript/flow.ts" name="float-equality at 141:10">
       <failure type="float-equality" message="`0.1` is compared for exact equality, which floating-point rounding can make false.">`0.1` is compared for exact equality, which floating-point rounding can make false.
 
 Why: a binary float rarely equals the decimal a person wrote, so a branch that depends on it is decided by rounding and not by the value
 Fix: compare the difference against a tolerance chosen for the domain</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="discarded-expression at 132:3">
+    <testcase classname="typescript/flow.ts" name="discarded-expression at 145:3">
       <failure type="discarded-expression" message="`total === other` is evaluated and its value is not used.">`total === other` is evaluated and its value is not used.
 
 Why: either the line was meant to do something and does not, or it does nothing and should be removed, and a reader cannot tell which
 Fix: use the value, or delete the line</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="dead-store at 57:7">
+    <testcase classname="typescript/flow.ts" name="dead-store at 59:7">
       <failure type="dead-store" message="The value assigned to `found` is overwritten before anything reads it.">The value assigned to `found` is overwritten before anything reads it.
 
 Why: the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary
 Fix: delete the unread assignment, or read it</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="loop-runs-once at 162:5">
+    <testcase classname="typescript/flow.ts" name="dead-store at 70:7">
+      <failure type="dead-store" message="The value assigned to `found` is overwritten before anything reads it.">The value assigned to `found` is overwritten before anything reads it.
+
+Why: the first write has no effect, so either a line that should read it is missing or the line that wrote it is unnecessary
+Fix: delete the unread assignment, or read it</failure>
+    </testcase>
+    <testcase classname="typescript/flow.ts" name="loop-runs-once at 175:5">
       <failure type="loop-runs-once" message="the body always `return` before the next pass">the body always `return` before the next pass
 
 Why: it is written as repetition and runs once, so either the exit is misplaced or the loop is a lookup written as a loop
 Fix: drop the loop and take the first match, or move the exit behind the condition that should end it</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="ambiguous-precedence at 141:10">
+    <testcase classname="typescript/flow.ts" name="ambiguous-precedence at 154:10">
       <failure type="ambiguous-precedence" message="`&amp;&amp; inside ||` with nothing to say which binds first">`&amp;&amp; inside ||` with nothing to say which binds first
 
 Why: the language defines which operator binds tighter but the reader has to remember it, and parentheses remove the question at no cost
 Fix: put the tighter half in parentheses, or name it</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="nested-ternary at 137:32">
+    <testcase classname="typescript/flow.ts" name="nested-ternary at 150:32">
       <failure type="nested-ternary" message="This conditional expression is nested in another one: `score &gt; 50 ? &quot;silver&quot; : &quot;bronze&quot;`.">This conditional expression is nested in another one: `score &gt; 50 ? &quot;silver&quot; : &quot;bronze&quot;`.
 
 Why: two conditions folded into one expression have to be unfolded by the reader before either can be checked
@@ -400,49 +406,55 @@ Fix: drop the `else` and outdent its body; the branch above never falls through 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
 Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="redundant-else at 175:5">
+    <testcase classname="typescript/flow.ts" name="redundant-else at 188:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
 Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="redundant-else at 177:5">
+    <testcase classname="typescript/flow.ts" name="redundant-else at 190:5">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 
 Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
 Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="duplicate-code at 173:3">
+    <testcase classname="typescript/flow.ts" name="redundant-else at 225:9">
+      <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
+
+Why: the branch above already exits, so the code after the `else` is indented one level deeper than its logic requires
+Fix: drop the `else` and outdent its body; the branch above never falls through to it</failure>
+    </testcase>
+    <testcase classname="typescript/flow.ts" name="duplicate-code at 186:3">
       <failure type="duplicate-code" message="10-statement block (27 AST nodes) repeated at 2 sites.">10-statement block (27 AST nodes) repeated at 2 sites.
 
 Why: a fix applied to one copy leaves the others unfixed, and nothing in the code links the edited copy to the others
 Fix: extract the shared block into one function and call it from all 2 sites</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="accumulate-by-copy at 186:5">
+    <testcase classname="typescript/flow.ts" name="accumulate-by-copy at 199:5">
       <failure type="accumulate-by-copy" message="`out` is copied into a new value on every pass of the loop, which makes the loop quadratic.">`out` is copied into a new value on every pass of the loop, which makes the loop quadratic.
 
 Why: each step copies everything gathered so far, so building a result of n items touches about half of n squared items
 Fix: add to the accumulator in place instead of rebuilding it</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="no-default-branch at 149:3">
+    <testcase classname="typescript/flow.ts" name="no-default-branch at 162:3">
       <failure type="no-default-branch" message="The `switch` has 3 cases and no default (limit 3).">The `switch` has 3 cases and no default (limit 3).
 
 Why: a value the switch does not anticipate passes through it unhandled, and nothing in the code says whether that is intended
 Fix: add a default arm that handles unnamed values, even if it only raises</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="loop-concatenation at 186:5">
+    <testcase classname="typescript/flow.ts" name="loop-concatenation at 199:5">
       <failure type="loop-concatenation" message="`out` is rebuilt from its own previous value on every pass.">`out` is rebuilt from its own previous value on every pass.
 
 Why: each pass copies everything written so far, so the work grows with the square of the number of pieces
 Fix: collect the pieces and join them once</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="callback-nesting at 101:20">
+    <testcase classname="typescript/flow.ts" name="callback-nesting at 114:20">
       <failure type="callback-nesting" message="Callbacks nest 4 levels deep (limit 3).">Callbacks nest 4 levels deep (limit 3).
 
 Why: the steps run in the reverse of the order in which they are written, so following the sequence means reading from the inside out
 Fix: name the inner steps and call them, so the order they run in is the order they read in</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="wide-switch at 65:3">
+    <testcase classname="typescript/flow.ts" name="wide-switch at 78:3">
       <failure type="wide-switch" message="The `switch` has 14 cases (limit 12).">The `switch` has 14 cases (limit 12).
 
 Why: past a certain width the arms are no longer a table a reader scans, and become a list the reader has to search
@@ -454,17 +466,17 @@ Fix: give the value being switched on a type that provides the behaviour for eac
 Why: a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss
 Fix: give the function one exit, or extract the branches that end early</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="many-exits at 64:17">
+    <testcase classname="typescript/flow.ts" name="many-exits at 77:17">
       <failure type="many-exits" message="The function has 14 exit points (limit 4).">The function has 14 exit points (limit 4).
 
 Why: a reader has to find every exit before they can say what the function returns, and exits deep in the body are the easiest to miss
 Fix: give the function one exit, or extract the branches that end early</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="type-code-switch at 65:3">
-      <failure type="type-code-switch" message="Branches on `kind` in 5 places, 14 cases at the widest.">Branches on `kind` in 5 places, 14 cases at the widest.
+    <testcase classname="typescript/flow.ts" name="type-code-switch at 78:3">
+      <failure type="type-code-switch" message="Branches on `kind` in 6 places, 14 cases at the widest.">Branches on `kind` in 6 places, 14 cases at the widest.
 
 Why: the same set of cases is written out in several places, so adding a case requires finding all of them and the compiler does not report a missed one
-Fix: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 5 edits</failure>
+Fix: give `kind` a type per case and let each one carry its own behaviour, so adding a case is one new class rather than 6 edits</failure>
     </testcase>
     <testcase classname="typescript/flow.ts" name="cognitive-complexity at 32:17">
       <failure type="cognitive-complexity" message="Cognitive complexity 17 (threshold 15), max nesting depth 3.">Cognitive complexity 17 (threshold 15), max nesting depth 3.
@@ -472,22 +484,22 @@ Fix: give `kind` a type per case and let each one carry its own behaviour, so ad
 Why: each nested decision point multiplies the paths a reader has to trace, and paths that go untraced are where regressions pass review
 Fix: lift the conditions in `buriedExits` into named predicates, then extract the deepest block into its own function</failure>
     </testcase>
-    <testcase classname="typescript/flow.ts" name="redundant-jump at 113:5">
+    <testcase classname="typescript/flow.ts" name="redundant-jump at 126:5">
       <skipped message="`continue` is the last statement of the loop body, so it changes nothing." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="negated-comparison at 145:10">
+    <testcase classname="typescript/flow.ts" name="negated-comparison at 158:10">
       <skipped message="A negation wraps a `===` comparison, which the opposite operator states directly." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="abstract-nothing at 202:8">
+    <testcase classname="typescript/flow.ts" name="abstract-nothing at 233:8">
       <skipped message="`Settled` is declared abstract but has no abstract member for a subclass to finish." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="return-of-fresh-local at 168:3">
+    <testcase classname="typescript/flow.ts" name="return-of-fresh-local at 181:3">
       <skipped message="`total` is declared on one line and returned on the next." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="literal-comparison at 10:7">
       <skipped message="Compared against the literal `true`." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="speculative-generality at 202:23">
+    <testcase classname="typescript/flow.ts" name="speculative-generality at 233:23">
       <skipped message="The class with no implementer `Settled` is declared and never read." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="flag-argument at 1:26">
@@ -496,22 +508,25 @@ Fix: lift the conditions in `buriedExits` into named predicates, then extract th
     <testcase classname="typescript/flow.ts" name="flag-argument at 9:26">
       <skipped message="Boolean parameter `ready` (1 in the list) selects between behaviours." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="ambient-dependency at 102:11">
+    <testcase classname="typescript/flow.ts" name="ambient-dependency at 115:11">
       <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="ambient-dependency at 194:7">
+    <testcase classname="typescript/flow.ts" name="ambient-dependency at 207:7">
+      <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
+    </testcase>
+    <testcase classname="typescript/flow.ts" name="ambient-dependency at 220:7">
       <skipped message="`globalThis` reads the clock, the environment or a random source directly, so no caller can supply the value." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 1:17">
       <skipped message="`restated` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 127:17">
+    <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 140:17">
       <skipped message="`settled` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 140:17">
+    <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 153:17">
       <skipped message="`admits` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
-    <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 144:17">
+    <testcase classname="typescript/flow.ts" name="boolean-not-a-question at 157:17">
       <skipped message="`changed` holds a boolean, and its name does not read as a yes-or-no question." />
     </testcase>
     <testcase classname="typescript/flow.ts" name="magic-number at 34:29">
@@ -537,8 +552,8 @@ Fix: lift the conditions in `buriedExits` into named predicates, then extract th
     <testcase classname="typescript/hierarchy-food.ts" name="rqx" />
   </testsuite>
   <testsuite name="typescript/hierarchy.ts" tests="11" failures="6">
-    <testcase classname="typescript/hierarchy.ts" name="discarded-error at 48:9">
-      <failure type="discarded-error" message="`countRows` returns a result that is assigned to an ignored name and never read.">`countRows` returns a result that is assigned to an ignored name and never read.
+    <testcase classname="typescript/hierarchy.ts" name="discarded-error at 57:9">
+      <failure type="discarded-error" message="`storeRows` returns a result that is assigned to an ignored name and never read.">`storeRows` returns a result that is assigned to an ignored name and never read.
 
 Why: the code receives the result and ignores it, and nothing records what happens when the call fails
 Fix: handle the result, or state in the code why nothing needs to be done</failure>
@@ -896,7 +911,13 @@ Why: every caller passes a value that is never read, so the parameter list misde
 Fix: drop `deadB` from `twoDeadOnOneLine` and from its call sites</failure>
     </testcase>
   </testsuite>
-  <testsuite name="typescript/patterns.ts" tests="32" failures="13">
+  <testsuite name="typescript/patterns.ts" tests="33" failures="14">
+    <testcase classname="typescript/patterns.ts" name="identical-branches at 19:5">
+      <failure type="identical-branches" message="The arms at lines 19 and 21 do the same thing.">The arms at lines 19 and 21 do the same thing.
+
+Why: the decision changes nothing, so either it is not a decision or one branch was meant to differ
+Fix: join the two conditions as `this.state === &quot;open&quot; || this.state === &quot;locked&quot;` and keep one arm</failure>
+    </testcase>
     <testcase classname="typescript/patterns.ts" name="redundant-else at 21:7">
       <failure type="redundant-else" message="The branch above always returns, so this `else` is not a decision.">The branch above always returns, so this `else` is not a decision.
 

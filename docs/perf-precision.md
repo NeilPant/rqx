@@ -56,7 +56,7 @@ Each rule over the written and the real functions together. A report is right wh
 | `linear-op-in-loop` | 39 | 0 | 4 | 1.00 | 0.91 |
 | `pair-scan-could-hash` | 4 | 0 | 0 | 1.00 | 1.00 |
 | `quadratic-via-call` | 13 | 0 | 2 | 1.00 | 0.87 |
-| `repeated-computation-in-loop` | 20 | 4 | 8 | 0.83 | 0.71 |
+| `repeated-computation-in-loop` | 20 | 1 | 8 | 0.95 | 0.71 |
 | `scan-in-loop` | 29 | 5 | 23 | 0.85 | 0.56 |
 
 ## Method

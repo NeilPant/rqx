@@ -72,7 +72,10 @@ flow.ts rule=cognitive-complexity | export function buriedExits(a: number, b: nu
 flow.ts rule=many-exits | export function buriedExits(a: number, b: number): number {
 flow.ts rule=magic-number | for (const step of [1, 2, 3]) {
 flow.ts rule=dead-store | let found = 0;
-flow.ts rule=assignment-in-condition | if ((found = a + b)) {
+flow.ts none=assignment-in-condition | if ((found = a * b)) {
+flow.ts none=assignment-in-condition | if ((found = a - b) > 0) {
+flow.ts rule=dead-store #2 | let found = 0;
+flow.ts rule=assignment-in-condition | if (found = a + b) {
 flow.ts rule=many-exits | export function wideSwitch(kind: string): number {
 flow.ts rule=type-code-switch | switch (kind) {
 flow.ts rule=wide-switch | switch (kind) {
@@ -98,6 +101,9 @@ flow.ts rule=accumulate-by-copy | out += row;
 flow.ts rule=loop-concatenation | out += row;
 flow.ts rule=silent-fallthrough #2 | case 1:
 flow.ts rule=ambient-dependency | globalThis.console.warn("one");
+flow.ts rule=ambient-dependency #2 | globalThis.console.warn("one");
+flow.ts none=silent-fallthrough #3 | case 2:
+flow.ts rule=redundant-else #3 | } else {
 flow.ts rule=abstract-nothing | export abstract class Settled {
 flow.ts rule=speculative-generality | export abstract class Settled {
 gateway-a.ts rule=passthrough-function | export function collectA(amount: number) {
@@ -113,7 +119,8 @@ hierarchy.ts rule=deep-inheritance | export class Level4 extends Level3 {}
 hierarchy.ts rule=empty-subclass | export class Level4 extends Level3 {}
 hierarchy.ts rule=orphan-todo | // TODO: work out what happens to the remainder
 hierarchy.ts rule=integer-division | return 7 / 2 + total;
-hierarchy.ts known-fp=discarded-error countRows returns a number and cannot fail, so no error is dropped | const _ = countRows(rows);
+hierarchy.ts none=discarded-error | const _ = countRows(rows);
+hierarchy.ts rule=discarded-error | const _ = storeRows(rows);
 hygiene.ts rule=wildcard-import | import * as everything from "./cycle-b";
 hygiene.ts rule=deep-relative-import | import type { Far } from "../../../shared/far";
 hygiene.ts rule=unused-import | import type { Far } from "../../../shared/far";
@@ -174,6 +181,13 @@ lookalikes-warnings.ts none=working-constructor | constructor() {
 lookalikes-warnings.ts none=self-built-collaborators | this.seen = new Set();
 lookalikes-warnings.ts none=example-value | // `page` is a full address, e.g. https://example.com/path.
 lookalikes-warnings.ts none=dead-store | label = "one";
+lookalikes.ts none=empty-catch | } catch {
+lookalikes.ts none=unreachable-code | var total: number;
+lookalikes.ts none=self-comparison | return reading !== reading;
+lookalikes.ts none=exit-from-finally | continue;
+lookalikes.ts none=exit-from-finally | break;
+lookalikes.ts none=mutated-while-iterated | seen.add(node * 2);
+lookalikes.ts none=dropped-promise | refreshed();
 names.ts rule=vague-function-name | export function process(rows: number[]) {
 names.ts rule=return-of-fresh-local | const temp2 = data.length;
 names.ts rule=negated-name | const notReady = rows.length === 0;
@@ -184,6 +198,7 @@ params.ts rule=unused-parameter | export function withDeadTail(used: number, dea
 params.ts rule=unused-parameter | export function withDeadMiddle(dead: string, used: number) {
 params.ts rule=unused-parameter x2 | export function twoDeadOnOneLine(used: number, deadA: string, deadB: string) {
 patterns.ts rule=type-code-switch | switch (this.state) {
+patterns.ts rule=identical-branches | if (this.state === "open") {
 patterns.ts rule=redundant-else | } else if (this.state === "locked") {
 patterns.ts rule=redundant-else | } else if (this.state === "closed") {
 patterns.ts rule=redundant-else | } else if (looksLikeUpload(request)) {

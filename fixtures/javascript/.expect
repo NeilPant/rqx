@@ -73,7 +73,10 @@ flow.js rule=cognitive-complexity | export function buriedExits(a, b) {
 flow.js rule=many-exits | export function buriedExits(a, b) {
 flow.js rule=magic-number | for (const step of [1, 2, 3]) {
 flow.js rule=dead-store | let found = 0;
-flow.js rule=assignment-in-condition | if ((found = a + b)) {
+flow.js none=assignment-in-condition | if ((found = a * b)) {
+flow.js none=assignment-in-condition | if ((found = a - b) > 0) {
+flow.js rule=dead-store #2 | let found = 0;
+flow.js rule=assignment-in-condition | if (found = a + b) {
 flow.js rule=many-exits | export function wideSwitch(kind) {
 flow.js rule=type-code-switch | switch (kind) {
 flow.js rule=wide-switch | switch (kind) {
@@ -96,6 +99,9 @@ flow.js rule=accumulate-by-copy | out += row;
 flow.js rule=loop-concatenation | out += row;
 flow.js rule=silent-fallthrough #2 | case 1:
 flow.js rule=ambient-dependency | globalThis.console.warn("one");
+flow.js rule=ambient-dependency #2 | globalThis.console.warn("one");
+flow.js none=silent-fallthrough #3 | case 2:
+flow.js rule=redundant-else | } else {
 gateway-a.js rule=passthrough-function | export function collectA(amount) {
 gateway-b.js rule=passthrough-function | export function collectB(amount) {
 gateway-c.js rule=passthrough-function | export function collectC(amount) {
@@ -111,7 +117,8 @@ hierarchy.js rule=deep-inheritance | export class Level4 extends Level3 {
 hierarchy.js rule=empty-subclass | export class Level4 extends Level3 {
 hierarchy.js rule=orphan-todo | // TODO: work out what happens to the remainder
 hierarchy.js rule=integer-division | return 7 / 2 + total;
-hierarchy.js known-fp=discarded-error countRows returns a number and cannot fail, so no error is dropped | const _ = countRows(rows);
+hierarchy.js none=discarded-error | const _ = countRows(rows);
+hierarchy.js rule=discarded-error | const _ = storeRows(rows);
 hygiene.js rule=wildcard-import | import * as everything from "./cycle-b";
 hygiene.js rule=deep-relative-import | import { Far } from "../../../shared/far";
 hygiene.js rule=unused-import | import { Far } from "../../../shared/far";
@@ -164,6 +171,12 @@ lifecycle.js rule=middle-man | export class ReportFactory {
 lifecycle.js rule=passthrough-function | add(row) {
 long.js rule=long-function | export function manySteps() {
 lookalikes-warnings.js none=unused-private-member | #finish() {
+lookalikes.js none=unreachable-code | var total;
+lookalikes.js none=self-comparison | return reading !== reading;
+lookalikes.js none=exit-from-finally | continue;
+lookalikes.js none=exit-from-finally | break;
+lookalikes.js none=mutated-while-iterated | seen.add(node * 2);
+lookalikes.js none=dropped-promise | refreshed();
 names.js rule=vague-function-name | export function process(rows) {
 names.js rule=return-of-fresh-local | const temp2 = data.length;
 names.js rule=negated-name | const notReady = rows.length === 0;
@@ -174,6 +187,7 @@ params.js rule=unused-parameter | export function withDeadTail(used, dead) {
 params.js rule=unused-parameter | export function withDeadMiddle(dead, used) {
 params.js rule=unused-parameter x2 | export function twoDeadOnOneLine(used, deadA, deadB) {
 patterns.js rule=type-code-switch | switch (this.state) {
+patterns.js rule=identical-branches | if (this.state === "open") {
 patterns.js rule=redundant-else | else if (this.state === "locked") {
 patterns.js rule=redundant-else | else if (this.state === "closed") {
 patterns.js rule=redundant-else | else if (looksLikeUpload(request)) {
