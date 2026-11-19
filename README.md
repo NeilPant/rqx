@@ -439,6 +439,7 @@ $ rqx fix ./src
 
   Files     3 to fix · 42 scanned
   Fixes     11 ready · 2 withheld · 46 need a decision
+  Floor     3 fixes below fix.min_confidence, not applied
   Health    73 → 81  (+8)
   Verified  every fix re-parsed and re-analysed clean
 
@@ -452,8 +453,11 @@ new finding may appear. A file that fails is named with the reason. Writes are
 atomic. The pass repeats, because one fix can enable the next: deleting the branch
 that held a binding's only reference makes that binding unused.
 
-Thirteen rules qualify. `fix.disabled: [commented-out-code]` in `rqx.yaml` opts one
-out, and `rqx explain <rule>` says whether a rule is fixable. For the rest,
+Thirteen rules qualify. A fix is applied only when its finding is at or above
+`fix.min_confidence`, which defaults to `verified`; the preview counts the ones held
+back on the `Floor` row. [Configuration](docs/configuration.md#fixes) describes the
+setting. `fix.disabled: [commented-out-code]` in `rqx.yaml` opts one rule out, and
+`rqx explain <rule>` says whether a rule is fixable. For the rest,
 `rqx fix --plan` emits each finding with its span, the source text, the metric, the
 reasoning and the named refactoring, as a brief for a person or an agent. `rqx check
 --base main --fix` does the same for a branch and judges
