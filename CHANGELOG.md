@@ -163,6 +163,15 @@ them. `tools/release.sh` turns that section into the release notes.
   next scan reported the finding again plus an `unjustified-suppression`. Both now
   exit 2 and say which problem the date has.
 
+- **`rqx baseline` works when `gate.baseline` names a file that is missing.** On a
+  fresh clone, or after `.rqx/` was deleted, every command refused to run and told
+  the user to run `rqx baseline`, which refused too. `rqx baseline` now records the
+  file. Other commands still refuse to run without it.
+
+- **`--threads`, `RQX_THREADS` and `scan.threads` accept at most 256.** A count of
+  5000 failed to start a worker after 30 seconds and panicked, and 20000 hung after
+  the panic. A larger count now exits 2 with a message that names where it was set.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

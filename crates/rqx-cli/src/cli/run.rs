@@ -418,7 +418,7 @@ pub(crate) fn run() -> Result<Exit> {
             force,
             run,
         } => {
-            let settings = run.resolve(&path)?;
+            let settings = run.resolve_to_record(&path)?;
             let taken = baseline::take_drawn(&path, &settings, update, force, progress)?;
             println!(
                 "  recorded {} findings in {}{}",
