@@ -21,6 +21,10 @@ use crate::scan::{self, ScanOutcome};
 /// taken from the environment.
 const TOKEN_ENV: &str = "RQX_MCP_TOKEN";
 
+/// Host names, comma-separated, a non-loopback server answers to beyond the loopback
+/// names and the address it is bound to.
+const ALLOWED_HOSTS_ENV: &str = "RQX_MCP_ALLOWED_HOSTS";
+
 const ENDPOINT: &str = "/mcp";
 
 const INSTRUCTIONS: &str = "\
@@ -163,10 +167,11 @@ async fn over_stdio(server: Rqx) -> Result<()> {
 async fn over_http(server: Rqx, address: SocketAddr, token: Option<String>) -> Result<()> {
     // Cloned rather than rebuilt per session, so two agents on the same project share
     // one scan instead of each paying for their own.
+    let hosts = HostRule::for_bind(address, std::env::var(ALLOWED_HOSTS_ENV).ok().as_deref());
     let service = StreamableHttpService::new(
         move || Ok(server.clone()),
         Arc::new(LocalSessionManager::default()),
-        StreamableHttpServerConfig::default(),
+        hosts.applied_to(StreamableHttpServerConfig::default()),
     );
     let guard = axum::middleware::from_fn(move |request, next| {
         let token = token.clone();
@@ -179,9 +184,72 @@ async fn over_http(server: Rqx, address: SocketAddr, token: Option<String>) -> R
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .with_context(|| format!("cannot listen on {address}"))?;
-    eprintln!("rqx mcp listening on http://{address}{ENDPOINT}");
+    let bound = listener.local_addr().unwrap_or(address);
+    eprintln!("rqx mcp listening on http://{bound}{ENDPOINT}");
+    if let Some(note) = hosts.note() {
+        eprintln!("{note}");
+    }
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+/// Which `Host` headers the server answers. The check is against DNS rebinding, where
+/// a page reaches a server on the reader's machine through a name the attacker
+/// controls. A loopback server answers only the loopback names. A server on any other
+/// address answers whatever name its clients reach it by, a LAN address, a container
+/// name or a proxy's host, and the token it requires and the refusal of every browser
+/// origin already shut rebinding out; `RQX_MCP_ALLOWED_HOSTS` narrows it to a list.
+#[derive(Debug, PartialEq, Eq)]
+enum HostRule {
+    Loopback,
+    Listed(Vec<String>),
+    Any,
+}
+
+impl HostRule {
+    fn for_bind(address: SocketAddr, listed: Option<&str>) -> Self {
+        if address.ip().is_loopback() {
+            return Self::Loopback;
+        }
+        let named: Vec<String> = listed
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+            .collect();
+        if named.is_empty() {
+            return Self::Any;
+        }
+        let mut hosts: Vec<String> = ["localhost", "127.0.0.1", "::1"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+        if !address.ip().is_unspecified() {
+            hosts.push(address.ip().to_string());
+        }
+        hosts.extend(named);
+        Self::Listed(hosts)
+    }
+
+    fn applied_to(&self, config: StreamableHttpServerConfig) -> StreamableHttpServerConfig {
+        match self {
+            Self::Loopback => config,
+            Self::Listed(hosts) => config.with_allowed_hosts(hosts.clone()),
+            Self::Any => config.disable_allowed_hosts(),
+        }
+    }
+
+    fn note(&self) -> Option<String> {
+        match self {
+            Self::Loopback => None,
+            Self::Listed(hosts) => Some(format!("answering the hosts {}", hosts.join(", "))),
+            Self::Any => Some(format!(
+                "answering any host name; set {ALLOWED_HOSTS_ENV} to a comma-separated list \
+                 to answer only those"
+            )),
+        }
+    }
 }
 
 /// An MCP client sends no `Origin`; a page doing DNS rebinding does, which is the
@@ -224,4 +292,42 @@ fn constant_time_eq(offered: &str, expected: &str) -> bool {
         .zip(expected.bytes())
         .fold(0u8, |difference, (left, right)| difference | (left ^ right))
         == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rule(address: &str, listed: Option<&str>) -> HostRule {
+        HostRule::for_bind(address.parse().expect("an address"), listed)
+    }
+
+    #[test]
+    fn a_loopback_server_keeps_the_loopback_names() {
+        assert_eq!(
+            rule("127.0.0.1:8927", Some("example.com")),
+            HostRule::Loopback
+        );
+    }
+
+    #[test]
+    fn a_public_server_answers_any_name_unless_given_a_list() {
+        assert_eq!(rule("0.0.0.0:8927", None), HostRule::Any);
+        assert_eq!(rule("0.0.0.0:8927", Some(" , ")), HostRule::Any);
+        assert_eq!(
+            rule("192.168.1.60:8927", Some("rqx.internal, proxy")),
+            HostRule::Listed(
+                [
+                    "localhost",
+                    "127.0.0.1",
+                    "::1",
+                    "192.168.1.60",
+                    "rqx.internal",
+                    "proxy"
+                ]
+                .map(str::to_owned)
+                .to_vec()
+            )
+        );
+    }
 }

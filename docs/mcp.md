@@ -211,6 +211,20 @@ Clients send `Authorization: Bearer <token>`. A request carrying an `Origin` hea
 refused regardless of its token. MCP clients do not send `Origin`, and a browser
 performing DNS rebinding does.
 
+The server also checks the `Host` header of each request. A loopback server answers
+only `localhost`, `127.0.0.1` and `::1`. A server on any other address answers whatever
+name its clients use to reach it, such as a LAN address, a container name or the host
+of a reverse proxy. To answer only some names, list them in `RQX_MCP_ALLOWED_HOSTS`,
+separated by commas. The loopback names and the bound address are always answered,
+and a request for any other name gets `403`:
+
+```sh
+RQX_MCP_TOKEN=$(openssl rand -hex 32) RQX_MCP_ALLOWED_HOSTS=rqx.internal,10.0.0.5 \
+  rqx mcp --http 0.0.0.0:8927
+```
+
+The server prints the rule it applies under the `listening` line.
+
 Every `path` an agent passes is resolved against the directory the server was started
 in and canonicalised. A path that resolves outside that directory is refused, including
 through a symlink, because a link inside the project that points at `/etc` is visible

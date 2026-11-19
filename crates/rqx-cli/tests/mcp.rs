@@ -651,6 +651,89 @@ fn a_base_that_reads_as_an_option_is_refused_by_check_and_verify() {
     assert!(written.is_empty(), "git wrote {written:?}");
 }
 
+/// Starts `rqx mcp --http 0.0.0.0:0` with a token and returns the server and its port,
+/// read from the line it prints once it listens.
+fn public_server(root: &Path, allowed: Option<&str>) -> (Child, u16) {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+    command
+        .args(["mcp", "--http", "0.0.0.0:0"])
+        .current_dir(root)
+        .env("RQX_MCP_TOKEN", "secret")
+        .env_remove("RQX_MCP_ALLOWED_HOSTS")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    if let Some(hosts) = allowed {
+        command.env("RQX_MCP_ALLOWED_HOSTS", hosts);
+    }
+    let mut child = command.spawn().expect("the server starts");
+    let mut stderr = BufReader::new(child.stderr.take().expect("stderr"));
+    let mut line = String::new();
+    stderr.read_line(&mut line).expect("the listening line");
+    let port = line
+        .trim()
+        .rsplit(':')
+        .next()
+        .and_then(|tail| tail.trim_end_matches("/mcp").parse().ok())
+        .unwrap_or_else(|| panic!("no port in {line:?}"));
+    // Drained so the server never blocks writing to a full pipe.
+    std::thread::spawn(move || std::io::copy(&mut stderr, &mut std::io::sink()));
+    (child, port)
+}
+
+/// The status line of an MCP `initialize` sent with the token and the given `Host`.
+fn initialize_status(port: u16, host: &str) -> String {
+    let body = json!({
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": { "name": "rqx tests", "version": "0" }
+        }
+    })
+    .to_string();
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("the server accepts");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(30)))
+        .expect("a timeout");
+    write!(
+        stream,
+        "POST /mcp HTTP/1.1\r\nHost: {host}\r\nAuthorization: Bearer secret\r\n\
+         Content-Type: application/json\r\nAccept: application/json, text/event-stream\r\n\
+         Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
+    .expect("the request is sent");
+    let mut status = String::new();
+    BufReader::new(stream)
+        .read_line(&mut status)
+        .expect("a status line");
+    status.trim().to_owned()
+}
+
+/// The documented remote setup: a public bind with a token. A client reaches it by
+/// whatever name it has for the machine, and every such request used to get 403.
+#[test]
+fn a_public_server_with_a_token_answers_the_host_its_clients_use() {
+    let root = workspace("public host");
+    let (mut server, port) = public_server(&root, None);
+    let status = initialize_status(port, &format!("192.168.1.60:{port}"));
+    let _ = server.kill();
+    let _ = server.wait();
+    assert!(status.contains(" 200 "), "{status}");
+}
+
+#[test]
+fn a_host_list_narrows_what_a_public_server_answers() {
+    let root = workspace("listed hosts");
+    let (mut server, port) = public_server(&root, Some("rqx.internal"));
+    let listed = initialize_status(port, &format!("rqx.internal:{port}"));
+    let other = initialize_status(port, &format!("elsewhere.example:{port}"));
+    let _ = server.kill();
+    let _ = server.wait();
+    assert!(listed.contains(" 200 "), "{listed}");
+    assert!(other.contains(" 403 "), "{other}");
+}
+
 /// A server that binds a public address with no token hands every file it can parse to
 /// whoever reaches the port, so it refuses to start rather than warning.
 #[test]

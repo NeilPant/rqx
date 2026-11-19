@@ -188,6 +188,14 @@ them. `tools/release.sh` turns that section into the release notes.
   reject or resolve to another file. Each path is now encoded, and `--sarif-in` decodes
   it with the same rules.
 
+- **`rqx mcp --http` on a non-loopback address answers its clients.** The documented
+  remote setup, `rqx mcp --http 0.0.0.0:8927` with `RQX_MCP_TOKEN`, refused every
+  request from another machine with `403 Forbidden: Host header is not allowed`,
+  because only the loopback names were allowed. A non-loopback server now answers any
+  host name, which the token and the refusal of browser origins already protect.
+  `RQX_MCP_ALLOWED_HOSTS` narrows it to a comma-separated list. The `listening` line
+  now gives the bound port, and the next line states the host rule.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
