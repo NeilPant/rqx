@@ -30,7 +30,12 @@ impl<'a> Walker<'a> {
             return;
         }
         let name = self.text(node);
-        if profile.builtin_names.contains(&name) && !self.names_a_member(node) {
+        // `parser.add_argument(type=str)` names the callee's parameter, in the callee.
+        let names_an_argument = node
+            .parent()
+            .is_some_and(|parent| kind_of(parent) == "keyword_argument");
+        if profile.builtin_names.contains(&name) && !names_an_argument && !self.names_a_member(node)
+        {
             self.out.shadowed_builtins.push(Spot {
                 span: span_of(node),
                 detail: name.to_owned(),

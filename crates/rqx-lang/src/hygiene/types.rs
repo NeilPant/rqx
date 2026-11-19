@@ -141,11 +141,16 @@ impl<'a> Walker<'a> {
             .find(|child| profile.is_block(*child))
             .unwrap_or(body);
         // Handing the arguments to the parent's constructor is recording them too, so
-        // `super(...)` and Python's `super().__init__(...)` are not work.
-        // So is making an empty collection or a lock to keep them in.
+        // `super(...)`, Python's `super().__init__(...)` and `Base.__init__(self, ...)`
+        // are not work, and neither is checking an argument before keeping it,
+        // `Objects.requireNonNull(m)`. So is making an empty collection or a lock to
+        // keep them in.
         let is_own_or_parent = |name: &str| {
             let receiver = name.split('.').next().unwrap_or(name);
-            profile.self_names.contains(&name) || profile.super_names.contains(&receiver)
+            let method = name.rsplit('.').next().unwrap_or(name);
+            profile.self_names.contains(&name)
+                || profile.super_names.contains(&receiver)
+                || matches!(method, "__init__" | "requireNonNull")
         };
         let records = |call: Node<'a>| {
             self.callee_name(call)

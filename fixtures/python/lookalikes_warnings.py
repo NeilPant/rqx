@@ -91,3 +91,24 @@ def two_plots(plot, sample):
 # all three arguments, whichever the module reads.
 def load_tests(loader, tests, pattern):
     return tests
+
+
+# repeated-computation-in-loop: a comprehension computes what it walks once.
+def doubled_sizes(parts):
+    return [size * 2 for size in _sizes_of(parts)]
+
+
+# shadows-builtin: `type=` names the callee's parameter, not a local of this file.
+def converted(convert, text):
+    return convert(text, type=int)
+
+
+# working-constructor: calling the parent's `__init__` by name hands it the
+# arguments, which records them.
+class LabelledRefusal(Refusal):
+    def __init__(self, reason, label):
+        Refusal.__init__(self, reason)
+        self.label = label
+
+    def describe(self):
+        return f"{self.label}: {self.reason}"

@@ -9,8 +9,15 @@ use super::Visitor;
 use crate::cost::written::{read_in, written_in};
 use crate::tree::kind_of;
 
-/// Statements that run a call for what it does, not for what it returns.
-const EFFECT_STATEMENTS: [&str; 3] = ["expression_statement", "go_statement", "defer_statement"];
+/// Statements that run a call for what it does, not for what it returns. A `with`
+/// enters what the call returns, which is a fresh context each time.
+const EFFECT_STATEMENTS: [&str; 5] = [
+    "expression_statement",
+    "go_statement",
+    "defer_statement",
+    "with_item",
+    "with_clause",
+];
 
 /// Wrappers a value passes through on its way to being used or discarded.
 const TRANSPARENT: [&str; 2] = ["await", "parenthesized"];
@@ -24,11 +31,11 @@ impl<'a> Visitor<'a, '_> {
         dotted: &str,
         arguments: &[Node<'a>],
     ) {
-        // A method given nothing answers from its object, and the call may be what
-        // changes the object: `scanner.Next()`, `listener.Accept()`. Nothing here says
-        // the project's method leaves its receiver alone.
-        let asks_its_object =
-            arguments.is_empty() && self.bounds().receiver_expression(call).is_some();
+        // A method answers from its object, and the call may be what changes the
+        // object: `scanner.Next()`, `pubsub.Receive(ctx)`. Nothing here says the
+        // project's method leaves its receiver alone, so only a plain function is
+        // judged.
+        let asks_its_object = self.bounds().receiver_expression(call).is_some();
         if !asks_its_object && self.loop_leaves_unchanged(call, arguments) {
             self.repeats.push(RepeatedCall {
                 line: super::line_of(call),
@@ -88,6 +95,11 @@ impl<'a> Visitor<'a, '_> {
             .flat_map(|argument| read_in(&self.names, *argument))
             .collect();
         if let Some(receiver) = self.bounds().receiver_expression(call) {
+            // `b.WriteString(x)` changes `b` with no assignment to it, so `b.String()`
+            // answers differently on the next pass.
+            if self.another_call_on(innermost, call, receiver) {
+                return false;
+            }
             read.extend(read_in(&self.names, receiver));
         }
         if read.is_empty() {
@@ -122,6 +134,25 @@ impl<'a> Visitor<'a, '_> {
         false
     }
 
+    /// Whether the loop calls anything else on the same receiver, which may change it.
+    fn another_call_on(&mut self, innermost: Node<'a>, call: Node<'a>, receiver: Node<'a>) -> bool {
+        let source = self.names.source;
+        let written = crate::tree::text_of(receiver, source);
+        for other in crate::tree::descendants(innermost) {
+            if other.id() == call.id() || !self.names.profile.is_call(other) {
+                continue;
+            }
+            if self
+                .bounds()
+                .receiver_expression(other)
+                .is_some_and(|theirs| crate::tree::text_of(theirs, source) == written)
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     fn value_is_used(&self, call: Node<'a>) -> bool {
         let mut node = call;
         while let Some(parent) = node.parent() {
@@ -139,6 +170,7 @@ impl<'a> Visitor<'a, '_> {
 /// What a for-each loop walks: it is evaluated once, before the first pass, so a call
 /// written there is not repeated by that loop.
 fn iterable_of(loop_node: Node<'_>) -> Option<Node<'_>> {
+    // Go keeps it in a range clause, and a comprehension in its first `for` clause.
     ["right", "value"]
         .iter()
         .find_map(|field| loop_node.child_by_field_name(field))
@@ -146,7 +178,7 @@ fn iterable_of(loop_node: Node<'_>) -> Option<Node<'_>> {
             let mut cursor = loop_node.walk();
             loop_node
                 .named_children(&mut cursor)
-                .find(|child| kind_of(*child) == "range_clause")
+                .find(|child| matches!(kind_of(*child), "range_clause" | "for_in_clause"))
                 .and_then(|clause| clause.child_by_field_name("right"))
         })
 }

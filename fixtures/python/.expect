@@ -175,6 +175,9 @@ lookalikes_warnings.py none=repeated-computation-in-loop | for size in _sizes_of
 lookalikes_warnings.py none=repeated-computation-in-loop | return _total_size(parts)
 lookalikes_warnings.py none=dead-store | first = plot(sample, size=1)
 lookalikes_warnings.py none=unused-parameter | def load_tests(loader, tests, pattern):
+lookalikes_warnings.py none=repeated-computation-in-loop | return [size * 2 for size in _sizes_of(parts)]
+lookalikes_warnings.py none=shadows-builtin | return convert(text, type=int)
+lookalikes_warnings.py none=working-constructor | def __init__(self, reason, label):
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)

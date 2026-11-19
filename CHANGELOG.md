@@ -363,8 +363,9 @@ them. `tools/release.sh` turns that section into the release notes.
 
 - **`working-constructor` no longer counts a call to the parent constructor as
   work.** `constructor() { super("x"); }` and Python's `super().__init__(...)` pass
-  the arguments on to the parent, the same as recording them in a field. A subclass
-  constructor that does nothing else is no longer reported.
+  the arguments on to the parent, the same as recording them in a field, and so do
+  `Base.__init__(self, ...)` and checking an argument with `Objects.requireNonNull`. A
+  subclass constructor that does nothing else is no longer reported.
 
 - **`self-built-collaborators` no longer reports standard containers and value
   types.** `this.items = new Set()`, `new WeakMap()`, `new Uint32Array(0)`,
@@ -379,7 +380,8 @@ them. `tools/release.sh` turns that section into the release notes.
   Python's `def dict(self)` and an interface method `close()` hide nothing. A type
   whose own name matches a builtin is still reported. Java's list now holds only
   `java.lang` names, which every file sees without an import, so `java.util`'s own
-  `Map` is no longer reported.
+  `Map` is no longer reported. A keyword argument such as `type=str` names the
+  callee's parameter and is no longer reported either.
 
 - **`example-value` no longer reports comments and docstrings.** Outside test files,
   82 of 84 sampled findings were documentation such as `// e.g.
@@ -433,10 +435,13 @@ them. `tools/release.sh` turns that section into the release notes.
 - **`repeated-computation-in-loop` no longer reports loop headers, exits and methods
   that take nothing.** What a for-each loop walks, such as `Object.keys(o)` in
   `for (const key of Object.keys(o))`, is computed once before the first pass, and a
-  call in a `return`, `throw` or `break` runs at most once. A project method called
-  with no arguments, such as `scanner.Next()` or `listener.Accept()`, answers from its
-  object and may change it, so hoisting it out of the loop would break the loop; it
-  is no longer reported.
+  call in a `return`, `throw` or `break` runs at most once. The same holds for the
+  iterable of a comprehension. A project method, such as `scanner.Next()` or
+  `pubsub.Receive(ctx)`, answers from its object and may change it, so hoisting it
+  out of the loop would break the loop; only plain functions are judged now. A library
+  call is not reported when the loop calls something else on the same receiver, as
+  `b.WriteString(x)` changes what `b.String()` returns, and a call whose result a
+  `with` statement enters is not reported either.
 
 - **`unused-private-member` no longer tells users to delete members that are used.**
   In a sample of public code none of 10 sampled findings was right, and more than
