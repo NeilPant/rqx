@@ -347,6 +347,7 @@ src/lookalikes.cpp none=unreachable-code | cleanup:
 src/lookalikes.cpp none=unreachable-code | NOT_REACHED();
 src/lookalikes.cpp none=shadowed-handler | } catch (const std::string& message) {
 src/lookalikes.cpp none=self-comparison | return reading != reading;
+src/lookalikes.cpp none=no-base-case | int width(long value) {
 src/main.cpp rule=wide-fan-out | #include "bloat.hpp"
 src/main.cpp rule=long-function | int main() {
 src/main.cpp rule=boolean-literal-argument | pricing({}, true);

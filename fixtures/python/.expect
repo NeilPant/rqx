@@ -190,6 +190,9 @@ lookalikes.py known-fp=unused-private-member Python calls __iter__ itself when t
 lookalikes.py none=mutated-while-iterated | self.remove(entry)
 lookalikes.py none=dropped-promise | notify()
 lookalikes.py none=dropped-promise #2 | notify()
+lookalikes.py none=no-base-case | def count(books: list) -> int:
+lookalikes.py none=no-base-case | def shelved(entry: str) -> list:
+lookalikes.py none=no-base-case | def closed(handle, closed=print):
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)

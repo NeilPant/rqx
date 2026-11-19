@@ -104,6 +104,15 @@ public class Lookalikes {
         return reading != reading;
     }
 
+    // no-base-case: each overload hands its argument, converted, to another one.
+    public int width(long value) {
+        return this.width(Long.toString(value));
+    }
+
+    public int width(String value) {
+        return value.length();
+    }
+
     // exit-from-finally: the break and continue stay in a loop inside the clause.
     public int drained(java.util.Deque<Integer> pending) {
         try {

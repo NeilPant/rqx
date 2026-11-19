@@ -126,3 +126,12 @@ bool is_missing(double reading) {
     // self-comparison: only NaN differs from itself, so this is how NaN is detected.
     return reading != reading;
 }
+
+int width(const std::string& value) {
+    return static_cast<int>(value.size());
+}
+
+int width(long value) {
+    // no-base-case: the call converts its argument, so it reaches the other overload.
+    return width(std::to_string(value));
+}

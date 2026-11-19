@@ -24,6 +24,10 @@ pub struct FunctionMetrics {
     /// and a loop alike where only one of the two multiplies the work.
     pub loop_depth: u32,
     pub self_calls: u32,
+    /// The self calls that reach this function whichever overloads exist. Where a
+    /// language picks among same-named functions by argument types, only a call that
+    /// passes the parameters on unchanged is certain to; elsewhere every self call is.
+    pub certain_self_calls: u32,
     /// A name in the body suggesting the answers are kept, which is what separates
     /// exponential recursion from the same shape written with a table.
     pub memo_guard: bool,

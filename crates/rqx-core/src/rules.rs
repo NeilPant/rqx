@@ -183,13 +183,13 @@ pub fn check_function(
     }
 
     // One decision anywhere is enough to stop it; none at all cannot be.
-    if metrics.self_calls > 0 && metrics.cyclomatic_complexity == 1 {
+    if metrics.certain_self_calls > 0 && metrics.cyclomatic_complexity == 1 {
         builder.emit(
             out,
             RuleId::NoBaseCase,
             metrics.report,
             Evidence::Recursion {
-                calls: metrics.self_calls,
+                calls: metrics.certain_self_calls,
                 sampled: None,
             },
             format!("give {name} the case that answers without calling itself"),

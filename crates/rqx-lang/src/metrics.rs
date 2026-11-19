@@ -19,6 +19,9 @@ struct FunctionFrame {
     parameters: u32,
     /// Whether the last parameter takes any number of arguments.
     variadic: bool,
+    /// The names the parameters bind. One that repeats the function's own name hides
+    /// the function inside its body.
+    parameter_names: Vec<String>,
     statements: u32,
     complexity: u32,
     /// The same decisions, counted flat. Cognitive complexity weighs a nested
@@ -29,6 +32,7 @@ struct FunctionFrame {
     loops: u32,
     max_loops: u32,
     self_calls: u32,
+    certain_self_calls: u32,
     memo_guard: bool,
     recursion: Recursion,
 }
@@ -175,6 +179,7 @@ impl<'a> MetricsWalker<'a> {
                 list.named_children(&mut list.walk())
                     .any(|parameter| kind_of(parameter).starts_with("spread"))
             }),
+            parameter_names: self.parameter_names(node),
             statements: 0,
             complexity: 0,
             decisions: 0,
@@ -183,6 +188,7 @@ impl<'a> MetricsWalker<'a> {
             loops: inherited,
             max_loops: inherited,
             self_calls: 0,
+            certain_self_calls: 0,
             memo_guard: false,
             recursion: self.recursion_of(node),
         });
@@ -207,6 +213,23 @@ impl<'a> MetricsWalker<'a> {
                 && (in_a_class || kind_of(function) != "function_definition"));
         if !is_method {
             return Recursion::Unqualified;
+        }
+        // Python's receiver is whatever the first parameter is called, and a method
+        // nested in another sees the outer one's `self` under that name.
+        // A static method has no receiver at all.
+        if profile.language == Language::Python {
+            let decorated = function
+                .parent()
+                .filter(|parent| kind_of(*parent) == "decorated_definition");
+            let is_static = decorated.is_some_and(|definition| {
+                definition
+                    .named_children(&mut definition.walk())
+                    .any(|child| text_of(child, self.source).trim() == "@staticmethod")
+            });
+            let receiver = (!is_static)
+                .then(|| self.parameter_names(function).into_iter().next())
+                .flatten();
+            return Recursion::ThroughReceiver(receiver);
         }
         let named = receiver.and_then(|list| {
             crate::tree::descendants(list)
@@ -240,6 +263,7 @@ impl<'a> MetricsWalker<'a> {
                 max_nesting: frame.max_nesting,
                 loop_depth: frame.max_loops,
                 self_calls: frame.self_calls,
+                certain_self_calls: frame.certain_self_calls,
                 memo_guard: frame.memo_guard,
             });
         }
@@ -284,9 +308,22 @@ impl<'a> MetricsWalker<'a> {
             return;
         };
         let own = match (receiver, &frame.recursion) {
-            // `::name()` in C++ is the global function, whatever the member is called.
-            (None, Recursion::Unqualified) => !self.callee_text(node).starts_with("::"),
+            // A qualified C++ call, `::name()`, `Base::name()` or `detail::name()`,
+            // names another function, and a parameter of the same name hides this one.
+            (None, Recursion::Unqualified) => {
+                !self.callee_text(node).contains("::")
+                    && !frame.parameter_names.contains(&name.to_owned())
+                    && !self.rebound_inside(node, name)
+            }
             (None, Recursion::ThroughReceiver(_)) => false,
+            // A Python function that is not a method has no receiver: `self.f()` in a
+            // helper nested inside a method reaches the method's object.
+            (Some(_), Recursion::Unqualified) if self.profile.language == Language::Python => false,
+            (Some(object), Recursion::ThroughReceiver(Some(first)))
+                if self.profile.language == Language::Python =>
+            {
+                text_of(object, self.source) == first
+            }
             (Some(object), recursion) => {
                 let object = text_of(object, self.source);
                 self.profile.self_names.contains(&object)
@@ -299,12 +336,68 @@ impl<'a> MetricsWalker<'a> {
             && self
                 .argument_count(node)
                 .is_some_and(|arguments| arguments != frame.parameters && !frame.variadic);
+        let certain = !matches!(self.profile.language, Language::Java | Language::Cpp)
+            || self.passes_parameters_on(node, &frame.parameter_names);
         if own
             && !overload
             && let Some(frame) = self.functions.last_mut()
         {
             frame.self_calls += 1;
+            if certain {
+                frame.certain_self_calls += 1;
+            }
         }
+    }
+
+    /// Whether the function a call is written in gives the called name a new meaning:
+    /// a nested function of that name, or an assignment to it, as Python's
+    /// `global pager; pager = get_pager()` does before calling `pager`.
+    fn rebound_inside(&self, call: Node<'a>, name: &str) -> bool {
+        let profile = self.profile;
+        let mut enclosing = call.parent();
+        while let Some(node) = enclosing.filter(|node| !profile.is_function(*node)) {
+            enclosing = node.parent();
+        }
+        let Some(function) = enclosing else {
+            return false;
+        };
+        crate::tree::descendants(function)
+            .into_iter()
+            .filter(|inner| inner.id() != function.id())
+            .any(|inner| {
+                let names = |named: Node<'a>| text_of(named, self.source) == name;
+                if profile.is_function(inner) {
+                    return self.function_name(inner).is_some_and(names);
+                }
+                (profile.assignment_kinds.contains(&kind_of(inner))
+                    || profile.local_declaring_kinds.contains(&kind_of(inner)))
+                    && inner
+                        .child_by_field_name("left")
+                        .is_some_and(|target| profile.is_identifier(target) && names(target))
+            })
+    }
+
+    /// Whether a call's arguments are the function's own parameters, in order and
+    /// unchanged: `f(a, b)` inside `f(a, b)`. Only then does a language that picks an
+    /// overload by argument types certainly pick this one again; `f(String(s))` or
+    /// `f((Long) v)` asks for another.
+    fn passes_parameters_on(&self, call: Node<'a>, parameters: &[String]) -> bool {
+        let mut cursor = call.walk();
+        let Some(list) = call
+            .named_children(&mut cursor)
+            .find(|child| self.profile.argument_list_kinds.contains(&kind_of(child)))
+        else {
+            return false;
+        };
+        let arguments: Vec<&str> = list
+            .named_children(&mut list.walk())
+            .map(|argument| text_of(argument, self.source).trim())
+            .collect();
+        arguments.len() == parameters.len()
+            && arguments
+                .iter()
+                .zip(parameters)
+                .all(|(argument, parameter)| argument == parameter)
     }
 
     fn callee_text(&self, call: Node<'a>) -> &'a str {
@@ -364,6 +457,17 @@ impl<'a> MetricsWalker<'a> {
             self.profile.is_identifier(*child)
                 || self.profile.property_kinds.contains(&kind_of(child))
         })
+    }
+
+    fn parameter_names(&self, node: Node<'a>) -> Vec<String> {
+        let Some(list) = self.parameter_list(node) else {
+            return Vec::new();
+        };
+        let mut cursor = list.walk();
+        list.named_children(&mut cursor)
+            .filter(|child| self.profile.parameter_kinds.contains(&kind_of(child)))
+            .map(|parameter| self.parameter_name(parameter).to_owned())
+            .collect()
     }
 
     fn parameter_name(&self, parameter: Node<'a>) -> &'a str {

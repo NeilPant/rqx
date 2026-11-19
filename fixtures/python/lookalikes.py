@@ -254,3 +254,24 @@ def notify_locally() -> None:
         return None
 
     notify()
+
+
+# no-base-case: a static method has no receiver, a helper nested in a method reaches
+# the method's object through `self`, and a parameter can hide the function's name.
+class Shelf:
+    def __init__(self) -> None:
+        self.books: list = []
+
+    @staticmethod
+    def count(books: list) -> int:
+        return len([book for book in books if book])
+
+    def shelved(self, title: str) -> list:
+        def shelved(entry: str) -> list:
+            return self.shelved(entry.strip())
+
+        return [shelved] if title else self.books
+
+
+def closed(handle, closed=print):
+    closed(handle)

@@ -187,6 +187,18 @@ them. `tools/release.sh` turns that section into the release notes.
   has to resolve to the async function's own declaration. Calls through `this`,
   `self` or a type name are matched as before.
 
+- **`no-base-case` no longer reports a function that hands its work to another of the
+  same name.** In Java and C++ a branchless call to a same-named function is almost
+  always an overload, as in `find(String p) { return find(Pattern.compile(p)); }`,
+  so it is reported only when the call passes the function's own parameters on
+  unchanged, which can only reach the same function. C++ calls written with a
+  qualifier (`Base::TearDown()`, `internal::GetTypeName()`) no longer count as
+  recursion. In Python, `self.f()` counts only when `self` is the method's own first
+  parameter, so a helper nested in a method, or a static method, is not taken for
+  the method. In every language, a call does not count when a parameter, a nested
+  function or an assignment in the body gives the name another meaning. The same
+  receiver, qualifier and shadowing checks apply to `branching-recursion`.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
