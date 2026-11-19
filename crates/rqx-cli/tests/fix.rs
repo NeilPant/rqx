@@ -294,7 +294,7 @@ fn a_go_test_keeps_the_parameter_its_runner_requires() {
     let source = "package thing\n\nimport \"testing\"\n\n\
          func TestAdd(t *testing.T) {\n\tif Add(1, 2) != 3 {\n\t\tpanic(\"no\")\n\t}\n}\n\n\
          func BenchmarkAdd(b *testing.B) {\n\tAdd(1, 2)\n}\n\n\
-         func helper(unused int) {\n}\n";
+         func helper(unused int) int {\n\treturn 1\n}\n";
     std::fs::write(&test_file, source).expect("thing_test.go");
 
     let reported = String::from_utf8_lossy(
