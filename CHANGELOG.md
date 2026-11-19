@@ -209,6 +209,13 @@ them. `tools/release.sh` turns that section into the release notes.
   Both now say that `rqx check` always gates and `rqx scan` gates only when given a
   gate flag such as `--fail-on`.
 
+- **Config errors read without the parser's own wording.** The message began
+  `Error: error:`. A key set twice ended with advice to set `DuplicateKeyPolicy`,
+  which no user can set, and a negative number in a count said `invalid u32`. The
+  doubled prefix is gone, a key set twice says to keep one of the two, a negative
+  count says a whole number of 0 or more is expected, and a config saved as UTF-16
+  says so instead of `stream did not contain valid UTF-8`.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
