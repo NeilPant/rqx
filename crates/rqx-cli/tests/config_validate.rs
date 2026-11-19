@@ -2,13 +2,14 @@
 //! is reported at. The config is resolved by the code a scan uses, so these also pin
 //! that the two agree about what loads.
 
-use std::path::{Path, PathBuf};
+mod common;
+use common::Scratch;
+
+use std::path::Path;
 use std::process::{Command, Output};
 
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-validate-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str, files: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("validate-{name}"));
     for (path, text) in files {
         let file = root.join(path);
         std::fs::create_dir_all(file.parent().expect("a parent")).expect("a directory");
@@ -47,7 +48,6 @@ fn a_sound_config_is_valid_and_says_how_many_files_it_read() {
     let output = rqx(&root, &["config", "validate"]);
     assert_eq!(code(&output), 0, "{output:?}");
     assert_eq!(stdout(&output).trim(), "\u{2713} config is valid (1 file)");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -56,7 +56,6 @@ fn a_project_with_no_config_is_valid() {
     let output = rqx(&root, &["config", "validate"]);
     assert_eq!(code(&output), 0, "{output:?}");
     assert!(stdout(&output).contains("config is valid (0 files)"));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -73,7 +72,6 @@ fn an_error_is_exit_two_and_names_the_line_and_column() {
         "{report}"
     );
     assert!(report.contains("config is invalid"), "{report}");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -90,7 +88,6 @@ fn a_cost_table_in_the_documented_shape_is_valid() {
     );
     let output = rqx(&root, &["config", "validate"]);
     assert_eq!(code(&output), 0, "{output:?}");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -106,7 +103,6 @@ fn a_max_order_that_is_not_an_order_is_an_error_at_its_line() {
         report.starts_with("rqx.yaml:2:14: error: `quadratic` is not an order"),
         "{report}"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -122,7 +118,6 @@ fn an_unknown_regression_gate_is_an_error_at_its_line() {
         "{}",
         stdout(&output)
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -142,7 +137,6 @@ fn a_cost_entry_that_names_no_call_is_an_error_in_the_file() {
         "{report}"
     );
     assert!(report.starts_with("rqx.yaml:"), "{report}");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -153,7 +147,6 @@ fn a_retired_toml_file_is_an_error_that_points_at_the_migration() {
     let report = stdout(&output);
     assert!(report.contains("RQX.toml: error:"), "{report}");
     assert!(report.contains("rqx config migrate"), "{report}");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -178,7 +171,6 @@ fn a_project_that_breaks_a_locked_key_is_an_error_at_the_line_that_sets_it() {
         report.starts_with("rqx.yaml:3:3: error: `thresholds.max_params` is locked to 4"),
         "{report}"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 const WARNED: &str = "rules:\n  disabled: [nonsense, long-parameter-list]\nthresholds:\n  max_params: 3\noverrides:\n  - paths: []\n";
@@ -207,7 +199,6 @@ fn warnings_print_and_exit_zero() {
         report.contains("config is valid (1 file, 3 warnings)"),
         "{report}"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -222,16 +213,12 @@ fn strict_turns_warnings_into_exit_one() {
         &[("rqx.yaml", "gate:\n  fail_on: warning\n")],
     );
     assert_eq!(code(&rqx(&sound, &["config", "validate", "--strict"])), 0);
-    for root in [root, sound] {
-        let _ = std::fs::remove_dir_all(root);
-    }
 }
 
 #[test]
 fn an_error_stays_exit_two_under_strict() {
     let root = project("strict-error", &[("rqx.yaml", "bogus: 1\n")]);
     assert_eq!(code(&rqx(&root, &["config", "validate", "--strict"])), 2);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// The leniency belongs to `validate`. A run keeps refusing what it always refused,
@@ -241,7 +228,6 @@ fn a_scan_still_refuses_what_validate_only_warns_about() {
     let root = project("refused", &[("rqx.yaml", WARNED), ("a.ts", "export {}\n")]);
     assert_eq!(code(&rqx(&root, &["config", "validate"])), 0);
     assert_eq!(code(&rqx(&root, &["scan", "."])), 2);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -261,7 +247,6 @@ fn the_path_argument_and_the_config_flag_choose_what_is_validated() {
         )),
         0
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 fn lines(output: &Output) -> Vec<serde_json::Value> {
@@ -301,7 +286,6 @@ fn config_json_is_one_line_per_setting_then_a_summary() {
     assert_eq!(summary["kind"], "summary");
     assert_eq!(summary["schema_version"], 1);
     assert_eq!(summary["files"], serde_json::json!(["rqx.yaml"]));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -310,7 +294,6 @@ fn config_json_with_a_broken_config_is_still_exit_two() {
     let output = rqx(&root, &["config", "--json"]);
     assert_eq!(code(&output), 2);
     assert!(stdout(&output).is_empty());
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -332,7 +315,6 @@ fn validate_json_is_one_line_per_problem_then_a_summary() {
     let strict = rqx(&root, &["config", "validate", "--json", "--strict"]);
     assert_eq!(code(&strict), 1);
     assert_eq!(lines_of_summary(&strict)["valid"], false);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 fn lines_of_summary(output: &Output) -> serde_json::Value {
@@ -353,12 +335,10 @@ fn validate_json_reports_an_error_with_its_place() {
     assert_eq!(lines[0]["column"], 3);
     assert_eq!(lines[1]["valid"], false);
     assert_eq!(lines[1]["errors"], 1);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
 fn json_is_refused_on_the_subcommands_that_have_no_json_form() {
     let root = project("json-refused", &[]);
     assert_eq!(code(&rqx(&root, &["config", "--json", "files"])), 2);
-    let _ = std::fs::remove_dir_all(root);
 }

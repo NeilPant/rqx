@@ -47,6 +47,9 @@ mod release;
 mod render;
 mod report;
 mod scan;
+#[cfg(test)]
+#[path = "../tests/common/scratch.rs"]
+mod scratch;
 mod session;
 mod setting;
 mod setup;

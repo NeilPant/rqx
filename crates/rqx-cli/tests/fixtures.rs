@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::process::Command;
 
 mod common;
+use common::{Scratch, isolate_git, run_git};
 mod fixture_expectations;
 use common::run_with_a_reader_that_walks_away;
 use fixture_expectations::{Finding, FixtureRoot, report};
@@ -175,9 +176,7 @@ fn a_javascript_export_reached_from_the_entry_point_is_not_dead() {
 /// reachable from a TypeScript entry point and the other way round.
 #[test]
 fn typescript_and_javascript_in_one_project_share_a_module_graph() {
-    let dir = std::env::temp_dir().join(format!("rqx-mixed-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("temp dir");
+    let dir = Scratch::new("mixed");
     let write = |name: &str, text: &str| std::fs::write(dir.join(name), text).expect("a file");
     write("package.json", "{ \"main\": \"main.ts\" }\n");
     write(
@@ -198,7 +197,6 @@ fn typescript_and_javascript_in_one_project_share_a_module_graph() {
     );
 
     let report = scan_dir(dir.to_str().expect("utf-8"), &[]);
-    let _ = std::fs::remove_dir_all(&dir);
 
     assert!(findings_for(&report, "unused-file").is_empty(), "{report}");
     let dead = findings_for(&report, "unused-export");
@@ -669,8 +667,7 @@ fn an_advisory_declared_inapplicable_never_fires() {
 /// into the score and the score has stopped meaning what it says.
 #[test]
 fn advice_cannot_move_the_health_score_or_the_gate() {
-    let dir = std::env::temp_dir().join(format!("rqx-advice-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("temp dir");
+    let dir = Scratch::new("advice");
     let silent = dir.join("silent.yaml");
     // Same rules, only the patterns differ, or the comparison would be measuring the
     // rule catalogue instead of the advice one.
@@ -692,7 +689,6 @@ fn advice_cannot_move_the_health_score_or_the_gate() {
         &["--config", silent.to_str().expect("utf-8 path")],
     );
     assert_eq!(summary_of(&with), summary_of(&without));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Without `elapsed_ms`, which is wall-clock and differs between two runs of the same
@@ -723,8 +719,7 @@ fn advise_language_with(language: &str, extra: &[&str]) -> String {
 /// something broken.
 #[test]
 fn only_a_half_applied_pattern_can_fail_the_gate() {
-    let dir = std::env::temp_dir().join(format!("rqx-gate-advice-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("temp dir");
+    let dir = Scratch::new("gate-advice");
     let strict = dir.join("strict.yaml");
     let all = std::fs::read_to_string(config_path()).expect("read the fixture config");
     std::fs::write(
@@ -762,8 +757,7 @@ fn only_a_half_applied_pattern_can_fail_the_gate() {
     );
 
     // Nothing is half applied in the clean fixture, so the same key must let it pass.
-    let clean = std::env::temp_dir().join(format!("rqx-gate-clean-{}", std::process::id()));
-    std::fs::create_dir_all(&clean).expect("temp dir");
+    let clean = Scratch::new("gate-clean");
     std::fs::copy(
         format!("{}/clean.ts", language_dir("typescript")),
         clean.join("clean.ts"),
@@ -775,9 +769,6 @@ fn only_a_half_applied_pattern_can_fail_the_gate() {
         .output()
         .expect("failed to run rqx");
     assert_eq!(output.status.code(), Some(0), "nothing half applied passes");
-
-    let _ = std::fs::remove_dir_all(&dir);
-    let _ = std::fs::remove_dir_all(&clean);
 }
 
 fn summary_of(report: &str) -> String {
@@ -900,24 +891,16 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
     use std::fs;
     use std::process::Command;
 
-    let root = std::env::temp_dir().join(format!("rqx-history-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&root);
+    let root = Scratch::new("history");
     fs::create_dir_all(root.join("src")).unwrap();
 
-    let git = |args: &[&str]| {
-        let status = Command::new("git").arg("-C").arg(&root).args(args).output();
-        assert!(
-            status.is_ok_and(|out| out.status.success()),
-            "git {args:?} failed"
-        );
-    };
     if Command::new("git").arg("--version").output().is_err() {
         return;
     }
+    let git = |args: &[&str]| {
+        run_git(&root, args);
+    };
     git(&["init", "-q"]);
-    git(&["config", "core.autocrlf", "false"]);
-    git(&["config", "user.email", "test@example.com"]);
-    git(&["config", "user.name", "test"]);
 
     fs::write(
         root.join("package.json"),
@@ -958,7 +941,9 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
         git(&["commit", "-q", "-m", "extend routing"]);
     }
 
-    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+    isolate_git(&mut command);
+    let output = command
         .args(["scan"])
         .arg(&root)
         .args(["--format", "json", "--max-findings", "0"])
@@ -996,8 +981,6 @@ fn history_rules_fire_on_a_repository_with_a_shared_decision() {
             .any(|line| line.contains("labels.ts") || line.contains("router.ts")),
         "the finding should name the pair: {shotgun:?}"
     );
-
-    let _ = fs::remove_dir_all(&root);
 }
 
 fn run(args: &[&str]) -> std::process::Output {
@@ -1132,8 +1115,7 @@ fn a_report_that_cannot_be_written_is_a_broken_run() {
 
 #[test]
 fn one_scan_writes_every_report_it_was_asked_for() {
-    let dir = std::env::temp_dir().join(format!("rqx-sinks-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = Scratch::new("sinks");
     let junit = dir.join("rqx.xml");
     let sarif = dir.join("rqx.sarif");
 
@@ -1157,8 +1139,6 @@ fn one_scan_writes_every_report_it_was_asked_for() {
     );
     // The console report still reaches stdout, so nothing is silently swallowed.
     assert!(String::from_utf8(output.stdout).unwrap().contains("Health"));
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -1266,8 +1246,7 @@ fn machine_reports_name_paths_from_the_working_directory() {
 /// with them.
 #[test]
 fn disabling_three_families_does_not_silence_the_others() {
-    let dir = std::env::temp_dir().join(format!("rqx-gate-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = Scratch::new("gate");
     let config = dir.join("rqx.yaml");
     std::fs::write(
         &config,
@@ -1294,8 +1273,6 @@ fn disabling_three_families_does_not_silence_the_others() {
             "{rule} belongs to a disabled family"
         );
     }
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// A finding whose span is the whole file used to print no code at all, and a span

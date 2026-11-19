@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use serde_json::{Value, json};
 
 mod common;
+use common::Scratch;
 use common::Watchdog;
 
 /// The server speaks JSON-RPC over a pipe, so the only test that proves it works is one
@@ -136,9 +137,8 @@ impl Session {
 /// deleting each other's fixtures mid-scan. The name carries a space for the same
 /// reason the language server's fixtures do: a path that needs quoting is the one
 /// that breaks first.
-fn workspace(test: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx mcp {test} {}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+fn workspace(test: &str) -> Scratch {
+    let root = Scratch::new(&format!("mcp {test}"));
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/typescript");
     copy(&source, &root);
     root
@@ -424,7 +424,7 @@ fn plan_returns_the_work_fix_will_not_do() {
 
 const DEAD_CODE: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
-fn with_dead_code(test: &str) -> PathBuf {
+fn with_dead_code(test: &str) -> Scratch {
     let root = workspace(test);
     std::fs::write(root.join("dead.ts"), DEAD_CODE).expect("a file");
     root
@@ -462,7 +462,7 @@ fn fix_preview_answers_with_a_diff_that_applies_and_writes_nothing() {
     );
     let patch = root.join("preview.patch");
     std::fs::write(&patch, diff).expect("a patch");
-    let applied = Command::new("git")
+    let applied = common::git()
         .args(["apply", "--check", "preview.patch"])
         .current_dir(&root)
         .output()

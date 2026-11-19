@@ -5,9 +5,12 @@
 //! count. A hand-rolled listener rather than a mock, because what is being tested is
 //! the request rqx actually makes — the verb, the path, the header and the body.
 
+mod common;
+use common::{Scratch, isolate_git, run_git};
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
@@ -167,39 +170,12 @@ fn reply(stream: &mut TcpStream, code: u16, body: &str) -> std::io::Result<()> {
     stream.flush()
 }
 
-fn project(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-forge-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str) -> Scratch {
+    let root = Scratch::new(&format!("forge-{name}"));
     std::fs::write(root.join("a.ts"), "export const kept = 1\n").expect("a file");
-    Command::new("git")
-        .arg("-C")
-        .arg(&root)
-        .arg("init")
-        .arg("-q")
-        .output()
-        .expect("git init");
-    for (key, value) in [
-        ("user.email", "t@t"),
-        ("user.name", "Tester"),
-        ("core.autocrlf", "false"),
-    ] {
-        let _ = Command::new("git")
-            .arg("-C")
-            .arg(&root)
-            .args(["config", key, value])
-            .output();
-    }
-    let _ = Command::new("git")
-        .arg("-C")
-        .arg(&root)
-        .args(["add", "-A"])
-        .output();
-    let _ = Command::new("git")
-        .arg("-C")
-        .arg(&root)
-        .args(["commit", "-qm", "one"])
-        .output();
+    run_git(&root, &["init", "-q"]);
+    run_git(&root, &["add", "-A"]);
+    run_git(&root, &["commit", "-qm", "one"]);
     // Left uncommitted, so `--base HEAD` has a change to review. A review of nothing
     // passes, which would make every assertion here about a passing gate.
     std::fs::write(
@@ -212,6 +188,7 @@ fn project(name: &str) -> PathBuf {
 
 fn comment(root: &Path, port: u16, extra: &[(&str, &str)], args: &[&str]) -> std::process::Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+    isolate_git(&mut command);
     command
         .arg("comment")
         .arg(root)
@@ -269,7 +246,6 @@ fn a_second_run_edits_the_comment_the_first_one_left() {
     let edits = calls.iter().filter(|call| call.verb == "PUT").count();
     assert_eq!(creates, 1, "a second comment was created");
     assert_eq!(edits, 1, "the first comment was not edited");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The token goes in the header GitLab reads, and the grade lands on the commit.
@@ -293,7 +269,6 @@ fn gitlab_gets_its_header_and_its_commit_status() {
         .expect("no commit status");
     assert!(status.body.contains("\"failed\""), "{}", status.body);
     assert!(status.body.contains("health"), "{}", status.body);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// GitHub edits with `PATCH` at a different path, which is the one thing that could
@@ -358,7 +333,6 @@ fn github_uses_its_own_verbs_and_paths() {
         }),
         "the token was not sent as GitHub reads it"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Two jobs on one merge request each keep their own comment.
@@ -375,7 +349,6 @@ fn a_different_marker_keeps_a_different_comment() {
         .filter(|call| call.verb == "POST" && call.path.contains("/notes"))
         .count();
     assert_eq!(creates, 2, "the second marker reused the first's comment");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A dry run is a dry run: it prints the comment and touches nothing.
@@ -394,7 +367,6 @@ fn a_dry_run_posts_nothing() {
         "a dry run reached the forge: {:?}",
         calls.iter().map(|c| &c.path).collect::<Vec<_>>()
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Outside a pipeline there is no merge request, and saying so is more use than a
@@ -414,7 +386,6 @@ fn no_merge_request_is_explained_rather_than_crashed() {
     let said = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(2), "{said}");
     assert!(said.contains("no merge request"), "{said}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A forge that says no says why. The token is scoped wrong more often than anything
@@ -438,7 +409,6 @@ fn a_refusal_carries_the_code_and_what_the_forge_said() {
     assert_eq!(output.status.code(), Some(2), "{said}");
     assert!(said.contains("403"), "{said}");
     assert!(said.contains("insufficient scope"), "{said}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The token is a secret on a shared runner, where `ps` is readable by every other

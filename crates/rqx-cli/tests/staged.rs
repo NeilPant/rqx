@@ -1,19 +1,17 @@
 //! `check --staged`: the verdict is about the index, whatever the working tree holds.
 
-use std::path::{Path, PathBuf};
+mod common;
+use common::{Scratch, isolate_git, run_git as git};
+
+use std::path::Path;
 use std::process::{Command, Output};
 
 const CLEAN: &str = "export function add(a: number, b: number): number {\n  return a + b\n}\n";
 const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
-fn repository(name: &str, committed: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-staged-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp repository");
+fn repository(name: &str, committed: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("staged-{name}"));
     git(&root, &["init", "-q"]);
-    git(&root, &["config", "core.autocrlf", "false"]);
-    git(&root, &["config", "user.email", "test@example.com"]);
-    git(&root, &["config", "user.name", "test"]);
     write(&root, committed);
     git(&root, &["add", "--", "."]);
     git(&root, &["commit", "-qm", "start", "--allow-empty"]);
@@ -28,25 +26,10 @@ fn write(root: &Path, files: &[(&str, &str)]) {
     }
 }
 
-fn git(root: &Path, args: &[&str]) {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(args)
-        .env_remove("GIT_INDEX_FILE")
-        .env_remove("GIT_DIR")
-        .env_remove("GIT_WORK_TREE")
-        .output()
-        .expect("git");
-    assert!(
-        output.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-}
-
 fn rqx(root: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_rqx"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+    isolate_git(&mut command);
+    command
         .args(args)
         .current_dir(root)
         .env("HOME", root)
@@ -54,9 +37,6 @@ fn rqx(root: &Path, args: &[&str]) -> Output {
         .env_remove("RQX_CONFIG")
         .env_remove("RQX_POLICY")
         .env_remove("RQX_LEVEL")
-        .env_remove("GIT_INDEX_FILE")
-        .env_remove("GIT_DIR")
-        .env_remove("GIT_WORK_TREE")
         .output()
         .expect("failed to run rqx")
 }
@@ -86,7 +66,6 @@ fn staged_bad_code_fails_the_check() {
     let output = check_staged(&root);
     assert_eq!(code(&output), 1, "{}", report(&output));
     assert!(report(&output).contains("dirty.ts"));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -96,7 +75,6 @@ fn the_same_bad_code_left_unstaged_passes() {
 
     let output = check_staged(&root);
     assert_eq!(code(&output), 0, "{}", report(&output));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -113,7 +91,6 @@ fn a_staged_fix_passes_though_the_working_tree_file_is_dirty_again() {
         DIRTY,
         "the working tree is left as it was"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -125,7 +102,6 @@ fn an_unstaged_fix_does_not_rescue_staged_bad_code() {
 
     let output = check_staged(&root);
     assert_eq!(code(&output), 1, "{}", report(&output));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -135,7 +111,6 @@ fn nothing_staged_passes() {
 
     let output = check_staged(&root);
     assert_eq!(code(&output), 0, "{}", report(&output));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -147,7 +122,6 @@ fn a_subdirectory_is_reviewed_with_the_paths_it_names() {
     let output = rqx(&root, &["check", "pkg", "--staged", "--fail-on", "error"]);
     assert_eq!(code(&output), 1, "{}", report(&output));
     assert!(report(&output).contains("dirty.ts"));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -163,20 +137,16 @@ fn staging_conflicts_with_the_other_ways_to_name_the_files() {
         let output = rqx(&root, &arguments);
         assert_eq!(code(&output), 2, "{other:?}: {}", report(&output));
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
 fn outside_a_repository_it_says_so() {
-    let root = std::env::temp_dir().join(format!("rqx-staged-bare-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a directory");
+    let root = Scratch::new("staged-bare");
     write(&root, &[("a.ts", CLEAN)]);
 
     let output = check_staged(&root);
     assert_eq!(code(&output), 2, "{}", report(&output));
     assert!(report(&output).contains("git repository"));
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// The hook definition names a command line, and a flag renamed here would leave every
@@ -200,5 +170,4 @@ fn the_pre_commit_hook_runs_a_command_that_works() {
     let arguments: Vec<&str> = entry.split_whitespace().collect();
     let output = rqx(&root, &arguments);
     assert_eq!(code(&output), 0, "{}", report(&output));
-    let _ = std::fs::remove_dir_all(root);
 }

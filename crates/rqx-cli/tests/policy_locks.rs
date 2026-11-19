@@ -2,7 +2,10 @@
 //! a run that asks for a different value exits 2 and names the key, the policy and
 //! what asked. Asking for the locked value is allowed.
 
-use std::path::{Path, PathBuf};
+mod common;
+use common::Scratch;
+
+use std::path::Path;
 use std::process::{Command, Output};
 
 const POLICY: &str = "\
@@ -47,10 +50,8 @@ const VARIABLES: [&str; 8] = [
     "RQX_POLICY",
 ];
 
-fn project(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-locks-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str) -> Scratch {
+    let root = Scratch::new(&format!("locks-{name}"));
     std::fs::write(root.join("rqx.yaml"), "root: true\npolicy: policy.yaml\n").expect("config");
     std::fs::write(root.join("policy.yaml"), POLICY).expect("policy");
     std::fs::write(
@@ -133,7 +134,6 @@ fn a_flag_that_moves_a_locked_key_is_refused() {
             .expect("a flag");
         assert_refused(&rqx(&root, args, &[]), key, flag);
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -150,7 +150,6 @@ fn a_variable_that_moves_a_locked_key_is_refused_and_named() {
         let output = rqx(&root, &["scan", "."], &[(variable, value)]);
         assert_refused(&output, key, variable);
     }
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -162,7 +161,6 @@ fn the_flag_is_named_when_both_the_flag_and_its_variable_are_given() {
         &[("RQX_MIN_HEALTH", "10")],
     );
     assert_refused(&output, "gate.min_health", "--min-health");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -191,7 +189,6 @@ fn asking_for_the_locked_value_is_allowed() {
     let message = said(&output);
     assert!(!message.contains("is locked to"), "{message}");
     assert_ne!(output.status.code(), Some(2), "{message}");
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -201,5 +198,4 @@ fn without_a_lock_a_flag_still_moves_the_setting() {
     let output = rqx(&root, &["scan", ".", "--fail-on", "never"], &[]);
     let message = said(&output);
     assert_eq!(output.status.code(), Some(0), "{message}");
-    let _ = std::fs::remove_dir_all(root);
 }

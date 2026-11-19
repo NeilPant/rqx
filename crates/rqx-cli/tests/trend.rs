@@ -1,15 +1,16 @@
 //! Health trends, end to end: recording a snapshot from a scan, and reading the
 //! series back. The projects are not repositories, so the snapshot has no commit.
 
+mod common;
+use common::Scratch;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 const DIRTY: &str = "export function keep(): number {\n  return 1\n  console.log('dead')\n}\n";
 
-fn project(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-trend-it-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str) -> Scratch {
+    let root = Scratch::new(&format!("trend-it-{name}"));
     std::fs::write(root.join("a.ts"), DIRTY).expect("a file");
     root
 }
@@ -50,7 +51,6 @@ fn record_without_a_path_appends_to_the_default_file() {
     assert_eq!(lines[0]["files"], 1);
     assert!(lines[0]["counts"]["total"].as_u64() > Some(0));
     assert!(lines[0]["commit"].is_null());
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -80,7 +80,6 @@ fn record_takes_a_path_and_does_not_change_the_report() {
         value
     };
     assert_eq!(summary(&plain), summary(&recorded));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 fn stdout(output: &Output) -> String {
@@ -122,7 +121,6 @@ fn trend_prints_the_series_with_direction_and_movers() {
     assert!(text.contains("+21 improving"), "{text}");
     assert!(text.contains("Biggest movers by rule"), "{text}");
     assert!(text.contains("long-function"), "{text}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -141,7 +139,6 @@ fn trend_limits_to_the_last_snapshots_and_can_break_down_by_owner() {
         text.contains("Biggest movers by owner") && text.contains("@web"),
         "{text}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -160,7 +157,6 @@ fn trend_json_is_one_object_per_series() {
     assert_eq!(lines[0]["name"], "health");
     assert_eq!(lines[0]["points"], serde_json::json!([50, 62, 71]));
     assert_eq!(lines.last().expect("a summary")["kind"], "summary");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -169,7 +165,6 @@ fn trend_without_a_file_fails_and_says_how_to_make_one() {
     let output = rqx(&root, &["trend"]);
     assert_eq!(output.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&output.stderr).contains("--record"));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -180,7 +175,6 @@ fn recording_twice_then_reading_it_back_gives_two_snapshots() {
     }
     let text = stdout(&rqx(&root, &["trend"]));
     assert!(text.contains("2 snapshots"), "{text}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -204,7 +198,6 @@ fn the_html_report_charts_the_trend_file_it_is_given() {
 
     let plain = stdout(&rqx(&root, &["scan", ".", "--reporter", "html"]));
     assert!(!plain.contains("<section id=\"trend\""));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -223,5 +216,4 @@ fn a_trend_file_that_does_not_exist_yet_is_not_an_error() {
     );
     assert!(output.status.code().is_some_and(|code| code < 2));
     assert!(stdout(&output).contains("A chart needs two snapshots"));
-    let _ = std::fs::remove_dir_all(&root);
 }

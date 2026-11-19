@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+mod common;
+use common::Scratch;
+
+use std::path::Path;
 use std::process::Command;
 
 /// Every rule `fix` answers today, with a source per language that fires it and the
@@ -41,10 +44,8 @@ const FIXABLE: [(&str, &str, &str, &str); 5] = [
 /// lower the confidence floor to where rqx 0.5.0 had it.
 const EVERY_CONFIDENCE: (&str, &str) = ("rqx.yaml", "fix:\n  min_confidence: low\n");
 
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-fix-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+fn project(name: &str, files: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("fix-{name}"));
     for (path, contents) in files {
         let file = root.join(path);
         if let Some(parent) = file.parent() {
@@ -117,7 +118,6 @@ fn a_preview_writes_nothing() {
         source,
         "{language} was written during a preview"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -132,7 +132,6 @@ fn every_language_is_fixed_to_the_file_it_should_become() {
             expected,
             "{language}"
         );
-        let _ = std::fs::remove_dir_all(&root);
     }
 }
 
@@ -174,7 +173,6 @@ fn the_findings_the_fixes_answered_are_gone_and_no_others_appeared() {
             before.get(rule)
         );
     }
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -186,7 +184,6 @@ fn fixing_a_fixed_project_changes_nothing() {
     let again = fix(&root, &["--write"]);
     assert_eq!(summary_field(&again, "applied"), "0");
     assert_eq!(std::fs::read_to_string(root.join(name)).unwrap(), expected);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A file whose findings the fixer cannot answer is left exactly as it was, and the
@@ -203,7 +200,6 @@ fn a_file_with_nothing_mechanical_is_untouched() {
         std::fs::read_to_string(root.join("tangled.ts")).unwrap(),
         source
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The brief exists so a finding reaches an agent without losing the span, the
@@ -237,7 +233,6 @@ fn the_plan_carries_what_a_reader_needs_and_omits_what_fix_can_answer() {
         seen += 1;
     }
     assert!(seen > 0, "the plan named nothing");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A project that keeps its commented-out code as documentation says so once in
@@ -261,7 +256,6 @@ fn a_rule_the_config_disables_is_left_to_a_person() {
             .unwrap()
             .contains("// const a = 1;")
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// One fix making the next possible is the whole reason rounds exist: deleting the
@@ -281,7 +275,6 @@ fn a_fix_that_enables_another_is_taken_in_a_later_round() {
         std::fs::read_to_string(root.join("rounds.ts")).unwrap(),
         "export function keep(): number {\n  return 1\n}\n"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Go's runner finds a case by name and calls it with a `*testing.T`. Deleting the
@@ -290,9 +283,7 @@ fn a_fix_that_enables_another_is_taken_in_a_later_round() {
 /// Go fixtures before the signature was recognised as the framework's.
 #[test]
 fn a_go_test_keeps_the_parameter_its_runner_requires() {
-    let root = std::env::temp_dir().join(format!("rqx-gotest-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp project");
+    let root = Scratch::new("gotest");
     std::fs::write(root.join("go.mod"), "module example.com/t\n\ngo 1.22\n").expect("go.mod");
     std::fs::write(
         root.join("thing.go"),
@@ -341,8 +332,6 @@ fn a_go_test_keeps_the_parameter_its_runner_requires() {
     let after = std::fs::read_to_string(&test_file).expect("reading back");
     assert!(after.contains("func TestAdd(t *testing.T)"), "{after}");
     assert!(after.contains("func BenchmarkAdd(b *testing.B)"), "{after}");
-
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The default floor applies verified fixes and leaves the heuristic ones, and the
@@ -363,7 +352,6 @@ fn the_default_floor_applies_verified_fixes_and_counts_the_rest() {
             >= 1,
         "{report}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The cobra licence header: 0.5.0 deleted its URL line from every file as a banner.
@@ -402,7 +390,6 @@ fn a_licence_header_survives_fixing_at_every_confidence() {
     );
     assert!(!after.contains("println(\"dead\")"), "{after}");
     assert!(!after.contains("---- helpers ----"), "{after}");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// cobra's `preExecHookFn`: declared at package level in two build-tagged files and
@@ -433,7 +420,6 @@ fn a_package_level_var_read_by_a_sibling_file_is_kept() {
         std::fs::read_to_string(root.join("command_notwin.go")).unwrap(),
         other
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The shape behind cobra's `completions.go:187: too many return values`. The
@@ -476,7 +462,6 @@ func complete(c *Command, args []string, toComplete string) {
         source,
         "{report}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// `--verify-build` runs `go vet` on a copy, so it needs the toolchain; without it the
@@ -503,5 +488,4 @@ fn verify_build_keeps_a_fix_that_builds() {
         std::fs::read_to_string(root.join("keep.go")).unwrap(),
         "package keep\n\nfunc Keep() int {\n\treturn 1\n}\n"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }

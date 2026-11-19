@@ -1,14 +1,14 @@
 //! `rqx setup agent`: nothing is written without `--write`, and writing never replaces
 //! what the project already holds.
 
-use std::path::{Path, PathBuf};
+mod common;
+use common::Scratch;
+
+use std::path::Path;
 use std::process::{Command, Output};
 
-fn directory(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-agent-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp directory");
-    root
+fn directory(name: &str) -> Scratch {
+    Scratch::new(&format!("agent-{name}"))
 }
 
 fn setup(root: &Path, arguments: &[&str]) -> Output {
@@ -37,7 +37,6 @@ fn without_write_it_prints_and_changes_nothing() {
     assert!(text.contains("rqx check --staged"));
     assert!(text.contains(".claude/settings.json"));
     assert_eq!(std::fs::read_dir(&root).expect("a directory").count(), 0);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -56,7 +55,6 @@ fn write_keeps_the_existing_instructions_and_replaces_only_its_own_block() {
     );
     let second = std::fs::read_to_string(root.join("AGENTS.md")).expect("a file");
     assert_eq!(first, second);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -87,7 +85,6 @@ fn write_for_claude_merges_the_stop_hook_into_existing_settings() {
             .is_some_and(|command| command.contains("rqx check --staged"))
     );
     assert!(root.join("CLAUDE.md").is_file());
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -103,7 +100,6 @@ fn a_settings_file_that_is_not_json_is_an_error_and_is_left_alone() {
         std::fs::read_to_string(root.join(".claude/settings.json")).expect("a file"),
         "{ nope"
     );
-    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
@@ -117,5 +113,4 @@ fn naming_an_editor_still_works() {
         .expect("failed to run rqx");
     assert!(output.status.success());
     assert!(stdout(&output).contains("lspconfig"));
-    let _ = std::fs::remove_dir_all(root);
 }

@@ -1,17 +1,15 @@
-use std::path::{Path, PathBuf};
+mod common;
+use common::{Scratch, isolate_git, run_git as git};
+
+use std::path::Path;
 use std::process::Command;
 
 /// A repository with two commits: the files as they were, then as they are. Verifying
 /// needs real history, so these tests build one rather than mocking git.
-fn repository(name: &str, before: &[(&str, &str)], after: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("rqx-verify-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("a temp repository");
+fn repository(name: &str, before: &[(&str, &str)], after: &[(&str, &str)]) -> Scratch {
+    let root = Scratch::new(&format!("verify-{name}"));
 
     git(&root, &["init", "-q"]);
-    git(&root, &["config", "core.autocrlf", "false"]);
-    git(&root, &["config", "user.email", "test@example.com"]);
-    git(&root, &["config", "user.name", "test"]);
 
     write(&root, before);
     git(&root, &["add", "-A"]);
@@ -34,20 +32,6 @@ fn write(root: &Path, files: &[(&str, &str)]) {
     }
 }
 
-fn git(root: &Path, args: &[&str]) {
-    let status = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(args)
-        .output()
-        .expect("git");
-    assert!(
-        status.status.success(),
-        "git {args:?}: {}",
-        String::from_utf8_lossy(&status.stderr)
-    );
-}
-
 struct Verdict {
     changes: Vec<(String, String, String)>,
     passed: bool,
@@ -62,7 +46,9 @@ impl Verdict {
 }
 
 fn verify(root: &Path, extra: &[&str]) -> Verdict {
-    let output = Command::new(env!("CARGO_BIN_EXE_rqx"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rqx"));
+    isolate_git(&mut command);
+    let output = command
         .args([
             "verify",
             root.to_str().expect("utf-8"),
@@ -110,7 +96,6 @@ fn a_finding_that_was_removed_is_resolved() {
         verdict.changes
     );
     assert!(verdict.passed);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// The finding that matters most: a body moved into a helper takes its problem with
@@ -146,7 +131,6 @@ fn a_finding_that_moved_house_is_relocated_rather_than_resolved() {
         verdict.changes
     );
     assert!(!verdict.passed, "a relocation is not a pass");
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -167,7 +151,6 @@ fn a_new_finding_is_introduced_and_fails_the_run() {
         verdict.changes
     );
     assert!(!verdict.passed);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A metric that shrank without reaching the threshold is neither done nor untouched,
@@ -189,7 +172,6 @@ fn a_metric_that_only_shrank_is_improved() {
         "{:?}",
         verdict.changes
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -220,7 +202,6 @@ fn an_expectation_that_was_not_met_fails_the_run() {
         &["--expect", "unreachable-code"],
     );
     assert!(met.passed);
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -241,5 +222,4 @@ fn the_verify_summary_carries_the_schema_version() {
         serde_json::from_str(body.lines().last().expect("a summary")).expect("a json object");
     assert_eq!(summary["kind"], "summary");
     assert_eq!(summary["schema_version"], 1);
-    let _ = std::fs::remove_dir_all(&root);
 }
