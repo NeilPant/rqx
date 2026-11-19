@@ -216,7 +216,7 @@ GitLab CI, alongside the other reports:
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0          # `check` diffs against a base
-- uses: jadhamwi21/rqx@v0.5.2
+- uses: jadhamwi21/rqx@v0.5.3
   with:
     base: ${{ github.base_ref }}
     fail-on: error
@@ -337,7 +337,7 @@ rqx:
 ```
 
 When the job installs a specific rqx version, include it in the prefix
-(`prefix: rqx-0.5.2`). The cache only affects speed. A missing, outdated or damaged
+(`prefix: rqx-0.5.3`). The cache only affects speed. A missing, outdated or damaged
 file is rebuilt on the next scan, and no report depends on it.
 
 ## GitLab CI
@@ -605,7 +605,7 @@ It needs pre-commit 3.2.0 or later.
 ```yaml
 repos:
   - repo: https://github.com/jadhamwi21/rqx
-    rev: v0.5.2
+    rev: v0.5.3
     hooks:
       - id: rqx-check
 ```

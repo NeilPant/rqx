@@ -9,6 +9,8 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+## 0.5.3 — 2026-11-19
+
 ### Changed
 
 - **`--no-mouse` is listed in `--help`, the manual pages and the shell completions.**

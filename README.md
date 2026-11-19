@@ -1001,7 +1001,7 @@ The reporters are `terminal`, `json`, `sarif`, `junit`, `gitlab`, `github`,
 `markdown` and `html` (deprecated, removed in 0.6.0). JUnit XML and GitLab Code Quality together cover GitHub,
 GitLab, Jenkins, CircleCI, Azure Pipelines, Bitbucket and Buildkite natively.
 Snippets for each are in [docs/ci.md](docs/ci.md). `action.yml` is the GitHub
-Action: `uses: jadhamwi21/rqx@v0.5.2`. A moving major tag such as `@v1` is planned
+Action: `uses: jadhamwi21/rqx@v0.5.3`. A moving major tag such as `@v1` is planned
 and is not published yet.
 
 `rqx comment` posts the review onto the merge request it is reviewing, on GitLab and
