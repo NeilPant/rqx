@@ -58,10 +58,11 @@ wrong, point `CC` at a working one, for example `CC=/usr/bin/cc`. Cargo also rea
 `cargo fmt --check`, clippy with warnings denied, the whole test suite and the
 generated-documentation check. Run it before opening a pull request.
 
-It takes a few minutes. A cold clone needs about six minutes on an 11-core machine,
-most of it compiling, and a warm run is shorter. The test suite has about 1,600 tests,
-and several of them scan every fixture, so a quiet terminal during the test step is
-normal. Cargo prints no progress while a long test runs.
+It takes a few minutes. With a warm build it ran in about two and a half minutes on an
+11-core machine, and a cold clone takes several minutes more, mostly compiling. Fewer
+cores take proportionally longer. The test suite has about 1,600 tests, and several of
+them scan every fixture, so a quiet terminal during the test step is normal. Cargo
+prints no progress while a long test runs.
 
 CI adds jobs that `check` does not run: a build on the minimum supported Rust version,
 `cargo deny`, `shellcheck` on `install.sh`, the PowerShell installer check, the tests
