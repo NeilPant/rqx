@@ -286,6 +286,8 @@ src/main/java/rqx/Long.java rule=shadows-builtin | public class Long {
 src/main/java/rqx/Long.java rule=long-function | public int manySteps() {
 src/main/java/rqx/LookalikesWarnings.java none=working-constructor | public LookalikesWarnings() {
 src/main/java/rqx/LookalikesWarnings.java none=self-built-collaborators | this.seen = new HashSet<>();
+src/main/java/rqx/LookalikesWarnings.java none=assertionless-test | public boolean test(String value) {
+src/main/java/rqx/LookalikesWarnings.java known-fp=boolean-not-a-question Predicate fixes the name test, so the override cannot be renamed | public boolean test(String value) {
 src/main/java/rqx/Main.java rule=wide-fan-out | package rqx;
 src/main/java/rqx/Main.java rule=many-collaborators | public class Main {
 src/main/java/rqx/Main.java rule=feature-envy | public static void main(String[] args) {

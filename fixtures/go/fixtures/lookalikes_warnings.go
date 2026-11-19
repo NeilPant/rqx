@@ -19,6 +19,18 @@ func (q *Queue) IsEmpty() bool {
 	return q.len() == 0
 }
 
+// assertionless-test: a method called Test is production code; `go test` runs only
+// top-level functions that take a *testing.T.
+func (q *Queue) Test(item string) int {
+	matches := 0
+	for _, held := range q.items {
+		if held == item {
+			matches++
+		}
+	}
+	return matches
+}
+
 // mutable-module-state: nothing writes the table after it is built, so every reader
 // sees the same one.
 var priorities = map[string]int{"high": 2, "low": 1}

@@ -439,13 +439,15 @@ impl<'a> Walker<'a> {
             return;
         };
         let mut label = self.text(name).to_owned();
-        if !vocabulary.names_a_case(&label) {
+        if !vocabulary.names_a_case(&label) || !self.has_a_case_signature(function) {
             return;
         }
         let measures = vocabulary.measures(&label);
         // A framework whose case is a macro puts the name in the arguments, so the
-        // declaration itself is called nothing but the macro.
+        // declaration itself is called nothing but the macro. A declaration with a
+        // name of its own, like Go's `func Test(t *testing.T)`, is called that name.
         if vocabulary.case_prefixes.contains(&label.as_str())
+            && function.child_by_field_name("name").is_none()
             && let Some(list) = crate::tree::find_within(
                 function,
                 profile.parameter_list_kinds,
@@ -501,6 +503,56 @@ impl<'a> Walker<'a> {
             }
             self.note_test_body(body, &label, true, &handles);
         }
+    }
+
+    /// Whether a function named like a case is declared the way its framework finds
+    /// one. A name is not enough: `App.Test` sends a request, `test(StackFrame)` is a
+    /// `Predicate`, and `TestMain(m *testing.M)` sets up the package's tests.
+    fn has_a_case_signature(&self, function: Node<'a>) -> bool {
+        match self.profile.language {
+            // `go test` runs top-level functions that take `*testing.T`, `*testing.B`
+            // or `*testing.F`.
+            rqx_core::Language::Go => {
+                let takes_a_runner = function
+                    .child_by_field_name("parameters")
+                    .map(|list| self.text(list))
+                    .is_some_and(|list| {
+                        ["*testing.T", "*testing.B", "*testing.F"]
+                            .iter()
+                            .any(|runner| list.contains(runner))
+                    });
+                function.child_by_field_name("receiver").is_none() && takes_a_runner
+            }
+            // JUnit 4 and 5 and TestNG mark a case with an annotation; JUnit 3 finds
+            // `test` methods on a subclass of `TestCase`.
+            rqx_core::Language::Java => {
+                let annotated = self.annotations(function).iter().any(|annotation| {
+                    let name = annotation
+                        .trim_start_matches('@')
+                        .split('(')
+                        .next()
+                        .unwrap_or_default();
+                    name.rsplit('.').next().unwrap_or(name).contains("Test")
+                });
+                annotated || self.extends_a_test_case(function)
+            }
+            _ => true,
+        }
+    }
+
+    /// Whether the class around a Java method extends JUnit 3's `TestCase`, directly
+    /// or through a base named like one.
+    fn extends_a_test_case(&self, function: Node<'a>) -> bool {
+        let mut current = function.parent();
+        while let Some(node) = current {
+            if self.profile.is_class(node) {
+                return node
+                    .child_by_field_name("superclass")
+                    .is_some_and(|base| self.text(base).contains("TestCase"));
+            }
+            current = node.parent();
+        }
+        false
     }
 
     /// Whether a call the vocabulary names as a test is one. `fit` and `xit` are also

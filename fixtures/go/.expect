@@ -128,7 +128,9 @@ fixtures/lifecycle.go rule=temporal-coupling | opened bool
 fixtures/long.go rule=long-function | func ManySteps() int {
 fixtures/long.go rule=dead-store | total := 0
 fixtures/lookalikes_warnings.go none=shadows-builtin | func (q *Queue) len() int {
+fixtures/lookalikes_warnings.go none=assertionless-test | func (q *Queue) Test(item string) int {
 fixtures/lookalikes_warnings.go none=mutable-module-state | var priorities = map[string]int{"high": 2, "low": 1}
+fixtures/lookalikes_warnings_test.go none=assertionless-test | func TestMain(m *testing.M) {
 fixtures/names.go rule=wildcard-import | import . "strings"
 fixtures/names.go rule=vague-function-name | func Process(rows []int) int {
 fixtures/names.go rule=plural-mismatch | data := []int{}

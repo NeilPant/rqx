@@ -402,6 +402,14 @@ them. `tools/release.sh` turns that section into the release notes.
   returns and that the line throws the last one away. In Python only `_` counts as
   throwing a value away, so `_T = TypeVar("_T")` is no longer reported.
 
+- **`assertionless-test` no longer treats production methods named `test` as tests.**
+  In Go a test is now a top-level function that takes `*testing.T`, `*testing.B` or
+  `*testing.F`, so a method such as fiber's `App.Test` and `TestMain(m *testing.M)`
+  are not reported. In Java a test needs an annotation such as `@Test`, or a `test`
+  method on a JUnit 3 `TestCase` subclass, so a `Predicate`'s `test` method is not
+  reported. A Go test is named after its function, where the message used to name
+  `func (app *App) Test(...) (*http.Response, error)` as a test called `error`.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed
