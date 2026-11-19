@@ -357,15 +357,8 @@ pub fn force(
 mod tests {
     use super::*;
 
-    fn workspace(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
-            "rqx-edit-{name}-{}-{:?}",
-            std::process::id(),
-            std::thread::current().id()
-        ));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("mkdir");
-        root
+    fn workspace(name: &str) -> crate::scratch::Scratch {
+        crate::scratch::Scratch::new(&format!("edit-{name}"))
     }
 
     /// The template rqx writes is mostly comments explaining what each key is for.
