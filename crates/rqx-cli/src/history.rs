@@ -101,8 +101,6 @@ impl History {
         counts
     }
 
-    /// A commit touching half the tree is a rename or a format run, and says nothing
-    /// about which files share a responsibility.
     /// Who has touched each file, so a file only one person has ever edited can be
     /// told from one the team shares.
     pub fn authors_per_file(&self) -> HashMap<&str, (std::collections::BTreeSet<&str>, u32)> {
@@ -117,6 +115,9 @@ impl History {
         seen
     }
 
+    /// The files each commit changed together. A commit touching half the tree is a
+    /// rename or a format run, and says nothing about which files share a
+    /// responsibility, so only commits of two to twenty files count.
     pub fn co_changes(&self) -> impl Iterator<Item = &Vec<String>> {
         self.commits
             .iter()
@@ -124,11 +125,6 @@ impl History {
     }
 }
 
-/// `git log` reports paths from the repository root while findings carry paths
-/// relative to the scan root, so one of the two has to be translated before they
-/// can be matched at all.
-/// The branch name, for the header. A detached head has none, and saying so is
-/// better than showing a hash nobody asked for.
 /// `%x00` delimits commits, so one pass yields both the per-file totals and which
 /// files moved together.
 fn recent_commits(root: &Path, days: u32) -> Option<(Vec<Vec<String>>, Vec<String>)> {
@@ -163,6 +159,9 @@ fn recent_commits(root: &Path, days: u32) -> Option<(Vec<Vec<String>>, Vec<Strin
     Some((commits, authors))
 }
 
+/// The path from the repository root to `root`. `git log` reports paths from the
+/// repository root while findings carry paths relative to the scan root, so one of
+/// the two has to be translated before they can be matched at all.
 pub fn repository_prefix(root: &Path) -> Option<String> {
     let output = Command::new("git")
         .arg("-C")
@@ -329,15 +328,9 @@ pub fn head(root: &Path) -> Option<String> {
         .filter(|sha| !sha.is_empty())
 }
 
-/// Who wrote one line, and when. One `git blame` per line asked about rather than
-/// per file, because the only caller wants a handful of lines out of a repository
-/// and blaming a whole file to read one of them is the slower way round.
-/// When each line of one file was last written, as a civil date. One `git blame`
-/// answers for the whole file, which is what makes this affordable on a scan: the
-/// per-line form costs a process each.
-/// The same, for a list of files at once. Every blame is its own process, so they
-/// wait on each other rather than on a core: two hundred of them serially is eight
-/// seconds with the machine idle.
+/// When each line of each file was last written, for a list of files at once. Every
+/// blame is its own process, so they wait on each other rather than on a core: two
+/// hundred of them serially is eight seconds with the machine idle.
 pub fn blame_dates_for(root: &Path, files: &[Arc<str>]) -> Vec<HashMap<u32, String>> {
     at_once(files, |file| blame_dates(root, file))
 }
@@ -436,6 +429,9 @@ pub fn blame_file(root: &Path, file: &str) -> HashMap<u32, (String, String)> {
         .collect()
 }
 
+/// When each line of one file was last written, as a civil date. One `git blame`
+/// answers for the whole file, which is what makes this affordable on a scan: the
+/// per-line form costs a process each.
 pub fn blame_dates(root: &Path, file: &str) -> HashMap<u32, String> {
     let Ok(output) = Command::new("git")
         .arg("-C")
