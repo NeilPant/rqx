@@ -432,6 +432,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
         spawn_kinds: &[],
     },
     test: TestVocabulary {
+        block_macros: &[],
         suite_roots: &[],
         case_roots: &[],
         assertion_roots: &[

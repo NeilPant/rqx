@@ -425,6 +425,7 @@ pub const TYPESCRIPT_PROFILE: LanguageProfile = LanguageProfile {
         spawn_kinds: &[],
     },
     test: TestVocabulary {
+        block_macros: &[],
         suite_roots: &["describe"],
         case_roots: &["it", "test"],
         assertion_roots: &["expect", "assert", "should", "verify", "must"],

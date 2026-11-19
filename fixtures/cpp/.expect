@@ -175,6 +175,21 @@ src/bloat.cpp rule=magic-number | if (kind == 3) return 3;
 src/bloat.cpp rule=never-reassigned | for (int at = 0; at < rows; at++) {
 src/bloat.cpp rule=no-base-case | int loops(int rows) {
 src/bloat.cpp rule=passthrough-function | int loops(int rows) {
+src/catch2_test.cpp rule=assertionless-test | TEST_CASE("an empty case", "[quality]") {
+src/catch2_test.cpp rule=empty-method | TEST_CASE("an empty case", "[quality]") {
+src/catch2_test.cpp rule=empty-test | TEST_CASE("an empty case", "[quality]") {
+src/catch2_test.cpp rule=assertionless-test | TEST_CASE("does work without checking") {
+src/catch2_test.cpp rule=never-reassigned | int value = add(1, 2);
+src/catch2_test.cpp none=assertionless-test | TEST_CASE("checks a value") {
+src/catch2_test.cpp none=empty-test | TEST_CASE("checks a value") {
+src/catch2_test.cpp rule=assertionless-test | SECTION("an empty section") {
+src/catch2_test.cpp rule=empty-block | SECTION("an empty section") {
+src/catch2_test.cpp rule=empty-method | SECTION("an empty section") {
+src/catch2_test.cpp rule=empty-test | SECTION("an empty section") {
+src/catch2_test.cpp none=assertionless-test | SECTION("checks a section") {
+src/catch2_test.cpp none=empty-test | SECTION("checks a section") {
+src/catch2_test.cpp none=assertionless-test | TEMPLATE_TEST_CASE("checks each type", "[types]", int, double) {
+src/catch2_test.cpp none=empty-test | TEMPLATE_TEST_CASE("checks each type", "[types]", int, double) {
 src/checks_test.cpp rule=plural-mismatch | for (const int number : {0, 1}) {
 src/checks_test.cpp rule=branching-test | TEST(Checks, DecidesThreeWays) {
 src/config.cpp rule=flag-argument | std::string endpoint(const std::string& region, bool secure, int retries) {
@@ -233,6 +248,20 @@ src/cost_sort_in_loop.cpp rule=sort-in-loop | std::partial_sort(base.begin(), ba
 src/cost_sort_in_loop.cpp rule=never-reassigned #2 | std::vector<int> ranked;
 src/cost_unbounded_cache.cpp rule=unbounded-cache | page_sizes[key] = size;
 src/cost_unbounded_concurrency.cpp rule=unbounded-concurrency | pending.push_back(std::async(std::launch::async, [&client, id] { return client.get(id); }));
+src/doctest_test.cpp rule=assertionless-test | TEST_CASE("an empty doctest") {
+src/doctest_test.cpp rule=empty-block | TEST_CASE("an empty doctest") {
+src/doctest_test.cpp rule=empty-method | TEST_CASE("an empty doctest") {
+src/doctest_test.cpp rule=empty-test | TEST_CASE("an empty doctest") {
+src/doctest_test.cpp rule=assertionless-test | TEST_CASE("does work without a check") {
+src/doctest_test.cpp rule=never-reassigned | int value = add(1, 2);
+src/doctest_test.cpp none=assertionless-test | TEST_CASE("checks the result") {
+src/doctest_test.cpp none=empty-test | TEST_CASE("checks the result") {
+src/doctest_test.cpp rule=assertionless-test | SUBCASE("an empty subcase") {
+src/doctest_test.cpp rule=empty-block | SUBCASE("an empty subcase") {
+src/doctest_test.cpp rule=empty-method | SUBCASE("an empty subcase") {
+src/doctest_test.cpp rule=empty-test | SUBCASE("an empty subcase") {
+src/doctest_test.cpp none=assertionless-test | SUBCASE("checks a subcase") {
+src/doctest_test.cpp none=empty-test | SUBCASE("checks a subcase") {
 src/flow.cpp rule=boolean-not-a-question | bool restated(bool ready) {
 src/flow.cpp rule=flag-argument | bool restated(bool ready) {
 src/flow.cpp rule=boolean-from-branch | if (ready) {

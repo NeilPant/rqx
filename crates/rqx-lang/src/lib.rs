@@ -26,6 +26,7 @@ pub mod python;
 pub mod removal;
 pub mod rewrite;
 pub mod scope;
+mod test_macros;
 pub mod tree;
 pub mod typescript;
 pub mod visibility;
@@ -436,7 +437,7 @@ fn parse_unchecked(
         // size does not predict which files do it.
         let deadline = std::time::Instant::now() + PARSE_BUDGET;
         let mut spent = |_: &tree_sitter::ParseState| std::time::Instant::now() > deadline;
-        let bytes = source.as_bytes();
+        let bytes = test_macros::normalize(source, profile.test.block_macros);
         parser
             .parse_with_options(
                 &mut |at, _| bytes.get(at..).unwrap_or_default(),

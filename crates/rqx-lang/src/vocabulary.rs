@@ -171,6 +171,9 @@ pub fn mentions_any(name: &str, words: &[&str]) -> bool {
 /// What a test framework calls its suites, its cases and its assertions, and how it
 /// spells "skip this one" and "run only this one".
 pub struct TestVocabulary {
+    /// Test macros followed by a block. Their quoted/type arguments are masked
+    /// for parsing as declarations, without moving any byte or source line.
+    pub block_macros: &'static [&'static str],
     pub suite_roots: &'static [&'static str],
     /// Roots whose bodies must assert. A suite asserts through the cases inside it.
     pub case_roots: &'static [&'static str],
@@ -384,6 +387,7 @@ impl TestVocabulary {
         self.case_prefixes
             .iter()
             .any(|prefix| name.starts_with(prefix))
+            || (self.block_macros.contains(&name) && self.is_case(name))
     }
 
     /// Whether this function's parameters belong to the framework rather than to

@@ -443,6 +443,7 @@ pub static PYTHON: LanguageProfile = LanguageProfile {
         spawn_kinds: &[],
     },
     test: TestVocabulary {
+        block_macros: &[],
         suite_roots: &["describe"],
         case_roots: &["test"],
         assertion_roots: &[

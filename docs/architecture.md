@@ -99,6 +99,14 @@ Rules are written once against facts that a language backend fills in. A rule in
 tables and readers and not by editing rules. A rule that cannot exist in a language is
 declared in its catalogue entry with a reason.
 
+`TestVocabulary.block_macros` names test headers that a grammar cannot read as
+ordinary declarations. For C++ Catch2 and doctest, `test_macros.rs` masks their
+arguments for the parser only when a known macro has a string label and is
+followed by a block. It keeps byte offsets, newlines, comments and bodies intact;
+collectors read labels (including adjacent and raw string literals) and diagnostic
+text from the original source. Other profiles leave this table empty and borrow
+the original parser input. This avoids language checks in the shared test rules.
+
 ## The cache
 
 The cache is the file `.rqx/cache.bin` under the scanned root. `.rqx/` also holds

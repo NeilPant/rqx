@@ -9,6 +9,14 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+### Added
+
+- C++ test rules recognise quoted Catch2 and doctest cases, fixture/template cases,
+  sections, subcases and BDD blocks. Macro headers are normalised through the
+  language profile without moving source ranges; labels, comments and bodies are
+  read from the original file. Cases with assertions stay quiet, and template
+  macros no longer make otherwise valid test files appear unreadable.
+
 ## 0.5.4 — 2026-11-19
 
 ### Changed

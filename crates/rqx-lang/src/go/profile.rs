@@ -295,6 +295,7 @@ pub static GO: LanguageProfile = LanguageProfile {
         spawn_kinds: &["go_statement"],
     },
     test: TestVocabulary {
+        block_macros: &[],
         suite_roots: &[],
         case_roots: &[],
         assertion_roots: &["assert", "require", "expect", "verify", "must"],

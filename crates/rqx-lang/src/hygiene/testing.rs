@@ -439,6 +439,10 @@ impl<'a> Walker<'a> {
             return;
         };
         let mut label = self.text(name).to_owned();
+        let block_macro = vocabulary.block_macros.contains(&label.as_str());
+        if block_macro && !vocabulary.is_case(&label) {
+            return;
+        }
         if !vocabulary.names_a_case(&label) || !self.has_a_case_signature(function) {
             return;
         }
@@ -446,7 +450,7 @@ impl<'a> Walker<'a> {
         // A framework whose case is a macro puts the name in the arguments, so the
         // declaration itself is called nothing but the macro. A declaration with a
         // name of its own, like Go's `func Test(t *testing.T)`, is called that name.
-        if vocabulary.case_prefixes.contains(&label.as_str())
+        if (block_macro || vocabulary.case_prefixes.contains(&label.as_str()))
             && function.child_by_field_name("name").is_none()
             && let Some(list) = crate::tree::find_within(
                 function,
@@ -457,7 +461,9 @@ impl<'a> Walker<'a> {
             .next_back()
         {
             // The last one is the case; whatever comes before it is the suite.
-            if let Some(spelled) = descendants(list)
+            if block_macro && let Some(written) = crate::test_macros::label(self.text(list)) {
+                label = written.into_owned();
+            } else if let Some(spelled) = descendants(list)
                 .into_iter()
                 .rfind(|node| profile.is_identifier(*node))
             {
