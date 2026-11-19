@@ -9,6 +9,8 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
+## 0.5.4 — 2026-11-19
+
 ### Changed
 
 - **The `json`, `sarif`, `junit`, `gitlab` and `github` reports list every finding
