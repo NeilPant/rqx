@@ -100,6 +100,18 @@ them. `tools/release.sh` turns that section into the release notes.
   so `var err error` was reported as unused although an earlier `case` assigns and
   reads it, and `fix --write` deleted it and broke `go build`. The finding is still
   reported; only the deletion is withheld.
+### Fixed
+
+- **`shadowed-handler` reports a handler only when one above it already takes every
+  type it names.** It reported any handler that followed one naming `Exception`,
+  `BaseException`, `Throwable`, `RuntimeException` or `std::exception`, and treated a
+  C++ `catch (int)` as taking everything, so handlers in the correct narrow-to-wide
+  order were reported as unreachable. It now follows the standard error hierarchy of
+  Python and C++ and the bases of classes declared in the same file. `except
+  Exception:` followed by `except:` or `except BaseException:`, and `catch (const
+  std::exception&)` followed by `catch (...)`, are no longer reported. Java is no
+  longer checked, because javac rejects a handler that an earlier one covers; every
+  Java finding was on correct code.
 
 ## 0.5.2 — 2026-11-18
 

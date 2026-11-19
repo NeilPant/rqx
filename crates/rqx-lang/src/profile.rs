@@ -73,6 +73,9 @@ pub struct LanguageProfile {
     pub catch_names_a_type: bool,
     /// Error types that say nothing about what went wrong.
     pub base_error_types: &'static [&'static str],
+    /// The standard library's error types, each paired with the type it derives from,
+    /// so a handler can tell whether one written above it already takes what it names.
+    pub error_parents: &'static [(&'static str, &'static str)],
     /// Calls that end the process rather than return from it.
     pub exit_calls: &'static [&'static str],
 

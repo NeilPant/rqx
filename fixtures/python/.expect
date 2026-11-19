@@ -164,6 +164,9 @@ hygiene.py rule=docstring-restates-signature | """Score of user id"""
 hygiene.py rule=catch-all-handler #2 | except Exception:
 hygiene.py rule=shadowed-handler #2 | except Exception:
 hygiene.py rule=unused-local | loop = stream._loop
+hygiene.py rule=catch-all-handler #3 | except Exception:
+hygiene.py none=shadowed-handler #3 | except Exception:
+hygiene.py rule=catch-all-handler | except BaseException:
 intimacy.py rule=inappropriate-intimacy | return Checkout.rate * len(self.items)
 intimacy.py rule=duplicate-code | def open(self, path: str) -> None:
 intimacy.py rule=mutable-module-state | open_sessions = 0
@@ -175,6 +178,8 @@ lifecycle.py rule=temporal-coupling | self._opened = True
 lifecycle.py rule=middle-man | class ReportFactory:
 long.py rule=long-function | def many_steps() -> int:
 lookalikes.py none=unreachable-code | yield
+lookalikes.py none=shadowed-handler | except FileNotFoundError:
+lookalikes.py none=shadowed-handler | except OSError:
 names.py rule=vague-function-name | def process(rows: list) -> int:
 names.py rule=plural-mismatch | data = [row for row in rows if row]
 names.py rule=return-of-fresh-local | temp2 = len(data)

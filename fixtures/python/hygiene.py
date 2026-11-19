@@ -164,3 +164,13 @@ def shadowed(rows):
 def transport_of(stream):
     loop = stream._loop
     return stream.transport
+
+
+# shadowed-handler must not fire: KeyboardInterrupt and SystemExit are not an Exception.
+def stopped(worker):
+    try:
+        return worker()
+    except Exception:
+        return None
+    except BaseException:
+        raise SystemExit(2)

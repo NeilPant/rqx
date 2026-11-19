@@ -86,6 +86,7 @@ pub const TYPESCRIPT_PROFILE: LanguageProfile = LanguageProfile {
     catch_all_types: &["any", "unknown"],
     catch_names_a_type: false,
     base_error_types: &["Error"],
+    error_parents: &[],
     exit_calls: &["process.exit"],
 
     comment_kinds: &["comment"],

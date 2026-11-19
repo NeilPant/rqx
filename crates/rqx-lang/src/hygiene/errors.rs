@@ -365,54 +365,145 @@ impl<'a> Walker<'a> {
         });
     }
 
-    /// A handler that takes everything, written before one that takes less. The
-    /// second can never run.
+    /// A handler written below one that already takes every failure it names. The
+    /// second can never run. Only types whose ancestry is known count: the standard
+    /// library's, and classes this file declares.
     pub(super) fn note_shadowed_handler(&mut self, guarded: Node<'a>) {
         let profile = self.profile;
+        if !RuleId::ShadowedHandler.applies_to(profile.language) {
+            return;
+        }
         let mut cursor = guarded.walk();
         let handlers: Vec<Node<'a>> = guarded
             .named_children(&mut cursor)
             .filter(|child| profile.catch_kinds.contains(&kind_of(child)))
             .collect();
-        if handlers.len() < 2 {
+        for (index, later) in handlers.iter().enumerate() {
+            let Some(narrow) = self.handled_types(*later) else {
+                continue;
+            };
+            let Some(wide) = handlers[..index].iter().find(|earlier| {
+                self.handled_types(**earlier)
+                    .is_some_and(|wide| self.takes_all_of(&wide, &narrow))
+            }) else {
+                continue;
+            };
+            self.out.shadowed_handlers.push(Spot {
+                span: span_of(*wide),
+                detail: self.snippet(*wide),
+                count: 1,
+            });
             return;
         }
-        let Some((_, earlier)) = handlers.split_last() else {
-            return;
-        };
-        let Some(wide) = earlier
-            .iter()
-            .find(|handler| self.takes_everything(**handler))
-        else {
-            return;
-        };
-        self.out.shadowed_handlers.push(Spot {
-            span: span_of(*wide),
-            detail: self.snippet(*wide),
-            count: 1,
-        });
     }
 
-    /// Whether a handler names the root of the hierarchy, or names nothing.
-    fn takes_everything(&self, catch: Node<'a>) -> bool {
+    /// The error types a handler names, or nothing for one that names none and so
+    /// takes everything: Python's bare `except:`, C++'s `catch (...)`.
+    fn handled_types(&self, catch: Node<'a>) -> Option<Vec<String>> {
         let profile = self.profile;
-        let Some(body) = catch.child_by_field_name("body").or_else(|| {
-            catch
-                .named_children(&mut catch.walk())
-                .find(|child| profile.is_block(*child))
-        }) else {
-            return false;
+        let named = catch
+            .named_children(&mut catch.walk())
+            .find(|child| !profile.is_block(*child) && !profile.is_comment(*child))?;
+        let named = match kind_of(named) {
+            "as_pattern" => named.named_child(0)?,
+            "parameter_list" => return self.parameter_type(named).map(|name| vec![name]),
+            _ => named,
         };
-        let named = descendants(catch).into_iter().find(|node| {
-            node.start_byte() < body.start_byte()
-                && (profile.is_identifier(*node)
-                    || profile.binding_identifier_kinds.contains(&kind_of(node))
-                    || profile.qualified_name_kinds.contains(&kind_of(node)))
-        });
-        match named.map(|node| self.text(node)) {
-            Some(name) => profile.catch_all_types.contains(&name),
-            None => true,
+        let listed = if kind_of(named) == "tuple" {
+            named.named_children(&mut named.walk()).collect()
+        } else {
+            vec![named]
+        };
+        Some(
+            listed
+                .into_iter()
+                .map(|node| self.error_type_name(node))
+                .collect(),
+        )
+    }
+
+    /// The type a C++ handler's parameter declares, marked when it is taken by
+    /// pointer, since a pointer handler never takes what a reference one does.
+    fn parameter_type(&self, parameters: Node<'a>) -> Option<String> {
+        let parameter = parameters.named_child(0)?;
+        let written = parameter.child_by_field_name("type")?;
+        let by_pointer = descendants(parameter)
+            .into_iter()
+            .any(|node| kind_of(node) == "pointer_declarator");
+        let suffix = if by_pointer { "*" } else { "" };
+        Some(format!("{}{suffix}", self.error_type_name(written)))
+    }
+
+    /// A type name as the error tables spell it, whichever prefix the code wrote.
+    fn error_type_name(&self, node: Node<'a>) -> String {
+        let text = self.text(node).trim();
+        let text = text.strip_prefix("::").unwrap_or(text);
+        let text = text.strip_prefix("std::").unwrap_or(text);
+        text.strip_prefix("builtins.").unwrap_or(text).to_owned()
+    }
+
+    /// Whether every type in `narrow` is one of `wide`, or derives from one of them.
+    fn takes_all_of(&self, wide: &[String], narrow: &[String]) -> bool {
+        !narrow.is_empty()
+            && narrow.iter().all(|taken| {
+                self.error_ancestry(taken)
+                    .iter()
+                    .any(|ancestor| wide.contains(ancestor))
+            })
+    }
+
+    /// A type and everything it is known to derive from, through the language's own
+    /// error types and the classes this file declares.
+    fn error_ancestry(&self, name: &str) -> Vec<String> {
+        let mut ancestry = vec![name.to_owned()];
+        let mut next = 0;
+        while let Some(current) = ancestry.get(next).cloned() {
+            next += 1;
+            let known = self
+                .profile
+                .error_parents
+                .iter()
+                .filter(|(child, _)| *child == current)
+                .map(|(_, parent)| (*parent).to_owned());
+            let parents: Vec<String> = known.chain(self.declared_bases(&current)).collect();
+            for parent in parents {
+                if !ancestry.contains(&parent) {
+                    ancestry.push(parent);
+                }
+            }
         }
+        ancestry
+    }
+
+    /// The bases a class this file declares under `name` is written to extend.
+    fn declared_bases(&self, name: &str) -> Vec<String> {
+        let profile = self.profile;
+        let classes = self.nodes.iter().filter(|node| {
+            profile.is_class(*node)
+                && node
+                    .child_by_field_name("name")
+                    .is_some_and(|named| self.text(named) == name)
+        });
+        let clauses = classes.flat_map(|class| {
+            class
+                .named_children(&mut class.walk())
+                .filter(|clause| profile.heritage_kinds.contains(&kind_of(clause)))
+                .collect::<Vec<_>>()
+        });
+        clauses
+            .flat_map(|clause| {
+                clause
+                    .named_children(&mut clause.walk())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|base| {
+                !matches!(
+                    kind_of(base),
+                    "access_specifier" | "keyword_argument" | "comment"
+                )
+            })
+            .map(|base| self.error_type_name(base))
+            .collect()
     }
 
     /// A call whose answer is put somewhere nobody reads. The name says the author

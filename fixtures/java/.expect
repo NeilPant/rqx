@@ -201,9 +201,9 @@ src/main/java/rqx/Hierarchy.java rule=never-reassigned | int doubled = total * 2
 src/main/java/rqx/Hierarchy.java rule=duplicate-function | int secondWay(int rows) {
 src/main/java/rqx/Hierarchy.java rule=never-reassigned #2 | int total = rows;
 src/main/java/rqx/Hierarchy.java rule=never-reassigned #2 | int doubled = total * 2;
-src/main/java/rqx/Hierarchy.java rule=catch-all-handler | } catch (Exception wide) {
-src/main/java/rqx/Hierarchy.java rule=shadowed-handler | } catch (Exception wide) {
 src/main/java/rqx/Hierarchy.java rule=catch-all-handler | } catch (RuntimeException narrow) {
+src/main/java/rqx/Hierarchy.java rule=catch-all-handler | } catch (Exception wide) {
+src/main/java/rqx/Hierarchy.java none=shadowed-handler | } catch (Exception wide) {
 src/main/java/rqx/Hierarchy.java rule=message-chain x2 | return java.util.concurrent.CompletableFuture.completedFuture(1)
 src/main/java/rqx/Hierarchy.java rule=nested-then | return java.util.concurrent.CompletableFuture.completedFuture(1)
 src/main/java/rqx/Hierarchy.java rule=message-chain x2 | .thenApply(one -> java.util.concurrent.CompletableFuture.completedFuture(one).thenApply(two -> two + 1));

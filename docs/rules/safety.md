@@ -184,11 +184,12 @@ the handler below can never run, so whatever it was written to do about that fai
 
 | | |
 |---|---|
-| Measures | a handler that takes everything, written before one that takes less |
+| Measures | a handler written before one that takes only failures it already takes |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
 | Fix | Narrow the Handler |
 | Not in Go | errors are values, so there is no handler to order |
+| Not in Java | the compiler rejects a handler that an earlier one already covers |
 | Not in TypeScript | the language allows one handler per block |
 | Not in JavaScript | the language allows one handler per block |
 

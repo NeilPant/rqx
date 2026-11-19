@@ -73,6 +73,7 @@ pub static GO: LanguageProfile = LanguageProfile {
     catch_all_types: &[],
     catch_names_a_type: true,
     base_error_types: &[],
+    error_parents: &[],
     exit_calls: &["os.Exit", "log.Fatal", "log.Fatalf", "log.Fatalln"],
 
     comment_kinds: &["comment"],

@@ -35,13 +35,14 @@ class TwoWays {
         return doubled + 1;
     }
 
-    int shadowed(int rows) {
+    // shadowed-handler: the narrower handler comes first, the only order javac accepts.
+    int narrowFirst(int rows) {
         try {
             return this.firstWay(rows);
-        } catch (Exception wide) {
-            return 0;
         } catch (RuntimeException narrow) {
             return 1;
+        } catch (Exception wide) {
+            return 0;
         }
     }
 

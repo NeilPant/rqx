@@ -1165,7 +1165,7 @@ fn hygiene_findings(
             spot,
             Evidence::BranchShape {
                 shape: format!(
-                    "`{}` takes everything before the handler below it",
+                    "`{}` already takes everything the handler below it names",
                     spot.detail
                 ),
             },

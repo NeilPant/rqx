@@ -337,6 +337,7 @@ src/intimacy.cpp rule=ambient-dependency | int stamped_at() { return static_cast
 src/long.cpp rule=long-function | int many_steps() {
 src/lookalikes.cpp none=unreachable-code | cleanup:
 src/lookalikes.cpp none=unreachable-code | NOT_REACHED();
+src/lookalikes.cpp none=shadowed-handler | } catch (const std::string& message) {
 src/main.cpp rule=wide-fan-out | #include "bloat.hpp"
 src/main.cpp rule=long-function | int main() {
 src/main.cpp rule=boolean-literal-argument | pricing({}, true);
@@ -418,6 +419,8 @@ src/shapes.cpp rule=duplicate-function | int second_way(int rows) {
 src/shapes.cpp rule=never-reassigned #2 | int total = rows;
 src/shapes.cpp rule=never-reassigned #2 | int doubled = total * 2;
 src/shapes.cpp rule=shadowed-handler | } catch (const std::exception& wide) {
+src/shapes.cpp none=shadowed-handler | } catch (const std::exception& known) {
+src/shapes.cpp rule=catch-all-handler | } catch (...) {
 src/shapes.cpp rule=empty-subclass | class Level1 : public Overgrown {};
 src/shapes.cpp rule=empty-subclass | class Level2 : public Level1 {};
 src/shapes.cpp rule=empty-subclass | class Level3 : public Level2 {};

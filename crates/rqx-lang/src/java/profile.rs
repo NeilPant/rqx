@@ -92,6 +92,7 @@ pub static JAVA: LanguageProfile = LanguageProfile {
     catch_all_types: &["Exception", "Throwable", "RuntimeException"],
     catch_names_a_type: true,
     base_error_types: &["Exception", "RuntimeException", "Throwable"],
+    error_parents: &[],
     exit_calls: &["System.exit"],
 
     comment_kinds: &["line_comment", "block_comment"],

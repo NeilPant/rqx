@@ -113,6 +113,17 @@ int shadowed(int rows) {
     }
 }
 
+// shadowed-handler must not fire: `catch (...)` also takes what is not a std::exception.
+int anything_thrown(int rows) {
+    try {
+        return first_way(rows);
+    } catch (const std::exception& known) {
+        return 0;
+    } catch (...) {
+        return 1;
+    }
+}
+
 class Level1 : public Overgrown {};
 class Level2 : public Level1 {};
 class Level3 : public Level2 {};

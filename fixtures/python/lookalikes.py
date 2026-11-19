@@ -176,3 +176,16 @@ def parsed_or_nothing(text):
 def quiet_events():
     return
     yield
+
+
+# shadowed-handler: each handler takes something the ones above it do not.
+def first_line(path):
+    try:
+        with open(path) as handle:
+            return handle.readline()
+    except FileNotFoundError:
+        return ""
+    except OSError:
+        return None
+    except UnicodeDecodeError:
+        return "?"

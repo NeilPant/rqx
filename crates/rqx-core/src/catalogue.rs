@@ -1196,7 +1196,7 @@ catalogue! {
         slug: "shadowed-handler",
         category: Safety,
         analysis: Syntax,
-        metric: "a handler that takes everything, written before one that takes less",
+        metric: "a handler written before one that takes only failures it already takes",
         fixes: [NarrowTheHandler],
         confidence: Verified,
         severity: Error,
@@ -1204,6 +1204,7 @@ catalogue! {
               failure has never been done",
         not_applicable: [
             (Go, "errors are values, so there is no handler to order"),
+            (Java, "the compiler rejects a handler that an earlier one already covers"),
             (TypeScript, "the language allows one handler per block"),
             (JavaScript, "the language allows one handler per block"),
         ],

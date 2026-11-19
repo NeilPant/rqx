@@ -110,3 +110,14 @@ int squared(int value) {
     return value * value;
     NOT_REACHED();
 }
+
+// shadowed-handler: a handler for a thrown string takes nothing the one below it takes.
+int parsed_or_zero(const std::string& text) {
+    try {
+        return std::stoi(text);
+    } catch (const std::string& message) {
+        return static_cast<int>(message.size());
+    } catch (const std::out_of_range& error) {
+        return static_cast<int>(text.size());
+    }
+}
