@@ -216,6 +216,14 @@ them. `tools/release.sh` turns that section into the release notes.
   count says a whole number of 0 or more is expected, and a config saved as UTF-16
   says so instead of `stream did not contain valid UTF-8`.
 
+- **Files rqx writes in place keep their symlinks, and a failed write leaves nothing
+  behind.** `waive`, `fix --write`, `baseline`, the cache and the config editor
+  replaced a symlinked file with a regular copy, so the shared file never changed.
+  They also wrote through one fixed temporary name, which two runs in one checkout
+  shared and a failed rename left in the project. Writes now go to the file a link
+  points at, through a temporary file named for the process and the write, which is
+  synced before the rename and removed if the write fails.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

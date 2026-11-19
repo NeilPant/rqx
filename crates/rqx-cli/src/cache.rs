@@ -23,6 +23,7 @@ const OWN_GITIGNORE: &str = "# Written by rqx. These files are per machine; comm
                              cache.bin\n\
                              cache.json\n\
                              .cache.bin.rqx-tmp\n\
+                             .cache.bin.*.rqx-tmp\n\
                              trend.ndjson\n";
 
 /// Part of the version, so a change to how entries are laid out makes every cache
@@ -875,6 +876,7 @@ mod tests {
                 CACHE_FILE,
                 LEGACY_CACHE_FILE,
                 ".cache.bin.rqx-tmp",
+                ".cache.bin.*.rqx-tmp",
                 "trend.ndjson"
             ]
         );
