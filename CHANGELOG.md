@@ -345,6 +345,124 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ### Fixed
 
+- **A deeply nested file no longer aborts the run.** A long `else if` chain, a long
+  concatenation or method chain, or deeply nested blocks overflowed a worker thread's
+  stack. The process exited with 134, printed no report and did not name the file;
+  `rqx mcp` and `rqx lsp` exited the same way on such a buffer. The tree walks that
+  recursed once per level now keep their own stack. A file more than 256 levels deep
+  is analysed on a thread with a 512 MB stack, and a file more than 1,500 levels deep
+  is skipped with the reason `too-deep` (`skipped_by` in the JSON summary, `nested too
+  deeply` in the terminal).
+
+- **A long `else if` chain is analysed in about linear time.** A 300-branch chain took
+  2 seconds, and 500 branches took 10. Several checks read the rest of the chain again
+  at every `if`, or climbed towards the root with a parent lookup that is itself
+  linear in depth. 400 branches now take about 0.1 seconds. The findings are the same.
+
+- **`check --base`, `scan --since`, `--changed` and the history rules see files whose
+  names git quotes.** git prints a path with a non-ASCII character, a tab, a quote or
+  a newline in quotes, and the quoted name matched no file. A change to `café.ts` was
+  never reviewed, and the gate passed without a warning. rqx now reads every path list
+  from git NUL-separated (`-z`).
+
+- **A base revision that begins with `-` is refused.** `--base`, `--since` and the
+  `base` of the MCP `check` and `verify` tools went to git unchecked, so
+  `--base=--output=x` made `git diff` write a file and the MCP `check` tool reported
+  success. Such a value now exits 2 with `is not a revision` before git runs.
+
+- **A failed git command is quoted in the error.** `check` said a review needs a git
+  repository and a revision that exists whatever went wrong, and left out what git
+  said, such as a broken `.gitmodules`. The error now names the git command and the
+  first line git wrote on stderr. `scan --since` and `verify` do the same.
+
+- **A base checkout left behind by a killed run is removed.** `check` and `verify`
+  register a temporary checkout of the base revision in the repository. A run killed
+  while it held one left it on disk and listed in `git worktree list`. Each checkout
+  now holds a lock while it is in use, and the next run in the same repository removes
+  every rqx checkout whose lock nobody holds.
+
+- **A file the grammar cannot read is skipped, not graded pristine.** A file that was
+  mostly syntax errors, such as a stray fragment or a file in another language with a
+  source extension, parsed to almost nothing. It counted as scanned and raised the
+  health score. A file where at least half of the text sits in syntax errors, or that
+  holds unresolved merge conflict markers, is now skipped with the reason
+  `unparseable` (`not parseable` in the terminal). A file with a few syntax errors is
+  analysed as before.
+
+- **Every command that reads a path exits 2 when the path does not exist.** `health`,
+  `badge`, `graph`, `complexity`, `hotspots`, `perf`, `slop`, `recommend`, `owners`,
+  `baseline`, `suppressions`, `query` and `cache` read no files and reported success.
+  `health` printed 100/100, and `badge` wrote an SVG that read `health 100`. They now
+  stop with `` `PATH` does not exist ``, as `scan` and `fix` already did.
+
+- **`waive` writes a reason that spans several lines as one line.** A newline in
+  `--reason` left the rest of the reason in the file as code, which broke the build,
+  and a trailing backslash carried a C++ comment onto the waived line. Line breaks and
+  other control characters now become spaces, and trailing backslashes are dropped.
+  The editor's waive command does the same.
+
+- **`waive --until` refuses a date the calendar does not have or one that has
+  passed.** `--until 2020-13-45` and `--until 2020-01-01` printed `waived`, and the
+  next scan reported the finding again plus an `unjustified-suppression`. Both now
+  exit 2 and say which problem the date has.
+
+- **`rqx baseline` works when `gate.baseline` names a file that is missing.** On a
+  fresh clone, or after `.rqx/` was deleted, every command refused to run and told
+  the user to run `rqx baseline`, which refused too. `rqx baseline` now records the
+  file. Other commands still refuse to run without it.
+
+- **`--threads`, `RQX_THREADS` and `scan.threads` accept at most 256.** A count of
+  5000 failed to start a worker after 30 seconds and panicked, and 20000 hung after
+  the panic. A larger count now exits 2 with a message that names where it was set.
+
+- **SARIF file locations are percent-encoded URI references.** `artifactLocation.uri`
+  was the raw path, so a path with a space, `#`, `%`, brackets or parentheses (such as
+  a Next.js route `app/(auth)/[id]/page.tsx`) gave a URI that code scanning could
+  reject or resolve to another file. Each path is now encoded, and `--sarif-in` decodes
+  it with the same rules.
+
+- **`rqx mcp --http` on a non-loopback address answers its clients.** The documented
+  remote setup, `rqx mcp --http 0.0.0.0:8927` with `RQX_MCP_TOKEN`, refused every
+  request from another machine with `403 Forbidden: Host header is not allowed`,
+  because only the loopback names were allowed. A non-loopback server now answers any
+  host name, which the token and the refusal of browser origins already protect.
+  `RQX_MCP_ALLOWED_HOSTS` narrows it to a comma-separated list. The `listening` line
+  now gives the bound port, and the next line states the host rule.
+
+- **`rqx lsp` and `rqx mcp` answer a malformed message instead of exiting.** A frame
+  with a bad `Content-Length` or a body that is not JSON ended the language server
+  with `disconnected channel`. A first line that was not JSON ended `rqx mcp` with
+  `the MCP handshake failed`. Both now reply with a JSON-RPC parse error (`-32700`), or
+  `-32600` for JSON that is not a message, and keep reading. They exit when stdin
+  closes.
+
+- **`rqx config` and `rqx --help` say when the gate applies.** `rqx config` listed
+  `gate: fail on error`, and the help's exit codes listed `1 completed; the gate
+  failed`, so a CI job running a bare `rqx scan .` looked gated and never failed.
+  Both now say that `rqx check` always gates and `rqx scan` gates only when given a
+  gate flag such as `--fail-on`.
+
+- **Config errors read without the parser's own wording.** The message began
+  `Error: error:`. A key set twice ended with advice to set `DuplicateKeyPolicy`,
+  which no user can set, and a negative number in a count said `invalid u32`. The
+  doubled prefix is gone, a key set twice says to keep one of the two, a negative
+  count says a whole number of 0 or more is expected, and a config saved as UTF-16
+  says so instead of `stream did not contain valid UTF-8`.
+
+- **Files rqx writes in place keep their symlinks, and a failed write leaves nothing
+  behind.** `waive`, `fix --write`, `baseline`, the cache and the config editor
+  replaced a symlinked file with a regular copy, so the shared file never changed.
+  They also wrote through one fixed temporary name, which two runs in one checkout
+  shared and a failed rename left in the project. Writes now go to the file a link
+  points at, through a temporary file named for the process and the write, which is
+  synced before the rename and removed if the write fails.
+
+- **The session redraws its rows whole after the window is resized.** Shrinking the
+  window to a few columns with the `/` menu open and restoring it left pieces of the
+  narrow layout in the menu rows, such as banner fragments after `> /`, until the next
+  key press. A resize now clears the session's rows and draws every one, and so does
+  a change in how many rows the session takes.
+
 - **A rule no longer reports in a language its catalogue entry excludes.** `rqx rules
   --language go` and `rqx explain mixed-return` said `mixed-return` does not apply to
   Go, while a scan still reported it there. The same held for `import-time-work` in
