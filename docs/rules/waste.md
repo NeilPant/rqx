@@ -14,7 +14,7 @@ a fix applied to one copy leaves the others unfixed, and nothing in the code lin
 | Fix | Extract Method / Pull Up Method |
 | Tuned by | `thresholds.clone_min_statements`, `thresholds.clone_min_nodes` |
 
-From `fixtures/typescript/flow.ts`, line 173:
+From `fixtures/typescript/flow.ts`, line 186:
 
 ```ts
 export function asksTwice(kind: string): number {
@@ -251,7 +251,7 @@ it was built for a case that has not occurred, and until it does it is an extra 
 | Fix | Collapse Hierarchy / Inline Class |
 | Not in JavaScript | JavaScript has no abstract keyword, so no class declares itself waiting for a subclass |
 
-From `fixtures/typescript/flow.ts`, line 220:
+From `fixtures/typescript/flow.ts`, line 233:
 
 ```ts
 
@@ -440,7 +440,7 @@ the name is read once, by the line below it, and says nothing the expression it 
 | Reads | the syntax tree alone |
 | Fix | Inline Variable |
 
-From `fixtures/typescript/flow.ts`, line 168:
+From `fixtures/typescript/flow.ts`, line 181:
 
 ```ts
 export function freshTotal(rows: number[]): number {
@@ -554,12 +554,12 @@ the first write has no effect, so either a line that should read it is missing o
 | Reads | the syntax tree alone |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/flow.ts`, line 57:
+From `fixtures/typescript/flow.ts`, line 59:
 
 ```ts
-export function assigns(a: number, b: number): number {
+export function assignsOnPurpose(a: number, b: number): number {
   let found = 0;
-  if ((found = a + b)) {
+  if ((found = a * b)) {
 ```
 
 Suggested fix: delete the unread assignment, or read it
@@ -600,7 +600,7 @@ either the line was meant to do something and does not, or it does nothing and s
 | Not in Go | the grammar allows only a call or a receive as a statement, so the compiler rejects this first |
 | Not in Java | the grammar allows only a call, an assignment or an increment as a statement |
 
-From `fixtures/typescript/flow.ts`, line 132:
+From `fixtures/typescript/flow.ts`, line 145:
 
 ```ts
 export function dropped(total: number, other: number): number {

@@ -73,7 +73,10 @@ flow.js rule=cognitive-complexity | export function buriedExits(a, b) {
 flow.js rule=many-exits | export function buriedExits(a, b) {
 flow.js rule=magic-number | for (const step of [1, 2, 3]) {
 flow.js rule=dead-store | let found = 0;
-flow.js rule=assignment-in-condition | if ((found = a + b)) {
+flow.js none=assignment-in-condition | if ((found = a * b)) {
+flow.js none=assignment-in-condition | if ((found = a - b) > 0) {
+flow.js rule=dead-store #2 | let found = 0;
+flow.js rule=assignment-in-condition | if (found = a + b) {
 flow.js rule=many-exits | export function wideSwitch(kind) {
 flow.js rule=type-code-switch | switch (kind) {
 flow.js rule=wide-switch | switch (kind) {

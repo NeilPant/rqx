@@ -13,7 +13,7 @@ the same set of cases is written out in several places, so adding a case require
 | Reads | resolved scopes and symbols |
 | Fix | Replace Conditional with Polymorphism / Replace Type Code with Subclasses / Replace Type Code with Polymorphic State |
 
-From `fixtures/typescript/flow.ts`, line 65:
+From `fixtures/typescript/flow.ts`, line 78:
 
 ```ts
 export function wideSwitch(kind: string): number {
@@ -198,7 +198,7 @@ the `abstract` keyword implies that subclasses have work to do, but there is non
 | Not in Python | abstractness is a base class it inherits, not a word on the type |
 | Not in JavaScript | JavaScript has no abstract keyword to leave a member for a subclass |
 
-From `fixtures/typescript/flow.ts`, line 220:
+From `fixtures/typescript/flow.ts`, line 233:
 
 ```ts
 

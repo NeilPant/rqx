@@ -73,18 +73,18 @@ it reads as a comparison and behaves as an assignment, so an accidental assignme
 
 | | |
 |---|---|
-| Measures | an assignment written where a condition is expected |
+| Measures | an assignment written as the whole condition of an `if` |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
 | Fix | Extract Variable |
 | Not in Python | the only assignment Python allows in a condition is `:=`, which exists to be written there and is read as deliberate |
 | Not in Go | Go allows an initialiser before the condition rather than inside it, so the two are never confused |
 
-From `fixtures/typescript/flow.ts`, line 58:
+From `fixtures/typescript/flow.ts`, line 71:
 
 ```ts
   let found = 0;
-  if ((found = a + b)) {
+  if (found = a + b) {
     return found;
 ```
 
@@ -351,7 +351,7 @@ a binary float rarely equals the decimal a person wrote, so a branch that depend
 | Reads | the syntax tree alone |
 | Fix | Replace Algorithm |
 
-From `fixtures/typescript/flow.ts`, line 128:
+From `fixtures/typescript/flow.ts`, line 141:
 
 ```ts
 export function settled(balance: number): boolean {

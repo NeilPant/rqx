@@ -213,7 +213,7 @@ past a certain width the arms are no longer a table a reader scans, and become a
 | Fix | Replace Conditional with Polymorphism / Extract Method |
 | Tuned by | `thresholds.max_cases` |
 
-From `fixtures/typescript/flow.ts`, line 65:
+From `fixtures/typescript/flow.ts`, line 78:
 
 ```ts
 export function wideSwitch(kind: string): number {
@@ -243,7 +243,7 @@ the steps run in the reverse of the order in which they are written, so followin
 | Fix | Extract Method |
 | Tuned by | `thresholds.callback_depth` |
 
-From `fixtures/typescript/flow.ts`, line 101:
+From `fixtures/typescript/flow.ts`, line 114:
 
 ```ts
       setTimeout(() => {

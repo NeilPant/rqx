@@ -50,9 +50,22 @@ export function buriedExits(a, b) {
   }
   return 0;
 }
+// assignment-in-condition must not fire: a second pair of parentheses, or a
+// comparison of the result, says the assignment is meant.
+export function assignsOnPurpose(a, b) {
+  let found = 0;
+  if ((found = a * b)) {
+    return found;
+  }
+  if ((found = a - b) > 0) {
+    return found;
+  }
+  return 0;
+}
+
 export function assigns(a, b) {
   let found = 0;
-  if ((found = a + b)) {
+  if (found = a + b) {
     return found;
   }
   return 0;

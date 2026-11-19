@@ -125,6 +125,15 @@ them. `tools/release.sh` turns that section into the release notes.
   C++'s `[[fallthrough]];`, which is what the fix hint asks for, and arms ending in an
   `if`/`else`, a `try`, or a nested switch that leaves on every path.
 
+- **`assignment-in-condition` reports only an assignment that is the whole condition.**
+  It reported any assignment anywhere under an `if` condition, including the
+  assign-and-test idiom `if ((x = next()) != null)`, a condition wrapped in a second
+  pair of parentheses, and statements inside a callback passed to the condition. An
+  assignment that is compared, wrapped in extra parentheses, or written with a
+  compound operator such as `|=` cannot be a mistyped `==`, so it is no longer
+  reported. This matches ESLint's `no-cond-assign` in its default `except-parens`
+  mode.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

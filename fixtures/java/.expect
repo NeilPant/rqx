@@ -165,8 +165,8 @@ src/main/java/rqx/Flow.java rule=many-exits | int wideSwitch(String kind) {
 src/main/java/rqx/Flow.java rule=type-code-switch | switch (kind) {
 src/main/java/rqx/Flow.java rule=wide-switch | switch (kind) {
 src/main/java/rqx/Flow.java rule=callback-nesting | Runnable c = () -> System.out.println("deep");
-src/main/java/rqx/Flow.java rule=dead-store | int found = 0;
-src/main/java/rqx/Flow.java rule=assignment-in-condition | if ((found = a + b) > 0) {
+src/main/java/rqx/Flow.java rule=dead-store | boolean found = false;
+src/main/java/rqx/Flow.java rule=assignment-in-condition | if (found = a > b) {
 src/main/java/rqx/Flow.java rule=never-reassigned | for (int item : items) {
 src/main/java/rqx/Flow.java rule=redundant-jump | continue;
 src/main/java/rqx/Flow.java rule=boolean-not-a-question | public boolean settled(double balance) {
@@ -192,6 +192,9 @@ src/main/java/rqx/Flow.java none=silent-fallthrough | case 1 -> this.freshTotal(
 src/main/java/rqx/Flow.java none=silent-fallthrough #3 | case 1:
 src/main/java/rqx/Flow.java none=silent-fallthrough #3 | case 2:
 src/main/java/rqx/Flow.java rule=redundant-else #3 | } else {
+src/main/java/rqx/Flow.java rule=dead-store | int found = 0;
+src/main/java/rqx/Flow.java none=assignment-in-condition | if ((found = a + b) > 0) {
+src/main/java/rqx/Flow.java none=assignment-in-condition | if (seen |= b > 0) {
 src/main/java/rqx/Flow.java rule=abstract-nothing | abstract class Settled {
 src/main/java/rqx/Flow.java rule=speculative-generality | abstract class Settled {
 src/main/java/rqx/GatewayA.java rule=passthrough-function | public int collect(int amount) {

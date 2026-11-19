@@ -48,9 +48,22 @@ int wide_switch(int kind) {
     }
 }
 
+// assignment-in-condition must not fire: a second pair of parentheses, or a
+// comparison of the result, says the assignment is meant.
+int assigns_on_purpose(int a, int b) {
+    int found = 0;
+    if ((found = a * b)) {
+        return found;
+    }
+    if ((found = a - b) > 0) {
+        return found;
+    }
+    return 0;
+}
+
 int assigns(int a, int b) {
     int found = 0;
-    if ((found = a + b)) {
+    if (found = a + b) {
         return found;
     }
     return 0;

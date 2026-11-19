@@ -237,7 +237,7 @@ the result depends on something no caller can set, so the only way to test the b
 | Reads | the syntax tree alone |
 | Fix | Add Parameter / Invert Dependency |
 
-From `fixtures/typescript/flow.ts`, line 102:
+From `fixtures/typescript/flow.ts`, line 115:
 
 ```ts
         setTimeout(() => {

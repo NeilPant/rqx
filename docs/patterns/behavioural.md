@@ -317,7 +317,7 @@ the cases are written out in several places, so adding a case means searching fo
 | Reads | resolved scopes and symbols |
 | Fix | Replace Conditional with Polymorphism / Replace Type Code with Polymorphic State |
 
-From `fixtures/typescript/flow.ts`, line 65:
+From `fixtures/typescript/flow.ts`, line 78:
 
 ```ts
 export function wideSwitch(kind: string): number {

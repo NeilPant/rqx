@@ -13,7 +13,7 @@ each pass copies everything written so far, so the work grows with the square of
 | Reads | the syntax tree alone |
 | Fix | Accumulate in Place |
 
-From `fixtures/typescript/flow.ts`, line 186:
+From `fixtures/typescript/flow.ts`, line 199:
 
 ```ts
   for (const row of rows) {
@@ -166,7 +166,7 @@ each step copies everything gathered so far, so building a result of n items tou
 | Reads | resolved scopes and symbols |
 | Fix | Accumulate in Place |
 
-From `fixtures/typescript/flow.ts`, line 186:
+From `fixtures/typescript/flow.ts`, line 199:
 
 ```ts
   for (const row of rows) {

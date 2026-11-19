@@ -176,7 +176,7 @@ the second branch cannot be reached, so whatever it was written to do has never 
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |
 
-From `fixtures/typescript/flow.ts`, line 177:
+From `fixtures/typescript/flow.ts`, line 190:
 
 ```ts
     return 2;
@@ -199,7 +199,7 @@ the arm below also runs, and nothing here says whether that was intended
 | Not in Go | an arm ends where the next begins unless it says otherwise |
 | Not in Python | an arm ends where the next begins |
 
-From `fixtures/typescript/flow.ts`, line 193:
+From `fixtures/typescript/flow.ts`, line 206:
 
 ```ts
   switch (kind) {
@@ -222,7 +222,7 @@ two conditions folded into one expression have to be unfolded by the reader befo
 | Fix | Decompose Conditional / Extract Variable |
 | Not in Go | Go has no conditional expression |
 
-From `fixtures/typescript/flow.ts`, line 137:
+From `fixtures/typescript/flow.ts`, line 150:
 
 ```ts
 export function tierOf(score: number): string {
@@ -243,7 +243,7 @@ the language defines which operator binds tighter but the reader has to remember
 | Reads | the syntax tree alone |
 | Fix | Extract Variable / Consolidate Conditional |
 
-From `fixtures/typescript/flow.ts`, line 141:
+From `fixtures/typescript/flow.ts`, line 154:
 
 ```ts
 export function admits(rank: number, guests: number, staff: number): boolean {
@@ -264,7 +264,7 @@ the language already has an operator for this comparison, and the shorter form c
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |
 
-From `fixtures/typescript/flow.ts`, line 145:
+From `fixtures/typescript/flow.ts`, line 158:
 
 ```ts
 export function changed(before: string, after: string): boolean {
@@ -285,7 +285,7 @@ a value the switch does not anticipate passes through it unhandled, and nothing 
 | Reads | the syntax tree alone |
 | Fix | Introduce Assertion / Replace Conditional with Polymorphism |
 
-From `fixtures/typescript/flow.ts`, line 149:
+From `fixtures/typescript/flow.ts`, line 162:
 
 ```ts
 export function labelOf(state: number): string {
@@ -313,7 +313,7 @@ it is written as repetition and runs once, so either the exit is misplaced or th
 | Reads | the syntax tree alone |
 | Fix | Remove Dead Code / Replace Nested Conditional with Guard Clauses |
 
-From `fixtures/typescript/flow.ts`, line 162:
+From `fixtures/typescript/flow.ts`, line 175:
 
 ```ts
   for (const item of items) {
@@ -335,7 +335,7 @@ control reaches that point anyway, so the keyword makes a reader look for a cond
 | Auto-fixable | `rqx fix` (deletion) |
 | Fix | Remove Dead Code |
 
-From `fixtures/typescript/flow.ts`, line 113:
+From `fixtures/typescript/flow.ts`, line 126:
 
 ```ts
     total += item;
@@ -358,7 +358,7 @@ a switch is a table a reader scans, and a switch with two arms is an `if` writte
 | Tuned by | `thresholds.min_cases` |
 | Default | off; name it under `rules.enabled` |
 
-From `fixtures/typescript/flow.ts`, line 119:
+From `fixtures/typescript/flow.ts`, line 132:
 
 ```ts
 export function twoArmed(kind: string): number {

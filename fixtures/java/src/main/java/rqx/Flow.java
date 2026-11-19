@@ -65,11 +65,11 @@ class Flow {
     }
 
     int assigns(int a, int b) {
-        int found = 0;
-        if ((found = a + b) > 0) {
-            return found;
+        boolean found = false;
+        if (found = a > b) {
+            return a;
         }
-        return 0;
+        return found ? 1 : 0;
     }
 
     public int trailingJump(java.util.List<Integer> items) {
@@ -181,6 +181,22 @@ class Flow {
             default:
                 return 0;
         }
+    }
+}
+
+// assignment-in-condition must not fire: comparing the result of an assignment, or
+// adding to a flag, cannot be a mistyped comparison.
+final class Conditions {
+    int assignsOnPurpose(int a, int b) {
+        int found = 0;
+        if ((found = a + b) > 0) {
+            return found;
+        }
+        boolean seen = a > 0;
+        if (seen |= b > 0) {
+            return 1;
+        }
+        return 0;
     }
 }
 

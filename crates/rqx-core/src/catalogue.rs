@@ -714,7 +714,7 @@ catalogue! {
         slug: "assignment-in-condition",
         category: Safety,
         analysis: Syntax,
-        metric: "an assignment written where a condition is expected",
+        metric: "an assignment written as the whole condition of an `if`",
         fixes: [ExtractVariable],
         confidence: Verified,
         severity: Error,

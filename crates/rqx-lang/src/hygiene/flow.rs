@@ -979,25 +979,32 @@ impl<'a> Walker<'a> {
 
     /// An assignment where a condition belongs. It reads as a comparison and behaves
     /// as a write, which is why it survives review.
+    /// Only an assignment that is the whole condition can be a mistyped `==`. Wrapping
+    /// it in a second pair of parentheses, or comparing its result, is how the
+    /// assign-and-test idiom says it is deliberate.
     pub(super) fn note_assignment_in_condition(&mut self, node: Node<'a>) {
         let profile = self.profile;
         let Some(condition) = node.child_by_field_name("condition") else {
             return;
         };
         let mut cursor = condition.walk();
-        let mut stack: Vec<Node<'a>> = condition.children(&mut cursor).collect();
-        stack.push(condition);
-        while let Some(current) = stack.pop() {
-            if profile.assignment_kinds.contains(&kind_of(current)) {
-                self.out.assignments_in_conditions.push(Spot {
-                    span: span_of(current),
-                    detail: self.text(current).trim().to_owned(),
-                    count: 1,
-                });
-                return;
-            }
-            let mut inner = current.walk();
-            stack.extend(current.children(&mut inner));
+        let inside: Vec<Node<'a>> = condition
+            .named_children(&mut cursor)
+            .filter(|child| !profile.is_comment(*child))
+            .collect();
+        let [only] = inside.as_slice() else {
+            return;
+        };
+        // `|=` and its kin cannot be a mistyped comparison.
+        let plain = only
+            .child_by_field_name("operator")
+            .is_none_or(|operator| self.text(operator) == "=");
+        if profile.assignment_kinds.contains(&kind_of(*only)) && plain {
+            self.out.assignments_in_conditions.push(Spot {
+                span: span_of(*only),
+                detail: self.text(*only).trim().to_owned(),
+                count: 1,
+            });
         }
     }
 

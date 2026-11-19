@@ -267,7 +267,10 @@ src/flow.cpp rule=type-code-switch | switch (kind) {
 src/flow.cpp rule=wide-switch | switch (kind) {
 src/flow.cpp rule=magic-number | case 3: return 3;
 src/flow.cpp rule=dead-store | int found = 0;
-src/flow.cpp rule=assignment-in-condition | if ((found = a + b)) {
+src/flow.cpp none=assignment-in-condition | if ((found = a * b)) {
+src/flow.cpp none=assignment-in-condition | if ((found = a - b) > 0) {
+src/flow.cpp rule=dead-store #2 | int found = 0;
+src/flow.cpp rule=assignment-in-condition | if (found = a + b) {
 src/flow.cpp rule=imprecise-type | auto nested_callbacks() {
 src/flow.cpp rule=callback-nesting | return []() { return 1; };
 src/flow.cpp rule=never-reassigned | for (int item : items) {
