@@ -9,98 +9,6 @@ them. `tools/release.sh` turns that section into the release notes.
 
 ## Unreleased
 
-## 0.5.3 — 2026-11-19
-
-### Changed
-
-- **`--no-mouse` is listed in `--help`, the manual pages and the shell completions.**
-  The flag has worked since 0.5.2, and `docs/interface.md` described it, but it was
-  hidden from the generated reference.
-
-- **`rqx fix` no longer deletes `suppressed-diagnostic` comments.** Whether an
-  `eslint-disable`, `# noqa` or `# type: ignore` is still needed depends on what the
-  suppressed tool reports for that line, which rqx cannot check. The rule still reports
-  the comment, and `rqx fix --plan` lists it as a decision. The rule's documentation no
-  longer marks it as auto-fixable.
-
-- **`unused-parameter` reports a parameter of a public function at `heuristic`
-  confidence.** Public means: a Python function at module level whose name has no
-  leading underscore, or one listed in `__all__`; an exported TypeScript or JavaScript
-  function, or a method that is not `private` or `#private`; a Java method that is not
-  `private`; a C++ function other than a `static` free function, one in an unnamed
-  namespace, or a lambda; a Go function with a capitalised name. Code outside the
-  project can call these, so `rqx fix` does not change their signatures.
-
-### Fixed
-
-- **The JSON `skipped` entries are relative to the scanned directory.** They were
-  relative to the directory rqx was started from, so `rqx scan .` printed
-  `./app/big.js: ...` and `rqx scan project` printed `project/app/big.js: ...`, which
-  matched neither the paths of the findings nor the `skipped_by` paths. The MCP
-  server's summary and the language server's scan answer name them the same way.
-
-- **`rqx config` and the configuration schema say that all six languages are enabled by
-  default.** They said five.
-
-- **`unreachable-code` no longer reports, and `rqx fix` no longer deletes, code after an
-  exit that still runs or still changes the program.** This covers a label that a
-  `goto`, `break` or `continue` names (Go, C++, JavaScript, TypeScript, Java); a Python
-  `yield` that makes its function a generator; a Python `global` or `nonlocal`
-  statement, or the only binding of a name the rest of the function reads; a
-  JavaScript or TypeScript `var` or function declaration, which is hoisted; a C++ call
-  spelled as a macro or a preprocessor line; and a block that does not parse cleanly,
-  such as `ASSERT_DEATH(f(); return, "")`. On klauspost/compress 1.17.9, `fix --write`
-  removed the `emitDict:` and `emitMatch:` labels from `s2/encode_all.go` and the
-  package stopped compiling.
-
-- **`rqx fix` keeps build constraints, interpreter lines and tool directives.** No fix
-  removes a comment that holds `//go:build`, `// +build`, `//go:generate`,
-  `//go:embed` or another `//go:` directive, a shebang, an encoding declaration,
-  `eslint-*`, `@ts-*`, `/// <reference`, `prettier-ignore`, `istanbul ignore`,
-  `c8 ignore`, `noqa`, `type:`, `pylint:`, `pragma:`, `NOLINT`, `nolint`,
-  `SuppressWarnings`, `clang-format off` or `on`, or a fall-through marker, or any
-  comment above a Go file's `package` clause. The list is `TOOL_DIRECTIVES` in
-  `crates/rqx-lang/src/vocabulary.rs`. `//go:build ignore` is no longer reported as a
-  `suppressed-diagnostic`.
-
-- **The `unused-parameter` fix updates every call or none.** A private method called
-  through `this` (TypeScript, JavaScript, Java, C++) or by its bare name (Java, C++)
-  now loses the argument at each call along with the parameter. In 0.5.2 only the
-  declaration changed, and `tsc` and `javac` rejected the calls. The fix is withheld
-  when the name is mentioned anywhere else outside a comment, such as a call through
-  another receiver, an overload, a callback or a string, or when a call passes a
-  keyword or spread argument.
-
-- **`unused-parameter` no longer reports parameters whose list is fixed elsewhere.**
-  Java and C++ `main`, a Java method with an annotation, a TypeScript method with a
-  decorator or `override`, a C++ method declared `virtual`, `override` or `final`, and a
-  pytest test function, whose parameters name the fixtures pytest sets up.
-
-- **`rqx fix` checks each edited file before writing it.** An edit is withheld, with the
-  reason, when it removes a protected comment, a label or the last jump to one, the
-  `yield` that makes a Python function a generator, a Python `global` or `nonlocal`
-  statement or a use of a name one declares, or a C++ macro call; when it leaves a Go
-  import or local unused; or when it changes the signature of a public function. Each
-  finding's edit is checked on its own first, so one refused edit does not hold back
-  the rest of the file.
-
-- **The `unused-local` fix leaves a declaration whose value is read by index.** An
-  index can raise, and in CPython the unread binding keeps the value alive until the
-  function returns, which `functools.lru_cache` relies on. In 0.5.2, `fix --write`
-  also removed `full = False` from `functools._lru_cache_wrapper`, which a nested
-  function declares `nonlocal`, and `functools.py` stopped compiling.
-
-- **The `unused-local` fix leaves a declaration whose value is read from an attribute
-  or property.** `loop = self._loop`, `x = obj.field` and `v = a.b.c` stay in every
-  language, because reading a property can run a getter with side effects. The
-  finding is still reported; only the deletion is withheld.
-
-- **The `unused-local` fix leaves a declaration whose name appears again in the same
-  function.** In pprof's `legacy_profile.go`, a later `case` declares its own `err`,
-  so `var err error` was reported as unused although an earlier `case` assigns and
-  reads it, and `fix --write` deleted it and broke `go build`. The finding is still
-  reported; only the deletion is withheld.
-### Fixed
 ### Changed
 
 - **`empty-catch` is a warning when the handler names a narrower type than the root
@@ -111,6 +19,8 @@ them. `tools/release.sh` turns that section into the release notes.
   handler stay errors. A severity set for the rule in `rqx.yaml` still applies to
   both. On the CPython standard library and the other Python sources measured, 1,277
   of 1,390 findings become warnings.
+
+### Fixed
 
 - **`identical-branches` is an error only when a final `else` matches the arm above
   it.** That is the case where a condition decides nothing. Two matching arms
@@ -206,6 +116,98 @@ them. `tools/release.sh` turns that section into the release notes.
   a number or only returns numbers, and never returns a negative literal, is no
   longer reported. Go already treated its own functions without an `error` result
   this way.
+
+## 0.5.3 — 2026-11-19
+
+### Changed
+
+- **`--no-mouse` is listed in `--help`, the manual pages and the shell completions.**
+  The flag has worked since 0.5.2, and `docs/interface.md` described it, but it was
+  hidden from the generated reference.
+
+- **`rqx fix` no longer deletes `suppressed-diagnostic` comments.** Whether an
+  `eslint-disable`, `# noqa` or `# type: ignore` is still needed depends on what the
+  suppressed tool reports for that line, which rqx cannot check. The rule still reports
+  the comment, and `rqx fix --plan` lists it as a decision. The rule's documentation no
+  longer marks it as auto-fixable.
+
+- **`unused-parameter` reports a parameter of a public function at `heuristic`
+  confidence.** Public means: a Python function at module level whose name has no
+  leading underscore, or one listed in `__all__`; an exported TypeScript or JavaScript
+  function, or a method that is not `private` or `#private`; a Java method that is not
+  `private`; a C++ function other than a `static` free function, one in an unnamed
+  namespace, or a lambda; a Go function with a capitalised name. Code outside the
+  project can call these, so `rqx fix` does not change their signatures.
+
+### Fixed
+
+- **The JSON `skipped` entries are relative to the scanned directory.** They were
+  relative to the directory rqx was started from, so `rqx scan .` printed
+  `./app/big.js: ...` and `rqx scan project` printed `project/app/big.js: ...`, which
+  matched neither the paths of the findings nor the `skipped_by` paths. The MCP
+  server's summary and the language server's scan answer name them the same way.
+
+- **`rqx config` and the configuration schema say that all six languages are enabled by
+  default.** They said five.
+
+- **`unreachable-code` no longer reports, and `rqx fix` no longer deletes, code after an
+  exit that still runs or still changes the program.** This covers a label that a
+  `goto`, `break` or `continue` names (Go, C++, JavaScript, TypeScript, Java); a Python
+  `yield` that makes its function a generator; a Python `global` or `nonlocal`
+  statement, or the only binding of a name the rest of the function reads; a
+  JavaScript or TypeScript `var` or function declaration, which is hoisted; a C++ call
+  spelled as a macro or a preprocessor line; and a block that does not parse cleanly,
+  such as `ASSERT_DEATH(f(); return, "")`. On klauspost/compress 1.17.9, `fix --write`
+  removed the `emitDict:` and `emitMatch:` labels from `s2/encode_all.go` and the
+  package stopped compiling.
+
+- **`rqx fix` keeps build constraints, interpreter lines and tool directives.** No fix
+  removes a comment that holds `//go:build`, `// +build`, `//go:generate`,
+  `//go:embed` or another `//go:` directive, a shebang, an encoding declaration,
+  `eslint-*`, `@ts-*`, `/// <reference`, `prettier-ignore`, `istanbul ignore`,
+  `c8 ignore`, `noqa`, `type:`, `pylint:`, `pragma:`, `NOLINT`, `nolint`,
+  `SuppressWarnings`, `clang-format off` or `on`, or a fall-through marker, or any
+  comment above a Go file's `package` clause. The list is `TOOL_DIRECTIVES` in
+  `crates/rqx-lang/src/vocabulary.rs`. `//go:build ignore` is no longer reported as a
+  `suppressed-diagnostic`.
+
+- **The `unused-parameter` fix updates every call or none.** A private method called
+  through `this` (TypeScript, JavaScript, Java, C++) or by its bare name (Java, C++)
+  now loses the argument at each call along with the parameter. In 0.5.2 only the
+  declaration changed, and `tsc` and `javac` rejected the calls. The fix is withheld
+  when the name is mentioned anywhere else outside a comment, such as a call through
+  another receiver, an overload, a callback or a string, or when a call passes a
+  keyword or spread argument.
+
+- **`unused-parameter` no longer reports parameters whose list is fixed elsewhere.**
+  Java and C++ `main`, a Java method with an annotation, a TypeScript method with a
+  decorator or `override`, a C++ method declared `virtual`, `override` or `final`, and a
+  pytest test function, whose parameters name the fixtures pytest sets up.
+
+- **`rqx fix` checks each edited file before writing it.** An edit is withheld, with the
+  reason, when it removes a protected comment, a label or the last jump to one, the
+  `yield` that makes a Python function a generator, a Python `global` or `nonlocal`
+  statement or a use of a name one declares, or a C++ macro call; when it leaves a Go
+  import or local unused; or when it changes the signature of a public function. Each
+  finding's edit is checked on its own first, so one refused edit does not hold back
+  the rest of the file.
+
+- **The `unused-local` fix leaves a declaration whose value is read by index.** An
+  index can raise, and in CPython the unread binding keeps the value alive until the
+  function returns, which `functools.lru_cache` relies on. In 0.5.2, `fix --write`
+  also removed `full = False` from `functools._lru_cache_wrapper`, which a nested
+  function declares `nonlocal`, and `functools.py` stopped compiling.
+
+- **The `unused-local` fix leaves a declaration whose value is read from an attribute
+  or property.** `loop = self._loop`, `x = obj.field` and `v = a.b.c` stay in every
+  language, because reading a property can run a getter with side effects. The
+  finding is still reported; only the deletion is withheld.
+
+- **The `unused-local` fix leaves a declaration whose name appears again in the same
+  function.** In pprof's `legacy_profile.go`, a later `case` declares its own `err`,
+  so `var err error` was reported as unused although an earlier `case` assigns and
+  reads it, and `fix --write` deleted it and broke `go build`. The finding is still
+  reported; only the deletion is withheld.
 
 ## 0.5.2 — 2026-11-18
 
