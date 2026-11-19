@@ -184,6 +184,7 @@ params.js rule=unused-parameter | export function withDeadTail(used, dead) {
 params.js rule=unused-parameter | export function withDeadMiddle(dead, used) {
 params.js rule=unused-parameter x2 | export function twoDeadOnOneLine(used, deadA, deadB) {
 patterns.js rule=type-code-switch | switch (this.state) {
+patterns.js rule=identical-branches | if (this.state === "open") {
 patterns.js rule=redundant-else | else if (this.state === "locked") {
 patterns.js rule=redundant-else | else if (this.state === "closed") {
 patterns.js rule=redundant-else | else if (looksLikeUpload(request)) {

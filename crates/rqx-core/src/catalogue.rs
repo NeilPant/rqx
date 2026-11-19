@@ -806,7 +806,8 @@ catalogue! {
         slug: "identical-branches",
         category: Flow,
         analysis: Syntax,
-        metric: "two arms of a branch whose bodies are written identically",
+        metric: "two neighbouring arms of a branch whose bodies are written identically, a \
+                 warning unless one is the final `else`",
         fixes: [ConsolidateConditional],
         confidence: Verified,
         severity: Error,

@@ -190,6 +190,7 @@ params.ts rule=unused-parameter | export function withDeadTail(used: number, dea
 params.ts rule=unused-parameter | export function withDeadMiddle(dead: string, used: number) {
 params.ts rule=unused-parameter x2 | export function twoDeadOnOneLine(used: number, deadA: string, deadB: string) {
 patterns.ts rule=type-code-switch | switch (this.state) {
+patterns.ts rule=identical-branches | if (this.state === "open") {
 patterns.ts rule=redundant-else | } else if (this.state === "locked") {
 patterns.ts rule=redundant-else | } else if (this.state === "closed") {
 patterns.ts rule=redundant-else | } else if (looksLikeUpload(request)) {

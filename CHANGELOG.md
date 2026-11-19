@@ -112,6 +112,15 @@ them. `tools/release.sh` turns that section into the release notes.
   both. On the CPython standard library and the other Python sources measured, 1,277
   of 1,390 findings become warnings.
 
+- **`identical-branches` is an error only when a final `else` matches the arm above
+  it.** That is the case where a condition decides nothing. Two matching arms
+  elsewhere in an `if`/`elif`/`else if` chain, such as `if a: x elif b: x else: y`,
+  are now a warning. Its message names both lines ("The arms at lines 12 and 14 do
+  the same thing.") and its hint gives the joined condition (`a or b`), where it used
+  to say "Both arms of this branch do the same thing." for any matching pair. Chains
+  written with `else if` in TypeScript, JavaScript, Java, C++ and Go are now checked
+  for such pairs too; before, only Python's `elif` chains were.
+
 - **`shadowed-handler` reports a handler only when one above it already takes every
   type it names.** It reported any handler that followed one naming `Exception`,
   `BaseException`, `Throwable`, `RuntimeException` or `std::exception`, and treated a

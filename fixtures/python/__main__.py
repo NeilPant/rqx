@@ -108,7 +108,7 @@ from .cost_lock_in_loop import tally_under_one_lock, tally_in_a_with_block, tall
 from .cost_unbounded_concurrency import load_every_page, load_few_pages, load_two_pages
 from .cost_unbounded_cache import remember_page, remember_recent_page, square_of, cube_of
 from .lookalikes import Envelope, counted, elapsed_since, TZ, scaled, timeout_budget, update_failure, zone_label, Page, render, suffixed, first_truthy, spelled, Session, health, ranked, ROUTER, Router, parsed_or_nothing, quiet_events, first_line, is_missing, drained
-from .flow import admits, buried_exits, changed, compared, decided_nothing, first_of, label_of, nested_callbacks, restated, same_either_way, shadows_outer, tier_of, wide_match, Settled, asks_twice, fresh_total, joined, overwritten
+from .flow import admits, buried_exits, changed, compared, decided_nothing, first_of, label_of, nested_callbacks, restated, same_either_way, either_end, shadows_outer, tier_of, wide_match, Settled, asks_twice, fresh_total, joined, overwritten
 
 
 def main():
@@ -300,6 +300,7 @@ def main():
         nested_callbacks,
         restated,
         same_either_way,
+        either_end,
         shadows_outer,
         tier_of,
         wide_match,

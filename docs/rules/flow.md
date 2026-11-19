@@ -123,7 +123,7 @@ the decision changes nothing, so either it is not a decision or one branch was m
 
 | | |
 |---|---|
-| Measures | two arms of a branch whose bodies are written identically |
+| Measures | two neighbouring arms of a branch whose bodies are written identically, a warning unless one is the final `else` |
 | Reported as | error, verified |
 | Reads | the syntax tree alone |
 | Fix | Consolidate Conditional |

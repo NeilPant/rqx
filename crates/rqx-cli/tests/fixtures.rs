@@ -801,6 +801,30 @@ fn an_empty_handler_is_an_error_only_when_it_takes_everything() {
     assert_eq!(severities_of("typescript", "empty-catch"), ["error"]);
 }
 
+/// An `else` equal to the arm above it makes that arm's condition decide nothing, an
+/// error. Two equal arms in a chain that goes on to differ could share one condition,
+/// a warning.
+#[test]
+fn identical_arms_are_an_error_only_when_one_is_the_final_else() {
+    let report = scan_language("python", &["--config", &config_path()]);
+    let flow: Vec<String> = findings_for(&report, "identical-branches")
+        .into_iter()
+        .filter(|line| line.contains("\"file\":\"flow.py\""))
+        .collect();
+    assert_eq!(flow.len(), 2, "{flow:#?}");
+    assert!(
+        flow.iter()
+            .any(|line| line.contains("\"severity\":\"error\"")
+                && line.contains("Both arms of this branch do the same thing."))
+    );
+    assert!(
+        flow.iter()
+            .any(|line| line.contains("\"severity\":\"warning\"")
+                && line.contains("The arms at lines 28 and 30 do the same thing.")
+                && line.contains("join the two conditions as `count > 10 or count < 0`"))
+    );
+}
+
 /// The catalogue is a promise: every rule in it claims a smell, a metric and a fix.
 /// This is what stops that promise being aspirational — a rule nothing can trigger is
 /// a documentation entry pretending to be a check. It is asked once per language,

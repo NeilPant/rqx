@@ -10,6 +10,15 @@ use crate::tree::{descendants, kind_of, operands_of, operator_of, span_of};
 
 use super::{Walker, squashed};
 
+/// One arm of an `if` chain: where it is written, what decides it (nothing for the
+/// final `else`), and what it runs.
+#[derive(Clone, Copy)]
+struct Arm<'a> {
+    node: Node<'a>,
+    condition: Option<Node<'a>>,
+    body: Node<'a>,
+}
+
 impl<'a> Walker<'a> {
     /// How many separate decisions one condition holds. A run of the same operator is
     /// still one decision per operand to a reader.
@@ -117,16 +126,7 @@ impl<'a> Walker<'a> {
             // Some languages make the alternative the block itself and others wrap it
             // in an `else` clause; only the wrapper is worth seeing through.
             let other = self.body(alternative);
-            if kind_of(other) != profile.if_kind
-                && !self.text(consequence).trim().is_empty()
-                && squashed(self.text(consequence)) == squashed(self.text(other))
-            {
-                self.out.identical_branches.push(Spot {
-                    span: span_of(node),
-                    detail: "both arms".to_owned(),
-                    count: 1,
-                });
-            }
+            self.note_identical_arms(node);
             if let (Some(first), Some(second)) = (
                 self.returned_boolean(consequence),
                 self.returned_boolean(other),
@@ -148,6 +148,151 @@ impl<'a> Walker<'a> {
                 count: 1,
             });
         }
+    }
+
+    /// Neighbouring arms of an `if` chain written the same way. A final `else` equal
+    /// to the arm above it makes that arm's condition decide nothing, which is an
+    /// error. Two equal arms elsewhere in the chain are two conditions that could be
+    /// one, which is a warning that names both.
+    fn note_identical_arms(&mut self, head: Node<'a>) {
+        if self.is_else_if(head) {
+            return;
+        }
+        let arms = self.chain_arms(head);
+        let same = |first: &Arm<'a>, second: &Arm<'a>| {
+            !self.text(first.body).trim().is_empty()
+                && squashed(self.text(first.body)) == squashed(self.text(second.body))
+        };
+        if let [.., before, last] = arms.as_slice()
+            && last.condition.is_none()
+            && same(before, last)
+        {
+            self.out.identical_branches.push(Spot {
+                span: Span::new(before.node.start_byte() as u32, head.end_byte() as u32),
+                detail: if arms.len() == 2 {
+                    "both arms"
+                } else {
+                    "the else"
+                }
+                .to_owned(),
+                count: 1,
+            });
+            return;
+        }
+        // Go's `if v := f(); v != nil` binds a name its own condition reads, so two
+        // such conditions cannot simply be joined.
+        let initialised = |arm: &Arm<'a>| arm.node.child_by_field_name("initializer").is_some();
+        let Some((first, second, conditions)) = arms.windows(2).find_map(|pair| {
+            let conditions = pair[0].condition.zip(pair[1].condition)?;
+            (same(&pair[0], &pair[1]) && !initialised(&pair[0]) && !initialised(&pair[1]))
+                .then_some((pair[0], pair[1], conditions))
+        }) else {
+            return;
+        };
+        let or = self
+            .profile
+            .logical_operators
+            .iter()
+            .find(|operator| matches!(**operator, "||" | "or"))
+            .unwrap_or(&"||");
+        let span = Span::new(
+            first.node.start_byte() as u32,
+            second.body.end_byte() as u32,
+        );
+        self.out.identical_arm_pairs.push(rqx_core::facts::ArmPair {
+            span,
+            first_line: first.node.start_position().row as u32 + 1,
+            second_line: second.node.start_position().row as u32 + 1,
+            joined: format!(
+                "{} {or} {}",
+                self.disjunct(conditions.0),
+                self.disjunct(conditions.1)
+            ),
+        });
+        self.out.soften(RuleId::IdenticalBranches, span);
+    }
+
+    /// A condition as one side of an `or`, on one line, in parentheses when it is
+    /// written with something that binds looser than `or` does.
+    fn disjunct(&self, condition: Node<'a>) -> String {
+        let condition = self.see_through(condition);
+        let text = self
+            .text(condition)
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        let loose = matches!(
+            kind_of(condition),
+            "ternary_expression"
+                | "conditional_expression"
+                | "assignment_expression"
+                | "named_expression"
+                | "lambda"
+        ) || text.contains("??");
+        if loose { format!("({text})") } else { text }
+    }
+
+    /// An `if` written as the `else` of another, which the chain's head reports for.
+    fn is_else_if(&self, node: Node<'a>) -> bool {
+        node.parent().is_some_and(|parent| {
+            kind_of(parent) == "else_clause"
+                || (kind_of(parent) == self.profile.if_kind
+                    && parent
+                        .child_by_field_name(self.profile.else_field)
+                        .is_some_and(|alternative| alternative.id() == node.id()))
+        })
+    }
+
+    /// The arms of the chain an `if` starts, in order: `elif` clauses, `else if`
+    /// written as an `if` inside an `else`, and a final `else` with no condition.
+    fn chain_arms(&self, head: Node<'a>) -> Vec<Arm<'a>> {
+        let profile = self.profile;
+        let mut arms = Vec::new();
+        let mut current = Some(head);
+        while let Some(branch) = current.take() {
+            let Some(consequence) = branch.child_by_field_name("consequence") else {
+                break;
+            };
+            arms.push(Arm {
+                node: branch,
+                condition: branch.child_by_field_name("condition"),
+                body: self.body(consequence),
+            });
+            let mut cursor = branch.walk();
+            let alternatives: Vec<Node<'a>> = branch
+                .children_by_field_name(profile.else_field, &mut cursor)
+                .collect();
+            for alternative in alternatives {
+                if let Some(condition) = alternative.child_by_field_name("condition")
+                    && kind_of(alternative) != profile.if_kind
+                {
+                    arms.push(Arm {
+                        node: alternative,
+                        condition: Some(condition),
+                        body: self.body(alternative),
+                    });
+                    continue;
+                }
+                let inner = if kind_of(alternative) == "else_clause" {
+                    alternative
+                        .named_children(&mut alternative.walk())
+                        .find(|child| !profile.is_comment(*child))
+                        .unwrap_or(alternative)
+                } else {
+                    alternative
+                };
+                if kind_of(inner) == profile.if_kind {
+                    current = Some(inner);
+                } else {
+                    arms.push(Arm {
+                        node: alternative,
+                        condition: None,
+                        body: self.body(alternative),
+                    });
+                }
+            }
+        }
+        arms
     }
 
     /// A block a reader was promised something in. The empty bodies a language needs

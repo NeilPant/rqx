@@ -65,6 +65,7 @@ include/orphan.hpp rule=negated-name | int no_one_includes_this_file();
 include/params.hpp rule=imprecise-type | auto adder(int step) -> std::function<int(int value)>;
 include/patterns.hpp rule=boolean-not-a-question | bool open() {
 include/patterns.hpp rule=type-code-switch | if (this->state == "closed") {
+include/patterns.hpp rule=identical-branches | } else if (this->state == "open") {
 include/patterns.hpp rule=redundant-else | } else if (this->state == "open") {
 include/patterns.hpp rule=redundant-else | } else if (this->state == "locked") {
 include/patterns.hpp rule=boolean-not-a-question | bool lock(int key) {

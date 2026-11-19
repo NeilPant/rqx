@@ -72,6 +72,8 @@ flow.py rule=literal-comparison | if ready == True:
 flow.py rule=self-comparison | if count == count:
 flow.py rule=identical-branches | if count > 10:
 flow.py rule=redundant-else #2 | else:
+flow.py rule=identical-branches #2 | if count > 10:
+flow.py rule=redundant-else | elif count < 0:
 flow.py rule=cognitive-complexity | def buried_exits(a, b):
 flow.py rule=many-exits | def buried_exits(a, b):
 flow.py rule=magic-number | for step in [1, 2, 3]:
@@ -194,6 +196,7 @@ params.py rule=unused-parameter | def with_dead_tail(used: int, dead: str) -> in
 params.py rule=unused-parameter | def with_dead_middle(dead: str, used: int) -> int:
 params.py rule=unused-parameter x2 | def two_dead_on_one_line(used: int, dead_a: str, dead_b: str) -> int:
 patterns.py rule=type-code-switch | if self.state == "closed":
+patterns.py rule=identical-branches | elif self.state == "open":
 patterns.py rule=redundant-else | elif self.state == "open":
 patterns.py rule=redundant-else #2 | elif self.state == "open":
 patterns.py rule=redundant-else | elif _looks_like_upload(request):

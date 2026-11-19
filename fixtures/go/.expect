@@ -147,6 +147,7 @@ fixtures/params.go rule=unused-parameter | func WithDeadMiddle(dead string, used
 fixtures/params.go rule=unused-parameter x2 | func TwoDeadOnOneLine(used int, deadA string, deadB string) int {
 fixtures/patterns.go rule=boolean-not-a-question | func (d *Door) Open() bool {
 fixtures/patterns.go rule=type-code-switch | if d.state == "closed" {
+fixtures/patterns.go rule=identical-branches | } else if d.state == "open" {
 fixtures/patterns.go rule=redundant-else | } else if d.state == "open" {
 fixtures/patterns.go rule=redundant-else | } else if d.state == "locked" {
 fixtures/patterns.go rule=boolean-not-a-question | func (d *Door) Lock(key string) bool {

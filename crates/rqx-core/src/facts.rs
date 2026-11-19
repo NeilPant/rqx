@@ -108,12 +108,25 @@ pub struct Softened {
     pub within: Span,
 }
 
+/// Two neighbouring arms of an `if` chain with the same body, where the chain goes on
+/// to an arm that differs: the two conditions could be one.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ArmPair {
+    pub span: Span,
+    pub first_line: u32,
+    pub second_line: u32,
+    /// The two conditions joined with the language's `or`.
+    pub joined: String,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Hygiene {
     #[serde(default)]
     pub focuses: Vec<Focus>,
     #[serde(default)]
     pub softened: Vec<Softened>,
+    #[serde(default)]
+    pub identical_arm_pairs: Vec<ArmPair>,
     /// Waivers a developer wrote next to the code. Not a `Spot`: a waiver carries a
     /// reason and a date, and nothing else here does.
     pub waivers: Vec<crate::suppress::Suppression>,

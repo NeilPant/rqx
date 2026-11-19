@@ -22,6 +22,17 @@ def same_either_way(count):
         return 99
 
 
+# identical-branches as a warning: the first two arms could be one, and the chain
+# goes on to an arm that differs.
+def either_end(count):
+    if count > 10:
+        return 1
+    elif count < 0:
+        return 1
+    else:
+        return 0
+
+
 def decided_nothing(count):
     if count > 10:
         pass

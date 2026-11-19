@@ -82,6 +82,11 @@ fn describe(rule: RuleId, detail: &str) -> String {
         }
         RuleId::LiteralComparison => format!("Compared against the literal `{detail}`."),
         RuleId::SelfComparison => format!("`{detail}` is compared against itself."),
+        RuleId::IdenticalBranches if detail == "the else" => {
+            "The `else` does the same as the arm above it, so that arm's condition decides \
+             nothing."
+                .to_owned()
+        }
         RuleId::IdenticalBranches => "Both arms of this branch do the same thing.".to_owned(),
         RuleId::EmptyBlock => format!("This {detail} has an empty body."),
         _ => detail.to_owned(),
@@ -777,6 +782,23 @@ fn hygiene_findings(
                 hint.to_owned(),
             );
         }
+    }
+    for pair in &hygiene.identical_arm_pairs {
+        builder.emit(
+            out,
+            RuleId::IdenticalBranches,
+            pair.span,
+            Evidence::BranchShape {
+                shape: format!(
+                    "The arms at lines {} and {} do the same thing.",
+                    pair.first_line, pair.second_line
+                ),
+            },
+            format!(
+                "join the two conditions as `{}` and keep one arm",
+                pair.joined
+            ),
+        );
     }
     for spot in &hygiene.journal_comments {
         emit(
