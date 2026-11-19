@@ -960,18 +960,6 @@
     "severity": "minor"
   },
   {
-    "check_name": "repeated-computation-in-loop",
-    "description": "`totalLength` is computed again on every pass of the loop, with nothing that changes between passes. — the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do",
-    "fingerprint": "1d7829a808672a4d",
-    "location": {
-      "lines": {
-        "begin": 12
-      },
-      "path": "typescript/cost-repeated-computation-in-loop.ts"
-    },
-    "severity": "minor"
-  },
-  {
     "check_name": "unbounded-concurrency",
     "description": "`Promise.all` starts one piece of work per element with nothing limiting how many run at once. — the number of requests in flight equals the size of the collection, so a large input exhausts connections, memory or the other side's rate limit",
     "fingerprint": "9036a3c6921baa50",
@@ -2408,6 +2396,18 @@
         "begin": 10
       },
       "path": "typescript/shapes.ts"
+    },
+    "severity": "info"
+  },
+  {
+    "check_name": "repeated-computation-in-loop",
+    "description": "`totalLength` is computed again on every pass of the loop, with nothing that changes between passes. — the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do",
+    "fingerprint": "1d7829a808672a4d",
+    "location": {
+      "lines": {
+        "begin": 12
+      },
+      "path": "typescript/cost-repeated-computation-in-loop.ts"
     },
     "severity": "info"
   },

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="rqx" tests="311" failures="163" time="0">
+<testsuites name="rqx" tests="311" failures="162" time="0">
   <testsuite name="typescript/accounts.repository.ts" tests="1" failures="0">
     <testcase classname="typescript/accounts.repository.ts" name="rqx" />
   </testsuite>
@@ -220,12 +220,9 @@ Fix: index what the callee searches once above the loop, or change the callee to
       <skipped message="`at` is declared with a keyword that allows reassignment, and nothing reassigns it." />
     </testcase>
   </testsuite>
-  <testsuite name="typescript/cost-repeated-computation-in-loop.ts" tests="2" failures="1">
+  <testsuite name="typescript/cost-repeated-computation-in-loop.ts" tests="2" failures="0">
     <testcase classname="typescript/cost-repeated-computation-in-loop.ts" name="repeated-computation-in-loop at 12:5">
-      <failure type="repeated-computation-in-loop" message="`totalLength` is computed again on every pass of the loop, with nothing that changes between passes.">`totalLength` is computed again on every pass of the loop, with nothing that changes between passes.
-
-Why: the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do
-Fix: compute it once above the loop: nothing in the loop changes what it is given</failure>
+      <skipped message="`totalLength` is computed again on every pass of the loop, with nothing that changes between passes." />
     </testcase>
     <testcase classname="typescript/cost-repeated-computation-in-loop.ts" name="plural-mismatch at 21:11">
       <skipped message="The name `own` and the value it holds disagree on singular or plural." />

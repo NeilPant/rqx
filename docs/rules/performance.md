@@ -529,7 +529,7 @@ the call returns the same answer on every pass, so the loop pays its cost once p
 | | |
 |---|---|
 | Measures | a call that costs at least linear time, in a loop that changes nothing the call reads |
-| Reported as | warning, measured threshold |
+| Reported as | info, measured threshold |
 | Reads | resolved scopes and symbols |
 | Fix | Hoist Invariant |
 

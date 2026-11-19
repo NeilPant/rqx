@@ -2199,31 +2199,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "typescript/cost-repeated-computation-in-loop.ts",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "endLine": 12,
-                  "startColumn": 5,
-                  "startLine": 12
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "`totalLength` is computed again on every pass of the loop, with nothing that changes between passes. the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do Fix: compute it once above the loop: nothing in the loop changes what it is given"
-          },
-          "properties": {
-            "confidence": "heuristic"
-          },
-          "ruleId": "repeated-computation-in-loop"
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "typescript/cost-unbounded-concurrency.ts",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -5217,6 +5192,31 @@
             "confidence": "verified"
           },
           "ruleId": "speculative-generality"
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "typescript/cost-repeated-computation-in-loop.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 12,
+                  "startColumn": 5,
+                  "startLine": 12
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "`totalLength` is computed again on every pass of the loop, with nothing that changes between passes. the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do Fix: compute it once above the loop: nothing in the loop changes what it is given"
+          },
+          "properties": {
+            "confidence": "heuristic"
+          },
+          "ruleId": "repeated-computation-in-loop"
         },
         {
           "level": "note",
@@ -10708,7 +10708,7 @@
             },
             {
               "defaultConfiguration": {
-                "level": "warning"
+                "level": "note"
               },
               "fullDescription": {
                 "text": "the call returns the same answer on every pass, so the loop pays its cost once per pass where once in total would do"
@@ -10719,7 +10719,7 @@
               "id": "repeated-computation-in-loop",
               "name": "repeated-computation-in-loop",
               "properties": {
-                "problem.severity": "warning",
+                "problem.severity": "note",
                 "tags": [
                   "rqx",
                   "maintainability",

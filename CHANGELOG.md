@@ -35,6 +35,13 @@ them. `tools/release.sh` turns that section into the release notes.
   and now explains that, past the assignment, the parameter no longer holds what the
   caller passed. Its severity moves from warning to info.
 
+- **`repeated-computation-in-loop` is info.** It cannot yet tell a call that returns
+  the same value on every pass from one that reads changing state, such as
+  `time.time()` or a method that reads an object's fields, so about one finding in
+  five was right in a sample of public code. At info it no longer counts towards the
+  default gate. A severity set for the rule in `rqx.yaml` or by the `perf` preset
+  still applies.
+
 ### Fixed
 
 - **A deeply nested file no longer aborts the run.** A long `else if` chain, a long

@@ -2519,7 +2519,7 @@ catalogue! {
         metric: "a call that costs at least linear time, in a loop that changes nothing the call reads",
         fixes: [HoistInvariant],
         confidence: Heuristic,
-        severity: Warning,
+        severity: Info,
         why: "the call returns the same answer on every pass, so the loop pays its cost once per \
               pass where once in total would do",
     },
