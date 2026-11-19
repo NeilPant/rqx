@@ -571,3 +571,71 @@ fn fix_keeps_code_that_is_reached_without_falling_through() {
     assert_vets(&root);
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// A `//go:build ignore` generator beside a package: deleting the constraint put
+/// `package main` into the package and broke the build. The same goes for every
+/// comment another tool reads.
+#[test]
+fn fix_keeps_build_constraints_and_tool_directives() {
+    let generator =
+        "//go:build ignore\n\npackage main\n\n//go:generate echo generated\nfunc main() {}\n";
+    let script = "#!/usr/bin/env node\n/* eslint-disable no-console */\n// eslint-disable-next-line no-new\nnew Date();\n// @ts-expect-error\nconsole.log(missing);\n// prettier-ignore\nconst grid = [1,0,\n  0,1];\nconsole.log(grid);\n";
+    let python = "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\nimport os  # noqa: F401\nimport sys  # type: ignore[import]\n\n\ndef covered():  # pragma: no cover\n    return sys.argv  # pylint: disable=no-member\n";
+    let cpp = "int f(int x) {\n  switch (x) {\n  case 1:\n    x++;\n    // fallthrough\n  case 2:\n    return x;  // NOLINT\n  }\n  // clang-format off\n  return 0;\n}\n";
+    let root = project(
+        "directives",
+        &[
+            ("go.mod", "module example.com/ur\n\ngo 1.22\n"),
+            ("lib.go", "package ur\n\nfunc Lib() int { return 1 }\n"),
+            ("gen.go", generator),
+            ("tool.js", script),
+            ("tool.py", python),
+            ("native/tool.cpp", cpp),
+            EVERY_CONFIDENCE,
+        ],
+    );
+    fix(&root, &["--write"]);
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("gen.go")).unwrap(),
+        generator
+    );
+    let kept = [
+        (
+            "tool.js",
+            &[
+                "#!/usr/bin/env node",
+                "/* eslint-disable no-console */",
+                "// eslint-disable-next-line no-new",
+                "// @ts-expect-error",
+                "// prettier-ignore",
+            ][..],
+        ),
+        (
+            "tool.py",
+            &[
+                "#!/usr/bin/env python3",
+                "# -*- coding: utf-8 -*-",
+                "# noqa: F401",
+                "# type: ignore[import]",
+                "# pragma: no cover",
+                "# pylint: disable=no-member",
+            ][..],
+        ),
+        (
+            "native/tool.cpp",
+            &["// fallthrough", "// NOLINT", "// clang-format off"][..],
+        ),
+    ];
+    for (file, directives) in kept {
+        let after = std::fs::read_to_string(root.join(file)).unwrap();
+        for directive in directives {
+            assert!(
+                after.contains(directive),
+                "{directive} was removed:\n{after}"
+            );
+        }
+    }
+    assert_vets(&root);
+    let _ = std::fs::remove_dir_all(&root);
+}

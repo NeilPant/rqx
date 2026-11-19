@@ -22,6 +22,16 @@ them. `tools/release.sh` turns that section into the release notes.
   removed the `emitDict:` and `emitMatch:` labels from `s2/encode_all.go` and the
   package stopped compiling.
 
+- **`rqx fix` keeps build constraints, interpreter lines and tool directives.** No fix
+  removes a comment that holds `//go:build`, `// +build`, `//go:generate`,
+  `//go:embed` or another `//go:` directive, a shebang, an encoding declaration,
+  `eslint-*`, `@ts-*`, `/// <reference`, `prettier-ignore`, `istanbul ignore`,
+  `c8 ignore`, `noqa`, `type:`, `pylint:`, `pragma:`, `NOLINT`, `nolint`,
+  `SuppressWarnings`, `clang-format off` or `on`, or a fall-through marker, or any
+  comment above a Go file's `package` clause. The list is `TOOL_DIRECTIVES` in
+  `crates/rqx-lang/src/vocabulary.rs`. `//go:build ignore` is no longer reported as a
+  `suppressed-diagnostic`.
+
 ## 0.5.2 — 2026-11-18
 
 ### Changed

@@ -162,12 +162,7 @@ pub static GO: LanguageProfile = LanguageProfile {
     imprecise_type_names: &["any"],
     imprecise_type_exceptions: &[],
     boolean_type_names: &["bool"],
-    suppression_directives: &[
-        "//nolint",
-        "// nolint",
-        "//lint:ignore",
-        "//go:build ignore",
-    ],
+    suppression_directives: &["//nolint", "// nolint", "//lint:ignore"],
     annotation_kinds: &[],
     code_line_endings: &["{", "}", ")", ";"],
     code_markers: &[

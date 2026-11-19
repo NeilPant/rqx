@@ -579,6 +579,100 @@ pub fn carries_url(text: &str) -> bool {
     text.contains("://") || text.contains("www.")
 }
 
+/// Comment text that a compiler, interpreter, linter, type checker, formatter, bundler
+/// or coverage tool reads. Removing one changes the build or the checks run on it, so
+/// no fix removes a comment that holds any of these. Matched without regard to case.
+const TOOL_DIRECTIVES: &[&str] = &[
+    // Interpreters and encodings.
+    "#!",
+    "-*- coding",
+    "coding:",
+    "coding=",
+    "vim:",
+    // Go build constraints, compiler directives and generated-code markers.
+    "//go:",
+    "// +build",
+    "//line ",
+    "//export ",
+    "//extern ",
+    "nolint",
+    "lint:ignore",
+    "lint:file-ignore",
+    "code generated",
+    "do not edit",
+    "@generated",
+    // JavaScript and TypeScript.
+    "eslint",
+    "@ts-",
+    "/// <reference",
+    "/// <amd-",
+    "/* global ",
+    "/* globals ",
+    "prettier-ignore",
+    "istanbul ignore",
+    "c8 ignore",
+    "v8 ignore",
+    "biome-ignore",
+    "deno-lint-ignore",
+    "deno-fmt-ignore",
+    "tslint:",
+    "jshint",
+    "@jsx",
+    "@flow",
+    "@noflow",
+    "__pure__",
+    "__no_side_effects__",
+    "webpack",
+    "@vite-ignore",
+    "@preserve",
+    "@license",
+    "sourcemappingurl",
+    "sourceurl",
+    // Python.
+    "noqa",
+    "type:",
+    "pylint:",
+    "pyright:",
+    "mypy:",
+    "ruff:",
+    "pragma:",
+    "fmt: off",
+    "fmt: on",
+    "fmt: skip",
+    "isort:",
+    "nosec",
+    "pyre-",
+    // Java.
+    "suppresswarnings",
+    "nosonar",
+    "checkstyle",
+    "noinspection",
+    "@formatter:",
+    "nopmd",
+    "spotless:",
+    // C and C++.
+    "clang-format off",
+    "clang-format on",
+    "clang-tidy",
+    "cppcheck-suppress",
+    "lcov_excl",
+    "gcovr_excl",
+    "coverity",
+    "fallthrough",
+    "fall through",
+    "fall-through",
+    "fallthru",
+];
+
+/// The directive a comment carries, if any. See `TOOL_DIRECTIVES`.
+pub fn tool_directive(text: &str) -> Option<&'static str> {
+    let lower = text.to_lowercase();
+    TOOL_DIRECTIVES
+        .iter()
+        .copied()
+        .find(|directive| lower.contains(directive))
+}
+
 /// A placeholder that reads as real. Harmless in a test and a bug report waiting to
 /// happen anywhere else.
 pub fn placeholder_value(text: &str) -> Option<&'static str> {

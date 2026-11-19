@@ -32,7 +32,8 @@ pub struct Rewriter<'src> {
     /// Resolved on the first fix that needs it. Scope resolution is the most
     /// expensive stage in the per-file pipeline, and most fixes never ask.
     scopes: OnceCell<Scopes>,
-    /// Licence notices and comments holding a URL, which no edit may remove.
+    /// Licence notices, comments holding a URL and tool directives, which no edit may
+    /// remove.
     protected: OnceCell<Vec<Span>>,
 }
 
