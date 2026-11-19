@@ -347,7 +347,9 @@ them. `tools/release.sh` turns that section into the release notes.
   longer reported, while a call on a type, a package or `this` still is. A library
   call is not reported when the loop also calls something on the same receiver for its
   effect, as `b.WriteString(x)` changes what `b.String()` returns, and a call whose
-  result a `with` statement enters is not reported either.
+  result a `with` statement enters is not reported either. Nor is a call in a loop's
+  condition, which decides whether the next pass runs, or a call that reads or waits
+  for what comes next, such as `read`, `recv`, `poll` or `sleep`.
 
 - **`unused-private-member` no longer tells users to delete members that are used.**
   In a sample of public code none of 10 sampled findings was right, and more than

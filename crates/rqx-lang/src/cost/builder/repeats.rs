@@ -19,6 +19,21 @@ const EFFECT_STATEMENTS: [&str; 5] = [
     "with_clause",
 ];
 
+/// Library methods that consume what they read or wait for time to pass, so two calls
+/// with the same arguments answer differently.
+const CONSUMING: [&str; 10] = [
+    "read",
+    "readline",
+    "readlines",
+    "recv",
+    "next",
+    "poll",
+    "take",
+    "accept",
+    "sleep",
+    "scan",
+];
+
 /// Wrappers a value passes through on its way to being used or discarded.
 const TRANSPARENT: [&str; 2] = ["await", "parenthesized"];
 
@@ -39,7 +54,7 @@ impl<'a> Visitor<'a, '_> {
             .bounds()
             .receiver_expression(call)
             .is_some_and(|receiver| self.holds_an_object(receiver));
-        if !asks_its_object && self.loop_leaves_unchanged(call, arguments) {
+        if !asks_its_object && !consumes(dotted) && self.loop_leaves_unchanged(call, arguments) {
             self.repeats.push(RepeatedCall {
                 line: super::line_of(call),
                 subject: dotted.to_owned(),
@@ -67,7 +82,12 @@ impl<'a> Visitor<'a, '_> {
             .tables
             .entry(*entry)
             .is_some_and(|found| found.pure);
-        if pure && !size.is_const() && self.loop_leaves_unchanged(call, arguments) {
+        // A read or a wait answers with what is next, whatever the table says of it.
+        if pure
+            && !consumes(dotted)
+            && !size.is_const()
+            && self.loop_leaves_unchanged(call, arguments)
+        {
             self.repeats.push(RepeatedCall {
                 line: super::line_of(call),
                 subject: dotted.to_owned(),
@@ -90,7 +110,19 @@ impl<'a> Visitor<'a, '_> {
         if self.names.profile.is_call(innermost) || !self.value_is_used(call) {
             return false;
         }
-        if within(call, iterable_of(innermost)) || self.leaves_the_loop(call, innermost) {
+        // A call in a loop's condition decides whether the next pass runs, which is
+        // why it is asked again each time: `while (tryAdvance(action))`.
+        // Go keeps its condition inside a for clause.
+        let clause_condition = innermost
+            .named_children(&mut innermost.walk())
+            .find(|child| kind_of(*child) == "for_clause")
+            .and_then(|clause| clause.child_by_field_name("condition"));
+        let in_condition = within(call, innermost.child_by_field_name("condition"))
+            || within(call, clause_condition);
+        if in_condition
+            || within(call, iterable_of(innermost))
+            || self.leaves_the_loop(call, innermost)
+        {
             return false;
         }
         let mut read: Vec<&'a str> = arguments
@@ -209,4 +241,11 @@ fn within(node: Node<'_>, outer: Option<Node<'_>>) -> bool {
     outer.is_some_and(|outer| {
         outer.start_byte() <= node.start_byte() && node.end_byte() <= outer.end_byte()
     })
+}
+
+/// Whether a call reads or waits for what comes next, so two calls with the same
+/// arguments answer differently.
+fn consumes(dotted: &str) -> bool {
+    let tail = dotted.rsplit('.').next().unwrap_or(dotted);
+    CONSUMING.iter().any(|verb| tail.eq_ignore_ascii_case(verb))
 }
